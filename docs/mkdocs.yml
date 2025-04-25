@@ -1,0 +1,14 @@
+site_name: Videogame Platform Docs
+theme:
+  name: material
+  features: [navigation.sections, navigation.top, content.code.copy]
+plugins:
+  - search
+  - git-revision-date-localized
+  - mermaid2
+nav:
+  - "👋 Overview": index.md
+  - "📋 Requirements":
+      - Functional: requirements/functional.md
+      - Non-Functional: requirements/non-functional.md
+  - "🛠  Tech Stack": tech/stack.md
