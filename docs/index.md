@@ -14,5 +14,3 @@ A cloud-native web app where gamers can **discover, rate, review and curate list
 3. Ratings ★☆☆☆☆ and Rotten-Tomato-style critic reviews
 4. Personal lists & collections
 5. Single-Sign-On with popular identity providers
-
-![C4 Level 1 Context](../images/ctx-diagram.svg)
