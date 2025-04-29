@@ -9,8 +9,7 @@ plugins:
         enabled: false
   - search
   - git-revision-date-localized
-  - mermaid2:
-      version: 11.6.0
+  - mermaid2
 extra_css:
   - assets/css/mermaid-wide.css
 nav:

@@ -27,7 +27,7 @@ jobs:
           pip install \
             mkdocs-material \
             mkdocs-mermaid2-plugin \
-            mkdocs-_puml \
+            mkdocs_puml \
             mkdocs-git-revision-date-localized-plugin
 
       # ───────── Build site ───────
