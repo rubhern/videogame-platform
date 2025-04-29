@@ -20,16 +20,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      # ───────── Graphviz (dot) ───
-      - name: Install Graphviz
-        run: sudo apt-get update && sudo apt-get install -y graphviz
-
-      # ───────── PlantUML JAR ─────
-      - name: Download PlantUML
-        run: |
-          curl -L -o plantuml.jar \
-            https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
-
       # ───────── Python deps ──────
       - name: Install MkDocs tool-chain
         run: |
@@ -37,13 +27,12 @@ jobs:
           pip install \
             mkdocs-material \
             mkdocs-mermaid2-plugin \
-            mkdocs-build-plantuml \
+            mkdocs-_puml \
             mkdocs-git-revision-date-localized-plugin
 
       # ───────── Build site ───────
       - name: Build MkDocs
         run: |
-          export GRAPHVIZ_DOT=$(which dot)     # make sure dot is found
           mkdocs build --strict                # outputs into site/
 
       # ───────── Deploy to gh-pages ──────────
