@@ -3,12 +3,30 @@ theme:
   name: material
   features: [navigation.sections, navigation.top, content.code.copy]
 plugins:
+  - plantuml:
+      puml_url: https://www.plantuml.com/plantuml/
+      theme:
+        enabled: false
   - search
   - git-revision-date-localized
-  - mermaid2
+  - mermaid2:
+      version: 11.6.0
+extra_css:
+  - assets/css/mermaid-wide.css
 nav:
   - "👋 Overview": index.md
   - "📋 Requirements":
-      - Functional: requirements/functional.md
-      - Non-Functional: requirements/non-functional.md
-  - "🛠  Tech Stack": tech/stack.md
+      - "✅ Functional": requirements/functional.md
+      - "⚙️ Non-Functional": requirements/non-functional.md
+  - "🏗 Architecture":
+      - "⚙️ Tech Stack": arch/tech/stack.md
+      - "📝 Decisions": arch/decisions/arch-decisions.md
+      - "🔎 Observability": arch/diagrams/observability/obs-diagram.md
+      - "📚 Data Model":
+          - "🗺️ Entity-Relationship Diagram (ERD)": arch/diagrams/datamodel/erd.md
+      - "🌎 Global Diagram":
+          - "🔀 Software Flowchart": arch/diagrams/software/software-diagram.md
+      - "💻 C4 Model":
+          - "🔗 Context Diagram": arch/diagrams/c4/context-diagram.md
+          - "📦 Container Diagram": arch/diagrams/c4/container-diagram.md
+          - "🖥️ Infrastructure": arch/diagrams/c4/deployment-diagram.md

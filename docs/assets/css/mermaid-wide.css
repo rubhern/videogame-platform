@@ -1,0 +1,5 @@
+/* Remove the width cap that Mermaid adds */
+.md-typeset .mermaid svg {
+    max-width: none !important;
+    width: 140%;
+}
