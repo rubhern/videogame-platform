@@ -1,0 +1,433 @@
+
+<!DOCTYPE html>
+
+<html class="no-js" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<link href="../container-diagram/" rel="prev"/>
+<link href="../../../../assets/images/favicon.png" rel="icon"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.6.12" name="generator"/>
+<title>🖥️ Infrastructure - Videogame Platform Docs</title>
+<link href="../../../../assets/stylesheets/main.2afb09e1.min.css" rel="stylesheet"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
+<style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+<link href="../../../../assets/css/mermaid-wide.css" rel="stylesheet"/>
+<link href="../../../../assets/mkdocs_puml/puml.css" rel="stylesheet"/>
+<link href="../../../../assets/mkdocs_puml/interaction.css" rel="stylesheet"/>
+<script>__md_scope=new URL("../../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+</head>
+<body dir="ltr">
+<input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
+<input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
+<label class="md-overlay" for="__drawer"></label>
+<div data-md-component="skip">
+<a class="md-skip" href="#mermaid-c4-deployment-diagram">
+          Skip to content
+        </a>
+</div>
+<div data-md-component="announce">
+</div>
+<header class="md-header md-header--shadow" data-md-component="header">
+<nav aria-label="Header" class="md-header__inner md-grid">
+<a aria-label="Videogame Platform Docs" class="md-header__button md-logo" data-md-component="logo" href="../../../.." title="Videogame Platform Docs">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+<label class="md-header__button md-icon" for="__drawer">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"></path></svg>
+</label>
+<div class="md-header__title" data-md-component="header-title">
+<div class="md-header__ellipsis">
+<div class="md-header__topic">
+<span class="md-ellipsis">
+            Videogame Platform Docs
+          </span>
+</div>
+<div class="md-header__topic" data-md-component="header-topic">
+<span class="md-ellipsis">
+            
+              🖥️ Infrastructure
+            
+          </span>
+</div>
+</div>
+</div>
+<script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+<label class="md-header__button md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+</label>
+<div class="md-search" data-md-component="search" role="dialog">
+<label class="md-search__overlay" for="__search"></label>
+<div class="md-search__inner" role="search">
+<form class="md-search__form" name="search">
+<input aria-label="Search" autocapitalize="off" autocomplete="off" autocorrect="off" class="md-search__input" data-md-component="search-query" name="query" placeholder="Search" required="" spellcheck="false" type="text"/>
+<label class="md-search__icon md-icon" for="__search">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"></path></svg>
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
+</label>
+<nav aria-label="Search" class="md-search__options">
+<button aria-label="Clear" class="md-search__icon md-icon" tabindex="-1" title="Clear" type="reset">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+</button>
+</nav>
+</form>
+<div class="md-search__output">
+<div class="md-search__scrollwrap" data-md-scrollfix="" tabindex="0">
+<div class="md-search-result" data-md-component="search-result">
+<div class="md-search-result__meta">
+            Initializing search
+          </div>
+<ol class="md-search-result__list" role="presentation"></ol>
+</div>
+</div>
+</div>
+</div>
+</div>
+</nav>
+</header>
+<div class="md-container" data-md-component="container">
+<main class="md-main" data-md-component="main">
+<div class="md-main__inner md-grid">
+<div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Navigation" class="md-nav md-nav--primary" data-md-level="0">
+<label class="md-nav__title" for="__drawer">
+<a aria-label="Videogame Platform Docs" class="md-nav__button md-logo" data-md-component="logo" href="../../../.." title="Videogame Platform Docs">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
+</a>
+    Videogame Platform Docs
+  </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../..">
+<span class="md-ellipsis">
+    👋 Overview
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--section md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2" type="checkbox"/>
+<label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+<span class="md-ellipsis">
+    📋 Requirements
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_2_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_2">
+<span class="md-nav__icon md-icon"></span>
+            📋 Requirements
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../../requirements/functional/">
+<span class="md-ellipsis">
+    ✅ Functional
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../../requirements/non-functional/">
+<span class="md-ellipsis">
+    ⚙️ Non-Functional
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_3" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+<span class="md-ellipsis">
+    🏗 Architecture
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="true" aria-labelledby="__nav_3_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_3">
+<span class="md-nav__icon md-icon"></span>
+            🏗 Architecture
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../tech/stack/">
+<span class="md-ellipsis">
+    ⚙️ Tech Stack
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../decisions/arch-decisions/">
+<span class="md-ellipsis">
+    📝 Decisions
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../observability/obs-diagram/">
+<span class="md-ellipsis">
+    🔎 Observability
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_4" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3_4" id="__nav_3_4_label" tabindex="0">
+<span class="md-ellipsis">
+    📚 Data Model
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_4_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_3_4">
+<span class="md-nav__icon md-icon"></span>
+            📚 Data Model
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../datamodel/erd/">
+<span class="md-ellipsis">
+    🗺️ Entity-Relationship Diagram (ERD)
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_3_5" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3_5" id="__nav_3_5_label" tabindex="0">
+<span class="md-ellipsis">
+    🌎 Global Diagram
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="false" aria-labelledby="__nav_3_5_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_3_5">
+<span class="md-nav__icon md-icon"></span>
+            🌎 Global Diagram
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../software/software-diagram/">
+<span class="md-ellipsis">
+    🔀 Software Flowchart
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--active md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_3_6" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3_6" id="__nav_3_6_label" tabindex="0">
+<span class="md-ellipsis">
+    💻 C4 Model
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="true" aria-labelledby="__nav_3_6_label" class="md-nav" data-md-level="2">
+<label class="md-nav__title" for="__nav_3_6">
+<span class="md-nav__icon md-icon"></span>
+            💻 C4 Model
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../context-diagram/">
+<span class="md-ellipsis">
+    🔗 Context Diagram
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../container-diagram/">
+<span class="md-ellipsis">
+    📦 Container Diagram
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+<span class="md-ellipsis">
+    🖥️ Infrastructure
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
+<span class="md-ellipsis">
+    🖥️ Infrastructure
+    
+  </span>
+</a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#mermaid-c4-deployment-diagram">
+<span class="md-ellipsis">
+      MERMAID C4 Deployment Diagram
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#plantuml-c4-deployment-diagram">
+<span class="md-ellipsis">
+      PLANTUML C4 Deployment Diagram
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc">
+<div class="md-sidebar__scrollwrap">
+<div class="md-sidebar__inner">
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#mermaid-c4-deployment-diagram">
+<span class="md-ellipsis">
+      MERMAID C4 Deployment Diagram
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#plantuml-c4-deployment-diagram">
+<span class="md-ellipsis">
+      PLANTUML C4 Deployment Diagram
+    </span>
+</a>
+</li>
+</ul>
+</nav>
+</div>
+</div>
+</div>
+<div class="md-content" data-md-component="content">
+<article class="md-content__inner md-typeset">
+<h1>🖥️ Infrastructure</h1>
+<h2 id="mermaid-c4-deployment-diagram">MERMAID C4 Deployment Diagram</h2>
+<div class="mermaid">C4Deployment
+title Video-Game Platform – Infrastructure View
+
+Node(client, "Client Side") {
+    Container(browser,  "Web / Mobile Browser",  "Mozilla, Chrome, Edge")
+}
+
+Node(edge, "Edge Tier") {
+    Container(cdn,  "Edge CDN",  "Varnish / CloudFront")
+}
+
+Node(cluster, "Kubernetes Cluster") {
+    Container(apiGw,   "API Gateway", "Kong Ingress")
+    Container(keycloak,"Keycloak",    "OIDC")
+    Container(svcs,    "Micro-services (5×)", "Spring Boot Pods, HPA")
+    Container(kafka,   "Kafka",       "StatefulSet 3×")
+    Container(redis,   "Redis",       "StatefulSet")
+    Container(pg,      "PostgreSQL",  "StatefulSet 3×")
+    Container(mongo,   "MongoDB",     "StatefulSet 3×")
+}
+
+Node(observ, "Observability Stack") {
+    Container(prom, "Prometheus", "Helm Chart")
+    Container(graf, "Grafana",    "Deployment")
+    Container(elk,  "ELK Stack",  "Elastic Cloud / ECK")
+}
+
+Rel(browser, cdn,  "HTTPS")
+Rel(cdn,     apiGw,"HTTPS")
+Rel(apiGw,   svcs, "REST")
+Rel(svcs,    kafka,"Kafka protocol")
+Rel(svcs,    pg,   "JDBC")
+Rel(svcs,    mongo,"Driver")
+Rel(svcs,    redis,"Cache")
+Rel(svcs,    prom, "Scraped metrics")
+Rel(svcs,    elk,  "Filebeat logs")
+Rel_R(svcs,  keycloak,"JWT introspection")
+Rel_L(apiGw, keycloak,"JWT introspection")
+Rel_D(prom,  graf, "Dashboards")
+Rel_D(elk,   graf, "Loki datasource")
+</div>
+<h2 id="plantuml-c4-deployment-diagram">PLANTUML C4 Deployment Diagram</h2>
+<div class="puml-container"><div class="puml light" style="display: block"><svg class="diagram" contentstyletype="text/css" data-diagram-type="DESCRIPTION" height="910px" preserveaspectratio="xMidYMid meet" style="width:1385px;height:910px;background:#FFFFFF;" version="1.1" viewbox="0 0 1385 910" width="1385px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" zoomandpan="magnify"><defs></defs><g><g class="cluster" data-entity="browser" data-source-line="108" data-uid="ent0002" id="cluster_browser"><rect fill="#FFFFFF" height="244.34" rx="2.5" ry="2.5" style="stroke:#A2A2A2;stroke-width:1;" width="212" x="975" y="7"></rect><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="196.8203" x="982.5898" y="23.8516">Web / Mobile Browser</text></g><g class="cluster" data-entity="edge" data-source-line="108" data-uid="ent0003" id="cluster_edge"><rect fill="#FFFFFF" height="105.62" rx="2.5" ry="2.5" style="stroke:#A2A2A2;stroke-width:1;" width="140" x="1011" y="113.72"></rect><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="88.6719" x="1036.6641" y="130.5716">Edge CDN</text><text fill="#000000" font-family="sans-serif" font-size="12" lengthadjust="spacing" textlength="75.1289" x="1043.4355" y="145.4837">[CloudFront]</text></g><g class="cluster" data-entity="k8s" data-source-line="108" data-uid="ent0005" id="cluster_k8s"><rect fill="#FFFFFF" height="503.97" rx="2.5" ry="2.5" style="stroke:#A2A2A2;stroke-width:1;" width="981" x="398" y="306.34"></rect><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="262.5859" x="757.207" y="323.1916">Managed Kubernetes Cluster</text></g><g class="cluster" data-entity="ns" data-source-line="108" data-uid="ent0006" id="cluster_ns"><rect fill="#FFFFFF" height="434.97" rx="2.5" ry="2.5" style="stroke:#A2A2A2;stroke-width:1;" width="933" x="422" y="351.34"></rect><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="212.7734" x="782.1133" y="368.1916">namespace: videogame</text></g><g class="cluster" data-entity="obs" data-source-line="108" data-uid="ent0018" id="cluster_obs"><rect fill="#FFFFFF" height="240.02" rx="2.5" ry="2.5" style="stroke:#A2A2A2;stroke-width:1;" width="367" x="7" y="534.81"></rect><text fill="#000000" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="176.1953" x="102.4023" y="551.6616">Observability Stack</text></g><g class="entity" data-entity="cdn" data-source-line="76" data-uid="ent0004" id="entity_cdn"><rect fill="#438DD5" height="38.625" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="108.6719" x="1026.66" y="164.72"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="44.6875" x="1036.66" y="189.5716">Edge</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="1081.3475" y="189.5716"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="38.4141" x="1086.9178" y="189.5716">CDN</text></g><g class="entity" data-entity="apiGw" data-source-line="76" data-uid="ent0007" id="entity_apiGw"><rect fill="#438DD5" height="85.1875" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="134.0703" x="1013.96" y="388.34"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="30.0625" x="1023.96" y="413.1916">API</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="1054.0225" y="413.1916"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="78.4375" x="1059.5928" y="413.1916">Gateway</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="35.1152" x="1037.3985" y="428.1037">[Kong</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="3.8145" x="1072.5137" y="428.1037"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="48.2637" x="1076.3282" y="428.1037">Ingress]</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1078.7701" y="443.9289"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="22.8662" x="1040.0342" y="460.2257">1-3</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1062.9004" y="460.2257"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="54.6055" x="1067.3506" y="460.2257">replicas</text></g><g class="entity" data-entity="keycloak" data-source-line="76" data-uid="ent0008" id="entity_keycloak"><rect fill="#438DD5" height="85.1875" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="101.0781" x="863.46" y="548.53"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="81.0781" x="873.46" y="573.3816">Keycloak</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="39.9668" x="894.0157" y="588.2937">[OIDC]</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="911.774" y="604.1189"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="8.9072" x="880.0176" y="620.4157">2</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="888.9248" y="620.4157"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="54.6055" x="893.375" y="620.4157">replicas</text></g><g class="entity" data-entity="userPod" data-source-line="76" data-uid="ent0009" id="entity_userPod"><rect fill="#438DD5" height="85.1875" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="138.0078" x="1000" y="548.53"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="41.2578" x="1010" y="573.3816">User</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="1051.2578" y="573.3816"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="31.4375" x="1056.8281" y="573.3816">Svc</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="1088.2656" y="573.3816"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="34.1719" x="1093.8359" y="573.3816">Pod</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="43.4063" x="1029.2422" y="588.2937">[Spring</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="3.8145" x="1072.6484" y="588.2937"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="32.3027" x="1076.4629" y="588.2937">Boot]</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1066.7788" y="604.1189"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="28.5469" x="1036.6187" y="620.4157">HPA</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1065.1655" y="620.4157"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="31.7734" x="1069.6157" y="620.4157">2-10</text></g><g class="entity" data-entity="gamePod" data-source-line="76" data-uid="ent0010" id="entity_gamePod"><rect fill="#438DD5" height="85.1875" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="148.2031" x="437.9" y="388.34"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="51.4531" x="447.9" y="413.1916">Game</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="499.3531" y="413.1916"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="31.4375" x="504.9234" y="413.1916">Svc</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="536.3609" y="413.1916"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="34.1719" x="541.9313" y="413.1916">Pod</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="43.4063" x="472.2398" y="428.1037">[Spring</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="3.8145" x="515.6461" y="428.1037"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="32.3027" x="519.4605" y="428.1037">Boot]</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="509.7765" y="443.9289"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="28.5469" x="479.6163" y="460.2257">HPA</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="508.1632" y="460.2257"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="31.7734" x="512.6134" y="460.2257">2-10</text></g><g class="entity" data-entity="ratingPod" data-source-line="76" data-uid="ent0011" id="entity_ratingPod"><rect fill="#438DD5" height="85.1875" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="155.8438" x="1183.08" y="388.34"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="59.0938" x="1193.08" y="413.1916">Rating</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="1252.1738" y="413.1916"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="31.4375" x="1257.7441" y="413.1916">Svc</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="1289.1816" y="413.1916"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="34.1719" x="1294.7519" y="413.1916">Pod</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="43.4063" x="1221.2402" y="428.1037">[Spring</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="3.8145" x="1264.6464" y="428.1037"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="32.3027" x="1268.4609" y="428.1037">Boot]</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1258.7768" y="443.9289"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="28.5469" x="1228.6166" y="460.2257">HPA</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1257.1635" y="460.2257"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="31.7734" x="1261.6137" y="460.2257">2-10</text></g><g class="entity" data-entity="reviewPod" data-source-line="76" data-uid="ent0012" id="entity_reviewPod"><rect fill="#438DD5" height="85.1875" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="161.4688" x="621.27" y="388.34"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="64.7188" x="631.27" y="413.1916">Review</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="695.9888" y="413.1916"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="31.4375" x="701.5591" y="413.1916">Svc</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="732.9966" y="413.1916"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="34.1719" x="738.5669" y="413.1916">Pod</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="43.4063" x="662.2427" y="428.1037">[Spring</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="3.8145" x="705.6489" y="428.1037"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="32.3027" x="709.4634" y="428.1037">Boot]</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="699.7793" y="443.9289"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="28.5469" x="669.6191" y="460.2257">HPA</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="698.166" y="460.2257"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="31.7734" x="702.6162" y="460.2257">2-10</text></g><g class="entity" data-entity="launchPod" data-source-line="76" data-uid="ent0013" id="entity_launchPod"><rect fill="#438DD5" height="85.1875" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="161.3984" x="817.3" y="388.34"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="64.6484" x="827.3" y="413.1916">Launch</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="891.9484" y="413.1916"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="31.4375" x="897.5188" y="413.1916">Svc</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="928.9563" y="413.1916"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="34.1719" x="934.5266" y="413.1916">Pod</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="43.4063" x="858.2375" y="428.1037">[Spring</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="3.8145" x="901.6438" y="428.1037"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="32.3027" x="905.4582" y="428.1037">Boot]</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="895.7741" y="443.9289"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="28.5469" x="870.0676" y="460.2257">HPA</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="898.6145" y="460.2257"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="22.8662" x="903.0646" y="460.2257">2-6</text></g><g class="entity" data-entity="pg" data-source-line="80" data-uid="ent0014" id="entity_pg"><path d="M998.14,718.72 C998.14,708.72 1069.0013,708.72 1069.0013,708.72 C1069.0013,708.72 1139.8627,708.72 1139.8627,718.72 L1139.8627,760.3137 C1139.8627,770.3137 1069.0013,770.3137 1069.0013,770.3137 C1069.0013,770.3137 998.14,770.3137 998.14,760.3137 L998.14,718.72" fill="#438DD5" style="stroke:#3C7FC0;stroke-width:0.5;"></path><path d="M998.14,718.72 C998.14,728.72 1069.0013,728.72 1069.0013,728.72 C1069.0013,728.72 1139.8627,728.72 1139.8627,718.72" fill="none" style="stroke:#3C7FC0;stroke-width:0.5;"></path><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="105.4063" x="1016.2982" y="747.5716">PostgreSQL</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="46.5938" x="1008.14" y="762.4837">[3-node</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="3.8145" x="1054.7337" y="762.4837"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="71.3145" x="1058.5482" y="762.4837">StatefulSet]</text></g><g class="entity" data-entity="mongo" data-source-line="80" data-uid="ent0015" id="entity_mongo"><path d="M441.14,570.33 C441.14,560.33 512.0013,560.33 512.0013,560.33 C512.0013,560.33 582.8627,560.33 582.8627,570.33 L582.8627,611.9237 C582.8627,621.9237 512.0013,621.9237 512.0013,621.9237 C512.0013,621.9237 441.14,621.9237 441.14,611.9237 L441.14,570.33" fill="#438DD5" style="stroke:#3C7FC0;stroke-width:0.5;"></path><path d="M441.14,570.33 C441.14,580.33 512.0013,580.33 512.0013,580.33 C512.0013,580.33 582.8627,580.33 582.8627,570.33" fill="none" style="stroke:#3C7FC0;stroke-width:0.5;"></path><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="86.2266" x="468.888" y="599.1816">MongoDB</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="46.5938" x="451.14" y="614.0937">[3-node</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="3.8145" x="497.7338" y="614.0937"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="71.3145" x="501.5482" y="614.0937">StatefulSet]</text></g><g class="entity" data-entity="kafka" data-source-line="84" data-uid="ent0016" id="entity_kafka"><path d="M1178.14,569.83 L1309.8627,569.83 C1314.8627,569.83 1314.8627,591.1269 1314.8627,591.1269 C1314.8627,591.1269 1314.8627,612.4237 1309.8627,612.4237 L1178.14,612.4237 C1173.14,612.4237 1173.14,591.1269 1173.14,591.1269 C1173.14,591.1269 1173.14,569.83 1178.14,569.83" fill="#438DD5" style="stroke:#3C7FC0;stroke-width:0.5;"></path><path d="M1309.8627,569.83 C1304.8627,569.83 1304.8627,591.1269 1304.8627,591.1269 C1304.8627,612.4237 1309.8627,612.4237 1309.8627,612.4237" fill="none" style="stroke:#3C7FC0;stroke-width:0.5;"></path><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="51.5938" x="1213.2045" y="589.6816">Kafka</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="46.5938" x="1178.14" y="604.5937">[3-node</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="3.8145" x="1224.7338" y="604.5937"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="71.3145" x="1228.5482" y="604.5937">StatefulSet]</text></g><g class="entity" data-entity="redis" data-source-line="84" data-uid="ent0017" id="entity_redis"><path d="M623,569.83 L708.9961,569.83 C713.9961,569.83 713.9961,591.1269 713.9961,591.1269 C713.9961,591.1269 713.9961,612.4237 708.9961,612.4237 L623,612.4237 C618,612.4237 618,591.1269 618,591.1269 C618,591.1269 618,569.83 623,569.83" fill="#438DD5" style="stroke:#3C7FC0;stroke-width:0.5;"></path><path d="M708.9961,569.83 C703.9961,569.83 703.9961,591.1269 703.9961,591.1269 C703.9961,612.4237 708.9961,612.4237 708.9961,612.4237" fill="none" style="stroke:#3C7FC0;stroke-width:0.5;"></path><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="49.6328" x="636.1816" y="589.6816">Redis</text><text fill="#FFFFFF" font-family="sans-serif" font-size="12" font-style="italic" lengthadjust="spacing" textlength="75.9961" x="623" y="604.5937">[StatefulSet]</text></g><g class="entity" data-entity="prom" data-source-line="76" data-uid="ent0019" id="entity_prom"><rect fill="#438DD5" height="38.625" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="128.9375" x="229.53" y="720.2"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="108.9375" x="239.53" y="745.0516">Prometheus</text></g><g class="entity" data-entity="graf" data-source-line="76" data-uid="ent0020" id="entity_graf"><rect fill="#438DD5" height="38.625" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="91.7656" x="23.12" y="720.2"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="71.7656" x="33.12" y="745.0516">Grafana</text></g><g class="entity" data-entity="elk" data-source-line="76" data-uid="ent0021" id="entity_elk"><rect fill="#438DD5" height="38.625" rx="2.5" ry="2.5" style="stroke:#3C7FC0;stroke-width:0.5;" width="109.1875" x="23.41" y="571.81"></rect><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="33.5234" x="33.41" y="596.6616">ELK</text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="5.5703" x="66.9334" y="596.6616"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="16" font-weight="bold" lengthadjust="spacing" textlength="50.0938" x="72.5038" y="596.6616">Stack</text></g><g class="link" data-entity-1="browser" data-entity-2="cdn" data-source-line="1665" data-uid="lnk22" id="link_browser_cdn"><path d="M1081,37.14 C1081,43.74 1081,118.57 1081,156.41" fill="none" id="browser-to-cdn" style="stroke:#666666;stroke-width:1;"></path><polygon fill="#666666" points="1081,164.41,1084,156.41,1078,156.41,1081,164.41" style="stroke:#666666;stroke-width:1;"></polygon><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="43.8516" x="1082" y="78.8587">HTTPS</text></g><g class="link" data-entity-1="cdn" data-entity-2="apiGw" data-source-line="1665" data-uid="lnk23" id="link_cdn_apiGw"><path d="M1081,203.84 C1081,243.04 1081,326.3 1081,380.13" fill="none" id="cdn-to-apiGw" style="stroke:#666666;stroke-width:1;"></path><polygon fill="#666666" points="1081,388.13,1084,380.13,1078,380.13,1081,388.13" style="stroke:#666666;stroke-width:1;"></polygon><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="43.8516" x="1082" y="287.4787">HTTPS</text></g><g class="link" data-entity-1="apiGw" data-entity-2="keycloak" data-source-line="1665" data-uid="lnk24" id="link_apiGw_keycloak"><path d="M1013.82,465.69 C980.52,482.66 946.78,500.3 944,503.53 C933.2,516.06 928.4613,525.0204 923.9813,540.3704" fill="none" id="apiGw-to-keycloak" style="stroke:#666666;stroke-width:1;"></path><polygon fill="#666666" points="921.74,548.05,926.8612,541.2109,921.1015,539.5299,921.74,548.05" style="stroke:#666666;stroke-width:1;"></polygon><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="25.8867" x="945" y="515.6687">JWT</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="4.1777" x="970.8867" y="515.6687"> </text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="90.1758" x="975.0645" y="515.6687">introspection</text></g><g class="link" data-entity-1="apiGw" data-entity-2="userPod" data-source-line="1665" data-uid="lnk25" id="link_apiGw_userPod"><path d="M1077.82,473.91 C1076.07,496.89 1074.5245,517.2829 1072.7845,540.2429" fill="none" id="apiGw-to-userPod" style="stroke:#666666;stroke-width:1;"></path><polygon fill="#666666" points="1072.18,548.22,1075.776,540.4696,1069.7931,540.0162,1072.18,548.22" style="stroke:#666666;stroke-width:1;"></polygon><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="34.2656" x="1076" y="515.6687">REST</text></g><g class="link" data-entity-1="userPod" data-entity-2="pg" data-source-line="1665" data-uid="lnk26" id="link_userPod_pg"><path d="M1069,634.07 C1069,657.9 1069,679.16 1069,700.64" fill="none" id="userPod-to-pg" style="stroke:#666666;stroke-width:1;"></path><polygon fill="#666666" points="1069,708.64,1072,700.64,1066,700.64,1069,708.64" style="stroke:#666666;stroke-width:1;"></polygon><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="32.3789" x="1070" y="675.8587">JDBC</text></g><g class="link" data-entity-1="ratingPod" data-entity-2="kafka" data-source-line="1665" data-uid="lnk27" id="link_ratingPod_kafka"><path d="M1256.49,473.91 C1253.16,504.85 1249.6474,537.6261 1247.0474,561.7461" fill="none" id="ratingPod-to-kafka" style="stroke:#666666;stroke-width:1;"></path><polygon fill="#666666" points="1246.19,569.7,1250.0301,562.0676,1244.0647,561.4246,1246.19,569.7" style="stroke:#666666;stroke-width:1;"></polygon><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="97.7109" x="1254" y="515.6687">rating-created</text></g><g class="link" data-entity-1="userPod" data-entity-2="prom" data-source-line="1665" data-uid="lnk28" id="link_userPod_prom"><path d="M999.96,627.48 C993.97,629.82 987.94,631.95 982,633.72 C741.34,705.41 669.01,663.53 422,708.72 C401.35,712.49 386.7964,715.5636 366.6564,720.3136" fill="none" id="userPod-to-prom" style="stroke:#666666;stroke-width:1;"></path><polygon fill="#666666" points="358.87,722.15,367.345,723.2335,365.9677,717.3937,358.87,722.15" style="stroke:#666666;stroke-width:1;"></polygon><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="50.666" x="856" y="675.8587">metrics</text></g><g class="link" data-entity-1="graf" data-entity-2="prom" data-source-line="1717" data-uid="lnk30" id="link_graf_prom"><path d="M123.35,739.51 C156.28,739.51 192.94,739.51 229.37,739.51" fill="none" id="graf-backto-prom" style="stroke:#666666;stroke-width:1;"></path><polygon fill="#666666" points="115.35,739.51,123.35,742.51,123.35,736.51,115.35,739.51" style="stroke:#666666;stroke-width:1;"></polygon><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="78.9551" x="133.21" y="733.6487">dashboards</text></g><g class="link" data-entity-1="elk" data-entity-2="graf" data-source-line="1665" data-uid="lnk31" id="link_elk_graf"><path d="M76.86,610.66 C75.13,638.82 72.3521,684.0652 70.6221,712.1352" fill="none" id="elk-to-graf" style="stroke:#666666;stroke-width:1;"></path><polygon fill="#666666" points="70.13,720.12,73.6164,712.3197,67.6278,711.9506,70.13,720.12" style="stroke:#666666;stroke-width:1;"></polygon><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="27.9844" x="75" y="675.8587">Loki</text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="4.1777" x="102.9844" y="675.8587"> </text><text fill="#666666" font-family="sans-serif" font-size="12" font-weight="bold" lengthadjust="spacing" textlength="75.6211" x="107.1621" y="675.8587">datasource</text></g><g class="legend" data-source-line="1469"><rect fill="none" height="16.2969" style="stroke:none;stroke-width:1;" width="96.291" x="1257.709" y="834.31"></rect><text fill="#000000" font-family="sans-serif" font-size="14" font-weight="bold" lengthadjust="spacing" textlength="57.9209" x="1257.709" y="847.3051">Legend</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1320.5039" y="847.3051"> </text><rect fill="#438DD5" height="16.2969" style="stroke:none;stroke-width:1;" width="96.291" x="1257.709" y="850.6069"></rect><text fill="#3C7FC0" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="7.7041" x="1262.1592" y="863.602">▯</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1269.8633" y="863.602"> </text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="66.3359" x="1278.7637" y="863.602">container</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1349.5498" y="863.602"> </text><rect fill="#FFFFFF" height="16.2969" style="stroke:none;stroke-width:1;" width="96.291" x="1257.709" y="866.9038"></rect><text fill="#A2A2A2" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="7.7041" x="1262.1592" y="879.8989">▯</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1269.8633" y="879.8989"> </text><text fill="#000000" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="34.9385" x="1278.7637" y="879.8989">node</text><text fill="#FFFFFF" font-family="sans-serif" font-size="14" lengthadjust="spacing" textlength="4.4502" x="1318.1523" y="879.8989"> </text><line style="stroke:none;stroke-width:1;" x1="1257.709" x2="1354" y1="834.31" y2="834.31"></line><line style="stroke:none;stroke-width:1;" x1="1257.709" x2="1354" y1="850.6069" y2="850.6069"></line><line style="stroke:none;stroke-width:1;" x1="1257.709" x2="1354" y1="866.9038" y2="866.9038"></line><line style="stroke:none;stroke-width:1;" x1="1257.709" x2="1354" y1="883.2006" y2="883.2006"></line><line style="stroke:none;stroke-width:1;" x1="1257.709" x2="1257.709" y1="834.31" y2="883.2006"></line><line style="stroke:none;stroke-width:1;" x1="1354" x2="1354" y1="834.31" y2="883.2006"></line></g></g></svg></div></div>
+<aside class="md-source-file">
+<span class="md-source-file__fact">
+<span class="md-icon" title="Last update">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"></path></svg>
+</span>
+<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="April 29, 2025 17:29:59">April 29, 2025</span>
+</span>
+</aside>
+</article>
+</div>
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+</div>
+<button class="md-top md-icon" data-md-component="top" hidden="" type="button">
+<svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"></path></svg>
+  Back to top
+</button>
+</main>
+<footer class="md-footer">
+<div class="md-footer-meta md-typeset">
+<div class="md-footer-meta__inner md-grid">
+<div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" rel="noopener" target="_blank">
+      Material for MkDocs
+    </a>
+</div>
+</div>
+</div>
+</footer>
+</div>
+<div class="md-dialog" data-md-component="dialog">
+<div class="md-dialog__inner md-typeset"></div>
+</div>
+<script id="__config" type="application/json">{"base": "../../../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../../../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+<script src="../../../../assets/javascripts/bundle.c8b220af.min.js"></script>
+<script src="../../../../assets/mkdocs_puml/puml.js"></script>
+<script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
+<script src="../../../../assets/mkdocs_puml/interaction.js"></script>
+<script type="module">import mermaid from "https://unpkg.com/mermaid@10.4.0/dist/mermaid.esm.min.mjs";
+mermaid.initialize({});</script></body>
+</html>

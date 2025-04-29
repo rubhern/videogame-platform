@@ -5,26 +5,26 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
-<link href="../functional/" rel="prev"/>
-<link href="../../arch/tech/stack/" rel="next"/>
-<link href="../../assets/images/favicon.png" rel="icon"/>
+<link href="../../tech/stack/" rel="prev"/>
+<link href="../../diagrams/observability/obs-diagram/" rel="next"/>
+<link href="../../../assets/images/favicon.png" rel="icon"/>
 <meta content="mkdocs-1.6.1, mkdocs-material-9.6.12" name="generator"/>
-<title>⚙️ Non-Functional - Videogame Platform Docs</title>
-<link href="../../assets/stylesheets/main.2afb09e1.min.css" rel="stylesheet"/>
+<title>📝 Decisions - Videogame Platform Docs</title>
+<link href="../../../assets/stylesheets/main.2afb09e1.min.css" rel="stylesheet"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
 <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
-<link href="../../assets/css/mermaid-wide.css" rel="stylesheet"/>
-<link href="../../assets/mkdocs_puml/puml.css" rel="stylesheet"/>
-<link href="../../assets/mkdocs_puml/interaction.css" rel="stylesheet"/>
-<script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+<link href="../../../assets/css/mermaid-wide.css" rel="stylesheet"/>
+<link href="../../../assets/mkdocs_puml/puml.css" rel="stylesheet"/>
+<link href="../../../assets/mkdocs_puml/interaction.css" rel="stylesheet"/>
+<script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
 </head>
 <body dir="ltr">
 <input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
 <input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
 <label class="md-overlay" for="__drawer"></label>
 <div data-md-component="skip">
-<a class="md-skip" href="#non-functional-mvp-level">
+<a class="md-skip" href="#architecture-decisions">
           Skip to content
         </a>
 </div>
@@ -32,7 +32,7 @@
 </div>
 <header class="md-header md-header--shadow" data-md-component="header">
 <nav aria-label="Header" class="md-header__inner md-grid">
-<a aria-label="Videogame Platform Docs" class="md-header__button md-logo" data-md-component="logo" href="../.." title="Videogame Platform Docs">
+<a aria-label="Videogame Platform Docs" class="md-header__button md-logo" data-md-component="logo" href="../../.." title="Videogame Platform Docs">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
 </a>
 <label class="md-header__button md-icon" for="__drawer">
@@ -48,7 +48,7 @@
 <div class="md-header__topic" data-md-component="header-topic">
 <span class="md-ellipsis">
             
-              ⚙️ Non-Functional
+              📝 Decisions
             
           </span>
 </div>
@@ -95,22 +95,22 @@
 <div class="md-sidebar__inner">
 <nav aria-label="Navigation" class="md-nav md-nav--primary" data-md-level="0">
 <label class="md-nav__title" for="__drawer">
-<a aria-label="Videogame Platform Docs" class="md-nav__button md-logo" data-md-component="logo" href="../.." title="Videogame Platform Docs">
+<a aria-label="Videogame Platform Docs" class="md-nav__button md-logo" data-md-component="logo" href="../../.." title="Videogame Platform Docs">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
 </a>
     Videogame Platform Docs
   </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="../..">
+<a class="md-nav__link" href="../../..">
 <span class="md-ellipsis">
     👋 Overview
     
   </span>
 </a>
 </li>
-<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-<input checked="" class="md-nav__toggle md-toggle" id="__nav_2" type="checkbox"/>
+<li class="md-nav__item md-nav__item--section md-nav__item--nested">
+<input class="md-nav__toggle md-toggle" id="__nav_2" type="checkbox"/>
 <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
 <span class="md-ellipsis">
     📋 Requirements
@@ -118,16 +118,50 @@
   </span>
 <span class="md-nav__icon md-icon"></span>
 </label>
-<nav aria-expanded="true" aria-labelledby="__nav_2_label" class="md-nav" data-md-level="1">
+<nav aria-expanded="false" aria-labelledby="__nav_2_label" class="md-nav" data-md-level="1">
 <label class="md-nav__title" for="__nav_2">
 <span class="md-nav__icon md-icon"></span>
             📋 Requirements
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="../functional/">
+<a class="md-nav__link" href="../../../requirements/functional/">
 <span class="md-ellipsis">
     ✅ Functional
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../requirements/non-functional/">
+<span class="md-ellipsis">
+    ⚙️ Non-Functional
+    
+  </span>
+</a>
+</li>
+</ul>
+</nav>
+</li>
+<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_3" type="checkbox"/>
+<label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+<span class="md-ellipsis">
+    🏗 Architecture
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<nav aria-expanded="true" aria-labelledby="__nav_3_label" class="md-nav" data-md-level="1">
+<label class="md-nav__title" for="__nav_3">
+<span class="md-nav__icon md-icon"></span>
+            🏗 Architecture
+          </label>
+<ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../tech/stack/">
+<span class="md-ellipsis">
+    ⚙️ Tech Stack
     
   </span>
 </a>
@@ -136,14 +170,14 @@
 <input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
 <label class="md-nav__link md-nav__link--active" for="__toc">
 <span class="md-ellipsis">
-    ⚙️ Non-Functional
+    📝 Decisions
     
   </span>
 <span class="md-nav__icon md-icon"></span>
 </label>
 <a class="md-nav__link md-nav__link--active" href="./">
 <span class="md-ellipsis">
-    ⚙️ Non-Functional
+    📝 Decisions
     
   </span>
 </a>
@@ -154,69 +188,17 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#non-functional-mvp-level">
+<a class="md-nav__link" href="#trade-offs-alternatives-considered">
 <span class="md-ellipsis">
-      Non-Functional (MVP-level)
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#non-functional-requirements-detailed-explanation">
-<span class="md-ellipsis">
-      🔒📈 Non-Functional Requirements – Detailed Explanation
-    </span>
-</a>
-<nav aria-label="🔒📈 Non-Functional Requirements – Detailed Explanation" class="md-nav">
-<ul class="md-nav__list">
-<li class="md-nav__item">
-<a class="md-nav__link" href="#architectural-implications">
-<span class="md-ellipsis">
-      Architectural implications
+      Trade-offs &amp; Alternatives considered
     </span>
 </a>
 </li>
 </ul>
 </nav>
 </li>
-</ul>
-</nav>
-</li>
-</ul>
-</nav>
-</li>
-<li class="md-nav__item md-nav__item--section md-nav__item--nested">
-<input class="md-nav__toggle md-toggle" id="__nav_3" type="checkbox"/>
-<label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
-<span class="md-ellipsis">
-    🏗 Architecture
-    
-  </span>
-<span class="md-nav__icon md-icon"></span>
-</label>
-<nav aria-expanded="false" aria-labelledby="__nav_3_label" class="md-nav" data-md-level="1">
-<label class="md-nav__title" for="__nav_3">
-<span class="md-nav__icon md-icon"></span>
-            🏗 Architecture
-          </label>
-<ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../arch/tech/stack/">
-<span class="md-ellipsis">
-    ⚙️ Tech Stack
-    
-  </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="../../arch/decisions/arch-decisions/">
-<span class="md-ellipsis">
-    📝 Decisions
-    
-  </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="../../arch/diagrams/observability/obs-diagram/">
+<a class="md-nav__link" href="../../diagrams/observability/obs-diagram/">
 <span class="md-ellipsis">
     🔎 Observability
     
@@ -239,7 +221,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../arch/diagrams/datamodel/erd/">
+<a class="md-nav__link" href="../../diagrams/datamodel/erd/">
 <span class="md-ellipsis">
     🗺️ Entity-Relationship Diagram (ERD)
     
@@ -265,7 +247,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../arch/diagrams/software/software-diagram/">
+<a class="md-nav__link" href="../../diagrams/software/software-diagram/">
 <span class="md-ellipsis">
     🔀 Software Flowchart
     
@@ -291,7 +273,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../arch/diagrams/c4/context-diagram/">
+<a class="md-nav__link" href="../../diagrams/c4/context-diagram/">
 <span class="md-ellipsis">
     🔗 Context Diagram
     
@@ -299,7 +281,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../arch/diagrams/c4/container-diagram/">
+<a class="md-nav__link" href="../../diagrams/c4/container-diagram/">
 <span class="md-ellipsis">
     📦 Container Diagram
     
@@ -307,7 +289,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../arch/diagrams/c4/deployment-diagram/">
+<a class="md-nav__link" href="../../diagrams/c4/deployment-diagram/">
 <span class="md-ellipsis">
     🖥️ Infrastructure
     
@@ -335,29 +317,11 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#non-functional-mvp-level">
+<a class="md-nav__link" href="#trade-offs-alternatives-considered">
 <span class="md-ellipsis">
-      Non-Functional (MVP-level)
+      Trade-offs &amp; Alternatives considered
     </span>
 </a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#non-functional-requirements-detailed-explanation">
-<span class="md-ellipsis">
-      🔒📈 Non-Functional Requirements – Detailed Explanation
-    </span>
-</a>
-<nav aria-label="🔒📈 Non-Functional Requirements – Detailed Explanation" class="md-nav">
-<ul class="md-nav__list">
-<li class="md-nav__item">
-<a class="md-nav__link" href="#architectural-implications">
-<span class="md-ellipsis">
-      Architectural implications
-    </span>
-</a>
-</li>
-</ul>
-</nav>
 </li>
 </ul>
 </nav>
@@ -366,68 +330,111 @@
 </div>
 <div class="md-content" data-md-component="content">
 <article class="md-content__inner md-typeset">
-<h1>⚙️ Non-Functional</h1>
-<h3 id="non-functional-mvp-level">Non-Functional (MVP-level)</h3>
-<ul>
-<li><strong>Performance:</strong> API P99 &lt; 300 ms, homepage P95 FCP &lt; 2 s on 3G.</li>
-<li><strong>Security:</strong> OWASP Top-10 mitigations, HTTPS-only, CSP headers.</li>
-<li><strong>Compliance:</strong> GDPR – deletion &amp; export endpoints in backlog.</li>
-<li><strong>Availability:</strong> 99.5 % monthly SLO for public endpoints.</li>
-<li><strong>Observability:</strong> trace &gt; 90 % sampled in staging, 10 % in prod; custom metrics for rating submissions &amp; searches.</li>
-</ul>
-<h2 id="non-functional-requirements-detailed-explanation">🔒📈 Non-Functional Requirements – Detailed Explanation</h2>
+<h1 id="architecture-decisions">📝 Architecture Decisions</h1>
 <table>
 <thead>
 <tr>
-<th>NFR</th>
-<th>What the target means in practice</th>
-<th>Why it matters for a videogame catalogue</th>
-<th>How we’ll measure &amp; enforce it</th>
+<th>Area</th>
+<th>Decision</th>
+<th>Rationale</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Performance</strong><br/>• <strong>API P99 &lt; 300 ms</strong><br/>• <strong>Homepage FCP &lt; 2 s on 3 G</strong></td>
-<td><em>API P99</em> ⇒ 99 % of backend requests (GET /search, POST /rating …) must finish &lt; 300 ms <strong>inside the pod</strong>, CDN latency excluded.<br/><em>FCP (First Contentful Paint)</em> is a Core Web Vital; the first text/image on <code>/</code> must appear within 2 s on a 1.6 Mbps (Fast 3 G) simulation.</td>
-<td>Discovery must feel instant. Slow pages drop engagement; every +100 ms can cut conversions.</td>
-<td>• <strong>k6</strong>/Gatling load test in CI.<br/>• Prometheus histogram <code>http_request_duration_seconds{quantile="0.99"}</code>.<br/>• Lighthouse-CI budget fails if FCP &gt; 2 s.</td>
+<td><strong>Overall style</strong></td>
+<td><em>C4-model</em> micro-service architecture</td>
+<td>Clear separation of concerns; scales organisationally (independent teams) and technically (independent deployables).</td>
 </tr>
 <tr>
-<td><strong>Security</strong><br/>• OWASP Top-10 mitigations<br/>• HTTPS-only<br/>• CSP headers</td>
-<td>Protect against injection, XSS, broken auth, etc. All traffic via TLS 1.3 with HSTS. <code>Content-Security-Policy</code> blocks inline scripts &amp; mixed content.</td>
-<td>Ratings/reviews are user-generated; an XSS could deface pages or steal tokens. HTTPS secures logins on public Wi-Fi.</td>
-<td>• Nightly <strong>OWASP ZAP</strong> scan; high-sev findings block release.<br/>• ALB forces 443; port 80 → 301.<br/>• Helmet middleware sets CSP, X-Frame-Options; Snyk/Dependabot keep deps patched.</td>
+<td><strong>Runtime platform</strong></td>
+<td><em>Kubernetes</em> (managed)</td>
+<td>Rolling updates, self-healing, built-in service discovery and HPA suit game-traffic spikes.</td>
 </tr>
 <tr>
-<td><strong>Compliance</strong><br/>• GDPR Right-to-Be-Forgotten &amp; export endpoints (backlog)</td>
-<td>Data model &amp; APIs must let us delete <strong>all</strong> personal data (ratings, reviews, tokens) or export it (JSON/CSV). Self-service UI can wait, but backend hooks must exist.</td>
-<td>EU users may sign up day 1; retrofitting GDPR later is expensive and risky.</td>
-<td>• Unit tests assert <code>DELETE /user/{id}</code> cascades.<br/>• Tables/indices tag columns with <code>pii=true</code> for future automation.</td>
+<td><strong>API ingress</strong></td>
+<td><em>Kong Ingress / NGINX</em> + <em>Edge CDN</em></td>
+<td>Centralised auth, rate-limiting and coarse caching at the edge reduce P99 latency worldwide.</td>
 </tr>
 <tr>
-<td><strong>Availability</strong><br/>• 99 .5 % SLO / month</td>
-<td>≤ 3 h 40 m total downtime per month, including planned maint in business hours. Multi-AZ but not multi-region.</td>
-<td>MVP tolerates short night outages but must be “up most of the time” to collect feedback.</td>
-<td>• Uptime ping → Grafana SLO dashboard.<br/>• Post-mortem if error-budget burn &gt; 50 %.</td>
+<td><strong>AuthN / AuthZ</strong></td>
+<td><em>Keycloak</em> with OIDC</td>
+<td>Open-source, supports social log-ins; avoids bespoke auth code in every service.</td>
 </tr>
 <tr>
-<td><strong>Observability</strong><br/>• ≥ 90 % traces sampled in staging, 10 % in prod<br/>• Business metrics for ratings &amp; searches</td>
-<td><em>Tracing</em>: every request in staging; 10 % in prod to manage cost.<br/><em>Metrics</em>: <code>ratings.count</code>, <code>reviews.count</code>, <code>search.latency</code>, <code>rating.avg</code>.</td>
-<td>Debugging distributed flows + measuring feature uptake (e.g., Twitch promo spike) requires traces &amp; dashboards.</td>
-<td>• OpenTelemetry SDK → Jaeger (staging) / Tempo (prod).<br/>• Loki logs correlated by <code>trace_id</code>.<br/>• Prometheus alerts on metric anomalies.</td>
+<td><strong>Service framework</strong></td>
+<td><em>Spring Boot</em> (Java 21)</td>
+<td>Mature ecosystem, first-class observability hooks, developers already fluent.</td>
+</tr>
+<tr>
+<td><strong>Inter-service sync</strong></td>
+<td><em>REST / JSON</em> via Gateway</td>
+<td>Simpler than gRPC for external integration; benefits from Kong plugins (caching, tracing).</td>
+</tr>
+<tr>
+<td><strong>Async messaging</strong></td>
+<td><em>Apache Kafka</em></td>
+<td>High-throughput fan-out (ratings-created, reviews-created); guarantees ordering for leaderboards.</td>
+</tr>
+<tr>
+<td><strong>Databases</strong></td>
+<td><em>PostgreSQL</em> (users, games, ratings), <em>MongoDB</em> (reviews), <em>Redis</em> (cache)</td>
+<td>Relational consistency for core entities; flexible schema + text search for reviews; in-memory latency for hot game data.</td>
+</tr>
+<tr>
+<td><strong>External data</strong></td>
+<td><em>IGDB API</em> pulled by Launch Svc</td>
+<td>Avoids replicating a large third-party dataset; keeps catalogue fresh daily.</td>
+</tr>
+<tr>
+<td><strong>Observability</strong></td>
+<td><em>Prometheus</em> + <em>Grafana</em> (metrics), <em>ELK</em> (logs), <em>Jaeger</em> (traces)</td>
+<td>OSS stack with vibrant community; no vendor lock-in; supports RED/SLO dashboards.</td>
+</tr>
+<tr>
+<td><strong>CI / CD</strong></td>
+<td>GitHub Actions → Docker → Helm Charts</td>
+<td>Full pipeline as-code; Helm simplifies multi-env overrides.</td>
+</tr>
+<tr>
+<td><strong>Infrastructure as Code</strong></td>
+<td><em>Terraform</em> modules for cluster, DBs, VPC</td>
+<td>Audit-ready provisioning, reproducible environments.</td>
+</tr>
+<tr>
+<td><strong>Secrets</strong></td>
+<td><em>Kubernetes Secrets</em> sealed by <em>SOPS</em></td>
+<td>Encrypt-at-rest in Git, decrypt only at deploy time.</td>
 </tr>
 </tbody>
 </table>
-<hr/>
-<h3 id="architectural-implications">Architectural implications</h3>
+<h2 id="trade-offs-alternatives-considered">Trade-offs &amp; Alternatives considered</h2>
 <ul>
-<li><strong>Performance</strong> → CDN, Redis edge cache, Brotli, async DB writes.</li>
-<li><strong>Security</strong> → OAuth/OIDC provider, mTLS in service mesh, Trivy scans in CI.</li>
-<li><strong>Availability</strong> → stateless pods across 3 AZs, RDS Multi-AZ or DynamoDB global tables.</li>
-<li><strong>Observability</strong> → OTel starter wired into every Spring Boot service from Sprint 0.</li>
-<li><strong>Compliance</strong> → All tables include <code>user_id</code>; prefer soft-delete + TTL for cheap RTBF.</li>
+<li><strong>Monolith vs micro-services</strong> – a monolith would simplify deployments but hinder parallel feature work and elastic scaling of hot spots (e.g. ratings).</li>
+<li><strong>gRPC vs REST</strong> – gRPC brings smaller payloads but HTTP/JSON is still easier for web clients and external partners.</li>
+<li><strong>Managed DB vs self-hosted</strong> – managed Postgres wins on operational burden; MongoDB + Redis stay self-hosted for cost.</li>
+<li><strong>Hosted APM suites</strong> – Datadog / New Relic provide out-of-the-box dashboards but incur steep licensing; OSS stack chosen for cost neutrality.</li>
 </ul>
-<p>Embedding these NFRs from the start keeps the MVP small <strong>and</strong> production-ready, avoiding costly rewrites later.</p>
+<blockquote>
+<p><em>The team will revisit these decisions quarterly; any change will be captured here as ADR-nnn.</em></p>
+</blockquote>
+<h1 id="adr-nnn-template">ADR nnn – template</h1>
+<p>Date: 2025-04-29</p>
+<h2 id="status">Status</h2>
+<ul>
+<li>Proposed</li>
+</ul>
+<h2 id="context">Context</h2>
+<ul>
+<li>Describe the context of the decision.</li>
+</ul>
+<h2 id="decision">Decision</h2>
+<ul>
+<li>Describe the decision.</li>
+</ul>
+<h2 id="consequences">Consequences</h2>
+<ul>
+<li>Describe the consequences of the decision.</li>
+</ul>
 <aside class="md-source-file">
 <span class="md-source-file__fact">
 <span class="md-icon" title="Last update">
@@ -463,10 +470,10 @@
 <div class="md-dialog" data-md-component="dialog">
 <div class="md-dialog__inner md-typeset"></div>
 </div>
-<script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
-<script src="../../assets/javascripts/bundle.c8b220af.min.js"></script>
-<script src="../../assets/mkdocs_puml/puml.js"></script>
+<script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.f8cc74c7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+<script src="../../../assets/javascripts/bundle.c8b220af.min.js"></script>
+<script src="../../../assets/mkdocs_puml/puml.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
-<script src="../../assets/mkdocs_puml/interaction.js"></script>
+<script src="../../../assets/mkdocs_puml/interaction.js"></script>
 </body>
 </html>
