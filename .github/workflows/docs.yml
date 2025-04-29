@@ -1,12 +1,54 @@
-name: docs
+name: Publish MkDocs site
+
 on:
   push:
-    branches: [main]
+    branches: [ main ]             # publish when main changes
+  workflow_dispatch:               # allow manual runs
+
 jobs:
-  publish:
+  docs:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-      - run: pip install mkdocs-material mkdocs-mermaid2-plugin mkdocs-git-revision-date-localized-plugin
-      - run: mkdocs gh-deploy --force
+      # ───────── Checkout ─────────
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      # ───────── Python & PIP ─────
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ───────── Graphviz (dot) ───
+      - name: Install Graphviz
+        run: sudo apt-get update && sudo apt-get install -y graphviz
+
+      # ───────── PlantUML JAR ─────
+      - name: Download PlantUML
+        run: |
+          curl -L -o plantuml.jar \
+            https://github.com/plantuml/plantuml/releases/latest/download/plantuml.jar
+
+      # ───────── Python deps ──────
+      - name: Install MkDocs tool-chain
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            mkdocs-material \
+            mkdocs-mermaid2-plugin \
+            mkdocs-build-plantuml \
+            mkdocs-git-revision-date-localized-plugin
+
+      # ───────── Build site ───────
+      - name: Build MkDocs
+        run: |
+          export GRAPHVIZ_DOT=$(which dot)     # make sure dot is found
+          mkdocs build --strict                # outputs into site/
+
+      # ───────── Deploy to gh-pages ──────────
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./site
