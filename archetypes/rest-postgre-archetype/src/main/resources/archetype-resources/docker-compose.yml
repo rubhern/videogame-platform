@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  ${uncapitalizedEntity}-api:
+    build: .
+    container_name: ${uncapitalizedEntity}-api
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${dbName}
+      SPRING_DATASOURCE_USERNAME: ${dbUser}
+      SPRING_DATASOURCE_PASSWORD: ${dbPassword}
+      SERVER_PORT: ${serverPort}
+    ports:
+      - "${serverPort}:${serverPort}"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${serverPort}/actuator/health"]
+      interval: 30s
+      retries: 5
+    networks:
+      - backend
+
+  postgres:
+    image: postgres
+    container_name: ${uncapitalizedEntity}-postgres
+    environment:
+      POSTGRES_DB: ${dbName}
+      POSTGRES_USER: ${dbUser}
+      POSTGRES_PASSWORD: ${dbPassword}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${dbUser}"]
+      interval: 30s
+      retries: 5
+    networks:
+      - backend
+
+volumes:
+  pgdata:
+
+networks:
+  backend:

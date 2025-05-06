@@ -1,0 +1,78 @@
+openapi: 3.0.3
+info:
+  title: ${entity}s API
+  description: API to retrieve a single ${entity} by its identifier.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:${serverPort}
+    description: Local server
+
+paths:
+  /${uncapitalizedEntity}s/{id}:
+    get:
+      tags:
+        - ${entity}s
+      summary: Get a ${uncapitalizedEntity} by ID
+      description: Returns the **${entity}** resource whose `id` matches the supplied path parameter.
+      operationId: get${entity}ById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Numeric identifier of the game to retrieve.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: ${entity} found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/${entity}Response'
+        '400':
+          description: Bad request - invalid or missing parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: No ${entity} found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ${entity}Response:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+    ErrorResponse:
+      type: object
+      required:
+        - timestamp
+        - status
+        - message
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+          format: int32
+        message:
+          type: string
+        path:
+          type: string
+          description: Requested path (optional)

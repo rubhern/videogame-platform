@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<archetype-descriptor
+        xsi:schemaLocation="https://maven.apache.org/plugins/maven-archetype-plugin/archetype-descriptor/1.1.0 https://maven.apache.org/xsd/archetype-descriptor-1.1.0.xsd"
+        xmlns="https://maven.apache.org/plugins/maven-archetype-plugin/archetype-descriptor/1.1.0"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        name="prices">
+
+  <!-- ────────────────────────────────────────────────────────────── -->
+  <!--  1️⃣ DECLARE EVERY PLACEHOLDER THE README NEEDS                 -->
+  <!-- ────────────────────────────────────────────────────────────── -->
+  <requiredProperties>
+    <!-- business/domain -->
+    <requiredProperty key="entity"              defaultValue="Entity"/>
+    <requiredProperty key="uncapitalizedEntity" defaultValue="entity"/>
+
+    <!-- runtime & infra -->
+    <requiredProperty key="serverPort"          defaultValue="8080"/>
+
+    <!-- database -->
+    <requiredProperty key="dbName"              defaultValue="${uncapitalizedEntity}"/>
+    <requiredProperty key="dbUser"              defaultValue="postgres"/>
+    <requiredProperty key="dbPassword"          defaultValue="postgres"/>
+  </requiredProperties>
+
+  <!-- ────────────────────────────────────────────────────────────── -->
+  <!--  2️⃣ FILESETS – mark every file that contains ${…} as filtered  -->
+  <!-- ────────────────────────────────────────────────────────────── -->
+  <fileSets>
+
+    <!-- Java sources -->
+    <fileSet filtered="true" packaged="true" encoding="UTF-8">
+      <directory>src/main/java</directory>
+      <includes><include>**/*.java</include></includes>
+    </fileSet>
+
+    <!-- Spring resources, YAML, SQL (placeholders inside) -->
+    <fileSet filtered="true" encoding="UTF-8">
+      <directory>src/main/resources</directory>
+      <includes>
+        <include>**/*.yaml</include>
+        <include>**/*.yml</include>
+        <include>**/*.sql</include>
+        <include>**/*.xml</include>
+      </includes>
+    </fileSet>
+
+    <!-- Integration & unit tests -->
+    <fileSet filtered="true" packaged="true" encoding="UTF-8">
+      <directory>src/test/java</directory>
+      <includes><include>**/*.java</include></includes>
+    </fileSet>
+
+    <!-- Postman, logback, misc that may carry placeholders -->
+    <fileSet filtered="true" encoding="UTF-8">
+      <directory>postman</directory>
+      <includes><include>**/*.*</include></includes>
+    </fileSet>
+
+    <!-- Maven wrapper -->
+    <fileSet filtered="true" encoding="UTF-8">
+      <directory>.mvn</directory>
+      <includes><include>**/*.*</include></includes>
+    </fileSet>
+
+    <!-- 🆕 README must be filtered to replace all tokens -->
+    <fileSet filtered="true" encoding="UTF-8">
+      <includes><include>README.md</include></includes>
+    </fileSet>
+
+    <!-- static / binary files that do NOT need filtering -->
+    <fileSet encoding="UTF-8">
+      <directory>logs</directory>
+      <includes><include>**/*.log</include></includes>
+    </fileSet>
+
+    <!-- keep archetype descriptor itself filtered so it’s copied with tokens intact -->
+    <fileSet filtered="true" encoding="UTF-8">
+      <includes><include>archetype-metadata.xml</include></includes>
+    </fileSet>
+
+    <!-- docker compose filter placeholders -->
+    <fileSet filtered="true" encoding="UTF-8">
+      <includes>
+        <include>docker-compose.yml</include>
+      </includes>
+    </fileSet>
+
+    <!-- Cucumber tests -->
+    <fileSet filtered="true" encoding="UTF-8">
+      <directory>src/test/resources</directory>
+      <includes>
+        <include>**/*.feature</include>
+        <include>**/*.yaml</include>
+      </includes>
+    </fileSet>
+
+    <!-- root scripts & helpers -->
+    <fileSet encoding="UTF-8">
+      <includes>
+        <include>.gitattributes</include>
+        <include>.gitignore</include>
+        <include>Dockerfile</include>
+        <include>HELP.md</include>
+        <include>mvnw</include>
+        <include>mvnw.cmd</include>
+      </includes>
+    </fileSet>
+  </fileSets>
+
+</archetype-descriptor>
