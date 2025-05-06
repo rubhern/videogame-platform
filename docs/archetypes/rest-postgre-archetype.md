@@ -41,11 +41,12 @@ mvn archetype:update-local-catalog
 ## 4 Generating a new service from the archetype
 
 ```bash
-mvn archetype:generate \
-  -DarchetypeGroupId=com.acme \
-  -DarchetypeArtifactId=rest-postgre-archetype \
-  -DarchetypeVersion=1.0.0 \
-  -DarchetypeCatalog=local
+mvn archetype:generate
+  -DarchetypeGroupId=com.acme
+  -DarchetypeArtifactId=rest-postgre-archetype
+  -DarchetypeVersion=1.0.0
+  -DarchetypeCatalog=remote
+  -DarchetypeRepository=http://localhost:8081/repository/archetypes-releases
 ```
 Maven will prompt for each property (see table below).
 Everything is interactive unless you pass -Dproperty=value on the CLI.

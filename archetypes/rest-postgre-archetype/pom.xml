@@ -45,4 +45,11 @@
       <url>https://www.apache.org/licenses/LICENSE-2.0</url>
     </license>
   </licenses>
+
+  <distributionManagement>
+    <repository>
+      <id>nexus-archetypes</id>
+      <url>http://localhost:8081/repository/archetypes-releases/</url>
+    </repository>
+  </distributionManagement>
 </project>
