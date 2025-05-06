@@ -29,3 +29,5 @@ nav:
           - "🔗 Context Diagram": arch/diagrams/c4/context-diagram.md
           - "📦 Container Diagram": arch/diagrams/c4/container-diagram.md
           - "🖥️ Infrastructure": arch/diagrams/c4/deployment-diagram.md
+  - "🛠️ Archetypes":
+      - "📦 Rest PostgreSQL": archetypes/rest-postgre-archetype.md

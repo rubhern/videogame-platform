@@ -1,0 +1,71 @@
+# ─────────────────────
+# Spring configuration
+# ─────────────────────
+spring:
+  application:
+    name: ${uncapitalizedEntity}
+  # SQL initialization (schema + data scripts)
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:sql/schema.sql
+      data-locations: classpath:sql/data.sql
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/${dbName}
+    driver-class-name: org.postgresql.Driver
+    username: ${dbUser}
+    password: ${dbPassword}
+
+  jpa:
+    hibernate:
+      ddl-auto: none          # keep schema managed by scripts
+    show-sql: true            # show SQL in logs (dev only)
+
+# ─────────────────────
+# Server configuration
+# ─────────────────────
+server:
+  port: ${serverPort}
+
+# ─────────────────────
+# Health check & Actuator
+# ─────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+    ping:
+      enabled: true
+  info:
+    env:
+      enabled: true
+
+# ─────────────────────
+# Application info
+# ─────────────────────
+info:
+  app:
+    environment: production
+
+# ─────────────────────
+# OpenAPI / Swagger UI
+# ─────────────────────
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    url: /openapi/${uncapitalizedEntity}-api.yaml
