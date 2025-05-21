@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  game-api:
+    build: .
+    container_name: game-api
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://172.22.233.21:30050/gamedb
+      SPRING_DATASOURCE_USERNAME: user
+      SPRING_DATASOURCE_PASSWORD: pass
+      SERVER_PORT: 8090
+    ports:
+      - "8090:8090"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/actuator/health"]
+      interval: 30s
+      retries: 5
+    networks:
+      - backend
+
+  postgres:
+    image: postgres
+    container_name: game-postgres
+    environment:
+      POSTGRES_DB: gamedb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "user"]
+      interval: 30s
+      retries: 5
+    networks:
+      - backend
+
+volumes:
+  pgdata:
+
+networks:
+  backend:

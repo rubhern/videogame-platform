@@ -1,0 +1,20 @@
+2025-05-20 17:04:14.355 [main] INFO  c.v.p.game.GameApplicationTests - Starting GameApplicationTests using Java 21.0.6 with PID 15868 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-20 17:04:14.358 [main] INFO  c.v.p.game.GameApplicationTests - The following 1 profile is active: "test"
+2025-05-20 17:04:18.005 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-20 17:04:18.379 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:pricesdb user=SA
+2025-05-20 17:04:18.381 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-20 17:04:21.391 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-20 17:04:23.743 [main] INFO  c.v.p.game.GameApplicationTests - Started GameApplicationTests in 10.065 seconds (process running for 13.939)
+2025-05-20 17:04:24.478 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-20 17:04:28.994 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-20 17:04:29.015 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-20 17:25:12.570 [main] INFO  c.v.p.game.GameApplicationTests - Starting GameApplicationTests using Java 21.0.6 with PID 17616 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-20 17:25:12.573 [main] INFO  c.v.p.game.GameApplicationTests - The following 1 profile is active: "test"
+2025-05-20 17:25:16.073 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-20 17:25:16.454 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:pricesdb user=SA
+2025-05-20 17:25:16.472 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-20 17:25:19.815 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-20 17:25:22.783 [main] INFO  c.v.p.game.GameApplicationTests - Started GameApplicationTests in 10.925 seconds (process running for 15.323)
+2025-05-20 17:25:23.931 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-20 17:25:26.980 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-20 17:25:26.983 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
