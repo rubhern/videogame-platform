@@ -23,14 +23,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        var type = ex.getRequiredType();
         String message = String.format("Invalid value '%s' for parameter '%s'. Expected type: %s",
-                ex.getValue(), ex.getName(), ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
-        return buildErrorResponse(400, message, request);
-    }
-
-    @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ErrorResponse> handleMissingParameter(MissingServletRequestParameterException ex, HttpServletRequest request) {
-        String message = String.format("Missing required parameter: '%s' of type '%s'", ex.getParameterName(), ex.getParameterType());
+                ex.getValue(), ex.getName(), type != null ? type.getSimpleName() : "unknown");
         return buildErrorResponse(400, message, request);
     }
 

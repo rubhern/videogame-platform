@@ -11,10 +11,10 @@ import java.util.Optional;
 @Component
 public class GameHandler {
 
-    private final GameService GameService;
+    private final GameService gameService;
 
     public Optional<Game> handle(GameQuery query) {
-        return GameService.findGame(
+        return gameService.findGame(
                 query.getId());
     }
 }

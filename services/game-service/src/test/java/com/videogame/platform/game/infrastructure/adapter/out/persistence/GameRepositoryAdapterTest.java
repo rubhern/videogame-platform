@@ -9,7 +9,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,10 +30,10 @@ class GameRepositoryAdapterTest {
         Long id = 1L;
 
         GameEntity entity = mock(GameEntity.class);
-        Game Game = mock(Game.class);
+        Game game = mock(Game.class);
 
         when(jpaRepository.findGameEntityById(id)).thenReturn(Optional.of(entity));
-        when(mapper.toDomain(entity)).thenReturn(Game);
+        when(mapper.toDomain(entity)).thenReturn(game);
 
         // When
         Optional<Game> result = adapter.findGame(1L);

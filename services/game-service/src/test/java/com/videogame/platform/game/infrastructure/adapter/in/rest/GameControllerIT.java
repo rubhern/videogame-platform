@@ -22,35 +22,25 @@ class GameControllerIT {
     @Autowired
     private MockMvc mockMvc;
 
-    private static final String URL = "/game";
+    private static final String URL = "/games";
 
     @Test
     void should_return_200_when_valid_request() throws Exception {
-        mockMvc.perform(get(URL)
-                .param("id", "1"))
+        mockMvc.perform(get(URL + "/{id}", 1L))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1L));
     }
 
     @Test
     void should_return_404_when_Game_not_found() throws Exception {
-        mockMvc.perform(get(URL)
-                .param("id", "5"))
+        mockMvc.perform(get(URL + "/{id}", 5L))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").exists());
     }
 
     @Test
-    void should_return_400_for_missing_param() throws Exception {
-        mockMvc.perform(get(URL))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value(containsString("Missing required parameter")));
-    }
-
-    @Test
     void should_return_400_for_invalid_param_type() throws Exception {
-        mockMvc.perform(get(URL)
-                .param("id", "abc"))
+        mockMvc.perform(get(URL + "/{id}", "abc"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(containsString("Invalid value")));
     }

@@ -5,9 +5,6 @@ import com.videogame.platform.game.infrastructure.adapter.out.persistence.model.
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -22,10 +19,10 @@ class GamePersistenceMapperTest {
         entity.setId(1L);
 
         // When
-        Game Game = mapper.toDomain(entity);
+        Game game = mapper.toDomain(entity);
 
         // Then
-        assertEquals(1L, Game.getId());
+        assertEquals(1L, game.getId());
     }
 
     @Test

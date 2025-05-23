@@ -8,17 +8,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.function.Function;
+import java.util.function.LongFunction;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class GetGame implements Function<Long, Game> {
+public class GetGame implements LongFunction<Game> {
 
     private final GameHandler handler;
 
     @Override
-    public Game apply(Long id) {
+    public Game apply(long id) {
         GameQuery query = GameQuery.builder()
                 .id(id)
                 .build();

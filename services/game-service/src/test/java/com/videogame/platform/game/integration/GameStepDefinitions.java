@@ -7,12 +7,14 @@ import io.cucumber.spring.CucumberContextConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestTemplate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @CucumberContextConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 public class GameStepDefinitions {
 
     @LocalServerPort
@@ -29,7 +31,7 @@ public class GameStepDefinitions {
     @When("I request the Game for id {long}")
     public void i_request_the_Game(Long id) {
 
-        String url = String.format("http://localhost:%d/game?id=%d",
+        String url = String.format("http://localhost:%d/games/%d",
                 port, id);
         response = restTemplate.getForEntity(url, String.class);
     }

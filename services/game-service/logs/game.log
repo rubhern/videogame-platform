@@ -1,20 +1,680 @@
-2025-05-20 17:04:14.355 [main] INFO  c.v.p.game.GameApplicationTests - Starting GameApplicationTests using Java 21.0.6 with PID 15868 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
-2025-05-20 17:04:14.358 [main] INFO  c.v.p.game.GameApplicationTests - The following 1 profile is active: "test"
-2025-05-20 17:04:18.005 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
-2025-05-20 17:04:18.379 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:pricesdb user=SA
-2025-05-20 17:04:18.381 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
-2025-05-20 17:04:21.391 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2025-05-20 17:04:23.743 [main] INFO  c.v.p.game.GameApplicationTests - Started GameApplicationTests in 10.065 seconds (process running for 13.939)
-2025-05-20 17:04:24.478 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
-2025-05-20 17:04:28.994 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
-2025-05-20 17:04:29.015 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
-2025-05-20 17:25:12.570 [main] INFO  c.v.p.game.GameApplicationTests - Starting GameApplicationTests using Java 21.0.6 with PID 17616 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
-2025-05-20 17:25:12.573 [main] INFO  c.v.p.game.GameApplicationTests - The following 1 profile is active: "test"
-2025-05-20 17:25:16.073 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
-2025-05-20 17:25:16.454 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:pricesdb user=SA
-2025-05-20 17:25:16.472 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
-2025-05-20 17:25:19.815 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2025-05-20 17:25:22.783 [main] INFO  c.v.p.game.GameApplicationTests - Started GameApplicationTests in 10.925 seconds (process running for 15.323)
-2025-05-20 17:25:23.931 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
-2025-05-20 17:25:26.980 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
-2025-05-20 17:25:26.983 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:01:00.473 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 19160 (C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service\target\test-classes started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:01:00.482 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:01:05.512 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:01:05.517 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:01:05.518 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:01:05.692 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:01:06.231 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:01:06.726 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:01:06.728 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:01:10.567 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:01:13.794 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:01:13.877 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 14.787 seconds (process running for 19.714)
+2025-05-22 15:01:15.568 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:01:15.569 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:01:15.570 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+2025-05-22 15:01:15.877 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:01:16.018 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:01:16.023 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:03:15.342 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 15268 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:03:15.346 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:03:22.188 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:03:22.193 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:03:22.194 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:03:22.322 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:03:22.906 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:03:23.957 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:03:23.961 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:03:31.178 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:03:35.121 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:03:35.169 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 22.332 seconds (process running for 33.079)
+2025-05-22 15:03:36.843 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:03:36.843 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:03:36.845 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2025-05-22 15:03:37.408 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:03:38.294 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 15268 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:03:38.295 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 15:03:39.815 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 15:03:39.817 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection conn10: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:03:39.817 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 15:03:40.463 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:03:41.466 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 3.278 seconds (process running for 39.376)
+2025-05-22 15:03:41.894 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 15268 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:03:41.895 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:03:43.704 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 15:03:45.097 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@390563f0
+2025-05-22 15:03:45.100 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 15:03:46.629 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:03:47.319 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 5.485 seconds (process running for 45.23)
+2025-05-22 15:03:48.059 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 15:03:48.240 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 15268 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:03:48.240 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:03:49.008 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Starting...
+2025-05-22 15:03:49.051 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-4 - Added connection org.postgresql.jdbc.PgConnection@17f51931
+2025-05-22 15:03:49.052 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Start completed.
+2025-05-22 15:03:49.639 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:03:50.302 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 2.09 seconds (process running for 48.213)
+2025-05-22 15:03:51.233 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:03:51.238 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:03:51.262 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 15:03:51.265 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 15:03:51.268 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 15:03:51.272 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 15:03:51.275 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+2025-05-22 15:03:51.283 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+2025-05-22 15:13:06.081 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 13172 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:13:06.081 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:13:11.993 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:13:11.998 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:13:11.998 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:13:12.182 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:13:12.796 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:13:13.578 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:13:13.578 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:13:17.550 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:13:19.422 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:13:19.453 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 14.875 seconds (process running for 22.798)
+2025-05-22 15:13:20.618 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:13:20.618 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:13:20.618 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+2025-05-22 15:13:21.064 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:13:21.392 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 13172 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:13:21.392 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 15:13:21.978 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 15:13:21.979 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection conn10: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:13:21.980 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 15:13:22.285 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:13:22.715 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 1.37 seconds (process running for 26.049)
+2025-05-22 15:13:22.883 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 13172 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:13:22.884 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:13:23.401 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 15:13:23.748 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@195db2e1
+2025-05-22 15:13:23.748 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 15:13:24.154 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:13:24.642 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 1.802 seconds (process running for 27.973)
+2025-05-22 15:13:24.830 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 15:13:24.971 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 13172 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:13:24.971 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:13:25.470 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Starting...
+2025-05-22 15:13:25.486 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-4 - Added connection org.postgresql.jdbc.PgConnection@64ddd408
+2025-05-22 15:13:25.486 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Start completed.
+2025-05-22 15:13:25.762 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:13:26.394 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 1.44 seconds (process running for 29.724)
+2025-05-22 15:13:27.083 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:13:27.098 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:13:27.114 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 15:13:27.130 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 15:13:27.145 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 15:13:27.145 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 15:13:27.145 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+2025-05-22 15:13:27.161 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+2025-05-22 15:21:41.924 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 17884 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:21:41.924 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:21:47.543 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:21:47.543 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:21:47.543 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:21:47.684 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:21:48.401 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:21:49.333 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:21:49.333 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:21:54.480 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:21:57.788 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:21:57.858 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 17.358 seconds (process running for 24.802)
+2025-05-22 15:21:59.286 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:21:59.286 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:21:59.286 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 0 ms
+2025-05-22 15:21:59.696 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:22:00.064 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 17884 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:22:00.064 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 15:22:00.981 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 15:22:00.981 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection conn10: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:22:00.981 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 15:22:01.483 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:22:02.148 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 2.131 seconds (process running for 29.088)
+2025-05-22 15:22:02.356 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 17884 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:22:02.356 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:22:03.060 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 15:22:03.450 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@3ba5fdeb
+2025-05-22 15:22:03.450 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 15:22:04.030 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:22:04.660 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 2.35 seconds (process running for 31.596)
+2025-05-22 15:22:04.957 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 15:22:05.114 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 17884 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:22:05.114 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:22:05.818 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Starting...
+2025-05-22 15:22:05.834 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-4 - Added connection org.postgresql.jdbc.PgConnection@5ee143ab
+2025-05-22 15:22:05.834 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Start completed.
+2025-05-22 15:22:06.296 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:22:06.781 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 1.683 seconds (process running for 33.721)
+2025-05-22 15:22:07.681 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:22:07.681 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:22:07.696 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 15:22:07.696 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 15:22:07.696 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 15:22:07.696 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 15:22:07.696 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+2025-05-22 15:22:07.712 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+2025-05-22 15:26:08.157 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 16128 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:26:08.161 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:26:14.107 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:26:14.115 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:26:14.117 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:26:14.564 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:26:16.031 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:26:17.923 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:26:17.950 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:26:22.058 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:26:24.682 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:26:24.736 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 17.716 seconds (process running for 23.285)
+2025-05-22 15:26:26.032 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:26:26.032 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:26:26.034 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2025-05-22 15:26:26.423 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:26:26.741 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 16128 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:26:26.741 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 15:26:27.534 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 15:26:27.536 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection conn10: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:26:27.537 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 15:26:27.974 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:26:28.767 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 2.059 seconds (process running for 27.316)
+2025-05-22 15:26:29.053 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 16128 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:26:29.054 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:26:29.957 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 15:26:30.377 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@7e2a0ebf
+2025-05-22 15:26:30.378 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 15:26:30.965 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:26:31.678 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 2.706 seconds (process running for 30.227)
+2025-05-22 15:26:32.383 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 15:26:33.003 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 16128 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:26:33.006 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:26:34.050 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Starting...
+2025-05-22 15:26:34.069 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-4 - Added connection org.postgresql.jdbc.PgConnection@1b964fb2
+2025-05-22 15:26:34.069 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Start completed.
+2025-05-22 15:26:34.571 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:26:35.219 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 2.314 seconds (process running for 33.768)
+2025-05-22 15:26:36.625 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:26:36.628 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:26:36.639 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 15:26:36.641 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 15:26:36.644 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 15:26:36.647 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 15:26:36.652 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+2025-05-22 15:26:36.655 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+2025-05-22 15:28:16.355 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 9708 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:28:16.357 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:28:22.450 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:28:22.455 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:28:22.455 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:28:22.619 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:28:23.286 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:28:24.133 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:28:24.140 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:28:29.374 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:28:34.081 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:28:34.160 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 19.023 seconds (process running for 26.205)
+2025-05-22 15:28:35.796 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:28:35.796 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:28:35.798 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2025-05-22 15:28:36.246 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:28:36.596 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 9708 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:28:36.597 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 15:28:37.587 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 15:28:37.589 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection conn10: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:28:37.589 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 15:28:38.251 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:28:39.047 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 2.5 seconds (process running for 31.091)
+2025-05-22 15:28:39.247 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 9708 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:28:39.248 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:28:40.050 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 15:28:40.505 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@6806bd04
+2025-05-22 15:28:40.506 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 15:28:41.309 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:28:42.231 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 3.021 seconds (process running for 34.275)
+2025-05-22 15:28:42.575 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 15:28:42.766 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 9708 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:28:42.767 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:28:43.338 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Starting...
+2025-05-22 15:28:43.359 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-4 - Added connection org.postgresql.jdbc.PgConnection@24478df5
+2025-05-22 15:28:43.359 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Start completed.
+2025-05-22 15:28:43.708 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:28:44.375 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 1.643 seconds (process running for 36.419)
+2025-05-22 15:28:45.049 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:28:45.051 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:28:45.063 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 15:28:45.065 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 15:28:45.067 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 15:28:45.071 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 15:28:45.074 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+2025-05-22 15:28:45.079 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+2025-05-22 15:32:49.360 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 3332 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:32:49.364 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:32:55.063 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:32:55.066 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:32:55.067 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:32:55.250 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:32:56.374 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:32:57.405 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:32:57.412 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:33:01.680 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:33:03.987 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:33:04.048 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 16.057 seconds (process running for 21.878)
+2025-05-22 15:33:05.081 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:33:05.081 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:33:05.082 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+2025-05-22 15:33:05.432 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:33:05.759 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 3332 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:33:05.759 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 15:33:06.386 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 15:33:06.387 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection conn10: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:33:06.388 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 15:33:07.329 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:33:08.461 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 2.747 seconds (process running for 26.291)
+2025-05-22 15:33:08.821 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 3332 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:33:08.822 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:33:09.686 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 15:33:10.106 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@6806bd04
+2025-05-22 15:33:10.107 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 15:33:10.598 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:33:11.296 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 2.564 seconds (process running for 29.126)
+2025-05-22 15:33:11.541 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 15:33:11.709 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 3332 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:33:11.709 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:33:12.341 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Starting...
+2025-05-22 15:33:12.360 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-4 - Added connection org.postgresql.jdbc.PgConnection@296dc9f
+2025-05-22 15:33:12.361 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Start completed.
+2025-05-22 15:33:12.707 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:33:13.158 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 1.483 seconds (process running for 30.988)
+2025-05-22 15:33:13.759 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:33:13.761 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:33:13.778 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 15:33:13.780 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 15:33:13.783 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 15:33:13.788 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 15:33:13.792 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+2025-05-22 15:33:13.800 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+2025-05-22 15:35:20.031 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 18624 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:35:20.034 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:35:24.475 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:35:24.477 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:35:24.478 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:35:24.597 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:35:25.100 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:35:25.771 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:35:25.776 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:35:33.119 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:35:37.030 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:35:37.132 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 18.241 seconds (process running for 23.326)
+2025-05-22 15:35:39.317 [http-nio-auto-1-exec-2] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:35:39.318 [http-nio-auto-1-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:35:39.331 [http-nio-auto-1-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 12 ms
+2025-05-22 15:35:40.017 [http-nio-auto-1-exec-2] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:35:41.297 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=1
+2025-05-22 15:35:44.032 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 15:36:02.162 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:36:02.168 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:36:12.711 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 17860 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:36:12.717 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 15:36:19.288 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:36:20.428 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:36:20.446 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:36:27.291 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:36:30.047 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 19.104 seconds (process running for 23.903)
+2025-05-22 15:36:31.309 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 17860 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:36:31.310 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:36:32.418 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 15:36:32.959 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@7e053fc4
+2025-05-22 15:36:32.960 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 15:36:33.729 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:36:34.624 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 3.375 seconds (process running for 28.481)
+2025-05-22 15:36:36.579 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 15:36:37.169 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 17860 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:36:37.170 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:36:39.346 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 15:36:39.565 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@ed8674e
+2025-05-22 15:36:39.571 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 15:36:40.671 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:36:41.153 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 4.123 seconds (process running for 35.009)
+2025-05-22 15:36:41.270 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:36:41.274 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:36:41.282 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 15:36:41.289 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 15:36:41.296 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 15:36:41.303 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 15:39:52.581 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 19252 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:39:52.585 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:39:59.044 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:39:59.048 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:39:59.048 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:39:59.227 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:40:00.035 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:40:00.833 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:40:00.840 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:40:05.895 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:40:09.069 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:40:09.138 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 17.86 seconds (process running for 27.031)
+2025-05-22 15:40:11.034 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:40:11.035 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:40:11.038 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2025-05-22 15:40:11.822 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:40:12.524 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 19252 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:40:12.525 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 15:40:13.756 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 15:40:13.758 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection conn10: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:40:13.759 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 15:40:14.286 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:40:14.912 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 2.471 seconds (process running for 32.806)
+2025-05-22 15:40:15.101 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 19252 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:40:15.102 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:40:15.775 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 15:40:16.289 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@5019ff1e
+2025-05-22 15:40:16.290 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 15:40:16.963 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:40:17.829 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 2.764 seconds (process running for 35.723)
+2025-05-22 15:40:18.207 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 15:40:18.525 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 19252 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:40:18.525 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 15:40:19.590 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Starting...
+2025-05-22 15:40:19.615 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-4 - Added connection org.postgresql.jdbc.PgConnection@70f5b51c
+2025-05-22 15:40:19.616 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Start completed.
+2025-05-22 15:40:20.183 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:40:20.940 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 2.462 seconds (process running for 38.833)
+2025-05-22 15:40:21.725 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:40:21.729 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 15:40:21.750 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 15:40:21.752 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 15:40:21.754 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 15:40:21.757 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 15:40:21.761 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+2025-05-22 15:40:21.766 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.
+2025-05-22 15:56:17.073 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 16752 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 15:56:17.078 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 15:56:25.152 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:56:25.155 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 15:56:25.156 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 15:56:25.342 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 15:56:25.997 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 15:56:26.662 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 15:56:26.666 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 15:56:32.624 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 15:56:35.255 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 15:56:35.313 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 19.671 seconds (process running for 27.36)
+2025-05-22 15:56:37.435 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 15:56:37.436 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 15:56:37.438 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2025-05-22 15:56:38.117 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 15:56:39.855 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=1
+2025-05-22 15:56:41.403 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 15:56:49.482 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 15:56:49.488 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:01:54.303 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 10456 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:01:54.308 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:02:02.012 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:02:02.018 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:02:02.019 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:02:02.283 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:02:03.375 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:02:04.152 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:02:04.155 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:02:09.565 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:02:12.770 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:02:12.829 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 20.627 seconds (process running for 35.527)
+2025-05-22 16:02:15.151 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:02:15.151 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:02:15.153 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2025-05-22 16:02:16.062 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 16:02:17.919 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=1
+2025-05-22 16:02:19.372 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 16:02:27.045 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:02:27.049 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:02:35.717 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 17460 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:02:35.723 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 16:02:40.993 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:02:41.868 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:02:41.876 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:02:52.771 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:02:59.723 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 26.108 seconds (process running for 30.729)
+2025-05-22 16:03:04.118 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 17460 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:03:04.120 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 16:03:07.573 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 16:03:08.553 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@4064c13a
+2025-05-22 16:03:08.554 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 16:03:10.018 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:03:11.821 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 7.844 seconds (process running for 42.827)
+2025-05-22 16:03:14.681 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 16:03:16.934 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 17460 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:03:16.936 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 16:03:22.206 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 16:03:22.238 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@73dbf76d
+2025-05-22 16:03:22.239 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 16:03:24.147 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:03:27.561 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 11.196 seconds (process running for 58.567)
+2025-05-22 16:03:28.178 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:03:28.187 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:03:28.203 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 16:03:28.222 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 16:03:28.234 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 16:03:28.275 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 16:09:12.833 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 15336 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:09:12.836 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:09:18.642 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:09:18.645 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:09:18.646 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:09:18.782 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:09:19.431 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:09:20.038 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:09:20.043 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:09:25.157 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:09:27.982 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:09:28.048 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 16.422 seconds (process running for 28.425)
+2025-05-22 16:09:28.652 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:09:28.652 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:09:28.655 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 3 ms
+2025-05-22 16:09:29.122 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 16:09:29.405 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 16:09:34.450 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:09:34.456 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:11:15.977 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 7928 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:11:15.983 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:11:25.098 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:11:25.103 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:11:25.103 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:11:25.322 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:11:26.166 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:11:27.031 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:11:27.040 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:11:37.079 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:11:48.710 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:11:49.320 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 35.481 seconds (process running for 53.166)
+2025-05-22 16:11:52.573 [http-nio-auto-1-exec-4] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:11:52.574 [http-nio-auto-1-exec-4] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:11:52.579 [http-nio-auto-1-exec-4] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 4 ms
+2025-05-22 16:11:54.997 [http-nio-auto-1-exec-4] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 16:11:55.944 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 16:12:15.294 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:12:15.301 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:14:14.220 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 19112 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:14:14.226 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:14:20.658 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:14:20.664 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:14:20.665 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:14:20.854 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:14:21.610 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:14:22.532 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:14:22.537 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:14:27.511 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:14:30.262 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:14:30.334 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 17.998 seconds (process running for 57.438)
+2025-05-22 16:14:30.927 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:14:30.927 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:14:30.929 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+2025-05-22 16:14:31.330 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 16:14:31.533 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 16:14:37.157 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:14:37.160 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:15:49.409 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 12860 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:15:49.431 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:16:01.606 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:16:01.611 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:16:01.612 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:16:01.917 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:16:02.927 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:16:03.910 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:16:03.915 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:16:08.878 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:16:12.092 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:16:12.216 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 26.798 seconds (process running for 60.361)
+2025-05-22 16:16:13.100 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:16:13.100 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:16:13.103 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+2025-05-22 16:16:13.728 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 16:16:13.988 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 16:16:20.608 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:16:20.612 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:18:19.099 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 11460 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:18:19.104 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:18:25.492 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:18:25.496 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:18:25.496 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:18:25.789 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:18:26.526 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:18:27.187 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:18:27.193 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:18:31.837 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:18:35.201 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:18:35.287 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 18.622 seconds (process running for 31.805)
+2025-05-22 16:18:35.966 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:18:35.966 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:18:35.969 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 3 ms
+2025-05-22 16:18:36.447 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 16:18:36.734 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 16:18:42.881 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:18:42.886 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:20:40.738 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 17976 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:20:40.744 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:20:47.461 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:20:47.465 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:20:47.466 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:20:47.696 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:20:48.623 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:20:49.415 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:20:49.419 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:20:53.863 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:20:57.008 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:20:57.063 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 18.454 seconds (process running for 31.882)
+2025-05-22 16:20:57.585 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:20:57.585 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:20:57.588 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2025-05-22 16:20:58.432 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 16:21:02.557 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:21:02.559 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:29:00.758 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 13680 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:29:00.764 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:29:09.018 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:29:09.022 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:29:09.022 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:29:09.177 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:29:09.882 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:29:10.958 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:29:10.966 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:29:16.192 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:29:19.062 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:29:19.126 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 20.44 seconds (process running for 33.681)
+2025-05-22 16:29:19.925 [http-nio-auto-1-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:29:19.925 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:29:19.927 [http-nio-auto-1-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+2025-05-22 16:29:20.460 [http-nio-auto-1-exec-1] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 16:29:20.746 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 16:29:25.777 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:29:25.780 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:30:48.555 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 11648 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:30:48.561 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:30:56.458 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:30:56.466 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:30:56.467 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:30:56.757 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:30:58.169 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:30:59.250 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:30:59.254 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:31:06.353 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:31:21.546 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:31:22.166 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 35.596 seconds (process running for 53.72)
+2025-05-22 16:31:26.217 [http-nio-auto-1-exec-2] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:31:26.218 [http-nio-auto-1-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:31:26.225 [http-nio-auto-1-exec-2] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 5 ms
+2025-05-22 16:31:28.529 [main] INFO  c.tngtech.archunit.core.PluginLoader - Detected Java version 21.0.6
+2025-05-22 16:31:40.519 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:31:40.524 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:31:51.795 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 12948 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:31:51.801 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 16:31:59.358 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:32:00.341 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:32:00.352 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:32:06.666 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:32:11.670 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 21.527 seconds (process running for 26.274)
+2025-05-22 16:32:16.158 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 12948 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:32:16.159 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 16:32:17.745 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 16:32:19.387 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@2cf4e4db
+2025-05-22 16:32:19.388 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 16:32:21.247 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:32:23.375 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 7.332 seconds (process running for 37.979)
+2025-05-22 16:32:25.436 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 16:32:25.631 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 12948 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:32:25.632 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 16:32:26.406 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 16:32:26.427 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@78488573
+2025-05-22 16:32:26.428 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 16:32:26.972 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:32:27.613 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 2.027 seconds (process running for 42.218)
+2025-05-22 16:32:27.804 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:32:27.810 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:32:27.825 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 16:32:27.834 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 16:32:27.842 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 16:32:27.850 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 16:35:43.358 [main] INFO  c.v.platform.game.GameApplicationIT - Starting GameApplicationIT using Java 21.0.6 with PID 16252 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:35:43.363 [main] INFO  c.v.platform.game.GameApplicationIT - The following 1 profile is active: "test"
+2025-05-22 16:35:52.732 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-05-22 16:35:54.088 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection conn0: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:35:54.098 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-05-22 16:36:03.601 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:36:07.303 [main] INFO  c.v.platform.game.GameApplicationIT - Started GameApplicationIT in 26.796 seconds (process running for 38.126)
+2025-05-22 16:36:10.549 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Starting GameControllerIT using Java 21.0.6 with PID 16252 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:36:10.550 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 16:36:13.263 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Starting...
+2025-05-22 16:36:16.772 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-2 - Added connection org.postgresql.jdbc.PgConnection@21c49d8b
+2025-05-22 16:36:16.773 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Start completed.
+2025-05-22 16:36:18.413 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:36:20.284 [main] INFO  c.v.p.g.i.a.in.rest.GameControllerIT - Started GameControllerIT in 9.828 seconds (process running for 51.108)
+2025-05-22 16:36:22.440 [main] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=5
+2025-05-22 16:36:22.639 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Starting GameRepositoryAdapterIT using Java 21.0.6 with PID 16252 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:36:22.640 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - No active profile set, falling back to 1 default profile: "default"
+2025-05-22 16:36:23.576 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Starting...
+2025-05-22 16:36:23.595 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-3 - Added connection org.postgresql.jdbc.PgConnection@6dad9ae6
+2025-05-22 16:36:23.596 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Start completed.
+2025-05-22 16:36:24.140 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:36:24.996 [main] INFO  c.v.p.g.i.a.o.p.GameRepositoryAdapterIT - Started GameRepositoryAdapterIT in 2.393 seconds (process running for 55.82)
+2025-05-22 16:36:26.523 [main] INFO  c.v.p.g.i.GameStepDefinitions - Starting GameStepDefinitions using Java 21.0.6 with PID 16252 (started by rubenhernandez in C:\Users\rubenhernandez\workspace\formacion\videogame-platform\services\game-service)
+2025-05-22 16:36:26.524 [main] INFO  c.v.p.g.i.GameStepDefinitions - The following 1 profile is active: "test"
+2025-05-22 16:36:28.166 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Initializing ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:36:28.172 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2025-05-22 16:36:28.173 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/10.1.39]
+2025-05-22 16:36:28.667 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2025-05-22 16:36:28.922 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Starting...
+2025-05-22 16:36:28.929 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-4 - Added connection conn10: url=jdbc:h2:mem:gamedb user=SA
+2025-05-22 16:36:28.930 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Start completed.
+2025-05-22 16:36:29.343 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-05-22 16:36:30.437 [main] INFO  o.a.coyote.http11.Http11NioProtocol - Starting ProtocolHandler ["http-nio-auto-1"]
+2025-05-22 16:36:30.489 [main] INFO  c.v.p.g.i.GameStepDefinitions - Started GameStepDefinitions in 4.081 seconds (process running for 61.313)
+2025-05-22 16:36:31.103 [http-nio-auto-1-exec-4] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2025-05-22 16:36:31.104 [http-nio-auto-1-exec-4] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2025-05-22 16:36:31.107 [http-nio-auto-1-exec-4] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 2 ms
+2025-05-22 16:36:31.276 [http-nio-auto-1-exec-4] WARN  c.v.p.g.application.usecases.GetGame - No Game found for id=2
+2025-05-22 16:36:31.566 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-05-22 16:36:31.572 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-05-22 16:36:31.581 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown initiated...
+2025-05-22 16:36:31.589 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-2 - Shutdown completed.
+2025-05-22 16:36:31.596 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown initiated...
+2025-05-22 16:36:31.605 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-3 - Shutdown completed.
+2025-05-22 16:36:32.473 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown initiated...
+2025-05-22 16:36:32.475 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-4 - Shutdown completed.

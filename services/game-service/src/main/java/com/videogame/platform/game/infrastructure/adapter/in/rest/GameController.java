@@ -13,11 +13,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class GameController implements GamesApi {
 
     private final GetGame getGame;
-    private final GameRestMapper GameRestMapper;
+    private final GameRestMapper gameRestMapper;
 
     @Override
     public ResponseEntity<GameResponse> getGameById(Long id) {
         var game = getGame.apply(id);
-        return ResponseEntity.ok(GameRestMapper.toResponse(game));
+        return ResponseEntity.ok(gameRestMapper.toResponse(game));
     }
 }
