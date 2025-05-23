@@ -6,11 +6,9 @@ package ${package}.infrastructure.adapter.in.rest.mapper;
 import ${package}.domain.model.entities.${entity};
 import ${package}.infrastructure.adapter.in.rest.dto.${entity}Response;
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.Named;
 
 @Mapper(componentModel = "spring")
 public interface ${entity}RestMapper {
 
-    ${entity}Response toResponse(${entity} ${entity});
+    ${entity}Response toResponse(${entity} ${uncapitalizedEntity});
 }

@@ -14,10 +14,10 @@ import java.util.Optional;
 @Component
 public class ${entity}Handler {
 
-    private final ${entity}Service ${entity}Service;
+    private final ${entity}Service ${uncapitalizedEntity}Service;
 
     public Optional<${entity}> handle(${entity}Query query) {
-        return ${entity}Service.find${entity}(
+        return ${uncapitalizedEntity}Service.find${entity}(
                 query.getId());
     }
 }

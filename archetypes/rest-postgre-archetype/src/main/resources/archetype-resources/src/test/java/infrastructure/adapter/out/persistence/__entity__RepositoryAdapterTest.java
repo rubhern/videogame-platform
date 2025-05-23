@@ -12,7 +12,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,10 +33,10 @@ class ${entity}RepositoryAdapterTest {
         Long id = 1L;
 
         ${entity}Entity entity = mock(${entity}Entity.class);
-        ${entity} ${entity} = mock(${entity}.class);
+        ${entity} ${uncapitalizedEntity} = mock(${entity}.class);
 
         when(jpaRepository.find${entity}EntityById(id)).thenReturn(Optional.of(entity));
-        when(mapper.toDomain(entity)).thenReturn(${entity});
+        when(mapper.toDomain(entity)).thenReturn(${uncapitalizedEntity});
 
         // When
         Optional<${entity}> result = adapter.find${entity}(1L);

@@ -14,8 +14,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
-import java.time.OffsetDateTime;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -35,13 +33,13 @@ class ${entity}ControllerTest {
     @Test
     void should_return_response_when_${entity}_found() {
         // Given
-        Long id = 1L;
+        long id = 1L;
 
-        ${entity} ${entity} = mock(${entity}.class);
+        ${entity} ${uncapitalizedEntity} = mock(${entity}.class);
         ${entity}Response response = mock(${entity}Response.class);
 
-        when(service.apply(id)).thenReturn(${entity});
-        when(mapper.toResponse(${entity})).thenReturn(response);
+        when(service.apply(id)).thenReturn(${uncapitalizedEntity});
+        when(mapper.toResponse(${uncapitalizedEntity})).thenReturn(response);
 
         // When
         ResponseEntity<${entity}Response> result = controller.get${entity}ById(id);

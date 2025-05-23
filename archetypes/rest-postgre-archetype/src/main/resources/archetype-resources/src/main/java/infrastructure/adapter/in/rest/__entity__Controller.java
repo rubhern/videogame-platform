@@ -16,11 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class ${entity}Controller implements ${entity}sApi {
 
     private final Get${entity} get${entity};
-    private final ${entity}RestMapper ${entity}RestMapper;
+    private final ${entity}RestMapper ${uncapitalizedEntity}RestMapper;
 
     @Override
     public ResponseEntity<${entity}Response> get${entity}ById(Long id) {
         var ${uncapitalizedEntity} = get${entity}.apply(id);
-        return ResponseEntity.ok(${entity}RestMapper.toResponse(${uncapitalizedEntity}));
+        return ResponseEntity.ok(${uncapitalizedEntity}RestMapper.toResponse(${uncapitalizedEntity}));
     }
 }

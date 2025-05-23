@@ -9,10 +9,12 @@ import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
 @ActiveProfiles("test")
-class ${entity}ApplicationTests {
+class ${entity}ApplicationIT {
 
 	@Test
 	void contextLoads() {
+		// This test verifies if the Spring application context loads successfully
+		// by checking that all beans are created and wired properly
 	}
 
 }
