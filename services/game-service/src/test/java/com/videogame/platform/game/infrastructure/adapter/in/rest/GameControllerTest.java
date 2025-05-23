@@ -11,8 +11,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.ResponseEntity;
 
-import java.time.OffsetDateTime;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -32,13 +30,13 @@ class GameControllerTest {
     @Test
     void should_return_response_when_Game_found() {
         // Given
-        Long id = 1L;
+        long id = 1L;
 
-        Game Game = mock(Game.class);
+        Game game = mock(Game.class);
         GameResponse response = mock(GameResponse.class);
 
-        when(service.apply(id)).thenReturn(Game);
-        when(mapper.toResponse(Game)).thenReturn(response);
+        when(service.apply(id)).thenReturn(game);
+        when(mapper.toResponse(game)).thenReturn(response);
 
         // When
         ResponseEntity<GameResponse> result = controller.getGameById(id);

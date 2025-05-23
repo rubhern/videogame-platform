@@ -11,7 +11,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-public class GameRepositoryAdapterIT {
+class GameRepositoryAdapterIT {
 
     @Autowired
     private GameService adapter;
@@ -26,7 +26,7 @@ public class GameRepositoryAdapterIT {
 
         // Then
         assertFalse(optionalGame.isEmpty());
-        Game Game = optionalGame.get();
-        assertEquals(id, Game.getId());
+        Game game = optionalGame.get();
+        assertEquals(id, game.getId());
     }
 }
