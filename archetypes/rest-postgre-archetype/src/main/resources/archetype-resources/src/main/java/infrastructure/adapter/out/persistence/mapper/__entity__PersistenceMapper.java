@@ -7,8 +7,6 @@ package ${package}.infrastructure.adapter.out.persistence.mapper;
 import ${package}.domain.model.entities.${entity};
 import ${package}.infrastructure.adapter.out.persistence.model.${entity}Entity;
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
-import org.mapstruct.Named;
 import org.mapstruct.ReportingPolicy;
 
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
@@ -16,5 +14,5 @@ public interface ${entity}PersistenceMapper {
 
     ${entity} toDomain(${entity}Entity entity);
 
-    ${entity}Entity toEntity(${entity} ${entity});
+    ${entity}Entity toEntity(${entity} ${uncapitalizedEntity});
 }

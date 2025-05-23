@@ -5,7 +5,6 @@ package ${package}.infrastructure.adapter.out.persistence;
 
 import ${package}.infrastructure.adapter.out.persistence.model.${entity}Entity;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
 import java.util.Optional;
 

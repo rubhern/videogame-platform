@@ -8,13 +8,15 @@ import ${package}.domain.ports.out.repository.${entity}Service;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-public class ${entity}RepositoryAdapterIT {
+@ActiveProfiles("test")
+class ${entity}RepositoryAdapterIT {
 
     @Autowired
     private ${entity}Service adapter;
@@ -29,7 +31,7 @@ public class ${entity}RepositoryAdapterIT {
 
         // Then
         assertFalse(optional${entity}.isEmpty());
-        ${entity} ${entity} = optional${entity}.get();
-        assertEquals(id, ${entity}.getId());
+        ${entity} ${uncapitalizedEntity} = optional${entity}.get();
+        assertEquals(id, ${uncapitalizedEntity}.getId());
     }
 }

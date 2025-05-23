@@ -11,17 +11,17 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.function.Function;
+import java.util.function.LongFunction;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class Get${entity} implements Function<Long, ${entity}> {
+public class Get${entity} implements LongFunction<${entity}> {
 
     private final ${entity}Handler handler;
 
     @Override
-    public ${entity} apply(Long id) {
+    public ${entity} apply(long id) {
         ${entity}Query query = ${entity}Query.builder()
                 .id(id)
                 .build();

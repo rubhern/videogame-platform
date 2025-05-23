@@ -8,9 +8,6 @@ import ${package}.infrastructure.adapter.out.persistence.model.${entity}Entity;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -25,10 +22,10 @@ class ${entity}PersistenceMapperTest {
         entity.setId(1L);
 
         // When
-        ${entity} ${entity} = mapper.toDomain(entity);
+        ${entity} ${uncapitalizedEntity} = mapper.toDomain(entity);
 
         // Then
-        assertEquals(1L, ${entity}.getId());
+        assertEquals(1L, ${uncapitalizedEntity}.getId());
     }
 
     @Test

@@ -10,12 +10,14 @@ import io.cucumber.spring.CucumberContextConfiguration;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.RestTemplate;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @CucumberContextConfiguration
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
 public class ${entity}StepDefinitions {
 
     @LocalServerPort
@@ -32,7 +34,7 @@ public class ${entity}StepDefinitions {
     @When("I request the ${entity} for id {long}")
     public void i_request_the_${entity}(Long id) {
 
-        String url = String.format("http://localhost:%d/${uncapitalizedEntity}?id=%d",
+        String url = String.format("http://localhost:%d/${uncapitalizedEntity}s/%d",
                 port, id);
         response = restTemplate.getForEntity(url, String.class);
     }
