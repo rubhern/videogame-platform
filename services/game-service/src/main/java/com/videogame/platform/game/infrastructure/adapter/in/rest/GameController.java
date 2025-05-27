@@ -12,12 +12,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class GameController implements GamesApi {
 
-    private final GetGame getGame;
-    private final GameRestMapper gameRestMapper;
+  private final GetGame getGame;
+  private final GameRestMapper gameRestMapper;
 
-    @Override
-    public ResponseEntity<GameResponse> getGameById(Long id) {
-        var game = getGame.apply(id);
-        return ResponseEntity.ok(gameRestMapper.toResponse(game));
-    }
+  @Override
+  public ResponseEntity<GameResponse> getGameById(Long id) {
+    var game = getGame.apply(id);
+    return ResponseEntity.ok(gameRestMapper.toResponse(game));
+  }
 }

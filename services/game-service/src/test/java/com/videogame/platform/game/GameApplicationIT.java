@@ -8,10 +8,9 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class GameApplicationIT {
 
-	@Test
-	void contextLoads() {
-		// This test verifies if the Spring application context loads successfully 
-		// by checking that all beans are created and wired properly
-	}
-
+  @Test
+  void contextLoads() {
+    // This test verifies if the Spring application context loads successfully
+    // by checking that all beans are created and wired properly
+  }
 }

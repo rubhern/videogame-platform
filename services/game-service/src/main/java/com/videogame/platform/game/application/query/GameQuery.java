@@ -1,6 +1,5 @@
 package com.videogame.platform.game.application.query;
 
-
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -9,5 +8,5 @@ import lombok.Setter;
 @Getter
 @Setter
 public class GameQuery {
-    private final Long id;
+  private final Long id;
 }
