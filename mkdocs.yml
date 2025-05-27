@@ -33,3 +33,4 @@ nav:
       - "📦 Rest PostgreSQL": archetypes/rest-postgre-archetype.md
   - "🛠️ Tools":
       - "🧩 Sonatype Nexus": tools/nexus-tutorial.md
+      - "🎨 Google Code Style": tools/checkstyle-tutorial.md
