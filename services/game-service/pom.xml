@@ -23,13 +23,17 @@
         <cucumber.version>7.22.2</cucumber.version>
         <postgre.version>42.7.5</postgre.version>
         <java.version>21</java.version>
-        <sonar.maven.plugin.version>5.1.0.4751</sonar.maven.plugin.version>
         <jacoco.maven.plugin.version>0.8.13</jacoco.maven.plugin.version>
 
         <sonar.projectKey>vgp-game-svc</sonar.projectKey>
         <sonar.projectName>VGP Game Service</sonar.projectName>
-
         <sonar.host.url>http://sonar.local</sonar.host.url>
+        <sonar.maven.plugin.version>5.1.0.4751</sonar.maven.plugin.version>
+
+        <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
+        <checkstyle.version>10.24.0</checkstyle.version>
+        <spotless.version>2.44.4</spotless.version>
+        <google-java-format.version>1.20.0</google-java-format.version>
     </properties>
 
     <dependencyManagement>
@@ -130,7 +134,6 @@
     </dependencies>
 
     <build>
-
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -269,6 +272,59 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <version>3.5.3</version>
+            </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version> <!-- abr-2025 -->
+                <configuration>
+                    <java>
+                        <importOrder>
+                            <order>com.videogame.platform,java,javax,org,com</order>
+                            <wildcardsLast>true</wildcardsLast>
+                        </importOrder>
+                        <googleJavaFormat>
+                            <version>${google-java-format.version}</version>  <!-- feb-2025 -->
+                        </googleJavaFormat>
+                        <removeUnusedImports/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>apply-spotless</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>apply</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>${maven.checkstyle.version}</version> <!-- 2024-10-22 -->
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>${checkstyle.version}</version>
+                    </dependency>
+                </dependencies>
+                <configuration>
+                    <configLocation>${project.basedir}/../checkstyle/google_checks_without_javadoc.xml</configLocation>
+                    <consoleOutput>true</consoleOutput>
+                    <failOnViolation>true</failOnViolation>
+                    <excludeGeneratedSources>true</excludeGeneratedSources>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>verify-style</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
