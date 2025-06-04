@@ -5,20 +5,23 @@ import com.videogame.platform.game.application.query.GameQuery;
 import com.videogame.platform.game.domain.exception.GameNotFoundException;
 import com.videogame.platform.game.domain.model.entities.Game;
 import java.util.function.LongFunction;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 @Component
-@RequiredArgsConstructor
-@Slf4j
 public class GetGame implements LongFunction<Game> {
 
+  private static final Logger log = LoggerFactory.getLogger(GetGame.class);
   private final GameHandler handler;
+
+  public GetGame(GameHandler handler) {
+    this.handler = handler;
+  }
 
   @Override
   public Game apply(long id) {
-    GameQuery query = GameQuery.builder().id(id).build();
+    GameQuery query = new GameQuery(id);
 
     return handler
         .handle(query)

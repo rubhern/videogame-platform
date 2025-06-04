@@ -24,7 +24,7 @@ class GameHandlerTest {
 
   @BeforeAll
   public static void setUp() {
-    query = GameQuery.builder().id(1L).build();
+    query = new GameQuery(1L);
   }
 
   @Test

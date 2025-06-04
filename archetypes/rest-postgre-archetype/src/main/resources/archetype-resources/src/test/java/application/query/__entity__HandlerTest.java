@@ -30,9 +30,7 @@ class ${entity}HandlerTest {
 
     @BeforeAll
     public static void setUp() {
-        query = ${entity}Query.builder()
-                .id(1L)
-                .build();
+        query = new ${entity}Query(1L);
     }
 
     @Test
