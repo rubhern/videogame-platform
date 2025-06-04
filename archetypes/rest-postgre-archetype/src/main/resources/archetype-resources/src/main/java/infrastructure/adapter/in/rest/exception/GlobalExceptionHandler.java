@@ -3,7 +3,6 @@ package com.videogame.platform.game.infrastructure.adapter.in.rest.exception;
 import com.videogame.platform.game.domain.exception.GameNotFoundException;
 import com.videogame.platform.game.infrastructure.adapter.in.rest.dto.ErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -13,8 +12,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import java.time.OffsetDateTime;
 
 @ControllerAdvice
-@Slf4j
 public class GlobalExceptionHandler {
+
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(${entity}NotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(${entity}NotFoundException ex, HttpServletRequest request) {

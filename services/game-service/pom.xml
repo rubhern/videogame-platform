@@ -24,6 +24,7 @@
         <postgre.version>42.7.5</postgre.version>
         <java.version>21</java.version>
         <jacoco.maven.plugin.version>0.8.13</jacoco.maven.plugin.version>
+        <slf4j.version>2.0.17</slf4j.version>
 
         <sonar.projectKey>vgp-game-svc</sonar.projectKey>
         <sonar.projectName>VGP Game Service</sonar.projectName>
@@ -83,14 +84,14 @@
 
         <!-- Utils dependencies -->
         <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <optional>true</optional>
-        </dependency>
-        <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>
             <version>${mapstruct.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
 
         <!-- Test dependencies -->
@@ -142,10 +143,6 @@
                     <release>${java.version}</release>
                     <annotationProcessorPaths>
                         <path>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </path>
-                        <path>
                             <groupId>org.mapstruct</groupId>
                             <artifactId>mapstruct-processor</artifactId>
                             <version>1.6.3</version>
@@ -164,14 +161,6 @@
                         </goals>
                     </execution>
                 </executions>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
             </plugin>
 
             <plugin>

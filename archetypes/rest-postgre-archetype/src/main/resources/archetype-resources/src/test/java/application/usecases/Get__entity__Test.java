@@ -31,7 +31,7 @@ class Get${entity}Test {
     @Test
     void should_delegate_to_handler_and_return_result() {
         // Given
-        Long id = 1L;
+        long id = 1L;
 
         ${entity} expected${entity} = ${entity}.builder()
                 .id(id)
@@ -46,13 +46,13 @@ class Get${entity}Test {
         assertEquals(expected${entity}, result);
 
         verify(handler, times(1)).handle(argThat(query ->
-                query.getId().equals(id)));
+                query.id() == id));
     }
 
     @Test
     void should_throw_exception_when_no_${entity}_found() {
         // Given
-        Long id = 1L;
+        long id = 1L;
 
         when(handler.handle(any(${entity}Query.class))).thenReturn(Optional.empty());
 

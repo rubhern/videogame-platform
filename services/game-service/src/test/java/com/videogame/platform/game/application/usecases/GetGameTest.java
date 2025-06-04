@@ -25,7 +25,7 @@ class GetGameTest {
   @Test
   void should_delegate_to_handler_and_return_result() {
     // Given
-    Long id = 1L;
+    long id = 1L;
 
     Game expectedGame = Game.builder().id(id).build();
 
@@ -37,13 +37,13 @@ class GetGameTest {
     // Then
     assertEquals(expectedGame, result);
 
-    verify(handler, times(1)).handle(argThat(query -> query.getId().equals(id)));
+    verify(handler, times(1)).handle(argThat(query -> query.id() == id));
   }
 
   @Test
   void should_throw_exception_when_no_Game_found() {
     // Given
-    Long id = 1L;
+    long id = 1L;
 
     when(handler.handle(any(GameQuery.class))).thenReturn(Optional.empty());
 
