@@ -477,30 +477,99 @@
 <blockquote>
 <p><em>The team will revisit these decisions quarterly; any change will be captured here as ADR-nnn.</em></p>
 </blockquote>
-<h1 id="adr-nnn-template">ADR nnn – template</h1>
-<p>Date: 2025-04-29</p>
+<h1 id="adr-001-remove-lombok">ADR 001 – Remove Lombok</h1>
+<p>Date: 2025-06-05</p>
 <h2 id="status">Status</h2>
 <ul>
-<li>Proposed</li>
+<li>Accepted</li>
 </ul>
 <h2 id="context">Context</h2>
 <ul>
-<li>Describe the context of the decision.</li>
+<li>
+<p>The project originally adopted Lombok to generate boilerplate (getters, setters, equals/hashCode, builders) for domain objects.</p>
+</li>
+<li>
+<p>Since Java 16 introduced records and Java 21 is now our baseline, most DTOs and immutable value types can be expressed concisely without external annotation processors.</p>
+</li>
+<li>
+<p>Annotation processing in Lombok lengthens compilation, complicates reflection‑based libraries (e.g. Jackson), and breaks with every new major JDK until Lombok is updated.</p>
+</li>
+<li>
+<p>Onboarding new developers requires installing Lombok IDE plugins; missing it yields confusing compile errors.</p>
+</li>
+<li>
+<p>Static‑code‑analysis and AOT/native‑image tools struggle to see generated members, requiring extra configuration.</p>
+</li>
 </ul>
 <h2 id="decision">Decision</h2>
 <ul>
-<li>Describe the decision.</li>
+<li>Remove the Lombok dependency (org.projectlombok:lombok) from all modules.</li>
+<li>
+<p>Replace:</p>
+<ul>
+<li>
+<p>Immutable POJOs → Java records.</p>
+</li>
+<li>
+<p>Mutable entities → explicit constructors plus IntelliJ “Generate” for accessors.</p>
+</li>
+<li>
+<p>Lombok builders → standard builder patterns or MapStruct builders where needed.</p>
+</li>
+<li>
+<p>Delete @Getter, @Setter, @Builder, @Value, @Slf4j, and related annotations from source.</p>
+</li>
+</ul>
+</li>
 </ul>
 <h2 id="consequences">Consequences</h2>
 <ul>
-<li>Describe the consequences of the decision.</li>
+<li>
+<p>Pros</p>
+<ul>
+<li>
+<p>IDE‑agnostic code; no plugin prerequisite.</p>
+</li>
+<li>
+<p>Faster incremental builds (~15‑20% measured locally).</p>
+</li>
+<li>
+<p>Cleaner stack traces and easier debugging (no synthetic methods).</p>
+</li>
+<li>
+<p>Future‑proof: no waiting for Lombok updates each JDK release.</p>
+</li>
+</ul>
+</li>
+<li>
+<p>Cons</p>
+<ul>
+<li>
+<p>One‑off refactor touching ~240 files; larger diff PR.</p>
+</li>
+<li>
+<p>Slightly more verbose getters/setters in a few mutable classes.</p>
+</li>
+</ul>
+</li>
+<li>
+<p>Mitigations</p>
+<ul>
+<li>
+<p>Automated migration script (OpenRewrite lombok‑to‑records recipe) plus IDE refactor shortcuts keep effort to about two developer‑days.</p>
+</li>
+<li>
+<p>Code review checklist updated to prevent re‑introducing Lombok.</p>
+</li>
+</ul>
+</li>
 </ul>
 <aside class="md-source-file">
 <span class="md-source-file__fact">
 <span class="md-icon" title="Last update">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"></path></svg>
 </span>
-<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 4, 2025 13:47:18 UTC">June 4, 2025</span>
+<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="June 5, 2025 15:11:54 UTC">June 5, 2025</span>
 </span>
 </aside>
 </article>
