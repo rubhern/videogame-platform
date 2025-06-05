@@ -25,17 +25,54 @@
 
 > _The team will revisit these decisions quarterly; any change will be captured here as ADR-nnn._
 
-# ADR nnn – template
-Date: 2025-04-29
+# ADR 001 – Remove Lombok
+Date: 2025-06-05
 
 ## Status
-* Proposed
+* Accepted
 
 ## Context
-* Describe the context of the decision.
+* The project originally adopted Lombok to generate boilerplate (getters, setters, equals/hashCode, builders) for domain objects.
+
+* Since Java 16 introduced records and Java 21 is now our baseline, most DTOs and immutable value types can be expressed concisely without external annotation processors.
+
+* Annotation processing in Lombok lengthens compilation, complicates reflection‑based libraries (e.g. Jackson), and breaks with every new major JDK until Lombok is updated.
+
+* Onboarding new developers requires installing Lombok IDE plugins; missing it yields confusing compile errors.
+
+* Static‑code‑analysis and AOT/native‑image tools struggle to see generated members, requiring extra configuration.
 
 ## Decision
-* Describe the decision.
+* Remove the Lombok dependency (org.projectlombok:lombok) from all modules.
+* Replace:
+
+    * Immutable POJOs → Java records.
+
+    * Mutable entities → explicit constructors plus IntelliJ “Generate” for accessors.
+
+    * Lombok builders → standard builder patterns or MapStruct builders where needed.
+
+    * Delete @Getter, @Setter, @Builder, @Value, @Slf4j, and related annotations from source.
 
 ## Consequences
-* Describe the consequences of the decision.
+* Pros
+
+    * IDE‑agnostic code; no plugin prerequisite.
+
+    * Faster incremental builds (~15‑20% measured locally).
+
+    * Cleaner stack traces and easier debugging (no synthetic methods).
+
+    * Future‑proof: no waiting for Lombok updates each JDK release.
+
+* Cons
+
+    * One‑off refactor touching ~240 files; larger diff PR.
+
+    * Slightly more verbose getters/setters in a few mutable classes.
+
+* Mitigations
+
+    * Automated migration script (OpenRewrite lombok‑to‑records recipe) plus IDE refactor shortcuts keep effort to about two developer‑days.
+
+    * Code review checklist updated to prevent re‑introducing Lombok.
