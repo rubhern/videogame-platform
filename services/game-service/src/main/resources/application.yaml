@@ -15,7 +15,7 @@ spring:
     url: jdbc:postgresql://172.22.233.21:30050/gamedb
     driver-class-name: org.postgresql.Driver
     username: user
-    password: pass
+    password:
 
   jpa:
     hibernate:
