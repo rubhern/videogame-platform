@@ -48,7 +48,7 @@ jobs:
           args: >
             -Dsonar.projectKey=videogame-platform-${{ matrix.service }}
             -Dsonar.java.binaries=target/classes
-            -Dsonar.exclusions=**/target/**
+            -Dsonar.exclusions=**/target/**,**/test/**
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
