@@ -13,6 +13,10 @@ RUN ./mvnw clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 
+# Drop root
+RUN adduser --system --uid 1001 spring
+USER spring
+
 WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 
