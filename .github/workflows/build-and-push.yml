@@ -47,8 +47,8 @@ jobs:
           projectBaseDir: services/${{ matrix.service }}
           args: >
             -Dsonar.projectKey=videogame-platform-${{ matrix.service }}
+            -Dsonar.java.binaries=target/classes
         env:
-          SONAR_SCANNER_OPTS: -Dnetworkaddress.cache.ttl=0
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
 
