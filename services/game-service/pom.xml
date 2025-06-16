@@ -25,15 +25,15 @@
         <java.version>21</java.version>
         <jacoco.maven.plugin.version>0.8.13</jacoco.maven.plugin.version>
         <slf4j.version>2.0.17</slf4j.version>
+        <pitest.version>1.19.5</pitest.version>
+        <pitest.junit5.version>1.2.3</pitest.junit5.version>
 
         <sonar.projectKey>vgp-game-svc</sonar.projectKey>
         <sonar.projectName>VGP Game Service</sonar.projectName>
         <sonar.maven.plugin.version>5.1.0.4751</sonar.maven.plugin.version>
 
-        <maven.checkstyle.version>3.6.0</maven.checkstyle.version>
-        <checkstyle.version>10.24.0</checkstyle.version>
         <spotless.version>2.44.4</spotless.version>
-        <google-java-format.version>1.20.0</google-java-format.version>
+        <aosp.version>1.22.0</aosp.version>
     </properties>
 
     <dependencyManagement>
@@ -125,6 +125,11 @@
             <artifactId>archunit-junit5</artifactId>
             <version>1.4.0</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.pitest</groupId>
+            <artifactId>pitest-junit5-plugin</artifactId>
+            <version>1.2.3</version>
         </dependency>
         <dependency>
             <groupId>com.h2database</groupId>
@@ -264,15 +269,16 @@
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
-                <version>${spotless.version}</version> <!-- abr-2025 -->
+                <version>${spotless.version}</version>
                 <configuration>
                     <java>
                         <importOrder>
-                            <order>com.videogame.platform,java,javax,org,com</order>
+                            <order>java,javax,org.springframework,org,com,es</order>
                             <wildcardsLast>true</wildcardsLast>
                         </importOrder>
                         <googleJavaFormat>
-                            <version>${google-java-format.version}</version>  <!-- feb-2025 -->
+                            <style>AOSP</style>
+                            <version>${aosp.version}</version>
                         </googleJavaFormat>
                         <removeUnusedImports/>
                     </java>
@@ -288,31 +294,18 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>${maven.checkstyle.version}</version> <!-- 2024-10-22 -->
-                <dependencies>
-                    <dependency>
-                        <groupId>com.puppycrawl.tools</groupId>
-                        <artifactId>checkstyle</artifactId>
-                        <version>${checkstyle.version}</version>
-                    </dependency>
-                </dependencies>
+                <groupId>org.pitest</groupId>
+                <artifactId>pitest-maven</artifactId>
+                <version>${pitest.version}</version>
                 <configuration>
-                    <configLocation>${project.basedir}/../checkstyle/google_checks_without_javadoc.xml</configLocation>
-                    <consoleOutput>true</consoleOutput>
-                    <failOnViolation>true</failOnViolation>
-                    <excludeGeneratedSources>true</excludeGeneratedSources>
+                    <targetClasses>
+                        <param>com.videogame.*</param>
+                    </targetClasses>
+                    <excludedClasses>com.videogame.platform.game.infrastructure.adapter.in.rest.*</excludedClasses>
+                    <historyInputFile>${project.build.directory}/pit-history</historyInputFile>
+                    <historyOutputFile>${project.build.directory}/pit-history</historyOutputFile>
+                    <mutationThreshold>85</mutationThreshold>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>verify-style</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>

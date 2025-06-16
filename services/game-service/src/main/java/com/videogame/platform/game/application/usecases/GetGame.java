@@ -12,23 +12,22 @@ import org.springframework.stereotype.Component;
 @Component
 public class GetGame implements LongFunction<Game> {
 
-  private static final Logger log = LoggerFactory.getLogger(GetGame.class);
-  private final GameHandler handler;
+    private static final Logger log = LoggerFactory.getLogger(GetGame.class);
+    private final GameHandler handler;
 
-  public GetGame(GameHandler handler) {
-    this.handler = handler;
-  }
+    public GetGame(GameHandler handler) {
+        this.handler = handler;
+    }
 
-  @Override
-  public Game apply(long id) {
-    GameQuery query = new GameQuery(id);
+    @Override
+    public Game apply(long id) {
+        GameQuery query = new GameQuery(id);
 
-    return handler
-        .handle(query)
-        .orElseThrow(
-            () -> {
-              log.warn("No Game found for id={}", id);
-              return new GameNotFoundException("No Game found for id=" + id);
-            });
-  }
+        return handler.handle(query)
+                .orElseThrow(
+                        () -> {
+                            log.warn("No Game found for id={}", id);
+                            return new GameNotFoundException("No Game found for id=" + id);
+                        });
+    }
 }

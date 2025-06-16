@@ -14,19 +14,19 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class GameRepositoryAdapterIT {
 
-  @Autowired private GameService adapter;
+    @Autowired private GameService adapter;
 
-  @Test
-  void should_return_Game_from_database() {
-    // Given
-    Long id = 1L;
+    @Test
+    void should_return_Game_from_database() {
+        // Given
+        Long id = 1L;
 
-    // When
-    Optional<Game> optionalGame = adapter.findGame(id);
+        // When
+        Optional<Game> optionalGame = adapter.findGame(id);
 
-    // Then
-    assertFalse(optionalGame.isEmpty());
-    Game game = optionalGame.get();
-    assertEquals(id, game.getId());
-  }
+        // Then
+        assertFalse(optionalGame.isEmpty());
+        Game game = optionalGame.get();
+        assertEquals(id, game.getId());
+    }
 }

@@ -10,31 +10,31 @@ import org.mapstruct.factory.Mappers;
 
 class GamePersistenceMapperTest {
 
-  private final GamePersistenceMapper mapper = Mappers.getMapper(GamePersistenceMapper.class);
+    private final GamePersistenceMapper mapper = Mappers.getMapper(GamePersistenceMapper.class);
 
-  @Test
-  void should_map_entity_to_domain() {
-    // Given
-    GameEntity entity = new GameEntity();
-    entity.setId(1L);
+    @Test
+    void should_map_entity_to_domain() {
+        // Given
+        GameEntity entity = new GameEntity();
+        entity.setId(1L);
 
-    // When
-    Game game = mapper.toDomain(entity);
+        // When
+        Game game = mapper.toDomain(entity);
 
-    // Then
-    assertEquals(1L, game.getId());
-  }
+        // Then
+        assertEquals(1L, game.getId());
+    }
 
-  @Test
-  void should_map_domain_to_entity() {
-    // Given
-    Game game = Game.builder().id(1L).build();
+    @Test
+    void should_map_domain_to_entity() {
+        // Given
+        Game game = Game.builder().id(1L).build();
 
-    // When
-    GameEntity entity = mapper.toEntity(game);
+        // When
+        GameEntity entity = mapper.toEntity(game);
 
-    // Then
-    assertNotNull(entity);
-    assertEquals(1L, entity.getId());
-  }
+        // Then
+        assertNotNull(entity);
+        assertEquals(1L, entity.getId());
+    }
 }

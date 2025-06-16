@@ -18,28 +18,28 @@ import org.springframework.http.ResponseEntity;
 @ExtendWith(MockitoExtension.class)
 class GameControllerTest {
 
-  @Mock private GetGame service;
+    @Mock private GetGame service;
 
-  @Mock private GameRestMapper mapper;
+    @Mock private GameRestMapper mapper;
 
-  @InjectMocks private GameController controller;
+    @InjectMocks private GameController controller;
 
-  @Test
-  void should_return_response_when_Game_found() {
-    // Given
-    long id = 1L;
+    @Test
+    void should_return_response_when_Game_found() {
+        // Given
+        long id = 1L;
 
-    Game game = mock(Game.class);
-    GameResponse response = mock(GameResponse.class);
+        Game game = mock(Game.class);
+        GameResponse response = mock(GameResponse.class);
 
-    when(service.apply(id)).thenReturn(game);
-    when(mapper.toResponse(game)).thenReturn(response);
+        when(service.apply(id)).thenReturn(game);
+        when(mapper.toResponse(game)).thenReturn(response);
 
-    // When
-    ResponseEntity<GameResponse> result = controller.getGameById(id);
+        // When
+        ResponseEntity<GameResponse> result = controller.getGameById(id);
 
-    // Then
-    assertEquals(200, result.getStatusCode().value());
-    assertEquals(response, result.getBody());
-  }
+        // Then
+        assertEquals(200, result.getStatusCode().value());
+        assertEquals(response, result.getBody());
+    }
 }

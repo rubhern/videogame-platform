@@ -20,31 +20,28 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("test")
 class GameControllerIT {
 
-  @Autowired private MockMvc mockMvc;
+    @Autowired private MockMvc mockMvc;
 
-  private static final String URL = "/games";
+    private static final String URL = "/games";
 
-  @Test
-  void should_return_200_when_valid_request() throws Exception {
-    mockMvc
-        .perform(get(URL + "/{id}", 1L))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.id").value(1L));
-  }
+    @Test
+    void should_return_200_when_valid_request() throws Exception {
+        mockMvc.perform(get(URL + "/{id}", 1L))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1L));
+    }
 
-  @Test
-  void should_return_404_when_Game_not_found() throws Exception {
-    mockMvc
-        .perform(get(URL + "/{id}", 5L))
-        .andExpect(status().isNotFound())
-        .andExpect(jsonPath("$.message").exists());
-  }
+    @Test
+    void should_return_404_when_Game_not_found() throws Exception {
+        mockMvc.perform(get(URL + "/{id}", 5L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists());
+    }
 
-  @Test
-  void should_return_400_for_invalid_param_type() throws Exception {
-    mockMvc
-        .perform(get(URL + "/{id}", "abc"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.message").value(containsString("Invalid value")));
-  }
+    @Test
+    void should_return_400_for_invalid_param_type() throws Exception {
+        mockMvc.perform(get(URL + "/{id}", "abc"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("Invalid value")));
+    }
 }

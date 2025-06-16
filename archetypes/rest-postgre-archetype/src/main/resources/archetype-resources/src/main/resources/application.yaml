@@ -12,7 +12,7 @@ spring:
       data-locations: classpath:sql/data.sql
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/${dbName}
+    url: jdbc:postgresql://${dbHost}:5432/${dbName}
     driver-class-name: org.postgresql.Driver
     username: ${dbUser}
     password: ${dbPassword}

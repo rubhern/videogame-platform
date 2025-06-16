@@ -16,28 +16,28 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class GameRepositoryAdapterTest {
 
-  @Mock private GameJpaRepository jpaRepository;
-  @Mock private GamePersistenceMapper mapper;
-  @InjectMocks private GameRepositoryAdapter adapter;
+    @Mock private GameJpaRepository jpaRepository;
+    @Mock private GamePersistenceMapper mapper;
+    @InjectMocks private GameRepositoryAdapter adapter;
 
-  @Test
-  void should_return_mapped_Game() {
-    // Given
-    Long id = 1L;
+    @Test
+    void should_return_mapped_Game() {
+        // Given
+        Long id = 1L;
 
-    GameEntity entity = mock(GameEntity.class);
-    Game game = mock(Game.class);
+        GameEntity entity = mock(GameEntity.class);
+        Game game = mock(Game.class);
 
-    when(jpaRepository.findGameEntityById(id)).thenReturn(Optional.of(entity));
-    when(mapper.toDomain(entity)).thenReturn(game);
+        when(jpaRepository.findGameEntityById(id)).thenReturn(Optional.of(entity));
+        when(mapper.toDomain(entity)).thenReturn(game);
 
-    // When
-    Optional<Game> result = adapter.findGame(1L);
+        // When
+        Optional<Game> result = adapter.findGame(1L);
 
-    // Then
-    assertFalse(result.isEmpty());
+        // Then
+        assertFalse(result.isEmpty());
 
-    verify(jpaRepository).findGameEntityById(id);
-    verify(mapper).toDomain(entity);
-  }
+        verify(jpaRepository).findGameEntityById(id);
+        verify(mapper).toDomain(entity);
+    }
 }
