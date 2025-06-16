@@ -136,7 +136,7 @@ jobs:
           image: ${{ env.IMAGE_REF }}
           format: cyclonedx-json
           output-file: sbom-${{ matrix.service }}.json
-          artifact-name: sbom-${{ matrix.service }}
+          artifact-name: sbom-${{ matrix.service }}-${{ github.run_attempt }}
 
       - name: 🔒 Cosign sign (keyless)
         uses: sigstore/cosign-installer@v3
