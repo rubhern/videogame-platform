@@ -1,7 +1,7 @@
 name: ci
 
 ############################################################
-# 1 ▸ Disparadores
+# 1 ▸ Triggers
 ############################################################
 on:
   push:
@@ -25,6 +25,15 @@ defaults:
   run:
     shell: bash
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+  IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+  MAVEN_OPTS: >-
+      -Dmaven.repo.local=$HOME/.m2/repository
+      -Dmaven.artifact.threads=8
+      -Dorg.slf4j.simpleLogger.showDateTime=true
+
 ############################################################
 # 3 ▸ Job “build”
 ############################################################
@@ -39,15 +48,6 @@ jobs:
       matrix:
         service:
           - game-service
-
-    env:
-      REGISTRY: ghcr.io
-      IMAGE_PREFIX: ${{ github.repository }}
-      IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
-      MAVEN_OPTS: >-
-        -Dmaven.repo.local=$HOME/.m2/repository
-        -Dmaven.artifact.threads=8
-        -Dorg.slf4j.simpleLogger.showDateTime=true
 
     steps:
       #-------------------------------------------------------
