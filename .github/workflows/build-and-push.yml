@@ -82,7 +82,7 @@ jobs:
         run: |
           mvn -f services/${{ matrix.service }}/pom.xml \
               -Dmaven.test.failure.ignore=false \
-              org.pitest:pitest-maven-plugin:1.19.5:mutationCoverage \
+              org.pitest:pitest-maven:1.19.5:mutationCoverage \
               -Dthreads=8 \
               -DmutationThreshold=80 \
               -Dpit.incrementalAnalysis=true
