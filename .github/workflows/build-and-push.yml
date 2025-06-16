@@ -130,14 +130,6 @@ jobs:
         run: | 
           echo "IMAGE_REF=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}@${{ steps.buildx.outputs.digest }}" >> "$GITHUB_ENV"
 
-      - name: 📝 Generate SBOM (Syft)
-        uses: anchore/sbom-action@v0.15.3
-        with:
-          image: ${{ env.IMAGE_REF }}
-          format: cyclonedx-json
-          output-file: sbom-${{ matrix.service }}.json
-          artifact-name: sbom-${{ matrix.service }}-${{ github.run_attempt }}
-
       - name: 🔒 Cosign sign (keyless)
         uses: sigstore/cosign-installer@v3
       - run: cosign sign --yes ${{ env.IMAGE_REF }}
