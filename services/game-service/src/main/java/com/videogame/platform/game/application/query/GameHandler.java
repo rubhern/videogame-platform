@@ -8,13 +8,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class GameHandler {
 
-  private final GameService gameService;
+    private final GameService gameService;
 
-  public GameHandler(GameService gameService) {
-    this.gameService = gameService;
-  }
+    public GameHandler(GameService gameService) {
+        this.gameService = gameService;
+    }
 
-  public Optional<Game> handle(GameQuery query) {
-    return gameService.findGame(query.id());
-  }
+    public Optional<Game> handle(GameQuery query) {
+        return gameService.findGame(query.id());
+    }
 }

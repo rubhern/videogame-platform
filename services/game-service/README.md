@@ -4,28 +4,35 @@ This project exposes a REST API to manage **Game** resources. It is generated fr
 
 ---
 
+## 🧱 Architecture Overview
 
+### ✅ Hexagonal / Clean Architecture
 
 - Domain‑centric design with clear separation between **domain**, **application**, and **infrastructure** layers.
 - All dependencies point inward, enabling easier testing and long‑term maintainability.
 
+### ✅ CQRS (Command Query Responsibility Segregation)
 
 - Read operations (queries) are handled separately via dedicated handlers.
 - Separation between intent (query object) and execution (handler).
 
+### ✅ API‑First + OpenAPI
 
 - Contract defined in `src/main/resources/static/openapi/game-api.yaml`.
 - Interfaces & DTOs are generated automatically by the OpenAPI Maven plugin.
 
 ---
 
+## 🚀 How to Run the Application
 
+### 🧪 Prerequisites
 
 - **Java 21+**
 - **Maven 3.8+**
 - **PostgreSQL 16+** (local or Docker)
 - (Optional) **Docker** for running the app in a container
 
+### 🔧 Build and Start
 
     # Compile and run tests
     ./mvnw clean verify
@@ -35,6 +42,7 @@ This project exposes a REST API to manage **Game** resources. It is generated fr
 
 `spring-boot:run` will start the API on **port 8090**.
 
+### 🐳 Docker‑Compose
 
 A ready‑to‑use **docker‑compose.yml** is provided to launch the application together with PostgreSQL:
 
@@ -45,9 +53,11 @@ A ready‑to‑use **docker‑compose.yml** is provided to launch the applicatio
 
 ---
 
+## ⚙️ Database – PostgreSQL Configuration
 
 The application uses an **PostgreSQL**, preconfigured for use during runtime.
 
+### 🔐 Connection parameters:
 
 - **URL**: `jdbc:postgresql://172.22.233.21:30050/gamedb`
 - **Username**: `user`
@@ -55,6 +65,7 @@ The application uses an **PostgreSQL**, preconfigured for use during runtime.
 
 ---
 
+## 📑 Logging – Configuration and Output
 
 Logging is configured in:
 
@@ -67,6 +78,7 @@ src/main/resources/logback-spring.xml
 
 ---
 
+## 🔍 API Endpoints
 
 | Resource           | URL                                               | Description          |
 | ------------------ |---------------------------------------------------| -------------------- |
@@ -78,20 +90,48 @@ src/main/resources/logback-spring.xml
 
 ---
 
+## 🧪 Testing Strategy – Test Pyramid
 
 1. **Unit Tests** – JUnit5 + Mockito
 2. **Integration Tests** – H2 in memory database
 3. **Acceptance Tests** – Cucumber / Postman (optional)
+4. **Mutation Tests** – PIT (see details below)
 
 ---
 
+### Mutation Testing with PIT
 
+> Mutation testing inserts tiny faults (mutants) into the code to verify that the existing test suite detects them, providing a far more reliable quality signal than line or branch coverage alone.
+
+- **Tool**: [PIT](https://pitest.org/) `1.19.5` (latest stable, June 2025).
+- **Plugin**: `pitest-maven` with automatic JUnit5 detection.
+- **Threshold**: The CI build fails if the mutation score drops below **85%** (configurable).
+- **Incremental analysis**: Enabled – only mutated code since the last successful build is analysed, making execution ∼5–10× faster on PRs.
+
+#### Quick Start (local)
+
+```bash
+# Run PIT with the configuration in pom.xml
+./mvnw test-compile org.pitest:pitest-maven:mutationCoverage
+
+# Or skip history for a full run
+./mvnw -DwithHistory=false test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+HTML reports are generated in `target/pit-reports/<timestamp>/index.html`.
+
+---
+
+## 📦 Running Postman Acceptance Tests with Newman
+
+### 🧰 Prerequisites
 Make sure Node.js and Newman are installed:
 
 ```bash
 npm install -g newman newman-reporter-html
 ```
 
+### ▶️ Run Tests
 
 ```bash
 newman run postman/game-acceptance.postman_collection.json \
@@ -99,12 +139,14 @@ newman run postman/game-acceptance.postman_collection.json \
   --reporter-html-export postman/report.html
 ```
 
+### 📄 Output
 
 - Terminal summary of all test cases
 - HTML report generated in `postman/report.html`
 
 ---
 
+## 📁 Project Structure
 
 ```
 game/
@@ -126,6 +168,7 @@ game/
 
 ---
 
+## 🧩 Tools & Frameworks Used
 
 - SpringBoot 3.4.4
 - SpringDoc OpenAPI
@@ -135,6 +178,7 @@ game/
 
 ---
 
+## 🔗 Useful Commands
 
 | Purpose                | Command                               |
 | ---------------------- | ------------------------------------- |

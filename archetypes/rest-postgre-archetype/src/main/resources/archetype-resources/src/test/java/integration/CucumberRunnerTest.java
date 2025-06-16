@@ -12,7 +12,7 @@ import static io.cucumber.junit.platform.engine.Constants.*;
 @SelectClasspathResource("features")
 @ConfigurationParameter(
         key = GLUE_PROPERTY_NAME,
-        value = "com.videogame.platform.game.integration")
+        value = "${package}.integration")
 @ConfigurationParameter(
         key = PLUGIN_PROPERTY_NAME,
         value = "pretty,summary," +

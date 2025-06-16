@@ -10,19 +10,19 @@ import com.tngtech.archunit.lang.syntax.elements.ClassesShouldConjunction;
 @AnalyzeClasses(packages = "com.videogame.platform.game")
 public class NamingConventionTest {
 
-  @ArchTest
-  static final ClassesShouldConjunction controllers_should_be_in_correct_package =
-      classes()
-          .that()
-          .haveSimpleNameEndingWith("Controller")
-          .should()
-          .resideInAPackage("..adapter.in.rest..");
+    @ArchTest
+    static final ClassesShouldConjunction controllers_should_be_in_correct_package =
+            classes()
+                    .that()
+                    .haveSimpleNameEndingWith("Controller")
+                    .should()
+                    .resideInAPackage("..adapter.in.rest..");
 
-  @ArchTest
-  static final ClassesShouldConjunction mappers_should_be_in_correct_package =
-      classes()
-          .that()
-          .haveSimpleNameEndingWith("Mapper")
-          .should()
-          .resideInAnyPackage("..mapper..", "..mapper..");
+    @ArchTest
+    static final ClassesShouldConjunction mappers_should_be_in_correct_package =
+            classes()
+                    .that()
+                    .haveSimpleNameEndingWith("Mapper")
+                    .should()
+                    .resideInAnyPackage("..mapper..", "..mapper..");
 }

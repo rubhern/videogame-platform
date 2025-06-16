@@ -19,37 +19,37 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class GetGameTest {
 
-  @Mock private GameHandler handler;
-  @InjectMocks private GetGame getGameUseCase;
+    @Mock private GameHandler handler;
+    @InjectMocks private GetGame getGameUseCase;
 
-  @Test
-  void should_delegate_to_handler_and_return_result() {
-    // Given
-    long id = 1L;
+    @Test
+    void should_delegate_to_handler_and_return_result() {
+        // Given
+        long id = 1L;
 
-    Game expectedGame = Game.builder().id(id).build();
+        Game expectedGame = Game.builder().id(id).build();
 
-    when(handler.handle(any(GameQuery.class))).thenReturn(Optional.of(expectedGame));
+        when(handler.handle(any(GameQuery.class))).thenReturn(Optional.of(expectedGame));
 
-    // When
-    Game result = getGameUseCase.apply(id);
+        // When
+        Game result = getGameUseCase.apply(id);
 
-    // Then
-    assertEquals(expectedGame, result);
+        // Then
+        assertEquals(expectedGame, result);
 
-    verify(handler, times(1)).handle(argThat(query -> query.id() == id));
-  }
+        verify(handler, times(1)).handle(argThat(query -> query.id() == id));
+    }
 
-  @Test
-  void should_throw_exception_when_no_Game_found() {
-    // Given
-    long id = 1L;
+    @Test
+    void should_throw_exception_when_no_Game_found() {
+        // Given
+        long id = 1L;
 
-    when(handler.handle(any(GameQuery.class))).thenReturn(Optional.empty());
+        when(handler.handle(any(GameQuery.class))).thenReturn(Optional.empty());
 
-    // When + Then
-    assertThrows(GameNotFoundException.class, () -> getGameUseCase.apply(id));
+        // When + Then
+        assertThrows(GameNotFoundException.class, () -> getGameUseCase.apply(id));
 
-    verify(handler, times(1)).handle(any(GameQuery.class));
-  }
+        verify(handler, times(1)).handle(any(GameQuery.class));
+    }
 }

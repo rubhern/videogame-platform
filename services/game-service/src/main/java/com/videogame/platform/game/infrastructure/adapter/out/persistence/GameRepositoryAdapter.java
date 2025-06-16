@@ -9,16 +9,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class GameRepositoryAdapter implements GameService {
 
-  private final GameJpaRepository jpaRepository;
-  private final GamePersistenceMapper mapper;
+    private final GameJpaRepository jpaRepository;
+    private final GamePersistenceMapper mapper;
 
-  public GameRepositoryAdapter(GameJpaRepository jpaRepository, GamePersistenceMapper mapper) {
-    this.jpaRepository = jpaRepository;
-    this.mapper = mapper;
-  }
+    public GameRepositoryAdapter(GameJpaRepository jpaRepository, GamePersistenceMapper mapper) {
+        this.jpaRepository = jpaRepository;
+        this.mapper = mapper;
+    }
 
-  @Override
-  public Optional<Game> findGame(Long id) {
-    return jpaRepository.findGameEntityById(id).map(mapper::toDomain);
-  }
+    @Override
+    public Optional<Game> findGame(Long id) {
+        return jpaRepository.findGameEntityById(id).map(mapper::toDomain);
+    }
 }

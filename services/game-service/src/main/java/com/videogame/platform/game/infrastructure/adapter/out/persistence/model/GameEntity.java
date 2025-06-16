@@ -8,13 +8,13 @@ import jakarta.persistence.Table;
 @Table(name = "Game")
 public class GameEntity {
 
-  @Id private Long id;
+    @Id private Long id;
 
-  public Long getId() {
-    return id;
-  }
+    public Long getId() {
+        return id;
+    }
 
-  public void setId(Long id) {
-    this.id = id;
-  }
+    public void setId(Long id) {
+        this.id = id;
+    }
 }

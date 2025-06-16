@@ -8,7 +8,7 @@ import org.mapstruct.ReportingPolicy;
 @Mapper(componentModel = "spring", unmappedTargetPolicy = ReportingPolicy.ERROR)
 public interface GamePersistenceMapper {
 
-  Game toDomain(GameEntity entity);
+    Game toDomain(GameEntity entity);
 
-  GameEntity toEntity(Game game);
+    GameEntity toEntity(Game game);
 }

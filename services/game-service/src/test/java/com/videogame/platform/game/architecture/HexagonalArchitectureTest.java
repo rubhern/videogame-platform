@@ -11,43 +11,44 @@ import com.tngtech.archunit.lang.ArchRule;
 @AnalyzeClasses(packages = "com.videogame.platform.game")
 public class HexagonalArchitectureTest {
 
-  private static final String DOMAIN_LAYER = "..domain..";
-  private static final String APPLICATION_LAYER = "..application..";
-  private static final String ADAPTER_IN_LAYER = "..infrastructure..adapter..in..";
-  private static final String ADAPTER_OUT_LAYER = "..infrastructure..adapter..out..";
+    private static final String DOMAIN_LAYER = "..domain..";
+    private static final String APPLICATION_LAYER = "..application..";
+    private static final String ADAPTER_IN_LAYER = "..infrastructure..adapter..in..";
+    private static final String ADAPTER_OUT_LAYER = "..infrastructure..adapter..out..";
 
-  /**
-   * Domain must be pure: it only depends on itself or JDK (never on application or infrastructure).
-   */
-  @ArchTest
-  static final ArchRule domain_must_be_isolated =
-      classes()
-          .that()
-          .resideInAPackage(DOMAIN_LAYER)
-          .should()
-          .onlyDependOnClassesThat()
-          .resideOutsideOfPackages(APPLICATION_LAYER, "..infrastructure..");
+    /**
+     * Domain must be pure: it only depends on itself or JDK (never on application or
+     * infrastructure).
+     */
+    @ArchTest
+    static final ArchRule domain_must_be_isolated =
+            classes()
+                    .that()
+                    .resideInAPackage(DOMAIN_LAYER)
+                    .should()
+                    .onlyDependOnClassesThat()
+                    .resideOutsideOfPackages(APPLICATION_LAYER, "..infrastructure..");
 
-  /** Application layer can use Domain but must not depend on Infrastructure. */
-  @ArchTest
-  static final ArchRule application_must_not_depend_on_infrastructure =
-      noClasses()
-          .that()
-          .resideInAPackage(APPLICATION_LAYER)
-          .should()
-          .dependOnClassesThat()
-          .resideInAPackage("..infrastructure..");
+    /** Application layer can use Domain but must not depend on Infrastructure. */
+    @ArchTest
+    static final ArchRule application_must_not_depend_on_infrastructure =
+            noClasses()
+                    .that()
+                    .resideInAPackage(APPLICATION_LAYER)
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("..infrastructure..");
 
-  /**
-   * Inbound adapters (REST, messaging, etc.) must not depend on outbound adapters (persistence,
-   * external APIs).
-   */
-  @ArchTest
-  static final ArchRule inbound_and_outbound_are_decoupled =
-      noClasses()
-          .that()
-          .resideInAPackage(ADAPTER_IN_LAYER)
-          .should()
-          .dependOnClassesThat()
-          .resideInAPackage(ADAPTER_OUT_LAYER);
+    /**
+     * Inbound adapters (REST, messaging, etc.) must not depend on outbound adapters (persistence,
+     * external APIs).
+     */
+    @ArchTest
+    static final ArchRule inbound_and_outbound_are_decoupled =
+            noClasses()
+                    .that()
+                    .resideInAPackage(ADAPTER_IN_LAYER)
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage(ADAPTER_OUT_LAYER);
 }

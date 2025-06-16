@@ -7,5 +7,5 @@ import org.mapstruct.Mapper;
 @Mapper(componentModel = "spring")
 public interface GameRestMapper {
 
-  GameResponse toResponse(Game game);
+    GameResponse toResponse(Game game);
 }

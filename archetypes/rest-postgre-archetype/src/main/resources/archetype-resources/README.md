@@ -1,48 +1,49 @@
-# ${entity} API
+#set($hash = '#')
+$hash ${entity} API
 
 This project exposes a REST API to manage **${entity}** resources. It is generated from the `${artifactId}` Maven archetype and follows **Hexagonal / Clean Architecture**, the **CQRS pattern**, and an **API‑First** approach driven by OpenAPI.
 
 ---
 
-## 🧱 Architecture Overview
+$hash$hash 🧱 Architecture Overview
 
-### ✅ Hexagonal / Clean Architecture
+$hash$hash$hash ✅ Hexagonal / Clean Architecture
 
 - Domain‑centric design with clear separation between **domain**, **application**, and **infrastructure** layers.
 - All dependencies point inward, enabling easier testing and long‑term maintainability.
 
-### ✅ CQRS (Command Query Responsibility Segregation)
+$hash$hash$hash ✅ CQRS (Command Query Responsibility Segregation)
 
 - Read operations (queries) are handled separately via dedicated handlers.
 - Separation between intent (query object) and execution (handler).
 
-### ✅ API‑First + OpenAPI
+$hash$hash$hash ✅ API‑First + OpenAPI
 
 - Contract defined in `src/main/resources/static/openapi/${uncapitalizedEntity}-api.yaml`.
 - Interfaces & DTOs are generated automatically by the OpenAPI Maven plugin.
 
 ---
 
-## 🚀 How to Run the Application
+$hash$hash 🚀 How to Run the Application
 
-### 🧪 Prerequisites
+$hash$hash$hash 🧪 Prerequisites
 
 - **Java 21+**
 - **Maven 3.8+**
 - **PostgreSQL 16+** (local or Docker)
 - (Optional) **Docker** for running the app in a container
 
-### 🔧 Build and Start
+$hash$hash$hash 🔧 Build and Start
 
-    # Compile and run tests
+    $hash Compile and run tests
     ./mvnw clean verify
 
-    # Run the application (Spring Boot)
+    $hash Run the application (Spring Boot)
     ./mvnw spring-boot:run
 
 `spring-boot:run` will start the API on **port ${serverPort}**.
 
-### 🐳 Docker‑Compose
+$hash$hash$hash 🐳 Docker‑Compose
 
 A ready‑to‑use **docker‑compose.yml** is provided to launch the application together with PostgreSQL:
 
@@ -53,11 +54,11 @@ A ready‑to‑use **docker‑compose.yml** is provided to launch the applicatio
 
 ---
 
-## ⚙️ Database – PostgreSQL Configuration
+$hash$hash ⚙️ Database – PostgreSQL Configuration
 
 The application uses an **PostgreSQL**, preconfigured for use during runtime.
 
-### 🔐 Connection parameters:
+$hash$hash$hash 🔐 Connection parameters:
 
 - **URL**: `jdbc:postgresql://localhost:5432/${dbName}`
 - **Username**: `${dbUser}`
@@ -65,7 +66,7 @@ The application uses an **PostgreSQL**, preconfigured for use during runtime.
 
 ---
 
-## 📑 Logging – Configuration and Output
+$hash$hash 📑 Logging – Configuration and Output
 
 Logging is configured in:
 
@@ -78,7 +79,7 @@ src/main/resources/logback-spring.xml
 
 ---
 
-## 🔍 API Endpoints
+$hash$hash 🔍 API Endpoints
 
 | Resource           | URL                                               | Description          |
 | ------------------ |---------------------------------------------------| -------------------- |
@@ -90,24 +91,48 @@ src/main/resources/logback-spring.xml
 
 ---
 
-## 🧪 Testing Strategy – Test Pyramid
+$hash$hash 🧪 Testing Strategy – Test Pyramid
 
 1. **Unit Tests** – JUnit5 + Mockito
 2. **Integration Tests** – H2 in memory database
 3. **Acceptance Tests** – Cucumber / Postman (optional)
+4. **Mutation Tests** – PIT (see details below)
 
 ---
 
-## 📦 Running Postman Acceptance Tests with Newman
+$hash$hash$hash Mutation Testing with PIT
 
-### 🧰 Prerequisites
+> Mutation testing inserts tiny faults (mutants) into the code to verify that the existing test suite detects them, providing a far more reliable quality signal than line or branch coverage alone.
+
+- **Tool**: [PIT](https://pitest.org/) `1.19.5` (latest stable, June 2025).
+- **Plugin**: `pitest-maven` with automatic JUnit5 detection.
+- **Threshold**: The CI build fails if the mutation score drops below **85%** (configurable).
+- **Incremental analysis**: Enabled – only mutated code since the last successful build is analysed, making execution ∼5–10× faster on PRs.
+
+$hash$hash$hash$hash Quick Start (local)
+
+```bash
+$hash Run PIT with the configuration in pom.xml
+./mvnw test-compile org.pitest:pitest-maven:mutationCoverage
+
+$hash Or skip history for a full run
+./mvnw -DwithHistory=false test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+HTML reports are generated in `target/pit-reports/<timestamp>/index.html`.
+
+---
+
+$hash$hash 📦 Running Postman Acceptance Tests with Newman
+
+$hash$hash$hash 🧰 Prerequisites
 Make sure Node.js and Newman are installed:
 
 ```bash
 npm install -g newman newman-reporter-html
 ```
 
-### ▶️ Run Tests
+$hash$hash$hash ▶️ Run Tests
 
 ```bash
 newman run postman/${uncapitalizedEntity}-acceptance.postman_collection.json \
@@ -115,28 +140,28 @@ newman run postman/${uncapitalizedEntity}-acceptance.postman_collection.json \
   --reporter-html-export postman/report.html
 ```
 
-### 📄 Output
+$hash$hash$hash 📄 Output
 
 - Terminal summary of all test cases
 - HTML report generated in `postman/report.html`
 
 ---
 
-## 📁 Project Structure
+$hash$hash 📁 Project Structure
 
 ```
 ${uncapitalizedEntity}/
 ├── src/
 │ ├── main/
-│ │ ├── domain/ # Business models, exceptions
-│ │ ├── application/ # Services, query handlers
-│ │ ├── infrastructure/ # Adapters: REST, DB, mappers
+│ │ ├── domain/ $hash Business models, exceptions
+│ │ ├── application/ $hash Services, query handlers
+│ │ ├── infrastructure/ $hash Adapters: REST, DB, mappers
 │ │ └── resources/
 │ └── test/
-│ ├── unit/ # Unit tests
-│ ├── integration/ # Integration tests (Testcontainers)
-│ └── features/ # Cucumber & Postman
-├── postman/ # Postman collections & reports
+│ ├── unit/ $hash Unit tests
+│ ├── integration/ $hash Integration tests (Testcontainers)
+│ └── features/ $hash Cucumber & Postman
+├── postman/ $hash Postman collections & reports
 ├── docker-compose.yml
 ├── pom.xml
 └── README.md
@@ -144,7 +169,7 @@ ${uncapitalizedEntity}/
 
 ---
 
-## 🧩 Tools & Frameworks Used
+$hash$hash 🧩 Tools & Frameworks Used
 
 - SpringBoot 3.4.4
 - SpringDoc OpenAPI
@@ -154,7 +179,7 @@ ${uncapitalizedEntity}/
 
 ---
 
-## 🔗 Useful Commands
+$hash$hash 🔗 Useful Commands
 
 | Purpose                | Command                               |
 | ---------------------- | ------------------------------------- |

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -25,11 +26,7 @@
         <sonar.maven.plugin.version>5.1.0.4751</sonar.maven.plugin.version>
         <jacoco.maven.plugin.version>0.8.13</jacoco.maven.plugin.version>
         <slf4j.version>2.0.17</slf4j.version>
-
-        <sonar.projectKey>vgp-game-svc</sonar.projectKey>
-        <sonar.projectName>VGP Game Service</sonar.projectName>
-
-        <sonar.host.url>http://sonar.local</sonar.host.url>
+        <spotless.version>2.44.4</spotless.version>
     </properties>
 
     <dependencyManagement>
@@ -170,11 +167,12 @@
                             <goal>generate</goal>
                         </goals>
                         <configuration>
-                            <inputSpec>${project.basedir}/src/main/resources/static/openapi/${uncapitalizedEntity}-api.yaml</inputSpec>
+                            <inputSpec>${project.basedir}/src/main/resources/static/openapi/${artifactId}-api.yaml
+                            </inputSpec>
                             <generatorName>spring</generatorName>
                             <output>${project.build.directory}/generated-sources/openapi</output>
-                            <apiPackage>${groupId}.${uncapitalizedEntity}.infrastructure.adapter.in.rest.api</apiPackage>
-                            <modelPackage>${groupId}.${uncapitalizedEntity}.infrastructure.adapter.in.rest.dto</modelPackage>
+                            <apiPackage>${package}.infrastructure.adapter.in.rest.api</apiPackage>
+                            <modelPackage>${package}.infrastructure.adapter.in.rest.dto</modelPackage>
                             <configOptions>
                                 <interfaceOnly>true</interfaceOnly>
                                 <useTags>true</useTags>
@@ -205,59 +203,86 @@
                     </execution>
                 </executions>
             </plugin>
-        <!-- Sonar Scanner -->
-        <plugin>
-            <groupId>org.sonarsource.scanner.maven</groupId>
-            <artifactId>sonar-maven-plugin</artifactId>
-            <version>${sonar.maven.plugin.version}</version>
-        </plugin>
+            <!-- Sonar Scanner -->
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>${sonar.maven.plugin.version}</version>
+            </plugin>
 
-        <!-- JaCoCo -->
-        <plugin>
-            <groupId>org.jacoco</groupId>
-            <artifactId>jacoco-maven-plugin</artifactId>
-            <version>${jacoco.maven.plugin.version}</version>
+            <!-- JaCoCo -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.maven.plugin.version}</version>
 
-            <executions>
-                <execution>
-                    <id>prepare-agent</id>
-                    <goals>
-                        <goal>prepare-agent</goal>
-                    </goals>
-                    <configuration>
-                        <destFile>${project.build.directory}/jacoco.exec</destFile>
-                    </configuration>
-                </execution>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                        <configuration>
+                            <destFile>${project.build.directory}/jacoco.exec</destFile>
+                        </configuration>
+                    </execution>
 
-                <execution>
-                    <id>prepare-agent-integration</id>
-                    <phase>pre-integration-test</phase>
-                    <goals>
-                        <goal>prepare-agent-integration</goal>
-                    </goals>
-                    <configuration>
-                        <destFile>${project.build.directory}/jacoco.exec</destFile>
-                    </configuration>
-                </execution>
+                    <execution>
+                        <id>prepare-agent-integration</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>prepare-agent-integration</goal>
+                        </goals>
+                        <configuration>
+                            <destFile>${project.build.directory}/jacoco.exec</destFile>
+                        </configuration>
+                    </execution>
 
-                <execution>
-                    <id>report</id>
-                    <phase>verify</phase>
-                    <goals>
-                        <goal>report</goal>
-                    </goals>
-                    <configuration>
-                        <dataFile>${project.build.directory}/jacoco.exec</dataFile>
-                        <outputDirectory>${project.reporting.outputDirectory}/jacoco</outputDirectory>
-                    </configuration>
-                </execution>
-            </executions>
-        </plugin>
-        <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-failsafe-plugin</artifactId>
-            <version>3.5.3</version>
-        </plugin>
+                    <execution>
+                        <id>report</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                        <configuration>
+                            <dataFile>${project.build.directory}/jacoco.exec</dataFile>
+                            <outputDirectory>${project.reporting.outputDirectory}/jacoco</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.3</version>
+            </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <java>
+                        <importOrder>
+                            <order>java,javax,org.springframework,org,com,es</order>
+                            <wildcardsLast>true</wildcardsLast>
+                        </importOrder>
+                        <googleJavaFormat>
+                            <style>AOSP</style>
+                            <version>${aosp.version}</version>
+                        </googleJavaFormat>
+                        <removeUnusedImports/>
+                    </java>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>apply-spotless</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>apply</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 

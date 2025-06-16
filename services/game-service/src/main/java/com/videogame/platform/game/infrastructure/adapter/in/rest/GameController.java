@@ -10,17 +10,17 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class GameController implements GamesApi {
 
-  private final GetGame getGame;
-  private final GameRestMapper gameRestMapper;
+    private final GetGame getGame;
+    private final GameRestMapper gameRestMapper;
 
-  public GameController(GetGame getGame, GameRestMapper gameRestMapper) {
-    this.getGame = getGame;
-    this.gameRestMapper = gameRestMapper;
-  }
+    public GameController(GetGame getGame, GameRestMapper gameRestMapper) {
+        this.getGame = getGame;
+        this.gameRestMapper = gameRestMapper;
+    }
 
-  @Override
-  public ResponseEntity<GameResponse> getGameById(Long id) {
-    var game = getGame.apply(id);
-    return ResponseEntity.ok(gameRestMapper.toResponse(game));
-  }
+    @Override
+    public ResponseEntity<GameResponse> getGameById(Long id) {
+        var game = getGame.apply(id);
+        return ResponseEntity.ok(gameRestMapper.toResponse(game));
+    }
 }
