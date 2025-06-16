@@ -84,7 +84,7 @@ jobs:
           projectBaseDir: services/${{ matrix.service }}
           args: >
             -Dsonar.projectKey=videogame-platform-${{ matrix.service }}
-            -Dsonar.tests=src/test/java,src/it/java,src/integrationTest/java
+            -Dsonar.tests=src/test/java
             -Dsonar.coverage.exclusions=**/*Test.java,**/*IT.java
         env:
           SONAR_TOKEN:    ${{ secrets.SONAR_TOKEN }}
