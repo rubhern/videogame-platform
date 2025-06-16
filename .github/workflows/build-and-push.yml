@@ -43,7 +43,6 @@ jobs:
     env:
       REGISTRY: ghcr.io
       IMAGE_PREFIX: ${{ github.repository }}
-      IMAGE_NAME: ${{ github.repository_owner }}/videogame-platform/${{ matrix.service }}
       MAVEN_OPTS: >-
         -Dmaven.repo.local=$HOME/.m2/repository
         -Dmaven.artifact.threads=8
@@ -122,8 +121,8 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64
           tags: |
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
