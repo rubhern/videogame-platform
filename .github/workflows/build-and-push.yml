@@ -74,6 +74,36 @@ jobs:
       - name: 🧪 Build & verify
         run: mvn -f services/${{ matrix.service }}/pom.xml --batch-mode verify -Dmaven.test.failure.ignore=false
 
+      # ─────────────────────────────────────────────────────────────
+      # 3.2-bis  ▸ Mutation testing  (PIT + JaCoCo)
+      # -----------------------------------------------------------------
+      - name: 🧬 Mutation tests (PIT)
+        if: github.event_name != 'schedule'
+        run: |
+          mvn -f services/${{ matrix.service }}/pom.xml \
+              -Dmaven.test.failure.ignore=false \
+              org.pitest:pitest-maven-plugin:1.16.0:mutationCoverage \
+              -Dthreads=8 \
+              -DmutationThreshold=80 \
+              -Dpit.incrementalAnalysis=true
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
+
+      - name: 📤 Upload PIT report
+        if: success() || failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pit-${{ matrix.service }}-${{ github.run_id }}
+          path: services/${{ matrix.service }}/target/pit-reports
+          retention-days: 7
+
+      - name: ⏩ Detect changed Java files
+        id: changed
+        if: always()                                          # run even on PR
+        uses: tj-actions/changed-files@v41
+        with:
+          files: services/${{ matrix.service }}/src/**/*.java
+
       #-------------------------------------------------------
       # 3.3 Sonar + Quality Gate
       #-------------------------------------------------------
