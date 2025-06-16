@@ -136,13 +136,7 @@ jobs:
           image: ${{ env.IMAGE_REF }}
           format: cyclonedx-json
           output-file: sbom-${{ matrix.service }}.json
-
-      - name: 📤 Upload SBOM artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom-${{ matrix.service }}
-          path: sbom-${{ matrix.service }}.json
-          retention-days: 7
+          artifact-name: sbom-${{ matrix.service }}
 
       - name: 🔒 Cosign sign (keyless)
         uses: sigstore/cosign-installer@v3
