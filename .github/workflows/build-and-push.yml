@@ -126,10 +126,14 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
+      - name: 🏷️  Export IMAGE_REF
+        run: | 
+          echo "IMAGE_REF=${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}@${{ steps.buildx.outputs.digest }}" >> "$GITHUB_ENV"
+
       - name: 📝 Generate SBOM (Syft)
         uses: anchore/sbom-action@v0.15.3
         with:
-          image: ${{ steps.buildx.outputs.digest }}
+          image: ${{ env.IMAGE_REF }}
           format: cyclonedx-json
           output-file: sbom-${{ matrix.service }}.json
 
@@ -142,7 +146,7 @@ jobs:
 
       - name: 🔒 Cosign sign (keyless)
         uses: sigstore/cosign-installer@v3
-      - run: cosign sign --yes $IMAGE_NAME@${{ steps.buildx.outputs.digest }}
+      - run: cosign sign --yes ${{ env.IMAGE_REF }}
         env:
           COSIGN_EXPERIMENTAL: "true"
 
