@@ -25,18 +25,14 @@ defaults:
   run:
     shell: bash
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository }}
-  IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
-  MAVEN_OPTS: >-
-      -Dmaven.repo.local=$HOME/.m2/repository
-      -Dmaven.artifact.threads=8
-      -Dorg.slf4j.simpleLogger.showDateTime=true
-
 ############################################################
 # 3 ▸ Job “build”
 ############################################################
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository }}
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -48,6 +44,13 @@ jobs:
       matrix:
         service:
           - game-service
+
+    env:
+      IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+      MAVEN_OPTS: >-
+        -Dmaven.repo.local=$HOME/.m2/repository
+        -Dmaven.artifact.threads=8
+        -Dorg.slf4j.simpleLogger.showDateTime=true
 
     steps:
       #-------------------------------------------------------
