@@ -9,7 +9,7 @@ replicaCount: 1
 service:
   type: ClusterIP
   port: 80
-  targetPort: 8085
+  targetPort: 8090
 
 ingress:
   enabled: true
