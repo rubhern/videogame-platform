@@ -5,7 +5,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   annotations:
-    argocd-image-updater.argoproj.io/image-list: game-service=ghcr.io/rubhern/game-service
+    argocd-image-updater.argoproj.io/image-list: game-service=ghcr.io/rubhern/videogame-platform/game-service
     argocd-image-updater.argoproj.io/update-strategy.game-service: digest
     argocd-image-updater.argoproj.io/write-back-method: git
 spec:
