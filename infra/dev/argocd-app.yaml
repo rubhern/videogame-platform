@@ -14,6 +14,7 @@ spec:
     repoURL: https://github.com/rubhern/videogame-platform.git
     targetRevision: main
     path: infra/dev/game-service
+    helm: {}
   destination:
     server: https://kubernetes.default.svc
     namespace: dev
