@@ -17,6 +17,7 @@ spring:
     username: user
     password: pass
 
+
   jpa:
     hibernate:
       ddl-auto: none          # keep schema managed by scripts
