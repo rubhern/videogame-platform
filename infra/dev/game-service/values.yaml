@@ -1,7 +1,7 @@
 image:
   repository: ghcr.io/rubhern/game-service
   pullPolicy: IfNotPresent
-  digest: ""
+  digest: "sha256-e110bb60a3251b6736fb997cb88fa0b5611d30d96ede54363e18486bc877d3b9.sig"
   tag: ""
 
 replicaCount: 1
