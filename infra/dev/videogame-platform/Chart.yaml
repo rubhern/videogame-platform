@@ -1,0 +1,11 @@
+apiVersion: v2
+name: videogame-platform
+description: Umbrella chart – Gather all microservices
+type: application
+version: 0.1.0
+appVersion: "dev"
+
+dependencies:
+  - name: game-service
+    version: 0.1.0
+    repository: "file://./charts/game-service"

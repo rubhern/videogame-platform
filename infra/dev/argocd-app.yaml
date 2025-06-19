@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: game-service-dev
+  name: videogame-platform-dev
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   annotations:
@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: https://github.com/rubhern/videogame-platform.git
     targetRevision: main
-    path: infra/dev/game-service
+    path: infra/dev/videogame-platform
     helm: {}
   destination:
     server: https://kubernetes.default.svc
