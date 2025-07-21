@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: keycloak-jwks-service
+spec:
+  type: ExternalName
+  externalName: keycloak-keycloak-http.keycloak.svc.cluster.local
