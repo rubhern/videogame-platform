@@ -16,7 +16,7 @@ config:
 image:
   repository: ghcr.io/rubhern/videogame-platform/game-service
   pullPolicy: IfNotPresent
-  digest: "sha256:de2955f3fbfa2003881a84f6f9930a215ccb44e86840111dc7227c3d810c69b9"
+  digest: "sha256:657a7b069fc9618a3803815264648ced86107efa9e6d31169d19dc135f17d896"
   tag: ""
 
 replicaCount: 1
