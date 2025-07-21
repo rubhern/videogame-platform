@@ -1,6 +1,0 @@
-apiVersion: configuration.konghq.com/v1alpha1
-kind: KongUpstreamPolicy
-metadata:
-  name: keycloak-jwks-policy
-spec:
-  hostHeader: keycloak.local

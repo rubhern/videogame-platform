@@ -3,6 +3,7 @@ kind: KongPlugin
 metadata:
   name: jwt-keycloak-validator
 config:
-  key_sets:
-    - my-keycloak
+  jwks_uri: http://keycloak.local/realms/videogame-platform/protocol/openid-connect/certs
+  token_sources:
+    - authorization
 plugin: jwt
