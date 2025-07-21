@@ -1,10 +1,5 @@
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
-  name: jwt-keycloak-validator
-config:
-  jwks_uri: http://keycloak.local/realms/videogame-platform/protocol/openid-connect/certs
-  token_sources:
-    - authorization
+  name: jwt-enforcer
 plugin: jwt
-

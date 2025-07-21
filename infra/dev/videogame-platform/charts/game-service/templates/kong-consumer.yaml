@@ -1,0 +1,8 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: usuarios-keycloak
+  annotations:
+    # Anotación importante para que Kong lo reconozca
+    kubernetes.io/ingress.class: kong
+username: usuarios-keycloak
