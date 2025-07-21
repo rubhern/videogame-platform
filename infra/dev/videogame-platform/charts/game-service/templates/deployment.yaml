@@ -36,6 +36,19 @@ spec:
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: {{ .Values.environment }}
+            - name: SPRING_DATASOURCE_URL
+              value: {{ .Values.config.database.url | quote }}
+            - name: SPRING_DATASOURCE_USERNAME
+              value: {{ .Values.config.database.username | quote }}
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.config.database.password.secretName }}
+                  key: {{ .Values.config.database.password.secretKey }}
+            - name: SPRING_JPA_SHOW_SQL
+              value: {{ .Values.config.jpa.showSql | quote }}
+            - name: INFO_APP_ENVIRONMENT
+              value: {{ .Values.config.info.environment | quote }}
           {{- if .Values.livenessProbe.enabled }}
           livenessProbe:
             httpGet:
