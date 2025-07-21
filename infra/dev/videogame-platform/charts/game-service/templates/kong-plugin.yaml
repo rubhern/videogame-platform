@@ -1,5 +1,13 @@
+# services/game-service/kong-plugin.yaml
+
 apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
-  name: jwt-enforcer
+  # El nombre que usaremos en la anotación del Ingress
+  name: jwt-keycloak-validator
+config:
+  # El campo que antes daba error, pero que ahora debería ser reconocido
+  jwks_uri: http://keycloak.local/realms/videogame-platform/protocol/openid-connect/certs
+  token_sources:
+    - authorization
 plugin: jwt
