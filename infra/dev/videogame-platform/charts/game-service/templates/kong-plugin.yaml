@@ -7,4 +7,3 @@ config:
   token_sources:
     - authorization
 plugin: jwt
-
