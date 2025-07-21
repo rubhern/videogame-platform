@@ -1,5 +1,18 @@
 environment: dev
 
+config:
+  database:
+    url: "jdbc:postgresql://postgres.postgres.svc.cluster.local:5432/gamedb"
+    username: "rubhern"
+    password:
+      secretName: "game-service-db-creds"
+      secretKey: "password"
+
+  jpa:
+    showSql: "true"
+  info:
+    environment: "development"
+
 image:
   repository: ghcr.io/rubhern/videogame-platform/game-service
   pullPolicy: IfNotPresent
