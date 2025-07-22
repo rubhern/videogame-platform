@@ -2,7 +2,6 @@ apiVersion: configuration.konghq.com/v1
 kind: KongPlugin
 metadata:
   name: auth-oidc
-  namespace: kong
 plugin: kong-openid-connect
 config:
   discovery: "http://keycloak.local/realms/videogame-platform"
