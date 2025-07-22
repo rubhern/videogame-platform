@@ -1,0 +1,10 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: auth-oidc
+  namespace: kong
+plugin: kong-openid-connect
+config:
+  discovery: "http://keycloak.local/realms/videogame-platform"
+  client_id: "vgp-api-services"
+  client_secret: "YKc1969cJb0BJ9IkbPXO7QGhheEhYTUT"
