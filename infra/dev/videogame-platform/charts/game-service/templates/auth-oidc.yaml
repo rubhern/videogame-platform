@@ -7,5 +7,5 @@ config:
   discovery: "http://keycloak.keycloak.svc.cluster.local/realms/videogame-platform/.well-known/openid-configuration"
   client_id: "vgp-api-services"
   client_secret: "YKc1969cJb0BJ9IkbPXO7QGhheEhYTUT"
-  bearer_only: true
+  bearer_only: "yes"
   scope: "openid"
