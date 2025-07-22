@@ -6,6 +6,7 @@ metadata:
   labels:
     {{- include "game-service.labels" . | nindent 4 }}
   annotations:
+    konghq.com/plugins: auth-oidc
     {{- if .Values.ingress.tls }}
     cert-manager.io/cluster-issuer: letsencrypt-prod
     {{- end }}
