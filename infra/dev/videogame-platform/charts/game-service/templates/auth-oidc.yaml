@@ -8,3 +8,4 @@ config:
   client_id: "vgp-api-services"
   client_secret: "YKc1969cJb0BJ9IkbPXO7QGhheEhYTUT"
   bearer_only: true
+  introspection_endpoint_auth_method: "client_secret_basic"
