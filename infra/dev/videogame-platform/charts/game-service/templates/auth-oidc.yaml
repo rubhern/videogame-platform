@@ -5,7 +5,6 @@ metadata:
 plugin: kong-openid-connect
 config:
   discovery: "http://keycloak.keycloak.svc.cluster.local/realms/videogame-platform/.well-known/openid-configuration"
-  issuer: "http://keycloak.local/realms/videogame-platform"
   client_id: "vgp-api-services"
   client_secret: "YKc1969cJb0BJ9IkbPXO7QGhheEhYTUT"
   bearer_only: true
