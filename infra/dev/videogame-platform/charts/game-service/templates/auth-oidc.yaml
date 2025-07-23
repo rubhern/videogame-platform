@@ -9,3 +9,4 @@ config:
   client_secret: "YKc1969cJb0BJ9IkbPXO7QGhheEhYTUT"
   bearer_only: true
   introspection_endpoint_auth_method: "client_secret_basic"
+  introspection_endpoint: "http://keycloak.keycloak.svc.cluster.local/auth/realms/videogame-platform/protocol/openid-connect/token/introspect"
