@@ -6,11 +6,6 @@ plugin: kong-openid-connect
 config:
   discovery: "http://keycloak.keycloak.svc.cluster.local/realms/videogame-platform/.well-known/openid-configuration"
   client_id: "vgp-api-services"
-  client_secret:
-    valueFrom:
-      secretKeyRef:
-        name: "oidc-client-secret"
-        key: "client_secret"
   bearer_only: true
   introspection_endpoint_auth_method: "client_secret_basic"
   introspection_endpoint: "http://keycloak.keycloak.svc.cluster.local/realms/videogame-platform/protocol/openid-connect/token/introspect"
