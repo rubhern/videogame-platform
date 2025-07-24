@@ -3,7 +3,6 @@ kind: Ingress
 metadata:
   name: {{ include "game-service.fullname" . }}-actuator
   annotations:
-    konghq.com/strip-path: "true"
     konghq.com/plugins: ""
 spec:
   ingressClassName: kong
