@@ -5,11 +5,12 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
-<link href="../nexus-tutorial/" rel="prev"/>
+<link href="../../archetypes/rest-postgre-archetype/" rel="prev"/>
+<link href="../checkstyle/" rel="next"/>
 <link href="../../assets/images/favicon.png" rel="icon"/>
-<meta content="mkdocs-1.6.1, mkdocs-material-9.6.15" name="generator"/>
-<title>🎨 Google Code Style - Videogame Platform Docs</title>
-<link href="../../assets/stylesheets/main.342714a4.min.css" rel="stylesheet"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.6.16" name="generator"/>
+<title>🧩 Sonatype Nexus - Videogame Platform Docs</title>
+<link href="../../assets/stylesheets/main.7e37652d.min.css" rel="stylesheet"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
 <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
@@ -23,7 +24,7 @@
 <input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
 <label class="md-overlay" for="__drawer"></label>
 <div data-md-component="skip">
-<a class="md-skip" href="#checkstyle-tutorial-2025">
+<a class="md-skip" href="#installing-and-using-sonatype-nexus-repository-manager-community-edition">
           Skip to content
         </a>
 </div>
@@ -47,7 +48,7 @@
 <div class="md-header__topic" data-md-component="header-topic">
 <span class="md-ellipsis">
             
-              🎨 Google Code Style
+              🧩 Sonatype Nexus
             
           </span>
 </div>
@@ -319,26 +320,18 @@
             🛠️ Tools
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
-<li class="md-nav__item">
-<a class="md-nav__link" href="../nexus-tutorial/">
-<span class="md-ellipsis">
-    🧩 Sonatype Nexus
-    
-  </span>
-</a>
-</li>
 <li class="md-nav__item md-nav__item--active">
 <input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
 <label class="md-nav__link md-nav__link--active" for="__toc">
 <span class="md-ellipsis">
-    🎨 Google Code Style
+    🧩 Sonatype Nexus
     
   </span>
 <span class="md-nav__icon md-icon"></span>
 </label>
 <a class="md-nav__link md-nav__link--active" href="./">
 <span class="md-ellipsis">
-    🎨 Google Code Style
+    🧩 Sonatype Nexus
     
   </span>
 </a>
@@ -349,38 +342,52 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#1-what-is-checkstyle">
+<a class="md-nav__link" href="#1-prerequisites">
 <span class="md-ellipsis">
-      1 What Is Checkstyle?
+      1 Prerequisites
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#2-using-checkstyle-with-maven">
+<a class="md-nav__link" href="#2-quick-install-with-docker">
 <span class="md-ellipsis">
-      2 Using Checkstyle with Maven
+      2 Quick install with Docker
     </span>
 </a>
-<nav aria-label="2 Using Checkstyle with Maven" class="md-nav">
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-firsttime-setup-in-the-ui">
+<span class="md-ellipsis">
+      3 First‑time setup in the UI
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-creating-repositories-if-not-existing">
+<span class="md-ellipsis">
+      4 Creating repositories (if not existing)
+    </span>
+</a>
+<nav aria-label="4 Creating repositories (if not existing)" class="md-nav">
 <ul class="md-nav__list">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#21-add-versions-in-the-parent-pom">
+<a class="md-nav__link" href="#41-maven-hosted-repo-for-your-internal-artifacts">
 <span class="md-ellipsis">
-      2.1 Add versions in the parent POM
+      4.1 Maven hosted repo (for your internal artifacts)
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#22-configure-the-plugin-once">
+<a class="md-nav__link" href="#42-maven-proxy-repo-caches-maven-central">
 <span class="md-ellipsis">
-      2.2 Configure the plugin once
+      4.2 Maven proxy repo (caches Maven Central)
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#23-running">
+<a class="md-nav__link" href="#43-group-repo-convenient-single-url">
 <span class="md-ellipsis">
-      2.3 Running
+      4.3 Group repo (convenient single URL)
     </span>
 </a>
 </li>
@@ -388,24 +395,44 @@
 </nav>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#3-spotless-your-autoformatter-friend">
+<a class="md-nav__link" href="#5-configure-maven-to-use-nexus">
 <span class="md-ellipsis">
-      3 Spotless — Your Auto‑Formatter Friend
-    </span>
-</a>
-<nav aria-label="3 Spotless — Your Auto‑Formatter Friend" class="md-nav">
-<ul class="md-nav__list">
-<li class="md-nav__item">
-<a class="md-nav__link" href="#31-plugin-snippet">
-<span class="md-ellipsis">
-      3.1 Plugin snippet
+      5 Configure Maven to use Nexus
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#32-daily-commands">
+<a class="md-nav__link" href="#6-docker-registry-via-nexus">
 <span class="md-ellipsis">
-      3.2 Daily commands
+      6 Docker registry via Nexus
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#7-user-role-management">
+<span class="md-ellipsis">
+      7 User &amp; Role management
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#8-upgrading-nexus">
+<span class="md-ellipsis">
+      8 Upgrading Nexus
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#9-backup-restore">
+<span class="md-ellipsis">
+      9 Backup &amp; restore
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#10-references-next-steps">
+<span class="md-ellipsis">
+      10 References &amp; next steps
     </span>
 </a>
 </li>
@@ -413,21 +440,28 @@
 </nav>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#4-intellij-idea-20251-configuration">
+<a class="md-nav__link" href="../checkstyle/">
 <span class="md-ellipsis">
-      4 IntelliJ IDEA 2025.1 Configuration
-    </span>
+    🎨 Google Code Style
+    
+  </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#5-recap">
+<a class="md-nav__link" href="../sonarcloud/">
 <span class="md-ellipsis">
-      5 Recap
-    </span>
+    📊 SonarCloud
+    
+  </span>
 </a>
 </li>
-</ul>
-</nav>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../ci-cd-guide/">
+<span class="md-ellipsis">
+    🔄 CI/CD Guide
+    
+  </span>
+</a>
 </li>
 </ul>
 </nav>
@@ -447,38 +481,52 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#1-what-is-checkstyle">
+<a class="md-nav__link" href="#1-prerequisites">
 <span class="md-ellipsis">
-      1 What Is Checkstyle?
+      1 Prerequisites
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#2-using-checkstyle-with-maven">
+<a class="md-nav__link" href="#2-quick-install-with-docker">
 <span class="md-ellipsis">
-      2 Using Checkstyle with Maven
+      2 Quick install with Docker
     </span>
 </a>
-<nav aria-label="2 Using Checkstyle with Maven" class="md-nav">
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-firsttime-setup-in-the-ui">
+<span class="md-ellipsis">
+      3 First‑time setup in the UI
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-creating-repositories-if-not-existing">
+<span class="md-ellipsis">
+      4 Creating repositories (if not existing)
+    </span>
+</a>
+<nav aria-label="4 Creating repositories (if not existing)" class="md-nav">
 <ul class="md-nav__list">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#21-add-versions-in-the-parent-pom">
+<a class="md-nav__link" href="#41-maven-hosted-repo-for-your-internal-artifacts">
 <span class="md-ellipsis">
-      2.1 Add versions in the parent POM
+      4.1 Maven hosted repo (for your internal artifacts)
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#22-configure-the-plugin-once">
+<a class="md-nav__link" href="#42-maven-proxy-repo-caches-maven-central">
 <span class="md-ellipsis">
-      2.2 Configure the plugin once
+      4.2 Maven proxy repo (caches Maven Central)
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#23-running">
+<a class="md-nav__link" href="#43-group-repo-convenient-single-url">
 <span class="md-ellipsis">
-      2.3 Running
+      4.3 Group repo (convenient single URL)
     </span>
 </a>
 </li>
@@ -486,41 +534,44 @@
 </nav>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#3-spotless-your-autoformatter-friend">
+<a class="md-nav__link" href="#5-configure-maven-to-use-nexus">
 <span class="md-ellipsis">
-      3 Spotless — Your Auto‑Formatter Friend
-    </span>
-</a>
-<nav aria-label="3 Spotless — Your Auto‑Formatter Friend" class="md-nav">
-<ul class="md-nav__list">
-<li class="md-nav__item">
-<a class="md-nav__link" href="#31-plugin-snippet">
-<span class="md-ellipsis">
-      3.1 Plugin snippet
+      5 Configure Maven to use Nexus
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#32-daily-commands">
+<a class="md-nav__link" href="#6-docker-registry-via-nexus">
 <span class="md-ellipsis">
-      3.2 Daily commands
-    </span>
-</a>
-</li>
-</ul>
-</nav>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#4-intellij-idea-20251-configuration">
-<span class="md-ellipsis">
-      4 IntelliJ IDEA 2025.1 Configuration
+      6 Docker registry via Nexus
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#5-recap">
+<a class="md-nav__link" href="#7-user-role-management">
 <span class="md-ellipsis">
-      5 Recap
+      7 User &amp; Role management
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#8-upgrading-nexus">
+<span class="md-ellipsis">
+      8 Upgrading Nexus
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#9-backup-restore">
+<span class="md-ellipsis">
+      9 Backup &amp; restore
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#10-references-next-steps">
+<span class="md-ellipsis">
+      10 References &amp; next steps
     </span>
 </a>
 </li>
@@ -531,187 +582,183 @@
 </div>
 <div class="md-content" data-md-component="content">
 <article class="md-content__inner md-typeset">
-<h1 id="checkstyle-tutorial-2025">Checkstyle Tutorial (2025)</h1>
-<h2 id="1-what-is-checkstyle">1  What Is Checkstyle?</h2>
-<p><strong>Checkstyle</strong> is an open‑source static‑analysis tool that scans Java source files and <strong>reports breaches of a coding standard</strong>—formatting, naming, Javadoc, import order, complexity, and more.<br/>
-It walks the Abstract Syntax Tree (AST) produced by <code>javac</code> and applies a list of <em>modules</em> (rules).<br/>
-Each rule that fires produces a <em>violation</em>, which can be surfaced as a warning or a build‑breaking error.</p>
-<p>Typical reasons to adopt it:</p>
-<ul>
-<li>Keep code reviews focused on business logic instead of whitespace.</li>
-<li>Catch bugs such as missing <code>@Override</code>, empty <code>catch</code> blocks, or duplicated imports early.</li>
-<li>Guarantee that every repository shares the same style guide.</li>
-</ul>
+<h1 id="installing-and-using-sonatype-nexus-repository-manager-community-edition">🗄️ Installing and Using <strong>Sonatype Nexus Repository Manager – Community Edition</strong></h1>
+<blockquote>
+<p>Version tested: <strong>Nexus 3.67</strong> (May 2025)
+Works on Linux, macOS, Windows (via Docker Desktop or native ZIP install).</p>
+</blockquote>
 <hr/>
-<h2 id="2-using-checkstyle-with-maven">2  Using Checkstyle with Maven</h2>
-<h3 id="21-add-versions-in-the-parent-pom">2.1 Add versions in the parent POM</h3>
-<pre><code class="language-xml">&lt;properties&gt;
-    &lt;!-- Last stable versions – April 2025 --&gt;
-    &lt;maven.checkstyle.version&gt;3.6.0&lt;/maven.checkstyle.version&gt;
-    &lt;checkstyle.version&gt;10.24.0&lt;/checkstyle.version&gt;
-&lt;/properties&gt;
-</code></pre>
-<h3 id="22-configure-the-plugin-once">2.2 Configure the plugin once</h3>
-<pre><code class="language-xml">&lt;build&gt;
-  &lt;pluginManagement&gt;
-    &lt;plugins&gt;
-      &lt;plugin&gt;
-        &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
-        &lt;artifactId&gt;maven-checkstyle-plugin&lt;/artifactId&gt;
-        &lt;version&gt;${maven.checkstyle.version}&lt;/version&gt;
-
-        &lt;!-- pin the engine version you want --&gt;
-        &lt;dependencies&gt;
-          &lt;dependency&gt;
-            &lt;groupId&gt;com.puppycrawl.tools&lt;/groupId&gt;
-            &lt;artifactId&gt;checkstyle&lt;/artifactId&gt;
-            &lt;version&gt;${checkstyle.version}&lt;/version&gt;
-          &lt;/dependency&gt;
-        &lt;/dependencies&gt;
-
-        &lt;configuration&gt;
-          &lt;!-- shared rules --&gt;
-          &lt;configLocation&gt;${project.basedir}/../dev-platform/checkstyle/google_checks.xml&lt;/configLocation&gt;
-          &lt;encoding&gt;UTF-8&lt;/encoding&gt;
-          &lt;consoleOutput&gt;true&lt;/consoleOutput&gt;
-          &lt;failOnViolation&gt;true&lt;/failOnViolation&gt;
-          &lt;!-- ignore generated code --&gt;
-          &lt;excludeGeneratedSources&gt;true&lt;/excludeGeneratedSources&gt;
-        &lt;/configuration&gt;
-
-        &lt;executions&gt;
-          &lt;execution&gt;
-            &lt;id&gt;verify-style&lt;/id&gt;
-            &lt;phase&gt;verify&lt;/phase&gt;
-            &lt;goals&gt;&lt;goal&gt;check&lt;/goal&gt;&lt;/goals&gt;
-          &lt;/execution&gt;
-        &lt;/executions&gt;
-      &lt;/plugin&gt;
-    &lt;/plugins&gt;
-  &lt;/pluginManagement&gt;
-&lt;/build&gt;
-</code></pre>
-<p>Each micro‑service then needs only:</p>
-<pre><code class="language-xml">&lt;plugin&gt;
-  &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
-  &lt;artifactId&gt;maven-checkstyle-plugin&lt;/artifactId&gt;
-&lt;/plugin&gt;
-</code></pre>
-<h3 id="23-running">2.3 Running</h3>
+<h2 id="1-prerequisites">1  Prerequisites</h2>
 <table>
 <thead>
 <tr>
-<th>Action</th>
-<th>Command</th>
+<th>Tool</th>
+<th>Minimum version</th>
+<th>Check</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Verify in CI</td>
-<td><code>mvn verify</code> (runs <code>checkstyle:check</code>)</td>
+<td><strong>Java 11 LTS</strong> (only if you do <em>manual</em> install)</td>
+<td>11.0.22</td>
+<td><code>java -version</code></td>
 </tr>
 <tr>
-<td>HTML report</td>
-<td><code>mvn checkstyle:checkstyle</code></td>
+<td><strong>Docker Engine / Desktop</strong> <em>(recommended)</em></td>
+<td>24.x</td>
+<td><code>docker --version</code></td>
 </tr>
 <tr>
-<td>Ignore failures locally</td>
-<td><code>mvn -Dcheckstyle.failOnViolation=false verify</code></td>
+<td>4 GB RAM free</td>
+<td></td>
+<td>—</td>
+</tr>
+<tr>
+<td>10 GB disk (initial)</td>
+<td></td>
+<td>—</td>
 </tr>
 </tbody>
 </table>
 <hr/>
-<h2 id="3-spotless-your-autoformatter-friend">3  Spotless — Your Auto‑Formatter Friend</h2>
-<p>Checkstyle <strong>reports</strong> formatting issues; <strong>Spotless</strong> <strong>fixes</strong> them automatically.</p>
-<h3 id="31-plugin-snippet">3.1 Plugin snippet</h3>
-<pre><code class="language-xml">&lt;plugin&gt;
-  &lt;groupId&gt;com.diffplug.spotless&lt;/groupId&gt;
-  &lt;artifactId&gt;spotless-maven-plugin&lt;/artifactId&gt;
-  &lt;version&gt;2.44.4&lt;/version&gt;
+<h2 id="2-quick-install-with-docker">2  Quick install with Docker</h2>
+<pre><code class="language-bash"># 1) Pull and start
+docker run -d \
+  --name nexus \
+  -p 8081:8081 \
+  -p 5000:5000 \
+  -v nexus-data:/nexus-data \   # named volume that persists config &amp; blobs
+  sonatype/nexus3:latest
 
-  &lt;executions&gt;
-    &lt;!-- format before compile --&gt;
-    &lt;execution&gt;
-      &lt;id&gt;apply-spotless&lt;/id&gt;
-      &lt;phase&gt;process-sources&lt;/phase&gt;
-      &lt;goals&gt;&lt;goal&gt;apply&lt;/goal&gt;&lt;/goals&gt;
-    &lt;/execution&gt;
-
-    &lt;!-- block CI if formatting is wrong --&gt;
-    &lt;execution&gt;
-      &lt;id&gt;check-spotless&lt;/id&gt;
-      &lt;phase&gt;verify&lt;/phase&gt;
-      &lt;goals&gt;&lt;goal&gt;check&lt;/goal&gt;&lt;/goals&gt;
-    &lt;/execution&gt;
-  &lt;/executions&gt;
-
-  &lt;configuration&gt;
-    &lt;java&gt;
-      &lt;googleJavaFormat&gt;
-        &lt;version&gt;1.20.0&lt;/version&gt;
-      &lt;/googleJavaFormat&gt;
-
-      &lt;importOrder&gt;
-        &lt;order&gt;com.mycompany,java,javax,org,com&lt;/order&gt;
-        &lt;wildcardsLast&gt;true&lt;/wildcardsLast&gt;
-      &lt;/importOrder&gt;
-
-      &lt;removeUnusedImports/&gt;
-    &lt;/java&gt;
-  &lt;/configuration&gt;
-&lt;/plugin&gt;
+# 2) Tail logs until you see "Started Sonatype Nexus"
+docker logs -f nexus
 </code></pre>
-<p><strong>Order matters:</strong> because Spotless hooks into <code>process-sources</code>, it runs <strong>before</strong> Checkstyle, so Checkstyle never complains about issues Spotless can auto‑correct.</p>
-<h3 id="32-daily-commands">3.2 Daily commands</h3>
-<table>
-<thead>
-<tr>
-<th>Goal</th>
-<th>Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>mvn spotless:apply</code></td>
-<td>Re‑format locally before committing</td>
-</tr>
-<tr>
-<td><code>mvn spotless:check</code></td>
-<td>Fail CI if any file is mis‑formatted</td>
-</tr>
-<tr>
-<td><code>-DspotlessRatchetFrom=origin/main</code></td>
-<td>Enforce only on changed files</td>
-</tr>
-</tbody>
-</table>
 <hr/>
-<h2 id="4-intellij-idea-20251-configuration">4  IntelliJ IDEA 2025.1 Configuration</h2>
+<h2 id="3-firsttime-setup-in-the-ui">3  First‑time setup in the UI</h2>
 <ol>
-<li><strong>Install Checkstyle‑IDEA</strong> → <em>Settings › Plugins</em>.  </li>
-<li><strong>Add your rules file</strong>: <em>Settings › Tools › Checkstyle</em> → ➕ New → pick <code>google_checks.xml</code> (or a custom copy).  </li>
-<li>Tick only that file – untick the default Google profile if you modified it.  </li>
-<li>Enable <em>Scan files automatically</em> for real‑time feedback.  </li>
-<li><strong>Exclude generated code</strong> in the same dialog: <em>Exclude from scan › generated sources</em>.  </li>
-<li><strong>(Optional)</strong> Install <em>Spotless Apply</em> plugin or configure <em>Save Actions</em> to run <code>spotlessApply</code> on save.  </li>
-<li>Commit <code>.idea/checkstyle-idea.xml</code> so every teammate inherits the same configuration.</li>
+<li>Browse to <a href="http://localhost:8081">http://localhost:8081</a>.</li>
+<li>
+<p><strong>Unlock Nexus</strong>:</p>
+<p><code>bash
+cat $(docker volume inspect nexus-data -f '{{ .Mountpoint }}')/admin.password</code></p>
+<p>Paste the one‑time password, press <strong>Sign in</strong>.</p>
+</li>
+<li>
+<p>Set a new <strong>admin</strong> password.</p>
+</li>
+<li>Choose <strong>Skip</strong> for anonymous telemetry unless you agree.</li>
 </ol>
 <hr/>
-<h2 id="5-recap">5  Recap</h2>
+<h2 id="4-creating-repositories-if-not-existing">4  Creating repositories (if not existing)</h2>
+<h3 id="41-maven-hosted-repo-for-your-internal-artifacts">4.1 Maven <em>hosted</em> repo (for your internal artifacts)</h3>
+<ol>
+<li><strong>Repositories → Repositories → Create repository</strong></li>
+<li>Type: <strong>maven2 (hosted)</strong></li>
+<li>Name: <code>maven-releases</code></li>
+<li>Version policy: <em>Release</em></li>
+<li>Write policy: <em>Allow redeploy</em> (or <em>Allow once</em> for stricter).</li>
+<li>Layout: <em>Maven2</em>, blob store: <em>default</em>, <strong>Create repository</strong>.</li>
+</ol>
+<p>Repeat for <code>maven-snapshots</code> with <em>Snapshot</em> policy.</p>
+<h3 id="42-maven-proxy-repo-caches-maven-central">4.2 Maven <em>proxy</em> repo (caches Maven Central)</h3>
+<ol>
+<li>Create <strong>maven2 (proxy)</strong></li>
+<li>Name: <code>maven-central</code></li>
+<li>Remote URL: <a href="https://repo1.maven.org/maven2/">https://repo1.maven.org/maven2/</a></li>
+<li>Storage → Maximum component age: e.g. 30 days.</li>
+<li><strong>Create</strong>.</li>
+</ol>
+<h3 id="43-group-repo-convenient-single-url">4.3 Group repo (convenient single URL)</h3>
+<ol>
+<li>Create <strong>maven2 (group)</strong></li>
+<li>Name: <code>maven-public</code></li>
+<li>Add members: first <code>maven-releases</code>, then <code>maven-snapshots</code>, then <code>maven-central</code>.</li>
+<li><strong>Create</strong>.</li>
+</ol>
+<hr/>
+<h2 id="5-configure-maven-to-use-nexus">5  Configure Maven to use Nexus</h2>
+<p>Place in <code>~/.m2/settings.xml</code>:</p>
+<pre><code class="language-xml">&lt;settings&gt;
+  &lt;mirrors&gt;
+    &lt;mirror&gt;
+      &lt;id&gt;nexus&lt;/id&gt;
+      &lt;mirrorOf&gt;*&lt;/mirrorOf&gt;
+      &lt;url&gt;http://localhost:8081/repository/maven-public/&lt;/url&gt;
+    &lt;/mirror&gt;
+  &lt;/mirrors&gt;
+
+  &lt;servers&gt;
+    &lt;server&gt;
+      &lt;id&gt;nexus-releases&lt;/id&gt;
+      &lt;username&gt;admin&lt;/username&gt;
+      &lt;password&gt;••••&lt;/password&gt;
+    &lt;/server&gt;
+    &lt;server&gt;
+      &lt;id&gt;nexus-snapshots&lt;/id&gt;
+      &lt;username&gt;admin&lt;/username&gt;
+      &lt;password&gt;••••&lt;/password&gt;
+    &lt;/server&gt;
+  &lt;/servers&gt;
+&lt;/settings&gt;
+</code></pre>
+<p>Publish:</p>
+<pre><code class="language-bash">mvn clean deploy -DaltDeploymentRepository=nexus-snapshots::default::http://localhost:8081/repository/maven-snapshots/
+</code></pre>
+<hr/>
+<h2 id="6-docker-registry-via-nexus">6  Docker registry via Nexus</h2>
+<ol>
+<li>Create <strong>docker (hosted)</strong>, name <code>docker-hosted</code>, HTTP Port <em>5000</em>.</li>
+<li>In <em>Docker Clients</em> tick “V2 signature”.</li>
+<li><code>docker login localhost:5000 -u admin</code>.</li>
+<li>Tag &amp; push:</li>
+</ol>
+<p><code>bash
+   docker tag alpine localhost:5000/demo/alpine:3.20
+   docker push localhost:5000/demo/alpine:3.20</code></p>
+<hr/>
+<h2 id="7-user-role-management">7  User &amp; Role management</h2>
 <ul>
-<li><strong>Checkstyle</strong> = static style checker → breaks the build on violations.  </li>
-<li><strong>Spotless</strong> = automatic formatter → fixes what Checkstyle would otherwise flag.  </li>
-<li>Wire Spotless to <code>process-sources</code> and Checkstyle to <code>verify</code> so the build does:  </li>
-<li>format → 2. compile → 3. test → 4. style‑verify.  </li>
-<li>Mirror the same XML inside IntelliJ to get instant warnings while coding.</li>
+<li><strong>Security → Users → Create local user</strong>
+<em>Id:</em> <code>ci</code>, <em>Password:</em> <code>***</code>, assign role <strong>nx-deployment</strong>.</li>
+<li>For LDAP/OIDC → <code>Security → Realms</code> and enable provider, then configure under <code>Administration → Capabilities</code>.</li>
 </ul>
-<p>Follow this recipe and your micro‑services will stay clean, diffs will shrink, and debates about curly brackets will become ancient history.</p>
+<hr/>
+<h2 id="8-upgrading-nexus">8  Upgrading Nexus</h2>
+<pre><code class="language-bash">docker pull sonatype/nexus3:latest
+docker stop nexus &amp;&amp; docker rm nexus
+docker run -d --name nexus -p 8081:8081 -p 5000:5000 \
+  -v nexus-data:/nexus-data \
+  sonatype/nexus3:latest
+</code></pre>
+<hr/>
+<h2 id="9-backup-restore">9  Backup &amp; restore</h2>
+<pre><code class="language-bash"># Backup blob + database
+docker run --rm --volumes-from nexus -v $(pwd):/backup busybox \
+  tar czf /backup/nexus-backup-$(date +%F).tgz /nexus-data
+
+# Restore
+docker stop nexus &amp;&amp; docker rm nexus
+docker volume rm nexus-data
+docker volume create nexus-data
+tar xzf nexus-backup-2025-05-06.tgz -C $(docker volume inspect nexus-data -f '{{ .Mountpoint }}')
+docker run -d --name nexus -p 8081:8081 -p 5000:5000 \
+  -v nexus-data:/nexus-data \
+  sonatype/nexus3:latest
+</code></pre>
+<hr/>
+<h2 id="10-references-next-steps">10  References &amp; next steps</h2>
+<ul>
+<li>Official docs: <a href="https://help.sonatype.com/repomanager3">https://help.sonatype.com/repomanager3</a></li>
+<li>REST API: <code>http://localhost:8081/service/rest/swagger.json</code></li>
+<li>Consider Sonatype IQ for vulnerability scanning (paid).</li>
+</ul>
+<hr/>
 <aside class="md-source-file">
 <span class="md-source-file__fact">
 <span class="md-icon" title="Last update">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"></path></svg>
 </span>
-<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 24, 2025 06:54:12 UTC">July 24, 2025</span>
+<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 28, 2025 10:57:01 UTC">July 28, 2025</span>
 </span>
 </aside>
 </article>
@@ -742,7 +789,7 @@ Each rule that fires produces a <em>violation</em>, which can be surfaced as a w
 <div class="md-dialog__inner md-typeset"></div>
 </div>
 <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
-<script src="../../assets/javascripts/bundle.56ea9cef.min.js"></script>
+<script src="../../assets/javascripts/bundle.50899def.min.js"></script>
 <script src="../../assets/mkdocs_puml/puml.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
 <script src="../../assets/mkdocs_puml/interaction.js"></script>

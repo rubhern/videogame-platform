@@ -8,9 +8,9 @@
 <link href="../../tech/stack/" rel="prev"/>
 <link href="../../diagrams/observability/obs-diagram/" rel="next"/>
 <link href="../../../assets/images/favicon.png" rel="icon"/>
-<meta content="mkdocs-1.6.1, mkdocs-material-9.6.15" name="generator"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.6.16" name="generator"/>
 <title>📝 Decisions - Videogame Platform Docs</title>
-<link href="../../../assets/stylesheets/main.342714a4.min.css" rel="stylesheet"/>
+<link href="../../../assets/stylesheets/main.7e37652d.min.css" rel="stylesheet"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
 <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
@@ -188,9 +188,9 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#trade-offs-alternatives-considered">
+<a class="md-nav__link" href="#tradeoffs-alternatives-considered">
 <span class="md-ellipsis">
-      Trade-offs &amp; Alternatives considered
+      Trade‑offs &amp; Alternatives considered
     </span>
 </a>
 </li>
@@ -344,7 +344,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../../tools/nexus-tutorial/">
+<a class="md-nav__link" href="../../../tools/nexus/">
 <span class="md-ellipsis">
     🧩 Sonatype Nexus
     
@@ -352,9 +352,25 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../../../tools/checkstyle-tutorial/">
+<a class="md-nav__link" href="../../../tools/checkstyle/">
 <span class="md-ellipsis">
     🎨 Google Code Style
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../tools/sonarcloud/">
+<span class="md-ellipsis">
+    📊 SonarCloud
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../../../tools/ci-cd-guide/">
+<span class="md-ellipsis">
+    🔄 CI/CD Guide
     
   </span>
 </a>
@@ -377,9 +393,9 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#trade-offs-alternatives-considered">
+<a class="md-nav__link" href="#tradeoffs-alternatives-considered">
 <span class="md-ellipsis">
-      Trade-offs &amp; Alternatives considered
+      Trade‑offs &amp; Alternatives considered
     </span>
 </a>
 </li>
@@ -402,83 +418,87 @@
 <tbody>
 <tr>
 <td><strong>Overall style</strong></td>
-<td><em>C4-model</em> micro-service architecture</td>
+<td><em>C4‑model</em> micro‑service architecture</td>
 <td>Clear separation of concerns; scales organisationally (independent teams) and technically (independent deployables).</td>
 </tr>
 <tr>
 <td><strong>Runtime platform</strong></td>
-<td><em>Kubernetes</em> (managed)</td>
-<td>Rolling updates, self-healing, built-in service discovery and HPA suit game-traffic spikes.</td>
+<td><em>MicroK8s</em> on Windows 11 WSL 2</td>
+<td>Lightweight single‑node Kubernetes ideal for a local training environment; avoids cloud fees while remaining upstream compatible.</td>
 </tr>
 <tr>
 <td><strong>API ingress</strong></td>
-<td><em>Kong Ingress / NGINX</em> + <em>Edge CDN</em></td>
-<td>Centralised auth, rate-limiting and coarse caching at the edge reduce P99 latency worldwide.</td>
+<td><em>Kong Ingress Controller</em></td>
+<td>Unified gateway with auth, rate‑limiting and plugins. An Edge CDN will be evaluated post‑MVP for global caching.</td>
+</tr>
+<tr>
+<td><strong>URL scheme (MVP)</strong></td>
+<td><em>HTTP</em> only</td>
+<td>Eliminates TLS complexity during early development; HTTPS will be enforced before public release.</td>
 </tr>
 <tr>
 <td><strong>AuthN / AuthZ</strong></td>
 <td><em>Keycloak</em> with OIDC</td>
-<td>Open-source, supports social log-ins; avoids bespoke auth code in every service.</td>
+<td>Open‑source, supports social log‑ins; avoids bespoke auth code in each service.</td>
 </tr>
 <tr>
 <td><strong>Service framework</strong></td>
 <td><em>Spring Boot</em> (Java 21)</td>
-<td>Mature ecosystem, first-class observability hooks, developers already fluent.</td>
+<td>Mature ecosystem, first‑class observability hooks, developer familiarity.</td>
 </tr>
 <tr>
-<td><strong>Inter-service sync</strong></td>
+<td><strong>Inter‑service sync</strong></td>
 <td><em>REST / JSON</em> via Gateway</td>
 <td>Simpler than gRPC for external integration; benefits from Kong plugins (caching, tracing).</td>
 </tr>
 <tr>
 <td><strong>Async messaging</strong></td>
 <td><em>Apache Kafka</em></td>
-<td>High-throughput fan-out (ratings-created, reviews-created); guarantees ordering for leaderboards.</td>
+<td>High‑throughput fan‑out (ratings‑created, reviews‑created); guarantees ordering for leaderboards.</td>
 </tr>
 <tr>
 <td><strong>Databases</strong></td>
 <td><em>PostgreSQL</em> (users, games, ratings), <em>MongoDB</em> (reviews), <em>Redis</em> (cache)</td>
-<td>Relational consistency for core entities; flexible schema + text search for reviews; in-memory latency for hot game data.</td>
+<td>Relational consistency for core entities; flexible schema + text search for reviews; in‑memory latency for hot game data.</td>
 </tr>
 <tr>
 <td><strong>External data</strong></td>
 <td><em>IGDB API</em> pulled by Launch Svc</td>
-<td>Avoids replicating a large third-party dataset; keeps catalogue fresh daily.</td>
+<td>Avoids replicating a large third‑party dataset; keeps catalogue fresh daily.</td>
 </tr>
 <tr>
 <td><strong>Observability</strong></td>
 <td><em>Prometheus</em> + <em>Grafana</em> (metrics), <em>ELK</em> (logs), <em>Jaeger</em> (traces)</td>
-<td>OSS stack with vibrant community; no vendor lock-in; supports RED/SLO dashboards.</td>
+<td>OSS stack with vibrant community; no vendor lock‑in; supports RED/SLO dashboards.</td>
 </tr>
 <tr>
 <td><strong>CI / CD</strong></td>
-<td>GitHub Actions → Docker → Helm Charts</td>
-<td>Full pipeline as-code; Helm simplifies multi-env overrides.</td>
+<td>GitHub Actions → Docker → <em>Argo CD</em> (syncs to MicroK8s)</td>
+<td>GitOps pull‑based deployment; Argo CD reconciles manifests inside the local cluster.</td>
 </tr>
 <tr>
 <td><strong>Infrastructure as Code</strong></td>
-<td><em>Terraform</em> modules for cluster, DBs, VPC</td>
-<td>Audit-ready provisioning, reproducible environments.</td>
+<td><em>Helm charts</em> applied manually (MVP); <em>Terraform</em> TBD</td>
+<td>Quick bootstrap for local experimentation; Terraform will be revisited once multi‑cluster or cloud infra is needed.</td>
 </tr>
 <tr>
 <td><strong>Secrets</strong></td>
 <td><em>Kubernetes Secrets</em> sealed by <em>SOPS</em></td>
-<td>Encrypt-at-rest in Git, decrypt only at deploy time.</td>
+<td>Encrypt‑at‑rest in Git, decrypt only at deploy time.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="trade-offs-alternatives-considered">Trade-offs &amp; Alternatives considered</h2>
+<h2 id="tradeoffs-alternatives-considered">Trade‑offs &amp; Alternatives considered</h2>
 <ul>
-<li><strong>Monolith vs micro-services</strong> – a monolith would simplify deployments but hinder parallel feature work and elastic scaling of hot spots (e.g. ratings).</li>
-<li><strong>gRPC vs REST</strong> – gRPC brings smaller payloads but HTTP/JSON is still easier for web clients and external partners.</li>
-<li><strong>Managed DB vs self-hosted</strong> – managed Postgres wins on operational burden; MongoDB + Redis stay self-hosted for cost.</li>
-<li><strong>Hosted APM suites</strong> – Datadog / New Relic provide out-of-the-box dashboards but incur steep licensing; OSS stack chosen for cost neutrality.</li>
+<li><strong>MicroK8s vs managed Kubernetes</strong> – MicroK8s keeps everything local and free but lacks managed‑service SLAs; manifests remain portable should the project migrate to a cloud provider.</li>
+<li><strong>HTTP vs HTTPS in MVP</strong> – Shipping with HTTP accelerates feedback but creates a security to‑do before go‑live (automated TLS, cert rotation).</li>
+<li><strong>Helm vs Terraform for infra tools</strong> – Helm offers fast installs; Terraform enables stateful governance and drift detection. The team will reassess once infrastructure grows.</li>
 </ul>
 <blockquote>
-<p><em>The team will revisit these decisions quarterly; any change will be captured here as ADR-nnn.</em></p>
+<p><em>The team will revisit these decisions quarterly; any change will be captured here as ADR‑nnn.</em></p>
 </blockquote>
 <h1 id="adr-001-remove-lombok">ADR 001 – Remove Lombok</h1>
-<p>Date: 2025-06-05</p>
+<p>Date: 2025‑06‑05</p>
 <h2 id="status">Status</h2>
 <ul>
 <li>Accepted</li>
@@ -503,10 +523,10 @@
 </ul>
 <h2 id="decision">Decision</h2>
 <ul>
-<li>Remove the Lombok dependency (org.projectlombok:lombok) from all modules.</li>
+<li>Remove the Lombok dependency (<code>org.projectlombok:lombok</code>) from all modules.</li>
 <li>
 <p>Replace:</p>
-<ul>
+</li>
 <li>
 <p>Immutable POJOs → Java records.</p>
 </li>
@@ -517,16 +537,14 @@
 <p>Lombok builders → standard builder patterns or MapStruct builders where needed.</p>
 </li>
 <li>
-<p>Delete @Getter, @Setter, @Builder, @Value, @Slf4j, and related annotations from source.</p>
-</li>
-</ul>
+<p>Delete <code>@Getter</code>, <code>@Setter</code>, <code>@Builder</code>, <code>@Value</code>, <code>@Slf4j</code>, and related annotations from source.</p>
 </li>
 </ul>
 <h2 id="consequences">Consequences</h2>
 <ul>
 <li>
-<p>Pros</p>
-<ul>
+<p><strong>Pros</strong></p>
+</li>
 <li>
 <p>IDE‑agnostic code; no plugin prerequisite.</p>
 </li>
@@ -539,22 +557,18 @@
 <li>
 <p>Future‑proof: no waiting for Lombok updates each JDK release.</p>
 </li>
-</ul>
-</li>
 <li>
-<p>Cons</p>
-<ul>
+<p><strong>Cons</strong></p>
+</li>
 <li>
 <p>One‑off refactor touching ~240 files; larger diff PR.</p>
 </li>
 <li>
 <p>Slightly more verbose getters/setters in a few mutable classes.</p>
 </li>
-</ul>
-</li>
 <li>
-<p>Mitigations</p>
-<ul>
+<p><strong>Mitigations</strong></p>
+</li>
 <li>
 <p>Automated migration script (OpenRewrite lombok‑to‑records recipe) plus IDE refactor shortcuts keep effort to about two developer‑days.</p>
 </li>
@@ -562,14 +576,53 @@
 <p>Code review checklist updated to prevent re‑introducing Lombok.</p>
 </li>
 </ul>
-</li>
+<h1 id="adr-002-local-singlenode-gitops-stack">ADR 002 – Local Single‑Node GitOps Stack</h1>
+<p>Date: 2025‑07‑28</p>
+<h2 id="status_1">Status</h2>
+<ul>
+<li>Accepted</li>
 </ul>
+<h2 id="context_1">Context</h2>
+<ul>
+<li>The project is a <strong>personal training playground</strong> operating entirely on <em>Windows 11 + WSL 2</em>. Cloud costs and team size are minimal, so a lightweight, self‑contained environment is preferred.</li>
+</ul>
+<h2 id="decision_1">Decision</h2>
+<ol>
+<li><strong>Runtime platform</strong> – adopt <strong>MicroK8s</strong> for container orchestration. It provides upstream‑compatible Kubernetes with a tiny footprint and is easy to reset or upgrade.</li>
+<li><strong>Ingress strategy</strong> – expose services exclusively through <strong>Kong Ingress Controller</strong>. Future work will explore an external <em>Edge CDN</em> once public traffic or multi‑region latency becomes a concern.</li>
+<li><strong>Protocol (MVP)</strong> – all endpoints are served over <strong>HTTP</strong>. TLS termination and certificate‑automation will be introduced when external exposure is required.</li>
+<li><strong>Infrastructure tool installation</strong> – deploy platform components (Kong, Keycloak, Prometheus, etc.) via <strong>Helm charts executed manually</strong>. When the stack grows or moves to cloud, we will reassess using <strong>Terraform</strong> for declarative state management.</li>
+<li><strong>Application delivery</strong> – business services are GitOps‑managed: <strong>Argo CD</strong> syncs manifests to the local <strong>MicroK8s</strong> cluster.</li>
+</ol>
+<h2 id="consequences_1">Consequences</h2>
+<h3 id="pros">Pros</h3>
+<ul>
+<li><strong>Zero cloud bill</strong> – entire cluster runs locally.</li>
+<li><strong>Fast feedback</strong> – dev loop (&lt;20s redeploy) courtesy of MicroK8s and Argo CD.</li>
+<li><strong>Low cognitive load</strong> – HTTP avoids early‑stage cert issues; Helm CLI keeps bootstrap simple.</li>
+<li><strong>Future‑ready</strong> – manifests, Argo CD, and Kong are cloud‑portable; adding TLS, CDN, or Terraform doesn’t invalidate earlier work.</li>
+</ul>
+<h3 id="cons">Cons</h3>
+<ul>
+<li><strong>Security gap</strong> – no in‑cluster encryption; must be addressed before any public release.</li>
+<li><strong>Manual Helm drift</strong> – manual upgrades risk config drift until Terraform or Argo CD Chart‑bootstrapping is adopted.</li>
+<li><strong>Single node</strong> – lacks HA; not suitable for heavy load or production.</li>
+</ul>
+<h3 id="followups">Follow‑ups</h3>
+<ul>
+<li>Automate TLS with <em>cert‑manager</em> + <em>Let’s Encrypt</em>.</li>
+<li>Evaluate <em>Terraform</em> (or <em>Pulumi</em>) when additional clusters or cloud infra appear.</li>
+<li>Benchmark <strong>Edge‑side caching</strong> via Kong’s Gateway mode or a managed CDN (Cloudflare, AWS CloudFront) once public users are expected.</li>
+</ul>
+<blockquote>
+<p><em>This ADR supersedes the corresponding table entries in the Architecture Decisions section; future changes to these points will be tracked as new ADRs.</em></p>
+</blockquote>
 <aside class="md-source-file">
 <span class="md-source-file__fact">
 <span class="md-icon" title="Last update">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"></path></svg>
 </span>
-<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 24, 2025 06:54:12 UTC">July 24, 2025</span>
+<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 28, 2025 10:57:01 UTC">July 28, 2025</span>
 </span>
 </aside>
 </article>
@@ -600,7 +653,7 @@
 <div class="md-dialog__inner md-typeset"></div>
 </div>
 <script id="__config" type="application/json">{"base": "../../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
-<script src="../../../assets/javascripts/bundle.56ea9cef.min.js"></script>
+<script src="../../../assets/javascripts/bundle.50899def.min.js"></script>
 <script src="../../../assets/mkdocs_puml/puml.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
 <script src="../../../assets/mkdocs_puml/interaction.js"></script>

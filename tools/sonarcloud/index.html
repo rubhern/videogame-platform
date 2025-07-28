@@ -5,12 +5,12 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
-<link href="../../archetypes/rest-postgre-archetype/" rel="prev"/>
-<link href="../checkstyle-tutorial/" rel="next"/>
+<link href="../checkstyle/" rel="prev"/>
+<link href="../ci-cd-guide/" rel="next"/>
 <link href="../../assets/images/favicon.png" rel="icon"/>
-<meta content="mkdocs-1.6.1, mkdocs-material-9.6.15" name="generator"/>
-<title>🧩 Sonatype Nexus - Videogame Platform Docs</title>
-<link href="../../assets/stylesheets/main.342714a4.min.css" rel="stylesheet"/>
+<meta content="mkdocs-1.6.1, mkdocs-material-9.6.16" name="generator"/>
+<title>📊 SonarCloud - Videogame Platform Docs</title>
+<link href="../../assets/stylesheets/main.7e37652d.min.css" rel="stylesheet"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
 <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
@@ -24,7 +24,7 @@
 <input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
 <label class="md-overlay" for="__drawer"></label>
 <div data-md-component="skip">
-<a class="md-skip" href="#installing-and-using-sonatype-nexus-repository-manager-community-edition">
+<a class="md-skip" href="#sonarcloud-integration-quick-guide">
           Skip to content
         </a>
 </div>
@@ -48,7 +48,7 @@
 <div class="md-header__topic" data-md-component="header-topic">
 <span class="md-ellipsis">
             
-              🧩 Sonatype Nexus
+              📊 SonarCloud
             
           </span>
 </div>
@@ -320,18 +320,34 @@
             🛠️ Tools
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="../nexus/">
+<span class="md-ellipsis">
+    🧩 Sonatype Nexus
+    
+  </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="../checkstyle/">
+<span class="md-ellipsis">
+    🎨 Google Code Style
+    
+  </span>
+</a>
+</li>
 <li class="md-nav__item md-nav__item--active">
 <input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
 <label class="md-nav__link md-nav__link--active" for="__toc">
 <span class="md-ellipsis">
-    🧩 Sonatype Nexus
+    📊 SonarCloud
     
   </span>
 <span class="md-nav__icon md-icon"></span>
 </label>
 <a class="md-nav__link md-nav__link--active" href="./">
 <span class="md-ellipsis">
-    🧩 Sonatype Nexus
+    📊 SonarCloud
     
   </span>
 </a>
@@ -342,97 +358,51 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#1-prerequisites">
+<a class="md-nav__link" href="#1-what-is-sonarsonarqube-sonarcloud">
 <span class="md-ellipsis">
-      1 Prerequisites
+      1 What is Sonar(SonarQube / SonarCloud)?
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#2-quick-install-with-docker">
+<a class="md-nav__link" href="#2-what-does-sonar-detect">
 <span class="md-ellipsis">
-      2 Quick install with Docker
+      2 What does Sonar detect?
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#3-firsttime-setup-in-the-ui">
+<a class="md-nav__link" href="#3-what-is-a-qualitygate-and-why-does-it-matter">
 <span class="md-ellipsis">
-      3 First‑time setup in the UI
+      3 What is a QualityGate and why does it matter?
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#4-creating-repositories-if-not-existing">
+<a class="md-nav__link" href="#4-getting-started-with-sonarcloud">
 <span class="md-ellipsis">
-      4 Creating repositories (if not existing)
-    </span>
-</a>
-<nav aria-label="4 Creating repositories (if not existing)" class="md-nav">
-<ul class="md-nav__list">
-<li class="md-nav__item">
-<a class="md-nav__link" href="#41-maven-hosted-repo-for-your-internal-artifacts">
-<span class="md-ellipsis">
-      4.1 Maven hosted repo (for your internal artifacts)
+      4 Getting started with SonarCloud
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#42-maven-proxy-repo-caches-maven-central">
+<a class="md-nav__link" href="#5-github-actions-pipeline-build-and-pushyml">
 <span class="md-ellipsis">
-      4.2 Maven proxy repo (caches Maven Central)
+      5 GitHub Actions pipeline (build-and-push.yml)
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#43-group-repo-convenient-single-url">
+<a class="md-nav__link" href="#6-local-analysis-sonarlint-maven">
 <span class="md-ellipsis">
-      4.3 Group repo (convenient single URL)
-    </span>
-</a>
-</li>
-</ul>
-</nav>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#5-configure-maven-to-use-nexus">
-<span class="md-ellipsis">
-      5 Configure Maven to use Nexus
+      6 Local analysis (SonarLint &amp; Maven)
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#6-docker-registry-via-nexus">
+<a class="md-nav__link" href="#7-references-next-steps">
 <span class="md-ellipsis">
-      6 Docker registry via Nexus
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#7-user-role-management">
-<span class="md-ellipsis">
-      7 User &amp; Role management
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#8-upgrading-nexus">
-<span class="md-ellipsis">
-      8 Upgrading Nexus
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#9-backup-restore">
-<span class="md-ellipsis">
-      9 Backup &amp; restore
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#10-references-next-steps">
-<span class="md-ellipsis">
-      10 References &amp; next steps
+      7 References &amp; next steps
     </span>
 </a>
 </li>
@@ -440,9 +410,9 @@
 </nav>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="../checkstyle-tutorial/">
+<a class="md-nav__link" href="../ci-cd-guide/">
 <span class="md-ellipsis">
-    🎨 Google Code Style
+    🔄 CI/CD Guide
     
   </span>
 </a>
@@ -465,97 +435,51 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#1-prerequisites">
+<a class="md-nav__link" href="#1-what-is-sonarsonarqube-sonarcloud">
 <span class="md-ellipsis">
-      1 Prerequisites
+      1 What is Sonar(SonarQube / SonarCloud)?
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#2-quick-install-with-docker">
+<a class="md-nav__link" href="#2-what-does-sonar-detect">
 <span class="md-ellipsis">
-      2 Quick install with Docker
+      2 What does Sonar detect?
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#3-firsttime-setup-in-the-ui">
+<a class="md-nav__link" href="#3-what-is-a-qualitygate-and-why-does-it-matter">
 <span class="md-ellipsis">
-      3 First‑time setup in the UI
+      3 What is a QualityGate and why does it matter?
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#4-creating-repositories-if-not-existing">
+<a class="md-nav__link" href="#4-getting-started-with-sonarcloud">
 <span class="md-ellipsis">
-      4 Creating repositories (if not existing)
-    </span>
-</a>
-<nav aria-label="4 Creating repositories (if not existing)" class="md-nav">
-<ul class="md-nav__list">
-<li class="md-nav__item">
-<a class="md-nav__link" href="#41-maven-hosted-repo-for-your-internal-artifacts">
-<span class="md-ellipsis">
-      4.1 Maven hosted repo (for your internal artifacts)
+      4 Getting started with SonarCloud
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#42-maven-proxy-repo-caches-maven-central">
+<a class="md-nav__link" href="#5-github-actions-pipeline-build-and-pushyml">
 <span class="md-ellipsis">
-      4.2 Maven proxy repo (caches Maven Central)
+      5 GitHub Actions pipeline (build-and-push.yml)
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#43-group-repo-convenient-single-url">
+<a class="md-nav__link" href="#6-local-analysis-sonarlint-maven">
 <span class="md-ellipsis">
-      4.3 Group repo (convenient single URL)
-    </span>
-</a>
-</li>
-</ul>
-</nav>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#5-configure-maven-to-use-nexus">
-<span class="md-ellipsis">
-      5 Configure Maven to use Nexus
+      6 Local analysis (SonarLint &amp; Maven)
     </span>
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="#6-docker-registry-via-nexus">
+<a class="md-nav__link" href="#7-references-next-steps">
 <span class="md-ellipsis">
-      6 Docker registry via Nexus
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#7-user-role-management">
-<span class="md-ellipsis">
-      7 User &amp; Role management
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#8-upgrading-nexus">
-<span class="md-ellipsis">
-      8 Upgrading Nexus
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#9-backup-restore">
-<span class="md-ellipsis">
-      9 Backup &amp; restore
-    </span>
-</a>
-</li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="#10-references-next-steps">
-<span class="md-ellipsis">
-      10 References &amp; next steps
+      7 References &amp; next steps
     </span>
 </a>
 </li>
@@ -566,183 +490,168 @@
 </div>
 <div class="md-content" data-md-component="content">
 <article class="md-content__inner md-typeset">
-<h1 id="installing-and-using-sonatype-nexus-repository-manager-community-edition">🗄️ Installing and Using <strong>Sonatype Nexus Repository Manager – Community Edition</strong></h1>
+<h1 id="sonarcloud-integration-quick-guide">🚀 SonarCloud Integration – Quick Guide</h1>
 <blockquote>
-<p>Version tested: <strong>Nexus 3.67</strong> (May 2025)
-Works on Linux, macOS, Windows (via Docker Desktop or native ZIP install).</p>
+<p>Platform: <strong>SonarCloud (free SaaS edition)</strong><br/>
+Date: <strong>July 2025</strong><br/>
+Sample repository: <em>videogame‑platform</em> (monorepo with Java 21 + SpringBoot3 microservices)</p>
 </blockquote>
 <hr/>
-<h2 id="1-prerequisites">1  Prerequisites</h2>
+<h2 id="1-what-is-sonarsonarqube-sonarcloud">1 What is Sonar(SonarQube / SonarCloud)?</h2>
+<p>Sonar is a <em>Continuous Inspection</em> platform that <strong>analyses source code</strong> to measure, track, and improve its quality.<br/>
+<strong>SonarCloud</strong> is SonarSource’s fully managed SaaS offering:</p>
+<ul>
+<li>Scans every pull request automatically.</li>
+<li>Calculates key metrics and reports the result via GitHub Checks.</li>
+<li>Stores history and trends without any server maintenance.</li>
+</ul>
+<hr/>
+<h2 id="2-what-does-sonar-detect">2 What does Sonar detect?</h2>
 <table>
 <thead>
 <tr>
-<th>Tool</th>
-<th>Minimum version</th>
-<th>Check</th>
+<th>Category</th>
+<th>Description</th>
+<th>Examples</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Java 11 LTS</strong> (only if you do <em>manual</em> install)</td>
-<td>11.0.22</td>
-<td><code>java -version</code></td>
+<td><strong>Bugs</strong></td>
+<td>Runtime errors that will cause failures in production</td>
+<td>NullPointer, incorrect API usage</td>
 </tr>
 <tr>
-<td><strong>Docker Engine / Desktop</strong> <em>(recommended)</em></td>
-<td>24.x</td>
-<td><code>docker --version</code></td>
+<td><strong>Vulnerabilities</strong></td>
+<td>Exploitable security risks</td>
+<td>SQL Injection, Path Traversal</td>
 </tr>
 <tr>
-<td>4 GB RAM free</td>
-<td></td>
+<td><strong>CodeSmells</strong></td>
+<td>Maintainability problems</td>
+<td>Long methods, high cyclomatic complexity</td>
+</tr>
+<tr>
+<td><strong>SecurityHotspots</strong></td>
+<td>Code areas that need manual review</td>
+<td>Insecure cryptography</td>
+</tr>
+<tr>
+<td><strong>Duplications</strong></td>
+<td>Copy‑pasted code increasing change cost</td>
+<td>Same block in multiple classes</td>
+</tr>
+<tr>
+<td><strong>Coverage</strong></td>
+<td>Percentage of lines covered by tests</td>
 <td>—</td>
 </tr>
 <tr>
-<td>10 GB disk (initial)</td>
-<td></td>
+<td><strong>Reliability / Maintainability ratings</strong></td>
+<td>Letter grades A–E based on technical debt</td>
 <td>—</td>
 </tr>
 </tbody>
 </table>
 <hr/>
-<h2 id="2-quick-install-with-docker">2  Quick install with Docker</h2>
-<pre><code class="language-bash"># 1) Pull and start
-docker run -d \
-  --name nexus \
-  -p 8081:8081 \
-  -p 5000:5000 \
-  -v nexus-data:/nexus-data \   # named volume that persists config &amp; blobs
-  sonatype/nexus3:latest
-
-# 2) Tail logs until you see "Started Sonatype Nexus"
-docker logs -f nexus
-</code></pre>
-<hr/>
-<h2 id="3-firsttime-setup-in-the-ui">3  First‑time setup in the UI</h2>
-<ol>
-<li>Browse to <a href="http://localhost:8081">http://localhost:8081</a>.</li>
-<li>
-<p><strong>Unlock Nexus</strong>:</p>
-<p><code>bash
-cat $(docker volume inspect nexus-data -f '{{ .Mountpoint }}')/admin.password</code></p>
-<p>Paste the one‑time password, press <strong>Sign in</strong>.</p>
-</li>
-<li>
-<p>Set a new <strong>admin</strong> password.</p>
-</li>
-<li>Choose <strong>Skip</strong> for anonymous telemetry unless you agree.</li>
-</ol>
-<hr/>
-<h2 id="4-creating-repositories-if-not-existing">4  Creating repositories (if not existing)</h2>
-<h3 id="41-maven-hosted-repo-for-your-internal-artifacts">4.1 Maven <em>hosted</em> repo (for your internal artifacts)</h3>
-<ol>
-<li><strong>Repositories → Repositories → Create repository</strong></li>
-<li>Type: <strong>maven2 (hosted)</strong></li>
-<li>Name: <code>maven-releases</code></li>
-<li>Version policy: <em>Release</em></li>
-<li>Write policy: <em>Allow redeploy</em> (or <em>Allow once</em> for stricter).</li>
-<li>Layout: <em>Maven2</em>, blob store: <em>default</em>, <strong>Create repository</strong>.</li>
-</ol>
-<p>Repeat for <code>maven-snapshots</code> with <em>Snapshot</em> policy.</p>
-<h3 id="42-maven-proxy-repo-caches-maven-central">4.2 Maven <em>proxy</em> repo (caches Maven Central)</h3>
-<ol>
-<li>Create <strong>maven2 (proxy)</strong></li>
-<li>Name: <code>maven-central</code></li>
-<li>Remote URL: <a href="https://repo1.maven.org/maven2/">https://repo1.maven.org/maven2/</a></li>
-<li>Storage → Maximum component age: e.g. 30 days.</li>
-<li><strong>Create</strong>.</li>
-</ol>
-<h3 id="43-group-repo-convenient-single-url">4.3 Group repo (convenient single URL)</h3>
-<ol>
-<li>Create <strong>maven2 (group)</strong></li>
-<li>Name: <code>maven-public</code></li>
-<li>Add members: first <code>maven-releases</code>, then <code>maven-snapshots</code>, then <code>maven-central</code>.</li>
-<li><strong>Create</strong>.</li>
-</ol>
-<hr/>
-<h2 id="5-configure-maven-to-use-nexus">5  Configure Maven to use Nexus</h2>
-<p>Place in <code>~/.m2/settings.xml</code>:</p>
-<pre><code class="language-xml">&lt;settings&gt;
-  &lt;mirrors&gt;
-    &lt;mirror&gt;
-      &lt;id&gt;nexus&lt;/id&gt;
-      &lt;mirrorOf&gt;*&lt;/mirrorOf&gt;
-      &lt;url&gt;http://localhost:8081/repository/maven-public/&lt;/url&gt;
-    &lt;/mirror&gt;
-  &lt;/mirrors&gt;
-
-  &lt;servers&gt;
-    &lt;server&gt;
-      &lt;id&gt;nexus-releases&lt;/id&gt;
-      &lt;username&gt;admin&lt;/username&gt;
-      &lt;password&gt;••••&lt;/password&gt;
-    &lt;/server&gt;
-    &lt;server&gt;
-      &lt;id&gt;nexus-snapshots&lt;/id&gt;
-      &lt;username&gt;admin&lt;/username&gt;
-      &lt;password&gt;••••&lt;/password&gt;
-    &lt;/server&gt;
-  &lt;/servers&gt;
-&lt;/settings&gt;
-</code></pre>
-<p>Publish:</p>
-<pre><code class="language-bash">mvn clean deploy -DaltDeploymentRepository=nexus-snapshots::default::http://localhost:8081/repository/maven-snapshots/
-</code></pre>
-<hr/>
-<h2 id="6-docker-registry-via-nexus">6  Docker registry via Nexus</h2>
-<ol>
-<li>Create <strong>docker (hosted)</strong>, name <code>docker-hosted</code>, HTTP Port <em>5000</em>.</li>
-<li>In <em>Docker Clients</em> tick “V2 signature”.</li>
-<li><code>docker login localhost:5000 -u admin</code>.</li>
-<li>Tag &amp; push:</li>
-</ol>
-<p><code>bash
-   docker tag alpine localhost:5000/demo/alpine:3.20
-   docker push localhost:5000/demo/alpine:3.20</code></p>
-<hr/>
-<h2 id="7-user-role-management">7  User &amp; Role management</h2>
+<h2 id="3-what-is-a-qualitygate-and-why-does-it-matter">3 What is a <strong>QualityGate</strong> and why does it matter?</h2>
+<p>A <strong>Quality Gate</strong> is a set of <strong>mandatory thresholds</strong> applied to the latest analysis:</p>
 <ul>
-<li><strong>Security → Users → Create local user</strong>
-<em>Id:</em> <code>ci</code>, <em>Password:</em> <code>***</code>, assign role <strong>nx-deployment</strong>.</li>
-<li>For LDAP/OIDC → <code>Security → Realms</code> and enable provider, then configure under <code>Administration → Capabilities</code>.</li>
+<li>It <strong>must pass</strong> before merging a pull request or deploying to production.  </li>
+<li>It evaluates <strong>only the new code</strong> (delta since the previous version) so legacy debt does not block you.  </li>
+<li>Default example (<em>Sonar way</em>):  </li>
+<li>Coverage ≥ 80%  </li>
+<li>0 new Bugs / 0 new Vulnerabilities  </li>
+<li>0% new Duplications</li>
+</ul>
+<blockquote>
+<p>🚦 If any threshold fails, the GitHub check turns red and the <code>QualityGate</code> job in CI blocks the pipeline. This ensures <strong>code quality never degrades with each commit</strong>.</p>
+</blockquote>
+<hr/>
+<h2 id="4-getting-started-with-sonarcloud">4 Getting started with SonarCloud</h2>
+<ol>
+<li><strong>Sign in</strong> with your GitHub account at <a href="https://sonarcloud.io">https://sonarcloud.io</a>.  </li>
+<li>Create an <strong>Organization</strong> (one‑click) and grant access to the <code>videogame‑platform</code> repo.  </li>
+<li>Inside the org, choose <strong>Create project → Analyze new project</strong>, pick the repository, and confirm.  </li>
+<li>Copy the <strong>ProjectKey</strong> (e.g. <code>videogame-platform_game-service</code>).  </li>
+<li>Navigate to <strong>MyAccount → Security → Generate Token</strong> named <code>SONAR_TOKEN</code>.  </li>
+<li>In GitHub → <em>Settings → Secrets and variables → Actions</em>, add:  </li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Scope</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SONAR_TOKEN</code></td>
+<td><em>Repository</em></td>
+<td><code>&lt;token&gt;</code></td>
+</tr>
+<tr>
+<td><code>SONAR_PROJECT_KEY</code></td>
+<td><em>Repository</em></td>
+<td><code>videogame-platform_game-service</code></td>
+</tr>
+</tbody>
+</table>
+<hr/>
+<h2 id="5-github-actions-pipeline-build-and-pushyml">5 GitHub Actions pipeline (<code>build-and-push.yml</code>)</h2>
+<pre><code class="language-yaml">- name: 🔎 SonarCloud Scan
+  uses: SonarSource/sonarcloud-github-action@v2
+  with:
+    projectBaseDir: services/${{ matrix.service }}
+    args: &gt;
+      -Dsonar.projectKey=${{ secrets.SONAR_PROJECT_KEY }}
+      -Dsonar.organization=your-org
+      -Dsonar.java.binaries=.
+      -Dsonar.coverage.exclusions=**/*Test.java,**/*IT.java
+  env:
+    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+- name: ✅ Quality Gate
+  uses: SonarSource/sonarqube-quality-gate-action@v1
+  with:
+    scanMetadataReportFile: services/${{ matrix.service }}/.scannerwork/report-task.txt
+  env:
+    SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+</code></pre>
+<ul>
+<li>This runs <strong>before</strong> the <code>build-and-push</code> job (push to registry+k3s deploy).  </li>
+<li>If the <em>QualityGate</em> fails, GitHub blocks the merge and the following job is skipped.</li>
 </ul>
 <hr/>
-<h2 id="8-upgrading-nexus">8  Upgrading Nexus</h2>
-<pre><code class="language-bash">docker pull sonatype/nexus3:latest
-docker stop nexus &amp;&amp; docker rm nexus
-docker run -d --name nexus -p 8081:8081 -p 5000:5000 \
-  -v nexus-data:/nexus-data \
-  sonatype/nexus3:latest
-</code></pre>
-<hr/>
-<h2 id="9-backup-restore">9  Backup &amp; restore</h2>
-<pre><code class="language-bash"># Backup blob + database
-docker run --rm --volumes-from nexus -v $(pwd):/backup busybox \
-  tar czf /backup/nexus-backup-$(date +%F).tgz /nexus-data
-
-# Restore
-docker stop nexus &amp;&amp; docker rm nexus
-docker volume rm nexus-data
-docker volume create nexus-data
-tar xzf nexus-backup-2025-05-06.tgz -C $(docker volume inspect nexus-data -f '{{ .Mountpoint }}')
-docker run -d --name nexus -p 8081:8081 -p 5000:5000 \
-  -v nexus-data:/nexus-data \
-  sonatype/nexus3:latest
-</code></pre>
-<hr/>
-<h2 id="10-references-next-steps">10  References &amp; next steps</h2>
+<h2 id="6-local-analysis-sonarlint-maven">6 Local analysis (SonarLint &amp; Maven)</h2>
 <ul>
-<li>Official docs: <a href="https://help.sonatype.com/repomanager3">https://help.sonatype.com/repomanager3</a></li>
-<li>REST API: <code>http://localhost:8081/service/rest/swagger.json</code></li>
-<li>Consider Sonatype IQ for vulnerability scanning (paid).</li>
+<li><strong>IntelliJ IDEA</strong> → Install <strong>SonarLint</strong>, bind it to SonarCloud, and enable “<em>Automatically sync issues</em>”.  </li>
+<li><strong>CLI</strong> (requires JDK 17+):</li>
+</ul>
+<pre><code class="language-bash">mvn --batch-mode verify sonar:sonar   -Dsonar.organization=your-org   -Dsonar.projectKey=$SONAR_PROJECT_KEY   -Dsonar.login=$SONAR_TOKEN   -Dsonar.host.url=https://sonarcloud.io
+</code></pre>
+<p>A direct link to the dashboard is printed at the end.</p>
+<hr/>
+<h2 id="7-references-next-steps">7 References &amp; next steps</h2>
+<ul>
+<li>Official docs: <a href="https://docs.sonarcloud.io/">https://docs.sonarcloud.io/</a> </li>
+<li>Quality Gates: <a href="https://docs.sonarcloud.io/improve/quality-gates/">https://docs.sonarcloud.io/improve/quality-gates/</a> </li>
+<li>GitHub Marketplace: <code>sonarcloud-github-action</code> </li>
+<li>Maven plugin: <code>org.sonarsource.scanner.maven:sonar-maven-plugin:3.12.0.5941</code> </li>
+<li><strong>OWASP Top 10 2021</strong> for background on detected vulnerabilities.</li>
 </ul>
 <hr/>
+<blockquote>
+<p>💡 <strong>DevSecOps tip</strong><br/>
+Combine SonarCloud with dependency scanning (OWASP Dep Check or Snyk) and container analysis (Trivy) for end‑to‑end security coverage in your pipeline.</p>
+</blockquote>
 <aside class="md-source-file">
 <span class="md-source-file__fact">
 <span class="md-icon" title="Last update">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"></path></svg>
 </span>
-<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 24, 2025 06:54:12 UTC">July 24, 2025</span>
+<span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date" title="July 28, 2025 10:57:01 UTC">July 28, 2025</span>
 </span>
 </aside>
 </article>
@@ -773,7 +682,7 @@ docker run -d --name nexus -p 8081:8081 -p 5000:5000 \
 <div class="md-dialog__inner md-typeset"></div>
 </div>
 <script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
-<script src="../../assets/javascripts/bundle.56ea9cef.min.js"></script>
+<script src="../../assets/javascripts/bundle.50899def.min.js"></script>
 <script src="../../assets/mkdocs_puml/puml.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
 <script src="../../assets/mkdocs_puml/interaction.js"></script>

@@ -5,25 +5,25 @@
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width,initial-scale=1" name="viewport"/>
-<link href="requirements/functional/" rel="next"/>
-<link href="assets/images/favicon.png" rel="icon"/>
+<link href="../sonarcloud/" rel="prev"/>
+<link href="../../assets/images/favicon.png" rel="icon"/>
 <meta content="mkdocs-1.6.1, mkdocs-material-9.6.16" name="generator"/>
-<title>Videogame Platform Docs</title>
-<link href="assets/stylesheets/main.7e37652d.min.css" rel="stylesheet"/>
+<title>🔄 CI/CD Guide - Videogame Platform Docs</title>
+<link href="../../assets/stylesheets/main.7e37652d.min.css" rel="stylesheet"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&amp;display=fallback" rel="stylesheet"/>
 <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
-<link href="assets/css/mermaid-wide.css" rel="stylesheet"/>
-<link href="assets/mkdocs_puml/puml.css" rel="stylesheet"/>
-<link href="assets/mkdocs_puml/interaction.css" rel="stylesheet"/>
-<script>__md_scope=new URL(".",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+<link href="../../assets/css/mermaid-wide.css" rel="stylesheet"/>
+<link href="../../assets/mkdocs_puml/puml.css" rel="stylesheet"/>
+<link href="../../assets/mkdocs_puml/interaction.css" rel="stylesheet"/>
+<script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
 </head>
 <body dir="ltr">
 <input autocomplete="off" class="md-toggle" data-md-toggle="drawer" id="__drawer" type="checkbox"/>
 <input autocomplete="off" class="md-toggle" data-md-toggle="search" id="__search" type="checkbox"/>
 <label class="md-overlay" for="__drawer"></label>
 <div data-md-component="skip">
-<a class="md-skip" href="#videogame-platform">
+<a class="md-skip" href="#cicd-quick-guide-build-push-argo-cd-gitops">
           Skip to content
         </a>
 </div>
@@ -31,7 +31,7 @@
 </div>
 <header class="md-header md-header--shadow" data-md-component="header">
 <nav aria-label="Header" class="md-header__inner md-grid">
-<a aria-label="Videogame Platform Docs" class="md-header__button md-logo" data-md-component="logo" href="." title="Videogame Platform Docs">
+<a aria-label="Videogame Platform Docs" class="md-header__button md-logo" data-md-component="logo" href="../.." title="Videogame Platform Docs">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
 </a>
 <label class="md-header__button md-icon" for="__drawer">
@@ -47,7 +47,7 @@
 <div class="md-header__topic" data-md-component="header-topic">
 <span class="md-ellipsis">
             
-              👋 Overview
+              🔄 CI/CD Guide
             
           </span>
 </div>
@@ -94,42 +94,19 @@
 <div class="md-sidebar__inner">
 <nav aria-label="Navigation" class="md-nav md-nav--primary" data-md-level="0">
 <label class="md-nav__title" for="__drawer">
-<a aria-label="Videogame Platform Docs" class="md-nav__button md-logo" data-md-component="logo" href="." title="Videogame Platform Docs">
+<a aria-label="Videogame Platform Docs" class="md-nav__button md-logo" data-md-component="logo" href="../.." title="Videogame Platform Docs">
 <svg viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"></path></svg>
 </a>
     Videogame Platform Docs
   </label>
 <ul class="md-nav__list" data-md-scrollfix="">
-<li class="md-nav__item md-nav__item--active">
-<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
-<label class="md-nav__link md-nav__link--active" for="__toc">
-<span class="md-ellipsis">
-    👋 Overview
-    
-  </span>
-<span class="md-nav__icon md-icon"></span>
-</label>
-<a class="md-nav__link md-nav__link--active" href=".">
-<span class="md-ellipsis">
-    👋 Overview
-    
-  </span>
-</a>
-<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
-<label class="md-nav__title" for="__toc">
-<span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#core-features">
+<a class="md-nav__link" href="../..">
 <span class="md-ellipsis">
-      Core Features
-    </span>
+    👋 Overview
+    
+  </span>
 </a>
-</li>
-</ul>
-</nav>
 </li>
 <li class="md-nav__item md-nav__item--section md-nav__item--nested">
 <input class="md-nav__toggle md-toggle" id="__nav_2" type="checkbox"/>
@@ -147,7 +124,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="requirements/functional/">
+<a class="md-nav__link" href="../../requirements/functional/">
 <span class="md-ellipsis">
     ✅ Functional
     
@@ -155,7 +132,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="requirements/non-functional/">
+<a class="md-nav__link" href="../../requirements/non-functional/">
 <span class="md-ellipsis">
     ⚙️ Non-Functional
     
@@ -181,7 +158,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="arch/tech/stack/">
+<a class="md-nav__link" href="../../arch/tech/stack/">
 <span class="md-ellipsis">
     ⚙️ Tech Stack
     
@@ -189,7 +166,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="arch/decisions/arch-decisions/">
+<a class="md-nav__link" href="../../arch/decisions/arch-decisions/">
 <span class="md-ellipsis">
     📝 Decisions
     
@@ -197,7 +174,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="arch/diagrams/observability/obs-diagram/">
+<a class="md-nav__link" href="../../arch/diagrams/observability/obs-diagram/">
 <span class="md-ellipsis">
     🔎 Observability
     
@@ -220,7 +197,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="arch/diagrams/datamodel/erd/">
+<a class="md-nav__link" href="../../arch/diagrams/datamodel/erd/">
 <span class="md-ellipsis">
     🗺️ Entity-Relationship Diagram (ERD)
     
@@ -246,7 +223,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="arch/diagrams/software/software-diagram/">
+<a class="md-nav__link" href="../../arch/diagrams/software/software-diagram/">
 <span class="md-ellipsis">
     🔀 Software Flowchart
     
@@ -272,7 +249,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="arch/diagrams/c4/context-diagram/">
+<a class="md-nav__link" href="../../arch/diagrams/c4/context-diagram/">
 <span class="md-ellipsis">
     🔗 Context Diagram
     
@@ -280,7 +257,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="arch/diagrams/c4/container-diagram/">
+<a class="md-nav__link" href="../../arch/diagrams/c4/container-diagram/">
 <span class="md-ellipsis">
     📦 Container Diagram
     
@@ -288,7 +265,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="arch/diagrams/c4/deployment-diagram/">
+<a class="md-nav__link" href="../../arch/diagrams/c4/deployment-diagram/">
 <span class="md-ellipsis">
     🖥️ Infrastructure
     
@@ -317,7 +294,7 @@
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="archetypes/rest-postgre-archetype/">
+<a class="md-nav__link" href="../../archetypes/rest-postgre-archetype/">
 <span class="md-ellipsis">
     📦 Rest PostgreSQL
     
@@ -327,8 +304,8 @@
 </ul>
 </nav>
 </li>
-<li class="md-nav__item md-nav__item--section md-nav__item--nested">
-<input class="md-nav__toggle md-toggle" id="__nav_5" type="checkbox"/>
+<li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+<input checked="" class="md-nav__toggle md-toggle" id="__nav_5" type="checkbox"/>
 <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
 <span class="md-ellipsis">
     🛠️ Tools
@@ -336,14 +313,14 @@
   </span>
 <span class="md-nav__icon md-icon"></span>
 </label>
-<nav aria-expanded="false" aria-labelledby="__nav_5_label" class="md-nav" data-md-level="1">
+<nav aria-expanded="true" aria-labelledby="__nav_5_label" class="md-nav" data-md-level="1">
 <label class="md-nav__title" for="__nav_5">
 <span class="md-nav__icon md-icon"></span>
             🛠️ Tools
           </label>
 <ul class="md-nav__list" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="tools/nexus/">
+<a class="md-nav__link" href="../nexus/">
 <span class="md-ellipsis">
     🧩 Sonatype Nexus
     
@@ -351,7 +328,7 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="tools/checkstyle/">
+<a class="md-nav__link" href="../checkstyle/">
 <span class="md-ellipsis">
     🎨 Google Code Style
     
@@ -359,20 +336,71 @@
 </a>
 </li>
 <li class="md-nav__item">
-<a class="md-nav__link" href="tools/sonarcloud/">
+<a class="md-nav__link" href="../sonarcloud/">
 <span class="md-ellipsis">
     📊 SonarCloud
     
   </span>
 </a>
 </li>
-<li class="md-nav__item">
-<a class="md-nav__link" href="tools/ci-cd-guide/">
+<li class="md-nav__item md-nav__item--active">
+<input class="md-nav__toggle md-toggle" id="__toc" type="checkbox"/>
+<label class="md-nav__link md-nav__link--active" for="__toc">
+<span class="md-ellipsis">
+    🔄 CI/CD Guide
+    
+  </span>
+<span class="md-nav__icon md-icon"></span>
+</label>
+<a class="md-nav__link md-nav__link--active" href="./">
 <span class="md-ellipsis">
     🔄 CI/CD Guide
     
   </span>
 </a>
+<nav aria-label="Table of contents" class="md-nav md-nav--secondary">
+<label class="md-nav__title" for="__toc">
+<span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+<ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+<li class="md-nav__item">
+<a class="md-nav__link" href="#1-gitops-in-a-nutshell">
+<span class="md-ellipsis">
+      1 · GitOps in a Nutshell 🤖
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-continuous-integration-build-and-pushyml">
+<span class="md-ellipsis">
+      2 · Continuous Integration – build-and-push.yml 🔨
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-continuous-deployment-argocd-appyaml">
+<span class="md-ellipsis">
+      3 · Continuous Deployment – argocd-app.yaml 🚢
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-endtoend-flow">
+<span class="md-ellipsis">
+      4 · End‑to‑End Flow 🛠️➡️🖥️
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#5-next-steps-hardening">
+<span class="md-ellipsis">
+      5 · Next Steps &amp; Hardening 🔒
+    </span>
+</a>
+</li>
+</ul>
+</nav>
 </li>
 </ul>
 </nav>
@@ -392,9 +420,37 @@
     </label>
 <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
 <li class="md-nav__item">
-<a class="md-nav__link" href="#core-features">
+<a class="md-nav__link" href="#1-gitops-in-a-nutshell">
 <span class="md-ellipsis">
-      Core Features
+      1 · GitOps in a Nutshell 🤖
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#2-continuous-integration-build-and-pushyml">
+<span class="md-ellipsis">
+      2 · Continuous Integration – build-and-push.yml 🔨
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#3-continuous-deployment-argocd-appyaml">
+<span class="md-ellipsis">
+      3 · Continuous Deployment – argocd-app.yaml 🚢
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#4-endtoend-flow">
+<span class="md-ellipsis">
+      4 · End‑to‑End Flow 🛠️➡️🖥️
+    </span>
+</a>
+</li>
+<li class="md-nav__item">
+<a class="md-nav__link" href="#5-next-steps-hardening">
+<span class="md-ellipsis">
+      5 · Next Steps &amp; Hardening 🔒
     </span>
 </a>
 </li>
@@ -405,38 +461,214 @@
 </div>
 <div class="md-content" data-md-component="content">
 <article class="md-content__inner md-typeset">
-<h1 id="videogame-platform">🎮 Videogame Platform</h1>
-<p>A cloud-native web app where gamers can <strong>discover, rate, review and curate lists of video games</strong>.</p>
+<h1 id="cicd-quick-guide-build-push-argo-cd-gitops">🚀 CI/CD Quick Guide – Build &amp; Push + Argo CD (GitOps)</h1>
+<blockquote>
+<p><strong>Platform</strong>: GitHub Actions + Argo CD<br/>
+<strong>Date</strong>: July 2025<br/>
+<strong>Repository</strong>: <em>videogame‑platform</em> (Java 21 + Spring Boot 3 micro‑services)</p>
+</blockquote>
+<hr/>
+<h2 id="1-gitops-in-a-nutshell">1 · GitOps in a Nutshell 🤖</h2>
+<ul>
+<li><strong>Single source of truth</strong> – desired state (Kubernetes YAML/Helm/Kustomize) lives in <em>git</em>.<br/></li>
+<li><strong>Pull‑based delivery</strong> – the cluster (via the Argo CD controller) <strong>pulls &amp; reconciles</strong> changes – no CI job ever <code>kubectl apply</code>s.<br/></li>
+<li><strong>Immutable artefacts</strong> – CI publishes an <strong>image digest</strong> (content addressable) to a registry; manifests reference the digest, never <code>latest</code>.<br/></li>
+<li><strong>Separation of duties</strong></li>
+</ul>
 <table>
 <thead>
 <tr>
-<th>Goal</th>
-<th>Metric</th>
+<th>Concern</th>
+<th>Owner</th>
+<th>Tool</th>
+<th>What happens</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Time-to-First-Result</td>
-<td>&lt; 200 ms P95</td>
+<td><strong>Build &amp; test</strong></td>
+<td>CI runners</td>
+<td>GitHub Actions</td>
+<td>Compiles, tests, signs &amp; scans containers</td>
 </tr>
 <tr>
-<td>Monthly Active Users</td>
-<td>50 000 (MVP)</td>
+<td><strong>Release</strong></td>
+<td>Image registry</td>
+<td>GHCR + Sigstore</td>
+<td>Stores signed SBOMed images</td>
 </tr>
 <tr>
-<td>Uptime</td>
-<td>99.9 %</td>
+<td><strong>Deploy</strong></td>
+<td>Argo CD</td>
+<td><code>Application</code> CRD</td>
+<td>Continuously reconciles k8s objects</td>
+</tr>
+<tr>
+<td><strong>Update</strong></td>
+<td>Argo CD Image Updater</td>
+<td>Annotation‑driven</td>
+<td>Writes back the <em>new digest</em> to git</td>
 </tr>
 </tbody>
 </table>
-<h2 id="core-features">Core Features</h2>
+<p>This split lets you <strong>rollback with <code>git revert</code></strong> and delivers an audit trail of <em>who</em> changed <em>what</em> infra.</p>
+<hr/>
+<h2 id="2-continuous-integration-build-and-pushyml">2 · Continuous Integration – <code>build-and-push.yml</code> 🔨</h2>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>Key action</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Triggers</strong></td>
+<td>on <code>push</code>, <code>pull_request</code>, nightly cron 10:02 UTC, manual</td>
+<td>Service‑scoped paths (<code>services/**</code>)</td>
+</tr>
+<tr>
+<td><strong>Matrix</strong></td>
+<td><code>service: game-service</code> (extend as repo grows)</td>
+<td>Parallel build lanes</td>
+</tr>
+<tr>
+<td><strong>Build &amp; unit tests</strong></td>
+<td><code>mvn verify</code> with Temurin 21</td>
+<td>Fails fast on JUnit errors</td>
+</tr>
+<tr>
+<td><strong>Mutation tests</strong></td>
+<td>PIT 1.19.5; threshold ≥ 80 %</td>
+<td>Skipped on nightly schedule</td>
+</tr>
+<tr>
+<td><strong>Static analysis</strong></td>
+<td>SonarQube scan + Quality Gate</td>
+<td>Blocks pipeline on new defects</td>
+</tr>
+<tr>
+<td><strong>Container build</strong></td>
+<td>Docker Buildx, <em>linux/amd64</em></td>
+<td>Push to <code>ghcr.io/&lt;org&gt;/&lt;repo&gt;/&lt;service&gt;:&lt;sha&gt;</code></td>
+</tr>
+<tr>
+<td><strong>Signing</strong></td>
+<td>Sigstore <strong>Cosign keyless</strong></td>
+<td>Provably attests provenance</td>
+</tr>
+<tr>
+<td><strong>Security scan</strong></td>
+<td>Trivy (CRITICAL/HIGH)</td>
+<td>Fails build on vulnerabilities</td>
+</tr>
+<tr>
+<td><strong>Artefact export</strong></td>
+<td><code>IMAGE_REF</code> with digest sha256</td>
+<td>Consumed by Argo CD Image Updater</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-yaml"># excerpt – stages trimmed for brevity
+- name: 📦 Build &amp; push image
+  uses: docker/build-push-action@v6
+  with:
+    context: services/${ '{' } matrix.service }
+    push: true
+    tags: |
+      ghcr.io/${ '{' } github.repository }/${ '{' } matrix.service }:${ '{' } github.sha }
+      ghcr.io/${ '{' } github.repository }/${ '{' } matrix.service }:latest
+- name: 🔒 Cosign sign (keyless)
+  run: cosign sign --yes ${ '{' } env.IMAGE_REF }
+- name: 🛡️ Trivy image scan
+  uses: aquasecurity/trivy-action@0.31.0
+</code></pre>
+<blockquote>
+<p><strong>Secrets/variables required</strong></p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GITHUB_TOKEN</code></td>
+<td>Push to GHCR &amp; write provenance</td>
+</tr>
+<tr>
+<td><code>SONAR_TOKEN</code> / <code>SONAR_HOST_URL</code></td>
+<td>Quality gate</td>
+</tr>
+<tr>
+<td>(optional) OIDC trust to GHCR</td>
+<td>For keyless Cosign verify</td>
+</tr>
+</tbody>
+</table>
+<hr/>
+<h2 id="3-continuous-deployment-argocd-appyaml">3 · Continuous Deployment – <code>argocd-app.yaml</code> 🚢</h2>
+<p>The Argo CD <strong>Application</strong> declares <strong>where</strong> to pull manifests and <strong>how</strong> to sync them:</p>
+<pre><code class="language-yaml">apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: videogame-platform-dev
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: game-service=ghcr.io/.../game-service
+    argocd-image-updater.argoproj.io/update-strategy.game-service: digest
+spec:
+  source:
+    repoURL: https://github.com/rubhern/videogame-platform.git
+    path: infra/dev/videogame-platform
+    targetRevision: main
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+</code></pre>
+<ul>
+<li><strong>Image Updater</strong> polls the registry, detects the <strong>new digest</strong> pushed by CI and commits the change back to <code>main</code>.  </li>
+<li>Argo CD picks up the commit → <strong>Sync</strong> → rolling restart (Kubernetes Deployment with zero‑downtime).  </li>
+<li><code>prune: true</code> removes obsolete resources; <code>selfHeal</code> forces spec‑drift back to git.</li>
+</ul>
+<hr/>
+<h2 id="4-endtoend-flow">4 · End‑to‑End Flow 🛠️➡️🖥️</h2>
+<div class="mermaid">sequenceDiagram
+  participant Dev
+  participant GitHub
+  participant CI as GitHub Actions
+  participant GHCR as ghcr.io
+  participant Updater as Argo CD Image Updater
+  participant ArgoCD as Argo CD
+  participant K8s as k3s Cluster
+
+  Dev-&gt;&gt;GitHub: git push (code)
+  GitHub-&gt;&gt;CI: dispatch workflow
+  CI-&gt;&gt;GHCR: build &amp; push image@sha256
+  CI-&gt;&gt;GitHub: status ✓
+  Updater--&gt;&gt;GHCR: watch tag
+  Updater-&gt;&gt;GitHub: commit new digest to manifests
+  GitHub-&gt;&gt;ArgoCD: webhook
+  ArgoCD-&gt;&gt;K8s: apply manifests
+  K8s--&gt;&gt;ArgoCD: health OK
+</div>
+<hr/>
+<h2 id="5-next-steps-hardening">5 · Next Steps &amp; Hardening 🔒</h2>
 <ol>
-<li>Browse games catalogue</li>
-<li>Faceted search &amp; filters</li>
-<li>Ratings ★☆☆☆☆ and Rotten-Tomato-style critic reviews</li>
-<li>Personal lists &amp; collections</li>
-<li>Single-Sign-On with popular identity providers</li>
+<li><strong>Add SBOM generation</strong> (<code>docker buildx bake --sbom</code>) and upload it to GHCR.  </li>
+<li><strong>Enable Progressive Delivery</strong> – use Argo Rollouts for canary analysis before full rollout.  </li>
+<li><strong>Bootstrap Argo CD via Terraform</strong> for repeatable cluster bring‑up.  </li>
+<li><strong>Policy as Code</strong> – integrate <code>Kyverno</code> or <code>Kubewarden</code> to forbid image tags without digests.</li>
 </ol>
+<hr/>
 <aside class="md-source-file">
 <span class="md-source-file__fact">
 <span class="md-icon" title="Last update">
@@ -472,10 +704,11 @@
 <div class="md-dialog" data-md-component="dialog">
 <div class="md-dialog__inner md-typeset"></div>
 </div>
-<script id="__config" type="application/json">{"base": ".", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
-<script src="assets/javascripts/bundle.50899def.min.js"></script>
-<script src="assets/mkdocs_puml/puml.js"></script>
+<script id="__config" type="application/json">{"base": "../..", "features": ["navigation.sections", "navigation.top", "content.code.copy"], "search": "../../assets/javascripts/workers/search.d50fe291.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+<script src="../../assets/javascripts/bundle.50899def.min.js"></script>
+<script src="../../assets/mkdocs_puml/puml.js"></script>
 <script src="https://unpkg.com/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
-<script src="assets/mkdocs_puml/interaction.js"></script>
-</body>
+<script src="../../assets/mkdocs_puml/interaction.js"></script>
+<script type="module">import mermaid from "https://unpkg.com/mermaid@10.4.0/dist/mermaid.esm.min.mjs";
+mermaid.initialize({});</script></body>
 </html>
