@@ -1,0 +1,4 @@
+# This is an explicit personal-project choice. It grants Codex unrestricted
+# filesystem and network access and disables approval prompts.
+sandbox_mode = "danger-full-access"
+approval_policy = "never"
