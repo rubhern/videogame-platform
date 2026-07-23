@@ -1,0 +1,4 @@
+interface:
+  display_name: "Product Brief Review"
+  short_description: "Review product briefs without inventing decisions"
+  default_prompt: "Use $product-brief-review to review the current Product Brief and identify unsupported claims, inconsistencies, and next decisions."

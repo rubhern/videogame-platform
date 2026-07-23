@@ -7,6 +7,15 @@ Supporting documents keep uncertain information out of the main narrative:
 - [Open questions](open-questions.md): decisions or information still missing.
 - [Glossary](glossary.md): shared and provisional terminology.
 
+## Current status
+
+- Product Brief version `0.1` is in `Draft`.
+- The source vision has been imported and reconciled.
+- The initial problem, priority user, value proposition, journey, MVP boundary,
+  and success signals remain working hypotheses.
+- Open questions `Q-002` through `Q-009` still require evidence or an explicit
+  product decision.
+
 ## Phase 0 completion criteria
 
 - A primary user segment is selected.
@@ -16,4 +25,3 @@ Supporting documents keep uncertain information out of the main narrative:
 - The first user journey and preliminary MVP boundary are agreed.
 - High-risk assumptions and open questions have an owner and a next action.
 - The Product Brief is reviewed and marked `Approved`.
-
