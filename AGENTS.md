@@ -8,14 +8,17 @@ for solution architecture and technical leadership.
 
 ## Current phase
 
-The project is in **Phase 0: Product Brief**.
+**Phase 0: Product Brief is complete.** The next work shapes and validates the first
+vertical slice defined in Product Brief v0.3.
 
-- Do not assume that the MVP, architecture, technology stack, external provider,
-  or business model has been approved.
+- Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
+  non-commercial release mode as the current product constraints.
+- Do not assume that a production architecture, framework, database, deployment
+  model, public release, or business model has been approved.
 - Keep proposed product decisions labelled as hypotheses until evidence or an
   explicit owner decision supports them.
-- Do not add implementation, infrastructure, or a detailed backlog unless the
-  task explicitly advances the project to that phase.
+- Prefer a story map, prototype, minimum contracts, and one vertical slice over a
+  detailed backlog or broad architecture.
 
 ## Sources of truth
 
@@ -69,10 +72,11 @@ Run:
 
 ```bash
 bash scripts/validate-docs.sh
+./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
-When implementation is added, extend this section with the repository's real
-build, test, lint, and security commands.
+The Maven command requires JDK 21 and validates the isolated IGDB PoC using
+local fixtures only. Authenticated provider calls remain manual and explicit.
 
 ## Permissions and safety
 

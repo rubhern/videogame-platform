@@ -1,0 +1,4 @@
+search "{{search_query}}";
+fields id,name,first_release_date,platforms.name,game_type.type,
+       parent_game.name,alternative_names.name;
+limit 10;

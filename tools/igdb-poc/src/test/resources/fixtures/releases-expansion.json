@@ -1,0 +1,13 @@
+[
+  {
+    "date": 1718928000,
+    "m": 6,
+    "y": 2024,
+    "date_format": {"format": "YYYYMMMMDD"},
+    "human": "Jun 21, 2024",
+    "platform": {"name": "PC (Microsoft Windows)"},
+    "release_region": {"region": "Worldwide"},
+    "status": {"name": "Full Release"},
+    "updated_at": 1719273600
+  }
+]

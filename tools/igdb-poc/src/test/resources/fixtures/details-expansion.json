@@ -1,0 +1,21 @@
+[
+  {
+    "id": 250616,
+    "name": "Elden Ring: Shadow of the Erdtree",
+    "game_type": {"type": "Expansion"},
+    "game_status": {"status": "Released"},
+    "parent_game": {"name": "Elden Ring"},
+    "alternative_names": [{"name": "Shadow of the Erdtree"}],
+    "cover": {"image_id": "co8abc"},
+    "genres": [{"name": "Role-playing"}],
+    "involved_companies": [
+      {
+        "developer": true,
+        "publisher": false,
+        "company": {"name": "FromSoftware"}
+      }
+    ],
+    "platforms": [{"name": "PC (Microsoft Windows)"}],
+    "updated_at": 1719273600
+  }
+]

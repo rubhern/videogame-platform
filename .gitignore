@@ -1,0 +1,10 @@
+# Local credentials
+.env
+.env.*
+!.env.example
+*.token
+.idea/
+
+# IGDB PoC generated evidence and Maven output
+.poc/
+tools/igdb-poc/target/

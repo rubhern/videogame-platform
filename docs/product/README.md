@@ -3,26 +3,25 @@
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-07-24
 
-The [Product Brief](product-brief.md) is the main alignment document for Phase 0.
+The [Product Brief](product-brief.md) is the approved Phase 0 alignment record.
 Supporting documents keep uncertain information out of the main narrative:
 
 - [Assumptions](assumptions.md): beliefs that still require evidence.
-- [Open questions](open-questions.md): decisions or information still missing.
+- [Open questions](open-questions.md): resolved decisions and their reopening
+  conditions.
 - [Glossary](glossary.md): shared and provisional terminology.
 
 ## Current status
 
-- Product Brief version `0.2` was approved by Ruben Hernandez on 2026-07-23.
+- Product Brief version `0.3` was approved by Ruben Hernandez on 2026-07-24.
+- Phase 0 is complete for the private, non-commercial learning scope.
 - The source vision and research inputs have been reconciled.
 - The initial problem, priority user, value proposition, journey, learning-MVP
   boundary, and decision rules are explicit owner decisions.
-- Open questions `Q-002` through `Q-004` and `Q-006` through `Q-009` are resolved.
-- `Q-005`, provider and licence feasibility, is in validation. The documentary
-  spike selects IGDB for the first authenticated PoC and RAWG as a fallback.
-  Ruben Hernandez approved the acceptance thresholds and frozen sample for
-  execution on 2026-07-24. Provider-backed catalogue implementation is gated by
-  the technical PoC; public or monetized use is additionally gated by recorded
-  contractual and image-use terms.
+- All Phase 0 open questions are resolved for the current scope.
+- IGDB is approved with limitations for a bounded private learning catalogue after
+  the first authenticated PoC. Public deployment, monetization, copied images, or
+  redistribution must reopen the provider decision.
 
 This is a personal learning project. Ruben Hernandez owns every product and technical
 decision. Any team roles, stakeholder interactions, or delivery ceremonies are
@@ -39,8 +38,7 @@ approval authorities.
 - High-risk assumptions and open questions have an owner and a next action.
 - The Product Brief is reviewed and marked `Approved`.
 
-These criteria are complete and Product Brief version 0.2 was approved by Ruben
-Hernandez on 2026-07-23. Product-demand assumptions are recorded as accepted risks
-because the interviews are synthetic. The remaining authenticated provider PoC and
-public-release terms are delivery gates, rather than reasons to expand Phase 0 into
-an exhaustive market study.
+These criteria are complete and Product Brief version 0.3 was approved by Ruben
+Hernandez on 2026-07-24. Product-demand assumptions remain accepted risks because the
+interviews are synthetic. No additional market study, provider PoC, or public-release
+legal work is required for the approved private learning scope.

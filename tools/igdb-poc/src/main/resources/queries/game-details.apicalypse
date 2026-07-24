@@ -1,0 +1,6 @@
+fields id,name,game_type.type,game_status.status,parent_game.name,
+       alternative_names.name,cover.image_id,genres.name,
+       involved_companies.developer,involved_companies.publisher,
+       involved_companies.company.name,platforms.name,updated_at;
+where id = {{game_id}};
+limit 1;
