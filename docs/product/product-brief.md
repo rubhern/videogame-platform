@@ -314,14 +314,16 @@ accepted risks, and success rules are explicit. No additional market study, seco
 provider PoC, provider ADR, public-release legal work, or detailed backlog is required
 to close Phase 0.
 
-Minimum next steps:
+The first next step is complete: the primary journey, MVP release cut, acceptance
+checks, guardrails, and deferred scope are captured in the
+[learning MVP story map](mvp-story-map.md).
 
-1. Turn the primary journey into a small story map with acceptance criteria for
-   release discovery, game page, rating, and `Mis puntuaciones`.
-2. Create one mobile-first clickable prototype using a transparent bounded sample.
-3. Run one lightweight usability round with five representative users and revise only
+Remaining minimum next steps:
+
+1. Create one mobile-first clickable prototype using a transparent bounded sample.
+2. Run one lightweight usability round with five representative users and revise only
    blocking journey or comprehension problems.
-4. Define the minimum provider-independent domain/API contracts and implement one
+3. Define the minimum provider-independent domain/API contracts and implement one
    end-to-end vertical slice with authentication, tests, structured logs, catalogue
    freshness, journey metrics, and a simple deployment path.
 

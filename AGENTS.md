@@ -8,8 +8,9 @@ for solution architecture and technical leadership.
 
 ## Current phase
 
-**Phase 0: Product Brief is complete.** The next work shapes and validates the first
-vertical slice defined in Product Brief v0.3.
+**Phase 0: Product Brief is complete.** The first journey and MVP release cut are
+captured in the story map. The next work prototypes and validates that journey
+before defining the minimum contracts for one vertical slice.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
@@ -17,13 +18,14 @@ vertical slice defined in Product Brief v0.3.
   model, public release, or business model has been approved.
 - Keep proposed product decisions labelled as hypotheses until evidence or an
   explicit owner decision supports them.
-- Prefer a story map, prototype, minimum contracts, and one vertical slice over a
-  detailed backlog or broad architecture.
+- Use the story map as the current planning boundary; prefer a prototype, minimum
+  contracts, and one vertical slice over a detailed backlog or broad architecture.
 
 ## Sources of truth
 
 - Initial vision: `docs/reference/video-game-platform-vision.pdf`
 - Product Brief: `docs/product/product-brief.md`
+- Learning MVP story map: `docs/product/mvp-story-map.md`
 - Assumptions: `docs/product/assumptions.md`
 - Open questions: `docs/product/open-questions.md`
 - Glossary: `docs/product/glossary.md`
