@@ -1,143 +1,174 @@
-# Spike — Proveedores de datos para VideoGame Platform
+# Game-data-provider spike — VideoGame Platform
 
-- **Estado:** Investigación documental completada; umbrales y muestra aprobados; prueba autenticada pendiente
-- **Fecha:** 2026-07-23
-- **Última actualización:** 2026-07-24
-- **Fase:** 0 — Product alignment / preparación de Phase 1
-- **Decisión estudiada:** Seleccionar un proveedor candidato para alimentar el catálogo inicial
-- **Proveedores evaluados:** IGDB y RAWG
-- **Resultado recomendado:** Ejecutar la primera prueba autenticada con IGDB y conservar RAWG como alternativa
+- **Status:** First authenticated PoC reviewed; conditionally approved for the
+  learning MVP
+- **Started:** 2026-07-23
+- **Last updated:** 2026-07-24
+- **Phase:** 0 — Product alignment
+- **Decision:** Select one provider for the initial bounded catalogue
+- **Providers evaluated:** IGDB and RAWG
+- **Outcome:** Use IGDB with explicit limitations; retain RAWG as a fallback
+- **Decision owner:** Ruben Hernandez
 
-> Este spike no constituye una revisión legal. Las condiciones comerciales, la licencia de imágenes y la posibilidad de mostrar puntuaciones de terceros deben confirmarse por escrito con el proveedor antes de un lanzamiento público o monetizado.
+> This spike is not legal advice. It records the evidence and constraints accepted
+> for a private, non-commercial learning project. Attribution, retained data, image
+> use, partnership, and monetization requirements must be reviewed again before any
+> public or commercial release.
 
-## 1. Resumen ejecutivo
+## 1. Executive summary
 
-El learning MVP aprobado necesita importar datos desde **un único proveedor autorizado** para soportar:
+The approved learning MVP needs one external provider for:
 
-- lanzamientos recientes o semanales;
-- próximos lanzamientos;
-- búsqueda por título;
-- ficha básica del videojuego;
-- plataformas, géneros, compañías, fechas e imágenes;
-- trazabilidad del origen y frescura de los datos.
+- recent and upcoming releases;
+- title search;
+- a basic game page;
+- platforms, genres, companies, dates, and cover references;
+- data provenance and freshness.
 
-Los dos proveedores analizados pueden cubrir ese recorrido, pero presentan perfiles distintos:
+The documentary comparison ranked IGDB above RAWG because IGDB provides a richer
+catalogue model, release dates by platform and region, incremental synchronization,
+localization data, and local caching without a published monthly request cap. RAWG is
+easier to integrate, but its published free-plan limits, per-page attribution,
+redistribution restriction, and contradictory commercial wording introduce more
+uncertainty.
 
-- **IGDB** ofrece el modelo más rico y adecuado para construir un catálogo propio desacoplado. Modela fechas por plataforma y región, localizaciones, idiomas soportados, compañías, franquicias, imágenes y relaciones entre juegos. Permite cachear y almacenar localmente los datos, dispone de consultas incrementales y webhooks, y no anuncia un límite mensual, aunque aplica 4 solicitudes por segundo. Su integración es menos convencional y requiere OAuth de Twitch, consultas POST con APICalypse y una aclaración comercial o partnership antes de monetizar.
-- **RAWG** es más rápido de integrar porque ofrece una API REST basada en GET y API key. Publica filtros directos por fecha, plataforma, género y puntuación, así como descripciones, imágenes, tiendas y datos de Metacritic. Sin embargo, su página actual combina una tabla de precios que limita el plan gratuito a proyectos no comerciales con unos términos inferiores que todavía afirman cierto uso comercial gratuito. Esta contradicción, el límite de 20.000 solicitudes mensuales, la atribución obligatoria por página y la prohibición de redistribución elevan el riesgo.
+The [first authenticated IGDB PoC](igdb-poc-results.md) produced
+`CONDITIONAL_PASS`. Exact-title search reached 98%, platform and region representation
+reached 100%, all 60 cases were readable offline, and the controlled run completed
+187 successful requests with no HTTP 429 response. Release-date and precision
+accuracy reached 83.1% against the frozen 90% threshold, while localized-title
+coverage reached 40% against a non-blocking 80% threshold.
 
-### Recomendación
+The thresholds remain unchanged. Ruben Hernandez accepts the observed limitations
+for a small personal learning catalogue because they can be handled through explicit
+modelling and manual curation. This is not approval for an exhaustive catalogue or
+unattended public publication.
 
-**Usar IGDB como candidato principal para el PoC técnico y, si supera las validaciones de cobertura, calidad y condiciones de uso, adoptarlo como proveedor inicial del MVP.**
+### Recommendation
 
-RAWG debe mantenerse como alternativa por su sencillez y por algunos datos adicionales, pero no debería seleccionarse sin aclarar por escrito:
+Use IGDB as the initial technical provider under these constraints:
 
-1. qué condiciones comerciales son realmente vigentes;
-2. qué plan necesita el producto;
-3. qué uso está permitido para imágenes y puntuaciones externas;
-4. cómo debe implementarse exactamente la atribución.
+- keep catalogue coverage deliberately bounded and visible;
+- maintain product-owned Spanish search aliases;
+- distinguish platform releases from subscription availability;
+- preserve date precision, provenance, and review state;
+- reconcile recent, upcoming, or ambiguous displayed dates manually;
+- synchronize and serve local normalized data instead of calling IGDB per page view;
+- do not import external ratings or copy provider images in the learning MVP.
 
-La elección de IGDB no elimina el trabajo de producto en español. Ninguno de los dos proveedores garantiza descripciones editoriales completas en español. La plataforma deberá conservar una capa propia de contenido localizado y no confundir “idioma soportado por el juego” con “ficha editorial traducida”.
+RAWG remains a fallback. A second provider PoC is unnecessary unless IGDB becomes
+incompatible with the intended scope or its limitations become too costly to manage.
 
-## 2. Contexto del producto
+## 2. Product context
 
-El Product Brief version 0.2 considera como alcance aprobado:
+Product Brief v0.3 defines a Spanish-first learning MVP with:
 
-- vista de lanzamientos recientes o semanales;
-- búsqueda por título;
-- ficha con información esencial;
-- importación desde un proveedor autorizado;
-- modelo interno no acoplado al proveedor;
-- trazabilidad y estado de sincronización;
-- puntuaciones externas únicamente cuando la licencia lo permita.
+- a recent and upcoming release view;
+- title and alternative-title search;
+- a concise game page;
+- one external data provider;
+- a provider-independent internal model;
+- provenance and synchronization state;
+- no third-party scores without explicit permission.
 
-Este spike responde principalmente al riesgo de **disponibilidad y licencia de datos**, identificado como uno de los riesgos más importantes del producto.
+The project is personal, part-time, and learning-only. Ruben Hernandez is the sole
+owner and human contributor. The initial release mode is private and non-commercial;
+public or monetized use is outside the approved Phase 0 scope.
 
-## 3. Preguntas del spike
+## 3. Questions
 
-1. ¿Puede el proveedor alimentar el recorrido principal del MVP?
-2. ¿Permite obtener fechas suficientemente precisas por plataforma y región?
-3. ¿Proporciona imágenes y metadatos esenciales con condiciones de uso razonables?
-4. ¿Puede sincronizarse de manera incremental y resiliente?
-5. ¿Permite almacenar datos localmente y servirlos desde nuestra propia aplicación?
-6. ¿Su autenticación, límites y modelo de consulta son asumibles para un backend Java/Spring?
-7. ¿Aporta algo útil para una experiencia orientada a comunidad hispanohablante?
-8. ¿Qué incertidumbres legales o comerciales bloquean una decisión definitiva?
+1. Can the provider support the primary MVP journey?
+2. Can it represent dates by platform, region, and precision?
+3. Does it provide the essential metadata and image references?
+4. Can it synchronize incrementally and tolerate provider outages?
+5. Can normalized data be stored and served locally?
+6. Are authentication, limits, and query semantics manageable from a Java backend?
+7. Does it provide useful localization support for a Spanish-first product?
+8. Which contractual uncertainties affect private, public, or commercial use?
 
-## 4. Alcance y limitaciones
+## 4. Scope and limitations
 
-### Incluido
+### Included
 
-- Investigación de documentación oficial disponible el 23 de julio de 2026.
-- Comparación funcional, técnica, operativa y comercial.
-- Diseño preliminar de integración desacoplada.
-- Ejemplos de consultas y criterios para una prueba autenticada.
-- Recomendación y gates de decisión.
+- official documentation reviewed on 2026-07-23;
+- functional, technical, operational, and contractual comparison;
+- a provider-independent integration outline;
+- a frozen 60-case control sample;
+- confirmed acceptance thresholds;
+- one authenticated IGDB execution and deterministic offline validation;
+- a product decision proportional to the personal learning scope.
 
-### No incluido
+### Excluded
 
-- Alta de cuentas o contratación de planes.
-- Pruebas autenticadas, porque no se proporcionaron credenciales.
-- Medición real de latencia, disponibilidad o calidad de resultados.
-- Revisión jurídica de licencias.
-- Validación exhaustiva de cobertura mediante una muestra real de juegos.
-- Integración con Metacritic, OpenCritic u otras puntuaciones externas.
+- legal review;
+- public or commercial launch approval;
+- copied provider images;
+- external review-score integration;
+- exhaustive catalogue validation;
+- a production provider adapter or synchronization service;
+- an authenticated RAWG PoC.
 
-Por tanto, la conclusión es suficiente para elegir el **orden de experimentación**, pero todavía no para aprobar definitivamente un proveedor de producción.
+The spike is sufficient to select IGDB for the current private learning scope. A
+change to public distribution, monetization, copied images, or broad catalogue
+coverage must reopen the provider release gate.
 
-## 5. Criterios de evaluación
+## 5. Evaluation criteria
 
-| Criterio | Peso | Qué se valora |
+| Criterion | Weight | What is evaluated |
 |---|---:|---|
-| Cobertura funcional del MVP | 25% | Juegos, búsqueda, fichas, imágenes, plataformas, géneros y compañías |
-| Lanzamientos y frescura | 15% | Fechas por plataforma/región, cambios de fecha y sincronización incremental |
-| Simplicidad de integración | 10% | Autenticación, protocolo, documentación y ergonomía desde Java/Spring |
-| Claridad legal y comercial | 20% | Uso permitido, atribución, almacenamiento, imágenes, monetización y precio |
-| Encaje con español/localización | 10% | Títulos localizados, regiones e idiomas soportados |
-| Escalabilidad y operación | 10% | Límites, paginación, cache, webhooks, bulk e independencia del frontend |
-| Coste durante el MVP | 10% | Coste inicial y riesgo de escalado del plan |
+| MVP functional coverage | 25% | Games, search, game pages, cover references, platforms, genres, and companies |
+| Releases and freshness | 15% | Platform/region dates, date changes, precision, and incremental synchronization |
+| Integration simplicity | 10% | Authentication, protocol, documentation, and Java ergonomics |
+| Contractual clarity | 20% | Permitted use, attribution, storage, images, monetization, and price |
+| Spanish/localization fit | 10% | Localized titles, regions, and supported languages |
+| Scalability and operations | 10% | Limits, pagination, caching, webhooks, bulk access, and frontend independence |
+| MVP cost | 10% | Initial cost and risk of plan escalation |
 
-## 6. Proveedor 1 — IGDB
+## 6. IGDB
 
-### 6.1 Descripción
+### 6.1 Description
 
-IGDB es una base de datos de videojuegos operada dentro del ecosistema de Twitch. Su API v4 expone un modelo extenso de entidades relacionadas y utiliza un lenguaje de consulta propio, **APICalypse**, enviado normalmente mediante peticiones POST.
+IGDB is a video-game database operated within the Twitch ecosystem. Its v4 API
+exposes a broad entity model and uses APICalypse queries sent through POST requests.
 
-### 6.2 Encaje con el MVP
+### 6.2 MVP fit
 
-| Necesidad | Soporte observado | Valoración |
+| Need | Observed support | Assessment |
 |---|---|---|
-| Buscar juegos | Endpoint de búsqueda y consultas sobre `games` | Alto |
-| Lanzamientos semanales | `release_dates` con fecha, juego, plataforma, región y estado | Muy alto |
-| Próximos lanzamientos | Filtrado por fecha y estado | Muy alto |
-| Ficha básica | Nombre, resumen, portada, plataformas, géneros, compañías y webs | Muy alto |
-| Imágenes | Portadas, artworks y screenshots mediante `image_id` | Alto |
-| Franquicias y relaciones | Franquicias, colecciones, DLC, expansiones, remakes y remasters | Muy alto, aunque parte queda fuera del MVP |
-| Idiomas del juego | `language_supports` y tipos de soporte | Alto |
-| Títulos/cubiertas localizados | `game_localizations` por región | Medio-alto |
-| Puntuaciones externas | Campos de rating de usuarios y agregados | Existe, pero debe quedar fuera del MVP hasta validar licencia y significado |
-| Sincronización incremental | `updated_at`, consultas filtradas y webhooks | Muy alto |
+| Game search | Search and filters over `games` | High |
+| Weekly releases | `release_dates` with game, platform, region, date, precision, and status | Very high |
+| Upcoming releases | Date and status filtering | Very high |
+| Basic game page | Name, summary, cover reference, platforms, genres, companies, and websites | Very high |
+| Images | Covers, artworks, and screenshots through `image_id` | High, subject to terms |
+| Relationships | DLC, expansions, remakes, remasters, collections, and franchises | Very high |
+| Supported languages | `language_supports` and support types | High |
+| Localized titles and covers | `game_localizations` by region | Medium-high |
+| External ratings | User and aggregate rating fields | Available but excluded |
+| Incremental synchronization | `updated_at`, filtered queries, and webhooks | Very high |
 
-### 6.3 Autenticación e integración
+### 6.3 Authentication and integration
 
-Requisitos:
+Requirements:
 
-1. Cuenta de Twitch con autenticación de doble factor.
-2. Aplicación registrada como cliente confidencial.
-3. `Client ID` y `Client Secret`.
-4. Token OAuth 2.0 obtenido mediante `client_credentials`.
-5. Cabeceras `Client-ID` y `Authorization: Bearer ...` en cada petición.
+1. Twitch account with two-factor authentication.
+2. A confidential Twitch application.
+3. `Client ID` and `Client Secret`.
+4. OAuth 2.0 token through `client_credentials`.
+5. `Client-ID` and `Authorization: Bearer ...` request headers.
 
-Características técnicas relevantes:
+Relevant technical behavior:
 
-- La API no permite llamadas directas desde el navegador por CORS y para evitar exponer el token. Esto encaja con la arquitectura propuesta: el frontend debe consumir nuestra API, nunca IGDB directamente.
-- Límite publicado: **4 solicitudes por segundo** y hasta **8 solicitudes abiertas simultáneamente**.
-- Máximo de **500 elementos por petición**.
-- Multi-query permite agrupar varias consultas en una sola llamada.
-- Los tokens expiran y deben renovarse; la documentación indica una vida aproximada de 60 días y un máximo de 25 tokens activos por aplicación.
-- IGDB recomienda almacenar y servir localmente los datos en vez de usar su API como backend en tiempo real.
+- direct browser calls are not supported and would expose credentials;
+- the published limit is four requests per second and eight concurrent requests;
+- one request returns at most 500 elements;
+- multi-query can group requests;
+- tokens expire and must be renewed;
+- IGDB recommends storing and serving data locally.
 
-### 6.4 Ejemplo de consulta para próximos lanzamientos
+The PoC uses a sequential three-request-per-second limit and keeps provider calls
+behind a backend boundary.
+
+### 6.4 Example release query
 
 ```http
 POST https://api.igdb.com/v4/release_dates
@@ -145,104 +176,103 @@ Client-ID: ${IGDB_CLIENT_ID}
 Authorization: Bearer ${IGDB_ACCESS_TOKEN}
 Accept: application/json
 
-fields date,human,game.id,game.name,game.slug,game.cover.image_id,
-       platform.id,platform.name,release_region.region,status.name;
+fields date,human,date_format,
+       game.id,game.name,game.slug,game.cover.image_id,
+       platform.id,platform.name,
+       release_region.region,status.name,updated_at;
 where date >= ${FROM_EPOCH}
   & date < ${TO_EPOCH};
 sort date asc;
 limit 500;
 ```
 
-> La sintaxis exacta de expansión debe validarse en la prueba autenticada. El ejemplo representa la consulta objetivo, no evidencia de ejecución.
+The authenticated PoC confirmed the relevant query and response behavior. Production
+queries must continue to use current, non-deprecated fields.
 
-### 6.5 Estrategia de sincronización propuesta
+### 6.5 Proposed synchronization
 
-- **Carga inicial acotada:** importar solamente juegos relevantes para una ventana temporal, no intentar descargar todo el catálogo.
-- **Incremental por `updated_at`:** consultar cambios desde el último watermark confirmado.
-- **Reconciliación diaria:** volver a consultar la ventana de próximos lanzamientos, porque fechas futuras pueden cambiar.
-- **Webhooks como optimización posterior:** no depender de ellos en el primer slice; incorporarlos cuando la carga periódica esté estable.
-- **Cache/almacenamiento propio:** persistir el modelo normalizado y no realizar fan-out a IGDB en cada vista de usuario.
-- **Rate limiting local:** token bucket de 3 solicitudes/segundo para mantener margen respecto al límite de 4.
+- Import only the bounded catalogue and relevant release window.
+- Use `updated_at` as the initial incremental watermark.
+- Reconcile the upcoming window regularly because dates change.
+- Keep webhooks as a later optimization.
+- Persist normalized data and do not fan out to IGDB on page views.
+- Apply a local limit of three requests per second.
 
-### 6.6 Condiciones de uso y riesgo comercial
+### 6.6 Terms and release-mode boundary
 
-La documentación oficial contiene dos mensajes que deben interpretarse con cautela:
+The official documentation describes free non-commercial use under the Twitch
+Developer Service Agreement and asks commercial products to contact IGDB. IGDB also
+documents local caching and visible attribution expectations.
 
-- En “Getting Started” indica uso gratuito no comercial bajo el acuerdo de desarrolladores de Twitch y solicita contactar para necesidades comerciales.
-- En su FAQ de partnership afirma que la API es gratuita tanto para proyectos no comerciales como comerciales, pero que los productos monetizados deben integrarse mediante partnership y ofrecer atribución visible.
+For Phase 0 the owner accepts only:
 
-También afirma que:
+- private, non-commercial learning use;
+- local normalized metadata;
+- no committed raw responses or credentials;
+- no copied provider images;
+- no external ratings.
 
-- se permite almacenar/cachear los datos localmente;
-- se prefiere que el integrador sirva los datos desde su propia infraestructura;
-- la atribución debe ser visible;
-- los datos ya recuperados pueden conservarse si termina la partnership.
+Before public or monetized use, confirm the applicable partnership, attribution,
+retained-data, image, and rating requirements. This future check does not block the
+current private learning scope.
 
-**Conclusión legal provisional:** técnicamente favorable, pero antes de monetizar debe obtenerse confirmación escrita de IGDB sobre partnership, atribución, imágenes y campos de ratings utilizados.
+### 6.7 Spanish and localization
 
-### 6.7 Español y localización
+IGDB provides localized names/covers and information about languages supported by a
+game. It does not guarantee Spanish `summary` or `storyline` content.
 
-IGDB aporta dos capacidades útiles:
+Therefore:
 
-- nombres y portadas localizados por región;
-- información sobre los idiomas soportados por el juego.
+- keep `sourceSummary` and `sourceSummaryLanguage` explicit;
+- maintain `editorialSummaryEs` as product-owned content;
+- never present an automatic translation as official provider content;
+- maintain product-owned Spanish aliases for search when provider coverage is absent.
 
-No se observa una garantía de que `summary` o `storyline` estén disponibles en español. Por ello:
+### 6.8 Strengths
 
-- `providerSummary` debe almacenarse con idioma conocido o marcado como desconocido;
-- la descripción editorial española debe ser un campo propio y separado;
-- no se debe traducir automáticamente y presentar el resultado como contenido oficial del proveedor;
-- los títulos alternativos/localizados pueden mejorar búsquedas en español.
+- Rich, normalized model.
+- Strong platform/region release representation.
+- Incremental synchronization support.
+- Local caching aligns with a provider-independent domain model.
+- No published monthly cap.
+- Useful localization and language entities.
 
-### 6.8 Ventajas
+### 6.9 Limitations
 
-- Modelo de datos muy completo y normalizado.
-- Fechas detalladas por plataforma y región.
-- Buen soporte para sincronización incremental.
-- Permite almacenamiento local, alineado con un modelo de dominio propio.
-- Sin límite mensual explícito; el control principal es por segundo.
-- Incluye localizaciones e idiomas soportados.
-- Encaja bien con una integración backend y un adaptador anticorrupción.
+- Twitch OAuth and APICalypse add integration complexity.
+- The four-request-per-second limit requires controlled synchronization.
+- Schema changes and deprecated fields require contract tests.
+- Public/commercial and image requirements must be reviewed before that release mode.
+- Spanish editorial content remains a product responsibility.
+- The first PoC found release-date and localized-title limitations.
 
-### 6.9 Inconvenientes
+## 7. RAWG
 
-- Autenticación más compleja mediante Twitch OAuth.
-- Lenguaje APICalypse menos estándar que REST con query parameters.
-- Límite de 4 solicitudes por segundo.
-- Cambios de esquema y campos deprecados requieren contract tests.
-- Condiciones comerciales y partnership deben confirmarse.
-- Las descripciones no resuelven la propuesta editorial en español.
+### 7.1 Description
 
-## 7. Proveedor 2 — RAWG
+RAWG provides a REST catalogue API authenticated with an API key. It advertises a
+large catalogue with platforms, images, stores, ratings, developers, and publishers.
 
-### 7.1 Descripción
+### 7.2 MVP fit
 
-RAWG ofrece una API REST de catálogo con autenticación mediante API key. Su web anuncia más de 500.000 juegos, datos para unas 50 plataformas y un volumen elevado de screenshots, ratings, desarrolladores y publishers.
-
-### 7.2 Encaje con el MVP
-
-| Necesidad | Soporte observado | Valoración |
+| Need | Observed support | Assessment |
 |---|---|---|
-| Buscar juegos | `GET /api/games?search=...` con búsqueda precisa o exacta | Alto |
-| Lanzamientos semanales | Filtros `dates` y `platforms` | Alto |
-| Próximos lanzamientos | Rango de fechas y ordenación | Alto |
-| Ficha básica | Descripción, géneros, fechas, tiendas, ESRB, webs y requisitos | Alto |
-| Imágenes | Backgrounds y screenshots | Alto, condicionado por licencia/atribución |
-| Franquicias/DLC | Juegos padre, DLC y series | Medio-alto |
-| Idiomas del juego | No aparece como fortaleza publicada equivalente a IGDB | Bajo-medio |
-| Títulos/cubiertas localizados | No se observa garantía oficial | Bajo |
-| Puntuaciones externas | Ratings propios y datos de Metacritic, incluso por plataforma | Funcionalmente alto, legalmente pendiente |
-| Sincronización incremental | Fecha de última actualización en detalle y filtros de consulta | Medio |
+| Game search | `GET /api/games?search=...` | High |
+| Weekly/upcoming releases | `dates` and `platforms` filters | High |
+| Basic game page | Descriptions, genres, dates, stores, websites, and requirements | High |
+| Images | Backgrounds and screenshots | High, subject to terms |
+| Relationships | Parent games, DLC, and series | Medium-high |
+| Supported languages | No equivalent published strength | Low-medium |
+| Localized titles/covers | No documented completeness guarantee | Low |
+| External ratings | RAWG ratings and Metacritic data | Functionally high, contractually pending |
+| Incremental synchronization | Updated timestamp and filters | Medium |
 
-### 7.3 Autenticación e integración
+### 7.3 Integration
 
-- API key incluida como query parameter en cada petición.
-- API REST convencional basada en GET.
-- Filtros directos por fechas, plataformas, desarrolladores, géneros, tags y Metacritic.
-- Paginación estándar.
-- Integración inicial más sencilla que IGDB.
-
-Ejemplo:
+- API key in the query string.
+- Conventional GET-based REST API.
+- Filters for dates, platforms, developers, genres, tags, and Metacritic.
+- Standard pagination.
 
 ```http
 GET https://api.rawg.io/api/games
@@ -252,93 +282,73 @@ GET https://api.rawg.io/api/games
     &page_size=40
 ```
 
-### 7.4 Límites y precio publicado
+### 7.4 Published limits and terms
 
-La sección de pricing visible el 23 de julio de 2026 indica:
+The pricing page reviewed on 2026-07-23 described:
 
-- **Free:** proyectos personales y hobby, no comerciales, hasta 20.000 solicitudes al mes y backlinks obligatorios.
-- **Business:** 149 USD/mes, uso comercial, hasta 50.000 solicitudes al mes, datos adicionales y soporte por email.
-- **Enterprise:** hasta 1.000.000 de solicitudes al mes, descarga de archivos y condiciones personalizadas.
+- **Free:** personal, hobby, non-commercial projects; 20,000 requests per month;
+  backlinks required.
+- **Business:** USD 149/month; commercial use; 50,000 requests per month.
+- **Enterprise:** up to 1,000,000 requests per month with custom terms.
 
-Sin embargo, la sección “Terms of Service” de la misma página todavía afirma que startups y proyectos hobby pueden usar gratuitamente la API con fines comerciales hasta 100.000 usuarios activos mensuales o 500.000 páginas vistas mensuales.
+The same page also contained older wording suggesting some free commercial use. That
+contradiction must be clarified before selecting RAWG for any commercial mode.
 
-**Esta contradicción debe considerarse un bloqueo contractual hasta que RAWG confirme por escrito cuál es la regla vigente.** La tabla de pricing es más específica y aparentemente más reciente, por lo que este spike no presupone uso comercial gratuito.
+RAWG requires attribution and an active link on pages using its data or images and
+prohibits redistribution or resale. These rules affect product design and public API
+boundaries.
 
-### 7.5 Atribución, almacenamiento y redistribución
+### 7.5 Images and external scores
 
-RAWG exige:
+RAWG does not claim ownership of every supplied image. Exposure through the API does
+not prove a complete rights chain for reuse.
 
-- atribuir RAWG como fuente de datos e imágenes;
-- añadir un enlace activo desde cada página en la que se utilicen esos datos;
-- no redistribuir ni revender los datos a terceros.
+Likewise, exposure of Metacritic data does not by itself grant VideoGame Platform the
+right to store or display it. External scores remain outside the MVP.
 
-La atribución por página afecta directamente al diseño de la ficha y de la vista de lanzamientos. Debe ser parte de los acceptance criteria, no un texto escondido en el footer legal.
+### 7.6 Spanish and localization
 
-La prohibición de redistribución no impide necesariamente servir datos dentro del propio producto, pero obliga a evitar endpoints públicos que reproduzcan el dataset de RAWG sin aportar una capacidad de producto. La interpretación exacta debe confirmarse.
+RAWG does not document comprehensive Spanish descriptions, regionalized titles, or
+supported-language classification as a primary capability. A product-owned Spanish
+editorial and alias layer would still be necessary.
 
-### 7.6 Riesgo de imágenes y puntuaciones externas
+### 7.7 Strengths
 
-RAWG declara que no reclama propiedad sobre todas las imágenes o datos proporcionados y que retira contenido infractor cuando recibe una notificación adecuada. Esto no equivale a una cadena de derechos completa para cada imagen.
+- Simple REST integration.
+- Direct date and platform filters.
+- Broad catalogue and image references.
+- Stores, requirements, videos, and ratings may be useful later.
 
-Además, que RAWG exponga datos de Metacritic no demuestra por sí solo que VideoGame Platform pueda reutilizarlos en cualquier contexto. Antes de mostrar estas puntuaciones deben confirmarse:
+### 7.8 Limitations
 
-- derechos contractuales;
-- atribución;
-- frecuencia de actualización;
-- posibilidad de almacenamiento;
-- uso de marcas y logotipos;
-- restricciones de presentación.
+- Monthly cap on the published free plan.
+- Material price increase for commercial use.
+- Contradictory commercial wording.
+- Per-page attribution and backlink requirement.
+- Redistribution restriction.
+- Unclear image rights chain.
+- Weaker documented localization support.
 
-Para el MVP se recomienda **no importar Metacritic desde RAWG** hasta resolverlo expresamente.
+## 8. Weighted comparison
 
-### 7.7 Español y localización
+Scores use a 1–5 scale. They are the spike's technical assessment, not provider
+claims.
 
-La documentación comercial de RAWG no presenta el contenido localizado en español como una capacidad principal. Puede ayudar a descubrir juegos y obtener metadatos universales, pero no debe asumirse que proporciona:
-
-- descripciones en español;
-- títulos regionalizados completos;
-- clasificación consistente de idiomas soportados;
-- contexto editorial para la comunidad hispana.
-
-La plataforma necesitará una capa propia de localización y contenido editorial igualmente.
-
-### 7.8 Ventajas
-
-- API REST simple y rápida de probar.
-- Filtros directos muy útiles para el MVP.
-- Amplio catálogo e imágenes.
-- Incluye tiendas, requisitos, vídeos y ratings que pueden ser útiles en fases posteriores.
-- Menor curva de entrada que IGDB.
-
-### 7.9 Inconvenientes
-
-- Límite de 20.000 solicitudes/mes en el plan gratuito publicado.
-- Plan Business de 149 USD/mes y solo 50.000 solicitudes/mes.
-- Contradicción entre pricing y términos comerciales en la misma página.
-- Atribución y backlink exigidos en cada página que use datos o imágenes.
-- Prohibición de redistribución.
-- Cadena de derechos de imágenes no garantizada de forma absoluta.
-- Menor soporte visible para idiomas y localizaciones.
-- Posible tentación de acoplar la ficha a campos de conveniencia como Metacritic.
-
-## 8. Comparativa ponderada
-
-Puntuación de 1 a 5, donde 5 representa el mejor encaje. Las puntuaciones son una evaluación técnica del spike, no datos publicados por los proveedores.
-
-| Criterio | Peso | IGDB | RAWG | Comentario |
+| Criterion | Weight | IGDB | RAWG | Rationale |
 |---|---:|---:|---:|---|
-| Cobertura funcional del MVP | 25% | 5,0 | 4,5 | Ambos cubren el recorrido; IGDB modela más relaciones y dimensiones |
-| Lanzamientos y frescura | 15% | 5,0 | 4,0 | IGDB destaca en fechas por plataforma/región, `updated_at` y webhooks |
-| Simplicidad de integración | 10% | 3,0 | 5,0 | RAWG usa REST y API key; IGDB requiere OAuth y APICalypse |
-| Claridad legal/comercial | 20% | 3,0 | 2,0 | Ambos requieren confirmación; RAWG publica condiciones contradictorias |
-| Español/localización | 10% | 3,0 | 2,0 | IGDB aporta localizaciones e idiomas, aunque no descripciones españolas garantizadas |
-| Escalabilidad y operación | 10% | 4,5 | 3,0 | IGDB favorece sync local y no publica cap mensual; RAWG limita requests por plan |
-| Coste durante el MVP | 10% | 4,5 | 4,0 | Ambos permiten una prueba gratuita no comercial; RAWG tiene salto comercial explícito |
-| **Resultado ponderado** | **100%** | **82/100** | **69,5/100** | IGDB es el mejor candidato para el primer PoC |
+| MVP functional coverage | 25% | 5.0 | 4.5 | Both cover the journey; IGDB models more relationships |
+| Releases and freshness | 15% | 5.0 | 4.0 | IGDB exposes platform/region dates, `updated_at`, and webhooks |
+| Integration simplicity | 10% | 3.0 | 5.0 | RAWG uses REST and an API key |
+| Contractual clarity | 20% | 3.0 | 2.0 | Both need care; RAWG publishes contradictory wording |
+| Spanish/localization fit | 10% | 3.0 | 2.0 | IGDB provides localization and language entities |
+| Scalability and operations | 10% | 4.5 | 3.0 | IGDB favors local sync without a monthly cap |
+| MVP cost | 10% | 4.5 | 4.0 | Both permit non-commercial evaluation; RAWG has an explicit commercial step |
+| **Weighted result** | **100%** | **82/100** | **69.5/100** | IGDB is the preferred initial provider |
 
-## 9. Arquitectura propuesta para no acoplar el dominio
+## 9. Provider-independent product model
 
-El Product Brief exige que el modelo externo no dicte el modelo interno. La integración debe residir en un adaptador dentro del monolito modular inicial.
+The external provider must not define the internal model. A provider adapter belongs
+inside the initial modular monolith; the MVP does not need a provider microservice.
 
 ```text
 Frontend
@@ -349,15 +359,12 @@ Application use cases
    |
 GameCatalogProvider port
    |
-+--------------------------+
-| IGDB adapter             |
-| RAWG adapter (opcional)  |
-+--------------------------+
+IGDB adapter
    |
-External provider API
+IGDB API
 ```
 
-### 9.1 Puerto de aplicación sugerido
+### 9.1 Minimal provider port
 
 ```java
 public interface GameCatalogProvider {
@@ -376,22 +383,25 @@ public interface GameCatalogProvider {
 }
 ```
 
-No todos los proveedores tienen que implementar internamente cada operación de la misma manera. El puerto expresa necesidades del producto, no endpoints externos.
+The port expresses product needs, not provider endpoints. Subscription availability
+is not inferred from `findReleases`; it enters through a separate source or curated
+workflow when the product chooses to support it.
 
-### 9.2 Modelo canónico mínimo
+### 9.2 Minimal canonical concepts
 
 ```text
 Game
 - internalId
 - canonicalTitle
 - slug
-- editorialSummaryEs        // propiedad de la plataforma
+- editorialSummaryEs
 - sourceSummary
 - sourceSummaryLanguage
-- coverAsset
+- coverReference
 - genres[]
 - companies[]
 - releases[]
+- availabilities[]
 - supportedLanguages[]
 - externalReferences[]
 - provenance
@@ -403,7 +413,21 @@ Release
 - releaseDate
 - datePrecision
 - status
+- provenance
 - providerUpdatedAt
+- lastVerifiedAt
+- verificationStatus
+
+Availability
+- service
+- platform
+- region
+- availableFrom
+- availableUntil
+- datePrecision
+- status
+- provenance
+- lastVerifiedAt
 
 ExternalReference
 - provider
@@ -411,233 +435,276 @@ ExternalReference
 - providerUrl
 ```
 
-### 9.3 Reglas de diseño
+`Release` means the first or subsequent commercial release of a game for one
+platform and region. `Availability` means access through a subscription, rotating
+catalogue, promotion, or similar service. A Game Pass arrival must never overwrite or
+be compared as an original platform release.
 
-- Generar un identificador interno independiente.
-- Mantener una tabla `external_game_reference` por proveedor.
-- Registrar procedencia por campo cuando sea relevante.
-- No mezclar rating interno de usuarios con ratings del proveedor.
-- Mantener las imágenes como referencias externas inicialmente; no copiarlas a almacenamiento propio sin confirmar licencia.
-- Persistir `provider_updated_at`, `last_synced_at`, `sync_status` y errores de sincronización.
-- Aplicar timeouts, retry con backoff, circuit breaker y rate limiting.
-- No bloquear la ficha pública si el proveedor está caído; servir la última versión sincronizada.
-- Añadir contract tests con fixtures reales anonimizadas o permitidas.
-- No crear un microservicio de integración en el MVP: un módulo y un worker programado son suficientes.
+`datePrecision` supports `day`, `month`, `quarter`, `year`, and `unknown`.
+`verificationStatus` supports at least `provider_only`, `verified`,
+`review_required`, and `stale`.
 
-## 10. PoC autenticado recomendado
+### 9.3 Modelling and validation rules
 
-### 10.1 Orden
+- Generate provider-independent internal identifiers.
+- Keep external references separate from game identity.
+- Validate platform, region, date, precision, and status as one release tuple.
+- Never combine fields from different provider release records.
+- Never map subscription availability into `Release`.
+- Preserve provider values and explicit `unknown` states.
+- Keep provenance and freshness on every release or availability.
+- Require manual verification for displayed recent/upcoming dates when sources
+  disagree or the provider value is stale.
+- Keep Spanish aliases and editorial content product-owned.
+- Keep images as references until their terms are confirmed.
+- Persist `providerUpdatedAt`, `lastSyncedAt`, `syncStatus`, and synchronization
+  errors.
+- Serve the last synchronized data during provider failure.
+- Use fixture-based contract tests for normalization.
 
-1. Obtener credenciales no comerciales de IGDB.
-2. Ejecutar la muestra y documentar resultados.
-3. Contactar con IGDB para confirmar condiciones del posible producto público/comercial.
-4. Repetir una muestra reducida con RAWG solamente si IGDB falla en cobertura, calidad o condiciones.
+## 10. Authenticated PoC
 
-### 10.2 Muestra de control congelada
+### 10.1 Execution order
 
-La PoC debe usar los 60 casos versionados en
-[`igdb-poc-sample.csv`](igdb-poc-sample.csv), congelados el 24 de julio de
-2026 antes de ejecutar llamadas autenticadas:
+1. Freeze the sample and thresholds.
+2. Obtain IGDB development credentials.
+3. Run local tests and an authenticated capture.
+4. Validate captured canonical data offline.
+5. Review every `REVIEW` and material failure.
+6. Record the owner decision and accepted limitations.
+7. Evaluate RAWG only if IGDB later becomes unsuitable.
 
-- 10 lanzamientos recientes de PC, PlayStation, Xbox y Nintendo;
-- 10 próximos lanzamientos;
-- 10 títulos españoles o con nombre regionalizado;
-- 10 juegos indie poco conocidos;
-- 10 juegos antiguos con múltiples versiones o plataformas;
-- 5 DLC/expansiones para comprobar clasificación;
-- 5 juegos retrasados o con fecha imprecisa cuando existan casos conocidos.
+### 10.2 Frozen control sample
 
-Los campos `expected_*` son expectativas verificables tomadas de la evidencia
-oficial enlazada, no datos observados de IGDB. Un valor vacío significa que la
-muestra no afirma ese atributo. `expected_date_precision` permite distinguir
-fechas de día, año o desconocidas, y `criticality` vincula cada caso con la
-clasificación bloqueante o no bloqueante del gate.
+The PoC uses the 60 cases in
+[`igdb-poc-sample.csv`](igdb-poc-sample.csv), frozen on 2026-07-24 before the
+authenticated execution:
 
-### 10.3 Casos de prueba
+- 10 recent releases;
+- 10 upcoming releases;
+- 10 Spanish or regionalized titles;
+- 10 lesser-known indie games;
+- 10 legacy games with several platforms or versions;
+- 5 DLC or expansions;
+- 5 delayed or imprecisely dated games.
 
-| Caso | Evidencia esperada |
-|---|---|
-| Buscar por título exacto | Resultado correcto y sin duplicados inesperados |
-| Buscar por título alternativo | El juego puede localizarse mediante nombre regional o alternativo |
-| Lanzamientos de una semana | Fechas, plataformas y regiones coherentes |
-| Próximos lanzamientos | Orden cronológico y ausencia de títulos cancelados como lanzamientos normales |
-| Ficha básica | Título, cover, summary, géneros, compañías y plataformas |
-| Idioma español | Diferenciar interfaz/ficha en español de idioma soportado por el juego |
-| Cambio incremental | `updated_at` o mecanismo equivalente permite recuperar modificaciones |
-| Rate limiting | El cliente respeta el límite sin 429 durante carga controlada |
-| Fallo externo | Se conserva y sirve el último dato sincronizado |
-| Atribución | La UI propuesta cumple los requisitos visibles del proveedor |
+The `expected_*` columns represent expectations from linked official evidence, not
+IGDB observations. Blank values make no assertion. Date precision remains distinct
+from the date value.
 
-### 10.4 Métricas de aceptación confirmadas
+### 10.3 Confirmed acceptance thresholds
 
-- **Estado:** Aprobadas para ejecución
+- **Status:** Frozen before execution
 - **Decision owner:** Ruben Hernandez
-- **Fecha de decisión:** 2026-07-24
-- **Muestra aplicable:** [`igdb-poc-sample.csv`](igdb-poc-sample.csv)
-- **Regla de decisión:** `PASS` / `CONDITIONAL PASS` / `FAIL`
+- **Decision date:** 2026-07-24
+- **Sample:** [`igdb-poc-sample.csv`](igdb-poc-sample.csv)
+- **Decision vocabulary:** `PASS`, `CONDITIONAL_PASS`, `REVIEW`, `FAIL`
 
-Los umbrales se fijan antes de observar resultados para evitar adaptar el
-criterio a la respuesta del proveedor.
+#### Data gate
 
-#### Gate de datos
-
-| Métrica | Umbral confirmado | Clasificación |
+| Metric | Threshold | Classification |
 |---|---:|---|
-| Búsqueda por título exacto | ≥ 95% encontrado correctamente | Bloqueante |
-| Búsqueda por título alternativo o localizado | ≥ 80% del subconjunto aplicable | Limitación aceptable |
-| Registros con `providerId`, procedencia y fecha de sincronización | 100% | Bloqueante |
-| Juegos con plataforma correctamente identificada | ≥ 95% | Bloqueante |
-| Lanzamientos con fecha o precisión correctamente representada | ≥ 90% | Bloqueante |
-| Lanzamientos con región correctamente representada o marcada como desconocida | ≥ 85% | Bloqueante |
-| Fichas con portada utilizable | ≥ 90% | No bloqueante |
-| Fichas con género identificable | ≥ 90% | No bloqueante |
-| Fichas con developer o publisher identificable | ≥ 85% | No bloqueante |
-| Cancelados o retrasados mostrados como lanzamientos normales | 0 | Bloqueante |
-| DLC, expansiones, ports o remasters fusionados silenciosamente | 0 | Bloqueante |
-| Duplicados inesperados en resultados normales | ≤ 5% | Bloqueante |
+| Exact-title search | ≥ 95% | Blocking |
+| Alternative/localized-title search | ≥ 80% | Accepted limitation |
+| Provider ID, provenance, and synchronization timestamp | 100% | Blocking |
+| Platform correctly identified | ≥ 95% | Blocking |
+| Release date or precision correctly represented | ≥ 90% | Blocking |
+| Region correct or explicitly unknown | ≥ 85% | Blocking |
+| Usable cover reference | ≥ 90% | Non-blocking |
+| Genre identifiable | ≥ 90% | Non-blocking |
+| Developer or publisher identifiable | ≥ 85% | Non-blocking |
+| Cancelled/delayed games shown as normal releases | 0 | Blocking |
+| DLC, expansion, port, or remaster silently merged | 0 | Blocking |
+| Unexpected duplicates in normal results | ≤ 5% | Blocking |
 
-La disponibilidad de `summary` en español no es un gate: el Product Brief
-establece una capa editorial propia y no debe depender del proveedor para
-resolverla.
+Spanish summaries are not a gate because Spanish editorial content is product-owned.
 
-#### Gate técnico y operativo
+#### Technical and operational gate
 
-| Métrica | Umbral confirmado |
+| Metric | Threshold |
 |---|---:|
-| Secretos en Git, frontend, resultados o logs | 0 |
-| Llamadas del navegador directamente a IGDB | 0 |
-| Límite configurado en la PoC | Máximo 3 requests/segundo |
-| Respuestas `429` durante carga controlada | 0 |
-| Peticiones correctas tras retry limitado | ≥ 99% |
-| Registros sincronizados que pueden leerse sin conexión a IGDB | 100% |
-| Errores de normalización silenciosos | 0 |
-| Request count, latencia y errores registrados | 100% de ejecuciones |
+| Secrets in Git, frontend, results, or logs | 0 |
+| Browser calls directly to IGDB | 0 |
+| Configured request rate | ≤ 3 requests/second |
+| HTTP 429 responses under controlled load | 0 |
+| Successful requests after bounded retry | ≥ 99% |
+| Synchronized cases readable without IGDB | 100% |
+| Silent normalization errors | 0 |
+| Request count, latency, and errors recorded | Every run |
 
-La latencia p95 debe medirse, pero no es bloqueante en esta fase: una ejecución
-local no permite fijar un SLA representativo.
+Local p95 latency is observational and is not an SLA.
 
-#### Interpretación del resultado
+### 10.4 First authenticated result
 
-- **`PASS`:** se cumplen todos los criterios bloqueantes, los no bloqueantes
-  quedan dentro del umbral, no existe dependencia crítica de textos en español
-  y se demuestra sincronización con lectura local.
-- **`CONDITIONAL PASS`:** se cumplen todos los criterios bloqueantes y los
-  únicos fallos afectan a portada, compañía, género o título alternativo; cada
-  limitación queda declarada y mitigada en el MVP.
-- **`FAIL`:** falla cualquier criterio bloqueante; los duplicados o tipos no
-  pueden controlarse; la solución necesita consultar IGDB en cada visita; no
-  respeta el rate limit; o las condiciones contractuales o de imágenes resultan
-  incompatibles.
+The reviewed result is documented in
+[`igdb-poc-results.md`](igdb-poc-results.md).
 
-## 11. Riesgos y mitigaciones
+| Result | Evidence |
+|---|---:|
+| Generated decision | `CONDITIONAL_PASS` |
+| Cases | 41 `PASS`, 9 `REVIEW`, 10 `FAIL` |
+| Exact-title search | 98.0% |
+| Platform | 100% |
+| Region | 100% |
+| Release date and precision | 83.1%, plus 2 reviews |
+| Alternative/localized title | 40% |
+| Metadata, provenance, and timestamp | 100% |
+| Offline readability | 60/60 |
+| Requests | 187; 100% successful; 0 HTTP 429; p95 561 ms |
 
-| Riesgo | Probabilidad | Impacto | Mitigación inicial |
+Release accuracy did not strictly meet the blocking 90% threshold. Continuing is an
+explicit owner exception for this bounded learning experiment, not a claim that the
+threshold passed.
+
+The main causes were:
+
+- Game Pass availability used as if it were a platform release;
+- one-day timezone or source-normalization differences;
+- a broad `PC` label that did not distinguish DOS from modern Windows;
+- provider dates more precise than the frozen sample;
+- one genuinely missing title.
+
+These findings produced the separate `Release` and `Availability` concepts in
+section 9.
+
+## 11. Risks and mitigations
+
+| Risk | Probability | Impact | Initial mitigation |
 |---|---|---|---|
-| Condiciones comerciales ambiguas | Alta | Alta | Confirmación escrita antes de producción o monetización |
-| Imágenes sin derechos suficientemente claros | Media-alta | Alta | Enlazar según términos, registrar procedencia y evitar copia hasta revisión |
-| Contenido principalmente en inglés | Alta | Media-alta | Capa editorial propia en español y locale explícito |
-| Duplicados entre versiones/ediciones | Alta | Media | Reglas de canonicalización y revisión de `game_type`/parent relationships |
-| Fechas futuras cambiantes | Alta | Media | Reconciliar ventana futura de forma periódica |
-| Caída o throttling del proveedor | Media | Media | Persistencia local, retry, rate limit, circuit breaker y datos stale permitidos |
-| Cambio de esquema | Media | Media | Contract tests, mapeo defensivo y monitorización de campos deprecados |
-| Acoplamiento a ratings externos | Media | Alta | Mantenerlos fuera del MVP y separados del rating interno |
-| Coste por volumen | Media | Media-alta | Sync incremental, cache, presupuestos de requests y alertas |
+| Public/commercial terms not closed | High if scope changes | High | Keep Phase 0 private and non-commercial; reopen before public release |
+| Image rights unclear | Medium-high | High | Use no copied provider images in the current scope |
+| Incomplete Spanish content | High | Medium-high | Product-owned Spanish aliases and editorial content |
+| Versions and editions duplicated | High | Medium | Canonicalization and explicit type/parent review |
+| Future dates change | High | Medium | Regular reconciliation and manual review state |
+| Provider outage or throttling | Medium | Medium | Local persistence, bounded retry, rate limit, and stale data |
+| Provider schema changes | Medium | Medium | Defensive mapping and contract tests |
+| External-rating coupling | Medium | High | Keep external ratings outside the MVP |
+| Solo-project operational load | High | Medium | Bounded catalogue and manual workflows before automation |
 
-## 12. Decisión propuesta
+## 12. Decision after the PoC
 
-### Adoptar provisionalmente
+### Approved for the current scope
 
-- **Proveedor candidato principal:** IGDB.
-- **Tipo de decisión:** reversible hasta completar PoC autenticado y validación contractual.
-- **Uso inicial:** catálogo, búsqueda, ficha básica y lanzamientos.
-- **No usar inicialmente:** ratings externos, críticas profesionales, Metacritic, vídeos y copia propia de imágenes.
+- **Provider:** IGDB.
+- **Owner:** Ruben Hernandez.
+- **Decision date:** 2026-07-24.
+- **Release mode:** private, non-commercial learning.
+- **Use:** bounded catalogue, search, game page, releases, and local normalization.
+- **Decision type:** reversible if provider constraints or product scope change.
 
-### Condiciones para aprobar IGDB
+### Accepted limitations
 
-- Cobertura suficiente en la muestra.
-- Fechas por plataforma y región consistentes.
-- Aceptación de almacenamiento/cache local.
-- Condiciones comerciales y atribución confirmadas por escrito.
-- Uso de portadas e imágenes compatible con la UI prevista.
-- Integración incremental viable dentro de 4 solicitudes/segundo.
-- Ausencia de dependencia crítica de textos en español proporcionados por el proveedor.
+- Declared catalogue boundary.
+- Product-owned Spanish aliases.
+- Manual reconciliation for selected recent/upcoming dates.
+- Separate release and subscription-availability concepts.
+- Imprecise and unknown dates/statuses remain explicit.
+- Local synchronized reads rather than provider calls per page.
+- One provider only.
 
-### Condiciones para cambiar a RAWG
+### Explicitly excluded
 
-- IGDB no cubre adecuadamente títulos o lanzamientos relevantes.
-- La partnership o atribución de IGDB resulta incompatible.
-- El coste de complejidad de APICalypse/OAuth no se justifica tras la prueba.
-- RAWG aclara por escrito condiciones comerciales, imágenes, almacenamiento y redistribución.
+- Public or monetized release.
+- Copied provider images.
+- External ratings or professional-review aggregation.
+- Exhaustive catalogue coverage.
+- RAWG integration.
+- A provider microservice.
 
-## 13. Respuestas del spike
+### Conditions that reopen the decision
 
-| Pregunta | Respuesta |
+- public deployment;
+- monetization;
+- copied or redistributed images/data;
+- broad unattended catalogue synchronization;
+- accepted limitations becoming too expensive;
+- material IGDB contract or API changes.
+
+## 13. Spike answers
+
+| Question | Answer |
 |---|---|
-| ¿Hay proveedores viables? | Sí: IGDB y RAWG pueden cubrir documentalmente el recorrido aprobado del learning MVP |
-| ¿Cuál probar primero? | IGDB |
-| ¿Puede tomarse ya una decisión definitiva? | No; faltan credenciales, muestra real y confirmación contractual |
-| ¿Cuál es más sencillo técnicamente? | RAWG |
-| ¿Cuál ofrece mejor modelo para catálogo y lanzamientos? | IGDB |
-| ¿Cuál tiene mayor riesgo comercial visible? | RAWG, por la contradicción entre pricing y términos |
-| ¿Resuelven el contenido en español? | No; IGDB ayuda con localizaciones e idiomas, pero ninguno sustituye una capa editorial española |
-| ¿Deben consultarse en tiempo real desde el frontend? | No; debe sincronizarse y servirse desde la plataforma |
-| ¿Se deben importar ratings externos en el MVP? | No, hasta validar expresamente licencia y presentación |
+| Are providers viable? | Yes. IGDB is viable for the bounded private learning scope; RAWG remains a documentary fallback |
+| Which provider should be used first? | IGDB |
+| Is the current technical decision sufficient? | Yes for private learning; no for public, image, or commercial use |
+| Which provider is simpler technically? | RAWG |
+| Which provider has the stronger catalogue/release model? | IGDB |
+| Which provider shows greater contractual ambiguity? | RAWG |
+| Do they solve Spanish editorial content? | No; that remains product-owned |
+| Should the frontend call them in real time? | No; synchronize and serve local data |
+| Should external ratings enter the MVP? | No |
 
-## 14. Acciones siguientes
+## 14. Completed and deferred actions
 
-- [x] Confirmar y versionar los umbrales de aceptación antes de ejecutar la PoC.
-- [x] Congelar la muestra de 60 casos con evidencia oficial.
-- [ ] Crear cuenta/aplicación de Twitch para IGDB con credenciales de desarrollo.
-- [ ] Añadir secretos únicamente al entorno local/secret manager.
-- [ ] Crear una rama de spike con un cliente mínimo y fixtures.
-- [ ] Ejecutar la muestra definida y guardar resultados reproducibles.
-- [ ] Medir cobertura, duplicados, latencia, consumo de cuota y calidad de fechas.
-- [ ] Contactar con `partner@igdb.com` para condiciones comerciales y atribución.
-- [ ] Solicitar confirmación sobre derechos y almacenamiento de imágenes.
-- [ ] Registrar la decisión final en un ADR únicamente después del PoC.
-- [ ] Mantener RAWG como fallback y contactar con su soporte si IGDB no supera los gates.
-- [ ] Actualizar `assumptions.md` y `open-questions.md` con la evidencia obtenida.
+### Completed
 
-## 15. Fuentes consultadas
+- [x] Compare IGDB and RAWG.
+- [x] Freeze the 60-case sample and acceptance thresholds.
+- [x] Build an isolated Java CLI and fixture-based tests.
+- [x] Configure authenticated local execution without committed secrets.
+- [x] Execute and review the first real PoC.
+- [x] Measure coverage, duplicates, latency, request behavior, and date quality.
+- [x] Record the accepted limitations and owner decision.
+- [x] Separate release from subscription availability in the canonical model.
+- [x] Update Product Brief, assumptions, open questions, and glossary.
 
-Consultadas el **23 de julio de 2026**.
+### Deferred until the release mode changes
+
+- [ ] Confirm public/commercial partnership and attribution requirements.
+- [ ] Confirm copied-image and retained-data requirements.
+- [ ] Create a final provider ADR if the decision becomes durable for a public
+  product architecture.
+- [ ] Evaluate RAWG only if IGDB becomes unsuitable.
+
+### Small follow-up outside Product Brief closure
+
+- [ ] Add one applicable cancelled or delayed release regression case.
+- [ ] Correct future sample rows that use subscription availability as release date.
+- [ ] Capture the Git commit in any later authenticated report.
+
+## 15. Sources
+
+Reviewed on **2026-07-23**.
 
 ### IGDB
 
 - IGDB API documentation: <https://api-docs.igdb.com/>
 - IGDB API overview: <https://www.igdb.com/api>
-- Twitch Developer Service Agreement, enlazado por la documentación de IGDB: <https://www.twitch.tv/p/en/legal/developer-agreement/>
+- Twitch Developer Service Agreement:
+  <https://www.twitch.tv/p/en/legal/developer-agreement/>
 
-Aspectos verificados en la documentación oficial:
+Verified topics:
 
-- autenticación OAuth mediante Twitch;
-- límite de 4 solicitudes/segundo y 8 abiertas;
-- máximo de 500 elementos por petición;
-- endpoints de juegos, fechas, imágenes, localizaciones e idiomas;
-- multi-query, webhooks y campos `updated_at`;
-- política declarada de cache/almacenamiento;
-- partnership, atribución y uso comercial sujeto a aclaración.
+- Twitch OAuth authentication;
+- four requests per second and eight open requests;
+- 500-item response limit;
+- game, release, image, localization, and language entities;
+- multi-query, webhooks, and `updated_at`;
+- documented local caching;
+- partnership and attribution expectations.
 
 ### RAWG
 
-- RAWG API overview, pricing and terms: <https://rawg.io/apidocs>
+- RAWG API overview, pricing, and terms: <https://rawg.io/apidocs>
 - RAWG interactive API documentation: <https://api.rawg.io/docs/>
 
-Aspectos verificados en la documentación oficial:
+Verified topics:
 
-- autenticación por API key;
-- filtros por fechas y plataformas;
-- plan gratuito de hasta 20.000 solicitudes/mes;
-- Business a 149 USD/mes y 50.000 solicitudes/mes;
-- atribución y backlinks;
-- prohibición de redistribución;
-- contradicción entre pricing y el texto de términos comerciales;
-- catálogo, imágenes, tiendas, ratings y datos de Metacritic anunciados.
+- API-key authentication;
+- date and platform filters;
+- published 20,000-request free plan;
+- published Business price and request limit;
+- attribution and backlinks;
+- redistribution restriction;
+- contradictory commercial wording;
+- advertised catalogue, images, stores, ratings, and Metacritic data.
 
-## 16. Nivel de confianza
+## 16. Confidence
 
-- **Encaje funcional:** alto, basado en documentación oficial.
-- **Comparación técnica:** medio-alto, pendiente de llamadas autenticadas.
-- **Calidad y cobertura real de datos:** media-baja, pendiente de muestra.
-- **Condiciones legales/comerciales:** baja-media, pendiente de confirmación escrita.
-- **Recomendación de orden de PoC:** alta.
+- **Functional fit:** high for the bounded learning MVP.
+- **Technical integration:** high for the evaluated PoC behavior.
+- **Identity, platform, region, and metadata quality:** medium-high.
+- **Release-date quality:** medium and manageable with the accepted workflow.
+- **Spanish alias coverage:** low-medium and explicitly product-owned.
+- **Private non-commercial scope:** medium-high based on published documentation.
+- **Public/commercial terms:** low-medium until the release mode requires review.

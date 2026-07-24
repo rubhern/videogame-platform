@@ -1,0 +1,3 @@
+search "Clair Obscur: Expedition 33";
+fields id,name,updated_at;
+limit 1;

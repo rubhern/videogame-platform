@@ -1,0 +1,14 @@
+[
+  {
+    "id": 250616,
+    "name": "Elden Ring: Shadow of the Erdtree",
+    "game_type": {"type": "Expansion"},
+    "parent_game": {"name": "Elden Ring"},
+    "alternative_names": [{"name": "Shadow of the Erdtree"}]
+  },
+  {
+    "id": 999999,
+    "name": "Elden Ring",
+    "game_type": {"type": "Main Game"}
+  }
+]

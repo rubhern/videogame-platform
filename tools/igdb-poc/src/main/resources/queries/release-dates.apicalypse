@@ -1,0 +1,4 @@
+fields date,d,m,y,date_format.format,human,platform.name,
+       release_region.region,status.name,updated_at;
+where game = {{game_id}};
+limit 500;

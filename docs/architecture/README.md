@@ -1,6 +1,9 @@
 # Architecture
 
-Architecture documentation will be added after the initial product problem, journey,
-and MVP boundary are sufficiently clear. No deployment model, framework, database,
-or integration design is approved at Phase 0.
+The initial product problem, journey, MVP boundary, and provider constraints are now
+clear enough to begin minimum architecture work for one vertical slice. No production
+framework, database, deployment model, or distributed architecture is approved yet.
 
+The only approved integration constraints are provider independence, local
+synchronized reads, separate release and subscription-availability concepts, and no
+direct browser calls to IGDB.

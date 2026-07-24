@@ -1,12 +1,12 @@
 # Product Brief — VideoGame Platform
 
 - **Status:** Approved
-- **Version:** 0.2
+- **Version:** 0.3
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-07-24
-- **Phase:** 0 — Product alignment
+- **Phase:** 0 — Product alignment (complete)
 - **Primary source:** [VideoGame Platform vision](../reference/video-game-platform-vision.pdf)
-- **Research inputs:** [Synthetic interview preparation](../research/phase-1-user-interviews.md), [Metacritic journey comparison](../research/competitor-journey-comparison-metacritic.md), and [game-data-provider spike](../research/game-data-providers-spike.md)
+- **Research inputs:** [Synthetic interview preparation](../research/phase-1-user-interviews.md), [Metacritic journey comparison](../research/competitor-journey-comparison-metacritic.md), [game-data-provider spike](../research/game-data-providers-spike.md), and [first authenticated IGDB PoC](../research/igdb-poc-results.md)
 - **Sources reviewed:** 2026-07-24
 
 > This is a personal learning project. Product-demand decisions based on synthetic
@@ -26,9 +26,11 @@ game page, record a rating, and retrieve it from `Mis puntuaciones`. It delibera
 uses a bounded catalogue, one authorised data provider, and no professional-review
 aggregation, written reviews, community, or recommendation engine.
 
-The documentary provider spike selects IGDB as the first candidate for an
-authenticated PoC and RAWG as a fallback. This is a reversible experiment order, not
-approval for catalogue implementation or a conclusion about production licensing.
+The first authenticated IGDB PoC produced a reviewed `CONDITIONAL_PASS`. It supports
+IGDB as the initial provider for a bounded, curated learning catalogue, with manual
+reconciliation of ambiguous release dates and product-owned Spanish aliases. This is
+a technical decision for the personal learning MVP, not approval for broad,
+unattended, public, or commercial use.
 
 ## 2. Product purpose
 
@@ -145,9 +147,9 @@ The initial advantage is relevance and continuity, not a proprietary score:
 ### Product objectives
 
 - Deliver the selected journey as one small, observable vertical slice.
-- Complete the authenticated IGDB PoC and verify that useful, current catalogue data
-  can be obtained and displayed under documented terms applicable to the learning
-  project.
+- Use the conditionally approved IGDB integration to learn from a bounded catalogue,
+  while preserving release provenance, date precision, and explicit manual-review
+  state.
 - Learn where users fail, leave for another source, or return to their ratings.
 - Preserve an explicit boundary between accepted learning risks and validated facts.
 
@@ -172,8 +174,8 @@ The initial advantage is relevance and continuity, not a proprietary score:
 - Create, change, and remove one integer rating from 1 to 10 per user and game.
 - Aggregate arithmetic mean to one decimal, rating count, and distribution.
 - Minimal `Mis puntuaciones` view with search, sorting, direct edit, and delete.
-- Import from one authorised game-data provider: IGDB if it passes the provider gate,
-  with RAWG retained only as a fallback.
+- Import from one game-data provider: IGDB is technically approved with documented
+  limitations for bounded personal learning use; RAWG remains only a fallback.
 - Basic analytics and operational visibility for the core journey.
 
 ### Deferred
@@ -219,16 +221,19 @@ traction.
 
 ### Required gates
 
-- **Provider technical gate:** test IGDB first using the confirmed acceptance
-  metrics and versioned [60-case sample](../research/igdb-poc-sample.csv) in the
-  [provider spike](../research/game-data-providers-spike.md#10-poc-autenticado-recomendado).
-  Ruben Hernandez approved both for execution on 2026-07-24. Do not implement
-  the provider-backed catalogue until authenticated results cover the essential game
-  and platform-release fields.
-- **Provider release gate:** record the terms applicable to the current non-commercial
-  learning use. Before public or monetized release, obtain any required partnership
-  and clarify attribution, retained data, and image use. Evaluate RAWG only if IGDB
-  fails and RAWG first resolves its contradictory commercial terms.
+- **Provider technical gate:** conditionally passed on 2026-07-24. The
+  [first authenticated execution](../research/igdb-poc-results.md) passed the
+  essential identity, platform, region, provenance, offline, security, and
+  operational checks. Release date and precision reached 83.1% against a 90%
+  threshold, and localized-title coverage reached 40% against a non-blocking 80%
+  threshold. The frozen thresholds remain unchanged. Ruben Hernandez accepts these
+  limitations for a bounded catalogue with manual reconciliation, explicit
+  uncertainty, and product-owned Spanish aliases.
+- **Provider release-mode gate:** passed for the current private, non-commercial
+  learning scope, using local normalized metadata without copied provider images or
+  external ratings. Public deployment, monetization, copied images, redistribution,
+  or broad unattended synchronization must reopen the gate and clarify partnership,
+  attribution, retained-data, and image requirements.
 - **Journey gate:** in one lightweight round with five representative users, at least
   four should complete release discovery → game page → rating → `Mis puntuaciones`
   without assistance or a blocking usability problem. If not, iterate before adding
@@ -255,8 +260,8 @@ product–market-fit thresholds.
 | Risk | Why it matters | Initial response |
 |---|---|---|
 | Data licensing and availability | Documentary fit does not settle every public, commercial, attribution, or image-use condition | Record the terms for the non-commercial PoC; obtain any required partnership and clarify attribution, retained data, and images before public or monetized release |
-| Provider data quality | Documentation does not prove real coverage, date accuracy, localisation, or duplicate handling | Measure the representative sample and acceptance metrics defined in the provider spike |
-| Spanish provider content gap | Neither evaluated provider guarantees complete editorial descriptions in Spanish | Keep Spanish editorial content separate from provider summaries and record source language explicitly |
+| Provider data quality | The first authenticated PoC passed core identity, platform, region, provenance, and operational metrics, but release date/precision reached 83.1% | Keep the catalogue bounded; separate release from subscription availability; preserve precision and provenance; reconcile displayed recent/upcoming dates against an official source |
+| Spanish provider content gap | Localized-title coverage reached 40%, and neither provider guarantees complete Spanish editorial content | Maintain product-owned Spanish aliases, keep Spanish editorial content separate from provider summaries, and record source language explicitly |
 | Weak differentiation | A correct catalogue may still be irrelevant to users | Compare the core task with Metacritic or a tracker in a lightweight prototype test |
 | Scope expansion | The long-term vision can overwhelm the first validation | Approve an explicit in/out MVP boundary |
 | Provider coupling | An external model could dictate the internal product model | Use internal identifiers and isolate provider-specific concepts when implementation begins |
@@ -284,43 +289,41 @@ apply because the MVP includes accounts, ratings, and external data.
 
 ## 16. Open questions
 
-The live register is [open-questions.md](open-questions.md). Phase 0 product decisions
-are resolved. **Q-005 (provider and licence feasibility)** is in validation: IGDB is
-the first PoC candidate and RAWG the fallback, and the PoC thresholds and sample are
-approved for execution. Authenticated quality evidence is mandatory before
-provider-backed catalogue implementation; applicable partnership, attribution,
-retained-data, and image terms must be settled before public or monetized release.
-This does not block low-fidelity prototyping.
+The live register is [open-questions.md](open-questions.md). All Phase 0 product
+questions are resolved for the approved private, non-commercial learning scope.
+**Q-005 (provider and licence feasibility)** selects IGDB with explicit limitations.
+Public deployment, monetization, copied images, or redistribution are new release
+modes that must reopen the provider gate; they are not unresolved requirements for
+closing this Product Brief.
 
 ## 17. Approval record
 
 | Role | Person | Decision | Date |
 |---|---|---|---|
-| Product owner | Ruben Hernandez | Approved | 2026-07-23 |
-| Technical lead | Ruben Hernandez | Approved with provider gate | 2026-07-23 |
+| Product owner | Ruben Hernandez | Approved v0.3 and closed Phase 0 | 2026-07-24 |
+| Technical lead | Ruben Hernandez | Approved with documented IGDB limitations | 2026-07-24 |
 
 The two rows represent simulated responsibilities held by the same person, not
 independent approval authorities.
 
-## 18. Next steps after Product Brief approval
+## 18. Phase 0 closure and minimum next steps
 
-1. Run the authenticated IGDB PoC against the approved thresholds and frozen
-   60-case sample; store no credentials in the repository.
-2. Record the IGDB terms applicable to the non-commercial learning PoC. Before public
-   or monetized release, obtain any required partnership and clarify attribution,
-   retained data, and image use. If either gate fails, evaluate RAWG only after its
-   commercial and redistribution terms are clarified.
-3. Record the final provider decision and accepted limitations. Create an ADR only
-   after the technical and contractual gates pass.
-4. Turn the primary journey into a small story map and write acceptance criteria for
+The Product Brief is complete for the current learning scope. The priority user,
+problem, value proposition, primary journey, MVP boundary, owner, provider decision,
+accepted risks, and success rules are explicit. No additional market study, second
+provider PoC, provider ADR, public-release legal work, or detailed backlog is required
+to close Phase 0.
+
+Minimum next steps:
+
+1. Turn the primary journey into a small story map with acceptance criteria for
    release discovery, game page, rating, and `Mis puntuaciones`.
-5. Create a mobile-first clickable prototype with a transparent sample catalogue.
-6. Run one lightweight usability round with five representative users. Test the
-   end-to-end task and rating comprehension; do not expand it into a market study.
-7. Update assumptions only with observed results. Keep accepted risks visible when
-   the sample is insufficient to claim support.
-8. Define the minimum domain and API contracts after the provider decision, then record
-   only architectural decisions that are durable or difficult to reverse.
-9. Implement the first end-to-end vertical slice with authentication, tests,
-   structured logs, journey metrics, catalogue freshness, and a simple deployment
-   path.
+2. Create one mobile-first clickable prototype using a transparent bounded sample.
+3. Run one lightweight usability round with five representative users and revise only
+   blocking journey or comprehension problems.
+4. Define the minimum provider-independent domain/API contracts and implement one
+   end-to-end vertical slice with authentication, tests, structured logs, catalogue
+   freshness, journey metrics, and a simple deployment path.
+
+If the release mode changes from private learning to public or commercial use,
+reopen Q-005 and the provider release-mode gate before deployment.
