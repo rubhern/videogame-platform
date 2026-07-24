@@ -11,6 +11,12 @@
 > fictional. The material is designed to rehearse the discovery process, test the
 > interview guide, reveal possible response patterns, and plan assumption validation.
 > It must not be used to mark any product assumption as `Supported` or `Rejected`.
+>
+> **Subsequent work:** The documentary
+> [game-data-provider spike](game-data-providers-spike.md) was completed after this
+> rehearsal. Use the live [assumption](../product/assumptions.md) and [open-question
+> registers](../product/open-questions.md) for the current A-006 and Q-005 statuses;
+> the status recommendations below preserve the state of this synthetic exercise.
 
 ## 1. Purpose
 
