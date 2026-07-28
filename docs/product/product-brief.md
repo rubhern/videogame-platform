@@ -1,18 +1,19 @@
 # Product Brief — VideoGame Platform
 
 - **Status:** Approved
-- **Version:** 0.4
+- **Version:** 0.6
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-27
+- **Last updated:** 2026-07-28
 - **Phase:** 0 — Product alignment (complete)
 - **Primary source:** [VideoGame Platform vision](../reference/video-game-platform-vision.pdf)
-- **Research inputs:** [Synthetic interview preparation](../research/phase-1-user-interviews.md), [Metacritic journey comparison](../research/competitor-journey-comparison-metacritic.md), [game-data-provider spike](../research/game-data-providers-spike.md), and [first authenticated IGDB PoC](../research/igdb-poc-results.md)
+- **Research inputs:** [Synthetic interview preparation](../research/phase-1-user-interviews.md), [Metacritic journey comparison](../research/competitor-journey-comparison-metacritic.md), [game-data-provider spike](../research/game-data-providers-spike.md), [first authenticated IGDB PoC](../research/igdb-poc-results.md), and [accepted simulated usability round](../research/simulated-round-synthesis.md)
 - **Prototype:** [Mobile-first clickable prototype](clickable-prototype.md)
-- **Sources reviewed:** 2026-07-27
+- **Sources reviewed:** 2026-07-28
 
 > This is a personal learning project. Product-demand decisions based on synthetic
-> research are explicit accepted risks, not claims of real user evidence or
-> product–market fit.
+> research are explicit accepted risks. The owner accepts the simulated usability
+> round for the internal journey decision, but it is not evidence from real users,
+> product demand, or product–market fit.
 
 ## 1. Executive summary
 
@@ -36,8 +37,10 @@ unattended, public, or commercial use.
 The approved journey is represented in a medium-fidelity
 [mobile-first clickable prototype](clickable-prototype.md) with eight transparently
 curated games. All eight game pages are navigable, while one representative game
-contains the complete simulated rating journey. The artefact is ready for usability
-validation and is not treated as real-user evidence.
+contains the complete simulated rating journey. The accepted simulated round reached
+four of five unaided completions. A focused simulated regression verified the
+evidence-backed revisions and resolved the blocking rating-state inconsistency, so
+the journey decision is `PASS`.
 
 ## 2. Product purpose
 
@@ -223,8 +226,10 @@ explains that rating becomes available after release.
 ## 12. Hypotheses
 
 The prioritised hypothesis register is maintained in
-[assumptions.md](assumptions.md). All demand-related hypotheses are accepted risks for
-the learning MVP, not supported findings. The most consequential concern:
+[assumptions.md](assumptions.md). Demand-related hypotheses remain accepted risks,
+not supported findings. The simulated usability round can support internal
+interaction decisions for this learning project, but not demand claims. The most
+consequential concern:
 
 - the relevance of release discovery for the chosen segment;
 - the value of combining discovery, information, rating, and later retrieval;
@@ -252,11 +257,14 @@ traction.
   external ratings. Public deployment, monetization, copied images, redistribution,
   or broad unattended synchronization must reopen the gate and clarify partnership,
   attribution, retained-data, and image requirements.
-- **Journey gate:** in one lightweight round with five representative users, at least
-  four should complete release discovery → game page → rating → `Mis puntuaciones`
-  without assistance or a blocking usability problem. If not, iterate before adding
-  scope. Run the round with the
-  [moderated prototype test guide](../research/prototype-usability-test-guide.md).
+- **Journey gate:** `PASS` on 2026-07-28. By explicit owner decision, the
+  [five-session simulated round](../research/simulated-round-synthesis.md) is accepted
+  as decision-grade evidence for this private learning project. Four of five
+  simulated participants completed release discovery → game page → rating →
+  `Mis puntuaciones` unaided. The focused simulated regression confirmed that F-01
+  is resolved, all pre-rating entry points show `Sin puntuar`, and no blocking issue
+  remains in the corrected path. This decision does not claim external user
+  validation.
 - **Engineering gate:** the vertical slice is automated, tested, observable,
   documented, and operable by one person before starting the next major capability.
 
@@ -287,7 +295,7 @@ product–market-fit thresholds.
 | Premature architecture | Operational cost may grow without corresponding product value | Prefer the smallest deployable architecture that supports the selected journey |
 | User-generated content | Reviews and community features introduce abuse, privacy, and moderation duties | Keep them outside the first MVP |
 | Solo ownership | Delivery, review, and operations depend on one person | Keep increments small, automate repeatable checks, and avoid simulated process overhead |
-| Synthetic evidence | Fictional interviews can create false confidence | Label demand assumptions as accepted risks and use real users only for small usability checks |
+| Synthetic evidence | Fictional interviews and simulated sessions can create false confidence | Preserve synthetic provenance; use the accepted round only for internal learning-project decisions; never claim real-user behaviour, demand validation, or product–market fit |
 
 The project has one human contributor, no committed beta date, and no current
 commercial objective. Privacy, security, accessibility, and provider licensing still
@@ -313,7 +321,9 @@ questions are resolved for the approved private, non-commercial learning scope.
 **Q-005 (provider and licence feasibility)** selects IGDB with explicit limitations.
 Public deployment, monetization, copied images, or redistribution are new release
 modes that must reopen the provider gate; they are not unresolved requirements for
-closing this Product Brief.
+closing this Product Brief. **Q-010 (prototype evidence standard)** accepts the
+simulated round only for the private learning-project journey decision and preserves
+its synthetic provenance.
 
 ## 17. Approval record
 
@@ -321,6 +331,8 @@ closing this Product Brief.
 |---|---|---|---|
 | Product owner | Ruben Hernandez | Approved v0.3 and closed Phase 0 | 2026-07-24 |
 | Product owner | Ruben Hernandez | Approved v0.4 rating interactions and prototype validation artefact without expanding the MVP | 2026-07-27 |
+| Product owner | Ruben Hernandez | Approved v0.5 acceptance of the simulated five-session round for the private learning-project journey decision; result `ITERATE` | 2026-07-28 |
+| Product owner | Ruben Hernandez | Approved v0.6 closure of the prototype and simulated usability gate after focused regression; result `PASS` | 2026-07-28 |
 | Technical lead | Ruben Hernandez | Approved with documented IGDB limitations | 2026-07-24 |
 
 These rows preserve the version and responsibility history. Every decision is held
@@ -329,30 +341,40 @@ by the same person, not by independent approval authorities.
 ## 18. Phase 0 closure and minimum next steps
 
 The Product Brief is complete for the current learning scope. Version 0.3 closed
-Phase 0; version 0.4 records the owner-directed rating interaction rules and links the
-prototype without changing the approved boundary. The priority user, problem, value
-proposition, primary journey, MVP boundary, owner, provider decision, accepted risks,
-and success rules are explicit. No additional market study, second provider PoC,
-provider ADR, public-release legal work, or detailed backlog is required to close
-Phase 0.
+Phase 0; version 0.4 records the owner-directed rating interaction rules; version 0.5
+records the accepted simulated usability round and its `ITERATE` decision without
+changing the approved boundary; version 0.6 records the corrected prototype, focused
+regression, and `PASS` decision. The priority user, problem, value proposition,
+primary journey, MVP boundary, owner, provider decision, accepted risks, and success
+rules are explicit. No additional market study, second provider PoC, provider ADR,
+public-release legal work, or detailed backlog is required to close Phase 0.
 
-The first two design steps are complete:
+The first three product-discovery steps are complete:
 
 1. the primary journey, MVP release cut, acceptance checks, guardrails, and deferred
    scope are captured in the [learning MVP story map](mvp-story-map.md);
 2. the journey and its critical states are represented in the
-   [mobile-first clickable prototype](clickable-prototype.md).
+   [mobile-first clickable prototype](clickable-prototype.md);
+3. the five-session [simulated usability round](../research/simulated-round-synthesis.md)
+   has been accepted for the internal learning-project decision.
+
+The prototype and accepted simulated usability work are complete for the current
+learning objective. Reopen them only if the release mode changes, a material journey
+rule changes, or implementation reveals a new blocking usability risk.
 
 Remaining minimum next steps:
 
-1. Pilot the [usability script](../research/prototype-usability-test-guide.md) once,
-   then run it with five representative users.
-2. Record real evidence and revise only blocking or repeated important journey and
-   comprehension problems.
-3. If at least four of five users pass unaided and no blocking problem remains,
-   define the minimum provider-independent domain/API contracts and implement one
-   end-to-end vertical slice with authentication, tests, structured logs, catalogue
-   freshness, journey metrics, and a simple deployment path.
+1. Define the minimum provider-independent domain and API contracts for one vertical
+   slice: game identity, platform-region release, release-date precision and
+   provenance, rating eligibility, aggregate rating, and the authenticated user's
+   rating.
+2. Record only architecture decisions that are required to implement that slice;
+   do not select a broad platform architecture in advance.
+3. Implement the release page → game page → rating → `Mis puntuaciones` slice with
+   authentication, tests, structured logs, catalogue freshness, journey metrics, and
+   a simple deployment path.
+4. Validate the running slice on a real phone-sized browser and with production-like
+   accessibility and failure states before expanding the catalogue or feature set.
 
 If the release mode changes from private learning to public or commercial use,
 reopen Q-005 and the provider release-mode gate before deployment.

@@ -14,6 +14,8 @@ required_files=(
   "docs/product/open-questions.md"
   "docs/product/glossary.md"
   "docs/research/prototype-usability-test-guide.md"
+  "docs/research/simulated-session-observation-sheets.md"
+  "docs/research/simulated-round-synthesis.md"
   "docs/reference/video-game-platform-vision.pdf"
   "docs/development/codex-setup.md"
   ".agents/skills/product-brief-review/SKILL.md"

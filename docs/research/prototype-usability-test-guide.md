@@ -1,17 +1,19 @@
 # Prototype usability test guide
 
-- **Status:** Ready to run
+- **Status:** Used; journey gate closed for the current learning objective
 - **Research type:** Moderated task-based usability test
 - **Owner and facilitator:** Ruben Hernandez
-- **Last updated:** 2026-07-27
+- **Last updated:** 2026-07-28
 - **Prototype:** [Mobile-first clickable prototype](../product/clickable-prototype.md)
 - **Target sample:** Five representative users
 - **Expected session length:** 25–30 minutes
+- **Current result:** [Journey gate `PASS`](simulated-round-synthesis.md)
 
 This guide tests the usability and comprehension of the approved journey. It does
 not test market demand, product–market fit, provider accuracy, or production
-performance. Record only real participant observations; do not use synthetic
-responses as results.
+performance. The owner accepted one explicitly labelled simulated round for the
+private learning-project decision. Any future use must preserve whether observations
+are real or simulated; neither mode establishes product demand.
 
 ## 1. Decision to support
 
@@ -21,13 +23,14 @@ The journey gate passes when at least four of five representative users complete
 
 without assistance or a blocking usability problem.
 
-If the gate fails, revise only the problems supported by observed evidence and run a
-focused follow-up round before defining implementation contracts.
+The accepted round initially required iteration. A focused simulated regression of
+the evidence-backed changes resolved the blocking issue, so minimum implementation
+contracts may now begin.
 
 ## 2. Research questions
 
 1. Can participants understand the bounded-catalogue release view and its filters?
-2. Can they interpret platform, region, provenance, freshness, and date precision?
+2. Can they interpret platform, region, source, last review, and date detail?
 3. Do they distinguish the aggregate rating from their own rating?
 4. Can they rate a released game through the inline selector and simulated
    authentication transition?
@@ -152,9 +155,9 @@ Say:
 Do not name the fields first. Observe whether the participant can explain:
 
 - platform and region;
-- exact date and date precision;
-- provenance;
-- freshness;
+- exact date and date detail;
+- source;
+- last review;
 - manual verification state.
 
 Then ask:

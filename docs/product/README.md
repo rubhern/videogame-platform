@@ -1,7 +1,7 @@
 # Product documentation
 
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-27
+- **Last updated:** 2026-07-28
 
 The [Product Brief](product-brief.md) is the approved Phase 0 alignment record. The
 [clickable prototype](clickable-prototype.md) is the current interaction artefact,
@@ -14,12 +14,14 @@ Supporting documents keep uncertain information out of the main narrative:
 - [Glossary](glossary.md): shared and provisional terminology.
 - [Prototype usability test guide](../research/prototype-usability-test-guide.md):
   moderated participant script, observation sheet, and decision rule.
+- [Accepted simulated round](../research/simulated-round-synthesis.md): five
+  synthetic sessions, findings, limitations, and the current journey decision.
 
 ## Current status
 
-- Product Brief version `0.4` was approved by Ruben Hernandez on 2026-07-27. It
-  preserves the Phase 0 boundary and records the owner-directed prototype interaction
-  rules.
+- Product Brief version `0.6` was approved by Ruben Hernandez on 2026-07-28. It
+  preserves the Phase 0 boundary and closes the accepted simulated journey gate
+  after the focused regression.
 - Phase 0 is complete for the private, non-commercial learning scope.
 - The source vision and research inputs have been reconciled.
 - The initial problem, priority user, value proposition, journey, learning-MVP
@@ -29,9 +31,12 @@ Supporting documents keep uncertain information out of the main narrative:
   the first authenticated PoC. Public deployment, monetization, copied images, or
   redistribution must reopen the provider decision.
 - The medium-fidelity mobile-first prototype contains eight transparently curated
-  games and 20 states. All eight game pages are navigable, and one representative
-  game contains the complete simulated rating journey. It is ready for a five-user
-  usability round; it is not user evidence.
+  games and 23 states. All eight game pages are navigable, and one representative
+  game contains the complete simulated rating journey.
+- The accepted simulated round reached 4/5 unaided. A focused simulated regression
+  resolved F-01 through F-08 and leaves the journey gate at `PASS`. The simulation
+  is decision-grade for this private learning workflow, not evidence from real users
+  or evidence of product demand.
 
 This is a personal learning project. Ruben Hernandez owns every product and technical
 decision. Any team roles, stakeholder interactions, or delivery ceremonies are
@@ -50,7 +55,8 @@ approval authorities.
 
 These criteria are complete. Product Brief version 0.3 closed Phase 0 on 2026-07-24,
 and version 0.4 recorded the approved prototype behaviour on 2026-07-27 without
-expanding the MVP. Product-demand assumptions remain accepted risks because the
-interviews are synthetic and the prototype has not yet been tested with real users.
-No additional market study, provider PoC, or public-release legal work is required
-for the approved private learning scope.
+expanding the MVP. Version 0.5 records the accepted simulated usability decision on
+2026-07-28, and version 0.6 records the corrected prototype and focused regression.
+Product-demand assumptions remain accepted risks because no real users were
+observed. No additional market study, provider PoC, or public-release legal work is
+required for the approved private learning scope.
