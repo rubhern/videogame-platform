@@ -1,19 +1,25 @@
 # Product documentation
 
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-24
+- **Last updated:** 2026-07-27
 
-The [Product Brief](product-brief.md) is the approved Phase 0 alignment record.
+The [Product Brief](product-brief.md) is the approved Phase 0 alignment record. The
+[clickable prototype](clickable-prototype.md) is the current interaction artefact,
+and the [learning MVP story map](mvp-story-map.md) remains the planning boundary.
 Supporting documents keep uncertain information out of the main narrative:
 
 - [Assumptions](assumptions.md): beliefs that still require evidence.
 - [Open questions](open-questions.md): resolved decisions and their reopening
   conditions.
 - [Glossary](glossary.md): shared and provisional terminology.
+- [Prototype usability test guide](../research/prototype-usability-test-guide.md):
+  moderated participant script, observation sheet, and decision rule.
 
 ## Current status
 
-- Product Brief version `0.3` was approved by Ruben Hernandez on 2026-07-24.
+- Product Brief version `0.4` was approved by Ruben Hernandez on 2026-07-27. It
+  preserves the Phase 0 boundary and records the owner-directed prototype interaction
+  rules.
 - Phase 0 is complete for the private, non-commercial learning scope.
 - The source vision and research inputs have been reconciled.
 - The initial problem, priority user, value proposition, journey, learning-MVP
@@ -22,6 +28,10 @@ Supporting documents keep uncertain information out of the main narrative:
 - IGDB is approved with limitations for a bounded private learning catalogue after
   the first authenticated PoC. Public deployment, monetization, copied images, or
   redistribution must reopen the provider decision.
+- The medium-fidelity mobile-first prototype contains eight transparently curated
+  games and 20 states. All eight game pages are navigable, and one representative
+  game contains the complete simulated rating journey. It is ready for a five-user
+  usability round; it is not user evidence.
 
 This is a personal learning project. Ruben Hernandez owns every product and technical
 decision. Any team roles, stakeholder interactions, or delivery ceremonies are
@@ -38,7 +48,9 @@ approval authorities.
 - High-risk assumptions and open questions have an owner and a next action.
 - The Product Brief is reviewed and marked `Approved`.
 
-These criteria are complete and Product Brief version 0.3 was approved by Ruben
-Hernandez on 2026-07-24. Product-demand assumptions remain accepted risks because the
-interviews are synthetic. No additional market study, provider PoC, or public-release
-legal work is required for the approved private learning scope.
+These criteria are complete. Product Brief version 0.3 closed Phase 0 on 2026-07-24,
+and version 0.4 recorded the approved prototype behaviour on 2026-07-27 without
+expanding the MVP. Product-demand assumptions remain accepted risks because the
+interviews are synthetic and the prototype has not yet been tested with real users.
+No additional market study, provider PoC, or public-release legal work is required
+for the approved private learning scope.

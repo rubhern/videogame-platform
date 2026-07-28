@@ -1,13 +1,14 @@
 # Product Brief — VideoGame Platform
 
 - **Status:** Approved
-- **Version:** 0.3
+- **Version:** 0.4
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-24
+- **Last updated:** 2026-07-27
 - **Phase:** 0 — Product alignment (complete)
 - **Primary source:** [VideoGame Platform vision](../reference/video-game-platform-vision.pdf)
 - **Research inputs:** [Synthetic interview preparation](../research/phase-1-user-interviews.md), [Metacritic journey comparison](../research/competitor-journey-comparison-metacritic.md), [game-data-provider spike](../research/game-data-providers-spike.md), and [first authenticated IGDB PoC](../research/igdb-poc-results.md)
-- **Sources reviewed:** 2026-07-24
+- **Prototype:** [Mobile-first clickable prototype](clickable-prototype.md)
+- **Sources reviewed:** 2026-07-27
 
 > This is a personal learning project. Product-demand decisions based on synthetic
 > research are explicit accepted risks, not claims of real user evidence or
@@ -31,6 +32,12 @@ IGDB as the initial provider for a bounded, curated learning catalogue, with man
 reconciliation of ambiguous release dates and product-owned Spanish aliases. This is
 a technical decision for the personal learning MVP, not approval for broad,
 unattended, public, or commercial use.
+
+The approved journey is represented in a medium-fidelity
+[mobile-first clickable prototype](clickable-prototype.md) with eight transparently
+curated games. All eight game pages are navigable, while one representative game
+contains the complete simulated rating journey. The artefact is ready for usability
+validation and is not treated as real-user evidence.
 
 ## 2. Product purpose
 
@@ -172,7 +179,14 @@ The initial advantage is relevance and continuity, not a proprietary score:
   information.
 - Registration and sign-in through an established identity approach.
 - Create, change, and remove one integer rating from 1 to 10 per user and game.
-- Aggregate arithmetic mean to one decimal, rating count, and distribution.
+- Inline 1–10 rating selection in the game or personal-list context; no separate
+  rating page.
+- Ratings only for games that have been released.
+- Aggregate arithmetic mean to one decimal, rating count, and distribution. Spanish
+  product copy uses a decimal comma and never adds a denominator such as `/10`.
+- Aggregate and personal ratings are always labelled and displayed separately
+  wherever rating context appears. An unreleased game shows its aggregate as
+  unavailable rather than inventing a numeric value.
 - Minimal `Mis puntuaciones` view with search, sorting, direct edit, and delete.
 - Import from one game-data provider: IGDB is technically approved with documented
   limitations for bounded personal learning use; RAWG remains only a fallback.
@@ -197,10 +211,14 @@ The initial advantage is relevance and continuity, not a proprietary score:
 1. A visitor opens the release view.
 2. They filter by platform or region if needed.
 3. They select a game and read its game page.
-4. They register or sign in when they decide to rate it.
-5. They create or update their rating.
-6. They see their rating and the aggregate context.
+4. If the game has been released, they open the inline rating selector.
+5. They register or sign in only when they confirm a rating.
+6. They return to the same game context and see their personal rating separately
+   from the aggregate context.
 7. They retrieve, edit, or delete it later from `Mis puntuaciones`.
+
+For an unreleased game, the personal-rating selector remains disabled and the page
+explains that rating becomes available after release.
 
 ## 12. Hypotheses
 
@@ -237,7 +255,8 @@ traction.
 - **Journey gate:** in one lightweight round with five representative users, at least
   four should complete release discovery → game page → rating → `Mis puntuaciones`
   without assistance or a blocking usability problem. If not, iterate before adding
-  scope.
+  scope. Run the round with the
+  [moderated prototype test guide](../research/prototype-usability-test-guide.md).
 - **Engineering gate:** the vertical slice is automated, tested, observable,
   documented, and operable by one person before starting the next major capability.
 
@@ -301,29 +320,37 @@ closing this Product Brief.
 | Role | Person | Decision | Date |
 |---|---|---|---|
 | Product owner | Ruben Hernandez | Approved v0.3 and closed Phase 0 | 2026-07-24 |
+| Product owner | Ruben Hernandez | Approved v0.4 rating interactions and prototype validation artefact without expanding the MVP | 2026-07-27 |
 | Technical lead | Ruben Hernandez | Approved with documented IGDB limitations | 2026-07-24 |
 
-The two rows represent simulated responsibilities held by the same person, not
-independent approval authorities.
+These rows preserve the version and responsibility history. Every decision is held
+by the same person, not by independent approval authorities.
 
 ## 18. Phase 0 closure and minimum next steps
 
-The Product Brief is complete for the current learning scope. The priority user,
-problem, value proposition, primary journey, MVP boundary, owner, provider decision,
-accepted risks, and success rules are explicit. No additional market study, second
-provider PoC, provider ADR, public-release legal work, or detailed backlog is required
-to close Phase 0.
+The Product Brief is complete for the current learning scope. Version 0.3 closed
+Phase 0; version 0.4 records the owner-directed rating interaction rules and links the
+prototype without changing the approved boundary. The priority user, problem, value
+proposition, primary journey, MVP boundary, owner, provider decision, accepted risks,
+and success rules are explicit. No additional market study, second provider PoC,
+provider ADR, public-release legal work, or detailed backlog is required to close
+Phase 0.
 
-The first next step is complete: the primary journey, MVP release cut, acceptance
-checks, guardrails, and deferred scope are captured in the
-[learning MVP story map](mvp-story-map.md).
+The first two design steps are complete:
+
+1. the primary journey, MVP release cut, acceptance checks, guardrails, and deferred
+   scope are captured in the [learning MVP story map](mvp-story-map.md);
+2. the journey and its critical states are represented in the
+   [mobile-first clickable prototype](clickable-prototype.md).
 
 Remaining minimum next steps:
 
-1. Create one mobile-first clickable prototype using a transparent bounded sample.
-2. Run one lightweight usability round with five representative users and revise only
-   blocking journey or comprehension problems.
-3. Define the minimum provider-independent domain/API contracts and implement one
+1. Pilot the [usability script](../research/prototype-usability-test-guide.md) once,
+   then run it with five representative users.
+2. Record real evidence and revise only blocking or repeated important journey and
+   comprehension problems.
+3. If at least four of five users pass unaided and no blocking problem remains,
+   define the minimum provider-independent domain/API contracts and implement one
    end-to-end vertical slice with authentication, tests, structured logs, catalogue
    freshness, journey metrics, and a simple deployment path.
 

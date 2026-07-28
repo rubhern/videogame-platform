@@ -1,7 +1,7 @@
 # Codex workspace setup
 
 - **Status:** Active
-- **Last verified:** 2026-07-23
+- **Last verified:** 2026-07-27
 - **Scope:** Personal Windows workstation with Ubuntu on WSL2
 
 ## Purpose
@@ -49,6 +49,7 @@ Windows path used to open it:
 | GitHub CLI | `2.45.0`, authenticated as `rubhern` | Push branches and work with pull requests |
 | GitHub remote | `https://github.com/rubhern/videogame-platform.git` | Publish and review the repository |
 | GitHub visibility | Public | Current repository state; review if public visibility was not intentional |
+| Figma integration | Connected; used for the editable MVP story map and mobile-first clickable prototype | Keep visual interaction artefacts editable while product rules and evidence remain in Git |
 | Docker | Docker Desktop binary available; Ubuntu integration currently unavailable | Defer WSL integration until an implementation slice requires containers |
 
 The global Codex configuration also enables several plugins, including GitHub,
@@ -94,7 +95,7 @@ Operational safeguards still apply:
 |---|---|
 | Product definition | Desktop, repository files, Product Brief skill |
 | Discovery | Browser/research, structured evidence, independent worktrees when useful |
-| UX/UI | Visual artefacts, browser testing, Figma only when a real design workflow exists |
+| UX/UI | Figma for the editable story map and clickable prototype; repository Markdown for decisions and test evidence |
 | Architecture | ADRs, diagrams-as-code, explicit alternatives and trade-offs |
 | Implementation | Desktop, IDE extension, tests, local/worktree execution |
 | Quality | Automated tests, review, browser and Computer Use for real user flows |
@@ -134,7 +135,6 @@ introduced.
 | Cloud setup script | Not needed | The repository has real dependencies or build steps |
 | Local environment actions | Not configured | Repeated Run/Test/Build commands exist |
 | Docker Desktop WSL integration | Deferred | The first containerised implementation slice begins |
-| Figma connector | Deferred | UX/UI work uses Figma as a source of truth |
 | Scheduled tasks | Deferred | A manual workflow has proved stable and worth repeating |
 | Additional project skills | Deferred | A repeatable workflow exists and prompt repetition becomes costly |
 | Advanced multi-agent work | Available but not required | Work can be divided into independent, non-overlapping outcomes |
@@ -147,6 +147,8 @@ introduced.
   `.codex` and `AGENTS.md` discovery.
 - Plugin enablement was verified from configuration, but interactive
   authentication and permissions for every connector were not tested.
+- Figma is the source of truth for the prototype's visual and interaction state, not
+  for product decisions, research evidence, or implementation contracts.
 - Docker Desktop must enable integration for the Ubuntu distribution before
   `docker` commands can run inside WSL.
 

@@ -3,7 +3,7 @@
 - **Status:** First authenticated PoC reviewed; conditionally approved for the
   learning MVP
 - **Started:** 2026-07-23
-- **Last updated:** 2026-07-24
+- **Last updated:** 2026-07-27
 - **Phase:** 0 — Product alignment
 - **Decision:** Select one provider for the initial bounded catalogue
 - **Providers evaluated:** IGDB and RAWG
@@ -61,7 +61,8 @@ incompatible with the intended scope or its limitations become too costly to man
 
 ## 2. Product context
 
-Product Brief v0.3 defines a Spanish-first learning MVP with:
+Product Brief v0.3 defined, and current v0.4 preserves, a Spanish-first learning MVP
+with:
 
 - a recent and upcoming release view;
 - title and alternative-title search;

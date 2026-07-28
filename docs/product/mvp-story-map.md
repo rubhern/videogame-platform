@@ -1,15 +1,22 @@
 # Learning MVP story map
 
-- **Status:** Ready for prototype and vertical-slice planning
-- **Product Brief:** [v0.3 — Approved](product-brief.md)
-- **Last updated:** 2026-07-24
+- **Status:** Prototype ready for usability validation
+- **Product Brief:** [v0.4 — Approved](product-brief.md)
+- **Last updated:** 2026-07-27
 - **Owner:** Ruben Hernandez
 - **Editable board:** [Open the FigJam story map](https://www.figma.com/board/4OfeyWSF3rvEhDE5HGKUK8)
 - **PNG export:** [Download the repository export](assets/mvp-story-map.png)
+- **Clickable prototype:** [Open the prototype record](clickable-prototype.md)
+- **Usability script:** [Run the moderated test](../research/prototype-usability-test-guide.md)
 
 This story map turns the approved primary journey into the smallest coherent
 learning MVP. It is an alignment aid, not a detailed implementation backlog or an
 architecture decision.
+
+The FigJam board and PNG preserve the initial release-cut snapshot. This Markdown
+document and the linked clickable prototype contain the later owner-approved rating
+interaction details. The current prototype exposes all eight curated game pages;
+*Death Stranding 2: On the Beach* remains the single fully wired rating journey.
 
 ![VideoGame Platform learning MVP story map](assets/mvp-story-map.png)
 
@@ -33,7 +40,7 @@ research informs the map but is not treated as real-user evidence.
 |---|---|---|
 | Discover relevant releases | Open recent or upcoming releases; filter by platform or region; search the bounded catalogue | See Spanish-first release information; narrow results; search by title or alternative title; understand zero results and catalogue coverage |
 | Evaluate a game | Select a game; read its game page | Open the correct internal game; understand essential catalogue and platform-release information, provenance, freshness, date precision, and verification state |
-| Rate the game | Register or sign in when ready to rate; create or change a rating; see personal and aggregate context | Resume the same game after authentication; keep one integer rating from 1 to 10 per user and game; create, update, or delete it; see arithmetic mean, count, and distribution |
+| Rate the game | If released, open the inline 1–10 selector; register or sign in only when confirming; see personal and aggregate context | Resume the same game after authentication; keep one integer rating from 1 to 10 per user and game; create, update, or delete it; keep aggregate and personal ratings visible and distinct; disable rating before release |
 | Return to personal ratings | Open `Mis puntuaciones`; find and manage a rating | Retrieve only the signed-in player's ratings; search and sort them; open the related game; edit or delete a rating directly |
 
 ## MVP release cut
@@ -50,8 +57,12 @@ activities. It includes:
   state;
 - an established registration and sign-in approach;
 - one active integer rating from 1 to 10 per user and game;
+- an inline number selector instead of a separate rating page;
+- rating eligibility only after release;
 - create, update, and delete behaviour;
-- arithmetic mean to one decimal, rating count, and distribution;
+- arithmetic mean to one decimal, rating count, and distribution, with a Spanish
+  decimal comma and no `/10` denominator;
+- separately labelled aggregate and personal ratings wherever rating context appears;
 - a minimal `Mis puntuaciones` view with search, sorting, direct edit, and delete;
 - basic journey analytics and operational visibility.
 
@@ -73,6 +84,9 @@ activities. It includes:
   journey.
 - Platform, region, date precision, provenance, freshness, and verification state
   remain explicit; the product never invents a more precise release date.
+- Aggregate and personal-rating states are visible and labelled separately.
+- An unreleased game shows `No disponible` for the aggregate and a disabled personal
+  selector rather than a fabricated score.
 - Provider identifiers and provider-specific concepts do not become the public
   product contract.
 
@@ -84,14 +98,21 @@ activities. It includes:
 - Only an authenticated user can create, change, or remove a rating.
 - A rating is an integer from 1 to 10, and only one active rating exists per user and
   game.
+- Tapping the personal-rating control opens a compact 1–10 selector in context; it
+  does not navigate to a separate rating page.
+- A game cannot be rated before its commercial release.
 - Invalid or failed operations preserve the existing rating and return an actionable
   error.
 
 ### Personal and aggregate context
 
 - A successful change is reflected in the player's rating without ambiguity.
+- The aggregate and personal rating are always labelled and displayed separately.
 - The aggregate shows the arithmetic mean to one decimal, rating count, and
-  distribution.
+  distribution. Spanish copy uses a decimal comma, and no score includes a
+  denominator such as `/10`.
+- When no eligible aggregate exists, the state is explicit rather than represented
+  by an invented numeric mean.
 - Editing or deleting a rating keeps the game page and `Mis puntuaciones`
   consistent.
 
@@ -118,7 +139,8 @@ activities. It includes:
 
 - **Journey gate:** at least four of five representative users complete release
   discovery → game page → rating → `Mis puntuaciones` without assistance or a
-  blocking usability problem.
+  blocking usability problem, using the
+  [prototype usability test guide](../research/prototype-usability-test-guide.md).
 - **Engineering gate:** the slice is automated, tested, observable, documented, and
   operable by one person before another major capability starts.
 - **Provider release-mode gate:** public deployment, monetization, copied images,
@@ -146,7 +168,9 @@ targets.
 
 ## Sources
 
-- [Product Brief v0.3](product-brief.md)
+- [Product Brief v0.4](product-brief.md)
+- [Mobile-first clickable prototype](clickable-prototype.md)
+- [Prototype usability test guide](../research/prototype-usability-test-guide.md)
 - [Product assumptions](assumptions.md)
 - [Open questions and decisions](open-questions.md)
 - [Product glossary](glossary.md)

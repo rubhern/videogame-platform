@@ -3,7 +3,7 @@
 - **Status:** Draft
 - **Artifact type:** Synthetic research preparation
 - **Evidence level:** Not evidence
-- **Last updated:** 2026-07-23
+- **Last updated:** 2026-07-27
 - **Related documents:** [Product Brief](../product/product-brief.md), [Product assumptions](../product/assumptions.md), [Open questions](../product/open-questions.md)
 - **Recommended repository path:** `docs/research/phase-1-synthetic-user-interviews.md`
 
@@ -17,6 +17,10 @@
 > rehearsal. Use the live [assumption](../product/assumptions.md) and [open-question
 > registers](../product/open-questions.md) for the current A-006 and Q-005 statuses;
 > the status recommendations below preserve the state of this synthetic exercise.
+> The later [clickable prototype](../product/clickable-prototype.md) and
+> [real-user usability guide](prototype-usability-test-guide.md) now implement the
+> Stage 2 preparation proposed here. The fictional interviews and their historical
+> status recommendations remain unchanged and must not be treated as user evidence.
 
 ## 1. Purpose
 

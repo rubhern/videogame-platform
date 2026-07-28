@@ -7,6 +7,7 @@
 - **Decision owner:** Ruben Hernandez
 - **Execution date:** 2026-07-24
 - **Review date:** 2026-07-24
+- **Last workflow alignment:** 2026-07-27
 - **Control sample:** [`igdb-poc-sample.csv`](igdb-poc-sample.csv)
 - **Acceptance criteria:** Section 10.4 of
   [`game-data-providers-spike.md`](game-data-providers-spike.md)
@@ -50,7 +51,8 @@ production licensing.
 ### Accepted
 
 - Use IGDB as the initial technical provider for a bounded catalogue.
-- Proceed to the minimum provider-backed vertical-slice design.
+- Proceed to prototype validation; define the minimum provider-backed vertical slice
+  only after the journey gate passes.
 - Cache normalized data locally and serve it without real-time browser calls to IGDB.
 - Curate Spanish aliases and ambiguous release dates manually where needed.
 - Keep RAWG as a fallback without running a second PoC now.
@@ -242,8 +244,9 @@ Next actions:
 3. Add an applicable cancelled or delayed release case.
 4. Use the provider-independent release and availability model recorded in the
    [provider spike](game-data-providers-spike.md#92-minimal-canonical-concepts).
-5. Build only a bounded provider-backed vertical slice; do not add RAWG or a broad
-   synchronization system unless the accepted limitations become operationally
-   expensive.
+5. Run the [prototype usability gate](prototype-usability-test-guide.md), then build
+   only a bounded provider-backed vertical slice if it passes; do not add RAWG or a
+   broad synchronization system unless the accepted limitations become
+   operationally expensive.
 6. Re-run offline validation after any rule change and reserve another authenticated
    run for materially changed sample or provider behaviour.
