@@ -2,7 +2,7 @@
 
 - **Status:** Active
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-24
+- **Last updated:** 2026-07-27
 
 Terms are provisional until product and domain discovery confirms them.
 
@@ -16,8 +16,9 @@ Terms are provisional until product and domain discovery confirms them.
 | Edition | A commercially distinct version or package of a game | Deferred from the learning MVP unless provider data requires minimal handling |
 | Platform | Hardware or distribution environment on which a game is released | In technical documents, use `deployment platform` when ambiguity is possible |
 | Game page | The user-facing view of essential information about one game | Previously referred to as a game detail or catalogue page |
-| Rating | A structured score submitted by a user for a game | Different from a written review |
-| Aggregate rating | A calculated summary of eligible user ratings | The learning MVP uses an arithmetic mean to one decimal, rating count, and distribution, with no weighting or platform-specific aggregate |
+| Rating | One active integer score from 1 to 10 submitted by a user for a released game | Different from a written review; displayed without `/10`; editable and removable |
+| Rating selector | The compact in-context control that exposes integers 1–10 when the personal-rating field is activated | It is not a separate page; it remains disabled until the game is released |
+| Aggregate rating | A calculated summary of eligible user ratings, displayed separately from the current user's rating | The learning MVP uses an arithmetic mean to one decimal, rating count, and distribution, with no weighting or platform-specific aggregate; Spanish copy uses a decimal comma and shows `No disponible` rather than inventing a number |
 | Review | Written user or professional commentary about a game | Outside the learning MVP |
 | Catalogue | The internally represented set of games and related release information | External provider data is an input, not the domain model itself |
 | External provider | An authorised source of catalogue or release data | IGDB is approved with explicit limitations for the private learning MVP; RAWG remains a fallback |

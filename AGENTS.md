@@ -9,8 +9,10 @@ for solution architecture and technical leadership.
 ## Current phase
 
 **Phase 0: Product Brief is complete.** The first journey and MVP release cut are
-captured in the story map. The next work prototypes and validates that journey
-before defining the minimum contracts for one vertical slice.
+captured in the story map, and the mobile-first clickable prototype is ready for
+usability validation. The next work is the five-user journey test and any
+evidence-backed prototype revision before defining the minimum contracts for one
+vertical slice.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.

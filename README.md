@@ -1,21 +1,24 @@
 # VideoGame Platform
 
 VideoGame Platform is a product initiative for discovering, tracking, and rating
-video games. **Phase 0: Product Brief is complete**, and the approved first journey
-is captured in the [learning MVP story map](docs/product/mvp-story-map.md). The next
-work is a mobile-first clickable prototype, a lightweight usability round, and the
-minimum provider-independent contracts needed for one end-to-end vertical slice.
+video games. **Phase 0: Product Brief is complete**, the approved first journey is
+captured in the [learning MVP story map](docs/product/mvp-story-map.md), and its
+[mobile-first clickable prototype](docs/product/clickable-prototype.md) is ready for
+usability validation. The next gate is one lightweight round with five
+representative users before minimum contracts or implementation begin.
 
 ## Start here
 
 1. Read the [Product Brief](docs/product/product-brief.md).
 2. Use the [learning MVP story map](docs/product/mvp-story-map.md) for the current
    journey, release cut, acceptance checks, and deferred scope.
-3. Review the [assumptions](docs/product/assumptions.md).
-4. Review the resolved decisions and reopening conditions in
+3. Open the [clickable prototype](docs/product/clickable-prototype.md) and use the
+   [moderated usability script](docs/research/prototype-usability-test-guide.md).
+4. Review the [assumptions](docs/product/assumptions.md).
+5. Review the resolved decisions and reopening conditions in
    [open questions](docs/product/open-questions.md).
-5. Use the [glossary](docs/product/glossary.md) to keep terminology consistent.
-6. Review the [Codex workspace setup](docs/development/codex-setup.md).
+6. Use the [glossary](docs/product/glossary.md) to keep terminology consistent.
+7. Review the [Codex workspace setup](docs/development/codex-setup.md).
 
 ## Documentation
 
