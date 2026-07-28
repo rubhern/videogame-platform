@@ -11,6 +11,10 @@ Store evidence produced during product discovery here.
 - [Prototype usability test guide](prototype-usability-test-guide.md): moderated
   Spanish participant script, observation template, and the four-of-five journey
   decision rule.
+- [Accepted simulated session sheets](simulated-session-observation-sheets.md): five
+  synthetic session records accepted for the private learning-project decision.
+- [Accepted simulated round synthesis](simulated-round-synthesis.md): 4/5 unaided
+  plus a focused simulated regression, with a final `PASS` decision.
 - [Game-data-provider spike](game-data-providers-spike.md): documentary comparison
   and the conditional technical decision after the first authenticated IGDB PoC.
 - [IGDB PoC control sample](igdb-poc-sample.csv): frozen 60-case sample used by
@@ -22,10 +26,16 @@ Store evidence produced during product discovery here.
 - [IGDB PoC tool](../../tools/igdb-poc/README.md): isolated Java CLI for
   authenticated capture and deterministic offline validation.
 
-## Remaining evidence
+## Closed prototype evidence
 
-- five real prototype usability sessions and their anonymised synthesis;
-- links from observed evidence to `docs/product/assumptions.md`.
+The focused simulated regression is recorded in the synthesis and observation-sheet
+appendix. It resolves the blocking and important prototype findings for the current
+learning objective. Further prototype testing is optional unless the journey rules,
+release mode, or evidence objective changes.
+
+The owner accepts the simulated round as decision-grade evidence for this private
+training product. Its synthetic provenance remains mandatory: it cannot support
+claims about real-user behaviour, demand, retention, or product–market fit.
 
 Public or commercial provider terms, copied-image rights, and redistribution are
 deferred until the release mode changes; they do not block the private learning MVP.

@@ -1,13 +1,14 @@
 # Mobile-first clickable prototype
 
-- **Status:** Ready for usability validation
+- **Status:** Validated for the private learning-project journey gate
 - **Fidelity:** Medium
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-27
+- **Last updated:** 2026-07-28
 - **Figma file:** [Open the clickable prototype](https://www.figma.com/design/DlnALCtbf4zYjcJDF2ixnK)
 - **Start frame:** `01 · Lanzamientos` (`4:346`)
 - **Catalogue access:** use `Abrir los 8 →` from the start frame
 - **Test guide:** [Prototype usability test guide](../research/prototype-usability-test-guide.md)
+- **Round result:** [Accepted simulated synthesis](../research/simulated-round-synthesis.md)
 
 This prototype represents the complete approved learning-MVP journey before
 implementation. It is an interaction and comprehension artefact, not production
@@ -88,6 +89,9 @@ rating product.
 | `18 · Ficha · Resident Evil Requiem` | Released-game detail with aggregate and unrated personal state |
 | `19 · Ficha · Pragmata` | Released-game detail with aggregate and unrated personal state |
 | `20 · Ficha · Fable · Próximo lanzamiento` | Confirmed future release with aggregate unavailable and rating disabled |
+| `21 · Mis puntuaciones · Nota actualizada` | Personal list with the edited score and explicit saved feedback |
+| `22 · Nota actualizada · Overlay` | Confirmation after changing the personal score |
+| `23 · Eliminar nota 8 · Overlay` | Delete confirmation consistent with the edited score |
 
 ## Approved rating interaction rules
 
@@ -108,7 +112,7 @@ rating product.
 
 The Figma artefact has been checked for:
 
-- all 20 intended states;
+- all 23 intended states;
 - a working route from the complete catalogue to each of the eight game pages and
   back;
 - the complete guided path and critical branches;
@@ -117,9 +121,10 @@ The Figma artefact has been checked for:
 - no visual overflow in the reviewed frames;
 - an explicit bounded-catalogue and demonstration-data statement.
 
-This is design quality assurance only. The journey gate remains open until real
-participants complete the tasks in the
-[usability test](../research/prototype-usability-test-guide.md).
+The owner accepts the five-session simulation for the private learning-project
+decision. It reached 4/5 unaided. The 2026-07-28 focused simulated regression
+verified that F-01 through F-08 are resolved and that no blocking issue remains, so
+the journey gate is `PASS`. This is not real-participant or demand evidence.
 
 ## Known limitations
 

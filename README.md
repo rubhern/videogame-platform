@@ -3,9 +3,10 @@
 VideoGame Platform is a product initiative for discovering, tracking, and rating
 video games. **Phase 0: Product Brief is complete**, the approved first journey is
 captured in the [learning MVP story map](docs/product/mvp-story-map.md), and its
-[mobile-first clickable prototype](docs/product/clickable-prototype.md) is ready for
-usability validation. The next gate is one lightweight round with five
-representative users before minimum contracts or implementation begin.
+[mobile-first clickable prototype](docs/product/clickable-prototype.md) has completed
+an owner-accepted [simulated five-session round](docs/research/simulated-round-synthesis.md).
+The focused simulated regression resolved the blocking issue, so the current journey
+decision is `PASS` and minimum contracts for one vertical slice can begin.
 
 ## Start here
 
@@ -13,7 +14,8 @@ representative users before minimum contracts or implementation begin.
 2. Use the [learning MVP story map](docs/product/mvp-story-map.md) for the current
    journey, release cut, acceptance checks, and deferred scope.
 3. Open the [clickable prototype](docs/product/clickable-prototype.md) and use the
-   [moderated usability script](docs/research/prototype-usability-test-guide.md).
+   [accepted simulated round](docs/research/simulated-round-synthesis.md) as the
+   closed journey decision record.
 4. Review the [assumptions](docs/product/assumptions.md).
 5. Review the resolved decisions and reopening conditions in
    [open questions](docs/product/open-questions.md).

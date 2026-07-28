@@ -9,10 +9,12 @@ for solution architecture and technical leadership.
 ## Current phase
 
 **Phase 0: Product Brief is complete.** The first journey and MVP release cut are
-captured in the story map, and the mobile-first clickable prototype is ready for
-usability validation. The next work is the five-user journey test and any
-evidence-backed prototype revision before defining the minimum contracts for one
-vertical slice.
+captured in the story map. The owner accepted a five-session simulated usability
+round as decision-grade evidence for this private learning project. The journey gate
+is `PASS`: four of five sessions completed unaided and a focused simulated
+regression resolved the blocking personal-rating state. Prototype and usability work
+are closed for the current learning objective. The next work is defining minimum
+provider-independent contracts for one vertical slice.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
@@ -31,6 +33,8 @@ vertical slice.
 - Assumptions: `docs/product/assumptions.md`
 - Open questions: `docs/product/open-questions.md`
 - Glossary: `docs/product/glossary.md`
+- Accepted simulated usability synthesis:
+  `docs/research/simulated-round-synthesis.md`
 - Tooling and Codex setup: `docs/development/codex-setup.md`
 - Architectural decisions, once required: `docs/decisions/`
 

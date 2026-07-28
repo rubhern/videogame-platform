@@ -1,13 +1,14 @@
 # Learning MVP story map
 
-- **Status:** Prototype ready for usability validation
-- **Product Brief:** [v0.4 — Approved](product-brief.md)
-- **Last updated:** 2026-07-27
+- **Status:** Journey gate `PASS`
+- **Product Brief:** [v0.6 — Approved](product-brief.md)
+- **Last updated:** 2026-07-28
 - **Owner:** Ruben Hernandez
 - **Editable board:** [Open the FigJam story map](https://www.figma.com/board/4OfeyWSF3rvEhDE5HGKUK8)
 - **PNG export:** [Download the repository export](assets/mvp-story-map.png)
 - **Clickable prototype:** [Open the prototype record](clickable-prototype.md)
 - **Usability script:** [Run the moderated test](../research/prototype-usability-test-guide.md)
+- **Accepted round:** [Review the simulated synthesis](../research/simulated-round-synthesis.md)
 
 This story map turns the approved primary journey into the smallest coherent
 learning MVP. It is an alignment aid, not a detailed implementation backlog or an
@@ -16,7 +17,10 @@ architecture decision.
 The FigJam board and PNG preserve the initial release-cut snapshot. This Markdown
 document and the linked clickable prototype contain the later owner-approved rating
 interaction details. The current prototype exposes all eight curated game pages;
-*Death Stranding 2: On the Beach* remains the single fully wired rating journey.
+*Death Stranding 2: On the Beach* remains the single fully wired rating journey. The
+accepted simulated round reached 4/5 unaided and initially required iteration for
+blocking finding F-01. The focused simulated regression resolved F-01 through F-08,
+so minimum contracts can now begin.
 
 ![VideoGame Platform learning MVP story map](assets/mvp-story-map.png)
 
@@ -141,6 +145,10 @@ activities. It includes:
   discovery → game page → rating → `Mis puntuaciones` without assistance or a
   blocking usability problem, using the
   [prototype usability test guide](../research/prototype-usability-test-guide.md).
+  **Current result: `PASS`.** The owner accepts the
+  [simulated round](../research/simulated-round-synthesis.md) for this learning
+  decision: 4/5 completed unaided, and the focused simulated regression resolved
+  F-01 with no blocking issue remaining.
 - **Engineering gate:** the slice is automated, tested, observable, documented, and
   operable by one person before another major capability starts.
 - **Provider release-mode gate:** public deployment, monetization, copied images,
@@ -168,9 +176,10 @@ targets.
 
 ## Sources
 
-- [Product Brief v0.4](product-brief.md)
+- [Product Brief v0.6](product-brief.md)
 - [Mobile-first clickable prototype](clickable-prototype.md)
 - [Prototype usability test guide](../research/prototype-usability-test-guide.md)
+- [Accepted simulated usability synthesis](../research/simulated-round-synthesis.md)
 - [Product assumptions](assumptions.md)
 - [Open questions and decisions](open-questions.md)
 - [Product glossary](glossary.md)
