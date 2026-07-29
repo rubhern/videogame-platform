@@ -8,13 +8,15 @@ for solution architecture and technical leadership.
 
 ## Current phase
 
-**Phase 0: Product Brief is complete.** The first journey and MVP release cut are
-captured in the story map. The owner accepted a five-session simulated usability
-round as decision-grade evidence for this private learning project. The journey gate
-is `PASS`: four of five sessions completed unaided and a focused simulated
-regression resolved the blocking personal-rating state. Prototype and usability work
-are closed for the current learning objective. The next work is defining minimum
-provider-independent contracts for one vertical slice.
+**Product alignment is closed.** The approved Product Brief, first journey, MVP
+release cut, clickable prototype, and accepted simulated usability round form the
+closed phase record for this private learning project. The journey gate is `PASS`:
+four of five sessions completed unaided and a focused simulated regression resolved
+the blocking personal-rating state.
+
+The current focus is defining minimum provider-independent contracts for one
+vertical slice. Prototype and usability work remain closed for the current learning
+objective.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
@@ -22,8 +24,8 @@ provider-independent contracts for one vertical slice.
   model, public release, or business model has been approved.
 - Keep proposed product decisions labelled as hypotheses until evidence or an
   explicit owner decision supports them.
-- Use the story map as the current planning boundary; prefer a prototype, minimum
-  contracts, and one vertical slice over a detailed backlog or broad architecture.
+- Use the story map as the current planning boundary; prefer minimum contracts and
+  one vertical slice over a detailed backlog or broad architecture.
 
 ## Sources of truth
 

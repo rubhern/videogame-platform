@@ -1,12 +1,12 @@
 # Product documentation
 
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-28
+- **Last updated:** 2026-07-29
 
-The [Product Brief](product-brief.md) is the approved Phase 0 alignment record. The
-[clickable prototype](clickable-prototype.md) is the current interaction artefact,
-and the [learning MVP story map](mvp-story-map.md) remains the planning boundary.
-Supporting documents keep uncertain information out of the main narrative:
+The [Product Brief](product-brief.md) is the approved, closed product alignment
+record. The [clickable prototype](clickable-prototype.md) is the accepted interaction
+artefact, and the [learning MVP story map](mvp-story-map.md) remains the planning
+boundary. Supporting documents keep uncertain information out of the main narrative:
 
 - [Assumptions](assumptions.md): beliefs that still require evidence.
 - [Open questions](open-questions.md): resolved decisions and their reopening
@@ -19,10 +19,11 @@ Supporting documents keep uncertain information out of the main narrative:
 
 ## Current status
 
+- The product alignment phase is formally closed for the private, non-commercial
+  learning scope.
 - Product Brief version `0.6` was approved by Ruben Hernandez on 2026-07-28. It
   preserves the Phase 0 boundary and closes the accepted simulated journey gate
   after the focused regression.
-- Phase 0 is complete for the private, non-commercial learning scope.
 - The source vision and research inputs have been reconciled.
 - The initial problem, priority user, value proposition, journey, learning-MVP
   boundary, and decision rules are explicit owner decisions.
@@ -43,7 +44,7 @@ decision. Any team roles, stakeholder interactions, or delivery ceremonies are
 simulated by Ruben with AI assistance; they do not represent additional people or
 approval authorities.
 
-## Phase 0 completion criteria
+## Closed product alignment record
 
 - A primary user segment is selected.
 - One initial user problem is stated and supported by evidence or explicitly accepted
@@ -57,6 +58,9 @@ These criteria are complete. Product Brief version 0.3 closed Phase 0 on 2026-07
 and version 0.4 recorded the approved prototype behaviour on 2026-07-27 without
 expanding the MVP. Version 0.5 records the accepted simulated usability decision on
 2026-07-28, and version 0.6 records the corrected prototype and focused regression.
+The phase remains closed unless a documented reopening condition is met.
+
 Product-demand assumptions remain accepted risks because no real users were
 observed. No additional market study, provider PoC, or public-release legal work is
-required for the approved private learning scope.
+required for the approved private learning scope. The current focus is defining
+minimum provider-independent contracts for one vertical slice.

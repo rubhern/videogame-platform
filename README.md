@@ -1,16 +1,21 @@
 # VideoGame Platform
 
 VideoGame Platform is a product initiative for discovering, tracking, and rating
-video games. **Phase 0: Product Brief is complete**, the approved first journey is
-captured in the [learning MVP story map](docs/product/mvp-story-map.md), and its
-[mobile-first clickable prototype](docs/product/clickable-prototype.md) has completed
-an owner-accepted [simulated five-session round](docs/research/simulated-round-synthesis.md).
-The focused simulated regression resolved the blocking issue, so the current journey
-decision is `PASS` and minimum contracts for one vertical slice can begin.
+video games. **The product alignment phase is closed.** Its approved first journey
+is captured in the [learning MVP story map](docs/product/mvp-story-map.md), and its
+[mobile-first clickable prototype](docs/product/clickable-prototype.md) completed an
+owner-accepted [simulated five-session round](docs/research/simulated-round-synthesis.md).
+The focused simulated regression resolved the blocking issue and left the journey
+decision at `PASS`.
+
+The current focus is defining minimum provider-independent contracts for one
+vertical slice. No production architecture, framework, database, deployment model,
+public release, or business model has been approved.
 
 ## Start here
 
-1. Read the [Product Brief](docs/product/product-brief.md).
+1. Read the [Product Brief](docs/product/product-brief.md) as the closed product
+   alignment record.
 2. Use the [learning MVP story map](docs/product/mvp-story-map.md) for the current
    journey, release cut, acceptance checks, and deferred scope.
 3. Open the [clickable prototype](docs/product/clickable-prototype.md) and use the
