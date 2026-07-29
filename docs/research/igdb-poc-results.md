@@ -7,7 +7,7 @@
 - **Decision owner:** Ruben Hernandez
 - **Execution date:** 2026-07-24
 - **Review date:** 2026-07-24
-- **Last workflow alignment:** 2026-07-27
+- **Last workflow alignment:** 2026-07-29
 - **Control sample:** [`igdb-poc-sample.csv`](igdb-poc-sample.csv)
 - **Acceptance criteria:** Section 10.4 of
   [`game-data-providers-spike.md`](game-data-providers-spike.md)
@@ -43,8 +43,10 @@ dates should be reconciled against an official source before display.
 
 This decision is intentionally proportional to a solo learning project. It approves
 technical progression with a small catalogue and manual curation; it does not approve
-an exhaustive catalogue, unattended publication, image usage, commercial use, or
-production licensing.
+an exhaustive catalogue, unattended publication, commercial use, or production
+licensing. The execution did not itself approve image usage; the later owner decision
+for reference-only IGDB CDN covers is recorded separately in
+[ADR-0001](../decisions/0001-reference-igdb-cover-images.md).
 
 ## 1. Decision and scope
 
@@ -153,7 +155,8 @@ The MVP must model at least these separate concepts:
 - subscription or catalogue availability;
 - date precision (`day`, `month`, `quarter`, `year`, or `unknown`);
 - provider freshness and provenance;
-- manual verification status for a displayed recent or upcoming release.
+- independent verification level, review status, and freshness status for a
+  displayed recent or upcoming release.
 
 For the bounded MVP, recently changed or upcoming release dates should be checked
 against one official publisher, developer, or platform source before publication.
@@ -211,17 +214,21 @@ separate microservice or real-time dependency on IGDB.
 | Subscription and release dates conflated in sample | Correct the product model and future samples | Store availability as a separate concept |
 | Spanish alternative-title coverage at 40% | Accept as non-blocking | Maintain product-owned Spanish search aliases |
 | One missing title | Accept bounded coverage | Declare catalogue coverage and observe zero-result searches |
-| Ambiguous types and statuses | Accept explicit uncertainty | Preserve raw provider fields and support `unknown`/manual review |
+| Ambiguous types and statuses | Accept explicit uncertainty | Preserve source values at the adapter boundary and support normalized `unknown`/manual review |
 | First execution not tied to a clean commit | Accept as first evidence only | Capture tool version and commit in subsequent runs |
 
 ## 8. Release-mode status
 
 The owner accepts IGDB for the current private, non-commercial learning mode using
-local normalized metadata without copied provider images or external ratings. This
-closes the provider gate only for that bounded mode.
+local normalized metadata, direct IGDB CDN cover references under
+[ADR-0001](../decisions/0001-reference-igdb-cover-images.md), no copied provider image
+binaries, and no external ratings. Provider covers require visible attribution, a
+clear source path, allowlisted delivery, and a product-owned fallback. This closes
+the provider gate only for that bounded mode.
 
-Public deployment, monetization, copied images, redistribution, or broad unattended
-synchronization must reopen the decision and clarify:
+Public deployment, monetization, copied or application-stored images,
+redistribution, or broad unattended synchronization must reopen the decision and
+clarify:
 
 - visible attribution;
 - local storage and retained data;
@@ -234,6 +241,8 @@ synchronization must reopen the decision and clarify:
 personal learning MVP. The original PoC result remains `CONDITIONAL_PASS`; Ruben
 Hernandez accepts the release-date and Spanish-alias limitations because they are
 manageable through explicit modelling and manual curation at this project scale.
+The later reference-only cover decision does not alter any PoC metric or frozen
+threshold.
 
 Next actions:
 
@@ -242,11 +251,12 @@ Next actions:
 2. Add a regression case for DOS versus modern Windows/PC and for one-day timezone
    boundaries.
 3. Add an applicable cancelled or delayed release case.
-4. Use the provider-independent release and availability model recorded in the
-   [provider spike](game-data-providers-spike.md#92-minimal-canonical-concepts).
-5. Run the [prototype usability gate](prototype-usability-test-guide.md), then build
-   only a bounded provider-backed vertical slice if it passes; do not add RAWG or a
-   broad synchronization system unless the accepted limitations become
-   operationally expensive.
-6. Re-run offline validation after any rule change and reserve another authenticated
+4. Use the approved
+   [provider-independent domain model](../architecture/domain/mvp-domain-model.md).
+5. Define the minimum API contract, including cover references, attribution,
+   fallback, release data, rating eligibility, aggregates, and personal ratings.
+6. Build only the bounded provider-backed vertical slice; do not add RAWG or a broad
+   synchronization system unless the accepted limitations become operationally
+   expensive.
+7. Re-run offline validation after any rule change and reserve another authenticated
    run for materially changed sample or provider behaviour.

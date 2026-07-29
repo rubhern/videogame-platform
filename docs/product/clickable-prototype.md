@@ -3,7 +3,7 @@
 - **Status:** Validated for the private learning-project journey gate
 - **Fidelity:** Medium
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-28
+- **Last updated:** 2026-07-29
 - **Figma file:** [Open the clickable prototype](https://www.figma.com/design/DlnALCtbf4zYjcJDF2ixnK)
 - **Start frame:** `01 · Lanzamientos` (`4:346`)
 - **Catalogue access:** use `Abrir los 8 →` from the start frame
@@ -138,6 +138,10 @@ the journey gate is `PASS`. This is not real-participant or demand evidence.
   but the static prototype does not persist every possible selection.
 - Release dates, rating values, and counts are demonstration content and must not be
   treated as current provider data.
+- Product-owned colour identifiers remain part of this historical prototype. The
+  implementation contract may instead display provider-hosted covers under
+  [ADR-0001](../decisions/0001-reference-igdb-cover-images.md); this does not
+  retroactively turn prototype imagery into provider evidence.
 - The prototype validates mobile interaction first. Responsive desktop behaviour,
   keyboard details, and production accessibility require later implementation
   checks.
