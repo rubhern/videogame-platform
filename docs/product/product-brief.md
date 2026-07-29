@@ -1,14 +1,14 @@
 # Product Brief — VideoGame Platform
 
 - **Status:** Approved
-- **Version:** 0.6
+- **Version:** 0.7
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-28
+- **Last updated:** 2026-07-29
 - **Phase:** 0 — Product alignment (complete)
 - **Primary source:** [VideoGame Platform vision](../reference/video-game-platform-vision.pdf)
 - **Research inputs:** [Synthetic interview preparation](../research/phase-1-user-interviews.md), [Metacritic journey comparison](../research/competitor-journey-comparison-metacritic.md), [game-data-provider spike](../research/game-data-providers-spike.md), [first authenticated IGDB PoC](../research/igdb-poc-results.md), and [accepted simulated usability round](../research/simulated-round-synthesis.md)
 - **Prototype:** [Mobile-first clickable prototype](clickable-prototype.md)
-- **Sources reviewed:** 2026-07-28
+- **Sources reviewed:** 2026-07-29
 
 > This is a personal learning project. Product-demand decisions based on synthetic
 > research are explicit accepted risks. The owner accepts the simulated usability
@@ -33,6 +33,11 @@ IGDB as the initial provider for a bounded, curated learning catalogue, with man
 reconciliation of ambiguous release dates and product-owned Spanish aliases. This is
 a technical decision for the personal learning MVP, not approval for broad,
 unattended, public, or commercial use.
+
+For this private release mode, approved covers may be loaded directly from the IGDB
+image CDN using stored provider references, visible attribution, and a product-owned
+fallback. Provider image binaries are not copied, proxied, persisted, committed, or
+redistributed by VideoGame Platform.
 
 The approved journey is represented in a medium-fidelity
 [mobile-first clickable prototype](clickable-prototype.md) with eight transparently
@@ -180,6 +185,8 @@ The initial advantage is relevance and continuity, not a proprietary score:
 - Title and alternative-title search within an explicitly bounded catalogue.
 - A game page with essential catalogue, platform-release, provenance, and freshness
   information.
+- A recognizable primary cover loaded from an approved provider CDN reference, with
+  visible attribution and a product-owned fallback.
 - Registration and sign-in through an established identity approach.
 - Create, change, and remove one integer rating from 1 to 10 per user and game.
 - Inline 1–10 rating selection in the game or personal-list context; no separate
@@ -253,10 +260,13 @@ traction.
   limitations for a bounded catalogue with manual reconciliation, explicit
   uncertainty, and product-owned Spanish aliases.
 - **Provider release-mode gate:** passed for the current private, non-commercial
-  learning scope, using local normalized metadata without copied provider images or
-  external ratings. Public deployment, monetization, copied images, redistribution,
-  or broad unattended synchronization must reopen the gate and clarify partnership,
-  attribution, retained-data, and image requirements.
+  learning scope, using local normalized metadata and direct IGDB CDN cover
+  references without copied provider image binaries or external ratings. Provider
+  covers require visible attribution, a clear source path, allowlisted delivery, and
+  a product-owned fallback. Public deployment, monetization, copied images,
+  redistribution, application-managed image storage, or broad unattended
+  synchronization must reopen the gate and clarify partnership, attribution,
+  retained-data, and image requirements.
 - **Journey gate:** `PASS` on 2026-07-28. By explicit owner decision, the
   [five-session simulated round](../research/simulated-round-synthesis.md) is accepted
   as decision-grade evidence for this private learning project. Four of five
@@ -286,7 +296,7 @@ product–market-fit thresholds.
 
 | Risk | Why it matters | Initial response |
 |---|---|---|
-| Data licensing and availability | Documentary fit does not settle every public, commercial, attribution, or image-use condition | Record the terms for the non-commercial PoC; obtain any required partnership and clarify attribution, retained data, and images before public or monetized release |
+| Data licensing and availability | Documentary fit supports referenced CDN covers for the private MVP but does not settle every public, commercial, copied-image, retention, or redistribution condition | Use allowlisted direct provider references with visible attribution and fallback; obtain any required partnership before public, monetized, copied, stored, or redistributed image use |
 | Provider data quality | The first authenticated PoC passed core identity, platform, region, provenance, and operational metrics, but release date/precision reached 83.1% | Keep the catalogue bounded; separate release from subscription availability; preserve precision and provenance; reconcile displayed recent/upcoming dates against an official source |
 | Spanish provider content gap | Localized-title coverage reached 40%, and neither provider guarantees complete Spanish editorial content | Maintain product-owned Spanish aliases, keep Spanish editorial content separate from provider summaries, and record source language explicitly |
 | Weak differentiation | A correct catalogue may still be irrelevant to users | Compare the core task with Metacritic or a tracker in a lightweight prototype test |
@@ -318,8 +328,10 @@ apply because the MVP includes accounts, ratings, and external data.
 
 The live register is [open-questions.md](open-questions.md). All Phase 0 product
 questions are resolved for the approved private, non-commercial learning scope.
-**Q-005 (provider and licence feasibility)** selects IGDB with explicit limitations.
-Public deployment, monetization, copied images, or redistribution are new release
+**Q-005 (provider and licence feasibility)** selects IGDB with explicit limitations
+and permits referenced CDN covers under
+[ADR-0001](../decisions/0001-reference-igdb-cover-images.md). Public deployment,
+monetization, copied or stored provider images, or redistribution are new release
 modes that must reopen the provider gate; they are not unresolved requirements for
 closing this Product Brief. **Q-010 (prototype evidence standard)** accepts the
 simulated round only for the private learning-project journey decision and preserves
@@ -333,6 +345,7 @@ its synthetic provenance.
 | Product owner | Ruben Hernandez | Approved v0.4 rating interactions and prototype validation artefact without expanding the MVP | 2026-07-27 |
 | Product owner | Ruben Hernandez | Approved v0.5 acceptance of the simulated five-session round for the private learning-project journey decision; result `ITERATE` | 2026-07-28 |
 | Product owner | Ruben Hernandez | Approved v0.6 closure of the prototype and simulated usability gate after focused regression; result `PASS` | 2026-07-28 |
+| Product owner | Ruben Hernandez | Approved v0.7 provider-hosted cover references and the minimum domain model without expanding the release mode | 2026-07-29 |
 | Technical lead | Ruben Hernandez | Approved with documented IGDB limitations | 2026-07-24 |
 
 These rows preserve the version and responsibility history. Every decision is held
@@ -344,10 +357,11 @@ The Product Brief is complete for the current learning scope. Version 0.3 closed
 Phase 0; version 0.4 records the owner-directed rating interaction rules; version 0.5
 records the accepted simulated usability round and its `ITERATE` decision without
 changing the approved boundary; version 0.6 records the corrected prototype, focused
-regression, and `PASS` decision. The priority user, problem, value proposition,
+regression, and `PASS` decision; version 0.7 records the provider-hosted cover policy
+and approved minimum domain contract. The priority user, problem, value proposition,
 primary journey, MVP boundary, owner, provider decision, accepted risks, and success
-rules are explicit. No additional market study, second provider PoC, provider ADR,
-public-release legal work, or detailed backlog is required to close Phase 0.
+rules are explicit. No additional market study, second provider PoC, public-release
+legal work, or detailed backlog is required to close Phase 0.
 
 The first three product-discovery steps are complete:
 
@@ -364,11 +378,11 @@ rule changes, or implementation reveals a new blocking usability risk.
 
 Remaining minimum next steps:
 
-1. Define the minimum provider-independent domain and API contracts for one vertical
-   slice: game identity, platform-region release, release-date precision and
-   provenance, rating eligibility, aggregate rating, and the authenticated user's
-   rating.
-2. Record only architecture decisions that are required to implement that slice;
+1. Define the minimum provider-independent API contract for the approved domain
+   model: game identity, primary-cover reference and attribution, platform-region
+   release, release-date precision and provenance, rating eligibility, aggregate
+   rating, and the authenticated user's rating.
+2. Record only additional architecture decisions required to implement that slice;
    do not select a broad platform architecture in advance.
 3. Implement the release page → game page → rating → `Mis puntuaciones` slice with
    authentication, tests, structured logs, catalogue freshness, journey metrics, and

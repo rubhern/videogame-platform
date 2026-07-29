@@ -46,7 +46,7 @@ Copy the reviewed aggregate metrics from the generated report.
 | Platform identification | 95% | Pending | Pending |
 | Release date or precision | 90% | Pending | Pending |
 | Region represented or explicitly unknown | 85% | Pending | Pending |
-| Usable cover | 90% | Pending | Pending |
+| Usable cover reference | 90% | Pending | Pending |
 | Genre | 90% | Pending | Pending |
 | Developer or publisher | 85% | Pending | Pending |
 | Unexpected duplicates | At most 5% | Pending | Pending |
@@ -87,9 +87,13 @@ mappings without hiding them in aggregate percentages.
 
 ## 10. Contractual and publication status
 
-Record separately the evidence for attribution, data retention, image use,
-public availability, future monetization, and any partnership requirement.
-A technical pass does not close this section.
+Record separately the evidence for attribution, data retention, image use, public
+availability, future monetization, and any partnership requirement. For the current
+private learning scope, verify that provider covers remain direct, attributed CDN
+references under [ADR-0001](../decisions/0001-reference-igdb-cover-images.md), with
+an allowlisted host and product-owned fallback, and that no provider image binary is
+copied, proxied, persisted, committed, or redistributed. A technical pass does not
+close this section.
 
 ## 11. Recommendation and follow-up
 

@@ -8,9 +8,10 @@ owner-accepted [simulated five-session round](docs/research/simulated-round-synt
 The focused simulated regression resolved the blocking issue and left the journey
 decision at `PASS`.
 
-The current focus is defining minimum provider-independent contracts for one
-vertical slice. No production architecture, framework, database, deployment model,
-public release, or business model has been approved.
+The [minimum provider-independent domain model](docs/architecture/domain/mvp-domain-model.md)
+is approved. The current focus is defining its API contract for one vertical slice.
+No production architecture, framework, database, deployment model, public release,
+or business model has been approved.
 
 ## Start here
 
@@ -21,11 +22,13 @@ public release, or business model has been approved.
 3. Open the [clickable prototype](docs/product/clickable-prototype.md) and use the
    [accepted simulated round](docs/research/simulated-round-synthesis.md) as the
    closed journey decision record.
-4. Review the [assumptions](docs/product/assumptions.md).
-5. Review the resolved decisions and reopening conditions in
+4. Use the [approved domain model](docs/architecture/domain/mvp-domain-model.md) for
+   the minimum provider-independent contract.
+5. Review the [assumptions](docs/product/assumptions.md).
+6. Review the resolved decisions and reopening conditions in
    [open questions](docs/product/open-questions.md).
-6. Use the [glossary](docs/product/glossary.md) to keep terminology consistent.
-7. Review the [Codex workspace setup](docs/development/codex-setup.md).
+7. Use the [glossary](docs/product/glossary.md) to keep terminology consistent.
+8. Review the [Codex workspace setup](docs/development/codex-setup.md).
 
 ## Documentation
 

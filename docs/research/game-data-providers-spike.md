@@ -3,7 +3,7 @@
 - **Status:** First authenticated PoC reviewed; conditionally approved for the
   learning MVP
 - **Started:** 2026-07-23
-- **Last updated:** 2026-07-27
+- **Last updated:** 2026-07-29
 - **Phase:** 0 — Product alignment
 - **Decision:** Select one provider for the initial bounded catalogue
 - **Providers evaluated:** IGDB and RAWG
@@ -54,14 +54,16 @@ Use IGDB as the initial technical provider under these constraints:
 - preserve date precision, provenance, and review state;
 - reconcile recent, upcoming, or ambiguous displayed dates manually;
 - synchronize and serve local normalized data instead of calling IGDB per page view;
-- do not import external ratings or copy provider images in the learning MVP.
+- load approved covers directly from the IGDB image CDN with visible attribution,
+  allowlisted delivery, and a product-owned fallback;
+- do not import external ratings or copy provider image binaries in the learning MVP.
 
 RAWG remains a fallback. A second provider PoC is unnecessary unless IGDB becomes
 incompatible with the intended scope or its limitations become too costly to manage.
 
 ## 2. Product context
 
-Product Brief v0.3 defined, and current v0.4 preserves, a Spanish-first learning MVP
+Product Brief v0.3 defined, and current v0.7 preserves, a Spanish-first learning MVP
 with:
 
 - a recent and upcoming release view;
@@ -197,25 +199,38 @@ queries must continue to use current, non-deprecated fields.
 - Reconcile the upcoming window regularly because dates change.
 - Keep webhooks as a later optimization.
 - Persist normalized data and do not fan out to IGDB on page views.
+- Persist cover `image_id` references and source metadata, not provider image
+  binaries.
+- Recheck referenced covers when their provider metadata changes and fall back
+  safely when a reference no longer resolves.
 - Apply a local limit of three requests per second.
 
 ### 6.6 Terms and release-mode boundary
 
 The official documentation describes free non-commercial use under the Twitch
 Developer Service Agreement and asks commercial products to contact IGDB. IGDB also
-documents local caching and visible attribution expectations.
+documents local data caching, image URLs constructed from `image_id`, image-size
+variants, and visible attribution expectations. The Twitch agreement additionally
+requires care with stored copies, redistribution, updates, attribution, and the path
+back to source material.
 
 For Phase 0 the owner accepts only:
 
 - private, non-commercial learning use;
 - local normalized metadata;
+- direct delivery of approved covers from the documented IGDB image CDN;
+- storage of image references and normalized metadata, not provider image binaries;
+- visible IGDB attribution and a clear path to the matching source game;
+- a fixed HTTPS host and image-size allowlist plus a product-owned fallback;
 - no committed raw responses or credentials;
-- no copied provider images;
+- no copied, proxied, persisted, committed, or redistributed provider image binaries;
 - no external ratings.
 
-Before public or monetized use, confirm the applicable partnership, attribution,
-retained-data, image, and rating requirements. This future check does not block the
-current private learning scope.
+This reference-only mode is recorded in
+[ADR-0001](../decisions/0001-reference-igdb-cover-images.md). Before public,
+monetized, copied-image, application-storage, or redistributed use, confirm the
+applicable partnership, attribution, retained-data, image, and rating requirements.
+This future check does not block the current private learning scope.
 
 ### 6.7 Spanish and localization
 
@@ -243,7 +258,8 @@ Therefore:
 - Twitch OAuth and APICalypse add integration complexity.
 - The four-request-per-second limit requires controlled synchronization.
 - Schema changes and deprecated fields require contract tests.
-- Public/commercial and image requirements must be reviewed before that release mode.
+- Public/commercial, copied-image, application-storage, and redistribution
+  requirements must be reviewed before that release mode.
 - Spanish editorial content remains a product responsibility.
 - The first PoC found release-date and localized-title limitations.
 
@@ -390,6 +406,10 @@ workflow when the product chooses to support it.
 
 ### 9.2 Minimal canonical concepts
 
+The approved canonical contract is maintained in the
+[learning MVP domain model](../architecture/domain/mvp-domain-model.md). The provider
+adapter supplies only the input needed to construct those concepts:
+
 ```text
 Game
 - internalId
@@ -399,39 +419,37 @@ Game
 - sourceSummary
 - sourceSummaryLanguage
 - coverReference
-- genres[]
-- companies[]
 - releases[]
-- availabilities[]
-- supportedLanguages[]
 - externalReferences[]
 - provenance
-- syncStatus
 
 Release
+- releaseId
 - platform
 - region
 - releaseDate
-- datePrecision
 - status
 - provenance
 - providerUpdatedAt
+- lastSyncedAt
 - lastVerifiedAt
-- verificationStatus
+- verificationLevel
+- reviewStatus
+- freshnessStatus
+- externalReferences[]
 
-Availability
-- service
-- platform
-- region
-- availableFrom
-- availableUntil
-- datePrecision
-- status
-- provenance
-- lastVerifiedAt
+CoverReference
+- imageId
+- source
+- usageMode
+- alternativeText
+- usageStatus
+- providerUpdatedAt
+- lastCheckedAt
 
 ExternalReference
 - provider
+- entityType
 - providerId
 - providerUrl
 ```
@@ -439,11 +457,13 @@ ExternalReference
 `Release` means the first or subsequent commercial release of a game for one
 platform and region. `Availability` means access through a subscription, rotating
 catalogue, promotion, or similar service. A Game Pass arrival must never overwrite or
-be compared as an original platform release.
+be compared as an original platform release. `Availability` remains a protected
+definition outside the MVP API and persistence model.
 
-`datePrecision` supports `day`, `month`, `quarter`, `year`, and `unknown`.
-`verificationStatus` supports at least `provider_only`, `verified`,
-`review_required`, and `stale`.
+`ReleaseDate` is a valid exact-day, month, quarter, year, or unknown variant.
+Verification level, review need, and freshness remain independent dimensions.
+`CoverReference` uses `provider_cdn_reference` for approved IGDB covers and
+`product_owned` for the fallback.
 
 ### 9.3 Modelling and validation rules
 
@@ -457,7 +477,8 @@ be compared as an original platform release.
 - Require manual verification for displayed recent/upcoming dates when sources
   disagree or the provider value is stale.
 - Keep Spanish aliases and editorial content product-owned.
-- Keep images as references until their terms are confirmed.
+- Keep provider images as allowlisted, attributed CDN references; never normalize the
+  binary into product storage.
 - Persist `providerUpdatedAt`, `lastSyncedAt`, `syncStatus`, and synchronization
   errors.
 - Serve the last synchronized data during provider failure.
@@ -573,7 +594,7 @@ section 9.
 | Risk | Probability | Impact | Initial mitigation |
 |---|---|---|---|
 | Public/commercial terms not closed | High if scope changes | High | Keep Phase 0 private and non-commercial; reopen before public release |
-| Image rights unclear | Medium-high | High | Use no copied provider images in the current scope |
+| Image rights and storage boundaries | Medium-high | High | Use attributed direct IGDB CDN references under ADR-0001; do not copy or proxy provider binaries |
 | Incomplete Spanish content | High | Medium-high | Product-owned Spanish aliases and editorial content |
 | Versions and editions duplicated | High | Medium | Canonicalization and explicit type/parent review |
 | Future dates change | High | Medium | Regular reconciliation and manual review state |
@@ -589,8 +610,10 @@ section 9.
 - **Provider:** IGDB.
 - **Owner:** Ruben Hernandez.
 - **Decision date:** 2026-07-24.
+- **Referenced-cover decision date:** 2026-07-29.
 - **Release mode:** private, non-commercial learning.
-- **Use:** bounded catalogue, search, game page, releases, and local normalization.
+- **Use:** bounded catalogue, search, game page, releases, local normalization, and
+  direct IGDB CDN cover references under ADR-0001.
 - **Decision type:** reversible if provider constraints or product scope change.
 
 ### Accepted limitations
@@ -601,12 +624,14 @@ section 9.
 - Separate release and subscription-availability concepts.
 - Imprecise and unknown dates/statuses remain explicit.
 - Local synchronized reads rather than provider calls per page.
+- Provider-hosted covers require attribution, a clear source path, an allowlisted
+  image host, and a product-owned fallback.
 - One provider only.
 
 ### Explicitly excluded
 
 - Public or monetized release.
-- Copied provider images.
+- Copied, proxied, persisted, committed, or redistributed provider image binaries.
 - External ratings or professional-review aggregation.
 - Exhaustive catalogue coverage.
 - RAWG integration.
@@ -616,7 +641,7 @@ section 9.
 
 - public deployment;
 - monetization;
-- copied or redistributed images/data;
+- copied, application-stored, or redistributed images/data;
 - broad unattended catalogue synchronization;
 - accepted limitations becoming too expensive;
 - material IGDB contract or API changes.
@@ -627,7 +652,7 @@ section 9.
 |---|---|
 | Are providers viable? | Yes. IGDB is viable for the bounded private learning scope; RAWG remains a documentary fallback |
 | Which provider should be used first? | IGDB |
-| Is the current technical decision sufficient? | Yes for private learning; no for public, image, or commercial use |
+| Is the current technical decision sufficient? | Yes for private learning with referenced CDN covers; no for public, copied-image, application-storage, redistribution, or commercial use |
 | Which provider is simpler technically? | RAWG |
 | Which provider has the stronger catalogue/release model? | IGDB |
 | Which provider shows greater contractual ambiguity? | RAWG |
@@ -647,14 +672,15 @@ section 9.
 - [x] Measure coverage, duplicates, latency, request behavior, and date quality.
 - [x] Record the accepted limitations and owner decision.
 - [x] Separate release from subscription availability in the canonical model.
+- [x] Approve the provider-independent domain model.
+- [x] Record referenced IGDB cover delivery in ADR-0001.
 - [x] Update Product Brief, assumptions, open questions, and glossary.
 
 ### Deferred until the release mode changes
 
 - [ ] Confirm public/commercial partnership and attribution requirements.
-- [ ] Confirm copied-image and retained-data requirements.
-- [ ] Create a final provider ADR if the decision becomes durable for a public
-  product architecture.
+- [ ] Confirm copied-image, application-storage, redistribution, and retained-data
+  requirements.
 - [ ] Evaluate RAWG only if IGDB becomes unsuitable.
 
 ### Small follow-up outside Product Brief closure
@@ -665,7 +691,8 @@ section 9.
 
 ## 15. Sources
 
-Reviewed on **2026-07-23**.
+Provider comparison reviewed on **2026-07-23**. IGDB image delivery, caching,
+attribution, and developer-agreement material refreshed on **2026-07-29**.
 
 ### IGDB
 

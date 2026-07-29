@@ -37,8 +37,11 @@ The owner accepts the simulated round as decision-grade evidence for this privat
 training product. Its synthetic provenance remains mandatory: it cannot support
 claims about real-user behaviour, demand, retention, or product–market fit.
 
-Public or commercial provider terms, copied-image rights, and redistribution are
-deferred until the release mode changes; they do not block the private learning MVP.
+The private learning MVP may load attributed covers directly from the IGDB CDN under
+[ADR-0001](../decisions/0001-reference-igdb-cover-images.md), without copying provider
+image binaries. Public or commercial provider terms, copied-image or
+application-storage rights, and redistribution remain deferred until the release mode
+changes.
 
 Do not commit personal data, credentials, provider secrets, or material that cannot be
 stored in this repository.

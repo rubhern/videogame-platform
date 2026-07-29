@@ -1,14 +1,15 @@
 # Learning MVP story map
 
 - **Status:** Journey gate `PASS`
-- **Product Brief:** [v0.6 — Approved](product-brief.md)
-- **Last updated:** 2026-07-28
+- **Product Brief:** [v0.7 — Approved](product-brief.md)
+- **Last updated:** 2026-07-29
 - **Owner:** Ruben Hernandez
 - **Editable board:** [Open the FigJam story map](https://www.figma.com/board/4OfeyWSF3rvEhDE5HGKUK8)
 - **PNG export:** [Download the repository export](assets/mvp-story-map.png)
 - **Clickable prototype:** [Open the prototype record](clickable-prototype.md)
 - **Usability script:** [Run the moderated test](../research/prototype-usability-test-guide.md)
 - **Accepted round:** [Review the simulated synthesis](../research/simulated-round-synthesis.md)
+- **Domain model:** [Approved learning MVP domain model](../architecture/domain/mvp-domain-model.md)
 
 This story map turns the approved primary journey into the smallest coherent
 learning MVP. It is an alignment aid, not a detailed implementation backlog or an
@@ -59,6 +60,8 @@ activities. It includes:
 - title and alternative-title search;
 - a game page with explicit release provenance, freshness, precision, and review
   state;
+- an approved primary cover loaded from a provider CDN reference, with visible
+  attribution and a product-owned fallback;
 - an established registration and sign-in approach;
 - one active integer rating from 1 to 10 per user and game;
 - an inline number selector instead of a separate rating page;
@@ -93,6 +96,9 @@ activities. It includes:
   selector rather than a fabricated score.
 - Provider identifiers and provider-specific concepts do not become the public
   product contract.
+- An approved provider cover is loaded directly from the allowlisted provider CDN,
+  includes visible attribution and a clear source path, and falls back without
+  hiding the game.
 
 ### Authentication and rating
 
@@ -131,7 +137,10 @@ activities. It includes:
 
 - Keep IGDB data bounded and curated, reconcile ambiguous displayed release dates
   manually, and maintain product-owned Spanish aliases.
-- Use local normalized metadata without copied provider images or external ratings.
+- Use local normalized metadata and direct provider-CDN cover references without
+  copied, proxied, persisted, committed, or redistributed provider image binaries.
+- Require visible provider attribution, an allowlisted image host, and a
+  product-owned fallback wherever provider covers appear.
 - Enforce authentication, authorization, validation, privacy, and safe logging at
   the relevant boundaries.
 - Treat accessibility, useful errors, relevant automated tests, catalogue freshness,
@@ -151,8 +160,8 @@ activities. It includes:
   F-01 with no blocking issue remaining.
 - **Engineering gate:** the slice is automated, tested, observable, documented, and
   operable by one person before another major capability starts.
-- **Provider release-mode gate:** public deployment, monetization, copied images,
-  redistribution, or broad unattended synchronization reopens
+- **Provider release-mode gate:** public deployment, monetization, copied or
+  application-stored images, redistribution, or broad unattended synchronization reopens
   [Q-005](open-questions.md) before deployment.
 
 Signals such as game-page conversion, rating activation, later rating retrieval,
@@ -176,10 +185,12 @@ targets.
 
 ## Sources
 
-- [Product Brief v0.6](product-brief.md)
+- [Product Brief v0.7](product-brief.md)
 - [Mobile-first clickable prototype](clickable-prototype.md)
 - [Prototype usability test guide](../research/prototype-usability-test-guide.md)
 - [Accepted simulated usability synthesis](../research/simulated-round-synthesis.md)
 - [Product assumptions](assumptions.md)
 - [Open questions and decisions](open-questions.md)
 - [Product glossary](glossary.md)
+- [Approved learning MVP domain model](../architecture/domain/mvp-domain-model.md)
+- [ADR-0001: Reference IGDB cover images without copying binaries](../decisions/0001-reference-igdb-cover-images.md)
