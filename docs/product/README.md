@@ -1,7 +1,7 @@
 # Product documentation
 
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-29
+- **Last updated:** 2026-07-30
 
 The [Product Brief](product-brief.md) is the approved, closed product alignment
 record. The [clickable prototype](clickable-prototype.md) is the accepted interaction
@@ -34,7 +34,10 @@ boundary. Supporting documents keep uncertain information out of the main narrat
   excluded. Public deployment, monetization, application-managed image storage, or
   redistribution must reopen the provider decision.
 - The [minimum provider-independent domain model](../architecture/domain/mvp-domain-model.md)
-  is approved at version `1.0`.
+  is approved at version `1.1`.
+- The [minimum application use cases and relevant errors](../architecture/application/mvp-use-cases.md)
+  are approved at version `1.0`; they complete the application-level basis for the
+  provider-independent API contract without selecting implementation technology.
 - The medium-fidelity mobile-first prototype contains eight transparently curated
   games and 23 states. All eight game pages are navigable, and one representative
   game contains the complete simulated rating journey.
@@ -68,4 +71,4 @@ The phase remains closed unless a documented reopening condition is met.
 Product-demand assumptions remain accepted risks because no real users were
 observed. No additional market study, provider PoC, or public-release legal work is
 required for the approved private learning scope. The current focus is defining the
-minimum API contract for the approved domain model.
+minimum API contract from the approved domain and application contracts.

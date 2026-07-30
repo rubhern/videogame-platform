@@ -14,9 +14,9 @@ closed phase record for this private learning project. The journey gate is `PASS
 four of five sessions completed unaided and a focused simulated regression resolved
 the blocking personal-rating state.
 
-The minimum provider-independent domain model is approved. The current focus is
-defining its API contract for one vertical slice. Prototype and usability work
-remain closed for the current learning objective.
+The minimum provider-independent domain model and application use-case contract are
+approved. The current focus is defining the API contract for one vertical slice.
+Prototype and usability work remain closed for the current learning objective.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
@@ -33,6 +33,8 @@ remain closed for the current learning objective.
 - Product Brief: `docs/product/product-brief.md`
 - Learning MVP story map: `docs/product/mvp-story-map.md`
 - Approved domain model: `docs/architecture/domain/mvp-domain-model.md`
+- Approved application use cases:
+  `docs/architecture/application/mvp-use-cases.md`
 - Assumptions: `docs/product/assumptions.md`
 - Open questions: `docs/product/open-questions.md`
 - Glossary: `docs/product/glossary.md`

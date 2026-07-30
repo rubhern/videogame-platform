@@ -1,9 +1,9 @@
 # Learning MVP Domain Model
 
 - **Status:** Approved
-- **Version:** 1.0
+- **Version:** 1.1
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-29
+- **Last updated:** 2026-07-30
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** 1 — MVP solution definition
 - **Scope:** Learning MVP
@@ -759,6 +759,10 @@ Minimum contract:
 - Pagination representation belongs to the API contract.
 - Direct edit and delete address the rating by its domain identity
   `authenticated UserId + GameId`; a client-supplied user identity is never trusted.
+- If no rating exists in that authenticated scope, the result is
+  `RATING_NOT_FOUND`. The command does not inspect or reveal whether another user
+  has rated the game, so a separate ownership-forbidden result is not part of this
+  identity contract.
 
 ## 9. Invariants
 
@@ -1067,7 +1071,6 @@ HTTP statuses, payloads, and Spanish messages belong to the API contract.
 | `RATING_NOT_ELIGIBLE` | Commercial release has not been established under the policy. |
 | `RATING_VALUE_INVALID` | Value is not an integer from 1 to 10. |
 | `RATING_NOT_FOUND` | No active rating exists for the user and game. |
-| `RATING_FORBIDDEN` | The authenticated user does not own the rating. |
 | `RELEASE_DATA_REVIEW_REQUIRED` | Release data is ambiguous, conflicting, incomplete, or otherwise marked for review. |
 
 Provider timeouts, persistence failures, and authentication-protocol errors are not
@@ -1158,6 +1161,7 @@ This document does not define:
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-07-30 | 1.1 | Clarified authenticated rating addressing: commands scope by `UserId + GameId`, return `RATING_NOT_FOUND` when absent, and never reveal another user's rating state. | Ruben Hernandez |
 | 2026-07-29 | 1.0 | Approved the minimum domain contract after final review; defined direct IGDB CDN cover references, attribution, allowlisted delivery, reference checks, and product-owned fallback without copying provider binaries. | Ruben Hernandez |
 | 2026-07-29 | 0.3 | Made catalogue membership explicit; introduced valid release-date variants and explicit time-zone evaluation; separated verification, review, and freshness; typed external references; completed rating eligibility and personal-rating query rules; clarified aggregate rounding and domain identity; removed unsupported game fields and raw provenance records. Cover rules remain unchanged. | Ruben Hernandez |
 | 2026-07-29 | 0.2 | Added mandatory visual coverage through approved primary covers or a product-owned fallback; accepted MD-001, MD-002, MD-003, MD-005, and MD-007; deferred MD-004 and operational MD-006. | Ruben Hernandez |
