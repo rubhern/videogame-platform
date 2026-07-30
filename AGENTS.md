@@ -15,9 +15,9 @@ four of five sessions completed unaided and a focused simulated regression resol
 the blocking personal-rating state.
 
 The minimum provider-independent domain model, application use-case contract, and
-MVP solution architecture are approved. The current focus is defining API
-conventions and the OpenAPI contract for one vertical slice. Prototype and usability
-work remain closed for the current learning objective.
+MVP solution architecture are approved. The current focus is owner review of the
+draft API conventions, followed by the OpenAPI contract for one vertical slice.
+Prototype and usability work remain closed for the current learning objective.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.

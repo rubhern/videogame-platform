@@ -5,8 +5,8 @@ explicit. The [prototype journey gate](../research/simulated-round-synthesis.md)
 `PASS`, the [minimum domain model](domain/mvp-domain-model.md) is `Approved`, and the
 [minimum application use cases](application/mvp-use-cases.md) and
 [MVP solution architecture](mvp-solution-architecture.md) are `Approved`. The
-current focus is defining API conventions and the OpenAPI contract for the first
-vertical slice.
+current focus is owner review of the [draft API conventions](api/api-conventions.md),
+followed by the OpenAPI contract for the first vertical slice.
 
 The approved integration constraints are provider independence, local synchronized
 metadata reads, separate release and subscription-availability concepts, no direct
@@ -32,3 +32,8 @@ or hosting platform through the API contract.
 - [ADR-0002: Use a modular monolith and relational data boundary](../decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md)
 - [ADR-0003: Use a same-origin BFF and HTTP/JSON API](../decisions/0003-use-a-same-origin-bff-and-http-json-api.md)
 - [ADR-0004: Synchronize and serve local catalogue data](../decisions/0004-synchronize-and-serve-local-catalogue-data.md)
+
+## Draft records
+
+- [Learning MVP API conventions v0.1](api/api-conventions.md) — awaiting owner
+  review; not yet an approved contract.

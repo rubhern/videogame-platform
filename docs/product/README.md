@@ -75,5 +75,6 @@ The phase remains closed unless a documented reopening condition is met.
 Product-demand assumptions remain accepted risks because no real users were
 observed. No additional market study, provider PoC, or public-release legal work is
 required for the approved private learning scope. The current focus is defining the
-minimum API conventions and OpenAPI contract from the approved domain, application,
-and solution-architecture contracts.
+[draft API conventions](../architecture/api/api-conventions.md), followed by the
+OpenAPI contract derived from the approved domain, application, and
+solution-architecture contracts.
