@@ -38,6 +38,10 @@ boundary. Supporting documents keep uncertain information out of the main narrat
 - The [minimum application use cases and relevant errors](../architecture/application/mvp-use-cases.md)
   are approved at version `1.0`; they complete the application-level basis for the
   provider-independent API contract without selecting implementation technology.
+- The [MVP solution architecture](../architecture/mvp-solution-architecture.md) is
+  approved at version `1.0`; it selects a same-origin server-side BFF, modular
+  monolith, relational data boundary, and local catalogue synchronization while
+  deferring API Management and distributed infrastructure until explicit triggers.
 - The medium-fidelity mobile-first prototype contains eight transparently curated
   games and 23 states. All eight game pages are navigable, and one representative
   game contains the complete simulated rating journey.
@@ -71,4 +75,5 @@ The phase remains closed unless a documented reopening condition is met.
 Product-demand assumptions remain accepted risks because no real users were
 observed. No additional market study, provider PoC, or public-release legal work is
 required for the approved private learning scope. The current focus is defining the
-minimum API contract from the approved domain and application contracts.
+minimum API conventions and OpenAPI contract from the approved domain, application,
+and solution-architecture contracts.
