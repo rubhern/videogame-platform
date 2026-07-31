@@ -1,4 +1,4 @@
-name: Documentation
+name: Documentation and API contracts
 
 on:
   push:
@@ -14,5 +14,22 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install contract validation dependencies
+        run: npm ci
+
       - name: Validate documentation
         run: bash scripts/validate-docs.sh
+
+      - name: Validate OpenAPI contract
+        run: bash scripts/validate-openapi.sh
+
+      - name: Verify generated OpenAPI web documentation
+        run: |
+          npm run build:openapi-docs
+          git diff --exit-code -- docs/architecture/api/reference/index.html

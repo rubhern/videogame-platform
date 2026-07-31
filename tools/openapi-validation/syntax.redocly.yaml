@@ -1,0 +1,12 @@
+extends: []
+
+rules:
+  struct: error
+  rule/api-version:
+    severity: error
+    subject:
+      type: Root
+      property: openapi
+    assertions:
+      const: 3.1.2
+    message: The contract must declare OpenAPI 3.1.2.

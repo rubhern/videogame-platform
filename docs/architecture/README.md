@@ -5,8 +5,9 @@ explicit. The [prototype journey gate](../research/simulated-round-synthesis.md)
 `PASS`, the [minimum domain model](domain/mvp-domain-model.md) is `Approved`, and the
 [minimum application use cases](application/mvp-use-cases.md) and
 [MVP solution architecture](mvp-solution-architecture.md), and the
-[REST API conventions](api/api-conventions.md) are `Approved`. The current focus is
-defining the OpenAPI contract for the first vertical slice.
+[REST API conventions](api/api-conventions.md) are `Approved`. The
+[OpenAPI 3.1.2 contract](api/openapi.yaml) implements the eight approved operations
+for the first vertical slice.
 
 The approved integration constraints are provider independence, local synchronized
 metadata reads, separate release and subscription-availability concepts, no direct
@@ -29,6 +30,8 @@ or hosting platform through the API contract.
 - [Learning MVP use cases and relevant errors v1.0](application/mvp-use-cases.md)
 - [Learning MVP solution architecture v1.0](mvp-solution-architecture.md)
 - [Learning MVP REST API conventions v1.0](api/api-conventions.md)
+- [Learning MVP OpenAPI 3.1.2 contract](api/openapi.yaml)
+- [Generated OpenAPI web reference](api/reference/index.html)
 - [ADR-0001: Reference IGDB cover images without copying binaries](../decisions/0001-reference-igdb-cover-images.md)
 - [ADR-0002: Use a modular monolith and relational data boundary](../decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md)
 - [ADR-0003: Use a same-origin BFF and HTTP/JSON API](../decisions/0003-use-a-same-origin-bff-and-http-json-api.md)

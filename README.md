@@ -9,9 +9,9 @@ The focused simulated regression resolved the blocking issue and left the journe
 decision at `PASS`.
 
 The [minimum provider-independent domain model](docs/architecture/domain/mvp-domain-model.md)
-is approved. The current focus is defining its API contract for one vertical slice.
-No production architecture, framework, database, deployment model, public release,
-or business model has been approved.
+and the [OpenAPI contract](docs/architecture/api/openapi.yaml) for the learning MVP
+vertical slice are defined. No production framework, database, deployment model,
+public release, or business model has been approved.
 
 ## Start here
 
@@ -29,6 +29,10 @@ or business model has been approved.
    [open questions](docs/product/open-questions.md).
 7. Use the [glossary](docs/product/glossary.md) to keep terminology consistent.
 8. Review the [Codex workspace setup](docs/development/codex-setup.md).
+9. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) to
+   validate the API contract locally and in CI.
+10. Browse the [generated API reference](docs/architecture/api/reference/index.html)
+    or follow its [regeneration tutorial](docs/development/openapi-web-documentation.md).
 
 ## Documentation
 
@@ -46,8 +50,11 @@ documents, if needed later, are exports rather than authoritative copies.
 
 ```bash
 bash scripts/validate-docs.sh
+npm ci
+bash scripts/validate-openapi.sh
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
-The Maven command requires JDK 21 and tests the isolated IGDB PoC only with
-local fixtures. It does not require provider credentials or call IGDB.
+OpenAPI validation requires Node.js 22.12 or newer. The Maven command requires
+JDK 21 and tests the isolated IGDB PoC only with local fixtures. Neither command
+requires provider credentials or calls IGDB.

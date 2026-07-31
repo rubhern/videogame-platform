@@ -1,0 +1,60 @@
+apis:
+  learning-mvp@v1:
+    root: docs/architecture/api/openapi.yaml
+
+extends:
+  - minimal
+
+rules:
+  info-license: off
+  no-enum-type-mismatch: error
+  no-invalid-media-type-examples: error
+  no-invalid-parameter-examples: error
+  no-invalid-schema-examples: error
+  no-required-schema-properties-undefined: error
+  no-schema-type-mismatch: error
+  no-unresolved-refs: error
+  no-unused-components: error
+  operation-2xx-response: error
+  operation-4xx-response: error
+  operation-operationId: error
+  operation-operationId-unique: error
+  operation-operationId-url-safe: error
+  operation-parameters-unique: error
+  operation-singular-tag: error
+  operation-summary: error
+  operation-tag-defined: error
+  path-declaration-must-exist: error
+  path-not-include-query: error
+  path-parameters-defined: error
+  security-defined: error
+  spec-example-values: error
+  struct: error
+  tag-description: error
+  response-contains-header:
+    severity: error
+    names:
+      2XX:
+        - X-Correlation-ID
+      3XX:
+        - X-Correlation-ID
+      4XX:
+        - X-Correlation-ID
+      5XX:
+        - X-Correlation-ID
+  rule/operation-id-lower-camel-case:
+    severity: error
+    subject:
+      type: Operation
+      property: operationId
+    assertions:
+      casing: camelCase
+    message: operationId must use lowerCamelCase.
+  rule/api-version:
+    severity: error
+    subject:
+      type: Root
+      property: openapi
+    assertions:
+      const: 3.1.2
+    message: The approved contract uses OpenAPI 3.1.2.
