@@ -52,8 +52,9 @@ system that:
 - can evolve through measured architectural changes without pretending that the
   final distributed platform already exists.
 
-This document is the architectural input to API conventions and the OpenAPI
-contract. It does not replace either of them.
+This document is the architectural input to the
+[approved API conventions](api/api-conventions.md) and the future OpenAPI contract.
+It does not replace either of them.
 
 ## 2. Architectural position
 
@@ -909,7 +910,8 @@ request/response use cases and enables:
 
 ### 14.2 Contract implications
 
-The future API conventions and OpenAPI contract must preserve these rules:
+The [approved API conventions](api/api-conventions.md) and future OpenAPI contract
+must preserve these rules:
 
 - public catalogue and game-detail queries are anonymous;
 - rating commands and `Mis puntuaciones` require authentication;
@@ -1280,7 +1282,7 @@ The first OpenAPI contract must implement these approved directions:
 10. Internal-only synchronization and provider-independent public identity.
 11. No gRPC in the initial contract or deployment.
 
-Then define API conventions for:
+The [approved API conventions](api/api-conventions.md) define:
 
 - resource and path naming;
 - methods and HTTP status codes;

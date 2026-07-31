@@ -14,10 +14,10 @@ closed phase record for this private learning project. The journey gate is `PASS
 four of five sessions completed unaided and a focused simulated regression resolved
 the blocking personal-rating state.
 
-The minimum provider-independent domain model, application use-case contract, and
-MVP solution architecture are approved. The current focus is defining API
-conventions and the OpenAPI contract for one vertical slice. Prototype and usability
-work remain closed for the current learning objective.
+The minimum provider-independent domain model, application use-case contract, MVP
+solution architecture, and REST API conventions are approved. The current focus is
+defining the OpenAPI contract for one vertical slice. Prototype and usability work
+remain closed for the current learning objective.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
@@ -38,6 +38,8 @@ work remain closed for the current learning objective.
   `docs/architecture/application/mvp-use-cases.md`
 - Approved MVP solution architecture:
   `docs/architecture/mvp-solution-architecture.md`
+- Approved REST API conventions:
+  `docs/architecture/api/api-conventions.md`
 - Assumptions: `docs/product/assumptions.md`
 - Open questions: `docs/product/open-questions.md`
 - Glossary: `docs/product/glossary.md`

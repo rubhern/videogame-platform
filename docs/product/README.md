@@ -1,7 +1,7 @@
 # Product documentation
 
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-30
+- **Last updated:** 2026-07-31
 
 The [Product Brief](product-brief.md) is the approved, closed product alignment
 record. The [clickable prototype](clickable-prototype.md) is the accepted interaction
@@ -42,6 +42,10 @@ boundary. Supporting documents keep uncertain information out of the main narrat
   approved at version `1.0`; it selects a same-origin server-side BFF, modular
   monolith, relational data boundary, and local catalogue synchronization while
   deferring API Management and distributed infrastructure until explicit triggers.
+- The [REST API conventions](../architecture/api/api-conventions.md) are approved at
+  version `1.0`; they fix the initial HTTP resource map, representations, errors,
+  BFF session boundary, concurrency controls, compatibility policy, and OpenAPI
+  authoring rules.
 - The medium-fidelity mobile-first prototype contains eight transparently curated
   games and 23 states. All eight game pages are navigable, and one representative
   game contains the complete simulated rating journey.
@@ -75,5 +79,5 @@ The phase remains closed unless a documented reopening condition is met.
 Product-demand assumptions remain accepted risks because no real users were
 observed. No additional market study, provider PoC, or public-release legal work is
 required for the approved private learning scope. The current focus is defining the
-minimum API conventions and OpenAPI contract from the approved domain, application,
-and solution-architecture contracts.
+OpenAPI contract derived from the approved domain, application,
+solution-architecture, and API-conventions contracts.
