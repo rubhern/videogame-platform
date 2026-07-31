@@ -53,7 +53,8 @@ system that:
   final distributed platform already exists.
 
 This document is the architectural input to the
-[approved API conventions](api/api-conventions.md) and the future OpenAPI contract.
+[approved API conventions](api/api-conventions.md) and the
+[OpenAPI 3.1.2 contract](api/openapi.yaml).
 It does not replace either of them.
 
 ## 2. Architectural position
@@ -910,7 +911,8 @@ request/response use cases and enables:
 
 ### 14.2 Contract implications
 
-The [approved API conventions](api/api-conventions.md) and future OpenAPI contract
+The [approved API conventions](api/api-conventions.md) and
+[OpenAPI 3.1.2 contract](api/openapi.yaml)
 must preserve these rules:
 
 - public catalogue and game-detail queries are anonymous;

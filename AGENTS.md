@@ -15,9 +15,9 @@ four of five sessions completed unaided and a focused simulated regression resol
 the blocking personal-rating state.
 
 The minimum provider-independent domain model, application use-case contract, MVP
-solution architecture, and REST API conventions are approved. The current focus is
-defining the OpenAPI contract for one vertical slice. Prototype and usability work
-remain closed for the current learning objective.
+solution architecture, and REST API conventions are approved. The OpenAPI contract
+for one vertical slice is defined. Prototype and usability work remain closed for
+the current learning objective.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
@@ -90,11 +90,14 @@ Run:
 
 ```bash
 bash scripts/validate-docs.sh
+npm ci
+bash scripts/validate-openapi.sh
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
-The Maven command requires JDK 21 and validates the isolated IGDB PoC using
-local fixtures only. Authenticated provider calls remain manual and explicit.
+OpenAPI validation requires Node.js 22.12 or newer. The Maven command requires
+JDK 21 and validates the isolated IGDB PoC using local fixtures only.
+Authenticated provider calls remain manual and explicit.
 
 ## Permissions and safety
 

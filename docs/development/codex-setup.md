@@ -87,7 +87,9 @@ Operational safeguards still apply:
 | `.codex/config.toml` | Project-level Codex permissions |
 | `.agents/skills/product-brief-review/` | Repeatable Phase 0 Product Brief review |
 | `scripts/validate-docs.sh` | Reproducible documentation validation |
-| `.github/workflows/docs.yml` | Run documentation checks on pushes and pull requests |
+| `scripts/validate-openapi.sh` | Reproducible OpenAPI contract validation |
+| `scripts/build-openapi-docs.sh` | Validated static Redoc API reference generation |
+| `.github/workflows/docs.yml` | Run documentation and OpenAPI checks on pushes and pull requests |
 
 ## How to work by phase
 
@@ -117,15 +119,19 @@ becomes sensitive. Never copy the credential or its value into project files.
 
 ## Validation
 
-Run the current repository check:
+Run the current repository checks:
 
 ```bash
 bash scripts/validate-docs.sh
+npm ci
+bash scripts/validate-openapi.sh
 ```
 
-The script checks required Phase 0 artefacts, local Markdown links, and file
-modes. Extend it when backend, frontend, infrastructure, or API contracts are
-introduced.
+The documentation script checks required Phase 0 artefacts, local Markdown links,
+and file modes. The OpenAPI script validates syntax, project rules, references,
+schemas, and examples. See the
+[OpenAPI validation manual](openapi-validation.md) for individual commands and
+troubleshooting.
 
 ## Deferred by design
 

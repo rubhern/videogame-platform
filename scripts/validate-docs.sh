@@ -18,6 +18,19 @@ required_files=(
   "docs/research/simulated-round-synthesis.md"
   "docs/reference/video-game-platform-vision.pdf"
   "docs/development/codex-setup.md"
+  "docs/development/openapi-validation.md"
+  "docs/development/openapi-web-documentation.md"
+  "docs/architecture/api/openapi.yaml"
+  "docs/architecture/api/reference/index.html"
+  "package.json"
+  "package-lock.json"
+  "redocly.yaml"
+  "scripts/validate-openapi.sh"
+  "scripts/build-openapi-docs.sh"
+  "tools/openapi-validation/syntax.redocly.yaml"
+  "tools/openapi-validation/schemas.redocly.yaml"
+  "tools/openapi-validation/examples.redocly.yaml"
+  "tools/openapi-validation/normalize-generated-html.mjs"
   ".agents/skills/product-brief-review/SKILL.md"
 )
 
@@ -39,7 +52,7 @@ link_pattern = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 errors = []
 
 for markdown in root.rglob("*.md"):
-    if ".git" in markdown.parts:
+    if any(part in {".git", "node_modules", "target"} for part in markdown.parts):
         continue
     text = markdown.read_text(encoding="utf-8")
     for raw_link in link_pattern.findall(text):

@@ -4,6 +4,7 @@
 !.env.example
 *.token
 .idea/
+node_modules/
 
 # IGDB PoC generated evidence and Maven output
 .poc/

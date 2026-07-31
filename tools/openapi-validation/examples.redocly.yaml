@@ -1,0 +1,11 @@
+extends: []
+
+rules:
+  no-example-value-and-externalValue: error
+  no-invalid-media-type-examples:
+    severity: error
+    allowAdditionalProperties: false
+  no-invalid-parameter-examples: error
+  no-invalid-schema-examples: error
+  spec-example-values: error
+  struct: error

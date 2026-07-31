@@ -78,6 +78,7 @@ The phase remains closed unless a documented reopening condition is met.
 
 Product-demand assumptions remain accepted risks because no real users were
 observed. No additional market study, provider PoC, or public-release legal work is
-required for the approved private learning scope. The current focus is defining the
-OpenAPI contract derived from the approved domain, application,
+required for the approved private learning scope. The
+[OpenAPI 3.1.2 contract](../architecture/api/openapi.yaml) implements the eight
+approved browser operations derived from the domain, application,
 solution-architecture, and API-conventions contracts.
