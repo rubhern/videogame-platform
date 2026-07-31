@@ -4,9 +4,9 @@ The initial product problem, journey, MVP boundary, and provider constraints are
 explicit. The [prototype journey gate](../research/simulated-round-synthesis.md) is
 `PASS`, the [minimum domain model](domain/mvp-domain-model.md) is `Approved`, and the
 [minimum application use cases](application/mvp-use-cases.md) and
-[MVP solution architecture](mvp-solution-architecture.md) are `Approved`. The
-current focus is owner review of the [draft API conventions](api/api-conventions.md),
-followed by the OpenAPI contract for the first vertical slice.
+[MVP solution architecture](mvp-solution-architecture.md), and the
+[REST API conventions](api/api-conventions.md) are `Approved`. The current focus is
+defining the OpenAPI contract for the first vertical slice.
 
 The approved integration constraints are provider independence, local synchronized
 metadata reads, separate release and subscription-availability concepts, no direct
@@ -28,12 +28,8 @@ or hosting platform through the API contract.
 - [Learning MVP domain model v1.1](domain/mvp-domain-model.md)
 - [Learning MVP use cases and relevant errors v1.0](application/mvp-use-cases.md)
 - [Learning MVP solution architecture v1.0](mvp-solution-architecture.md)
+- [Learning MVP REST API conventions v1.0](api/api-conventions.md)
 - [ADR-0001: Reference IGDB cover images without copying binaries](../decisions/0001-reference-igdb-cover-images.md)
 - [ADR-0002: Use a modular monolith and relational data boundary](../decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md)
 - [ADR-0003: Use a same-origin BFF and HTTP/JSON API](../decisions/0003-use-a-same-origin-bff-and-http-json-api.md)
 - [ADR-0004: Synchronize and serve local catalogue data](../decisions/0004-synchronize-and-serve-local-catalogue-data.md)
-
-## Draft records
-
-- [Learning MVP API conventions v0.1](api/api-conventions.md) — awaiting owner
-  review; not yet an approved contract.

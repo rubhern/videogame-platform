@@ -1,10 +1,10 @@
 # Learning MVP API Conventions
 
-- **Status:** Draft
-- **Version:** 0.1
+- **Status:** Approved
+- **Version:** 1.0
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-30
-- **Review state:** Awaiting owner review
+- **Last updated:** 2026-07-31
+- **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Scope:** Private, non-commercial learning MVP
 - **Architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
 - **Domain model:** [Learning MVP domain model](../domain/mvp-domain-model.md)
@@ -12,9 +12,9 @@
 - **BFF decision:** [ADR-0003](../../decisions/0003-use-a-same-origin-bff-and-http-json-api.md)
 - **Catalogue decision:** [ADR-0004](../../decisions/0004-synchronize-and-serve-local-catalogue-data.md)
 
-> This document is a reviewable proposal. Its conventions become binding only after
-> the owner approves it. The OpenAPI contract must not be marked approved while this
-> document remains `Draft`.
+> This document defines the approved HTTP and JSON conventions for the first
+> browser-facing API. The initial OpenAPI contract must conform to these conventions
+> or record an explicit approved change.
 
 ## 1. Purpose
 
@@ -38,9 +38,8 @@ product, hosting platform, or API Manager.
 
 ## 2. Normative language
 
-`MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` express the intended strength
-of a convention. While this document is `Draft`, every convention remains proposed.
-After approval:
+`MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` express the strength of each
+approved convention:
 
 - `MUST` and `MUST NOT` are contract requirements;
 - `SHOULD` and `SHOULD NOT` require a documented reason to deviate;
@@ -146,7 +145,7 @@ because redirects and callbacks are not product resources.
   `authenticated UserId + GameId`.
 - Named reusable string schemas represent identifiers; UUID format is not assumed.
 
-## 6. Proposed resource map
+## 6. Approved resource map
 
 | Method | Path | Authentication | Use case | Purpose |
 |---|---|---|---|---|
@@ -1025,26 +1024,25 @@ Generated code is disposable. The reviewed OpenAPI source remains the contract.
 
 OpenAPI must not assume these choices when they do not affect the public contract.
 
-## 23. Review checklist
+## 23. Approval checklist
 
-- [ ] `/api/v1` is accepted as the initial base path.
-- [ ] Public game data and personal rating data remain separate resources.
-- [ ] The resource map covers the complete MVP without extra scope.
-- [ ] Conditional `PUT` with `If-None-Match` and `If-Match` is accepted.
-- [ ] Delete returns updated aggregate state in `200`.
-- [ ] One-based pagination with default `20` and maximum `100` is accepted.
-- [ ] Accent-insensitive, non-fuzzy search is accepted.
-- [ ] Domain distinctions remain explicit in every representation.
-- [ ] RFC 9457 Problem Details and status mapping are accepted.
-- [ ] Session cookie, session resource, CSRF header, and no-CORS default are accepted.
-- [ ] No public idempotency-key header is required for the same-origin MVP.
-- [ ] Personal and session responses remain `no-store`.
-- [ ] OpenAPI 3.1.2 is accepted initially.
-- [ ] Deferred choices remain outside the contract.
-- [ ] Product, provider, and release-mode scope has not expanded.
+- [x] `/api/v1` is accepted as the initial base path.
+- [x] Public game data and personal rating data remain separate resources.
+- [x] The resource map covers the complete MVP without extra scope.
+- [x] Conditional `PUT` with `If-None-Match` and `If-Match` is accepted.
+- [x] Delete returns updated aggregate state in `200`.
+- [x] One-based pagination with default `20` and maximum `100` is accepted.
+- [x] Accent-insensitive, non-fuzzy search is accepted.
+- [x] Domain distinctions remain explicit in every representation.
+- [x] RFC 9457 Problem Details and status mapping are accepted.
+- [x] Session cookie, session resource, CSRF header, and no-CORS default are accepted.
+- [x] No public idempotency-key header is required for the same-origin MVP.
+- [x] Personal and session responses remain `no-store`.
+- [x] OpenAPI 3.1.2 is accepted initially.
+- [x] Deferred choices remain outside the contract.
+- [x] Product, provider, and release-mode scope has not expanded.
 
-The document remains `Draft` until the owner explicitly accepts or changes these
-items.
+Ruben Hernandez accepted every review item on 2026-07-31.
 
 ## 24. Traceability
 
@@ -1076,4 +1074,5 @@ items.
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-07-31 | 1.0 | Owner-approved the REST API conventions without expanding product scope; fixed the initial resource map, HTTP semantics, representation rules, security boundary, errors, compatibility policy, and OpenAPI authoring direction. | Ruben Hernandez |
 | 2026-07-30 | 0.1 | Initial draft derived from the approved domain, application, solution architecture, and ADR-0001 through ADR-0004. | Ruben Hernandez |

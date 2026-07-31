@@ -53,8 +53,8 @@ system that:
   final distributed platform already exists.
 
 This document is the architectural input to the
-[draft API conventions](api/api-conventions.md) and the future OpenAPI contract. It
-does not replace either of them.
+[approved API conventions](api/api-conventions.md) and the future OpenAPI contract.
+It does not replace either of them.
 
 ## 2. Architectural position
 
@@ -910,8 +910,8 @@ request/response use cases and enables:
 
 ### 14.2 Contract implications
 
-The [draft API conventions](api/api-conventions.md) and future OpenAPI contract must
-preserve these rules:
+The [approved API conventions](api/api-conventions.md) and future OpenAPI contract
+must preserve these rules:
 
 - public catalogue and game-detail queries are anonymous;
 - rating commands and `Mis puntuaciones` require authentication;
@@ -1282,7 +1282,7 @@ The first OpenAPI contract must implement these approved directions:
 10. Internal-only synchronization and provider-independent public identity.
 11. No gRPC in the initial contract or deployment.
 
-The [draft API conventions](api/api-conventions.md) define proposals for:
+The [approved API conventions](api/api-conventions.md) define:
 
 - resource and path naming;
 - methods and HTTP status codes;
