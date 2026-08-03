@@ -1,7 +1,7 @@
 # Product documentation
 
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-31
+- **Last updated:** 2026-08-03
 
 The [Product Brief](product-brief.md) is the approved, closed product alignment
 record. The [clickable prototype](clickable-prototype.md) is the accepted interaction
@@ -21,9 +21,9 @@ boundary. Supporting documents keep uncertain information out of the main narrat
 
 - The product alignment phase is formally closed for the private, non-commercial
   learning scope.
-- Product Brief version `0.7` was approved by Ruben Hernandez on 2026-07-29. It
-  preserves the Phase 0 boundary, the accepted simulated journey gate, and the
-  provider-hosted cover decision.
+- Product Brief version `0.8` was approved by Ruben Hernandez on 2026-08-03. It
+  preserves the Phase 0 boundary and records the transition to the approved Phase 1
+  platform and delivery records without expanding product scope.
 - The source vision and research inputs have been reconciled.
 - The initial problem, priority user, value proposition, journey, learning-MVP
   boundary, and decision rules are explicit owner decisions.
@@ -39,13 +39,19 @@ boundary. Supporting documents keep uncertain information out of the main narrat
   are approved at version `1.0`; they complete the application-level basis for the
   provider-independent API contract without selecting implementation technology.
 - The [MVP solution architecture](../architecture/mvp-solution-architecture.md) is
-  approved at version `1.0`; it selects a same-origin server-side BFF, modular
+  approved at version `1.1`; it selects a same-origin server-side BFF, modular
   monolith, relational data boundary, and local catalogue synchronization while
   deferring API Management and distributed infrastructure until explicit triggers.
 - The [REST API conventions](../architecture/api/api-conventions.md) are approved at
   version `1.0`; they fix the initial HTTP resource map, representations, errors,
   BFF session boundary, concurrency controls, compatibility policy, and OpenAPI
   authoring rules.
+- The [platform and delivery design](../architecture/deployment/mvp-platform-and-delivery.md)
+  and [delivery lifecycle](../development/delivery-lifecycle.md) are approved at
+  version `1.0`. ADR-0005 through ADR-0009 accept the zero-cost private `dev`,
+  PostgreSQL migration, Keycloak, GitHub delivery, and OpenTelemetry boundaries.
+- Phase 1 is active at its technology-baseline gate. Application implementation and
+  remote infrastructure have not started.
 - The medium-fidelity mobile-first prototype contains eight transparently curated
   games and 23 states. All eight game pages are navigable, and one representative
   game contains the complete simulated rating journey.
@@ -74,6 +80,8 @@ and version 0.4 recorded the approved prototype behaviour on 2026-07-27 without
 expanding the MVP. Version 0.5 records the accepted simulated usability decision on
 2026-07-28, version 0.6 records the corrected prototype and focused regression, and
 version 0.7 records provider-hosted covers and the approved minimum domain contract.
+Version 0.8 reconciles the closed product record with the accepted Phase 1 platform
+and delivery decisions without changing the MVP or release mode.
 The phase remains closed unless a documented reopening condition is met.
 
 Product-demand assumptions remain accepted risks because no real users were

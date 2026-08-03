@@ -8,10 +8,18 @@ owner-accepted [simulated five-session round](docs/research/simulated-round-synt
 The focused simulated regression resolved the blocking issue and left the journey
 decision at `PASS`.
 
-The [minimum provider-independent domain model](docs/architecture/domain/mvp-domain-model.md)
-and the [OpenAPI contract](docs/architecture/api/openapi.yaml) for the learning MVP
-vertical slice are defined. No production framework, database, deployment model,
-public release, or business model has been approved.
+The [minimum provider-independent domain model](docs/architecture/domain/mvp-domain-model.md),
+the [OpenAPI contract](docs/architecture/api/openapi.yaml), and the
+[minimum platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
+for the learning MVP vertical slice are defined. PostgreSQL, Keycloak, GitHub
+Actions/GHCR, OpenTelemetry-compatible instrumentation, and a private zero-cost OCI
+Always Free `dev` environment are approved through ADR-0005 to ADR-0009. Application
+frameworks, public production, and a business model remain unapproved.
+
+**Phase 1 — MVP solution definition is active.** Its next gate is an approved
+technology baseline with supported versions and only the ADRs needed for durable
+choices. Application implementation starts after that gate with a local walking
+skeleton; remote infrastructure follows only after the local topology is proven.
 
 ## Start here
 
@@ -33,6 +41,11 @@ public release, or business model has been approved.
    validate the API contract locally and in CI.
 10. Browse the [generated API reference](docs/architecture/api/reference/index.html)
     or follow its [regeneration tutorial](docs/development/openapi-web-documentation.md).
+11. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
+    and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
+    skeleton and private `dev` environment.
+12. Review [ADR-0005 through ADR-0009](docs/decisions/) before implementing
+    persistence, identity, delivery, hosting, or observability.
 
 ## Documentation
 
@@ -52,7 +65,7 @@ documents, if needed later, are exports rather than authoritative copies.
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
-./mvnw -f tools/igdb-poc/pom.xml clean verify
+bash mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
 OpenAPI validation requires Node.js 22.12 or newer. The Maven command requires

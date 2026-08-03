@@ -112,8 +112,9 @@ server-side token boundary is preferred.
 
 - Define API paths, status codes, stable error envelope, pagination, compatibility,
   security schemes, and examples in API conventions and OpenAPI.
-- Select the identity provider and document issuer, audience, redirect, logout,
-  session, and token-validation configuration.
+- Use Keycloak as selected by [ADR-0007](0007-use-keycloak-as-the-initial-identity-provider.md)
+  and document issuer, audience, redirect, logout, session, and token-validation
+  configuration.
 - Define session persistence and CSRF implementation during implementation design;
   the MVP does not require a distributed session store.
 - Add integration tests for PKCE, callback validation, session lifecycle, CSRF,

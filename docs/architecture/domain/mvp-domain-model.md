@@ -7,7 +7,7 @@
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** 1 — MVP solution definition
 - **Scope:** Learning MVP
-- **Product Brief:** [Product Brief v0.7](../../product/product-brief.md)
+- **Product Brief:** [Approved Product Brief](../../product/product-brief.md)
 - **Story map:** [Learning MVP story map](../../product/mvp-story-map.md)
 - **Provider spike:** [Game-data-provider spike](../../research/game-data-providers-spike.md)
 - **Provider evidence:** [First authenticated IGDB PoC](../../research/igdb-poc-results.md)
@@ -1150,7 +1150,7 @@ This document does not define:
 
 ## 18. Sources
 
-- [Product Brief v0.7](../../product/product-brief.md)
+- [Approved Product Brief](../../product/product-brief.md)
 - [Learning MVP story map](../../product/mvp-story-map.md)
 - [Game-data-provider spike](../../research/game-data-providers-spike.md)
 - [First authenticated IGDB PoC](../../research/igdb-poc-results.md)
