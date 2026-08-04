@@ -1,14 +1,14 @@
 # Product Brief — VideoGame Platform
 
 - **Status:** Approved
-- **Version:** 0.8
+- **Version:** 0.9
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-03
+- **Last updated:** 2026-08-04
 - **Phase:** 0 — Product alignment (complete)
 - **Primary source:** [VideoGame Platform vision](../reference/video-game-platform-vision.pdf)
 - **Research inputs:** [Synthetic interview preparation](../research/phase-1-user-interviews.md), [Metacritic journey comparison](../research/competitor-journey-comparison-metacritic.md), [game-data-provider spike](../research/game-data-providers-spike.md), [first authenticated IGDB PoC](../research/igdb-poc-results.md), and [accepted simulated usability round](../research/simulated-round-synthesis.md)
 - **Prototype:** [Mobile-first clickable prototype](clickable-prototype.md)
-- **Sources reviewed:** 2026-08-03
+- **Sources reviewed:** 2026-08-04
 
 > This is a personal learning project. Product-demand decisions based on synthetic
 > research are explicit accepted risks. The owner accepts the simulated usability
@@ -347,12 +347,13 @@ its synthetic provenance.
 | Product owner | Ruben Hernandez | Approved v0.6 closure of the prototype and simulated usability gate after focused regression; result `PASS` | 2026-07-28 |
 | Product owner | Ruben Hernandez | Approved v0.7 provider-hosted cover references and the minimum domain model without expanding the release mode | 2026-07-29 |
 | Product owner | Ruben Hernandez | Approved v0.8 reconciliation with the Phase 1 platform and delivery records without changing product scope or release mode | 2026-08-03 |
+| Product owner | Ruben Hernandez | Approved v0.9 technology baseline and closed Phase 1 MVP solution definition without claiming implementation evidence | 2026-08-04 |
 | Technical lead | Ruben Hernandez | Approved with documented IGDB limitations | 2026-07-24 |
 
 These rows preserve the version and responsibility history. Every decision is held
 by the same person, not by independent approval authorities.
 
-## 18. Phase 0 closure and current transition
+## 18. Phase 0 closure and implementation transition
 
 The Product Brief is complete for the current learning scope. Version 0.3 closed
 Phase 0; version 0.4 records the owner-directed rating interaction rules; version 0.5
@@ -361,6 +362,9 @@ changing the approved boundary; version 0.6 records the corrected prototype, foc
 regression, and `PASS` decision; version 0.7 records the provider-hosted cover policy
 and approved minimum domain contract; version 0.8 reconciles the closed product record
 with the accepted Phase 1 platform and delivery decisions without changing the MVP.
+Version 0.9 records the approved technology baseline and closure of Phase 1 MVP
+solution definition. It does not claim that the walking skeleton, multi-architecture
+image, or remote OCI environment has been implemented.
 The priority user, problem, value proposition, primary journey, MVP boundary, owner,
 provider decision, accepted risks, and success rules are explicit. No additional market
 study, second provider PoC, public-release legal work, or detailed backlog is required
@@ -380,24 +384,21 @@ learning objective. Reopen them only if the release mode changes, a material jou
 rule changes, or implementation reveals a new blocking usability risk.
 
 The provider-independent domain, application, solution-architecture, REST, OpenAPI,
-platform, delivery-lifecycle, and persistent platform decisions required before
-implementation are approved. Phase 1 is active and its current gate is the technology
-baseline.
+platform, delivery-lifecycle, technology-baseline, and durable implementation
+decisions required before implementation are approved. Phase 1 MVP solution
+definition is complete. Application implementation is active at the walking-skeleton
+gate.
 
 Minimum next steps:
 
-1. Approve one coherent technology baseline covering supported runtime and framework
-   versions, build and dependency management, frontend delivery, persistence and
-   migrations, testing, local orchestration, version maintenance, and `linux/arm64`
-   compatibility. Record ADRs only for choices that are durable, consequential, or
-   difficult to reverse; do not create one ADR per library.
-2. Prove the baseline with the smallest local walking skeleton: application startup,
-   PostgreSQL and Keycloak, one migration, deterministic seed data, version,
-   liveness/readiness, and CI tests.
-3. Implement the release page → game page → rating → `Mis puntuaciones` slice
+1. Prove the approved baseline with the smallest local walking skeleton: application
+   startup, PostgreSQL and Keycloak, one migration, deterministic seed data, version,
+   liveness/readiness, CI tests, and explicit `linux/amd64` and `linux/arm64`
+   container evidence.
+2. Implement the release page → game page → rating → `Mis puntuaciones` slice
    incrementally, preserving the approved OpenAPI, security, accessibility,
    observability, provider, and recovery boundaries.
-4. Build the immutable multi-architecture image before provisioning reviewed
+3. Build and scan the immutable multi-architecture image before provisioning reviewed
    Always Free infrastructure, then validate the running slice on a real phone-sized
    browser and through its failure, backup, restore, and rollback paths.
 

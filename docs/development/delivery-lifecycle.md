@@ -1,11 +1,11 @@
 # Learning MVP delivery lifecycle
 
 - **Status:** Approved
-- **Version:** 1.0
+- **Version:** 1.1
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-03
+- **Last updated:** 2026-08-04
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
-- **Phase:** 1 — MVP solution definition and walking-skeleton delivery
+- **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP operated by one person
 - **Product boundary:** [Learning MVP story map](../product/mvp-story-map.md)
 - **Use cases:** [Learning MVP use cases and relevant errors](../architecture/application/mvp-use-cases.md)
@@ -257,8 +257,8 @@ A work item is done when all applicable conditions are true:
 | Product, domain, use cases, solution architecture | Completed | Preserve approved boundaries |
 | OpenAPI and documentation validation | Completed | Keep generated reference synchronized |
 | Platform and persistent decisions | Completed by this design and ADR-0005 through ADR-0009 | Implement incrementally |
-| Technology baseline | Next | Approve coherent supported versions and durable implementation ADRs |
-| Application skeleton and implementation tests | After baseline | Build the first executable walking skeleton |
+| Technology baseline | Completed by baseline v1.0 and ADR-0010 through ADR-0012 | Preserve selected lines and upgrade policy |
+| Application skeleton and implementation tests | Next | Prove the first executable walking skeleton locally and in CI |
 | Immutable multi-architecture image | After local skeleton | Build and publish from `main` |
 | Private OCI `dev` environment | After local skeleton | Provision only Always Free resources from reviewed IaC |
 | Operations runbook | After commands exist | Record exact start, deploy, backup, restore, and recovery procedures |
@@ -268,4 +268,5 @@ A work item is done when all applicable conditions are true:
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.1 | 2026-08-04 | Recorded the approved technology baseline, closed Phase 1 solution definition, and made the executable walking skeleton the next gate. | Ruben Hernandez |
 | 1.0 | 2026-08-03 | Approved a concise solo-project lifecycle, separated platform mechanics, made accessibility an MVP gate, and clarified `dev` deployment versus private release. | Ruben Hernandez |

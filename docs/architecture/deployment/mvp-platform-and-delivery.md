@@ -1,11 +1,11 @@
 # Learning MVP platform and delivery design
 
 - **Status:** Approved
-- **Version:** 1.0
+- **Version:** 1.1
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-03
+- **Last updated:** 2026-08-04
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
-- **Phase:** 1 — MVP solution definition and walking-skeleton delivery
+- **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP
 - **Solution architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
 - **OpenAPI:** [Browser-facing API contract](../api/openapi.yaml)
@@ -15,6 +15,7 @@
 - **Identity decision:** [ADR-0007](../../decisions/0007-use-keycloak-as-the-initial-identity-provider.md)
 - **Delivery tooling decision:** [ADR-0008](../../decisions/0008-use-github-actions-and-ghcr-for-initial-delivery.md)
 - **Observability decision:** [ADR-0009](../../decisions/0009-use-opentelemetry-compatible-instrumentation.md)
+- **Technology baseline:** [Learning MVP technology baseline](../technology/mvp-technology-baseline.md)
 
 > This document turns the approved logical architecture into the minimum platform
 > needed to build, deploy, observe, and recover one private vertical slice. It owns
@@ -79,11 +80,12 @@ copied/stored provider images, redistribution, and broad unattended synchronizat
 | Infrastructure | Terraform configuration in the repository; remote state and applies are serialized | [ADR-0005](../../decisions/0005-host-private-dev-on-oci-always-free.md) |
 | Synchronization | Manual internal command before any schedule | [ADR-0004](../../decisions/0004-synchronize-and-serve-local-catalogue-data.md) |
 
-The technology baseline is the next gate. It selects supported application runtime and
+The technology baseline is approved. It selects supported application runtime and
 framework versions, build and dependency management, frontend delivery, persistence
 and migration tooling, test tooling, local orchestration, version maintenance, and
-`linux/arm64` compatibility as one coherent set. Only durable, consequential choices
-need ADRs; individual libraries do not receive ADRs by default.
+explicit `linux/amd64` and `linux/arm64` verification as one coherent set. ADR-0010
+through ADR-0012 record only the durable backend, persistence-tooling, and frontend
+choices; inherited platform decisions remain in ADR-0005 through ADR-0009.
 
 ## 4. Environment model
 
@@ -333,12 +335,11 @@ exporters, not domain or API contracts.
 
 ## 14. Implementation sequence
 
-1. **Technology baseline:** define selection criteria; choose supported versions and
-   maintenance policy; record only durable ADRs; prove local, CI, and `linux/arm64`
-   compatibility with a bounded spike where documentation is insufficient.
-2. **Local skeleton:** enable container runtime; create application, PostgreSQL, and
+1. **Technology baseline — complete:** approved version lines, maintenance policy,
+   quality toolset, durable ADRs, and an explicit executable compatibility gate.
+2. **Local skeleton — next:** enable container runtime; create application, PostgreSQL, and
    Keycloak development topology; add migrations, seed data, version, liveness, and
-   readiness.
+   readiness; prove local, CI, `linux/amd64`, and `linux/arm64` compatibility.
 3. **First public read:** implement `GET /api/v1/releases` against PostgreSQL and prove
    `CATALOGUE_NOT_READY` without live request-path IGDB calls.
 4. **Delivery:** build and scan `linux/arm64`/`linux/amd64` image; publish digest to
@@ -370,4 +371,5 @@ exporters, not domain or API contracts.
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.1 | 2026-08-04 | Linked the approved technology baseline, closed its selection gate, and made multi-architecture walking-skeleton evidence the next implementation step. | Ruben Hernandez |
 | 1.0 | 2026-08-03 | Approved the minimum zero-cost platform, selected OCI Always Free with private Tailscale access, removed lifecycle duplication, and linked durable decisions to ADR-0005 through ADR-0009. | Ruben Hernandez |

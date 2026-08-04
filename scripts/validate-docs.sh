@@ -28,6 +28,7 @@ required_files=(
   "docs/architecture/api/openapi.yaml"
   "docs/architecture/api/reference/index.html"
   "docs/architecture/deployment/mvp-platform-and-delivery.md"
+  "docs/architecture/technology/mvp-technology-baseline.md"
   "docs/decisions/0001-reference-igdb-cover-images.md"
   "docs/decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md"
   "docs/decisions/0003-use-a-same-origin-bff-and-http-json-api.md"
@@ -37,6 +38,9 @@ required_files=(
   "docs/decisions/0007-use-keycloak-as-the-initial-identity-provider.md"
   "docs/decisions/0008-use-github-actions-and-ghcr-for-initial-delivery.md"
   "docs/decisions/0009-use-opentelemetry-compatible-instrumentation.md"
+  "docs/decisions/0010-use-java-25-spring-boot-4-and-spring-modulith.md"
+  "docs/decisions/0011-use-postgresql-and-flyway-for-application-persistence.md"
+  "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md"
   "package.json"
   "package-lock.json"
   "redocly.yaml"
@@ -56,6 +60,12 @@ for file in "${required_files[@]}"; do
   fi
 done
 
+while IFS= read -r zone_identifier; do
+  printf 'Windows Zone.Identifier metadata must not be committed: %s\n' \
+    "$zone_identifier" >&2
+  exit 1
+done < <(find . -type f -name '*:Zone.Identifier' -print)
+
 python3 - "$ROOT_DIR" <<'PY'
 import pathlib
 import re
@@ -73,6 +83,7 @@ expected_statuses = {
     "docs/architecture/mvp-solution-architecture.md": "Approved",
     "docs/architecture/api/api-conventions.md": "Approved",
     "docs/architecture/deployment/mvp-platform-and-delivery.md": "Approved",
+    "docs/architecture/technology/mvp-technology-baseline.md": "Approved",
     "docs/development/delivery-lifecycle.md": "Approved",
     "docs/decisions/0001-reference-igdb-cover-images.md": "Accepted",
     "docs/decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md": "Accepted",
@@ -83,6 +94,9 @@ expected_statuses = {
     "docs/decisions/0007-use-keycloak-as-the-initial-identity-provider.md": "Accepted",
     "docs/decisions/0008-use-github-actions-and-ghcr-for-initial-delivery.md": "Accepted",
     "docs/decisions/0009-use-opentelemetry-compatible-instrumentation.md": "Accepted",
+    "docs/decisions/0010-use-java-25-spring-boot-4-and-spring-modulith.md": "Accepted",
+    "docs/decisions/0011-use-postgresql-and-flyway-for-application-persistence.md": "Accepted",
+    "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md": "Accepted",
 }
 
 for relative, status in expected_statuses.items():

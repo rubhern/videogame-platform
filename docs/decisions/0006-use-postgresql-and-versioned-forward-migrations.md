@@ -38,9 +38,10 @@ Use expand/contract for destructive or incompatible changes. Application rollbac
 allowed only when the previous version remains schema-compatible. Otherwise use a
 forward fix, proven down migration, or explicit restore according to the change plan.
 
-The migration product remains an implementation choice for the technology baseline.
-It must support PostgreSQL, checksummed ordered migrations, CI execution, and visible
-failure; Flyway and Liquibase are acceptable candidates.
+The approved technology baseline and
+[ADR-0011](0011-use-postgresql-and-flyway-for-application-persistence.md) subsequently
+select PostgreSQL 18 and Flyway Community with SQL-first migrations. Flyway must
+support checksummed ordered migrations, CI execution, and visible failure.
 
 ## Alternatives considered
 
@@ -95,8 +96,7 @@ auditable production-like evolution or a safe rollback boundary.
 
 ## Follow-up actions
 
-- Select the supported PostgreSQL and migration-tool versions in the technology
-  baseline.
+- Pin the baseline-selected PostgreSQL 18 and Flyway versions in executable manifests.
 - Define initial application and Keycloak databases, roles, migrations, and health
   checks.
 - Add empty-schema and upgrade migration tests.

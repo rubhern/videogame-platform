@@ -85,8 +85,8 @@ This would place tokens in the browser and contradict the accepted BFF boundary.
 
 ## Follow-up actions
 
-- Pin a supported Keycloak image in the technology baseline and test its `linux/arm64`
-  support before remote provisioning.
+- Pin the baseline-selected Keycloak 26.7 image by version or digest and test its
+  `linux/arm64` support in the walking skeleton before remote provisioning.
 - Define realm, BFF client, redirect/logout URIs, token/session lifetimes, and private
   administration policy.
 - Add integration tests for PKCE, callback validation, session rotation, CSRF, logout,
