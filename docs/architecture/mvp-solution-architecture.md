@@ -1,11 +1,11 @@
 # Learning MVP Solution Architecture
 
 - **Status:** Approved
-- **Version:** 1.1
+- **Version:** 1.2
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-03
+- **Last updated:** 2026-08-04
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
-- **Phase:** 1 — MVP solution definition
+- **Phase:** 1 — MVP solution definition (complete)
 - **Initial release mode:** Private, non-commercial learning MVP
 - **Product Brief:** [Product Brief](../product/product-brief.md)
 - **Story map:** [Learning MVP story map](../product/mvp-story-map.md)
@@ -1301,9 +1301,10 @@ The [approved API conventions](api/api-conventions.md) define:
   manager.
 
 PostgreSQL and the private OCI hosting boundary are selected by ADR-0005 and ADR-0006.
-Application frameworks, persistence and migration libraries, frontend tooling, cache,
-broker, orchestrator, and internal remote-call protocols do not change the approved
-OpenAPI boundary.
+The approved technology baseline and ADR-0010 through ADR-0012 select the application
+frameworks, migration and persistence libraries, and frontend tooling. Cache, broker,
+orchestrator, and internal remote-call protocols remain deferred and do not change the
+approved OpenAPI boundary.
 
 ## 26. Accepted supporting ADRs
 
@@ -1319,7 +1320,10 @@ docs/decisions/
 ├── 0006-use-postgresql-and-versioned-forward-migrations.md
 ├── 0007-use-keycloak-as-the-initial-identity-provider.md
 ├── 0008-use-github-actions-and-ghcr-for-initial-delivery.md
-└── 0009-use-opentelemetry-compatible-instrumentation.md
+├── 0009-use-opentelemetry-compatible-instrumentation.md
+├── 0010-use-java-25-spring-boot-4-and-spring-modulith.md
+├── 0011-use-postgresql-and-flyway-for-application-persistence.md
+└── 0012-use-react-typescript-and-vite-for-the-web-frontend.md
 ```
 
 DDD and hexagonal dependency rules belong to ADR-0002 rather than a separate record.
@@ -1332,9 +1336,10 @@ ADR-0005 through ADR-0009 select the minimum persistent platform choices only af
 the logical architecture and OpenAPI boundary were approved. They do not introduce a
 public production environment or distributed application architecture.
 
-The technology baseline is the next Phase 1 gate. Add ADRs before implementation only
-for baseline choices that are durable, consequential, or difficult to reverse; do not
-create one decision record per library.
+The technology baseline is approved and Phase 1 solution definition is complete.
+ADR-0010 through ADR-0012 contain the only new durable baseline choices. Individual
+quality and test libraries remain governed by the baseline rather than receiving one
+decision record each. The walking skeleton is the next implementation gate.
 
 No gRPC ADR is required while the decision is simply to defer protocol selection. A
 future ADR should compare gRPC with the actual alternatives for a concrete boundary.
@@ -1380,6 +1385,7 @@ future ADR should compare gRPC with the actual alternatives for a concrete bound
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-04 | 1.2 | Linked the approved technology baseline and ADR-0010 through ADR-0012, closed Phase 1 solution definition, and identified the walking skeleton as the next gate. | Ruben Hernandez |
 | 2026-08-03 | 1.1 | Linked the approved platform decisions for OCI Always Free hosting, PostgreSQL migrations, Keycloak, GitHub Actions/GHCR, and OpenTelemetry without changing the logical solution boundary. | Ruben Hernandez |
 | 2026-07-30 | 1.0 | Approved the minimum solution architecture after review; selected a same-origin server-side BFF with Authorization Code and PKCE, deferred API Management to explicit triggers, aligned synchronization and degraded states with the application contract, and reduced speculative roadmap and ADR scope. | Ruben Hernandez |
 | 2026-07-30 | 0.2 | Added evolutionary architecture, target capabilities, DDD, hexagonal architecture, API Manager from the first slice, adoption triggers, fitness functions, and explicit deferral of gRPC until justified by a real use case. | Ruben Hernandez |

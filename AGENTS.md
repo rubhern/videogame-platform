@@ -24,18 +24,22 @@ environment uses OCI Always Free with private Tailscale access. PostgreSQL and
 versioned forward migrations, Keycloak, GitHub Actions/GHCR, and
 OpenTelemetry-compatible instrumentation are accepted through ADR-0005 to ADR-0009.
 
-**Phase 1 — MVP solution definition is active.** The current gate is the technology
-baseline: select coherent supported versions and implementation tooling, record only
-durable decisions as ADRs, and prove local and `linux/arm64` compatibility. No
-application walking skeleton or remote infrastructure has been implemented yet.
+**Phase 1 — MVP solution definition is complete.** The approved
+[technology baseline](docs/architecture/technology/mvp-technology-baseline.md) and
+ADR-0010 through ADR-0012 select the supported implementation stack. Application
+implementation is now active at the walking-skeleton gate: prove local, CI,
+`linux/amd64`, and `linux/arm64` compatibility before feature expansion. No remote
+infrastructure has been implemented yet.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
-- Do not assume that an application framework, migration library, public release,
-  business model, paid service, or distributed architecture has been approved.
+- Use the approved Java/Spring, PostgreSQL/Flyway, and React/TypeScript/Vite baseline;
+  do not assume that a public release, business model, paid service, or distributed
+  architecture has been approved.
 - Preserve the zero recurring-cost constraint: use only currently eligible free
   resources and stop rather than silently provisioning a paid alternative.
-- Approve the technology baseline before creating the executable application skeleton.
+- Prove the approved baseline through the smallest executable walking skeleton before
+  expanding feature implementation or provisioning remote infrastructure.
 - Keep proposed product decisions labelled as hypotheses until evidence or an
   explicit owner decision supports them.
 - Use the story map as the current planning boundary; prefer minimum contracts and
@@ -64,8 +68,10 @@ application walking skeleton or remote infrastructure has been implemented yet.
   `docs/research/simulated-round-synthesis.md`
 - Tooling and Codex setup: `docs/development/codex-setup.md`
 - Architectural decisions, once required: `docs/decisions/`
+- Approved technology baseline:
+  `docs/architecture/technology/mvp-technology-baseline.md`
 - Accepted architectural decisions: `docs/decisions/0001-*.md` through
-  `docs/decisions/0009-*.md`
+  `docs/decisions/0012-*.md`
 
 When sources conflict, report the conflict instead of choosing silently.
 Distinguish evidence, decisions, assumptions, and proposals.

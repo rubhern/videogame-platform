@@ -13,13 +13,17 @@ the [OpenAPI contract](docs/architecture/api/openapi.yaml), and the
 [minimum platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
 for the learning MVP vertical slice are defined. PostgreSQL, Keycloak, GitHub
 Actions/GHCR, OpenTelemetry-compatible instrumentation, and a private zero-cost OCI
-Always Free `dev` environment are approved through ADR-0005 to ADR-0009. Application
-frameworks, public production, and a business model remain unapproved.
+Always Free `dev` environment are approved through ADR-0005 to ADR-0009. The
+[technology baseline](docs/architecture/technology/mvp-technology-baseline.md)
+selects Java 25, Spring Boot 4.1, Spring Modulith 2.1, PostgreSQL 18, Flyway, React
+19.2, TypeScript, Vite 8.1, Node.js 24, and the supporting quality toolset through
+ADR-0010 to ADR-0012. Public production and a business model remain unapproved.
 
-**Phase 1 — MVP solution definition is active.** Its next gate is an approved
-technology baseline with supported versions and only the ADRs needed for durable
-choices. Application implementation starts after that gate with a local walking
-skeleton; remote infrastructure follows only after the local topology is proven.
+**Phase 1 — MVP solution definition is complete.** Application implementation is
+active at the walking-skeleton gate. The next deliverable proves the approved stack
+locally and in CI, including explicit `linux/amd64` and `linux/arm64` evidence;
+remote infrastructure follows only after the local topology and multi-architecture
+image are proven.
 
 ## Start here
 
@@ -44,8 +48,9 @@ skeleton; remote infrastructure follows only after the local topology is proven.
 11. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
     and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
     skeleton and private `dev` environment.
-12. Review [ADR-0005 through ADR-0009](docs/decisions/) before implementing
-    persistence, identity, delivery, hosting, or observability.
+12. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md)
+    and [ADR-0005 through ADR-0012](docs/decisions/) before implementing the walking
+    skeleton, persistence, identity, delivery, hosting, or observability.
 
 ## Documentation
 

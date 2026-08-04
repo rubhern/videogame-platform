@@ -16,5 +16,6 @@ environment and deployment mechanics belong in the
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md). It must
 not contain credentials, tokens, personal data, or machine-specific secrets.
 
-The current Phase 1 gate is the technology baseline. Approve supported versions and
-durable implementation choices before creating the local application skeleton.
+Phase 1 solution definition is complete. The current implementation gate is the
+smallest local walking skeleton, including CI and explicit `linux/amd64` and
+`linux/arm64` compatibility evidence before feature expansion.
