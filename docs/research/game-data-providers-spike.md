@@ -63,8 +63,8 @@ incompatible with the intended scope or its limitations become too costly to man
 
 ## 2. Product context
 
-Product Brief v0.3 defined, and current v0.7 preserves, a Spanish-first learning MVP
-with:
+Product Brief v0.3 defined, and the approved Product Brief preserves, a Spanish-first
+learning MVP with:
 
 - a recent and upcoming release view;
 - title and alternative-title search;

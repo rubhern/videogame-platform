@@ -1,9 +1,9 @@
 # Learning MVP Solution Architecture
 
 - **Status:** Approved
-- **Version:** 1.0
+- **Version:** 1.1
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-30
+- **Last updated:** 2026-08-03
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** 1 — MVP solution definition
 - **Initial release mode:** Private, non-commercial learning MVP
@@ -403,8 +403,10 @@ The MVP uses one relational database owned by the application. It supports:
 - atomic publication or replacement of valid synchronized state;
 - transactional consistency without distributed coordination.
 
-The exact database product, schemas, indexes, persistence framework, and migration
-tool remain implementation decisions.
+PostgreSQL and versioned forward migrations are subsequently selected by
+[ADR-0006](../decisions/0006-use-postgresql-and-versioned-forward-migrations.md).
+The exact schemas, indexes, persistence framework, and migration tool remain
+implementation decisions.
 
 A shared physical database does not imply shared ownership. Each business module
 owns its tables or schema and other modules must not query them directly.
@@ -427,7 +429,8 @@ rating state.
 The approved browser pattern is a server-side BFF using OAuth 2.0 Authorization Code
 with PKCE and OpenID Connect where identity claims are required. The implicit grant
 is not used. Tokens remain server-side; the browser receives an opaque session
-cookie. The concrete identity-provider product remains undecided.
+cookie. Keycloak is subsequently selected as the initial identity-provider product by
+[ADR-0007](../decisions/0007-use-keycloak-as-the-initial-identity-provider.md).
 
 ### 7.6 IGDB API and image CDN
 
@@ -1297,19 +1300,26 @@ The [approved API conventions](api/api-conventions.md) define:
 - future API Management compatibility without requiring publication through a
   manager.
 
-The database product, framework, hosting platform, cache, broker, orchestrator, and
-internal remote-call protocol do not block OpenAPI.
+PostgreSQL and the private OCI hosting boundary are selected by ADR-0005 and ADR-0006.
+Application frameworks, persistence and migration libraries, frontend tooling, cache,
+broker, orchestrator, and internal remote-call protocols do not change the approved
+OpenAPI boundary.
 
 ## 26. Accepted supporting ADRs
 
-The durable decisions needed before implementation are recorded in:
+The accepted solution and platform decisions recorded to date are:
 
 ```text
 docs/decisions/
 ├── 0001-reference-igdb-cover-images.md
 ├── 0002-use-a-modular-monolith-and-relational-data-boundary.md
 ├── 0003-use-a-same-origin-bff-and-http-json-api.md
-└── 0004-synchronize-and-serve-local-catalogue-data.md
+├── 0004-synchronize-and-serve-local-catalogue-data.md
+├── 0005-host-private-dev-on-oci-always-free.md
+├── 0006-use-postgresql-and-versioned-forward-migrations.md
+├── 0007-use-keycloak-as-the-initial-identity-provider.md
+├── 0008-use-github-actions-and-ghcr-for-initial-delivery.md
+└── 0009-use-opentelemetry-compatible-instrumentation.md
 ```
 
 DDD and hexagonal dependency rules belong to ADR-0002 rather than a separate record.
@@ -1317,6 +1327,14 @@ Delegated identity, Authorization Code with PKCE, session security, and OpenAPI
 belong to ADR-0003. A future API Manager receives its own ADR only when an adoption
 trigger or bounded experiment makes the alternatives and operational consequences
 material.
+
+ADR-0005 through ADR-0009 select the minimum persistent platform choices only after
+the logical architecture and OpenAPI boundary were approved. They do not introduce a
+public production environment or distributed application architecture.
+
+The technology baseline is the next Phase 1 gate. Add ADRs before implementation only
+for baseline choices that are durable, consequential, or difficult to reverse; do not
+create one decision record per library.
 
 No gRPC ADR is required while the decision is simply to defer protocol selection. A
 future ADR should compare gRPC with the actual alternatives for a concrete boundary.
@@ -1362,6 +1380,7 @@ future ADR should compare gRPC with the actual alternatives for a concrete bound
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-03 | 1.1 | Linked the approved platform decisions for OCI Always Free hosting, PostgreSQL migrations, Keycloak, GitHub Actions/GHCR, and OpenTelemetry without changing the logical solution boundary. | Ruben Hernandez |
 | 2026-07-30 | 1.0 | Approved the minimum solution architecture after review; selected a same-origin server-side BFF with Authorization Code and PKCE, deferred API Management to explicit triggers, aligned synchronization and degraded states with the application contract, and reduced speculative roadmap and ADR scope. | Ruben Hernandez |
 | 2026-07-30 | 0.2 | Added evolutionary architecture, target capabilities, DDD, hexagonal architecture, API Manager from the first slice, adoption triggers, fitness functions, and explicit deferral of gRPC until justified by a real use case. | Ruben Hernandez |
 | 2026-07-30 | 0.1 | Initial proposed solution architecture derived from the approved Product Brief, story map, domain model, application use cases, provider evidence, and cover ADR. | Ruben Hernandez |

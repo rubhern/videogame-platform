@@ -35,8 +35,9 @@ Apply hexagonal dependency rules inside the modules:
 - delivery, persistence, identity, provider, and telemetry integrations are adapters;
 - automated architecture tests protect dependency and module-ownership rules.
 
-The database product, persistence framework, schema layout, and migration tool remain
-implementation decisions.
+PostgreSQL and versioned forward migrations are subsequently selected by
+[ADR-0006](0006-use-postgresql-and-versioned-forward-migrations.md). The persistence
+framework, schema layout, and migration tool remain implementation decisions.
 
 ## Alternatives considered
 
@@ -86,7 +87,8 @@ insufficient.
 
 ## Follow-up actions
 
-- Select the implementation stack and relational database separately.
+- Use ADR-0006 as the database and migration-strategy decision; select the persistence
+  framework and migration tool in the technology baseline.
 - Define schema ownership, migrations, constraints, and indexes during
   implementation design.
 - Add automated dependency and module-boundary tests with the first vertical slice.

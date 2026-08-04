@@ -1,8 +1,8 @@
 # Learning MVP story map
 
 - **Status:** Journey gate `PASS`
-- **Product Brief:** [v0.7 — Approved](product-brief.md)
-- **Last updated:** 2026-07-29
+- **Product Brief:** [Approved Product Brief](product-brief.md)
+- **Last updated:** 2026-08-03
 - **Owner:** Ruben Hernandez
 - **Editable board:** [Open the FigJam story map](https://www.figma.com/board/4OfeyWSF3rvEhDE5HGKUK8)
 - **PNG export:** [Download the repository export](assets/mvp-story-map.png)
@@ -185,7 +185,7 @@ targets.
 
 ## Sources
 
-- [Product Brief v0.7](product-brief.md)
+- [Approved Product Brief](product-brief.md)
 - [Mobile-first clickable prototype](clickable-prototype.md)
 - [Prototype usability test guide](../research/prototype-usability-test-guide.md)
 - [Accepted simulated usability synthesis](../research/simulated-round-synthesis.md)

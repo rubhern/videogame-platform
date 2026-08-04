@@ -19,10 +19,23 @@ solution architecture, and REST API conventions are approved. The OpenAPI contra
 for one vertical slice is defined. Prototype and usability work remain closed for
 the current learning objective.
 
+The minimum platform and delivery design is approved. The persistent private `dev`
+environment uses OCI Always Free with private Tailscale access. PostgreSQL and
+versioned forward migrations, Keycloak, GitHub Actions/GHCR, and
+OpenTelemetry-compatible instrumentation are accepted through ADR-0005 to ADR-0009.
+
+**Phase 1 — MVP solution definition is active.** The current gate is the technology
+baseline: select coherent supported versions and implementation tooling, record only
+durable decisions as ADRs, and prove local and `linux/arm64` compatibility. No
+application walking skeleton or remote infrastructure has been implemented yet.
+
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
-- Do not assume that a framework, database product, hosting platform, public release,
-  business model, or distributed architecture has been approved.
+- Do not assume that an application framework, migration library, public release,
+  business model, paid service, or distributed architecture has been approved.
+- Preserve the zero recurring-cost constraint: use only currently eligible free
+  resources and stop rather than silently provisioning a paid alternative.
+- Approve the technology baseline before creating the executable application skeleton.
 - Keep proposed product decisions labelled as hypotheses until evidence or an
   explicit owner decision supports them.
 - Use the story map as the current planning boundary; prefer minimum contracts and
@@ -40,6 +53,10 @@ the current learning objective.
   `docs/architecture/mvp-solution-architecture.md`
 - Approved REST API conventions:
   `docs/architecture/api/api-conventions.md`
+- Approved platform and delivery design:
+  `docs/architecture/deployment/mvp-platform-and-delivery.md`
+- Approved delivery lifecycle:
+  `docs/development/delivery-lifecycle.md`
 - Assumptions: `docs/product/assumptions.md`
 - Open questions: `docs/product/open-questions.md`
 - Glossary: `docs/product/glossary.md`
@@ -47,6 +64,8 @@ the current learning objective.
   `docs/research/simulated-round-synthesis.md`
 - Tooling and Codex setup: `docs/development/codex-setup.md`
 - Architectural decisions, once required: `docs/decisions/`
+- Accepted architectural decisions: `docs/decisions/0001-*.md` through
+  `docs/decisions/0009-*.md`
 
 When sources conflict, report the conflict instead of choosing silently.
 Distinguish evidence, decisions, assumptions, and proposals.
@@ -92,7 +111,7 @@ Run:
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
-./mvnw -f tools/igdb-poc/pom.xml clean verify
+bash mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
 OpenAPI validation requires Node.js 22.12 or newer. The Maven command requires
