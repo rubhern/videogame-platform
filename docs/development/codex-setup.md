@@ -90,6 +90,7 @@ Operational safeguards still apply:
 | `scripts/validate-openapi.sh` | Reproducible OpenAPI contract validation |
 | `scripts/build-openapi-docs.sh` | Validated static Redoc API reference generation |
 | `.github/workflows/docs.yml` | Run documentation and OpenAPI checks on pushes and pull requests |
+| `docs/architecture/diagrams/README.md` | Diagram catalogue, authority order, tool ownership, and editing rules |
 
 ## How to work by phase
 

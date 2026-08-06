@@ -18,3 +18,4 @@ follow-up actions. Trivial folder or naming choices do not require an ADR.
 - [ADR-0010: Use Java 25, Spring Boot 4, and Spring Modulith for the initial backend](0010-use-java-25-spring-boot-4-and-spring-modulith.md)
 - [ADR-0011: Use Flyway and persistence adapters with PostgreSQL](0011-use-postgresql-and-flyway-for-application-persistence.md)
 - [ADR-0012: Use React, TypeScript, and Vite for the web frontend](0012-use-react-typescript-and-vite-for-the-web-frontend.md)
+- [ADR-0013: Use model-backed and purpose-specific architecture diagrams](0013-use-model-backed-and-purpose-specific-architecture-diagrams.md)

@@ -1,0 +1,38 @@
+flowchart LR
+    subgraph External["External and supporting boundaries"]
+        IGDB["IGDB external catalogue context"]
+        IdP["External Identity Provider"]
+        Telemetry["Telemetry platform"]
+    end
+
+    subgraph Product["VideoGame Platform modular monolith"]
+        Catalogue["Catalogue and Releases<br/><br/>Games, aliases, platforms, regions,<br/>releases, covers, provenance,<br/>freshness and synchronization"]
+        EligibilityContract["Narrow Catalogue application contract<br/>Rating eligibility evidence"]
+        Ratings["Ratings<br/><br/>Personal rating lifecycle,<br/>eligibility, aggregate policy<br/>and Mis puntuaciones"]
+        ACL["IGDB adapter / Anti-Corruption Layer"]
+        IdentityAdapter["Identity adapter<br/>issuer + subject → UserId"]
+        Observability["Observability adapter<br/>technical capability"]
+    end
+
+    IGDB -->|Raw provider data| ACL
+    ACL -->|Provider-independent candidates| Catalogue
+
+    Catalogue -->|Publishes| EligibilityContract
+    Ratings -->|Queries; never reads Catalogue tables| EligibilityContract
+
+    IdP -->|Authenticated issuer + subject| IdentityAdapter
+    IdentityAdapter -->|Stable UserId| Ratings
+
+    Catalogue -.->|Emits technical signals| Observability
+    Ratings -.->|Emits technical signals| Observability
+    Observability -.->|Exports logs, metrics and traces| Telemetry
+
+
+    classDef domain fill:#e8f1ff,stroke:#2563eb,stroke-width:2px,color:#172b4d
+    classDef external fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,color:#334155
+    classDef adapter fill:#eefcf3,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+    classDef contract fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
+    class Catalogue,Ratings domain
+    class IGDB,IdP,Telemetry external
+    class Observability,IdentityAdapter,ACL adapter
+    class EligibilityContract contract

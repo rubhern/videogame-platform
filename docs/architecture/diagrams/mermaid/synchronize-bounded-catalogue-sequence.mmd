@@ -1,0 +1,67 @@
+sequenceDiagram
+    autonumber
+
+    actor Trigger as Internal operator command
+    participant Sync as Catalogue synchronization use case
+    participant DB as PostgreSQL
+    participant Adapter as IGDB adapter / ACL
+    participant IGDB as IGDB API
+    participant Staging as Provider-adapter staging
+    participant Domain as Catalogue domain validation
+    participant Telemetry
+
+    Trigger->>Sync: Start bounded synchronization
+    Note over Trigger,Sync: Scheduling remains deferred until the manual command and recovery are proven
+    Sync->>DB: Load curated GameIds, typed provider references and watermark
+    DB-->>Sync: Current bounded catalogue scope
+    Sync->>Adapter: Synchronize only the curated scope
+    Adapter->>IGDB: Authenticate and fetch bounded data with rate and retry limits
+
+    alt Authentication, rate limit, availability or response failure
+        IGDB-->>Adapter: Provider failure
+        Adapter-->>Sync: Stable dependency failure
+        Sync->>Telemetry: Record failed run and diagnostics
+        Note over Sync,DB: Continue serving the previous valid local catalogue
+    else Provider response received
+        IGDB-->>Adapter: Raw transport payload
+        Adapter->>Adapter: Defensively map to provider-independent candidates
+        Adapter->>Staging: Store mapped candidates and outcomes
+
+        loop Each mapped candidate
+            Staging->>Domain: Validate identity, provenance and coherent release tuple
+            Domain->>Domain: Reject silent merges and reference conflicts
+            Domain->>Domain: Validate date value + precision
+            Domain->>Domain: Reject availability-as-release mapping
+            Domain->>Domain: Preserve product-owned Spanish aliases
+            Domain->>Domain: Evaluate cover-reference approval state
+
+            alt New provider result outside curated catalogue
+                Domain-->>Staging: Import candidate requiring explicit curation
+                Note over Staging,DB: Do not create a domain Game
+            else Ambiguous, conflicting or invalid evidence
+                Domain-->>Staging: Review-required or rejected candidate
+                Note over Staging,DB: Preserve the previous valid normalized record
+            else Existing curated game with valid update
+                alt Cover is new or materially changed
+                    Domain-->>Staging: Valid update with cover pending_review
+                    Note over Staging,DB: Keep game visible with product-owned fallback
+                else Existing approved cover remains unchanged
+                    Domain-->>Staging: Valid publishable update
+                end
+            end
+        end
+
+        Staging-->>Sync: Validated updates, staged candidates and review outcomes
+        Sync->>DB: Publish only validated updates for curated catalogue members
+
+        alt Publication succeeds
+            DB-->>Sync: New valid local state and freshness watermark
+            Sync->>Telemetry: Record counts, latency, retries, freshness and success
+        else Publication fails
+            DB-->>Sync: Roll back or reject replacement
+            Sync->>Telemetry: Record SYNCHRONIZATION_WRITE_FAILED
+            Note over Sync,DB: Previous valid snapshot remains available
+        end
+    end
+
+    Note over Trigger,Telemetry: Synchronization never approves covers or silently expands the bounded catalogue

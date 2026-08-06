@@ -29,6 +29,17 @@ required_files=(
   "docs/architecture/api/reference/index.html"
   "docs/architecture/deployment/mvp-platform-and-delivery.md"
   "docs/architecture/technology/mvp-technology-baseline.md"
+  "docs/architecture/diagrams/README.md"
+  "docs/architecture/diagrams/structurizr/workspace.dsl"
+  "docs/architecture/diagrams/structurizr/workspace.json"
+  "docs/architecture/diagrams/structurizr/structurizr.properties"
+  "docs/architecture/diagrams/diagrams-net/private-dev-deployment.drawio"
+  "docs/architecture/diagrams/mermaid/module-context-map.mmd"
+  "docs/architecture/diagrams/mermaid/hexagonal-dependency-rules.mmd"
+  "docs/architecture/diagrams/mermaid/authenticate-and-create-rating-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/synchronize-bounded-catalogue-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/delivery-pipeline.mmd"
+  "docs/architecture/diagrams/scripts/render-mermaid.sh"
   "docs/decisions/0001-reference-igdb-cover-images.md"
   "docs/decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md"
   "docs/decisions/0003-use-a-same-origin-bff-and-http-json-api.md"
@@ -41,6 +52,7 @@ required_files=(
   "docs/decisions/0010-use-java-25-spring-boot-4-and-spring-modulith.md"
   "docs/decisions/0011-use-postgresql-and-flyway-for-application-persistence.md"
   "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md"
+  "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md"
   "package.json"
   "package-lock.json"
   "redocly.yaml"
@@ -97,6 +109,7 @@ expected_statuses = {
     "docs/decisions/0010-use-java-25-spring-boot-4-and-spring-modulith.md": "Accepted",
     "docs/decisions/0011-use-postgresql-and-flyway-for-application-persistence.md": "Accepted",
     "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md": "Accepted",
+    "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md": "Accepted",
 }
 
 for relative, status in expected_statuses.items():
@@ -130,7 +143,7 @@ PY
 
 while IFS= read -r file; do
   case "$file" in
-    scripts/*.sh)
+    scripts/*.sh|docs/architecture/diagrams/scripts/*.sh)
       [[ -x "$file" ]] || {
         printf 'Shell script must be executable: %s\n' "$file" >&2
         exit 1
