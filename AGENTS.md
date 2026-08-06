@@ -66,6 +66,8 @@ communication views.
   `docs/architecture/deployment/mvp-platform-and-delivery.md`
 - Approved delivery lifecycle:
   `docs/development/delivery-lifecycle.md`
+- Approved work-management baseline:
+  `docs/development/work-management.md`
 - Assumptions: `docs/product/assumptions.md`
 - Open questions: `docs/product/open-questions.md`
 - Glossary: `docs/product/glossary.md`
