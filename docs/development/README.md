@@ -8,6 +8,8 @@
   inspect, and update the static Redoc API reference.
 - [Learning MVP delivery lifecycle](delivery-lifecycle.md): readiness, Git and pull
   requests, quality gates, acceptance, releases, and Definition of Done.
+- [Work management](work-management.md): GitHub Issues and Projects workflow,
+  planning fields, work-in-progress limit, and pull-request traceability.
 - [IGDB provider PoC](../../tools/igdb-poc/README.md): isolated Java CLI,
   local-fixture validation, and authenticated execution instructions.
 

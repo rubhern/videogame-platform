@@ -1,0 +1,66 @@
+name: Work item
+description: Feature, enabler or documentation work
+title: ""
+body:
+  - type: dropdown
+    id: work_type
+    attributes:
+      label: Work type
+      description: Choose the type that best represents the intended outcome.
+      options:
+        - Feature
+        - Enabler
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What observable result must be achieved?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Why is this work needed?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is included and explicitly excluded?
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Add a checklist of testable conditions.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and references
+      description: Blocking work, ADRs, use cases, contracts or related issues.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Readiness
+      options:
+        - label: No unresolved decision blocks this work.
+          required: true

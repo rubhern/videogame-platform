@@ -1,0 +1,51 @@
+name: Bug
+description: Report reproducible incorrect behaviour
+title: "[Bug] "
+labels:
+  - "type:bug"
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behaviour
+      description: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+      description: What should have happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment and evidence
+      description: Version, browser, logs, screenshots or correlation identifiers.
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Include the expected regression coverage.
+      placeholder: |
+        - [ ] The defect is fixed.
+        - [ ] A regression test covers the failure.
+    validations:
+      required: true

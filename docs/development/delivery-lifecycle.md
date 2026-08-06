@@ -1,9 +1,9 @@
 # Learning MVP delivery lifecycle
 
 - **Status:** Approved
-- **Version:** 1.1
+- **Version:** 1.2
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-04
+- **Last updated:** 2026-08-06
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP operated by one person
@@ -12,6 +12,7 @@
 - **Solution architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
 - **OpenAPI:** [Browser-facing API contract](../architecture/api/openapi.yaml)
 - **Platform:** [Learning MVP platform and delivery design](../architecture/deployment/mvp-platform-and-delivery.md)
+- **Work management:** [GitHub Issues and Projects baseline](work-management.md)
 
 > This document defines the human workflow and evidence required to move a small
 > change from intent to an accepted private release. The platform document owns the
@@ -137,6 +138,13 @@ Before merge:
 
 A separate GitHub issue is optional for small changes when the pull request and linked
 source provide sufficient traceability.
+
+When an issue exists, use `Related to #<issue-number>` while deployment, smoke tests,
+or acceptance remain after merge. Use `Closes #<issue-number>` only when merging the
+pull request satisfies every applicable acceptance step. Material work remains open
+after merge, moves to `In validation`, and is closed only after acceptance; the
+[work-management baseline](work-management.md) owns the corresponding Project states
+and automations.
 
 ## 6. Validation and quality gates
 
@@ -268,5 +276,6 @@ A work item is done when all applicable conditions are true:
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.2 | 2026-08-06 | Linked the approved work-management baseline and clarified acceptance-aware issue closure after merge. | Ruben Hernandez |
 | 1.1 | 2026-08-04 | Recorded the approved technology baseline, closed Phase 1 solution definition, and made the executable walking skeleton the next gate. | Ruben Hernandez |
 | 1.0 | 2026-08-03 | Approved a concise solo-project lifecycle, separated platform mechanics, made accessibility an MVP gate, and clarified `dev` deployment versus private release. | Ruben Hernandez |

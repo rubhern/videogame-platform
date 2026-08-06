@@ -1,0 +1,48 @@
+name: Spike
+description: Reduce uncertainty and produce an explicit decision
+title: "[Spike] "
+labels:
+  - "type:spike"
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What uncertainty must be resolved?
+    validations:
+      required: true
+
+  - type: textarea
+    id: hypothesis
+    attributes:
+      label: Hypothesis
+      description: What do we currently expect to be true?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and boundaries
+      description: What will be evaluated and what is excluded?
+    validations:
+      required: true
+
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Evaluation criteria
+      description: What evidence determines success or failure?
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Expected output
+      description: Decision, recommendation, evidence and follow-up work.
+    validations:
+      required: true

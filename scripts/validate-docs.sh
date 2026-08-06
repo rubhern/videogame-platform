@@ -21,6 +21,7 @@ required_files=(
   "docs/development/openapi-validation.md"
   "docs/development/openapi-web-documentation.md"
   "docs/development/delivery-lifecycle.md"
+  "docs/development/work-management.md"
   "docs/architecture/domain/mvp-domain-model.md"
   "docs/architecture/application/mvp-use-cases.md"
   "docs/architecture/mvp-solution-architecture.md"
