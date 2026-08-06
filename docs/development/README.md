@@ -1,5 +1,7 @@
 # Development environment
 
+- [Local development setup](local-setup.md): supported WSL2 boundary, mandatory
+  prerequisites, non-secret local configuration, validation, and troubleshooting.
 - [Codex workspace setup](codex-setup.md): verified tools, configuration,
   rationale, risks, and deferred capabilities.
 - [OpenAPI contract validation](openapi-validation.md): syntax, lint, references,

@@ -45,15 +45,16 @@ image are proven.
 6. Review the resolved decisions and reopening conditions in
    [open questions](docs/product/open-questions.md).
 7. Use the [glossary](docs/product/glossary.md) to keep terminology consistent.
-8. Review the [Codex workspace setup](docs/development/codex-setup.md).
-9. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) to
+8. Prepare the workstation with the [local development setup](docs/development/local-setup.md).
+9. Review the [Codex workspace setup](docs/development/codex-setup.md).
+10. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) to
    validate the API contract locally and in CI.
-10. Browse the [generated API reference](docs/architecture/api/reference/index.html)
+11. Browse the [generated API reference](docs/architecture/api/reference/index.html)
     or follow its [regeneration tutorial](docs/development/openapi-web-documentation.md).
-11. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
+12. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
     and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
     skeleton and private `dev` environment.
-12. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
+13. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
     [architecture diagram catalogue](docs/architecture/diagrams/README.md), and
     [ADR-0005 through ADR-0013](docs/decisions/) before implementing the walking
     skeleton, persistence, identity, delivery, hosting, or observability.
@@ -73,12 +74,14 @@ documents, if needed later, are exports rather than authoritative copies.
 ## Validation
 
 ```bash
+bash scripts/validate-prerequisites.sh
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
-bash mvnw -f tools/igdb-poc/pom.xml clean verify
+./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
-OpenAPI validation requires Node.js 22.12 or newer. The Maven command requires
-JDK 21 and tests the isolated IGDB PoC only with local fixtures. Neither command
+The prerequisite gate requires the supported Ubuntu WSL2 environment, Java 25,
+Node.js 24, Docker Desktop integration, and the repository Maven Wrapper. The Maven
+verification tests the isolated IGDB PoC only with local fixtures. Neither command
 requires provider credentials or calls IGDB.

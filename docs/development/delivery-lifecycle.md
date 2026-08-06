@@ -155,7 +155,7 @@ current commands are:
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
-bash mvnw -f tools/igdb-poc/pom.xml clean verify
+./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
 The initial implementation adds compilation, formatting/static analysis, domain and

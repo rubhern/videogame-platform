@@ -22,7 +22,7 @@ the backend, IGDB, or any authenticated service.
 
 ## Prerequisites
 
-- Node.js `22.12.0` or newer;
+- Node.js `24.x`;
 - npm;
 - repository development dependencies installed from `package-lock.json`.
 
