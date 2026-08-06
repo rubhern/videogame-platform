@@ -1,0 +1,1048 @@
+{
+  "configuration" : {
+    "scope" : "SoftwareSystem"
+  },
+  "description" : "C4 model for the approved private learning MVP target design.",
+  "documentation" : { },
+  "id" : 1,
+  "lastModifiedAgent" : "structurizr/diagrams/a2b131dc-7c5d-4224-ad87-c8e6f73de118",
+  "lastModifiedDate" : "2026-08-06T11:42:47Z",
+  "lastModifiedUser" : "1950429305",
+  "model" : {
+    "deploymentNodes" : [ {
+      "children" : [ {
+        "containerInstances" : [ {
+          "containerId" : "5",
+          "environment" : "Private dev",
+          "id" : "31",
+          "instanceId" : 1,
+          "properties" : {
+            "structurizr.dsl.identifier" : "webFrontendInstance"
+          },
+          "relationships" : [ {
+            "description" : "Uses the same-origin product API",
+            "destinationId" : "39",
+            "id" : "40",
+            "linkedRelationshipId" : "22",
+            "sourceId" : "31",
+            "technology" : "HTTPS/JSON"
+          }, {
+            "description" : "Follows authorization redirects",
+            "destinationId" : "41",
+            "id" : "42",
+            "linkedRelationshipId" : "23",
+            "sourceId" : "31",
+            "technology" : "HTTPS/OIDC"
+          }, {
+            "description" : "Loads approved cover images",
+            "destinationId" : "58",
+            "id" : "59",
+            "linkedRelationshipId" : "24",
+            "sourceId" : "31",
+            "technology" : "HTTPS"
+          }, {
+            "description" : "Uses private HTTPS",
+            "destinationId" : "36",
+            "id" : "60",
+            "sourceId" : "31",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Container Instance"
+        } ],
+        "environment" : "Private dev",
+        "id" : "30",
+        "instances" : "1",
+        "name" : "Web Browser",
+        "properties" : {
+          "structurizr.dsl.identifier" : "browser"
+        },
+        "tags" : "Element,Deployment Node",
+        "technology" : "Chrome, Edge or equivalent"
+      } ],
+      "description" : "Ruben's workstation or another device connected to the private tailnet.",
+      "environment" : "Private dev",
+      "id" : "29",
+      "instances" : "1",
+      "name" : "Owner Device",
+      "properties" : {
+        "structurizr.dsl.identifier" : "ownerDevice"
+      },
+      "tags" : "Element,Deployment Node",
+      "technology" : "Windows 11"
+    }, {
+      "description" : "Source-control and delivery SaaS.",
+      "environment" : "Private dev",
+      "id" : "32",
+      "infrastructureNodes" : [ {
+        "description" : "Builds, validates and publishes the immutable multi-architecture image.",
+        "environment" : "Private dev",
+        "id" : "33",
+        "name" : "GitHub Actions",
+        "properties" : {
+          "structurizr.dsl.identifier" : "githubActions"
+        },
+        "relationships" : [ {
+          "description" : "Publishes multi-architecture OCI image",
+          "destinationId" : "34",
+          "id" : "68",
+          "sourceId" : "33",
+          "tags" : "Relationship"
+        }, {
+          "description" : "Orchestrates manually approved deployment",
+          "destinationId" : "38",
+          "id" : "69",
+          "sourceId" : "33",
+          "tags" : "Relationship",
+          "technology" : "Tailscale/OCI APIs"
+        } ],
+        "tags" : "Element,Infrastructure Node",
+        "technology" : "GitHub Actions"
+      }, {
+        "description" : "Stores the application OCI image by commit and digest.",
+        "environment" : "Private dev",
+        "id" : "34",
+        "name" : "GitHub Container Registry",
+        "properties" : {
+          "structurizr.dsl.identifier" : "ghcr"
+        },
+        "relationships" : [ {
+          "description" : "Provides immutable image pulled by digest",
+          "destinationId" : "38",
+          "id" : "70",
+          "sourceId" : "34",
+          "tags" : "Relationship"
+        } ],
+        "tags" : "Element,Infrastructure Node",
+        "technology" : "GHCR"
+      } ],
+      "instances" : "1",
+      "name" : "GitHub",
+      "properties" : {
+        "structurizr.dsl.identifier" : "github"
+      },
+      "tags" : "Element,Deployment Node",
+      "technology" : "GitHub"
+    }, {
+      "environment" : "Private dev",
+      "id" : "35",
+      "infrastructureNodes" : [ {
+        "description" : "Provides private owner-only HTTPS access to the application and identity provider.",
+        "environment" : "Private dev",
+        "id" : "36",
+        "name" : "Tailscale HTTPS",
+        "properties" : {
+          "structurizr.dsl.identifier" : "privateHttps"
+        },
+        "relationships" : [ {
+          "description" : "Routes same-origin HTTPS",
+          "destinationId" : "39",
+          "id" : "61",
+          "sourceId" : "36",
+          "tags" : "Relationship"
+        }, {
+          "description" : "Routes private OIDC HTTPS",
+          "destinationId" : "41",
+          "id" : "62",
+          "sourceId" : "36",
+          "tags" : "Relationship"
+        } ],
+        "tags" : "Element,Infrastructure Node",
+        "technology" : "Tailscale, MagicDNS and HTTPS"
+      } ],
+      "instances" : "1",
+      "name" : "Private Tailnet",
+      "properties" : {
+        "structurizr.dsl.identifier" : "tailscale"
+      },
+      "tags" : "Element,Deployment Node",
+      "technology" : "Tailscale Personal"
+    }, {
+      "children" : [ {
+        "children" : [ {
+          "containerInstances" : [ {
+            "containerId" : "7",
+            "environment" : "Private dev",
+            "id" : "45",
+            "instanceId" : 1,
+            "properties" : {
+              "structurizr.dsl.identifier" : "applicationDatabaseInstance"
+            },
+            "tags" : "Container Instance"
+          } ],
+          "description" : "One PostgreSQL server with isolated application and Keycloak databases and roles.",
+          "environment" : "Private dev",
+          "id" : "44",
+          "infrastructureNodes" : [ {
+            "description" : "Stores Keycloak realm, client, session and identity data.",
+            "environment" : "Private dev",
+            "id" : "47",
+            "name" : "Identity Database",
+            "properties" : {
+              "structurizr.dsl.identifier" : "identityDatabaseInstance"
+            },
+            "tags" : "Element,Infrastructure Node,Database",
+            "technology" : "PostgreSQL 18"
+          } ],
+          "instances" : "1",
+          "name" : "PostgreSQL Server",
+          "properties" : {
+            "structurizr.dsl.identifier" : "postgresql"
+          },
+          "tags" : "Element,Deployment Node",
+          "technology" : "PostgreSQL 18"
+        } ],
+        "containerInstances" : [ {
+          "containerId" : "6",
+          "environment" : "Private dev",
+          "id" : "39",
+          "instanceId" : 1,
+          "properties" : {
+            "structurizr.dsl.identifier" : "applicationBackendInstance"
+          },
+          "relationships" : [ {
+            "description" : "Exchanges authorization codes and validates identity",
+            "destinationId" : "41",
+            "id" : "43",
+            "linkedRelationshipId" : "26",
+            "sourceId" : "39",
+            "technology" : "HTTPS/OIDC"
+          }, {
+            "description" : "Reads and writes product state",
+            "destinationId" : "45",
+            "id" : "46",
+            "linkedRelationshipId" : "25",
+            "sourceId" : "39",
+            "technology" : "JDBC"
+          }, {
+            "description" : "Exports logs, metrics and traces",
+            "destinationId" : "51",
+            "id" : "52",
+            "linkedRelationshipId" : "28",
+            "sourceId" : "39",
+            "technology" : "OTLP"
+          }, {
+            "description" : "Synchronizes bounded catalogue metadata",
+            "destinationId" : "56",
+            "id" : "57",
+            "linkedRelationshipId" : "27",
+            "sourceId" : "39",
+            "technology" : "HTTPS"
+          }, {
+            "description" : "Resolves protected runtime secrets",
+            "destinationId" : "54",
+            "id" : "64",
+            "sourceId" : "39",
+            "tags" : "Relationship",
+            "technology" : "HTTPS"
+          }, {
+            "description" : "Exports telemetry",
+            "destinationId" : "48",
+            "id" : "66",
+            "sourceId" : "39",
+            "tags" : "Relationship",
+            "technology" : "OTLP"
+          } ],
+          "tags" : "Container Instance"
+        } ],
+        "description" : "Single private Ubuntu host with a maximum of 2 OCPUs and 12 GB RAM.",
+        "environment" : "Private dev",
+        "id" : "38",
+        "infrastructureNodes" : [ {
+          "description" : "Receives and exports application telemetry.",
+          "environment" : "Private dev",
+          "id" : "48",
+          "name" : "OpenTelemetry Collector",
+          "properties" : {
+            "structurizr.dsl.identifier" : "otelCollector"
+          },
+          "relationships" : [ {
+            "description" : "Exports telemetry",
+            "destinationId" : "51",
+            "id" : "67",
+            "sourceId" : "48",
+            "tags" : "Relationship",
+            "technology" : "OTLP/HTTPS"
+          } ],
+          "tags" : "Element,Infrastructure Node",
+          "technology" : "OpenTelemetry Collector"
+        }, {
+          "description" : "Creates encrypted logical backups of application and Keycloak state.",
+          "environment" : "Private dev",
+          "id" : "49",
+          "name" : "Backup Job",
+          "properties" : {
+            "structurizr.dsl.identifier" : "backupJob"
+          },
+          "relationships" : [ {
+            "description" : "Creates logical backup",
+            "destinationId" : "45",
+            "id" : "71",
+            "sourceId" : "49",
+            "tags" : "Relationship",
+            "technology" : "PostgreSQL"
+          }, {
+            "description" : "Creates logical backup",
+            "destinationId" : "47",
+            "id" : "72",
+            "sourceId" : "49",
+            "tags" : "Relationship",
+            "technology" : "PostgreSQL"
+          }, {
+            "description" : "Writes encrypted backup artefacts",
+            "destinationId" : "53",
+            "id" : "73",
+            "sourceId" : "49",
+            "tags" : "Relationship",
+            "technology" : "HTTPS"
+          } ],
+          "tags" : "Element,Infrastructure Node",
+          "technology" : "Scheduled or operator-triggered PostgreSQL backup tooling"
+        } ],
+        "instances" : "1",
+        "name" : "Ampere A1 VM",
+        "properties" : {
+          "structurizr.dsl.identifier" : "vm"
+        },
+        "softwareSystemInstances" : [ {
+          "environment" : "Private dev",
+          "id" : "41",
+          "instanceId" : 1,
+          "properties" : {
+            "structurizr.dsl.identifier" : "keycloakInstance"
+          },
+          "relationships" : [ {
+            "description" : "Reads and writes identity state",
+            "destinationId" : "47",
+            "id" : "63",
+            "sourceId" : "41",
+            "tags" : "Relationship",
+            "technology" : "JDBC"
+          }, {
+            "description" : "Resolves protected runtime secrets",
+            "destinationId" : "54",
+            "id" : "65",
+            "sourceId" : "41",
+            "tags" : "Relationship",
+            "technology" : "HTTPS"
+          } ],
+          "softwareSystemId" : "8",
+          "tags" : "Software System Instance"
+        } ],
+        "tags" : "Element,Deployment Node",
+        "technology" : "Ubuntu, ARM64"
+      }, {
+        "environment" : "Private dev",
+        "id" : "50",
+        "instances" : "1",
+        "name" : "OCI Observability Services",
+        "properties" : {
+          "structurizr.dsl.identifier" : "observability"
+        },
+        "softwareSystemInstances" : [ {
+          "environment" : "Private dev",
+          "id" : "51",
+          "instanceId" : 1,
+          "properties" : {
+            "structurizr.dsl.identifier" : "telemetryPlatformInstance"
+          },
+          "softwareSystemId" : "11",
+          "tags" : "Software System Instance"
+        } ],
+        "tags" : "Element,Deployment Node",
+        "technology" : "OCI Logging, Monitoring and APM"
+      } ],
+      "description" : "Private persistent development environment.",
+      "environment" : "Private dev",
+      "id" : "37",
+      "infrastructureNodes" : [ {
+        "description" : "Stores encrypted PostgreSQL and Keycloak backups outside the VM.",
+        "environment" : "Private dev",
+        "id" : "53",
+        "name" : "OCI Object Storage",
+        "properties" : {
+          "structurizr.dsl.identifier" : "objectStorage"
+        },
+        "tags" : "Element,Infrastructure Node",
+        "technology" : "OCI Object Storage"
+      }, {
+        "description" : "Stores protected runtime secrets and independently rotatable credentials.",
+        "environment" : "Private dev",
+        "id" : "54",
+        "name" : "OCI Vault",
+        "properties" : {
+          "structurizr.dsl.identifier" : "vault"
+        },
+        "tags" : "Element,Infrastructure Node",
+        "technology" : "OCI Vault"
+      } ],
+      "instances" : "1",
+      "name" : "OCI Always Free",
+      "properties" : {
+        "structurizr.dsl.identifier" : "oci"
+      },
+      "tags" : "Element,Deployment Node",
+      "technology" : "Oracle Cloud Infrastructure"
+    }, {
+      "description" : "External provider infrastructure.",
+      "environment" : "Private dev",
+      "id" : "55",
+      "instances" : "1",
+      "name" : "IGDB Infrastructure",
+      "properties" : {
+        "structurizr.dsl.identifier" : "igdb"
+      },
+      "softwareSystemInstances" : [ {
+        "environment" : "Private dev",
+        "id" : "56",
+        "instanceId" : 1,
+        "properties" : {
+          "structurizr.dsl.identifier" : "igdbApiInstance"
+        },
+        "softwareSystemId" : "9",
+        "tags" : "Software System Instance"
+      }, {
+        "environment" : "Private dev",
+        "id" : "58",
+        "instanceId" : 1,
+        "properties" : {
+          "structurizr.dsl.identifier" : "igdbImageCdnInstance"
+        },
+        "softwareSystemId" : "10",
+        "tags" : "Software System Instance"
+      } ],
+      "tags" : "Element,Deployment Node",
+      "technology" : "IGDB / Twitch"
+    } ],
+    "people" : [ {
+      "description" : "Browses releases, searches games and reads public game pages.",
+      "id" : "1",
+      "name" : "Visitor",
+      "properties" : {
+        "structurizr.dsl.identifier" : "visitor"
+      },
+      "relationships" : [ {
+        "description" : "Browses releases, searches and views games",
+        "destinationId" : "4",
+        "id" : "12",
+        "sourceId" : "1",
+        "tags" : "Relationship"
+      }, {
+        "description" : "Uses",
+        "destinationId" : "5",
+        "id" : "19",
+        "sourceId" : "1",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      } ],
+      "tags" : "Element,Person"
+    }, {
+      "description" : "Browses the catalogue and manages their own personal ratings.",
+      "id" : "2",
+      "name" : "Authenticated User",
+      "properties" : {
+        "structurizr.dsl.identifier" : "authenticatedUser"
+      },
+      "relationships" : [ {
+        "description" : "Manages personal ratings",
+        "destinationId" : "4",
+        "id" : "13",
+        "sourceId" : "2",
+        "tags" : "Relationship"
+      }, {
+        "description" : "Uses",
+        "destinationId" : "5",
+        "id" : "20",
+        "sourceId" : "2",
+        "tags" : "Relationship",
+        "technology" : "HTTPS"
+      } ],
+      "tags" : "Element,Person"
+    }, {
+      "description" : "Operates the platform and triggers bounded catalogue synchronization.",
+      "id" : "3",
+      "name" : "Operator",
+      "properties" : {
+        "structurizr.dsl.identifier" : "operator"
+      },
+      "relationships" : [ {
+        "description" : "Operates and synchronizes the platform",
+        "destinationId" : "4",
+        "id" : "14",
+        "sourceId" : "3",
+        "tags" : "Relationship"
+      }, {
+        "description" : "Triggers synchronization and operational commands",
+        "destinationId" : "6",
+        "id" : "21",
+        "sourceId" : "3",
+        "tags" : "Relationship"
+      } ],
+      "tags" : "Element,Person"
+    } ],
+    "softwareSystems" : [ {
+      "containers" : [ {
+        "description" : "Renders the Spanish-first user experience and calls the same-origin product API.",
+        "documentation" : { },
+        "id" : "5",
+        "name" : "Web Frontend",
+        "properties" : {
+          "structurizr.dsl.identifier" : "webFrontend"
+        },
+        "relationships" : [ {
+          "description" : "Uses the same-origin product API",
+          "destinationId" : "6",
+          "id" : "22",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/JSON"
+        }, {
+          "description" : "Follows authorization redirects",
+          "destinationId" : "8",
+          "id" : "23",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/OIDC"
+        }, {
+          "description" : "Loads approved cover images",
+          "destinationId" : "10",
+          "id" : "24",
+          "sourceId" : "5",
+          "tags" : "Relationship",
+          "technology" : "HTTPS"
+        } ],
+        "tags" : "Element,Container,Web Frontend",
+        "technology" : "React 19.2, TypeScript, Vite 8.1"
+      }, {
+        "description" : "Serves static assets, owns the BFF/API, coordinates the modular monolith and synchronizes the bounded catalogue.",
+        "documentation" : { },
+        "id" : "6",
+        "name" : "Application Backend",
+        "properties" : {
+          "structurizr.dsl.identifier" : "applicationBackend"
+        },
+        "relationships" : [ {
+          "description" : "Reads and writes product state",
+          "destinationId" : "7",
+          "id" : "25",
+          "sourceId" : "6",
+          "tags" : "Relationship",
+          "technology" : "JDBC"
+        }, {
+          "description" : "Exchanges authorization codes and validates identity",
+          "destinationId" : "8",
+          "id" : "26",
+          "sourceId" : "6",
+          "tags" : "Relationship",
+          "technology" : "HTTPS/OIDC"
+        }, {
+          "description" : "Synchronizes bounded catalogue metadata",
+          "destinationId" : "9",
+          "id" : "27",
+          "sourceId" : "6",
+          "tags" : "Relationship",
+          "technology" : "HTTPS"
+        }, {
+          "description" : "Exports logs, metrics and traces",
+          "destinationId" : "11",
+          "id" : "28",
+          "sourceId" : "6",
+          "tags" : "Relationship",
+          "technology" : "OTLP"
+        } ],
+        "tags" : "Element,Container,Application",
+        "technology" : "Java 25, Spring Boot 4.1, Spring Modulith 2.1"
+      }, {
+        "description" : "Stores catalogue, release, user mapping, rating and synchronization state.",
+        "documentation" : { },
+        "id" : "7",
+        "name" : "Application Database",
+        "properties" : {
+          "structurizr.dsl.identifier" : "applicationDatabase"
+        },
+        "tags" : "Element,Container,Database",
+        "technology" : "PostgreSQL 18"
+      } ],
+      "description" : "Spanish-first platform for release discovery, game information and personal ratings.",
+      "documentation" : { },
+      "id" : "4",
+      "name" : "VideoGame Platform",
+      "properties" : {
+        "structurizr.dsl.identifier" : "videoGamePlatform"
+      },
+      "relationships" : [ {
+        "description" : "Delegates authentication and identity",
+        "destinationId" : "8",
+        "id" : "15",
+        "sourceId" : "4",
+        "tags" : "Relationship"
+      }, {
+        "description" : "Imports bounded catalogue metadata",
+        "destinationId" : "9",
+        "id" : "16",
+        "sourceId" : "4",
+        "tags" : "Relationship"
+      }, {
+        "description" : "References approved cover images",
+        "destinationId" : "10",
+        "id" : "17",
+        "sourceId" : "4",
+        "tags" : "Relationship"
+      }, {
+        "description" : "Emits operational telemetry",
+        "destinationId" : "11",
+        "id" : "18",
+        "sourceId" : "4",
+        "tags" : "Relationship"
+      } ],
+      "tags" : "Element,Software System"
+    }, {
+      "description" : "Keycloak-based system that authenticates users and issues validated identity context.",
+      "documentation" : { },
+      "id" : "8",
+      "name" : "Identity Provider",
+      "properties" : {
+        "structurizr.dsl.identifier" : "identityProvider"
+      },
+      "tags" : "Element,Software System,External System"
+    }, {
+      "description" : "Provides candidate video-game catalogue and release metadata.",
+      "documentation" : { },
+      "id" : "9",
+      "name" : "IGDB API",
+      "properties" : {
+        "structurizr.dsl.identifier" : "igdbApi"
+      },
+      "tags" : "Element,Software System,External System"
+    }, {
+      "description" : "Serves approved provider cover images directly to the browser.",
+      "documentation" : { },
+      "id" : "10",
+      "name" : "IGDB Image CDN",
+      "properties" : {
+        "structurizr.dsl.identifier" : "igdbImageCdn"
+      },
+      "tags" : "Element,Software System,External System"
+    }, {
+      "description" : "Stores and exposes application logs, metrics and traces.",
+      "documentation" : { },
+      "id" : "11",
+      "name" : "Telemetry Platform",
+      "properties" : {
+        "structurizr.dsl.identifier" : "telemetryPlatform"
+      },
+      "tags" : "Element,Software System,External System"
+    } ]
+  },
+  "name" : "VideoGame Platform",
+  "properties" : {
+    "structurizr.inspection.info" : "0",
+    "structurizr.inspection.ignore" : "0",
+    "structurizr.inspection.error" : "22",
+    "structurizr.inspection.warning" : "0",
+    "structurizr.dsl" : "d29ya3NwYWNlICJWaWRlb0dhbWUgUGxhdGZvcm0iICJDNCBtb2RlbCBmb3IgdGhlIGFwcHJvdmVkIHByaXZhdGUgbGVhcm5pbmcgTVZQIHRhcmdldCBkZXNpZ24uIiB7CgogICAgbW9kZWwgewogICAgICAgICFpZGVudGlmaWVycyBmbGF0CiAgICAgICAgIWltcGxpZWRSZWxhdGlvbnNoaXBzIGZhbHNlCgogICAgICAgIHZpc2l0b3IgPSBwZXJzb24gIlZpc2l0b3IiIHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gIkJyb3dzZXMgcmVsZWFzZXMsIHNlYXJjaGVzIGdhbWVzIGFuZCByZWFkcyBwdWJsaWMgZ2FtZSBwYWdlcy4iCiAgICAgICAgfQoKICAgICAgICBhdXRoZW50aWNhdGVkVXNlciA9IHBlcnNvbiAiQXV0aGVudGljYXRlZCBVc2VyIiB7CiAgICAgICAgICAgIGRlc2NyaXB0aW9uICJCcm93c2VzIHRoZSBjYXRhbG9ndWUgYW5kIG1hbmFnZXMgdGhlaXIgb3duIHBlcnNvbmFsIHJhdGluZ3MuIgogICAgICAgIH0KCiAgICAgICAgb3BlcmF0b3IgPSBwZXJzb24gIk9wZXJhdG9yIiB7CiAgICAgICAgICAgIGRlc2NyaXB0aW9uICJPcGVyYXRlcyB0aGUgcGxhdGZvcm0gYW5kIHRyaWdnZXJzIGJvdW5kZWQgY2F0YWxvZ3VlIHN5bmNocm9uaXphdGlvbi4iCiAgICAgICAgfQoKICAgICAgICB2aWRlb0dhbWVQbGF0Zm9ybSA9IHNvZnR3YXJlU3lzdGVtICJWaWRlb0dhbWUgUGxhdGZvcm0iIHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gIlNwYW5pc2gtZmlyc3QgcGxhdGZvcm0gZm9yIHJlbGVhc2UgZGlzY292ZXJ5LCBnYW1lIGluZm9ybWF0aW9uIGFuZCBwZXJzb25hbCByYXRpbmdzLiIKCiAgICAgICAgICAgIHdlYkZyb250ZW5kID0gY29udGFpbmVyICJXZWIgRnJvbnRlbmQiIHsKICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uICJSZW5kZXJzIHRoZSBTcGFuaXNoLWZpcnN0IHVzZXIgZXhwZXJpZW5jZSBhbmQgY2FsbHMgdGhlIHNhbWUtb3JpZ2luIHByb2R1Y3QgQVBJLiIKICAgICAgICAgICAgICAgIHRlY2hub2xvZ3kgIlJlYWN0IDE5LjIsIFR5cGVTY3JpcHQsIFZpdGUgOC4xIgogICAgICAgICAgICAgICAgdGFncyAiV2ViIEZyb250ZW5kIgogICAgICAgICAgICB9CgogICAgICAgICAgICBhcHBsaWNhdGlvbkJhY2tlbmQgPSBjb250YWluZXIgIkFwcGxpY2F0aW9uIEJhY2tlbmQiIHsKICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uICJTZXJ2ZXMgc3RhdGljIGFzc2V0cywgb3ducyB0aGUgQkZGL0FQSSwgY29vcmRpbmF0ZXMgdGhlIG1vZHVsYXIgbW9ub2xpdGggYW5kIHN5bmNocm9uaXplcyB0aGUgYm91bmRlZCBjYXRhbG9ndWUuIgogICAgICAgICAgICAgICAgdGVjaG5vbG9neSAiSmF2YSAyNSwgU3ByaW5nIEJvb3QgNC4xLCBTcHJpbmcgTW9kdWxpdGggMi4xIgogICAgICAgICAgICAgICAgdGFncyAiQXBwbGljYXRpb24iCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGFwcGxpY2F0aW9uRGF0YWJhc2UgPSBjb250YWluZXIgIkFwcGxpY2F0aW9uIERhdGFiYXNlIiB7CiAgICAgICAgICAgICAgICBkZXNjcmlwdGlvbiAiU3RvcmVzIGNhdGFsb2d1ZSwgcmVsZWFzZSwgdXNlciBtYXBwaW5nLCByYXRpbmcgYW5kIHN5bmNocm9uaXphdGlvbiBzdGF0ZS4iCiAgICAgICAgICAgICAgICB0ZWNobm9sb2d5ICJQb3N0Z3JlU1FMIDE4IgogICAgICAgICAgICAgICAgdGFncyAiRGF0YWJhc2UiCiAgICAgICAgICAgIH0KICAgICAgICB9CgogICAgICAgIGlkZW50aXR5UHJvdmlkZXIgPSBzb2Z0d2FyZVN5c3RlbSAiSWRlbnRpdHkgUHJvdmlkZXIiIHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gIktleWNsb2FrLWJhc2VkIHN5c3RlbSB0aGF0IGF1dGhlbnRpY2F0ZXMgdXNlcnMgYW5kIGlzc3VlcyB2YWxpZGF0ZWQgaWRlbnRpdHkgY29udGV4dC4iCiAgICAgICAgICAgIHRhZ3MgIkV4dGVybmFsIFN5c3RlbSIKICAgICAgICB9CgogICAgICAgIGlnZGJBcGkgPSBzb2Z0d2FyZVN5c3RlbSAiSUdEQiBBUEkiIHsKICAgICAgICAgICAgZGVzY3JpcHRpb24gIlByb3ZpZGVzIGNhbmRpZGF0ZSB2aWRlby1nYW1lIGNhdGFsb2d1ZSBhbmQgcmVsZWFzZSBtZXRhZGF0YS4iCiAgICAgICAgICAgIHRhZ3MgIkV4dGVybmFsIFN5c3RlbSIKICAgICAgICB9CgogICAgICAgIGlnZGJJbWFnZUNkbiA9IHNvZnR3YXJlU3lzdGVtICJJR0RCIEltYWdlIENETiIgewogICAgICAgICAgICBkZXNjcmlwdGlvbiAiU2VydmVzIGFwcHJvdmVkIHByb3ZpZGVyIGNvdmVyIGltYWdlcyBkaXJlY3RseSB0byB0aGUgYnJvd3Nlci4iCiAgICAgICAgICAgIHRhZ3MgIkV4dGVybmFsIFN5c3RlbSIKICAgICAgICB9CgogICAgICAgIHRlbGVtZXRyeVBsYXRmb3JtID0gc29mdHdhcmVTeXN0ZW0gIlRlbGVtZXRyeSBQbGF0Zm9ybSIgewogICAgICAgICAgICBkZXNjcmlwdGlvbiAiU3RvcmVzIGFuZCBleHBvc2VzIGFwcGxpY2F0aW9uIGxvZ3MsIG1ldHJpY3MgYW5kIHRyYWNlcy4iCiAgICAgICAgICAgIHRhZ3MgIkV4dGVybmFsIFN5c3RlbSIKICAgICAgICB9CgogICAgICAgIHZpc2l0b3IgLT4gdmlkZW9HYW1lUGxhdGZvcm0gIkJyb3dzZXMgcmVsZWFzZXMsIHNlYXJjaGVzIGFuZCB2aWV3cyBnYW1lcyIKICAgICAgICBhdXRoZW50aWNhdGVkVXNlciAtPiB2aWRlb0dhbWVQbGF0Zm9ybSAiTWFuYWdlcyBwZXJzb25hbCByYXRpbmdzIgogICAgICAgIG9wZXJhdG9yIC0+IHZpZGVvR2FtZVBsYXRmb3JtICJPcGVyYXRlcyBhbmQgc3luY2hyb25pemVzIHRoZSBwbGF0Zm9ybSIKCiAgICAgICAgdmlkZW9HYW1lUGxhdGZvcm0gLT4gaWRlbnRpdHlQcm92aWRlciAiRGVsZWdhdGVzIGF1dGhlbnRpY2F0aW9uIGFuZCBpZGVudGl0eSIKICAgICAgICB2aWRlb0dhbWVQbGF0Zm9ybSAtPiBpZ2RiQXBpICJJbXBvcnRzIGJvdW5kZWQgY2F0YWxvZ3VlIG1ldGFkYXRhIgogICAgICAgIHZpZGVvR2FtZVBsYXRmb3JtIC0+IGlnZGJJbWFnZUNkbiAiUmVmZXJlbmNlcyBhcHByb3ZlZCBjb3ZlciBpbWFnZXMiCiAgICAgICAgdmlkZW9HYW1lUGxhdGZvcm0gLT4gdGVsZW1ldHJ5UGxhdGZvcm0gIkVtaXRzIG9wZXJhdGlvbmFsIHRlbGVtZXRyeSIKCiAgICAgICAgdmlzaXRvciAtPiB3ZWJGcm9udGVuZCAiVXNlcyIgIkhUVFBTIgogICAgICAgIGF1dGhlbnRpY2F0ZWRVc2VyIC0+IHdlYkZyb250ZW5kICJVc2VzIiAiSFRUUFMiCiAgICAgICAgb3BlcmF0b3IgLT4gYXBwbGljYXRpb25CYWNrZW5kICJUcmlnZ2VycyBzeW5jaHJvbml6YXRpb24gYW5kIG9wZXJhdGlvbmFsIGNvbW1hbmRzIgoKICAgICAgICB3ZWJGcm9udGVuZCAtPiBhcHBsaWNhdGlvbkJhY2tlbmQgIlVzZXMgdGhlIHNhbWUtb3JpZ2luIHByb2R1Y3QgQVBJIiAiSFRUUFMvSlNPTiIKICAgICAgICB3ZWJGcm9udGVuZCAtPiBpZGVudGl0eVByb3ZpZGVyICJGb2xsb3dzIGF1dGhvcml6YXRpb24gcmVkaXJlY3RzIiAiSFRUUFMvT0lEQyIKICAgICAgICB3ZWJGcm9udGVuZCAtPiBpZ2RiSW1hZ2VDZG4gIkxvYWRzIGFwcHJvdmVkIGNvdmVyIGltYWdlcyIgIkhUVFBTIgoKICAgICAgICBhcHBsaWNhdGlvbkJhY2tlbmQgLT4gYXBwbGljYXRpb25EYXRhYmFzZSAiUmVhZHMgYW5kIHdyaXRlcyBwcm9kdWN0IHN0YXRlIiAiSkRCQyIKICAgICAgICBhcHBsaWNhdGlvbkJhY2tlbmQgLT4gaWRlbnRpdHlQcm92aWRlciAiRXhjaGFuZ2VzIGF1dGhvcml6YXRpb24gY29kZXMgYW5kIHZhbGlkYXRlcyBpZGVudGl0eSIgIkhUVFBTL09JREMiCiAgICAgICAgYXBwbGljYXRpb25CYWNrZW5kIC0+IGlnZGJBcGkgIlN5bmNocm9uaXplcyBib3VuZGVkIGNhdGFsb2d1ZSBtZXRhZGF0YSIgIkhUVFBTIgogICAgICAgIGFwcGxpY2F0aW9uQmFja2VuZCAtPiB0ZWxlbWV0cnlQbGF0Zm9ybSAiRXhwb3J0cyBsb2dzLCBtZXRyaWNzIGFuZCB0cmFjZXMiICJPVExQIgoKCiAgICAgICAgZGVwbG95bWVudEVudmlyb25tZW50ICJQcml2YXRlIGRldiIgewoKICAgICAgICAgICAgb3duZXJEZXZpY2UgPSBkZXBsb3ltZW50Tm9kZSAiT3duZXIgRGV2aWNlIiB7CiAgICAgICAgICAgICAgICBkZXNjcmlwdGlvbiAiUnViZW4ncyB3b3Jrc3RhdGlvbiBvciBhbm90aGVyIGRldmljZSBjb25uZWN0ZWQgdG8gdGhlIHByaXZhdGUgdGFpbG5ldC4iCiAgICAgICAgICAgICAgICB0ZWNobm9sb2d5ICJXaW5kb3dzIDExIgoKICAgICAgICAgICAgICAgIGJyb3dzZXIgPSBkZXBsb3ltZW50Tm9kZSAiV2ViIEJyb3dzZXIiIHsKICAgICAgICAgICAgICAgICAgICB0ZWNobm9sb2d5ICJDaHJvbWUsIEVkZ2Ugb3IgZXF1aXZhbGVudCIKCiAgICAgICAgICAgICAgICAgICAgd2ViRnJvbnRlbmRJbnN0YW5jZSA9IGNvbnRhaW5lckluc3RhbmNlIHdlYkZyb250ZW5kCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGdpdGh1YiA9IGRlcGxveW1lbnROb2RlICJHaXRIdWIiIHsKICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uICJTb3VyY2UtY29udHJvbCBhbmQgZGVsaXZlcnkgU2FhUy4iCiAgICAgICAgICAgICAgICB0ZWNobm9sb2d5ICJHaXRIdWIiCgogICAgICAgICAgICAgICAgZ2l0aHViQWN0aW9ucyA9IGluZnJhc3RydWN0dXJlTm9kZSAiR2l0SHViIEFjdGlvbnMiIHsKICAgICAgICAgICAgICAgICAgICBkZXNjcmlwdGlvbiAiQnVpbGRzLCB2YWxpZGF0ZXMgYW5kIHB1Ymxpc2hlcyB0aGUgaW1tdXRhYmxlIG11bHRpLWFyY2hpdGVjdHVyZSBpbWFnZS4iCiAgICAgICAgICAgICAgICAgICAgdGVjaG5vbG9neSAiR2l0SHViIEFjdGlvbnMiCiAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgZ2hjciA9IGluZnJhc3RydWN0dXJlTm9kZSAiR2l0SHViIENvbnRhaW5lciBSZWdpc3RyeSIgewogICAgICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uICJTdG9yZXMgdGhlIGFwcGxpY2F0aW9uIE9DSSBpbWFnZSBieSBjb21taXQgYW5kIGRpZ2VzdC4iCiAgICAgICAgICAgICAgICAgICAgdGVjaG5vbG9neSAiR0hDUiIKICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgfQoKICAgICAgICAgICAgdGFpbHNjYWxlID0gZGVwbG95bWVudE5vZGUgIlByaXZhdGUgVGFpbG5ldCIgewogICAgICAgICAgICAgICAgdGVjaG5vbG9neSAiVGFpbHNjYWxlIFBlcnNvbmFsIgoKICAgICAgICAgICAgICAgIHByaXZhdGVIdHRwcyA9IGluZnJhc3RydWN0dXJlTm9kZSAiVGFpbHNjYWxlIEhUVFBTIiB7CiAgICAgICAgICAgICAgICAgICAgZGVzY3JpcHRpb24gIlByb3ZpZGVzIHByaXZhdGUgb3duZXItb25seSBIVFRQUyBhY2Nlc3MgdG8gdGhlIGFwcGxpY2F0aW9uIGFuZCBpZGVudGl0eSBwcm92aWRlci4iCiAgICAgICAgICAgICAgICAgICAgdGVjaG5vbG9neSAiVGFpbHNjYWxlLCBNYWdpY0ROUyBhbmQgSFRUUFMiCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIG9jaSA9IGRlcGxveW1lbnROb2RlICJPQ0kgQWx3YXlzIEZyZWUiIHsKICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uICJQcml2YXRlIHBlcnNpc3RlbnQgZGV2ZWxvcG1lbnQgZW52aXJvbm1lbnQuIgogICAgICAgICAgICAgICAgdGVjaG5vbG9neSAiT3JhY2xlIENsb3VkIEluZnJhc3RydWN0dXJlIgoKICAgICAgICAgICAgICAgIHZtID0gZGVwbG95bWVudE5vZGUgIkFtcGVyZSBBMSBWTSIgewogICAgICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uICJTaW5nbGUgcHJpdmF0ZSBVYnVudHUgaG9zdCB3aXRoIGEgbWF4aW11bSBvZiAyIE9DUFVzIGFuZCAxMiBHQiBSQU0uIgogICAgICAgICAgICAgICAgICAgIHRlY2hub2xvZ3kgIlVidW50dSwgQVJNNjQiCgogICAgICAgICAgICAgICAgICAgIGFwcGxpY2F0aW9uQmFja2VuZEluc3RhbmNlID0gY29udGFpbmVySW5zdGFuY2UgYXBwbGljYXRpb25CYWNrZW5kCiAgICAgICAgICAgICAgICAgICAga2V5Y2xvYWtJbnN0YW5jZSA9IHNvZnR3YXJlU3lzdGVtSW5zdGFuY2UgaWRlbnRpdHlQcm92aWRlcgoKICAgICAgICAgICAgICAgICAgICBwb3N0Z3Jlc3FsID0gZGVwbG95bWVudE5vZGUgIlBvc3RncmVTUUwgU2VydmVyIiB7CiAgICAgICAgICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uICJPbmUgUG9zdGdyZVNRTCBzZXJ2ZXIgd2l0aCBpc29sYXRlZCBhcHBsaWNhdGlvbiBhbmQgS2V5Y2xvYWsgZGF0YWJhc2VzIGFuZCByb2xlcy4iCiAgICAgICAgICAgICAgICAgICAgICAgIHRlY2hub2xvZ3kgIlBvc3RncmVTUUwgMTgiCgogICAgICAgICAgICAgICAgICAgICAgICBhcHBsaWNhdGlvbkRhdGFiYXNlSW5zdGFuY2UgPSBjb250YWluZXJJbnN0YW5jZSBhcHBsaWNhdGlvbkRhdGFiYXNlCiAgICAgICAgICAgICAgICAgICAgICAgIGlkZW50aXR5RGF0YWJhc2VJbnN0YW5jZSA9IGluZnJhc3RydWN0dXJlTm9kZSAiSWRlbnRpdHkgRGF0YWJhc2UiIHsKICAgICAgICAgICAgICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uICJTdG9yZXMgS2V5Y2xvYWsgcmVhbG0sIGNsaWVudCwgc2Vzc2lvbiBhbmQgaWRlbnRpdHkgZGF0YS4iCiAgICAgICAgICAgICAgICAgICAgICAgICAgICB0ZWNobm9sb2d5ICJQb3N0Z3JlU1FMIDE4IgogICAgICAgICAgICAgICAgICAgICAgICAgICAgdGFncyAiRGF0YWJhc2UiCiAgICAgICAgICAgICAgICAgICAgICAgIH0KICAgICAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgICAgIG90ZWxDb2xsZWN0b3IgPSBpbmZyYXN0cnVjdHVyZU5vZGUgIk9wZW5UZWxlbWV0cnkgQ29sbGVjdG9yIiB7CiAgICAgICAgICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uICJSZWNlaXZlcyBhbmQgZXhwb3J0cyBhcHBsaWNhdGlvbiB0ZWxlbWV0cnkuIgogICAgICAgICAgICAgICAgICAgICAgICB0ZWNobm9sb2d5ICJPcGVuVGVsZW1ldHJ5IENvbGxlY3RvciIKICAgICAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgICAgIGJhY2t1cEpvYiA9IGluZnJhc3RydWN0dXJlTm9kZSAiQmFja3VwIEpvYiIgewogICAgICAgICAgICAgICAgICAgICAgICBkZXNjcmlwdGlvbiAiQ3JlYXRlcyBlbmNyeXB0ZWQgbG9naWNhbCBiYWNrdXBzIG9mIGFwcGxpY2F0aW9uIGFuZCBLZXljbG9hayBzdGF0ZS4iCiAgICAgICAgICAgICAgICAgICAgICAgIHRlY2hub2xvZ3kgIlNjaGVkdWxlZCBvciBvcGVyYXRvci10cmlnZ2VyZWQgUG9zdGdyZVNRTCBiYWNrdXAgdG9vbGluZyIKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgb2JzZXJ2YWJpbGl0eSA9IGRlcGxveW1lbnROb2RlICJPQ0kgT2JzZXJ2YWJpbGl0eSBTZXJ2aWNlcyIgewogICAgICAgICAgICAgICAgICAgIHRlY2hub2xvZ3kgIk9DSSBMb2dnaW5nLCBNb25pdG9yaW5nIGFuZCBBUE0iCgogICAgICAgICAgICAgICAgICAgIHRlbGVtZXRyeVBsYXRmb3JtSW5zdGFuY2UgPSBzb2Z0d2FyZVN5c3RlbUluc3RhbmNlIHRlbGVtZXRyeVBsYXRmb3JtCiAgICAgICAgICAgICAgICB9CgogICAgICAgICAgICAgICAgb2JqZWN0U3RvcmFnZSA9IGluZnJhc3RydWN0dXJlTm9kZSAiT0NJIE9iamVjdCBTdG9yYWdlIiB7CiAgICAgICAgICAgICAgICAgICAgZGVzY3JpcHRpb24gIlN0b3JlcyBlbmNyeXB0ZWQgUG9zdGdyZVNRTCBhbmQgS2V5Y2xvYWsgYmFja3VwcyBvdXRzaWRlIHRoZSBWTS4iCiAgICAgICAgICAgICAgICAgICAgdGVjaG5vbG9neSAiT0NJIE9iamVjdCBTdG9yYWdlIgogICAgICAgICAgICAgICAgfQoKICAgICAgICAgICAgICAgIHZhdWx0ID0gaW5mcmFzdHJ1Y3R1cmVOb2RlICJPQ0kgVmF1bHQiIHsKICAgICAgICAgICAgICAgICAgICBkZXNjcmlwdGlvbiAiU3RvcmVzIHByb3RlY3RlZCBydW50aW1lIHNlY3JldHMgYW5kIGluZGVwZW5kZW50bHkgcm90YXRhYmxlIGNyZWRlbnRpYWxzLiIKICAgICAgICAgICAgICAgICAgICB0ZWNobm9sb2d5ICJPQ0kgVmF1bHQiCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGlnZGIgPSBkZXBsb3ltZW50Tm9kZSAiSUdEQiBJbmZyYXN0cnVjdHVyZSIgewogICAgICAgICAgICAgICAgZGVzY3JpcHRpb24gIkV4dGVybmFsIHByb3ZpZGVyIGluZnJhc3RydWN0dXJlLiIKICAgICAgICAgICAgICAgIHRlY2hub2xvZ3kgIklHREIgLyBUd2l0Y2giCgogICAgICAgICAgICAgICAgaWdkYkFwaUluc3RhbmNlID0gc29mdHdhcmVTeXN0ZW1JbnN0YW5jZSBpZ2RiQXBpCiAgICAgICAgICAgICAgICBpZ2RiSW1hZ2VDZG5JbnN0YW5jZSA9IHNvZnR3YXJlU3lzdGVtSW5zdGFuY2UgaWdkYkltYWdlQ2RuCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIHdlYkZyb250ZW5kSW5zdGFuY2UgLT4gcHJpdmF0ZUh0dHBzICJVc2VzIHByaXZhdGUgSFRUUFMiCiAgICAgICAgICAgIHByaXZhdGVIdHRwcyAtPiBhcHBsaWNhdGlvbkJhY2tlbmRJbnN0YW5jZSAiUm91dGVzIHNhbWUtb3JpZ2luIEhUVFBTIgogICAgICAgICAgICBwcml2YXRlSHR0cHMgLT4ga2V5Y2xvYWtJbnN0YW5jZSAiUm91dGVzIHByaXZhdGUgT0lEQyBIVFRQUyIKCiAgICAgICAgICAgIGtleWNsb2FrSW5zdGFuY2UgLT4gaWRlbnRpdHlEYXRhYmFzZUluc3RhbmNlICJSZWFkcyBhbmQgd3JpdGVzIGlkZW50aXR5IHN0YXRlIiAiSkRCQyIKICAgICAgICAgICAgYXBwbGljYXRpb25CYWNrZW5kSW5zdGFuY2UgLT4gdmF1bHQgIlJlc29sdmVzIHByb3RlY3RlZCBydW50aW1lIHNlY3JldHMiICJIVFRQUyIKICAgICAgICAgICAga2V5Y2xvYWtJbnN0YW5jZSAtPiB2YXVsdCAiUmVzb2x2ZXMgcHJvdGVjdGVkIHJ1bnRpbWUgc2VjcmV0cyIgIkhUVFBTIgoKICAgICAgICAgICAgYXBwbGljYXRpb25CYWNrZW5kSW5zdGFuY2UgLT4gb3RlbENvbGxlY3RvciAiRXhwb3J0cyB0ZWxlbWV0cnkiICJPVExQIgogICAgICAgICAgICBvdGVsQ29sbGVjdG9yIC0+IHRlbGVtZXRyeVBsYXRmb3JtSW5zdGFuY2UgIkV4cG9ydHMgdGVsZW1ldHJ5IiAiT1RMUC9IVFRQUyIKCiAgICAgICAgICAgIGdpdGh1YkFjdGlvbnMgLT4gZ2hjciAiUHVibGlzaGVzIG11bHRpLWFyY2hpdGVjdHVyZSBPQ0kgaW1hZ2UiCiAgICAgICAgICAgIGdpdGh1YkFjdGlvbnMgLT4gdm0gIk9yY2hlc3RyYXRlcyBtYW51YWxseSBhcHByb3ZlZCBkZXBsb3ltZW50IiAiVGFpbHNjYWxlL09DSSBBUElzIgogICAgICAgICAgICBnaGNyIC0+IHZtICJQcm92aWRlcyBpbW11dGFibGUgaW1hZ2UgcHVsbGVkIGJ5IGRpZ2VzdCIKCiAgICAgICAgICAgIGJhY2t1cEpvYiAtPiBhcHBsaWNhdGlvbkRhdGFiYXNlSW5zdGFuY2UgIkNyZWF0ZXMgbG9naWNhbCBiYWNrdXAiICJQb3N0Z3JlU1FMIgogICAgICAgICAgICBiYWNrdXBKb2IgLT4gaWRlbnRpdHlEYXRhYmFzZUluc3RhbmNlICJDcmVhdGVzIGxvZ2ljYWwgYmFja3VwIiAiUG9zdGdyZVNRTCIKICAgICAgICAgICAgYmFja3VwSm9iIC0+IG9iamVjdFN0b3JhZ2UgIldyaXRlcyBlbmNyeXB0ZWQgYmFja3VwIGFydGVmYWN0cyIgIkhUVFBTIgogICAgICAgIH0KICAgIH0KCiAgICB2aWV3cyB7CiAgICAgICAgc3lzdGVtQ29udGV4dCB2aWRlb0dhbWVQbGF0Zm9ybSAiU3lzdGVtQ29udGV4dCIgewogICAgICAgICAgICB0aXRsZSAiVmlkZW9HYW1lIFBsYXRmb3JtIOKAlCBTeXN0ZW0gQ29udGV4dCIKICAgICAgICAgICAgZGVzY3JpcHRpb24gIlBlb3BsZSBhbmQgZXh0ZXJuYWwgc3lzdGVtcyB0aGF0IGludGVyYWN0IHdpdGggVmlkZW9HYW1lIFBsYXRmb3JtLiIKICAgICAgICAgICAgaW5jbHVkZSAqCiAgICAgICAgICAgIGF1dG9MYXlvdXQgbHIKICAgICAgICB9CgogICAgICAgIGNvbnRhaW5lciB2aWRlb0dhbWVQbGF0Zm9ybSAiQ29udGFpbmVycyIgewogICAgICAgICAgICB0aXRsZSAiVmlkZW9HYW1lIFBsYXRmb3JtIOKAlCBDb250YWluZXJzIgogICAgICAgICAgICBkZXNjcmlwdGlvbiAiUnVudGltZSByZXNwb25zaWJpbGl0aWVzIGFuZCBkYXRhIHN0b3JlcyBvZiB0aGUgcHJpdmF0ZSBsZWFybmluZyBNVlAuIgogICAgICAgICAgICBpbmNsdWRlICoKICAgICAgICAgICAgYXV0b0xheW91dCBscgogICAgICAgIH0KCiAgICAgICAgZGVwbG95bWVudCAqICJQcml2YXRlIGRldiIgIlByaXZhdGVEZXZEZXBsb3ltZW50IiB7CiAgICAgICAgICAgIHRpdGxlICJWaWRlb0dhbWUgUGxhdGZvcm0g4oCUIFByaXZhdGUgRGV2IFRhcmdldCBEZXBsb3ltZW50IgogICAgICAgICAgICBkZXNjcmlwdGlvbiAiQXBwcm92ZWQgdGFyZ2V0IGRlc2lnbiBmb3IgT0NJIEFsd2F5cyBGcmVlIHdpdGggcHJpdmF0ZSBUYWlsc2NhbGUgYWNjZXNzOyBub3QgeWV0IGltcGxlbWVudGVkLiIKICAgICAgICAgICAgaW5jbHVkZSAqCgogICAgICAgICAgICAvLyBUaGUgbG9naWNhbCBjb250YWluZXIgcmVsYXRpb25zaGlwcyBhcmUgYXV0b21hdGljYWxseSByZXBsaWNhdGVkCiAgICAgICAgICAgIC8vIGJldHdlZW4gZGVwbG95bWVudCBpbnN0YW5jZXMuIEhpZGUgdGhlIGRpcmVjdCBlZGdlcyBoZXJlIGJlY2F1c2UKICAgICAgICAgICAgLy8gdHJhZmZpYyBpcyBzaG93biB0aHJvdWdoIHRoZSBwaHlzaWNhbCBpbmZyYXN0cnVjdHVyZSBub2RlcyBpbnN0ZWFkLgogICAgICAgICAgICBleGNsdWRlICJ3ZWJGcm9udGVuZEluc3RhbmNlIC0+IGFwcGxpY2F0aW9uQmFja2VuZEluc3RhbmNlIgogICAgICAgICAgICBleGNsdWRlICJ3ZWJGcm9udGVuZEluc3RhbmNlIC0+IGtleWNsb2FrSW5zdGFuY2UiCiAgICAgICAgICAgIGV4Y2x1ZGUgImFwcGxpY2F0aW9uQmFja2VuZEluc3RhbmNlIC0+IHRlbGVtZXRyeVBsYXRmb3JtSW5zdGFuY2UiCiAgICAgICAgfQoKICAgICAgICBzdHlsZXMgewogICAgICAgICAgICBlbGVtZW50ICJQZXJzb24iIHsKICAgICAgICAgICAgICAgIHNoYXBlIHBlcnNvbgogICAgICAgICAgICAgICAgYmFja2dyb3VuZCAjMDg0MjdiCiAgICAgICAgICAgICAgICBjb2xvciAjZmZmZmZmCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGVsZW1lbnQgIlNvZnR3YXJlIFN5c3RlbSIgewogICAgICAgICAgICAgICAgYmFja2dyb3VuZCAjMTE2OGJkCiAgICAgICAgICAgICAgICBjb2xvciAjZmZmZmZmCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGVsZW1lbnQgIkV4dGVybmFsIFN5c3RlbSIgewogICAgICAgICAgICAgICAgYmFja2dyb3VuZCAjNjY2NjY2CiAgICAgICAgICAgICAgICBjb2xvciAjZmZmZmZmCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGVsZW1lbnQgIkNvbnRhaW5lciIgewogICAgICAgICAgICAgICAgYmFja2dyb3VuZCAjNDM4ZGQ1CiAgICAgICAgICAgICAgICBjb2xvciAjZmZmZmZmCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGVsZW1lbnQgIkV4dGVybmFsIENvbnRhaW5lciIgewogICAgICAgICAgICAgICAgYmFja2dyb3VuZCAjODg4ODg4CiAgICAgICAgICAgICAgICBjb2xvciAjZmZmZmZmCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGVsZW1lbnQgIldlYiBGcm9udGVuZCIgewogICAgICAgICAgICAgICAgc2hhcGUgd2ViYnJvd3NlcgogICAgICAgICAgICB9CgogICAgICAgICAgICBlbGVtZW50ICJEYXRhYmFzZSIgewogICAgICAgICAgICAgICAgc2hhcGUgY3lsaW5kZXIKICAgICAgICAgICAgfQoKICAgICAgICAgICAgZWxlbWVudCAiRGVwbG95bWVudCBOb2RlIiB7CiAgICAgICAgICAgICAgICBiYWNrZ3JvdW5kICNmNWY1ZjUKICAgICAgICAgICAgICAgIGNvbG9yICMyMjIyMjIKICAgICAgICAgICAgICAgIHN0cm9rZSAjODg4ODg4CiAgICAgICAgICAgICAgICBmb250U2l6ZSAxOAogICAgICAgICAgICAgICAgbWV0YWRhdGEgZmFsc2UKICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uIGZhbHNlCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGVsZW1lbnQgIkluZnJhc3RydWN0dXJlIE5vZGUiIHsKICAgICAgICAgICAgICAgIHNoYXBlIHJvdW5kZWRib3gKICAgICAgICAgICAgICAgIGJhY2tncm91bmQgI2RkZGRkZAogICAgICAgICAgICAgICAgY29sb3IgIzIyMjIyMgogICAgICAgICAgICAgICAgd2lkdGggMjgwCiAgICAgICAgICAgICAgICBoZWlnaHQgMTQwCiAgICAgICAgICAgICAgICBmb250U2l6ZSAxNgogICAgICAgICAgICAgICAgbWV0YWRhdGEgZmFsc2UKICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uIGZhbHNlCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGVsZW1lbnQgIkNvbnRhaW5lciBJbnN0YW5jZSIgewogICAgICAgICAgICAgICAgd2lkdGggMjgwCiAgICAgICAgICAgICAgICBoZWlnaHQgMTUwCiAgICAgICAgICAgICAgICBmb250U2l6ZSAxNgogICAgICAgICAgICAgICAgbWV0YWRhdGEgZmFsc2UKICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uIGZhbHNlCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIGVsZW1lbnQgIlNvZnR3YXJlIFN5c3RlbSBJbnN0YW5jZSIgewogICAgICAgICAgICAgICAgd2lkdGggMjgwCiAgICAgICAgICAgICAgICBoZWlnaHQgMTUwCiAgICAgICAgICAgICAgICBmb250U2l6ZSAxNgogICAgICAgICAgICAgICAgbWV0YWRhdGEgZmFsc2UKICAgICAgICAgICAgICAgIGRlc2NyaXB0aW9uIGZhbHNlCiAgICAgICAgICAgIH0KCiAgICAgICAgICAgIHJlbGF0aW9uc2hpcCAiUmVsYXRpb25zaGlwIiB7CiAgICAgICAgICAgICAgICBjb2xvciAjNzA3MDcwCiAgICAgICAgICAgICAgICBmb250U2l6ZSAxMgogICAgICAgICAgICAgICAgd2lkdGggMTUwCiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICB9CgogICAgY29uZmlndXJhdGlvbiB7CiAgICAgICAgLy8gVGhpcyB3b3Jrc3BhY2UgZGV0YWlscyBvbmUgc29mdHdhcmUgc3lzdGVtOiBWaWRlb0dhbWUgUGxhdGZvcm0uCiAgICAgICAgLy8gRXh0ZXJuYWwgc3lzdGVtcyBhcmUgcmVmZXJlbmNlZCBhcyBibGFjayBib3hlcyBhbmQgaW5zdGFudGlhdGVkIG9ubHkKICAgICAgICAvLyBpbiBkZXBsb3ltZW50IHZpZXdzIHdoZW4gdGhlaXIgcGh5c2ljYWwgcGxhY2VtZW50IG1hdHRlcnMuCiAgICAgICAgc2NvcGUgc29mdHdhcmVzeXN0ZW0KICAgIH0KfQ=="
+  },
+  "views" : {
+    "configuration" : {
+      "lastSavedView" : "PrivateDevDeployment",
+      "metadataSymbols" : "SquareBrackets",
+      "styles" : {
+        "elements" : [ {
+          "background" : "#438dd5",
+          "color" : "#ffffff",
+          "tag" : "Container"
+        }, {
+          "description" : false,
+          "fontSize" : 16,
+          "height" : 150,
+          "metadata" : false,
+          "tag" : "Container Instance",
+          "width" : 280
+        }, {
+          "shape" : "Cylinder",
+          "tag" : "Database"
+        }, {
+          "background" : "#f5f5f5",
+          "color" : "#222222",
+          "description" : false,
+          "fontSize" : 18,
+          "metadata" : false,
+          "stroke" : "#888888",
+          "tag" : "Deployment Node"
+        }, {
+          "background" : "#888888",
+          "color" : "#ffffff",
+          "tag" : "External Container"
+        }, {
+          "background" : "#666666",
+          "color" : "#ffffff",
+          "tag" : "External System"
+        }, {
+          "background" : "#dddddd",
+          "color" : "#222222",
+          "description" : false,
+          "fontSize" : 16,
+          "height" : 140,
+          "metadata" : false,
+          "shape" : "RoundedBox",
+          "tag" : "Infrastructure Node",
+          "width" : 280
+        }, {
+          "background" : "#08427b",
+          "color" : "#ffffff",
+          "shape" : "Person",
+          "tag" : "Person"
+        }, {
+          "background" : "#1168bd",
+          "color" : "#ffffff",
+          "tag" : "Software System"
+        }, {
+          "description" : false,
+          "fontSize" : 16,
+          "height" : 150,
+          "metadata" : false,
+          "tag" : "Software System Instance",
+          "width" : 280
+        }, {
+          "shape" : "WebBrowser",
+          "tag" : "Web Frontend"
+        } ],
+        "relationships" : [ {
+          "color" : "#707070",
+          "fontSize" : 12,
+          "tag" : "Relationship",
+          "width" : 150
+        } ]
+      },
+      "terminology" : { }
+    },
+    "containerViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "description" : "Runtime responsibilities and data stores of the private learning MVP.",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "2",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "5",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "6",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "10",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "11",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalSoftwareSystemBoundariesVisible" : false,
+      "key" : "Containers",
+      "name" : "Container View: VideoGame Platform",
+      "order" : 2,
+      "relationships" : [ {
+        "id" : "19"
+      }, {
+        "id" : "20"
+      }, {
+        "id" : "21"
+      }, {
+        "id" : "22"
+      }, {
+        "id" : "23"
+      }, {
+        "id" : "24"
+      }, {
+        "id" : "25"
+      }, {
+        "id" : "26"
+      }, {
+        "id" : "27"
+      }, {
+        "id" : "28"
+      } ],
+      "softwareSystemId" : "4",
+      "title" : "VideoGame Platform — Containers"
+    } ],
+    "deploymentViews" : [ {
+      "description" : "Approved target design for OCI Always Free with private Tailscale access; not yet implemented.",
+      "dimensions" : {
+        "height" : 1855,
+        "width" : 2160
+      },
+      "elements" : [ {
+        "id" : "29",
+        "x" : 50,
+        "y" : 150
+      }, {
+        "id" : "30",
+        "x" : 80,
+        "y" : 190
+      }, {
+        "id" : "31",
+        "x" : 249,
+        "y" : 597
+      }, {
+        "id" : "32",
+        "x" : 380,
+        "y" : 740
+      }, {
+        "id" : "33",
+        "x" : 229,
+        "y" : 1077
+      }, {
+        "id" : "34",
+        "x" : 229,
+        "y" : 1402
+      }, {
+        "id" : "35",
+        "x" : 380,
+        "y" : 150
+      }, {
+        "id" : "36",
+        "x" : 234,
+        "y" : 142
+      }, {
+        "id" : "37",
+        "x" : 700,
+        "y" : 50
+      }, {
+        "id" : "38",
+        "x" : 730,
+        "y" : 80
+      }, {
+        "id" : "39",
+        "x" : 824,
+        "y" : 192
+      }, {
+        "id" : "41",
+        "x" : 825,
+        "y" : 540
+      }, {
+        "id" : "44",
+        "x" : 750,
+        "y" : 700
+      }, {
+        "id" : "45",
+        "x" : 834,
+        "y" : 877
+      }, {
+        "id" : "47",
+        "x" : 1159,
+        "y" : 882
+      }, {
+        "id" : "48",
+        "x" : 1220,
+        "y" : 190
+      }, {
+        "id" : "49",
+        "x" : 1150,
+        "y" : 645
+      }, {
+        "id" : "50",
+        "x" : 1410,
+        "y" : 80
+      }, {
+        "id" : "51",
+        "x" : 1715,
+        "y" : 195
+      }, {
+        "id" : "53",
+        "x" : 1735,
+        "y" : 660
+      }, {
+        "id" : "54",
+        "x" : 1740,
+        "y" : 470
+      }, {
+        "id" : "55",
+        "x" : 1410,
+        "y" : 1000
+      }, {
+        "id" : "56",
+        "x" : 1465,
+        "y" : 1430
+      }, {
+        "id" : "58",
+        "x" : 1120,
+        "y" : 1425
+      } ],
+      "environment" : "Private dev",
+      "key" : "PrivateDevDeployment",
+      "name" : "Deployment View: Private dev",
+      "order" : 3,
+      "relationships" : [ {
+        "id" : "43",
+        "vertices" : [ {
+          "x" : 964,
+          "y" : 455
+        } ]
+      }, {
+        "id" : "46",
+        "position" : 30,
+        "vertices" : [ {
+          "x" : 790,
+          "y" : 290
+        }, {
+          "x" : 790,
+          "y" : 952
+        } ]
+      }, {
+        "id" : "57",
+        "vertices" : [ {
+          "x" : 1195,
+          "y" : 475
+        }, {
+          "x" : 1335,
+          "y" : 610
+        }, {
+          "x" : 1605,
+          "y" : 885
+        } ]
+      }, {
+        "id" : "59",
+        "vertices" : [ {
+          "x" : 650,
+          "y" : 1525
+        }, {
+          "x" : 1115,
+          "y" : 1525
+        } ]
+      }, {
+        "id" : "60"
+      }, {
+        "id" : "61"
+      }, {
+        "id" : "62"
+      }, {
+        "id" : "63"
+      }, {
+        "id" : "64",
+        "vertices" : [ {
+          "x" : 1330,
+          "y" : 400
+        } ]
+      }, {
+        "id" : "65",
+        "vertices" : [ {
+          "x" : 1065,
+          "y" : 540
+        } ]
+      }, {
+        "id" : "66"
+      }, {
+        "id" : "67"
+      }, {
+        "id" : "68"
+      }, {
+        "id" : "69"
+      }, {
+        "id" : "70"
+      }, {
+        "id" : "71",
+        "vertices" : [ {
+          "x" : 974,
+          "y" : 715
+        } ]
+      }, {
+        "id" : "72"
+      }, {
+        "id" : "73"
+      } ],
+      "title" : "VideoGame Platform — Private Dev Target Deployment"
+    } ],
+    "systemContextViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "description" : "People and external systems that interact with VideoGame Platform.",
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "2",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "10",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "11",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "key" : "SystemContext",
+      "name" : "System Context View: VideoGame Platform",
+      "order" : 1,
+      "relationships" : [ {
+        "id" : "12"
+      }, {
+        "id" : "13"
+      }, {
+        "id" : "14"
+      }, {
+        "id" : "15"
+      }, {
+        "id" : "16"
+      }, {
+        "id" : "17"
+      }, {
+        "id" : "18"
+      } ],
+      "softwareSystemId" : "4",
+      "title" : "VideoGame Platform — System Context"
+    } ]
+  }
+}

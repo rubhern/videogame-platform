@@ -1,0 +1,53 @@
+flowchart TB
+    subgraph CatalogueModule["Catalogue and Releases module"]
+        CatInbound["Inbound adapters<br/>Public API · internal operator trigger"]
+        CatApplication["Application use cases and ports"]
+        CatDomain["Domain model and policies"]
+        CatOutbound["Outbound adapters<br/>PostgreSQL · IGDB · clock · telemetry"]
+        CatContract["Published application contract<br/>Rating eligibility evidence"]
+
+        CatInbound --> CatApplication
+        CatApplication --> CatDomain
+        CatOutbound --> CatApplication
+        CatContract --- CatApplication
+    end
+
+    subgraph RatingsModule["Ratings module"]
+        RatInbound["Inbound adapters<br/>Authenticated API · BFF"]
+        RatApplication["Application use cases and ports"]
+        RatDomain["Domain model and policies"]
+        RatOutbound["Outbound adapters<br/>PostgreSQL · identity · clock · telemetry"]
+
+        RatInbound --> RatApplication
+        RatApplication --> RatDomain
+        RatOutbound --> RatApplication
+    end
+
+    RatApplication -->|Depends only on the narrow contract| CatContract
+
+    subgraph External["Runtime dependencies"]
+        Database[("PostgreSQL")]
+        IGDB["IGDB API"]
+        Identity["Identity Provider"]
+        Telemetry["Telemetry platform"]
+    end
+
+    CatOutbound -. runtime I/O .-> Database
+    CatOutbound -. runtime I/O .-> IGDB
+    CatOutbound -. runtime I/O .-> Telemetry
+    RatOutbound -. runtime I/O .-> Database
+    RatOutbound -. runtime I/O .-> Identity
+    RatOutbound -. runtime I/O .-> Telemetry
+
+    NoCrossAccess["Forbidden:<br/>direct repository or table access<br/>between business modules"]
+    RatApplication -.-> NoCrossAccess
+    CatApplication -.-> NoCrossAccess
+
+    classDef domain fill:#e8f1ff,stroke:#2563eb,stroke-width:2px,color:#172b4d
+    classDef application fill:#eefcf3,stroke:#16a34a,stroke-width:2px,color:#14532d
+    classDef adapter fill:#f8fafc,stroke:#64748b,stroke-width:1.5px,color:#334155
+    classDef warning fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
+    class CatDomain,RatDomain domain
+    class CatApplication,RatApplication,CatContract application
+    class CatInbound,CatOutbound,RatInbound,RatOutbound,Database,IGDB,Identity,Telemetry adapter
+    class NoCrossAccess warning

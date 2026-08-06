@@ -19,6 +19,11 @@ selects Java 25, Spring Boot 4.1, Spring Modulith 2.1, PostgreSQL 18, Flyway, Re
 19.2, TypeScript, Vite 8.1, Node.js 24, and the supporting quality toolset through
 ADR-0010 to ADR-0012. Public production and a business model remain unapproved.
 
+The [initial architecture diagram catalogue](docs/architecture/diagrams/README.md)
+is established through ADR-0013. Structurizr provides the shared C4 model, Mermaid
+provides focused code-based views, and diagrams.net provides the polished derived
+deployment view without replacing approved documents or ADRs.
+
 **Phase 1 — MVP solution definition is complete.** Application implementation is
 active at the walking-skeleton gate. The next deliverable proves the approved stack
 locally and in CI, including explicit `linux/amd64` and `linux/arm64` evidence;
@@ -48,8 +53,9 @@ image are proven.
 11. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
     and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
     skeleton and private `dev` environment.
-12. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md)
-    and [ADR-0005 through ADR-0012](docs/decisions/) before implementing the walking
+12. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
+    [architecture diagram catalogue](docs/architecture/diagrams/README.md), and
+    [ADR-0005 through ADR-0013](docs/decisions/) before implementing the walking
     skeleton, persistence, identity, delivery, hosting, or observability.
 
 ## Documentation

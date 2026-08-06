@@ -26,8 +26,14 @@ quality controls, and supported version lines. The executable walking skeleton i
 the current implementation gate; remote infrastructure starts only after local, CI,
 `linux/amd64`, and `linux/arm64` compatibility are proven.
 
+The initial diagram baseline is established and governed by
+[ADR-0013](../decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md).
+The diagrams communicate the approved architecture while their owning documents,
+contracts, and ADRs remain authoritative.
+
 ## Approved records
 
+- [Architecture diagram catalogue](diagrams/README.md)
 - [Learning MVP domain model v1.1](domain/mvp-domain-model.md)
 - [Learning MVP use cases and relevant errors v1.0](application/mvp-use-cases.md)
 - [Learning MVP solution architecture v1.2](mvp-solution-architecture.md)
@@ -48,3 +54,4 @@ the current implementation gate; remote infrastructure starts only after local, 
 - [ADR-0010: Use Java 25, Spring Boot 4, and Spring Modulith](../decisions/0010-use-java-25-spring-boot-4-and-spring-modulith.md)
 - [ADR-0011: Use Flyway and persistence adapters with PostgreSQL](../decisions/0011-use-postgresql-and-flyway-for-application-persistence.md)
 - [ADR-0012: Use React, TypeScript, and Vite](../decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md)
+- [ADR-0013: Use model-backed and purpose-specific architecture diagrams](../decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md)

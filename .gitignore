@@ -5,6 +5,10 @@
 *.token
 .idea/
 node_modules/
+**/.structurizr/
+*:Zone.Identifier
+**/.$*.bkp
+docs/architecture/diagrams/generated/
 
 # IGDB PoC generated evidence and Maven output
 .poc/

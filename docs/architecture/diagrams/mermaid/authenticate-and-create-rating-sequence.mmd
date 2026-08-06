@@ -1,0 +1,52 @@
+sequenceDiagram
+    autonumber
+
+    actor Visitor
+    participant Browser
+    participant BFF as BFF / API
+    participant Context as Return context mechanism
+    participant IdP as Identity Provider
+    participant Identity as Identity adapter
+    participant Ratings as Ratings module
+    participant Catalogue as Catalogue contract
+    participant DB as PostgreSQL
+    participant Telemetry
+
+    Visitor->>Browser: Select a valid rating value and confirm
+    Browser->>BFF: Confirm rating intent (gameId, ratingValue)
+    BFF->>BFF: Validate the input before authentication
+    BFF->>Context: Store or encode short-lived, tamper-resistant context
+    Context-->>BFF: Opaque state, nonce and expiry
+    BFF-->>Browser: Redirect to the established identity flow
+    Browser->>IdP: Authenticate using Authorization Code with PKCE
+    IdP-->>Browser: Return authorization result
+    Browser->>BFF: Authentication callback with opaque state
+    BFF->>Identity: Resolve validated issuer and subject
+    Identity-->>BFF: Stable UserId
+    BFF->>Context: Validate and atomically consume return context
+
+    alt Context invalid, expired or replayed
+        Context-->>BFF: Reject consumption
+        BFF-->>Browser: Return a safe view or trusted current state
+        Note over BFF,Ratings: Do not execute the rating command
+    else First valid consumption
+        Context-->>BFF: gameId, ratingValue and approved return destination
+        BFF->>Ratings: Create personal rating exactly once
+        Ratings->>Catalogue: Request current rating eligibility evidence
+        Catalogue-->>Ratings: Supported game, release evidence and decision
+
+        alt Game is not eligible
+            Ratings-->>BFF: RATING_NOT_ELIGIBLE with stable reason
+            BFF->>Telemetry: Record safe rejection telemetry
+            BFF-->>Browser: Resume the same game with disabled rating state
+        else Game is eligible
+            Ratings->>DB: Atomically enforce uniqueness, create rating and update aggregate statistics
+            DB-->>Ratings: Personal rating and current aggregate context
+            Ratings->>Telemetry: Record success without sensitive data
+            Ratings-->>BFF: Personal and aggregate results as separate fields
+            BFF-->>Browser: Resume the same game context
+            Browser-->>Visitor: Show saved personal rating and updated aggregate
+        end
+    end
+
+    Note over Visitor,Telemetry: Client data never supplies the trusted rating owner

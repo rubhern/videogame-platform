@@ -31,6 +31,11 @@ implementation is now active at the walking-skeleton gate: prove local, CI,
 `linux/amd64`, and `linux/arm64` compatibility before feature expansion. No remote
 infrastructure has been implemented yet.
 
+The initial architecture diagram baseline is established through ADR-0013. Approved
+documents and ADRs remain authoritative; Structurizr owns shared C4 views, Mermaid
+owns focused code-based views, and diagrams.net is reserved for polished derived
+communication views.
+
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
 - Use the approved Java/Spring, PostgreSQL/Flyway, and React/TypeScript/Vite baseline;
@@ -70,8 +75,10 @@ infrastructure has been implemented yet.
 - Architectural decisions, once required: `docs/decisions/`
 - Approved technology baseline:
   `docs/architecture/technology/mvp-technology-baseline.md`
+- Architecture diagram catalogue and ownership rules:
+  `docs/architecture/diagrams/README.md`
 - Accepted architectural decisions: `docs/decisions/0001-*.md` through
-  `docs/decisions/0012-*.md`
+  `docs/decisions/0013-*.md`
 
 When sources conflict, report the conflict instead of choosing silently.
 Distinguish evidence, decisions, assumptions, and proposals.
