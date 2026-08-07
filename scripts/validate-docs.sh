@@ -5,6 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 required_files=(
+  ".env.example"
+  ".mvn/wrapper/maven-wrapper.properties"
   "AGENTS.md"
   "README.md"
   "docs/product/product-brief.md"
@@ -18,6 +20,7 @@ required_files=(
   "docs/research/simulated-round-synthesis.md"
   "docs/reference/video-game-platform-vision.pdf"
   "docs/development/codex-setup.md"
+  "docs/development/local-setup.md"
   "docs/development/openapi-validation.md"
   "docs/development/openapi-web-documentation.md"
   "docs/development/delivery-lifecycle.md"
@@ -56,8 +59,10 @@ required_files=(
   "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md"
   "package.json"
   "package-lock.json"
+  "mvnw"
   "redocly.yaml"
   "scripts/validate-openapi.sh"
+  "scripts/validate-prerequisites.sh"
   "scripts/build-openapi-docs.sh"
   "tools/openapi-validation/syntax.redocly.yaml"
   "tools/openapi-validation/schemas.redocly.yaml"
@@ -144,7 +149,7 @@ PY
 
 while IFS= read -r file; do
   case "$file" in
-    scripts/*.sh|docs/architecture/diagrams/scripts/*.sh)
+    mvnw|scripts/*.sh|docs/architecture/diagrams/scripts/*.sh)
       [[ -x "$file" ]] || {
         printf 'Shell script must be executable: %s\n' "$file" >&2
         exit 1
@@ -161,6 +166,16 @@ done < <(git ls-files)
 
 [[ -x "scripts/validate-docs.sh" ]] || {
   printf 'Shell script must be executable: scripts/validate-docs.sh\n' >&2
+  exit 1
+}
+
+[[ -x "scripts/validate-prerequisites.sh" ]] || {
+  printf 'Shell script must be executable: scripts/validate-prerequisites.sh\n' >&2
+  exit 1
+}
+
+[[ -x "mvnw" ]] || {
+  printf 'Maven Wrapper must be executable: mvnw\n' >&2
   exit 1
 }
 

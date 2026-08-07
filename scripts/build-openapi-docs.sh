@@ -6,7 +6,13 @@ OUTPUT_FILE="docs/architecture/api/reference/index.html"
 cd "$ROOT_DIR"
 
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
-  printf 'OpenAPI documentation generation requires Node.js 22.12 or newer and npm.\n' >&2
+  printf 'OpenAPI documentation generation requires Node.js 24 and npm.\n' >&2
+  exit 1
+fi
+
+if [[ "$(node -p 'process.versions.node.split(".")[0]')" != "24" ]]; then
+  printf 'OpenAPI documentation generation requires the approved Node.js 24 line. Found: %s\n' \
+    "$(node --version)" >&2
   exit 1
 fi
 

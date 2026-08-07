@@ -74,6 +74,7 @@ communication views.
 - Accepted simulated usability synthesis:
   `docs/research/simulated-round-synthesis.md`
 - Tooling and Codex setup: `docs/development/codex-setup.md`
+- Supported local development setup: `docs/development/local-setup.md`
 - Architectural decisions, once required: `docs/decisions/`
 - Approved technology baseline:
   `docs/architecture/technology/mvp-technology-baseline.md`
@@ -123,14 +124,15 @@ and commit messages.
 Run:
 
 ```bash
+bash scripts/validate-prerequisites.sh
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
-bash mvnw -f tools/igdb-poc/pom.xml clean verify
+./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
-OpenAPI validation requires Node.js 22.12 or newer. The Maven command requires
-JDK 21 and validates the isolated IGDB PoC using local fixtures only.
+OpenAPI validation requires the approved Node.js 24 line. The Maven command runs
+with Java 25 and validates the isolated IGDB PoC using local fixtures only.
 Authenticated provider calls remain manual and explicit.
 
 ## Permissions and safety

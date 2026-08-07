@@ -1,7 +1,7 @@
 # Codex workspace setup
 
 - **Status:** Active
-- **Last verified:** 2026-07-27
+- **Last verified:** 2026-08-06
 - **Scope:** Personal Windows workstation with Ubuntu on WSL2
 
 ## Purpose
@@ -19,7 +19,7 @@ Windows
 ├── Visual Studio Code + Codex extension
 ├── Docker Desktop
 └── Ubuntu on WSL2
-    ├── /home/rub3n_fesgeap/workspace/videogame-platform
+    ├── /home/rubhern/workspace/videogame-platform
     ├── Git and GitHub CLI
     └── Codex CLI (optional terminal interface)
 ```
@@ -30,7 +30,7 @@ semantics during builds, scripts, containers, and future CI-compatible work.
 Windows path used to open it:
 
 ```text
-\\wsl.localhost\Ubuntu\home\rub3n_fesgeap\workspace\videogame-platform
+\\wsl.localhost\Ubuntu\home\rubhern\workspace\videogame-platform
 ```
 
 ## Verified configuration
@@ -43,14 +43,16 @@ Windows path used to open it:
 | VS Code | `1.126.0` | Required by the current Codex extension |
 | VS Code Codex extension | `openai.chatgpt@26.715.61943` | Add editor selections/files to Codex and review changes in context |
 | VS Code WSL setting | `chatgpt.runCodexInWindowsSubsystemForLinux = true` | Keep IDE agent execution aligned with the repository |
-| Shared Codex home | `CODEX_HOME=/mnt/c/Users/rub3n_fesgeap/.codex` | Share app, CLI, plugins, auth, and personal configuration |
+| Shared Codex home | `CODEX_HOME=/mnt/c/Users/rub3n/.codex` | Share app, CLI, plugins, auth, and personal configuration |
 | Codex CLI | `0.145.0`, installed in WSL | Optional terminal and diagnostic interface; not required for desktop use |
 | Git | `2.43.0` in WSL | Version and review repository changes |
+| Java | Eclipse Temurin `25.0.4`, user-scoped in WSL | Run the approved Java 25 baseline and Maven Wrapper |
+| Node.js / npm | Node.js `24.19.0`, npm `11.17.0`, user-scoped in WSL | Run the approved Node.js 24 frontend toolchain |
 | GitHub CLI | `2.45.0`, authenticated as `rubhern` | Push branches and work with pull requests |
 | GitHub remote | `https://github.com/rubhern/videogame-platform.git` | Publish and review the repository |
 | GitHub visibility | Public | Current repository state; review if public visibility was not intentional |
 | Figma integration | Connected; used for the editable MVP story map and mobile-first clickable prototype | Keep visual interaction artefacts editable while product rules and evidence remain in Git |
-| Docker | Docker Desktop binary available; Ubuntu integration currently unavailable | Defer WSL integration until an implementation slice requires containers |
+| Docker | Docker Desktop `4.85.0`; Docker Engine/CLI `29.6.2`; Compose `5.3.1`; Ubuntu integration verified without `sudo` | Provide the supported local container daemon and Compose client |
 
 The global Codex configuration also enables several plugins, including GitHub,
 Chrome, Computer Use, document, spreadsheet, presentation, Google, PDF, Sites,
@@ -86,6 +88,7 @@ Operational safeguards still apply:
 | `AGENTS.md` | Durable product, architecture, workflow, and validation rules |
 | `.codex/config.toml` | Project-level Codex permissions |
 | `.agents/skills/product-brief-review/` | Repeatable Phase 0 Product Brief review |
+| `scripts/validate-prerequisites.sh` | Reproducible WSL2 local prerequisite gate |
 | `scripts/validate-docs.sh` | Reproducible documentation validation |
 | `scripts/validate-openapi.sh` | Reproducible OpenAPI contract validation |
 | `scripts/build-openapi-docs.sh` | Validated static Redoc API reference generation |
@@ -120,16 +123,18 @@ becomes sensitive. Never copy the credential or its value into project files.
 
 ## Validation
 
-Run the current repository checks:
+Run the local prerequisite gate before the current repository checks:
 
 ```bash
+bash scripts/validate-prerequisites.sh
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
 ```
 
-The documentation script checks required Phase 0 artefacts, local Markdown links,
-and file modes. The OpenAPI script validates syntax, project rules, references,
+The [local setup guide](local-setup.md) owns installation and troubleshooting. The
+documentation script checks required artefacts, local Markdown links, and file modes.
+The OpenAPI script validates syntax, project rules, references,
 schemas, and examples. See the
 [OpenAPI validation manual](openapi-validation.md) for individual commands and
 troubleshooting.
@@ -141,7 +146,6 @@ troubleshooting.
 | Codex Cloud environment | Not verified or configured | A GitHub-backed task benefits from remote parallel execution |
 | Cloud setup script | Not needed | The repository has real dependencies or build steps |
 | Local environment actions | Not configured | Repeated Run/Test/Build commands exist |
-| Docker Desktop WSL integration | Deferred | The first containerised implementation slice begins |
 | Scheduled tasks | Deferred | A manual workflow has proved stable and worth repeating |
 | Additional project skills | Deferred | A repeatable workflow exists and prompt repetition becomes costly |
 | Advanced multi-agent work | Available but not required | Work can be divided into independent, non-overlapping outcomes |
@@ -156,8 +160,8 @@ troubleshooting.
   authentication and permissions for every connector were not tested.
 - Figma is the source of truth for the prototype's visual and interaction state, not
   for product decisions, research evidence, or implementation contracts.
-- Docker Desktop must enable integration for the Ubuntu distribution before
-  `docker` commands can run inside WSL.
+- Docker Desktop integration is verified for Ubuntu; re-run the prerequisite gate
+  after Docker Desktop or WSL upgrades.
 
 ## Official references
 

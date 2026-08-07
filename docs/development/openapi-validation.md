@@ -18,7 +18,7 @@ requests.
 
 ## Prerequisites
 
-- Node.js `22.12.0` or newer;
+- Node.js `24.x`;
 - npm;
 - repository development dependencies installed from the lock file.
 
@@ -140,9 +140,9 @@ Run:
 npm ci
 ```
 
-### Node.js is too old
+### Node.js is incompatible
 
-Install a current Node.js 22 LTS runtime in the WSL distribution and rerun `npm ci`.
+Install the approved Node.js 24 line in the WSL distribution and rerun `npm ci`.
 The repository lives in the Linux filesystem, so Linux-native Node.js and npm avoid
 mixed Windows/WSL path and executable-wrapper issues.
 
