@@ -2,12 +2,22 @@
   "name": "videogame-platform-contract-tooling",
   "private": true,
   "version": "1.0.0",
-  "description": "Repository-local tooling for validating the approved OpenAPI contract.",
+  "description": "Repository-local tooling and frontend workspace for VideoGame Platform.",
+  "workspaces": [
+    "frontend"
+  ],
   "engines": {
     "node": "24.x"
   },
   "scripts": {
     "build:openapi-docs": "redocly build-docs docs/architecture/api/openapi.yaml --output docs/architecture/api/reference/index.html --title \"VideoGame Platform API Reference\" --disableGoogleFont --lint-config error && node tools/openapi-validation/normalize-generated-html.mjs",
+    "frontend:build": "npm run build --workspace @videogame-platform/frontend",
+    "frontend:dev": "npm run dev --workspace @videogame-platform/frontend",
+    "frontend:generate-api": "npm run generate-api --workspace @videogame-platform/frontend",
+    "frontend:test": "npm run test --workspace @videogame-platform/frontend",
+    "frontend:test:e2e": "npm run test:e2e --workspace @videogame-platform/frontend",
+    "frontend:typecheck": "npm run typecheck --workspace @videogame-platform/frontend",
+    "frontend:verify": "npm run verify --workspace @videogame-platform/frontend",
     "validate:openapi": "npm run validate:openapi:syntax && npm run validate:openapi:lint && npm run validate:openapi:schemas && npm run validate:openapi:examples",
     "validate:openapi:syntax": "redocly lint docs/architecture/api/openapi.yaml --config tools/openapi-validation/syntax.redocly.yaml",
     "validate:openapi:lint": "redocly lint docs/architecture/api/openapi.yaml --config redocly.yaml",

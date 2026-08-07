@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: videogame-platform-backend
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  modulith:
+    runtime:
+      verification-enabled: true
+
+server:
+  shutdown: graceful
+
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health,info

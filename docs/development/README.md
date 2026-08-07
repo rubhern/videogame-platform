@@ -2,6 +2,10 @@
 
 - [Local development setup](local-setup.md): supported WSL2 boundary, mandatory
   prerequisites, non-secret local configuration, validation, and troubleshooting.
+- [Backend development](backend.md): initial module boundaries, supported build,
+  verification, start, health, and packaging commands.
+- [Frontend development](frontend.md): React/TypeScript/Vite skeleton, OpenAPI type
+  generation, verification, local development, and current limitations.
 - [Codex workspace setup](codex-setup.md): verified tools, configuration,
   rationale, risks, and deferred capabilities.
 - [OpenAPI contract validation](openapi-validation.md): syntax, lint, references,

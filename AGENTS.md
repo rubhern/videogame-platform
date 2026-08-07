@@ -31,6 +31,13 @@ implementation is now active at the walking-skeleton gate: prove local, CI,
 `linux/amd64`, and `linux/arm64` compatibility before feature expansion. No remote
 infrastructure has been implemented yet.
 
+The initial backend and frontend walking-skeleton foundations are executable locally.
+The backend proves the Java/Spring module boundaries and Actuator health; the
+frontend proves the React/TypeScript/Vite baseline, complete OpenAPI type generation,
+and its static-analysis, component, browser-smoke, and production-build paths. This
+does not close the broader compatibility gate: persistence, identity, CI, combined
+packaging, and multi-architecture evidence remain outstanding.
+
 The initial architecture diagram baseline is established through ADR-0013. Approved
 documents and ADRs remain authoritative; Structurizr owns shared C4 views, Mermaid
 owns focused code-based views, and diagrams.net is reserved for polished derived
@@ -119,6 +126,11 @@ For substantial tasks:
 Use English for repository documentation, code, identifiers, tests, comments,
 and commit messages.
 
+Whenever work references a GitHub issue, inspect the issue's GitHub Project item
+and update its delivery status to match the workflow in
+`docs/development/work-management.md`. Do not leave the board stale when work
+starts, enters review or validation, returns for changes, or is completed.
+
 ## Validation
 
 Run:
@@ -128,12 +140,15 @@ bash scripts/validate-prerequisites.sh
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
+npm run frontend:verify
+./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
 OpenAPI validation requires the approved Node.js 24 line. The Maven command runs
-with Java 25 and validates the isolated IGDB PoC using local fixtures only.
-Authenticated provider calls remain manual and explicit.
+with Java 25. The root Maven build verifies the backend, while the targeted Maven
+command validates the isolated IGDB PoC using local fixtures only. Authenticated
+provider calls remain manual and explicit.
 
 ## Permissions and safety
 
