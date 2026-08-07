@@ -25,10 +25,13 @@ provides focused code-based views, and diagrams.net provides the polished derive
 deployment view without replacing approved documents or ADRs.
 
 **Phase 1 — MVP solution definition is complete.** Application implementation is
-active at the walking-skeleton gate. The next deliverable proves the approved stack
-locally and in CI, including explicit `linux/amd64` and `linux/arm64` evidence;
-remote infrastructure follows only after the local topology and multi-architecture
-image are proven.
+active at the walking-skeleton gate. The initial backend skeleton proves Java 25,
+Spring Boot 4.1, Spring MVC, Actuator, Spring Modulith 2.1, and the initial module
+fitness functions locally. The frontend skeleton proves React 19.2, strict
+TypeScript, Vite 8.1, routing, server-state infrastructure, Tailwind CSS, complete
+OpenAPI type generation, tests, and a production build. Persistence, identity, CI,
+combined packaging, and explicit `linux/amd64` and `linux/arm64` evidence remain in
+the walking-skeleton gate; remote infrastructure follows only after that gate passes.
 
 ## Start here
 
@@ -58,6 +61,12 @@ image are proven.
     [architecture diagram catalogue](docs/architecture/diagrams/README.md), and
     [ADR-0005 through ADR-0013](docs/decisions/) before implementing the walking
     skeleton, persistence, identity, delivery, hosting, or observability.
+14. Use the [backend technical README](backend/README.md) and
+    [backend development guide](docs/development/backend.md) to build, test, start,
+    inspect, and extend the initial modular-monolith skeleton.
+15. Use the [frontend technical README](frontend/README.md) and
+    [frontend development guide](docs/development/frontend.md) to install, generate
+    API types, test, build, and extend the client-rendered skeleton.
 
 ## Documentation
 
@@ -78,10 +87,13 @@ bash scripts/validate-prerequisites.sh
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
+npm run frontend:verify
+./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
 The prerequisite gate requires the supported Ubuntu WSL2 environment, Java 25,
-Node.js 24, Docker Desktop integration, and the repository Maven Wrapper. The Maven
-verification tests the isolated IGDB PoC only with local fixtures. Neither command
-requires provider credentials or calls IGDB.
+Node.js 24, Docker Desktop integration, and the repository Maven Wrapper. The root
+Maven command compiles, tests, and packages the backend. The targeted Maven command
+tests the isolated IGDB PoC only with local fixtures. Neither verification requires
+provider credentials or calls IGDB.

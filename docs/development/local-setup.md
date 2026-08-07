@@ -1,7 +1,7 @@
 # Local development setup
 
 - **Status:** Active
-- **Last verified:** 2026-08-06
+- **Last verified:** 2026-08-07
 - **Scope:** Windows workstation, Ubuntu 24.04 on WSL2, repository in the Linux filesystem
 - **Technology baseline:** [Learning MVP technology baseline](../architecture/technology/mvp-technology-baseline.md)
 
@@ -12,9 +12,11 @@ enabled for that distribution. Keep the clone below `/home`; a clone below `/mnt
 or another Windows-mounted path is unsupported because mixed filesystem semantics can
 change file permissions, watchers, build performance, and container bind mounts.
 
-The prerequisite gate deliberately does not start PostgreSQL, Keycloak, the
-application, or any remote infrastructure. Those capabilities belong to later
-walking-skeleton issues.
+The prerequisite gate deliberately does not start PostgreSQL, Keycloak, the backend,
+or any remote infrastructure. After it passes, use the
+[backend development guide](backend.md) and
+[frontend development guide](frontend.md) to start the current application
+skeletons; database and identity dependencies remain separate walking-skeleton work.
 
 ## 1. Prepare Windows and WSL2
 
@@ -116,7 +118,7 @@ first use. A successful `./mvnw --version` must report Java 25.
 
 ## Explicitly out of scope
 
-- starting application dependencies or defining their credentials;
+- starting PostgreSQL or Keycloak, or defining their credentials;
 - provisioning OCI or selecting a paid fallback;
 - installing optional IDE integrations;
 - supporting a second Docker daemon inside Ubuntu;

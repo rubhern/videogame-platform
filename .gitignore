@@ -5,10 +5,18 @@
 *.token
 .idea/
 node_modules/
+frontend/dist/
+frontend/coverage/
+frontend/playwright-report/
+frontend/test-results/
 **/.structurizr/
 *:Zone.Identifier
 **/.$*.bkp
 docs/architecture/diagrams/generated/
+
+# Application build output
+target/
+backend/target/
 
 # IGDB PoC generated evidence and Maven output
 .poc/

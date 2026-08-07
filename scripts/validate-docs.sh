@@ -9,6 +9,15 @@ required_files=(
   ".mvn/wrapper/maven-wrapper.properties"
   "AGENTS.md"
   "README.md"
+  "backend/README.md"
+  "backend/postman/README.md"
+  "backend/postman/actuator.postman_collection.json"
+  "backend/postman/local.postman_environment.json"
+  "frontend/README.md"
+  "frontend/package.json"
+  "frontend/src/shared/api/generated/schema.d.ts"
+  "frontend/tsconfig.app.json"
+  "frontend/tsconfig.node.json"
   "docs/product/product-brief.md"
   "docs/product/clickable-prototype.md"
   "docs/product/mvp-story-map.md"
@@ -21,6 +30,7 @@ required_files=(
   "docs/reference/video-game-platform-vision.pdf"
   "docs/development/codex-setup.md"
   "docs/development/local-setup.md"
+  "docs/development/frontend.md"
   "docs/development/openapi-validation.md"
   "docs/development/openapi-web-documentation.md"
   "docs/development/delivery-lifecycle.md"
@@ -85,6 +95,7 @@ while IFS= read -r zone_identifier; do
 done < <(find . -type f -name '*:Zone.Identifier' -print)
 
 python3 - "$ROOT_DIR" <<'PY'
+import json
 import pathlib
 import re
 import sys
@@ -93,6 +104,18 @@ from urllib.parse import unquote
 root = pathlib.Path(sys.argv[1])
 link_pattern = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 errors = []
+
+postman_documents = (
+    "backend/postman/actuator.postman_collection.json",
+    "backend/postman/local.postman_environment.json",
+)
+
+for relative in postman_documents:
+    document = root / relative
+    try:
+        json.loads(document.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        errors.append(f"{relative}: invalid JSON: {error}")
 
 expected_statuses = {
     "docs/product/product-brief.md": "Approved",

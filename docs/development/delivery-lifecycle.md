@@ -155,6 +155,8 @@ current commands are:
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
+npm run frontend:verify
+./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
