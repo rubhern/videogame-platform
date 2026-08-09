@@ -1,7 +1,7 @@
 # Local development setup
 
 - **Status:** Active
-- **Last verified:** 2026-08-07
+- **Last verified:** 2026-08-08
 - **Scope:** Windows workstation, Ubuntu 24.04 on WSL2, repository in the Linux filesystem
 - **Technology baseline:** [Learning MVP technology baseline](../architecture/technology/mvp-technology-baseline.md)
 
@@ -16,7 +16,9 @@ The prerequisite gate deliberately does not start PostgreSQL, Keycloak, the back
 or any remote infrastructure. After it passes, use the
 [backend development guide](backend.md) and
 [frontend development guide](frontend.md) to start the current application
-skeletons; database and identity dependencies remain separate walking-skeleton work.
+skeletons. The local PostgreSQL and Keycloak dependencies use their own explicit
+lifecycle and remain decoupled from the application until the persistence and BFF
+integration issues implement those contracts.
 
 ## 1. Prepare Windows and WSL2
 
@@ -67,12 +69,12 @@ mkdir -p ~/workspace
 cd ~/workspace
 git clone https://github.com/rubhern/videogame-platform.git
 cd videogame-platform
-cp .env.example .env
 ```
 
-`.env.example` contains only non-secret local defaults and explains every current
-variable. `.env` is ignored and is the future location for workstation-specific
-values; never commit its contents. No credential is required at this stage.
+`.env.example` contains only non-secret defaults and placeholders and explains every
+current variable. Do not put credentials in that template. The dependency wrapper
+creates an ignored `.env` with generated local credentials when the topology is first
+started; never commit its contents.
 
 ## 4. Run the prerequisite gate
 
@@ -103,6 +105,19 @@ git --version
 The Maven Wrapper is repository-owned and downloads its pinned Maven distribution on
 first use. A successful `./mvnw --version` must report Java 25.
 
+## 5. Start the backend dependencies
+
+After the prerequisite gate passes, start PostgreSQL and Keycloak with:
+
+```bash
+bash scripts/local-dependencies.sh up
+bash scripts/local-dependencies.sh verify
+```
+
+See [local backend dependencies](local-dependencies.md) for the topology, generated
+credential boundary, backend connection settings, health and manifest checks, normal
+shutdown, and the explicitly scoped disposable-data reset procedure.
+
 ## Troubleshooting
 
 | Symptom | Supported action |
@@ -118,7 +133,7 @@ first use. A successful `./mvnw --version` must report Java 25.
 
 ## Explicitly out of scope
 
-- starting PostgreSQL or Keycloak, or defining their credentials;
+- starting the backend application or frontend development processes;
 - provisioning OCI or selecting a paid fallback;
 - installing optional IDE integrations;
 - supporting a second Docker daemon inside Ubuntu;

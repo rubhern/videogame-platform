@@ -61,7 +61,10 @@ javac --version
 
 The Maven build fails early when Java is outside `[25,26)` or Maven is outside the
 supported `[3.9,4.0)` range. No database, Docker container, identity provider, IGDB
-credential, or Node.js process is needed for the current backend.
+credential, or Node.js process is needed for the current backend build. A separately
+managed local PostgreSQL and Keycloak topology is available through the
+[dependency guide](../docs/development/local-dependencies.md), but this skeleton does
+not consume it until the focused persistence and BFF integration work lands.
 
 ## Build, test, and run
 
@@ -270,7 +273,8 @@ For each future change:
    changes.
 7. Run `./mvnw clean verify` and the repository documentation validations.
 
-Persistence, Flyway, Keycloak, product APIs, OpenTelemetry export, containers,
-multi-architecture images, CI, and remote deployment remain separate work items.
-Their approved direction is documented, but this backend does not yet claim their
-implementation or operational evidence.
+The local PostgreSQL and Keycloak dependency topology is implemented separately.
+Application persistence, Flyway, the Keycloak-backed BFF session, product APIs,
+OpenTelemetry export, application containers, CI, and remote deployment remain
+focused work items. This backend does not claim their application-level or operational
+evidence merely because its dependencies can start successfully.

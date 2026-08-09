@@ -1,0 +1,71 @@
+name: ${COMPOSE_PROJECT_NAME:-videogame-platform}
+
+services:
+  postgres:
+    image: postgres:18.4-bookworm
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Set POSTGRES_ADMIN_PASSWORD in .env}
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=trust
+      APPLICATION_DB_PASSWORD: ${APPLICATION_DB_PASSWORD:?Set APPLICATION_DB_PASSWORD in .env}
+      APPLICATION_MIGRATION_DB_PASSWORD: ${APPLICATION_MIGRATION_DB_PASSWORD:?Set APPLICATION_MIGRATION_DB_PASSWORD in .env}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/18/docker
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username=\"$${POSTGRES_USER}\" --dbname=\"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    mem_limit: 512m
+    cpus: 0.5
+    stop_grace_period: 30s
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.7.0
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/videogame_keycloak
+      KC_DB_USERNAME: videogame_keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:-local-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-http://localhost:8180}
+      KEYCLOAK_BFF_CLIENT_SECRET: ${KEYCLOAK_BFF_CLIENT_SECRET:?Set KEYCLOAK_BFF_CLIENT_SECRET in .env}
+      LOCAL_TEST_USER_USERNAME: ${LOCAL_TEST_USER_USERNAME:-local-user}
+      LOCAL_TEST_USER_PASSWORD: ${LOCAL_TEST_USER_PASSWORD:?Set LOCAL_TEST_USER_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${KEYCLOAK_HTTP_PORT:-8180}:8080"
+      - "127.0.0.1:${KEYCLOAK_MANAGEMENT_PORT:-9000}:9000"
+    volumes:
+      - ./docker/keycloak/import:/opt/keycloak/data/import:ro
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -ec
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000;
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3;
+          grep -q 'HTTP/1.1 200 OK' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    mem_limit: 1g
+    cpus: 1.0
+    stop_grace_period: 30s
+
+volumes:
+  postgres-data:

@@ -1,7 +1,7 @@
 # Backend development
 
 - **Status:** Active initial skeleton
-- **Last verified:** 2026-08-07
+- **Last verified:** 2026-08-08
 - **Runtime:** Java 25 without preview features
 - **Build:** Repository Maven Wrapper
 - **Technology baseline:** [Learning MVP technology baseline](../architecture/technology/mvp-technology-baseline.md)
@@ -75,6 +75,12 @@ This is the stable backend verification command. It:
 No database, identity provider, external service, provider credential, or Docker
 container is required by this verification.
 
+The repository now provides a separately managed
+[PostgreSQL and Keycloak topology](local-dependencies.md). It establishes the local
+dependency contract but is intentionally not required by the backend skeleton until
+the persistence and BFF integration issues add the corresponding application
+configuration and tests.
+
 ## Start locally
 
 Start the application from the repository root:
@@ -115,12 +121,14 @@ packaging and multi-architecture evidence are not part of this backend-only slic
 The broader walking-skeleton gate remains open. The following evidence is deliberately
 not claimed by this skeleton:
 
-- PostgreSQL 18, Flyway, JPA, and Testcontainers integration;
-- Keycloak and server-side OIDC session compatibility;
+- application integration with the proven local PostgreSQL 18 topology, Flyway, JPA,
+  and Testcontainers;
+- application integration with the proven local Keycloak 26.7 realm and server-side
+  OIDC session compatibility;
 - OpenAPI-backed product delivery;
-- frontend installation, type checking, and production build;
 - CI reproduction and OCI images for `linux/amd64` and `linux/arm64`;
-- complete telemetry export, resource budgeting, and remote deployment.
+- complete application telemetry export, combined-application resource budgeting,
+  and remote deployment.
 
 Add those capabilities only through their focused work items. Do not turn a
 placeholder into a product feature without the corresponding approved use case,

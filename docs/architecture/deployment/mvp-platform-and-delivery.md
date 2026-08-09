@@ -1,9 +1,9 @@
 # Learning MVP platform and delivery design
 
 - **Status:** Approved
-- **Version:** 1.1
+- **Version:** 1.2
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-04
+- **Last updated:** 2026-08-08
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP
@@ -337,9 +337,10 @@ exporters, not domain or API contracts.
 
 1. **Technology baseline — complete:** approved version lines, maintenance policy,
    quality toolset, durable ADRs, and an explicit executable compatibility gate.
-2. **Local skeleton — next:** enable container runtime; create application, PostgreSQL, and
-   Keycloak development topology; add migrations, seed data, version, liveness, and
-   readiness; prove local, CI, `linux/amd64`, and `linux/arm64` compatibility.
+2. **Local skeleton — in progress:** the application foundations and local PostgreSQL
+   and Keycloak topology are executable. Add migrations, seed data, application
+   dependency integration, version, liveness, and readiness; then prove CI, combined
+   packaging, `linux/amd64`, and `linux/arm64` application compatibility.
 3. **First public read:** implement `GET /api/v1/releases` against PostgreSQL and prove
    `CATALOGUE_NOT_READY` without live request-path IGDB calls.
 4. **Delivery:** build and scan `linux/arm64`/`linux/amd64` image; publish digest to
@@ -371,5 +372,6 @@ exporters, not domain or API contracts.
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.2 | 2026-08-08 | Recorded the executable application foundations and local PostgreSQL/Keycloak topology while keeping the broader walking-skeleton compatibility gate open. | Ruben Hernandez |
 | 1.1 | 2026-08-04 | Linked the approved technology baseline, closed its selection gate, and made multi-architecture walking-skeleton evidence the next implementation step. | Ruben Hernandez |
 | 1.0 | 2026-08-03 | Approved the minimum zero-cost platform, selected OCI Always Free with private Tailscale access, removed lifecycle duplication, and linked durable decisions to ADR-0005 through ADR-0009. | Ruben Hernandez |

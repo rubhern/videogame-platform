@@ -1,11 +1,11 @@
 # Learning MVP Technology Baseline
 
 - **Status:** Approved
-- **Version:** 1.0
+- **Version:** 1.1
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-04
+- **Last updated:** 2026-08-08
 - **Phase:** 1 — MVP solution definition (complete)
-- **Implementation evidence:** Pending walking skeleton
+- **Implementation evidence:** Partial — application foundations and local dependency topology
 - **Scope:** Private, non-commercial learning MVP
 - **Solution architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
 - **API conventions:** [Learning MVP API conventions](../api/api-conventions.md)
@@ -693,3 +693,4 @@ the replaceable local telemetry backend.
 |---|---|---|---|
 | 2026-08-03 | 0.1 | Initial proposed baseline covering runtime, backend, persistence, API, frontend, identity, testing, observability, quality, and delivery. | Ruben Hernandez |
 | 2026-08-04 | 1.0 | Approved the coherent technology baseline, inherited existing platform ADRs without duplication, and made local, CI, AMD64, and ARM64 proof an explicit walking-skeleton gate. | Ruben Hernandez |
+| 2026-08-08 | 1.1 | Recorded partial executable evidence for the backend/frontend foundations and local PostgreSQL/Keycloak topology without closing the compatibility gate. | Ruben Hernandez |
