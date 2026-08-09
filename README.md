@@ -30,11 +30,14 @@ Spring Boot 4.1, Spring MVC, Actuator, Spring Modulith 2.1, and the initial modu
 fitness functions locally. The frontend skeleton proves React 19.2, strict
 TypeScript, Vite 8.1, routing, server-state infrastructure, Tailwind CSS, complete
 OpenAPI type generation, tests, and a production build. The local PostgreSQL 18 and
-Keycloak 26.7 dependency topology now proves isolated roles, reproducible realm and
-client configuration, health, persistence, reset, and AMD64/ARM64 dependency-image
-manifests. Application persistence, BFF identity integration, CI, combined packaging,
-and application multi-architecture evidence remain in the walking-skeleton gate;
-remote infrastructure follows only after that gate passes.
+Keycloak 26.7 dependency topology proves isolated roles, reproducible identity
+configuration, health, persistence, reset, and AMD64/ARM64 dependency-image
+manifests. The backend now also proves SQL-first Flyway migration from zero, a
+module-owned catalogue schema, deterministic opt-in seed data, disabled Hibernate
+schema generation, and PostgreSQL 18 Testcontainers persistence checks. BFF identity
+integration, the complete CI gate, combined packaging, and application
+multi-architecture evidence remain in the walking-skeleton gate; remote
+infrastructure follows only after that gate passes.
 
 ## Start here
 
@@ -53,22 +56,24 @@ remote infrastructure follows only after that gate passes.
 7. Use the [glossary](docs/product/glossary.md) to keep terminology consistent.
 8. Prepare the workstation with the [local development setup](docs/development/local-setup.md).
 9. Start and verify the [local backend dependencies](docs/development/local-dependencies.md).
-10. Review the [Codex workspace setup](docs/development/codex-setup.md).
-11. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) to
+10. Use the [application database migration guide](docs/development/database-migrations.md)
+    to validate or apply the catalogue schema and optional development seed.
+11. Review the [Codex workspace setup](docs/development/codex-setup.md).
+12. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) to
    validate the API contract locally and in CI.
-12. Browse the [generated API reference](docs/architecture/api/reference/index.html)
+13. Browse the [generated API reference](docs/architecture/api/reference/index.html)
     or follow its [regeneration tutorial](docs/development/openapi-web-documentation.md).
-13. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
+14. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
     and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
     skeleton and private `dev` environment.
-14. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
+15. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
     [architecture diagram catalogue](docs/architecture/diagrams/README.md), and
     [ADR-0005 through ADR-0013](docs/decisions/) before implementing the walking
     skeleton, persistence, identity, delivery, hosting, or observability.
-15. Use the [backend technical README](backend/README.md) and
+16. Use the [backend technical README](backend/README.md) and
     [backend development guide](docs/development/backend.md) to build, test, start,
     inspect, and extend the initial modular-monolith skeleton.
-16. Use the [frontend technical README](frontend/README.md) and
+17. Use the [frontend technical README](frontend/README.md) and
     [frontend development guide](docs/development/frontend.md) to install, generate
     API types, test, build, and extend the client-rendered skeleton.
 
@@ -92,15 +97,17 @@ bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
 npm run frontend:verify
+bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
 The prerequisite gate requires the supported Ubuntu WSL2 environment, Java 25,
-Node.js 24, Docker Desktop integration, and the repository Maven Wrapper. The root
-Maven command compiles, tests, and packages the backend. The targeted Maven command
-tests the isolated IGDB PoC only with local fixtures. Neither verification requires
-provider credentials or calls IGDB.
+Node.js 24, Docker Desktop integration, and the repository Maven Wrapper. Migration
+validation and the root Maven verification use disposable PostgreSQL 18
+Testcontainers; the root command compiles, tests, and packages the backend. The
+targeted Maven command tests the isolated IGDB PoC only with local fixtures. No
+verification requires provider credentials or calls IGDB.
 
 The backend dependency topology has its own lifecycle and verification commands:
 

@@ -1,0 +1,82 @@
+---
+title: catalogue schema - physical persistence model
+---
+%% Physical communication view for the module-owned catalogue schema.
+%% Executable authority: backend/src/main/resources/db/migration/.
+%% Decision context: docs/development/database-migrations.md.
+erDiagram
+    catalogue_publication ||--o{ game_snapshot : publishes
+    game ||--o{ game_snapshot : "is versioned as"
+    game ||--o{ game_release : owns
+    catalogue_publication ||--o{ release_snapshot : publishes
+    game_snapshot ||--o{ release_snapshot : exposes
+    game_release ||--o{ release_snapshot : "is versioned as"
+    platform ||--o{ release_snapshot : classifies
+    region ||--o{ release_snapshot : classifies
+
+    catalogue_publication {
+        uuid publication_id PK
+        varchar catalogue_version UK "max 100"
+        timestamptz published_at
+        timestamptz last_synchronized_at
+        varchar source_kind "closed values"
+        varchar source_name "max 200"
+        boolean is_current "partial unique when true"
+    }
+
+    game {
+        uuid game_id PK
+        timestamptz created_at
+    }
+
+    game_snapshot {
+        uuid publication_id PK,FK
+        uuid game_id PK,FK
+        varchar canonical_title "max 300"
+        varchar slug UK "unique per publication"
+        varchar cover_reference "max 500"
+        varchar cover_source "max 200"
+        varchar cover_usage_mode "closed values"
+        varchar cover_alternative_text "max 500"
+        varchar cover_usage_status "must be approved"
+    }
+
+    platform {
+        uuid platform_id PK
+        varchar code UK "stable code"
+        varchar display_name "max 200"
+    }
+
+    region {
+        uuid region_id PK
+        varchar code UK "stable code"
+        varchar display_name "max 200"
+    }
+
+    game_release {
+        uuid release_id PK,UK
+        uuid game_id PK,FK
+        timestamptz created_at
+    }
+
+    release_snapshot {
+        uuid publication_id PK,FK
+        uuid release_id PK,FK
+        uuid game_id FK
+        uuid platform_id FK
+        uuid region_id FK
+        varchar date_precision "day month quarter year unknown"
+        date exact_date "day precision only"
+        smallint release_year "month quarter or year"
+        smallint release_month "1 to 12"
+        smallint release_quarter "1 to 4"
+        varchar release_status "closed values"
+        varchar source_kind "closed values"
+        varchar source_name "max 200"
+        varchar source_entity_type "max 100"
+        timestamptz provider_updated_at "nullable"
+        timestamptz last_synchronized_at
+        timestamptz last_verified_at "nullable"
+        varchar verification_level "closed values"
+        varchar review_status "closed values"
+    }

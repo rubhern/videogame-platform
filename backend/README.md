@@ -1,8 +1,9 @@
 # VideoGame Platform backend
 
 The backend is the executable walking skeleton for the VideoGame Platform learning
-MVP. It proves the approved Java and Spring baseline and establishes enforceable
-module boundaries before product behaviour is implemented.
+MVP. It proves the approved Java and Spring baseline, enforceable module boundaries,
+and the initial PostgreSQL/Flyway persistence contract before product behaviour is
+implemented.
 
 ## Current status and scope
 
@@ -11,12 +12,13 @@ module boundaries before product behaviour is implemented.
 - **Framework:** Spring Boot 4.1.0 with Spring MVC
 - **Architecture:** Modular monolith with Spring Modulith 2.1.0
 - **Build:** Maven Wrapper from the repository root
+- **Persistence:** PostgreSQL 18, SQL-first Flyway, JPA schema generation disabled
 - **Current HTTP surface:** Spring Boot Actuator only
 
-The application currently has no product endpoint, persistence, database migration,
-authentication, external provider call, or frontend integration. Placeholder types
-reserve the approved boundaries without pretending that those capabilities already
-exist.
+The application currently has no product endpoint, catalogue repository, JPA entity,
+authentication, external provider call, or frontend integration. It does have the
+minimum module-owned catalogue schema, deterministic opt-in development seed, and
+PostgreSQL 18 migration/persistence evidence required before the first public read.
 
 The repository-level [backend development guide](../docs/development/backend.md)
 tracks the broader walking-skeleton boundary and deferred evidence. The approved
@@ -34,6 +36,9 @@ remain authoritative when this README and an approved source conflict.
 | HTTP runtime | Spring MVC | Managed by Spring Boot |
 | Module model | Spring Modulith | 2.1.0 |
 | Operational endpoints | Spring Boot Actuator | `health` and `info` exposed |
+| Persistence | PostgreSQL, Spring Data JPA, Hibernate | PostgreSQL 18; Hibernate DDL disabled |
+| Schema evolution | Flyway Community, SQL-first | Spring Boot-managed 12.4.0 |
+| Persistence integration tests | Testcontainers PostgreSQL | 2.0.5 with `postgres:18.4-bookworm` |
 | Architecture tests | Spring Modulith Test and ArchUnit | ArchUnit 1.4.2 |
 | Unit and integration tests | JUnit Jupiter, AssertJ, Spring Boot Test | Managed by Spring Boot |
 | Build and packaging | Maven Wrapper and Spring Boot Maven Plugin | Maven 3.9 line enforced |
@@ -49,7 +54,8 @@ Use the supported WSL2 development environment described in the
 
 - a complete Java 25 JDK available through `PATH`;
 - the committed Maven Wrapper;
-- network access to Maven Central on the first build.
+- Docker Desktop available from WSL2 for PostgreSQL 18 Testcontainers;
+- network access to Maven Central and the container registry on the first build.
 
 Confirm the active toolchain from the repository root:
 
@@ -60,11 +66,10 @@ javac --version
 ```
 
 The Maven build fails early when Java is outside `[25,26)` or Maven is outside the
-supported `[3.9,4.0)` range. No database, Docker container, identity provider, IGDB
-credential, or Node.js process is needed for the current backend build. A separately
-managed local PostgreSQL and Keycloak topology is available through the
-[dependency guide](../docs/development/local-dependencies.md), but this skeleton does
-not consume it until the focused persistence and BFF integration work lands.
+supported `[3.9,4.0)` range. Verification starts an isolated PostgreSQL 18 container;
+it needs Docker but not the long-lived local dependency topology, Keycloak, an IGDB
+credential, or Node.js. The separately managed PostgreSQL and Keycloak topology is
+documented in the [dependency guide](../docs/development/local-dependencies.md).
 
 ## Build, test, and run
 
@@ -76,17 +81,37 @@ Run the complete backend verification and create the executable jar:
 ./mvnw clean verify
 ```
 
+This command requires Docker because it migrates a fresh PostgreSQL 18 database and
+executes the persistence constraint tests. Run only the focused migration gate with:
+
+```bash
+bash scripts/validate-migrations.sh
+```
+
 Run only the backend module while also building any required reactor dependencies:
 
 ```bash
 ./mvnw -pl backend -am clean verify
 ```
 
-Start the application in development mode:
+Start and migrate the local application as documented in the
+[database migration guide](../docs/development/database-migrations.md). In summary,
+start the dependencies, load the ignored local credentials, and opt into Flyway on
+the first application startup:
 
 ```bash
-./mvnw -pl backend spring-boot:run
+bash scripts/local-dependencies.sh up
+set -a
+source .env
+set +a
+APPLICATION_FLYWAY_ENABLED=true ./mvnw -pl backend spring-boot:run
 ```
+
+The central
+[catalogue persistence model](../docs/architecture/diagrams/mermaid/catalogue-persistence-model.mmd)
+visualizes the implemented tables, columns, keys, and relationships. Keep executable
+schema changes in versioned Flyway SQL rather than creating a separate `backend/docs`
+copy of the model.
 
 The default address is `http://localhost:8080`. Stop the process gracefully with
 `Ctrl+C`; Spring allows up to 20 seconds for each shutdown phase.
@@ -94,7 +119,7 @@ The default address is `http://localhost:8080`. Stop the process gracefully with
 After a successful package, run the executable artifact directly:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.0.1-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.1.0-SNAPSHOT.jar
 ```
 
 To change the HTTP port for a local run, use a standard Spring Boot override:
@@ -164,6 +189,17 @@ The committed defaults live in
 | Property | Default | Purpose |
 |---|---|---|
 | `spring.application.name` | `videogame-platform-backend` | Stable application identity |
+| `spring.datasource.url` | Local application JDBC URL | Runtime database connection |
+| `spring.datasource.username` | `videogame_app` | DML-only runtime role |
+| `spring.datasource.password` | Empty; required from the environment | Runtime secret |
+| `spring.flyway.enabled` | `false` | Keeps maintained-environment migration separate from normal startup |
+| `spring.flyway.url` | Application database URL | Migration connection target |
+| `spring.flyway.user` | `videogame_app_migrator` | Schema-owning migration role |
+| `spring.flyway.password` | Empty; required when Flyway is enabled | Migration secret |
+| `spring.flyway.locations` | `classpath:db/migration` | Production migration location; seed is opt-in |
+| `spring.flyway.clean-disabled` | `true` | Prevents destructive clean through committed configuration |
+| `spring.jpa.hibernate.ddl-auto` | `none` | Disables Hibernate schema generation |
+| `spring.jpa.open-in-view` | `false` | Keeps persistence work outside HTTP rendering |
 | `spring.lifecycle.timeout-per-shutdown-phase` | `20s` | Maximum graceful-shutdown time per phase |
 | `spring.modulith.runtime.verification-enabled` | `true` | Verifies module structure during startup |
 | `server.shutdown` | `graceful` | Stops accepting work before terminating |
@@ -180,9 +216,10 @@ The only application-specific shared bean is a `java.time.Clock` configured for
 `Europe/Madrid`. Inject that clock into time-dependent application code instead of
 calling the system clock directly, so tests can replace it deterministically.
 
-No secret or required project-specific environment variable exists yet. Never add
-credentials to `application.yaml`, this README, the Postman files, Git history, logs,
-or URLs.
+`APPLICATION_DB_PASSWORD` and `APPLICATION_MIGRATION_DB_PASSWORD` are secrets. The
+local dependency wrapper generates them in ignored `.env`; maintained environments
+must supply them through a protected secret source. Never add credentials to
+`application.yaml`, this README, Postman files, Git history, logs, or URLs.
 
 ## Actuator API
 
@@ -216,7 +253,8 @@ every exposed endpoint and run status/schema checks in Postman.
 
 | Test | Type | Evidence |
 |---|---|---|
-| `BackendStartupTest` | Full-context HTTP integration test | Java 25 runtime, embedded server startup, `/actuator/health` returns `UP` |
+| `BackendStartupTest` | Full-context HTTP/database integration test | Java 25, PostgreSQL 18, production migration, runtime connection, and health |
+| `CataloguePersistenceIntegrationTest` | Flyway and JDBC integration test | Migration from zero, seed determinism, checksums, constraints, and runtime privileges |
 | `ModularityTest` | Architecture test | Spring Modulith dependency verification and approved module set |
 | `HexagonalArchitectureTest` | Architecture test | Inward dependencies and separation of boundary models |
 
@@ -224,6 +262,7 @@ Run one test class when diagnosing a focused failure:
 
 ```bash
 ./mvnw -pl backend -Dtest=BackendStartupTest test
+./mvnw -pl backend -Dtest=CataloguePersistenceIntegrationTest test
 ./mvnw -pl backend -Dtest=ModularityTest test
 ./mvnw -pl backend -Dtest=HexagonalArchitectureTest test
 ```
@@ -257,6 +296,9 @@ do not copy real secrets into shared run configurations.
 | `/actuator/health` is unreachable | Confirm the startup completed, the selected port is correct, and no unsupported management base-path override is active. |
 | An Actuator endpoint returns `404` | Only `health` and `info` are exposed; verify the path and committed configuration. |
 | Application startup reports a module violation | Inspect the dependency named by Spring Modulith and restore the inward dependency direction. |
+| Testcontainers cannot find Docker | Start Docker Desktop, enable this WSL distribution, and verify `docker info`. |
+| PostgreSQL authentication fails locally | Start the dependency topology and load the generated `.env` into the shell without printing it. |
+| Flyway reports a checksum mismatch | Stop; do not repair automatically. Restore the immutable applied file or add a corrective migration. |
 | Tests work in IntelliJ but not Maven | Align IntelliJ's Project SDK and Maven runner with the Java 25 JDK used by the wrapper. |
 
 ## Adding backend capabilities safely
@@ -273,8 +315,8 @@ For each future change:
    changes.
 7. Run `./mvnw clean verify` and the repository documentation validations.
 
-The local PostgreSQL and Keycloak dependency topology is implemented separately.
-Application persistence, Flyway, the Keycloak-backed BFF session, product APIs,
-OpenTelemetry export, application containers, CI, and remote deployment remain
-focused work items. This backend does not claim their application-level or operational
-evidence merely because its dependencies can start successfully.
+The local PostgreSQL/Keycloak topology and initial application persistence are
+implemented separately. Catalogue repositories and queries, the Keycloak-backed BFF
+session, product APIs, OpenTelemetry export, application containers, the complete CI
+gate, and remote deployment remain focused work items. This backend does not claim a
+product read or remote operational evidence merely because its schema can migrate.

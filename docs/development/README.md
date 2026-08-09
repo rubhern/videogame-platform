@@ -8,6 +8,9 @@
   generation, verification, local development, and current limitations.
 - [Local backend dependencies](local-dependencies.md): PostgreSQL and Keycloak
   topology, generated local credentials, verification, shutdown, and safe reset.
+- [Application database migrations](database-migrations.md): module-owned catalogue
+  schema, Flyway immutability, deterministic seed data, Testcontainers evidence, and
+  local migration configuration.
 - [Codex workspace setup](codex-setup.md): verified tools, configuration,
   rationale, risks, and deferred capabilities.
 - [OpenAPI contract validation](openapi-validation.md): syntax, lint, references,

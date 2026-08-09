@@ -10,14 +10,27 @@ MERMAID_CLI_IMAGE="ghcr.io/mermaid-js/mermaid-cli/mermaid-cli:${MERMAID_CLI_VERS
 
 mkdir -p "${OUTPUT_DIR}"
 
-if command -v npx >/dev/null 2>&1; then
-  renderer="npx"
-elif command -v docker >/dev/null 2>&1; then
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   renderer="docker"
+elif command -v npx >/dev/null 2>&1; then
+  renderer="npx"
 else
-  printf 'Mermaid rendering requires npx or Docker.\n' >&2
+  printf 'Mermaid rendering requires a running Docker daemon or npx.\n' >&2
   exit 1
 fi
+
+render_with_docker() {
+  local name="$1"
+
+  docker run \
+    --rm \
+    --user "$(id -u):$(id -g)" \
+    -v "${DIAGRAMS_DIR}:/data" \
+    "${MERMAID_CLI_IMAGE}" \
+    -i "mermaid/${name}.mmd" \
+    -o "generated/mermaid/${name}.svg" \
+    -b transparent
+}
 
 for source in "${SOURCE_DIR}"/*.mmd; do
   name="$(basename "${source}" .mmd)"
@@ -28,14 +41,7 @@ for source in "${SOURCE_DIR}"/*.mmd; do
       -o "${OUTPUT_DIR}/${name}.svg" \
       -b transparent
   else
-    docker run \
-      --rm \
-      --user "$(id -u):$(id -g)" \
-      -v "${DIAGRAMS_DIR}:/data" \
-      "${MERMAID_CLI_IMAGE}" \
-      -i "mermaid/${name}.mmd" \
-      -o "generated/mermaid/${name}.svg" \
-      -b transparent
+    render_with_docker "${name}"
   fi
 done
 

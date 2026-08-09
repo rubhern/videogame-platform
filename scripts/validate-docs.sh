@@ -33,6 +33,7 @@ required_files=(
   "docs/reference/video-game-platform-vision.pdf"
   "docs/development/codex-setup.md"
   "docs/development/backend.md"
+  "docs/development/database-migrations.md"
   "docs/development/local-dependencies.md"
   "docs/development/local-setup.md"
   "docs/development/frontend.md"
@@ -57,6 +58,7 @@ required_files=(
   "docs/architecture/diagrams/mermaid/hexagonal-dependency-rules.mmd"
   "docs/architecture/diagrams/mermaid/authenticate-and-create-rating-sequence.mmd"
   "docs/architecture/diagrams/mermaid/synchronize-bounded-catalogue-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/catalogue-persistence-model.mmd"
   "docs/architecture/diagrams/mermaid/delivery-pipeline.mmd"
   "docs/architecture/diagrams/scripts/render-mermaid.sh"
   "docs/decisions/0001-reference-igdb-cover-images.md"
@@ -77,6 +79,7 @@ required_files=(
   "mvnw"
   "redocly.yaml"
   "scripts/validate-openapi.sh"
+  "scripts/validate-migrations.sh"
   "scripts/local-dependencies.sh"
   "scripts/validate-prerequisites.sh"
   "scripts/build-openapi-docs.sh"
@@ -85,6 +88,9 @@ required_files=(
   "tools/openapi-validation/examples.redocly.yaml"
   "tools/openapi-validation/normalize-generated-html.mjs"
   ".agents/skills/product-brief-review/SKILL.md"
+  ".github/workflows/migrations.yml"
+  "backend/src/main/resources/db/migration/V20260809_120000__create_catalogue_schema.sql"
+  "backend/src/main/resources/db/dev-seed/V20260809_130000__seed_bounded_prototype_catalogue.sql"
 )
 
 for file in "${required_files[@]}"; do
@@ -105,6 +111,7 @@ import json
 import pathlib
 import re
 import sys
+import xml.etree.ElementTree as ET
 from urllib.parse import unquote
 
 root = pathlib.Path(sys.argv[1])
@@ -123,6 +130,35 @@ for relative in json_documents:
         json.loads(document.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         errors.append(f"{relative}: invalid JSON: {error}")
+
+maven_namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
+semver_pattern = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
+try:
+    reactor_pom = ET.parse(root / "pom.xml").getroot()
+    backend_pom = ET.parse(root / "backend/pom.xml").getroot()
+    reactor_version = reactor_pom.findtext("m:version", namespaces=maven_namespace)
+    backend_parent_version = backend_pom.findtext(
+        "m:parent/m:version", namespaces=maven_namespace
+    )
+    if reactor_version is None or semver_pattern.fullmatch(reactor_version) is None:
+        errors.append("pom.xml: project version must be a valid Semantic Version")
+    if backend_parent_version != reactor_version:
+        errors.append(
+            "backend/pom.xml: parent version must match the backend reactor version"
+        )
+    if reactor_version is not None:
+        expected_jar = f"videogame-platform-backend-{reactor_version}.jar"
+        for relative in ("backend/README.md", "docs/development/backend.md"):
+            if expected_jar not in (root / relative).read_text(encoding="utf-8"):
+                errors.append(
+                    f"{relative}: expected current backend artefact {expected_jar}"
+                )
+except (OSError, ET.ParseError) as error:
+    errors.append(f"Maven version validation failed: {error}")
 
 realm_path = root / "docker/keycloak/import/videogame-platform-realm.json"
 try:

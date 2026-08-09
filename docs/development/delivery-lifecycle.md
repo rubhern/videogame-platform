@@ -1,9 +1,9 @@
 # Learning MVP delivery lifecycle
 
 - **Status:** Approved
-- **Version:** 1.2
+- **Version:** 1.3
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-06
+- **Last updated:** 2026-08-09
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP operated by one person
@@ -122,6 +122,7 @@ review or migration evidence.
 Every material change uses a pull request. Its description covers, proportionally:
 
 - context, scope, and solution;
+- Semantic Versioning impact for each affected releasable artefact;
 - API, data, configuration, provider, and compatibility impact;
 - security, privacy, accessibility, and operational impact;
 - validation evidence;
@@ -146,6 +147,32 @@ after merge, moves to `In validation`, and is closed only after acceptance; the
 [work-management baseline](work-management.md) owns the corresponding Project states
 and automations.
 
+### 5.1 Semantic Versioning
+
+Every implementation change MUST assess whether it changes a releasable artefact and
+update that artefact using Semantic Versioning (`MAJOR.MINOR.PATCH`) in the same
+change. Versions are independent: the backend Maven reactor, frontend npm package,
+and isolated IGDB PoC change only when their own delivered behaviour changes.
+
+The current pre-`1.0.0` policy is:
+
+| Change | Version increment |
+|---|---|
+| Compatible defect fix, security fix, or internal correction | `PATCH` |
+| New compatible capability or material enabler | `MINOR` |
+| Intentional incompatible pre-1.0 contract change | `MINOR`, with an explicit compatibility decision and migration notes |
+
+After `1.0.0`, incompatible public API or supported operational-contract changes use
+`MAJOR`, compatible capabilities use `MINOR`, and compatible fixes use `PATCH`.
+Documentation-only changes do not bump an executable artefact unless they correct or
+complete release content for that artefact.
+
+Development versions use the `-SNAPSHOT` suffix. A named release removes the suffix,
+uses the exact same version in the built artefact, and creates the matching `vX.Y.Z`
+Git tag. The root Maven project version is the backend artefact version; backend
+modules inherit it and their parent reference must be updated atomically. Never leave
+the parent and reactor versions inconsistent.
+
 ## 6. Validation and quality gates
 
 The repository MUST expose stable validation commands as implementation appears. The
@@ -156,6 +183,7 @@ bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
 npm run frontend:verify
+bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
@@ -252,6 +280,8 @@ A work item is done when all applicable conditions are true:
 - [ ] Tests cover success, rejection, and relevant failure guarantees.
 - [ ] OpenAPI, migrations, configuration, infrastructure, and documentation are
       updated together.
+- [ ] Semantic Versioning impact was assessed and every affected artefact version is
+      consistent across build files, generated names, documentation, and release data.
 - [ ] Security, privacy, accessibility, provider, and secret impacts are addressed.
 - [ ] Relevant logs, metrics, traces, health, and business-operation signals exist.
 - [ ] Required gates pass and the complete diff has received a fresh second pass.
@@ -278,6 +308,7 @@ A work item is done when all applicable conditions are true:
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.3 | 2026-08-09 | Added mandatory per-artefact Semantic Versioning assessment, pre-1.0 increment rules, Maven inheritance consistency, and release suffix/tag conventions. | Ruben Hernandez |
 | 1.2 | 2026-08-06 | Linked the approved work-management baseline and clarified acceptance-aware issue closure after merge. | Ruben Hernandez |
 | 1.1 | 2026-08-04 | Recorded the approved technology baseline, closed Phase 1 solution definition, and made the executable walking skeleton the next gate. | Ruben Hernandez |
 | 1.0 | 2026-08-03 | Approved a concise solo-project lifecycle, separated platform mechanics, made accessibility an MVP gate, and clarified `dev` deployment versus private release. | Ruben Hernandez |

@@ -71,7 +71,7 @@ user shape but no usable password or client secret.
 
 ## Backend connection contract
 
-The focused backend integration work can use:
+The backend persistence integration uses:
 
 ```text
 Runtime JDBC URL:  jdbc:postgresql://localhost:5432/videogame_platform
@@ -90,8 +90,11 @@ OIDC client secret: KEYCLOAK_BFF_CLIENT_SECRET
 The application runtime role is deliberately not the database owner and has no DDL
 permission. Migrations created by `videogame_app_migrator` grant the standard table
 and sequence DML privileges to `videogame_app` through PostgreSQL default privileges.
-Future module-specific schemas must repeat the corresponding explicit grants in their
-migrations.
+The initial `catalogue` migration repeats the schema-specific usage and default table
+DML grants. The application role can read and modify catalogue tables but cannot
+create or alter schema objects. See the
+[application database migration guide](database-migrations.md) for the schema,
+immutable migration policy, opt-in seed, validation, and startup procedure.
 
 ## Commands and verification
 
@@ -203,10 +206,11 @@ fresh state.
 
 ## Deliberate issue boundaries
 
-This topology completes the dependency contract only:
+This topology remains the dependency contract:
 
-- Flyway migrations, JPA configuration, application schemas, deterministic catalogue
-  data, and Testcontainers persistence evidence belong to issue #22.
+- Flyway migrations, JPA configuration, the initial catalogue schema, deterministic
+  catalogue data, and Testcontainers persistence evidence are implemented and
+  documented separately in the database migration guide.
 - Authorization Code exchange, opaque application sessions, CSRF protection, logout,
   and browser-level BFF compatibility evidence belong to issue #40.
 - Pull-request CI integration belongs to issue #24; the commands here are designed to

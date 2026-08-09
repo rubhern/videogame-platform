@@ -1,6 +1,23 @@
 spring:
   application:
     name: videogame-platform-backend
+  datasource:
+    url: ${APPLICATION_DB_URL:jdbc:postgresql://localhost:5432/videogame_platform}
+    username: ${APPLICATION_DB_USERNAME:videogame_app}
+    password: ${APPLICATION_DB_PASSWORD:}
+  flyway:
+    enabled: ${APPLICATION_FLYWAY_ENABLED:false}
+    url: ${APPLICATION_MIGRATION_DB_URL:${APPLICATION_DB_URL:jdbc:postgresql://localhost:5432/videogame_platform}}
+    user: ${APPLICATION_MIGRATION_DB_USERNAME:videogame_app_migrator}
+    password: ${APPLICATION_MIGRATION_DB_PASSWORD:}
+    locations: classpath:db/migration
+    clean-disabled: true
+    validate-migration-naming: true
+    validate-on-migrate: true
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
   lifecycle:
     timeout-per-shutdown-phase: 20s
   modulith:

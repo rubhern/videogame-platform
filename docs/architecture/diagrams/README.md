@@ -60,6 +60,7 @@ docs/architecture/diagrams/
 │   ├── hexagonal-dependency-rules.mmd
 │   ├── authenticate-and-create-rating-sequence.mmd
 │   ├── synchronize-bounded-catalogue-sequence.mmd
+│   ├── catalogue-persistence-model.mmd
 │   └── delivery-pipeline.mmd
 ├── generated/
 │   ├── structurizr/
@@ -108,11 +109,15 @@ The canonical Mermaid files are:
 | `hexagonal-dependency-rules.mmd` | Inward dependency rules inside Catalogue and Ratings | `../mvp-solution-architecture.md` |
 | `authenticate-and-create-rating-sequence.mmd` | Authentication only at rating confirmation and replay-safe rating creation | `../application/mvp-use-cases.md` |
 | `synchronize-bounded-catalogue-sequence.mmd` | Bounded IGDB synchronization, staging, validation, review, and last-valid-state preservation | `../application/mvp-use-cases.md` and `../deployment/mvp-platform-and-delivery.md` |
+| `catalogue-persistence-model.mmd` | Implemented PostgreSQL catalogue tables, columns, keys, and cardinalities | `../../development/database-migrations.md`; versioned SQL is the executable authority |
 | `delivery-pipeline.mmd` | Source-to-image and manually approved private-dev deployment pipeline | `../deployment/mvp-platform-and-delivery.md` and `../../development/delivery-lifecycle.md` |
 
 The conceptual domain model remains embedded in `../domain/mvp-domain-model.md`, and
 the change lifecycle remains embedded in `../../development/delivery-lifecycle.md`.
-They are not duplicated here.
+They are not duplicated here. The catalogue persistence model is a distinct physical
+view and must not be interpreted as a replacement for that conceptual domain model.
+Its versioned Flyway migration owns executable schema detail; update the communication
+view in the same change whenever a forward migration changes the represented shape.
 
 ## 5. View Structurizr diagrams
 
@@ -179,8 +184,9 @@ Render all standalone Mermaid sources with the version pinned by the script:
 bash docs/architecture/diagrams/scripts/render-mermaid.sh
 ```
 
-The script uses `npx` when available and otherwise falls back to the official pinned
-Mermaid CLI container through Docker. Both paths use Mermaid CLI `11.16.0`.
+The script prefers the official pinned Mermaid CLI container when Docker is running
+and otherwise uses `npx`. This avoids depending on an unverified local Puppeteer
+browser while retaining a non-Docker path. Both paths use Mermaid CLI `11.16.0`.
 
 The script uses the official Mermaid CLI package and writes SVG files to:
 

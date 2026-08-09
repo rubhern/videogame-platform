@@ -1,11 +1,11 @@
 # Learning MVP Technology Baseline
 
 - **Status:** Approved
-- **Version:** 1.1
+- **Version:** 1.2
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-08
+- **Last updated:** 2026-08-09
 - **Phase:** 1 — MVP solution definition (complete)
-- **Implementation evidence:** Partial — application foundations and local dependency topology
+- **Implementation evidence:** Partial — application foundations, local dependencies, and PostgreSQL/Flyway persistence
 - **Scope:** Private, non-commercial learning MVP
 - **Solution architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
 - **API conventions:** [Learning MVP API conventions](../api/api-conventions.md)
@@ -605,6 +605,13 @@ Minimum acceptance criteria:
 - liveness, readiness, structured logs, metrics, and trace correlation are visible;
 - CI runs the proof reproducibly.
 
+As of 2026-08-09, the PostgreSQL/Flyway portion is executable: the production
+migration creates a fresh PostgreSQL 18 schema, Testcontainers verifies migration and
+persistence constraints, and a dedicated GitHub Actions workflow runs the same local
+validation command. This is partial compatibility evidence; it does not close the
+public endpoint, identity, combined packaging, full CI, or multi-architecture parts
+of the gate.
+
 A failure blocks feature expansion and reopens the affected ADR or baseline row. It
 does not automatically force Java 21 or permit dropping ARM64. First identify whether
 the problem is configuration, emulation, a patch-level incompatibility, an image
@@ -691,6 +698,7 @@ the replaceable local telemetry backend.
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-09 | 1.2 | Recorded executable PostgreSQL 18 migration-from-zero, deterministic seed, persistence-constraint, runtime-privilege, and Flyway checksum evidence without closing the broader compatibility gate. | Ruben Hernandez |
 | 2026-08-03 | 0.1 | Initial proposed baseline covering runtime, backend, persistence, API, frontend, identity, testing, observability, quality, and delivery. | Ruben Hernandez |
 | 2026-08-04 | 1.0 | Approved the coherent technology baseline, inherited existing platform ADRs without duplication, and made local, CI, AMD64, and ARM64 proof an explicit walking-skeleton gate. | Ruben Hernandez |
 | 2026-08-08 | 1.1 | Recorded partial executable evidence for the backend/frontend foundations and local PostgreSQL/Keycloak topology without closing the compatibility gate. | Ruben Hernandez |
