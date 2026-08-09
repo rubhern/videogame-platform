@@ -6,6 +6,9 @@ cd "$ROOT_DIR"
 
 required_files=(
   ".env.example"
+  "compose.yaml"
+  "docker/keycloak/import/videogame-platform-realm.json"
+  "docker/postgres/init/001-create-local-databases.sh"
   ".mvn/wrapper/maven-wrapper.properties"
   "AGENTS.md"
   "README.md"
@@ -29,6 +32,8 @@ required_files=(
   "docs/research/simulated-round-synthesis.md"
   "docs/reference/video-game-platform-vision.pdf"
   "docs/development/codex-setup.md"
+  "docs/development/backend.md"
+  "docs/development/local-dependencies.md"
   "docs/development/local-setup.md"
   "docs/development/frontend.md"
   "docs/development/openapi-validation.md"
@@ -72,6 +77,7 @@ required_files=(
   "mvnw"
   "redocly.yaml"
   "scripts/validate-openapi.sh"
+  "scripts/local-dependencies.sh"
   "scripts/validate-prerequisites.sh"
   "scripts/build-openapi-docs.sh"
   "tools/openapi-validation/syntax.redocly.yaml"
@@ -105,17 +111,67 @@ root = pathlib.Path(sys.argv[1])
 link_pattern = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 errors = []
 
-postman_documents = (
+json_documents = (
     "backend/postman/actuator.postman_collection.json",
     "backend/postman/local.postman_environment.json",
+    "docker/keycloak/import/videogame-platform-realm.json",
 )
 
-for relative in postman_documents:
+for relative in json_documents:
     document = root / relative
     try:
         json.loads(document.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         errors.append(f"{relative}: invalid JSON: {error}")
+
+realm_path = root / "docker/keycloak/import/videogame-platform-realm.json"
+try:
+    realm = json.loads(realm_path.read_text(encoding="utf-8"))
+    clients = [
+        client for client in realm.get("clients", [])
+        if client.get("clientId") == "videogame-platform-bff"
+    ]
+    users = realm.get("users", [])
+    if realm.get("realm") != "videogame-platform" or not realm.get("enabled"):
+        errors.append("Keycloak realm must define the enabled videogame-platform realm")
+    if len(clients) != 1:
+        errors.append("Keycloak realm must define exactly one videogame-platform-bff client")
+    else:
+        client = clients[0]
+        expected_client_values = {
+            "publicClient": False,
+            "standardFlowEnabled": True,
+            "implicitFlowEnabled": False,
+            "directAccessGrantsEnabled": False,
+            "serviceAccountsEnabled": False,
+            "secret": "${KEYCLOAK_BFF_CLIENT_SECRET}",
+        }
+        for key, expected in expected_client_values.items():
+            if client.get(key) != expected:
+                errors.append(f"Keycloak BFF client {key} must be {expected!r}")
+        if client.get("attributes", {}).get("pkce.code.challenge.method") != "S256":
+            errors.append("Keycloak BFF client must require PKCE S256")
+    if len(users) != 1 or users[0].get("username") != "${LOCAL_TEST_USER_USERNAME}":
+        errors.append("Keycloak realm must define exactly one environment-backed local test user")
+    else:
+        credentials = users[0].get("credentials", [])
+        if len(credentials) != 1 or credentials[0].get("value") != "${LOCAL_TEST_USER_PASSWORD}":
+            errors.append("Keycloak local test-user password must remain an environment placeholder")
+except (OSError, UnicodeError, json.JSONDecodeError):
+    pass
+
+env_example = (root / ".env.example").read_text(encoding="utf-8")
+for secret_variable in (
+    "POSTGRES_ADMIN_PASSWORD",
+    "APPLICATION_DB_PASSWORD",
+    "APPLICATION_MIGRATION_DB_PASSWORD",
+    "KEYCLOAK_DB_PASSWORD",
+    "KEYCLOAK_ADMIN_PASSWORD",
+    "KEYCLOAK_BFF_CLIENT_SECRET",
+    "LOCAL_TEST_USER_PASSWORD",
+):
+    if f"{secret_variable}=GENERATE_ME" not in env_example.splitlines():
+        errors.append(f".env.example: {secret_variable} must use the GENERATE_ME placeholder")
 
 expected_statuses = {
     "docs/product/product-brief.md": "Approved",
@@ -172,7 +228,7 @@ PY
 
 while IFS= read -r file; do
   case "$file" in
-    mvnw|scripts/*.sh|docs/architecture/diagrams/scripts/*.sh)
+    mvnw|scripts/*.sh|docker/postgres/init/*.sh|docs/architecture/diagrams/scripts/*.sh)
       [[ -x "$file" ]] || {
         printf 'Shell script must be executable: %s\n' "$file" >&2
         exit 1

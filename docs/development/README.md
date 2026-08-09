@@ -6,6 +6,8 @@
   verification, start, health, and packaging commands.
 - [Frontend development](frontend.md): React/TypeScript/Vite skeleton, OpenAPI type
   generation, verification, local development, and current limitations.
+- [Local backend dependencies](local-dependencies.md): PostgreSQL and Keycloak
+  topology, generated local credentials, verification, shutdown, and safe reset.
 - [Codex workspace setup](codex-setup.md): verified tools, configuration,
   rationale, risks, and deferred capabilities.
 - [OpenAPI contract validation](openapi-validation.md): syntax, lint, references,

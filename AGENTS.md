@@ -34,9 +34,12 @@ infrastructure has been implemented yet.
 The initial backend and frontend walking-skeleton foundations are executable locally.
 The backend proves the Java/Spring module boundaries and Actuator health; the
 frontend proves the React/TypeScript/Vite baseline, complete OpenAPI type generation,
-and its static-analysis, component, browser-smoke, and production-build paths. This
-does not close the broader compatibility gate: persistence, identity, CI, combined
-packaging, and multi-architecture evidence remain outstanding.
+and its static-analysis, component, browser-smoke, and production-build paths. The
+local PostgreSQL 18 and Keycloak 26.7 topology is also executable with isolated roles,
+reproducible identity configuration, health checks, persistent disposable data, and
+verified AMD64/ARM64 dependency manifests. This does not close the broader
+compatibility gate: application persistence, BFF identity integration, CI, combined
+packaging, and application multi-architecture evidence remain outstanding.
 
 The initial architecture diagram baseline is established through ADR-0013. Approved
 documents and ADRs remain authoritative; Structurizr owns shared C4 views, Mermaid
