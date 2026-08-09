@@ -35,10 +35,12 @@ The initial backend and frontend walking-skeleton foundations are executable loc
 The backend proves the Java/Spring module boundaries and Actuator health; the
 frontend proves the React/TypeScript/Vite baseline, complete OpenAPI type generation,
 and its static-analysis, component, browser-smoke, and production-build paths. The
-local PostgreSQL 18 and Keycloak 26.7 topology is also executable with isolated roles,
+local PostgreSQL 18 and Keycloak 26.7 topology is executable with isolated roles,
 reproducible identity configuration, health checks, persistent disposable data, and
-verified AMD64/ARM64 dependency manifests. This does not close the broader
-compatibility gate: application persistence, BFF identity integration, CI, combined
+verified AMD64/ARM64 dependency manifests. SQL-first Flyway migration from zero, a
+module-owned catalogue schema, deterministic opt-in seed data, and PostgreSQL 18
+Testcontainers persistence constraints are also executable. This does not close the
+broader compatibility gate: BFF identity integration, the complete CI gate, combined
 packaging, and application multi-architecture evidence remain outstanding.
 
 The initial architecture diagram baseline is established through ADR-0013. Approved
@@ -112,6 +114,8 @@ Distinguish evidence, decisions, assumptions, and proposals.
 - Keep domain boundaries explicit and external providers isolated.
 - Treat testing, security, observability, accessibility, delivery, and
   operations as part of product quality.
+- Assess every deliverable change with Semantic Versioning and update all affected
+  build and documentation references atomically.
 - Record significant, durable architecture decisions as ADRs.
 
 ## Working method
@@ -123,8 +127,10 @@ For substantial tasks:
 3. Propose the smallest coherent plan.
 4. Make a focused change without unrelated refactoring.
 5. Validate the result.
-6. Update affected documentation.
-7. Summarise changes, checks, risks, and next decisions.
+6. Assess and update affected artefact versions using the Semantic Versioning policy
+   in `docs/development/delivery-lifecycle.md`.
+7. Update affected documentation.
+8. Summarise changes, checks, risks, and next decisions.
 
 Use English for repository documentation, code, identifiers, tests, comments,
 and commit messages.
@@ -144,6 +150,7 @@ bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
 npm run frontend:verify
+bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
@@ -171,6 +178,8 @@ A change is complete when:
 
 - the requested outcome and applicable acceptance criteria are satisfied;
 - relevant automated checks pass;
+- Semantic Versioning impact has been assessed and affected artefact versions and
+  references are consistent;
 - sources of truth remain coherent;
 - significant decisions and remaining risks are documented;
 - no unrelated scope was added.
