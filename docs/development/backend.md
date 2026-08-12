@@ -1,7 +1,7 @@
 # Backend development
 
-- **Status:** Active walking skeleton with initial persistence
-- **Last verified:** 2026-08-09
+- **Status:** Active walking skeleton with persistence and baseline observability
+- **Last verified:** 2026-08-10
 - **Runtime:** Java 25 without preview features
 - **Build:** Repository Maven Wrapper
 - **Technology baseline:** [Learning MVP technology baseline](../architecture/technology/mvp-technology-baseline.md)
@@ -22,9 +22,10 @@ catalogue schema, and deterministic opt-in seed data now provide the initial
 persistence boundary. It intentionally implements no product endpoint,
 authentication, provider call, catalogue repository, or product behaviour.
 
-Actuator health is the only current HTTP surface. The placeholder packages make
-future ownership explicit while keeping domain, application, API, persistence, and
-provider types separate before real models are introduced.
+Actuator health, info, and metrics are the only current HTTP surface. Explicit probe
+groups, build metadata, safe correlation, structured access logs, route-template
+metrics, W3C tracing, and optional OTLP export provide the baseline observability
+boundary before real product models are introduced.
 
 ## Project layout
 
@@ -68,7 +69,8 @@ This is the stable backend verification command. It:
 
 - enforces Java 25 and Maven 3.9 through the backend build;
 - compiles with Java release 25 and preview features disabled;
-- starts an embedded servlet server and checks `/actuator/health`;
+- starts an embedded servlet server and checks health groups, version metadata,
+  baseline metrics, structured correlation, W3C trace context, and telemetry safety;
 - verifies the five application modules with Spring Modulith;
 - applies ArchUnit rules for domain independence, inward application dependencies,
   and separation of API, persistence, and provider models;
@@ -106,13 +108,20 @@ In another terminal, inspect health:
 
 ```bash
 curl --fail --silent http://localhost:8080/actuator/health
+curl --fail --silent http://localhost:8080/actuator/info
+curl --fail --silent http://localhost:8080/actuator/metrics
 ```
 
 The expected response contains `"status":"UP"`. Stop the application with
 `Ctrl+C`.
 
-For discovery, aggregate health, liveness, readiness, and info checks, import the
+For discovery, health, info, and metric checks, import the
 [Actuator Postman collection and local environment](../../backend/postman/README.md).
+
+The [observability guide](observability.md) owns health semantics, source-revision
+injection, human and `structured` logging modes, package log levels, correlation and
+trace propagation, the current full-trace sampling baseline, metric cardinality,
+OTLP settings, sensitive-data rules, and current limitations.
 
 Spring Modulith also verifies the module arrangement during application startup. A
 new invalid module dependency therefore fails both the automated test suite and a
@@ -123,7 +132,7 @@ normal local start.
 The full verification already creates the executable artifact. Run it directly with:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.1.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.2.0-SNAPSHOT.jar
 ```
 
 This command uses the same Java 25 runtime constraint as the Maven build. Container
@@ -139,8 +148,8 @@ not claimed by this skeleton:
   OIDC session compatibility;
 - OpenAPI-backed product delivery;
 - CI reproduction and OCI images for `linux/amd64` and `linux/arm64`;
-- complete application telemetry export, combined-application resource budgeting,
-  and remote deployment.
+- a deployed collector or OCI telemetry integration, combined-application resource
+  budgeting, and remote deployment.
 
 Add those capabilities only through their focused work items. Do not turn a
 placeholder into a product feature without the corresponding approved use case,

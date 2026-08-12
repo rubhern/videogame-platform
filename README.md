@@ -34,10 +34,12 @@ Keycloak 26.7 dependency topology proves isolated roles, reproducible identity
 configuration, health, persistence, reset, and AMD64/ARM64 dependency-image
 manifests. The backend now also proves SQL-first Flyway migration from zero, a
 module-owned catalogue schema, deterministic opt-in seed data, disabled Hibernate
-schema generation, and PostgreSQL 18 Testcontainers persistence checks. BFF identity
-integration, the complete CI gate, combined packaging, and application
-multi-architecture evidence remain in the walking-skeleton gate; remote
-infrastructure follows only after that gate passes.
+schema generation, PostgreSQL 18 Testcontainers persistence checks, explicit health
+groups, build/source metadata, structured request correlation, bounded metrics, W3C
+trace context, and optional OpenTelemetry-compatible export. BFF identity integration,
+the complete CI gate, combined packaging, and application multi-architecture evidence
+remain in the walking-skeleton gate; remote infrastructure follows only after that
+gate passes.
 
 ## Start here
 
@@ -59,21 +61,23 @@ infrastructure follows only after that gate passes.
 10. Use the [application database migration guide](docs/development/database-migrations.md)
     to validate or apply the catalogue schema and optional development seed.
 11. Review the [Codex workspace setup](docs/development/codex-setup.md).
-12. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) to
+12. Use the [backend observability guide](docs/development/observability.md) to
+    inspect health, version, logs, metrics, tracing, and optional OTLP export.
+13. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) to
    validate the API contract locally and in CI.
-13. Browse the [generated API reference](docs/architecture/api/reference/index.html)
+14. Browse the [generated API reference](docs/architecture/api/reference/index.html)
     or follow its [regeneration tutorial](docs/development/openapi-web-documentation.md).
-14. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
+15. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
     and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
     skeleton and private `dev` environment.
-15. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
+16. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
     [architecture diagram catalogue](docs/architecture/diagrams/README.md), and
     [ADR-0005 through ADR-0013](docs/decisions/) before implementing the walking
     skeleton, persistence, identity, delivery, hosting, or observability.
-16. Use the [backend technical README](backend/README.md) and
+17. Use the [backend technical README](backend/README.md) and
     [backend development guide](docs/development/backend.md) to build, test, start,
     inspect, and extend the initial modular-monolith skeleton.
-17. Use the [frontend technical README](frontend/README.md) and
+18. Use the [frontend technical README](frontend/README.md) and
     [frontend development guide](docs/development/frontend.md) to install, generate
     API types, test, build, and extend the client-rendered skeleton.
 
