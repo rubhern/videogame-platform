@@ -6,7 +6,8 @@ exposed by the backend and a non-secret local environment.
 ## Files
 
 - [`actuator.postman_collection.json`](actuator.postman_collection.json): discovery,
-  aggregate health, liveness, readiness, and info requests with automated tests.
+  aggregate health, liveness, readiness, build info, and metric requests with
+  automated tests.
 - [`local.postman_environment.json`](local.postman_environment.json): local
   `baseUrl`, defaulting to `http://localhost:8080`.
 
@@ -22,10 +23,10 @@ exposed by the backend and a non-secret local environment.
 3. Select the **VideoGame Platform - Local** environment.
 4. Open **VideoGame Platform Backend - Actuator** and select **Run collection**.
 
-The collection verifies HTTP `200`, JSON responses, discovery links, and `UP` for
-the aggregate health and probe endpoints. The info request accepts the current empty
-JSON object so that future non-sensitive metadata can be added without changing the
-request.
+The collection verifies HTTP `200`, JSON responses, discovery links, `UP` for health
+and probes, generated build/source metadata, baseline meter names, and bounded HTTP
+route tags. The backend integration test remains authoritative for W3C propagation,
+structured correlation, and negative sensitive-data assertions.
 
 To target another instance, change only the environment's `baseUrl`. Do not add
 tokens, passwords, cookies, client secrets, or machine-specific values to these

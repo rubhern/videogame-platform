@@ -2,8 +2,8 @@
 
 The backend is the executable walking skeleton for the VideoGame Platform learning
 MVP. It proves the approved Java and Spring baseline, enforceable module boundaries,
-and the initial PostgreSQL/Flyway persistence contract before product behaviour is
-implemented.
+the initial PostgreSQL/Flyway persistence contract, and baseline observability before
+product behaviour is implemented.
 
 ## Current status and scope
 
@@ -13,12 +13,15 @@ implemented.
 - **Architecture:** Modular monolith with Spring Modulith 2.1.0
 - **Build:** Maven Wrapper from the repository root
 - **Persistence:** PostgreSQL 18, SQL-first Flyway, JPA schema generation disabled
-- **Current HTTP surface:** Spring Boot Actuator only
+- **Current HTTP surface:** Spring Boot Actuator health, info, and metrics only
 
 The application currently has no product endpoint, catalogue repository, JPA entity,
 authentication, external provider call, or frontend integration. It does have the
 minimum module-owned catalogue schema, deterministic opt-in development seed, and
 PostgreSQL 18 migration/persistence evidence required before the first public read.
+It also has safe liveness/readiness groups, build/source metadata, correlation,
+structured logs, bounded metrics, W3C trace context, and disabled-by-default OTLP
+export.
 
 The repository-level [backend development guide](../docs/development/backend.md)
 tracks the broader walking-skeleton boundary and deferred evidence. The approved
@@ -35,7 +38,8 @@ remain authoritative when this README and an approved source conflict.
 | Application framework | Spring Boot | 4.1.0 |
 | HTTP runtime | Spring MVC | Managed by Spring Boot |
 | Module model | Spring Modulith | 2.1.0 |
-| Operational endpoints | Spring Boot Actuator | `health` and `info` exposed |
+| Operational endpoints | Spring Boot Actuator | `health`, `info`, and `metrics` exposed |
+| Metrics and traces | Micrometer and OpenTelemetry | Spring Boot-managed Micrometer 1.17/Tracing 1.7 and OpenTelemetry 1.62 |
 | Persistence | PostgreSQL, Spring Data JPA, Hibernate | PostgreSQL 18; Hibernate DDL disabled |
 | Schema evolution | Flyway Community, SQL-first | Spring Boot-managed 12.4.0 |
 | Persistence integration tests | Testcontainers PostgreSQL | 2.0.5 with `postgres:18.4-bookworm` |
@@ -119,7 +123,7 @@ The default address is `http://localhost:8080`. Stop the process gracefully with
 After a successful package, run the executable artifact directly:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.1.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.2.0-SNAPSHOT.jar
 ```
 
 To change the HTTP port for a local run, use a standard Spring Boot override:
@@ -204,8 +208,17 @@ The committed defaults live in
 | `spring.modulith.runtime.verification-enabled` | `true` | Verifies module structure during startup |
 | `server.shutdown` | `graceful` | Stops accepting work before terminating |
 | `management.endpoint.health.probes.enabled` | `true` | Enables liveness and readiness health groups |
+| `management.endpoint.health.group.liveness.include` | `livenessState` | Keeps liveness limited to process viability |
+| `management.endpoint.health.group.readiness.include` | `readinessState,db,catalogueStore` | Requires application readiness, database connectivity, and migrated catalogue query access |
 | `management.endpoint.health.show-details` | `never` | Avoids exposing component details |
-| `management.endpoints.web.exposure.include` | `health,info` | Restricts the public Actuator surface |
+| `management.endpoints.web.exposure.include` | `health,info,metrics` | Restricts the public Actuator surface |
+| `management.info.env.enabled` | `false` | Prevents arbitrary environment-backed info fields |
+| `management.tracing.propagation.type` | `w3c` | Consumes and produces W3C trace context only |
+| `management.tracing.sampling.probability` | `1.0` | Keeps complete root-trace evidence at the current low-volume stage |
+| `management.tracing.export.otlp.enabled` | `false` | Keeps trace export optional and fail-open |
+| `management.otlp.metrics.export.enabled` | `false` | Keeps metric export optional and fail-open |
+| `logging.level.root` | `INFO` | Avoids dependency-framework debug noise |
+| `logging.level.com.videogameplatform` | `INFO` | Application log baseline; override with `LOGGING_LEVEL_COM_VIDEOGAMEPLATFORM` |
 
 Spring Boot properties can be overridden with command-line arguments, environment
 variables, or an external configuration file. For example,
@@ -221,6 +234,11 @@ local dependency wrapper generates them in ignored `.env`; maintained environmen
 must supply them through a protected secret source. Never add credentials to
 `application.yaml`, this README, Postman files, Git history, logs, or URLs.
 
+The complete observability property table, safe defaults, restart behaviour,
+structured-log profile, source-revision build option, OTLP endpoints, cardinality
+policy, and security rules are maintained in the
+[backend observability guide](../docs/development/observability.md).
+
 ## Actuator API
 
 Actuator is served on the application port under `/actuator`. All currently exposed
@@ -232,7 +250,9 @@ operations are read-only and require no request body.
 | `GET` | `/actuator/health` | Aggregate application health | `200 OK`, status `UP` |
 | `GET` | `/actuator/health/liveness` | Whether the process should be restarted | `200 OK`, status `UP` |
 | `GET` | `/actuator/health/readiness` | Whether the process can receive traffic | `200 OK`, status `UP` |
-| `GET` | `/actuator/info` | Non-sensitive build/application information | `200 OK`; currently `{}` |
+| `GET` | `/actuator/info` | Non-sensitive build/application information | `200 OK`; build version and source revision |
+| `GET` | `/actuator/metrics` | Available bounded diagnostic meter names | `200 OK`; HTTP, JVM, process, system, JDBC, and pool meters |
+| `GET` | `/actuator/metrics/{name}` | Measurements and available low-cardinality tags | `200 OK` for a known meter |
 
 Example:
 
@@ -240,9 +260,10 @@ Example:
 curl --fail --silent http://localhost:8080/actuator/health
 ```
 
-The liveness endpoint must not gain checks for unavailable external dependencies;
-doing so can create restart loops. Readiness may include required dependencies when
-they are implemented. Health details stay hidden by default, and endpoints such as
+Liveness includes process state only. Readiness includes application state, the
+database, and the migrated catalogue schema; an empty catalogue remains ready because
+the later API can safely report `CATALOGUE_NOT_READY`. IGDB and telemetry never control
+readiness. Health details stay hidden by default, and endpoints such as
 `env`, `configprops`, `beans`, `heapdump`, and `loggers` are deliberately not
 exposed.
 
@@ -253,7 +274,9 @@ every exposed endpoint and run status/schema checks in Postman.
 
 | Test | Type | Evidence |
 |---|---|---|
-| `BackendStartupTest` | Full-context HTTP/database integration test | Java 25, PostgreSQL 18, production migration, runtime connection, and health |
+| `BackendStartupTest` | Full-context HTTP/database integration test | Java 25, PostgreSQL 18, migration, health groups, build info, metrics, ECS correlation, W3C trace propagation, and telemetry safety |
+| `CorrelationIdFilterTest` | Focused servlet-filter unit test | Valid/invalid IDs, response header, MDC lifecycle, safe route fields, and exceptional completion |
+| `CatalogueStoreHealthIndicatorTest` | Database failure integration test | Missing schema produces detail-free `DOWN` |
 | `CataloguePersistenceIntegrationTest` | Flyway and JDBC integration test | Migration from zero, seed determinism, checksums, constraints, and runtime privileges |
 | `ModularityTest` | Architecture test | Spring Modulith dependency verification and approved module set |
 | `HexagonalArchitectureTest` | Architecture test | Inward dependencies and separation of boundary models |
@@ -262,6 +285,8 @@ Run one test class when diagnosing a focused failure:
 
 ```bash
 ./mvnw -pl backend -Dtest=BackendStartupTest test
+./mvnw -pl backend -Dtest=CorrelationIdFilterTest test
+./mvnw -pl backend -Dtest=CatalogueStoreHealthIndicatorTest test
 ./mvnw -pl backend -Dtest=CataloguePersistenceIntegrationTest test
 ./mvnw -pl backend -Dtest=ModularityTest test
 ./mvnw -pl backend -Dtest=HexagonalArchitectureTest test
@@ -294,7 +319,7 @@ do not copy real secrets into shared run configurations.
 | Maven Enforcer rejects Java | Select a Java 25 JDK in `PATH` and `JAVA_HOME`, then re-run `./mvnw --version`. |
 | Port `8080` is already in use | Stop the conflicting process or run with `SERVER_PORT=8081`. |
 | `/actuator/health` is unreachable | Confirm the startup completed, the selected port is correct, and no unsupported management base-path override is active. |
-| An Actuator endpoint returns `404` | Only `health` and `info` are exposed; verify the path and committed configuration. |
+| An Actuator endpoint returns `404` | Only `health`, `info`, and `metrics` are exposed; verify the path and committed configuration. |
 | Application startup reports a module violation | Inspect the dependency named by Spring Modulith and restore the inward dependency direction. |
 | Testcontainers cannot find Docker | Start Docker Desktop, enable this WSL distribution, and verify `docker info`. |
 | PostgreSQL authentication fails locally | Start the dependency topology and load the generated `.env` into the shell without printing it. |
@@ -313,10 +338,13 @@ For each future change:
    validation, and restart behaviour.
 6. Update OpenAPI, Postman, operational checks, and this README when the HTTP surface
    changes.
-7. Run `./mvnw clean verify` and the repository documentation validations.
+7. Preserve the telemetry allowlist and route-template cardinality rules in the
+   observability guide.
+8. Run `./mvnw clean verify` and the repository documentation validations.
 
 The local PostgreSQL/Keycloak topology and initial application persistence are
 implemented separately. Catalogue repositories and queries, the Keycloak-backed BFF
-session, product APIs, OpenTelemetry export, application containers, the complete CI
-gate, and remote deployment remain focused work items. This backend does not claim a
-product read or remote operational evidence merely because its schema can migrate.
+session, product APIs, a deployed telemetry backend, application containers, the
+complete CI gate, and remote deployment remain focused work items. This backend does
+not claim a product read or remote operational evidence merely because its schema can
+migrate or its telemetry can be exported.

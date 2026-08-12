@@ -7,7 +7,7 @@
   <parent>
     <groupId>com.videogameplatform</groupId>
     <artifactId>videogame-platform</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>videogame-platform-backend</artifactId>
@@ -22,6 +22,14 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-opentelemetry</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-otlp</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.modulith</groupId>
@@ -120,6 +128,19 @@
       <plugin>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>build-information</id>
+            <goals>
+              <goal>build-info</goal>
+            </goals>
+            <configuration>
+              <additionalProperties>
+                <sourceRevision>${source.revision}</sourceRevision>
+              </additionalProperties>
+            </configuration>
+          </execution>
+        </executions>
         <configuration>
           <mainClass>com.videogameplatform.VideoGamePlatformApplication</mainClass>
         </configuration>

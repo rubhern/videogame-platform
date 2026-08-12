@@ -11,6 +11,9 @@
 - [Application database migrations](database-migrations.md): module-owned catalogue
   schema, Flyway immutability, deterministic seed data, Testcontainers evidence, and
   local migration configuration.
+- [Backend observability](observability.md): health semantics, build metadata,
+  correlation, structured logs, metrics, W3C tracing, OTLP configuration, telemetry
+  safety, and automated evidence.
 - [Codex workspace setup](codex-setup.md): verified tools, configuration,
   rationale, risks, and deferred capabilities.
 - [OpenAPI contract validation](openapi-validation.md): syntax, lint, references,

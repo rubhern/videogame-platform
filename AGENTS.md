@@ -32,7 +32,9 @@ implementation is now active at the walking-skeleton gate: prove local, CI,
 infrastructure has been implemented yet.
 
 The initial backend and frontend walking-skeleton foundations are executable locally.
-The backend proves the Java/Spring module boundaries and Actuator health; the
+The backend proves the Java/Spring module boundaries, explicit health groups, safe
+version/source metadata, structured request correlation, bounded metrics, W3C trace
+context, and optional OTLP export; the
 frontend proves the React/TypeScript/Vite baseline, complete OpenAPI type generation,
 and its static-analysis, component, browser-smoke, and production-build paths. The
 local PostgreSQL 18 and Keycloak 26.7 topology is executable with isolated roles,
@@ -40,8 +42,9 @@ reproducible identity configuration, health checks, persistent disposable data, 
 verified AMD64/ARM64 dependency manifests. SQL-first Flyway migration from zero, a
 module-owned catalogue schema, deterministic opt-in seed data, and PostgreSQL 18
 Testcontainers persistence constraints are also executable. This does not close the
-broader compatibility gate: BFF identity integration, the complete CI gate, combined
-packaging, and application multi-architecture evidence remain outstanding.
+broader compatibility gate: BFF identity integration, a deployed telemetry backend,
+the complete CI gate, combined packaging, and application multi-architecture evidence
+remain outstanding.
 
 The initial architecture diagram baseline is established through ADR-0013. Approved
 documents and ADRs remain authoritative; Structurizr owns shared C4 views, Mermaid

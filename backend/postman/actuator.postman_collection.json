@@ -23,7 +23,7 @@
                   "pm.test(\"Response exposes only the expected resource links\", function () {",
                   "    const body = pm.response.json();",
                   "    pm.expect(body).to.have.property(\"_links\");",
-                  "    pm.expect(body._links).to.have.all.keys(\"self\", \"health\", \"health-path\", \"info\");",
+                  "    pm.expect(body._links).to.have.all.keys(\"self\", \"health\", \"health-path\", \"info\", \"metrics\", \"metrics-requiredMetricName\");",
                   "});"
                 ],
                 "type": "text/javascript",
@@ -210,9 +210,12 @@
                   "    pm.response.to.have.status(200);",
                   "});",
                   "",
-                  "pm.test(\"Response is a JSON object\", function () {",
+                  "pm.test(\"Response contains safe build and source metadata\", function () {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(body).to.be.an(\"object\");",
+                  "    pm.expect(body.build.version).to.eql(\"0.2.0-SNAPSHOT\");",
+                  "    pm.expect(body.build.sourceRevision).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(JSON.stringify(body)).not.to.include(\"password\");",
+                  "    pm.expect(JSON.stringify(body)).not.to.include(\"jdbc:\");",
                   "});"
                 ],
                 "type": "text/javascript",
@@ -239,7 +242,103 @@
                 "info"
               ]
             },
-            "description": "Returns non-sensitive application information. The walking skeleton currently returns an empty object."
+            "description": "Returns generated non-sensitive build version, time, and source revision information."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Metrics",
+      "item": [
+        {
+          "name": "Metric names",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Baseline HTTP, runtime and pool meters are available\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.names).to.include.members([\"http.server.requests\", \"jvm.memory.used\", \"jdbc.connections.active\"]);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "metrics"
+              ]
+            },
+            "description": "Returns names for the bounded in-memory diagnostic meters."
+          },
+          "response": []
+        },
+        {
+          "name": "HTTP request metric",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"HTTP metrics expose bounded route-template tags\", function () {",
+                  "    const body = pm.response.json();",
+                  "    const uriTag = body.availableTags.find((tag) => tag.tag === \"uri\");",
+                  "    pm.expect(uriTag).to.exist;",
+                  "    pm.expect(uriTag.values.every((value) => !value.includes(\"?\"))).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/metrics/http.server.requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "metrics",
+                "http.server.requests"
+              ]
+            },
+            "description": "Returns HTTP request measurements and bounded route-template tag values."
           },
           "response": []
         }

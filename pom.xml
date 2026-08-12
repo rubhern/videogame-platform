@@ -13,7 +13,7 @@
 
   <groupId>com.videogameplatform</groupId>
   <artifactId>videogame-platform</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>VideoGame Platform</name>
@@ -30,6 +30,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <archunit.version>1.4.2</archunit.version>
     <spring-modulith.version>2.1.0</spring-modulith.version>
+    <source.revision>local-development</source.revision>
   </properties>
 
   <dependencyManagement>

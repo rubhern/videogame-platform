@@ -30,10 +30,60 @@ server:
 management:
   endpoint:
     health:
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState,db,catalogueStore
       probes:
         enabled: true
       show-details: never
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics
+  info:
+    env:
+      enabled: false
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          connect-timeout: 1s
+          endpoint: ${TELEMETRY_OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+          timeout: 5s
+  otlp:
+    metrics:
+      export:
+        enabled: ${TELEMETRY_OTLP_METRICS_ENABLED:false}
+        step: ${TELEMETRY_OTLP_METRICS_STEP:60s}
+        url: ${TELEMETRY_OTLP_METRICS_ENDPOINT:http://localhost:4318/v1/metrics}
+  tracing:
+    export:
+      otlp:
+        enabled: ${TELEMETRY_OTLP_TRACES_ENABLED:false}
+    propagation:
+      type: w3c
+    sampling:
+      probability: ${TELEMETRY_TRACING_SAMPLING_PROBABILITY:1.0}
+
+logging:
+  include-application-name: false
+  level:
+    root: INFO
+    com.videogameplatform: INFO
+
+---
+spring:
+  config:
+    activate:
+      on-profile: structured
+
+logging:
+  structured:
+    format:
+      console: ecs
+    json:
+      stacktrace:
+        max-length: 2048
+        max-throwable-depth: 20
