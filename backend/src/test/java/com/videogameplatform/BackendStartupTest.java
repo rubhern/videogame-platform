@@ -156,8 +156,7 @@ class BackendStartupTest {
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
-    private static JsonNode structuredAccessLog(CapturedOutput output, String correlationId)
-            throws IOException {
+    private static JsonNode structuredAccessLog(CapturedOutput output, String correlationId) {
         String logLine =
                 output.getAll()
                         .lines()

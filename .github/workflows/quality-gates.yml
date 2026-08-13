@@ -50,7 +50,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install locked npm dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Validate documentation
         run: bash scripts/validate-docs.sh
@@ -83,7 +83,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install locked npm dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Verify generated OpenAPI types are current
         run: |
@@ -113,7 +113,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install locked npm dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Run the pinned browser smoke test without retries
         run: bash scripts/validate-browser.sh

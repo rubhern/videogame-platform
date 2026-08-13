@@ -24,7 +24,7 @@ cancelled, or is skipped, so a later diagnostic step cannot hide an incomplete g
 | Job | Repository command or evidence | Purpose |
 |---|---|---|
 | Documentation and API contracts | changed-range `git diff --check`, `validate-actions.sh`, `validate-docs.sh`, `validate-openapi.sh`, generated Redoc diff | Reject whitespace errors, invalid workflow syntax or expressions, broken links, malformed sources, contract errors, or stale API documentation |
-| Frontend static, type, component and build checks | `npm ci`, OpenAPI type generation diff, `npm run frontend:verify` | Prove the locked dependency graph, ESLint, strict `tsc --noEmit`, Vitest and the production Vite build |
+| Frontend static, type, component and build checks | `npm ci --ignore-scripts`, OpenAPI type generation diff, `npm run frontend:verify` | Prove the locked dependency graph without executing dependency lifecycle scripts, ESLint, strict `tsc --noEmit`, Vitest and the production Vite build |
 | Frontend Chromium smoke and accessibility check | `validate-browser.sh` with the digest-pinned Playwright image | Exercise the production preview, keyboard navigation and the axe-core accessibility baseline in a real browser |
 | Java backend, architecture and PostgreSQL integration | `./mvnw clean verify` plus retained JaCoCo report | Enforce Spotless, compile/package with Java 25, run unit and startup checks, Spring Modulith verification, ArchUnit rules and PostgreSQL 18 integration tests, and produce XML/HTML coverage evidence |
 | Fresh PostgreSQL 18 migration | `validate-migrations.sh` | Independently create an empty database, apply Flyway from zero and verify schema, seed and runtime-privilege guarantees |
@@ -134,7 +134,9 @@ introduces a new high-severity vulnerability is blocked.
 `node_modules` or `frontend/dist`. `setup-java` caches the Maven local dependency
 repository using the applicable POM files; it does not cache `target` directories or
 packaged jars. Every job therefore rebuilds disposable output from the reviewed
-source and lockfiles.
+source and lockfiles. All CI installations use `npm ci --ignore-scripts`: the
+repository's checks do not require dependency lifecycle hooks, so suppressing them
+reduces the execution surface of an untrusted dependency graph.
 
 The browser job retains its Playwright HTML diagnostics and the backend job retains
 JaCoCo XML/HTML for seven days. Those artifacts are never consumed as build input and
@@ -199,7 +201,8 @@ configuration. Normal local verification does not require Sonar credentials.
 The browser wrapper runs the same official Playwright 1.62.1 Noble image by immutable
 digest in local and CI environments. The image provides Node 24, Chromium and its
 native libraries; the container runs as the current user with external network access
-disabled and consumes the lockfile-installed workspace from the preceding `npm ci`.
+disabled and consumes the lockfile-installed workspace from the preceding
+`npm ci --ignore-scripts`.
 
 Gitleaks, dependency review, CodeQL and dependency submission are GitHub-context
 controls: their complete range comparison, token permissions and service upload

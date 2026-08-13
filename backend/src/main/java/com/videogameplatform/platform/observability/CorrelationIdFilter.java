@@ -41,7 +41,7 @@ final class CorrelationIdFilter extends OncePerRequestFilter {
 
         try {
             filterChain.doFilter(request, response);
-        } catch (ServletException | IOException | RuntimeException | Error exception) {
+        } catch (Exception exception) {
             failure = exception;
             throw exception;
         } finally {

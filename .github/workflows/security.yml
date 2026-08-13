@@ -57,7 +57,7 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install locked npm dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Reject known high-severity npm vulnerabilities
         run: npm audit --audit-level=high
