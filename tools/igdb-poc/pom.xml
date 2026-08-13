@@ -17,7 +17,7 @@
     <picocli.version>4.7.7</picocli.version>
     <commons-csv.version>1.14.1</commons-csv.version>
     <junit.version>5.12.2</junit.version>
-    <assertj.version>3.27.3</assertj.version>
+    <assertj.version>3.27.7</assertj.version>
   </properties>
 
   <dependencies>
