@@ -3,24 +3,23 @@ package com.videogameplatform;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.videogameplatform.test.PostgreSqlTestDatabase;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -35,6 +34,8 @@ class BackendStartupTest {
 
     @LocalServerPort private int port;
 
+    @Autowired private BuildProperties buildProperties;
+
     @Value("${management.tracing.sampling.probability}")
     private double tracingSamplingProbability;
 
@@ -43,13 +44,10 @@ class BackendStartupTest {
         registry.add(
                 "spring.datasource.url",
                 () -> PostgreSqlTestDatabase.runtimeUrl("backend_startup"));
-        registry.add(
-                "spring.datasource.username", PostgreSqlTestDatabase::runtimeUsername);
-        registry.add(
-                "spring.datasource.password", PostgreSqlTestDatabase::runtimePassword);
+        registry.add("spring.datasource.username", PostgreSqlTestDatabase::runtimeUsername);
+        registry.add("spring.datasource.password", PostgreSqlTestDatabase::runtimePassword);
         registry.add("spring.flyway.enabled", () -> true);
-        registry.add(
-                "spring.flyway.url", () -> PostgreSqlTestDatabase.adminUrl("backend_startup"));
+        registry.add("spring.flyway.url", () -> PostgreSqlTestDatabase.adminUrl("backend_startup"));
         registry.add("spring.flyway.user", PostgreSqlTestDatabase::migratorUsername);
         registry.add("spring.flyway.password", PostgreSqlTestDatabase::migratorPassword);
     }
@@ -79,10 +77,12 @@ class BackendStartupTest {
         assertThat(readiness.statusCode()).isEqualTo(200);
         assertThat(readiness.body()).isEqualTo("{\"status\":\"UP\"}");
 
+        String sourceRevision = buildProperties.get("sourceRevision");
+        assertThat(sourceRevision).matches("[A-Za-z0-9._-]{1,64}");
         assertThat(info.statusCode()).isEqualTo(200);
         assertThat(info.body())
                 .contains("\"version\":\"0.2.0-SNAPSHOT\"")
-                .contains("\"sourceRevision\":\"local-development\"")
+                .contains("\"sourceRevision\":\"" + sourceRevision + "\"")
                 .doesNotContain("password", "token", "jdbc:");
 
         assertThat(metricNames.statusCode()).isEqualTo(200);
@@ -119,8 +119,7 @@ class BackendStartupTest {
                 HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
 
         assertThat(response.statusCode()).isEqualTo(404);
-        assertThat(response.headers().firstValue("X-Correlation-ID"))
-                .contains(correlationId);
+        assertThat(response.headers().firstValue("X-Correlation-ID")).contains(correlationId);
         var accessLog = structuredAccessLog(output, correlationId);
         assertThat(accessLog.path("message").stringValue()).isEqualTo("HTTP request completed");
         assertThat(accessLog.path("correlationId").stringValue()).isEqualTo(correlationId);
@@ -129,15 +128,11 @@ class BackendStartupTest {
         assertThat(accessLog.path("http").path("method").stringValue()).isEqualTo("GET");
         assertThat(accessLog.path("http").path("route").stringValue()).isEqualTo("/**");
         assertThat(accessLog.path("http").path("status_code").asInt()).isEqualTo(404);
-        assertThat(accessLog.path("http").path("outcome").stringValue())
-                .isEqualTo("CLIENT_ERROR");
+        assertThat(accessLog.path("http").path("outcome").stringValue()).isEqualTo("CLIENT_ERROR");
         assertThat(accessLog.path("duration_ms").asLong()).isGreaterThanOrEqualTo(0);
         assertThat(accessLog.toString())
                 .doesNotContain(
-                        "private-user-123",
-                        "query-secret",
-                        "telemetry-secret",
-                        "private-cookie");
+                        "private-user-123", "query-secret", "telemetry-secret", "private-cookie");
 
         var httpMetrics = get("/actuator/metrics/http.server.requests");
         assertThat(httpMetrics.body())
@@ -164,11 +159,16 @@ class BackendStartupTest {
     private static JsonNode structuredAccessLog(CapturedOutput output, String correlationId)
             throws IOException {
         String logLine =
-                output.getAll().lines()
+                output.getAll()
+                        .lines()
                         .filter(line -> line.contains("\"message\":\"HTTP request completed\""))
-                        .filter(line -> line.contains("\"correlationId\":\"" + correlationId + "\""))
+                        .filter(
+                                line ->
+                                        line.contains(
+                                                "\"correlationId\":\"" + correlationId + "\""))
                         .findFirst()
-                        .orElseThrow(() -> new AssertionError("Structured access log was not found"));
+                        .orElseThrow(
+                                () -> new AssertionError("Structured access log was not found"));
         return OBJECT_MAPPER.readTree(logLine);
     }
 

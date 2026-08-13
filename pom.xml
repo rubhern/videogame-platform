@@ -30,7 +30,19 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <archunit.version>1.4.2</archunit.version>
     <spring-modulith.version>2.1.0</spring-modulith.version>
+    <google-java-format.version>1.36.1</google-java-format.version>
+    <jacoco.version>0.8.15</jacoco.version>
+    <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
+    <spotless-maven-plugin.version>3.9.0</spotless-maven-plugin.version>
     <source.revision>local-development</source.revision>
+    <sonar.coverage.jacoco.xmlReportPaths>${maven.multiModuleProjectDirectory}/backend/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
+    <sonar.exclusions>frontend/src/shared/api/generated/**,docs/architecture/api/reference/**,**/target/**,frontend/dist/**,frontend/playwright-report/**,frontend/test-results/**</sonar.exclusions>
+    <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+    <sonar.maven.scanAll>true</sonar.maven.scanAll>
+    <sonar.organization>rubhern</sonar.organization>
+    <sonar.projectKey>rubhern_videogame-platform</sonar.projectKey>
+    <sonar.projectName>VideoGame Platform</sonar.projectName>
+    <sonar.scanner.skipJreProvisioning>true</sonar.scanner.skipJreProvisioning>
   </properties>
 
   <dependencyManagement>
@@ -44,4 +56,63 @@
       </dependency>
     </dependencies>
   </dependencyManagement>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${spotless-maven-plugin.version}</version>
+        <configuration>
+          <java>
+            <googleJavaFormat>
+              <version>${google-java-format.version}</version>
+              <style>AOSP</style>
+              <formatJavadoc>false</formatJavadoc>
+            </googleJavaFormat>
+            <removeUnusedImports/>
+            <forbidWildcardImports/>
+          </java>
+        </configuration>
+        <executions>
+          <execution>
+            <id>verify-java-formatting</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>${jacoco.version}</version>
+        <executions>
+          <execution>
+            <id>prepare-code-coverage</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report-code-coverage</id>
+            <goals>
+              <goal>report</goal>
+            </goals>
+            <configuration>
+              <formats>
+                <format>HTML</format>
+                <format>XML</format>
+              </formats>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.sonarsource.scanner.maven</groupId>
+        <artifactId>sonar-maven-plugin</artifactId>
+        <version>${sonar-maven-plugin.version}</version>
+      </plugin>
+    </plugins>
+  </build>
 </project>

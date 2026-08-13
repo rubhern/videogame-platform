@@ -1,9 +1,9 @@
 # Learning MVP platform and delivery design
 
 - **Status:** Approved
-- **Version:** 1.3
+- **Version:** 1.4
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-09
+- **Last updated:** 2026-08-13
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP
@@ -249,6 +249,11 @@ Actions:
 4. publishes the immutable image to GHCR from trusted `main`;
 5. makes its digest eligible for a manually approved `dev` deployment.
 
+The current source-backed implementation of steps 1 and 2, including formatting,
+coverage, SonarQube Cloud, secret, dependency and CodeQL gates, is documented in the
+[walking-skeleton continuous-integration guide](../../development/continuous-integration.md).
+Image build, scan, publication and deployment remain separate later work.
+
 The initial deployment sequence is:
 
 ```text
@@ -338,9 +343,9 @@ exporters, not domain or API contracts.
 1. **Technology baseline — complete:** approved version lines, maintenance policy,
    quality toolset, durable ADRs, and an explicit executable compatibility gate.
 2. **Local skeleton — in progress:** the application foundations, local PostgreSQL
-   and Keycloak topology, SQL-first Flyway migrations, deterministic seed, and
-   PostgreSQL 18 persistence tests are executable. Add version, liveness, readiness,
-   identity integration, the complete CI gate, combined packaging, and
+   and Keycloak topology, SQL-first Flyway migrations, deterministic seed,
+   PostgreSQL 18 persistence tests, observability baseline, and current CI/security
+   gates are executable. Add identity integration, combined packaging, and
    `linux/amd64`/`linux/arm64` application compatibility.
 3. **First public read:** implement `GET /api/v1/releases` against PostgreSQL and prove
    `CATALOGUE_NOT_READY` without live request-path IGDB calls.
@@ -373,6 +378,7 @@ exporters, not domain or API contracts.
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.4 | 2026-08-13 | Recorded the executable walking-skeleton PR/`main` quality, coverage, SonarQube Cloud, dependency-submission, and security gates while keeping image publication and deployment work separate. | Ruben Hernandez |
 | 1.3 | 2026-08-09 | Recorded the executable module-owned catalogue schema, immutable Flyway migration, separated development seed, and PostgreSQL 18 Testcontainers evidence while keeping remote migration and recovery work open. | Ruben Hernandez |
 | 1.2 | 2026-08-08 | Recorded the executable application foundations and local PostgreSQL/Keycloak topology while keeping the broader walking-skeleton compatibility gate open. | Ruben Hernandez |
 | 1.1 | 2026-08-04 | Linked the approved technology baseline, closed its selection gate, and made multi-architecture walking-skeleton evidence the next implementation step. | Ruben Hernandez |

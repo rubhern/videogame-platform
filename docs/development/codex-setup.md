@@ -89,10 +89,15 @@ Operational safeguards still apply:
 | `.codex/config.toml` | Project-level Codex permissions |
 | `.agents/skills/product-brief-review/` | Repeatable Phase 0 Product Brief review |
 | `scripts/validate-prerequisites.sh` | Reproducible WSL2 local prerequisite gate |
+| `scripts/validate-actions.sh` | Check workflow syntax and expressions with checksum-verified actionlint |
 | `scripts/validate-docs.sh` | Reproducible documentation validation |
 | `scripts/validate-openapi.sh` | Reproducible OpenAPI contract validation |
 | `scripts/build-openapi-docs.sh` | Validated static Redoc API reference generation |
-| `.github/workflows/docs.yml` | Run documentation and OpenAPI checks on pushes and pull requests |
+| `scripts/validate-browser.sh` | Run the no-retry browser/accessibility smoke in the digest-pinned Playwright runtime |
+| `.github/workflows/quality-gates.yml` | Reproduce the complete walking-skeleton quality evidence on PRs and trusted `main` builds |
+| `.github/workflows/security.yml` | Scan secrets, dependency changes, and Java/TypeScript source with explicit minimal permissions |
+| `.github/workflows/dependency-submission.yml` | Submit complete backend and IGDB PoC Maven graphs after relevant `main` changes |
+| `.github/dependabot.yml` | Propose reviewable npm, Maven, IGDB PoC, and GitHub Actions dependency updates |
 | `docs/architecture/diagrams/README.md` | Diagram catalogue, authority order, tool ownership, and editing rules |
 
 ## How to work by phase
@@ -127,13 +132,17 @@ Run the local prerequisite gate before the current repository checks:
 
 ```bash
 bash scripts/validate-prerequisites.sh
+bash scripts/validate-actions.sh
+git diff --check
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
 ```
 
 The [local setup guide](local-setup.md) owns installation and troubleshooting. The
-documentation script checks required artefacts, local Markdown links, and file modes.
+action script verifies its pinned actionlint download and checks workflow syntax and
+expressions. `git diff --check` rejects whitespace errors. The documentation script
+checks required artefacts, local Markdown links, and file modes.
 The OpenAPI script validates syntax, project rules, references,
 schemas, and examples. See the
 [OpenAPI validation manual](openapi-validation.md) for individual commands and

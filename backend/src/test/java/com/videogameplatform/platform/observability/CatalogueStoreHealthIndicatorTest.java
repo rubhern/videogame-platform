@@ -3,9 +3,7 @@ package com.videogameplatform.platform.observability;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.videogameplatform.test.PostgreSqlTestDatabase;
-
 import java.sql.SQLException;
-
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.health.contributor.Status;

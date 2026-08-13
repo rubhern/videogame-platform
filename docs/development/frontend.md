@@ -24,6 +24,7 @@ Run from the repository root:
 ```bash
 npm ci
 npm run frontend:verify
+bash scripts/validate-browser.sh
 ```
 
 For local development:
@@ -36,17 +37,11 @@ npm run frontend:dev
 The second command starts Vite at `http://localhost:5173` and proxies server-owned
 paths to Spring Boot on port 8080.
 
-Install the Playwright Chromium binary once and run the real browser smoke test with:
-
-```bash
-npx playwright install chromium
-npm run frontend:test:e2e
-```
-
-If the local WSL image lacks Chromium system libraries, use the matching official
-Playwright container command documented in the
-[frontend README](../../frontend/README.md) instead of changing workstation packages
-without owner approval.
+The npm commands run static analysis, generated-type compilation, component tests
+and the production build. The repository browser wrapper runs the real smoke test
+with the pinned official Playwright image, including its Node 24 and Chromium runtime,
+without changing workstation packages. The
+[frontend README](../../frontend/README.md) records the exact container boundary.
 
 See the [frontend technical reference](../../frontend/README.md) for architecture,
 directory ownership, API generation, state, routing, accessibility, testing,

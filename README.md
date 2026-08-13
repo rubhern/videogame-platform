@@ -36,10 +36,13 @@ manifests. The backend now also proves SQL-first Flyway migration from zero, a
 module-owned catalogue schema, deterministic opt-in seed data, disabled Hibernate
 schema generation, PostgreSQL 18 Testcontainers persistence checks, explicit health
 groups, build/source metadata, structured request correlation, bounded metrics, W3C
-trace context, and optional OpenTelemetry-compatible export. BFF identity integration,
-the complete CI gate, combined packaging, and application multi-architecture evidence
-remain in the walking-skeleton gate; remote infrastructure follows only after that
-gate passes.
+trace context, and optional OpenTelemetry-compatible export. Pull requests and
+trusted `main` builds now reproduce the complete current quality evidence with Java
+25, Node.js 24, PostgreSQL 18, browser accessibility smoke, fixture-only provider
+tests, Spotless, JaCoCo XML/HTML, a plan-aware SonarQube Cloud gate, workflow lint,
+secret scanning, dependency review/submission, and CodeQL. BFF identity integration,
+combined packaging, and application multi-architecture evidence remain in the
+walking-skeleton gate; remote infrastructure follows only after that gate passes.
 
 ## Start here
 
@@ -67,17 +70,19 @@ gate passes.
    validate the API contract locally and in CI.
 14. Browse the [generated API reference](docs/architecture/api/reference/index.html)
     or follow its [regeneration tutorial](docs/development/openapi-web-documentation.md).
-15. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
+15. Use the [continuous-integration guide](docs/development/continuous-integration.md)
+    for quality/security jobs, local parity, permissions, caching, and failure policy.
+16. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
     and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
     skeleton and private `dev` environment.
-16. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
+17. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
     [architecture diagram catalogue](docs/architecture/diagrams/README.md), and
     [ADR-0005 through ADR-0013](docs/decisions/) before implementing the walking
     skeleton, persistence, identity, delivery, hosting, or observability.
-17. Use the [backend technical README](backend/README.md) and
+18. Use the [backend technical README](backend/README.md) and
     [backend development guide](docs/development/backend.md) to build, test, start,
     inspect, and extend the initial modular-monolith skeleton.
-18. Use the [frontend technical README](frontend/README.md) and
+19. Use the [frontend technical README](frontend/README.md) and
     [frontend development guide](docs/development/frontend.md) to install, generate
     API types, test, build, and extend the client-rendered skeleton.
 
@@ -97,10 +102,13 @@ documents, if needed later, are exports rather than authoritative copies.
 
 ```bash
 bash scripts/validate-prerequisites.sh
+bash scripts/validate-actions.sh
+git diff --check
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
 npm run frontend:verify
+bash scripts/validate-browser.sh
 bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
@@ -109,9 +117,13 @@ bash scripts/validate-migrations.sh
 The prerequisite gate requires the supported Ubuntu WSL2 environment, Java 25,
 Node.js 24, Docker Desktop integration, and the repository Maven Wrapper. Migration
 validation and the root Maven verification use disposable PostgreSQL 18
-Testcontainers; the root command compiles, tests, and packages the backend. The
-targeted Maven command tests the isolated IGDB PoC only with local fixtures. No
-verification requires provider credentials or calls IGDB.
+Testcontainers; the root command checks formatting, compiles, tests, produces JaCoCo
+XML/HTML evidence, and packages the backend. The
+browser wrapper exercises the production frontend preview, keyboard navigation,
+and automated accessibility checks without retries. The targeted Maven command tests
+the isolated IGDB PoC only with local fixtures. No verification requires provider
+credentials or calls IGDB. The continuous-integration guide maps each local command
+to its PR and trusted `main` job.
 
 The backend dependency topology has its own lifecycle and verification commands:
 

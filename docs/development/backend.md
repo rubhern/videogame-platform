@@ -68,6 +68,8 @@ From the repository root, run:
 This is the stable backend verification command. It:
 
 - enforces Java 25 and Maven 3.9 through the backend build;
+- enforces the Spotless/google-java-format AOSP baseline and rejects unused or
+  wildcard imports;
 - compiles with Java release 25 and preview features disabled;
 - starts an embedded servlet server and checks health groups, version metadata,
   baseline metrics, structured correlation, W3C trace context, and telemetry safety;
@@ -77,7 +79,15 @@ This is the stable backend verification command. It:
 - creates and migrates disposable PostgreSQL 18 databases through Testcontainers;
 - verifies Flyway checksums, seed determinism, database constraints, and runtime
   privileges;
+- generates JaCoCo XML at `backend/target/site/jacoco/jacoco.xml` and a human-readable
+  report at `backend/target/site/jacoco/index.html`, without a global coverage
+  threshold;
 - creates the executable Spring Boot jar.
+
+Run `./mvnw spotless:apply` to repair formatting, review the resulting diff, and then
+rerun the complete verification command. The
+[continuous-integration guide](continuous-integration.md) explains how SonarQube
+Cloud consumes the JaCoCo XML and applies the plan-aware Sonar way gate.
 
 Docker is required for the PostgreSQL 18 Testcontainers evidence. No persistent local
 database, identity provider, external service, or provider credential is required.
@@ -147,7 +157,7 @@ not claimed by this skeleton:
 - application integration with the proven local Keycloak 26.7 realm and server-side
   OIDC session compatibility;
 - OpenAPI-backed product delivery;
-- CI reproduction and OCI images for `linux/amd64` and `linux/arm64`;
+- combined OCI images for `linux/amd64` and `linux/arm64`;
 - a deployed collector or OCI telemetry integration, combined-application resource
   budgeting, and remote deployment.
 

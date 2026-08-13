@@ -1,9 +1,9 @@
 # Learning MVP delivery lifecycle
 
 - **Status:** Approved
-- **Version:** 1.3
+- **Version:** 1.4
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-09
+- **Last updated:** 2026-08-13
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP operated by one person
@@ -179,20 +179,24 @@ The repository MUST expose stable validation commands as implementation appears.
 current commands are:
 
 ```bash
+bash scripts/validate-actions.sh
+git diff --check
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
 npm run frontend:verify
+bash scripts/validate-browser.sh
 bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
-The initial implementation adds compilation, formatting/static analysis, domain and
-application tests, architecture tests, persistence/migration integration tests, API
-conformance, provider-fixture tests, session/CSRF tests, secret scanning, dependency
-checks, image build/scan, and end-to-end smoke tests when their corresponding code
-exists.
+The current walking skeleton adds compilation, Spotless formatting, JaCoCo XML/HTML,
+plan-aware SonarQube Cloud analysis, domain and application tests, architecture
+tests, persistence/migration integration tests, API conformance, provider-fixture
+tests, secret scanning, dependency checks/submission, CodeQL, and a browser
+accessibility smoke. Session/CSRF tests and image build/scan are added when their
+corresponding code exists.
 
 Accessibility is an MVP gate, not a public-production-only activity. Frontend changes
 MUST cover applicable semantic structure, accessible names, keyboard and focus
@@ -298,7 +302,7 @@ A work item is done when all applicable conditions are true:
 | OpenAPI and documentation validation | Completed | Keep generated reference synchronized |
 | Platform and persistent decisions | Completed by this design and ADR-0005 through ADR-0009 | Implement incrementally |
 | Technology baseline | Completed by baseline v1.0 and ADR-0010 through ADR-0012 | Preserve selected lines and upgrade policy |
-| Application skeleton and implementation tests | Next | Prove the first executable walking skeleton locally and in CI |
+| Application skeleton and implementation tests | Implemented locally and in CI | Preserve the aggregate quality/security gates while adding public API and BFF compatibility evidence |
 | Immutable multi-architecture image | After local skeleton | Build and publish from `main` |
 | Private OCI `dev` environment | After local skeleton | Provision only Always Free resources from reviewed IaC |
 | Operations runbook | After commands exist | Record exact start, deploy, backup, restore, and recovery procedures |
@@ -308,6 +312,7 @@ A work item is done when all applicable conditions are true:
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.4 | 2026-08-13 | Recorded the executable PR/`main` quality, coverage, SonarQube Cloud, dependency-submission, and security gates, real no-retry browser smoke, and local command parity. | Ruben Hernandez |
 | 1.3 | 2026-08-09 | Added mandatory per-artefact Semantic Versioning assessment, pre-1.0 increment rules, Maven inheritance consistency, and release suffix/tag conventions. | Ruben Hernandez |
 | 1.2 | 2026-08-06 | Linked the approved work-management baseline and clarified acceptance-aware issue closure after merge. | Ruben Hernandez |
 | 1.1 | 2026-08-04 | Recorded the approved technology baseline, closed Phase 1 solution definition, and made the executable walking skeleton the next gate. | Ruben Hernandez |

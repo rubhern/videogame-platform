@@ -3,10 +3,8 @@ package com.videogameplatform.architecture;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.videogameplatform.VideoGamePlatformApplication;
-
 import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.junit.jupiter.api.Test;
 import org.springframework.modulith.core.ApplicationModules;
 

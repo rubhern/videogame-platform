@@ -4,7 +4,6 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 public final class PostgreSqlTestDatabase {
@@ -77,7 +76,8 @@ public final class PostgreSqlTestDatabase {
     }
 
     public static Connection runtimeConnection(String databaseName) throws SQLException {
-        return DriverManager.getConnection(jdbcUrl(databaseName), RUNTIME_USERNAME, RUNTIME_PASSWORD);
+        return DriverManager.getConnection(
+                jdbcUrl(databaseName), RUNTIME_USERNAME, RUNTIME_PASSWORD);
     }
 
     private static String jdbcUrl(String databaseName) {

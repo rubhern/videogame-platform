@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.test.PostgreSqlTestDatabase;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,7 +12,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
-
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,7 +32,8 @@ class CataloguePersistenceIntegrationTest {
         PostgreSqlTestDatabase.createDatabase(DATABASE_NAME);
         PostgreSqlTestDatabase.createDatabase(CHECKSUM_DATABASE_NAME);
 
-        Flyway flyway = configuredFlyway(DATABASE_NAME, "classpath:db/migration", "classpath:db/dev-seed");
+        Flyway flyway =
+                configuredFlyway(DATABASE_NAME, "classpath:db/migration", "classpath:db/dev-seed");
 
         var migrationResult = flyway.migrate();
         flyway.validate();
@@ -53,13 +52,19 @@ class CataloguePersistenceIntegrationTest {
                                     statement,
                                     "SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname = 'catalogue'"))
                     .isEqualTo(PostgreSqlTestDatabase.migratorUsername());
-            assertThat(singleInt(statement, "SELECT count(*) FROM flyway_schema_history WHERE success"))
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM flyway_schema_history WHERE success"))
                     .isEqualTo(2);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
                     .isEqualTo(8);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.release_snapshot"))
                     .isEqualTo(8);
-            assertThat(singleInt(statement, "SELECT count(DISTINCT date_precision) FROM catalogue.release_snapshot"))
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(DISTINCT date_precision) FROM catalogue.release_snapshot"))
                     .isEqualTo(5);
             assertThat(
                             singleString(
@@ -123,7 +128,10 @@ class CataloguePersistenceIntegrationTest {
                 Statement statement = connection.createStatement()) {
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
                     .isEqualTo(8);
-            assertThatThrownBy(() -> statement.execute("CREATE TABLE catalogue.forbidden (id integer)"))
+            assertThatThrownBy(
+                            () ->
+                                    statement.execute(
+                                            "CREATE TABLE catalogue.forbidden (id integer)"))
                     .isInstanceOf(SQLException.class)
                     .extracting(exception -> ((SQLException) exception).getSQLState())
                     .isEqualTo("42501");

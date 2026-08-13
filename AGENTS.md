@@ -41,10 +41,15 @@ local PostgreSQL 18 and Keycloak 26.7 topology is executable with isolated roles
 reproducible identity configuration, health checks, persistent disposable data, and
 verified AMD64/ARM64 dependency manifests. SQL-first Flyway migration from zero, a
 module-owned catalogue schema, deterministic opt-in seed data, and PostgreSQL 18
-Testcontainers persistence constraints are also executable. This does not close the
-broader compatibility gate: BFF identity integration, a deployed telemetry backend,
-the complete CI gate, combined packaging, and application multi-architecture evidence
-remain outstanding.
+Testcontainers persistence constraints are also executable. Pull requests and
+trusted `main` builds reproduce the current documentation, contract, frontend,
+browser, backend, architecture, migration, provider-fixture, secret, dependency, and
+CodeQL evidence with explicit minimal permissions. Spotless, JaCoCo XML/HTML,
+plan-aware SonarQube Cloud analysis, actionlint, changed-range whitespace validation,
+and Maven dependency submission complete the current code-quality boundary. This
+does not close the broader
+compatibility gate: BFF identity integration, a deployed telemetry backend, combined
+packaging, and application multi-architecture evidence remain outstanding.
 
 The initial architecture diagram baseline is established through ADR-0013. Approved
 documents and ADRs remain authoritative; Structurizr owns shared C4 views, Mermaid
@@ -149,19 +154,23 @@ Run:
 
 ```bash
 bash scripts/validate-prerequisites.sh
+bash scripts/validate-actions.sh
+git diff --check
 bash scripts/validate-docs.sh
 npm ci
 bash scripts/validate-openapi.sh
 npm run frontend:verify
+bash scripts/validate-browser.sh
 bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
 
-OpenAPI validation requires the approved Node.js 24 line. The Maven command runs
-with Java 25. The root Maven build verifies the backend, while the targeted Maven
-command validates the isolated IGDB PoC using local fixtures only. Authenticated
-provider calls remain manual and explicit.
+OpenAPI validation and frontend checks require the approved Node.js 24 line. The
+Maven commands run with Java 25. The browser command runs the production-preview
+Playwright smoke without retries. The root Maven build verifies the backend, while
+the targeted Maven command validates the isolated IGDB PoC using local fixtures only.
+Authenticated provider calls remain manual and explicit.
 
 ## Permissions and safety
 

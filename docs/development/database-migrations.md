@@ -134,8 +134,9 @@ proves:
 - identifier, uniqueness, foreign-key, and date-coherence constraints;
 - runtime read access without runtime DDL permission.
 
-The same command runs in `.github/workflows/migrations.yml` with Java 25. The complete
-backend verification also starts the Spring application against PostgreSQL 18 and
+The same command runs in the dedicated migration job in
+`.github/workflows/quality-gates.yml` with Java 25. The complete backend verification
+also starts the Spring application against PostgreSQL 18 and
 runs the production migration before Hibernate initializes:
 
 ```bash

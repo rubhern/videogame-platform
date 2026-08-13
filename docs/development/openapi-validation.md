@@ -115,9 +115,10 @@ Configuration:
 
 ## Continuous integration
 
-The GitHub Actions documentation workflow installs Node.js and the locked npm
-dependencies, then runs both documentation and OpenAPI validation on every push and
-pull request. A validation failure blocks the workflow job.
+The GitHub Actions quality workflow installs Node.js 24 and the locked npm
+dependencies, then runs both documentation and OpenAPI validation on pull requests
+to `main` and trusted `main` pushes. A validation or generated-reference diff fails
+the required quality gate.
 
 ## Updating validation tooling
 
