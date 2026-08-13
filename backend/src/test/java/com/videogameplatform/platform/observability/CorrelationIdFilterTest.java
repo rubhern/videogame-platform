@@ -6,11 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-
 import jakarta.servlet.ServletException;
-
 import java.util.UUID;
-
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,8 +22,7 @@ class CorrelationIdFilterTest {
     private static final String ROUTE_TEMPLATE = "/games/{gameId}";
 
     private final CorrelationIdFilter filter = new CorrelationIdFilter();
-    private final Logger logger =
-            (Logger) LoggerFactory.getLogger(CorrelationIdFilter.class);
+    private final Logger logger = (Logger) LoggerFactory.getLogger(CorrelationIdFilter.class);
     private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
 
     @BeforeEach
@@ -58,8 +54,7 @@ class CorrelationIdFilterTest {
 
         assertThat(response.getHeader(CorrelationIdFilter.CORRELATION_ID_HEADER))
                 .isEqualTo(correlationId);
-        assertThat(MDC.get(CorrelationIdFilter.CORRELATION_ID_NAME))
-                .isEqualTo("outer-correlation");
+        assertThat(MDC.get(CorrelationIdFilter.CORRELATION_ID_NAME)).isEqualTo("outer-correlation");
         assertThat(singleAccessEvent().getMDCPropertyMap())
                 .containsEntry(CorrelationIdFilter.CORRELATION_ID_NAME, correlationId);
     }

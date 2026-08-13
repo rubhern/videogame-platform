@@ -45,6 +45,8 @@ remain authoritative when this README and an approved source conflict.
 | Persistence integration tests | Testcontainers PostgreSQL | 2.0.5 with `postgres:18.4-bookworm` |
 | Architecture tests | Spring Modulith Test and ArchUnit | ArchUnit 1.4.2 |
 | Unit and integration tests | JUnit Jupiter, AssertJ, Spring Boot Test | Managed by Spring Boot |
+| Java formatting | Spotless and google-java-format AOSP | Spotless 3.9.0; formatter 1.36.1 |
+| Coverage evidence | JaCoCo | 0.8.15; XML and HTML without a global threshold |
 | Build and packaging | Maven Wrapper and Spring Boot Maven Plugin | Maven 3.9 line enforced |
 
 Dependencies are declared in [`pom.xml`](pom.xml). Their versions are managed by
@@ -82,6 +84,17 @@ All commands below run from the repository root.
 Run the complete backend verification and create the executable jar:
 
 ```bash
+./mvnw clean verify
+```
+
+The same command enforces the committed Java format and creates
+`backend/target/site/jacoco/jacoco.xml` plus the browsable
+`backend/target/site/jacoco/index.html`. It does not enforce an arbitrary global
+coverage percentage. Apply the formatter deliberately, review the result, and rerun
+verification with:
+
+```bash
+./mvnw spotless:apply
 ./mvnw clean verify
 ```
 
@@ -345,6 +358,8 @@ For each future change:
 The local PostgreSQL/Keycloak topology and initial application persistence are
 implemented separately. Catalogue repositories and queries, the Keycloak-backed BFF
 session, product APIs, a deployed telemetry backend, application containers, the
-complete CI gate, and remote deployment remain focused work items. This backend does
-not claim a product read or remote operational evidence merely because its schema can
-migrate or its telemetry can be exported.
+multi-architecture compatibility gate, and remote deployment remain focused work
+items. The current backend, architecture and PostgreSQL checks are reproduced by the
+[walking-skeleton CI gate](../docs/development/continuous-integration.md). This
+backend does not claim a product read or remote operational evidence merely because
+its schema can migrate or its telemetry can be exported.

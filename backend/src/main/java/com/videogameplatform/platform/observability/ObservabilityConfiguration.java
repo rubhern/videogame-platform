@@ -1,7 +1,6 @@
 package com.videogameplatform.platform.observability;
 
 import io.micrometer.common.KeyValues;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.server.observation.DefaultServerRequestObservationConvention;

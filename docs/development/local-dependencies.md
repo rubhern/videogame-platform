@@ -213,8 +213,8 @@ This topology remains the dependency contract:
   documented separately in the database migration guide.
 - Authorization Code exchange, opaque application sessions, CSRF protection, logout,
   and browser-level BFF compatibility evidence belong to issue #40.
-- Pull-request CI integration belongs to issue #24; the commands here are designed to
-  be reused there without claiming that workflow already exists.
+- Pull-request CI integration is implemented by issue #24; the commands here are
+  reused by that gate without creating a second dependency definition.
 
 Keeping those boundaries explicit avoids presenting a healthy dependency container as
 evidence that application persistence or authentication is already implemented.

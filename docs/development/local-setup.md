@@ -89,6 +89,11 @@ npm, direct Docker daemon access, Docker Compose, the executable Maven Wrapper, 
 the Java runtime used by that wrapper. It reports every detected problem in one run
 and exits non-zero when any mandatory prerequisite is absent or incompatible.
 
+The CI workflow-lint wrapper additionally needs `curl`, `sha256sum`, `tar`, and a
+Linux AMD64 or ARM64 host. The setup above provides them; run it independently with
+`bash scripts/validate-actions.sh`. The script verifies the pinned actionlint archive
+before executing it and does not install a binary globally.
+
 Direct diagnostic commands are:
 
 ```bash
@@ -117,6 +122,14 @@ bash scripts/local-dependencies.sh verify
 See [local backend dependencies](local-dependencies.md) for the topology, generated
 credential boundary, backend connection settings, health and manifest checks, normal
 shutdown, and the explicitly scoped disposable-data reset procedure.
+
+## 6. Reproduce continuous integration locally
+
+After the prerequisite gate passes, use the exact command sequence in the
+[walking-skeleton continuous-integration guide](continuous-integration.md). It covers
+documentation, OpenAPI generation, strict frontend checks, the no-retry Chromium
+smoke, PostgreSQL 18 migration from zero, the complete backend build and the isolated
+IGDB fixture suite.
 
 ## Troubleshooting
 

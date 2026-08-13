@@ -315,8 +315,9 @@ overhead, and evolving semantic conventions. Full tracing is appropriate at curr
 traffic but would increase export and storage volume once a pipeline and workload
 exist. Allowlisting, route templates, configurable head sampling,
 disabled-by-default exporters, bounded timeouts, automated negative assertions, and
-Spring-managed versions mitigate current risks. Dependency and secret scans remain
-part of the later complete CI gate.
+Spring-managed versions mitigate current risks. The walking-skeleton CI gate now
+adds Spotless, JaCoCo/SonarQube Cloud, Gitleaks, dependency review, and CodeQL without
+granting telemetry credentials.
 
 Rollback requires only the previous backend artefact and configuration because this
 change has no migration or persistent state. A forward fix can independently disable
@@ -333,5 +334,5 @@ change health readiness or product responses.
   implemented.
 - Database statement tracing is not enabled; the baseline exposes pool metrics and
   health without adding raw SQL to telemetry.
-- Remote smoke, resource-budget, CI, and multi-architecture evidence remain in later
+- Remote smoke, resource-budget, and multi-architecture evidence remain in later
   walking-skeleton work items.

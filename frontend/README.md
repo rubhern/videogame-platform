@@ -92,22 +92,27 @@ The gate regenerates the complete OpenAPI types, runs ESLint, executes explicit
 `tsc --noEmit` checks for browser and tooling configurations, runs Vitest, creates a
 production build, and verifies that Playwright discovers the expected smoke test.
 
-Run the browser test separately after installing Chromium once:
+Run the browser test separately through the repository wrapper:
 
 ```bash
-npx playwright install chromium
-npm run frontend:test:e2e
+bash scripts/validate-browser.sh
 ```
 
-When the WSL distribution does not have Playwright's native browser libraries and
-installing system packages is not appropriate, run the same checked-in test in the
-matching official container:
+Playwright never retries a failed test. It retains the first failing execution's
+trace so diagnostics cannot convert an unreliable check into a passing result. CI
+executes this browser command in addition to `frontend:verify` and retains the HTML
+report for seven days as diagnostic output only.
+
+The wrapper uses the matching official Playwright 1.62.1 Noble image pinned by digest
+and runs as the current user with network access disabled. This avoids changing WSL
+system packages and ensures local and CI use the same Node 24/Chromium runtime. Its
+equivalent container command is:
 
 ```bash
-docker run --rm --ipc=host --network host \
+docker run --rm --ipc=host --network none \
   --user "$(id -u):$(id -g)" -e HOME=/tmp \
   -v "$PWD:/work" -w /work \
-  mcr.microsoft.com/playwright:v1.62.1-noble \
+  mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e \
   npm run frontend:test:e2e
 ```
 
@@ -243,17 +248,16 @@ the Spring Boot jar or final OCI image is intentionally deferred.
 - No secret, token, user identifier, provider payload, or machine-specific URL is
   committed or written to browser storage.
 - The UI loads no remote script, font, image, or analytics resource.
-- `npm audit` currently reports advisories in two tooling/dependency chains with no
-  non-breaking stable resolution available on 2026-08-07:
-  - React Router 7.18.2 reports an RSC action-processing CSRF advisory. This project
-    uses a client-only SPA and no RSC mode, server actions, SSR, or React Router
-    server runtime, so the vulnerable path is not reachable in this skeleton.
-  - openapi-typescript 7.13.0 pulls `js-yaml` 4.3.0 through its pinned Redocly v1
-    parser. Generation consumes only the reviewed repository-local OpenAPI source;
-    untrusted YAML is not accepted.
-- Upgrade to patched compatible stable versions as soon as they exist and re-run the
-  complete contract, type, test, and build gates. Do not suppress the advisories or
-  use `npm audit fix --force` to cross the approved baseline silently.
+- `npm audit --audit-level=high` reports zero known vulnerabilities as of 2026-08-13.
+  Issue #24 updated only the locked transitive OpenAPI parser chain from
+  `@redocly/openapi-core` 1.34.18 / `js-yaml` 4.3.0 to the compatible patched
+  1.34.19 / 4.3.1 versions. Direct package versions and generated/runtime behaviour
+  did not change.
+- Dependency review blocks newly introduced high/critical advisories, Gitleaks scans
+  committed history, CodeQL and SonarQube Cloud scan TypeScript, and Dependabot
+  proposes reviewable locked updates. Sonar excludes generated OpenAPI types so
+  generated code does not distort ownership or gate results. Never use
+  `npm audit fix --force` to cross the approved baseline silently.
 
 ## Troubleshooting
 
@@ -263,8 +267,8 @@ the Spring Boot jar or final OCI image is intentionally deferred.
 | Generated schema is missing or stale | Run `npm run frontend:generate-api`; never edit it manually. |
 | Vite cannot reach the backend | Start Spring Boot on port 8080 or deliberately update the local proxy. |
 | A browser route works in Vite but not when packaged | Configure the server SPA fallback without capturing `/api`, `/auth`, or Actuator. |
-| Playwright cannot find Chromium | Run `npx playwright install chromium`. |
-| Chromium reports a missing Linux shared library | Install the official Playwright dependencies with owner approval or use the documented matching Playwright container. |
+| Browser wrapper cannot start Docker | Start Docker Desktop and verify `docker info`. |
+| Direct `npm run frontend:test:e2e` reports a missing browser library | Use `bash scripts/validate-browser.sh`; do not alter WSL packages just for the smoke gate. |
 | TypeScript reports a contract mismatch | Update the product-facing mapping or reviewed OpenAPI source; do not hand-edit generated types. |
 
 ## Adding a product slice

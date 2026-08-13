@@ -14,6 +14,9 @@
 - [Backend observability](observability.md): health semantics, build metadata,
   correlation, structured logs, metrics, W3C tracing, OTLP configuration, telemetry
   safety, and automated evidence.
+- [Walking-skeleton continuous integration](continuous-integration.md): PR and
+  trusted `main` quality/security gates, permissions, caching, retries, dependency
+  monitoring, and local command parity.
 - [Codex workspace setup](codex-setup.md): verified tools, configuration,
   rationale, risks, and deferred capabilities.
 - [OpenAPI contract validation](openapi-validation.md): syntax, lint, references,
