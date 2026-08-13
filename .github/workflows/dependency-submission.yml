@@ -58,4 +58,6 @@ jobs:
         uses: advanced-security/maven-dependency-submission-action@b275d12641ac2d2108b2cbb7598b154ad2f2cee8 # v5.0.0
         with:
           correlator: ${{ matrix.correlator }}
-          directory: ${{ matrix.directory }}
+          # The action needs an absolute root path so it executes ./mvnw rather
+          # than looking for a bare mvnw command on PATH.
+          directory: ${{ matrix.directory == '.' && github.workspace || matrix.directory }}
