@@ -81,7 +81,7 @@ class BackendStartupTest {
         assertThat(sourceRevision).matches("[A-Za-z0-9._-]{1,64}");
         assertThat(info.statusCode()).isEqualTo(200);
         assertThat(info.body())
-                .contains("\"version\":\"0.3.1-SNAPSHOT\"")
+                .contains("\"version\":\"0.3.2-SNAPSHOT\"")
                 .contains("\"sourceRevision\":\"" + sourceRevision + "\"")
                 .doesNotContain("password", "token", "jdbc:");
 

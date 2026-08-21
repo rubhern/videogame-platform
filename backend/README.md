@@ -145,7 +145,7 @@ The default address is `http://localhost:8080`. Stop the process gracefully with
 After a successful package, run the executable artifact directly:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.3.1-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.3.2-SNAPSHOT.jar
 ```
 
 To change the HTTP port for a local run, use a standard Spring Boot override:
