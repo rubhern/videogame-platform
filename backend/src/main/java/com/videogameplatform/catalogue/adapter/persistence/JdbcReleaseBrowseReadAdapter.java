@@ -1,6 +1,5 @@
 package com.videogameplatform.catalogue.adapter.persistence;
 
-import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
@@ -92,27 +91,21 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
             JOIN catalogue.platform p ON p.platform_id = rs.platform_id
             JOIN catalogue.region r ON r.region_id = rs.region_id
             """;
-    private static final String RECENT_WHERE =
-            " WHERE rs.publication_id = ?::uuid"
-                    + " AND rs.release_status = 'released'"
-                    + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
+    private static final String PUBLICATION_PREDICATE = "rs.publication_id = ?::uuid";
+    private static final String RELEASED_PREDICATE = "rs.release_status = 'released'";
+    private static final String UPCOMING_STATUS_PREDICATE =
+            "rs.release_status NOT IN ('released', 'cancelled')";
+    private static final String KNOWN_PERIOD_OVERLAP_PREDICATE =
+            "rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
                     + " AND daterange(rs.period_start, rs.period_end, '[]')"
                     + " && daterange(?::date, ?::date, '[]')";
-    private static final String UPCOMING_WHERE =
-            " WHERE rs.publication_id = ?::uuid"
-                    + " AND rs.release_status NOT IN ('released', 'cancelled')"
-                    + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
-                    + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                    + " && daterange(?::date, ?::date, '[]')";
-    private static final String UPCOMING_WITH_UNKNOWN_WHERE =
-            " WHERE rs.publication_id = ?::uuid"
-                    + " AND rs.release_status NOT IN ('released', 'cancelled') AND ("
-                    + "(rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
+    private static final String PERIOD_OVERLAP_OR_UNKNOWN_PREDICATE =
+            "((rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
                     + " AND daterange(rs.period_start, rs.period_end, '[]')"
                     + " && daterange(?::date, ?::date, '[]'))"
                     + " OR rs.date_precision = 'unknown')";
-    private static final String PLATFORM_FILTER = " AND rs.platform_id = ?::uuid";
-    private static final String REGION_FILTER = " AND rs.region_id = ?::uuid";
+    private static final String PLATFORM_PREDICATE = "rs.platform_id = ?::uuid";
+    private static final String REGION_PREDICATE = "rs.region_id = ?::uuid";
     private static final String RECENT_ORDER =
             " ORDER BY rs.period_end DESC NULLS LAST,"
                     + " lower(gs.canonical_title), rs.game_id, rs.release_id";
@@ -206,49 +199,31 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
     }
 
     private static Query query(String publicationId, Criteria criteria) {
-        List<Object> parameters = new ArrayList<>();
-        parameters.add(publicationId);
-        parameters.add(criteria.window().from());
-        parameters.add(criteria.window().to());
-        if (criteria.platformId() != null) {
-            parameters.add(criteria.platformId());
-        }
-        if (criteria.regionId() != null) {
-            parameters.add(criteria.regionId());
-        }
-        return new Query(sql(criteria), List.copyOf(parameters));
-    }
+        CandidateQueryBuilder builder =
+                new CandidateQueryBuilder().where(PUBLICATION_PREDICATE, publicationId);
 
-    private static Sql sql(Criteria criteria) {
-        int filters =
-                (criteria.platformId() == null ? 0 : 2) + (criteria.regionId() == null ? 0 : 1);
-        if (criteria.view() == BrowseReleasesUseCase.View.RECENT) {
-            return switch (filters) {
-                case 0 -> RECENT_SQL;
-                case 1 -> RECENT_REGION_SQL;
-                case 2 -> RECENT_PLATFORM_SQL;
-                case 3 -> RECENT_PLATFORM_REGION_SQL;
-                default ->
-                        throw new IllegalStateException("Unsupported release filter combination");
-            };
+        switch (criteria.view()) {
+            case RECENT ->
+                    builder.where(RELEASED_PREDICATE)
+                            .where(
+                                    KNOWN_PERIOD_OVERLAP_PREDICATE,
+                                    criteria.window().from(),
+                                    criteria.window().to())
+                            .orderBy(RECENT_ORDER);
+            case UPCOMING ->
+                    builder.where(UPCOMING_STATUS_PREDICATE)
+                            .where(
+                                    criteria.includeUnknownUpcomingDates()
+                                            ? PERIOD_OVERLAP_OR_UNKNOWN_PREDICATE
+                                            : KNOWN_PERIOD_OVERLAP_PREDICATE,
+                                    criteria.window().from(),
+                                    criteria.window().to())
+                            .orderBy(UPCOMING_ORDER);
         }
-        if (criteria.includeUnknownUpcomingDates()) {
-            return switch (filters) {
-                case 0 -> UPCOMING_WITH_UNKNOWN_SQL;
-                case 1 -> UPCOMING_WITH_UNKNOWN_REGION_SQL;
-                case 2 -> UPCOMING_WITH_UNKNOWN_PLATFORM_SQL;
-                case 3 -> UPCOMING_WITH_UNKNOWN_PLATFORM_REGION_SQL;
-                default ->
-                        throw new IllegalStateException("Unsupported release filter combination");
-            };
-        }
-        return switch (filters) {
-            case 0 -> UPCOMING_SQL;
-            case 1 -> UPCOMING_REGION_SQL;
-            case 2 -> UPCOMING_PLATFORM_SQL;
-            case 3 -> UPCOMING_PLATFORM_REGION_SQL;
-            default -> throw new IllegalStateException("Unsupported release filter combination");
-        };
+
+        return builder.whereIfPresent(PLATFORM_PREDICATE, criteria.platformId())
+                .whereIfPresent(REGION_PREDICATE, criteria.regionId())
+                .build();
     }
 
     private Item mapItem(ResultSet resultSet, int rowNumber) throws SQLException {
@@ -320,35 +295,40 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
 
     private record Query(Sql sql, List<Object> parameters) {}
 
-    private record Sql(String count, String page) {
+    private record Sql(String count, String page) {}
 
-        private static Sql from(String where, String order) {
-            return new Sql(
-                    COUNT_SELECT + where,
-                    PAGE_PREFIX + where + ") " + PAGE_SELECT + order + PAGE_SUFFIX);
+    /** Composes trusted SQL predicates while keeping every external value as a bound parameter. */
+    private static final class CandidateQueryBuilder {
+
+        private final List<String> predicates = new ArrayList<>();
+        private final List<Object> parameters = new ArrayList<>();
+        private String orderBy;
+
+        private CandidateQueryBuilder where(String predicate, Object... values) {
+            predicates.add(predicate);
+            parameters.addAll(List.of(values));
+            return this;
+        }
+
+        private CandidateQueryBuilder whereIfPresent(String predicate, Object value) {
+            return value == null ? this : where(predicate, value);
+        }
+
+        private CandidateQueryBuilder orderBy(String order) {
+            orderBy = order;
+            return this;
+        }
+
+        private Query build() {
+            if (predicates.isEmpty() || orderBy == null) {
+                throw new IllegalStateException("Release browse query is incomplete");
+            }
+            String where = " WHERE " + String.join(" AND ", predicates);
+            Sql sql =
+                    new Sql(
+                            COUNT_SELECT + where,
+                            PAGE_PREFIX + where + ") " + PAGE_SELECT + orderBy + PAGE_SUFFIX);
+            return new Query(sql, List.copyOf(parameters));
         }
     }
-
-    private static final Sql RECENT_SQL = Sql.from(RECENT_WHERE, RECENT_ORDER);
-    private static final Sql RECENT_REGION_SQL =
-            Sql.from(RECENT_WHERE + REGION_FILTER, RECENT_ORDER);
-    private static final Sql RECENT_PLATFORM_SQL =
-            Sql.from(RECENT_WHERE + PLATFORM_FILTER, RECENT_ORDER);
-    private static final Sql RECENT_PLATFORM_REGION_SQL =
-            Sql.from(RECENT_WHERE + PLATFORM_FILTER + REGION_FILTER, RECENT_ORDER);
-    private static final Sql UPCOMING_SQL = Sql.from(UPCOMING_WHERE, UPCOMING_ORDER);
-    private static final Sql UPCOMING_REGION_SQL =
-            Sql.from(UPCOMING_WHERE + REGION_FILTER, UPCOMING_ORDER);
-    private static final Sql UPCOMING_PLATFORM_SQL =
-            Sql.from(UPCOMING_WHERE + PLATFORM_FILTER, UPCOMING_ORDER);
-    private static final Sql UPCOMING_PLATFORM_REGION_SQL =
-            Sql.from(UPCOMING_WHERE + PLATFORM_FILTER + REGION_FILTER, UPCOMING_ORDER);
-    private static final Sql UPCOMING_WITH_UNKNOWN_SQL =
-            Sql.from(UPCOMING_WITH_UNKNOWN_WHERE, UPCOMING_ORDER);
-    private static final Sql UPCOMING_WITH_UNKNOWN_REGION_SQL =
-            Sql.from(UPCOMING_WITH_UNKNOWN_WHERE + REGION_FILTER, UPCOMING_ORDER);
-    private static final Sql UPCOMING_WITH_UNKNOWN_PLATFORM_SQL =
-            Sql.from(UPCOMING_WITH_UNKNOWN_WHERE + PLATFORM_FILTER, UPCOMING_ORDER);
-    private static final Sql UPCOMING_WITH_UNKNOWN_PLATFORM_REGION_SQL =
-            Sql.from(UPCOMING_WITH_UNKNOWN_WHERE + PLATFORM_FILTER + REGION_FILTER, UPCOMING_ORDER);
 }

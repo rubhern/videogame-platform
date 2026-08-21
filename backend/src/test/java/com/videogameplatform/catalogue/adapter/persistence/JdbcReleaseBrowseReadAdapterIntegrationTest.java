@@ -7,10 +7,15 @@ import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Stream;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
@@ -18,6 +23,11 @@ import org.springframework.jdbc.support.JdbcTransactionManager;
 class JdbcReleaseBrowseReadAdapterIntegrationTest {
 
     private static final String DATABASE_NAME = "release_browse_adapter";
+    private static final String PLATFORM_PLAYSTATION_5 = "10000000-0000-4000-8000-000000000001";
+    private static final String PLATFORM_WINDOWS_PC = "10000000-0000-4000-8000-000000000003";
+    private static final String PLATFORM_XBOX_SERIES = "10000000-0000-4000-8000-000000000004";
+    private static final String REGION_WORLDWIDE = "20000000-0000-4000-8000-000000000001";
+    private static final String REGION_UNKNOWN = "20000000-0000-4000-8000-000000000003";
     private static JdbcTemplate jdbcTemplate;
     private static JdbcReleaseBrowseReadAdapter adapter;
 
@@ -78,6 +88,42 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         assertThat(result.items().getLast().releaseDate()).isInstanceOf(ReleaseDate.Unknown.class);
     }
 
+    @ParameterizedTest(name = "{0} with platform={1} and region={2}")
+    @MethodSource("filterCombinations")
+    void composesOptionalFiltersWithoutChangingCountOrOrder(
+            BrowseReleasesUseCase.View view,
+            String platformId,
+            String regionId,
+            List<String> expectedTitles) {
+        var result =
+                adapter.findPublishedReleases(criteria(view, 1, 20, platformId, regionId, true))
+                        .orElseThrow();
+
+        assertThat(result.totalItems()).isEqualTo(expectedTitles.size());
+        assertThat(result.items())
+                .extracting(ReleaseBrowseReadPort.Item::canonicalTitle)
+                .containsExactlyElementsOf(expectedTitles);
+    }
+
+    @Test
+    void excludesUnknownUpcomingDatesWhenPolicyRequiresKnownDates() {
+        var result =
+                adapter.findPublishedReleases(
+                                criteria(
+                                        BrowseReleasesUseCase.View.UPCOMING,
+                                        1,
+                                        20,
+                                        null,
+                                        null,
+                                        false))
+                        .orElseThrow();
+
+        assertThat(result.totalItems()).isEqualTo(1);
+        assertThat(result.items())
+                .extracting(ReleaseBrowseReadPort.Item::canonicalTitle)
+                .containsExactly("Fable");
+    }
+
     @Test
     void usesReleaseIdAsTheUniqueFinalTieBreakerAcrossPages() {
         String firstRelease = "50000000-0000-4000-8000-000000000010";
@@ -86,17 +132,9 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         insertTiedRelease(secondRelease, "10000000-0000-4000-8000-000000000004");
         try {
             ReleaseBrowseReadPort.Criteria firstPage =
-                    criteria(
-                            BrowseReleasesUseCase.View.UPCOMING,
-                            1,
-                            1,
-                            "30000000-0000-4000-8000-000000000001");
+                    criteria(BrowseReleasesUseCase.View.UPCOMING, 1, 1);
             ReleaseBrowseReadPort.Criteria secondPage =
-                    criteria(
-                            BrowseReleasesUseCase.View.UPCOMING,
-                            2,
-                            1,
-                            "30000000-0000-4000-8000-000000000001");
+                    criteria(BrowseReleasesUseCase.View.UPCOMING, 2, 1);
 
             assertThat(adapter.findPublishedReleases(firstPage).orElseThrow().items())
                     .extracting(ReleaseBrowseReadPort.Item::releaseId)
@@ -118,11 +156,16 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
 
     private static ReleaseBrowseReadPort.Criteria criteria(
             BrowseReleasesUseCase.View view, int page, int pageSize) {
-        return criteria(view, page, pageSize, null);
+        return criteria(view, page, pageSize, null, null, true);
     }
 
     private static ReleaseBrowseReadPort.Criteria criteria(
-            BrowseReleasesUseCase.View view, int page, int pageSize, String gameId) {
+            BrowseReleasesUseCase.View view,
+            int page,
+            int pageSize,
+            String platformId,
+            String regionId,
+            boolean includeUnknownUpcomingDates) {
         LocalDate from =
                 view == BrowseReleasesUseCase.View.RECENT
                         ? LocalDate.of(2026, 2, 13)
@@ -131,17 +174,57 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                 view == BrowseReleasesUseCase.View.RECENT
                         ? LocalDate.of(2026, 8, 13)
                         : LocalDate.of(2027, 2, 13);
-        String platformId = null;
-        String regionId = null;
-        // The public criteria deliberately has no game filter. Tied fixtures use a unique
-        // earliest date so they occupy the first two pages without changing the port.
         return new ReleaseBrowseReadPort.Criteria(
                 view,
                 new ReleaseBrowseReadPort.Window(from, to),
                 platformId,
                 regionId,
                 new ReleaseBrowseReadPort.Pagination(page, pageSize, (long) (page - 1) * pageSize),
-                true);
+                includeUnknownUpcomingDates);
+    }
+
+    private static Stream<Arguments> filterCombinations() {
+        return Stream.of(
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        null,
+                        null,
+                        List.of("Pragmata", "Resident Evil Requiem")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        PLATFORM_PLAYSTATION_5,
+                        null,
+                        List.of("Resident Evil Requiem")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        null,
+                        REGION_WORLDWIDE,
+                        List.of("Pragmata")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        PLATFORM_WINDOWS_PC,
+                        REGION_WORLDWIDE,
+                        List.of("Pragmata")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.UPCOMING,
+                        null,
+                        null,
+                        List.of("Fable", "The Witcher IV")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.UPCOMING,
+                        PLATFORM_XBOX_SERIES,
+                        null,
+                        List.of("Fable")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.UPCOMING,
+                        null,
+                        REGION_UNKNOWN,
+                        List.of("The Witcher IV")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.UPCOMING,
+                        PLATFORM_WINDOWS_PC,
+                        REGION_UNKNOWN,
+                        List.of("The Witcher IV")));
     }
 
     private static void insertTiedRelease(String releaseId, String platformId) {

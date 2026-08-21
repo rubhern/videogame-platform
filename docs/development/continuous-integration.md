@@ -228,8 +228,9 @@ package remains `1.0.0`; it is not a published runtime artefact. The subsequent
 composition-root correction increments only the backend patch to `0.3.1-SNAPSHOT`.
 The subsequent PostgreSQL JDBC security remediation increments the backend patch to
 `0.3.2-SNAPSHOT`; it leaves the OpenAPI, frontend, root tooling package and isolated
-IGDB PoC versions unchanged. A later runtime or
-product change must assess those artefacts independently under the delivery lifecycle.
+IGDB PoC versions unchanged. The later release-query builder refactor increments only
+the backend patch to `0.3.3-SNAPSHOT`. A later runtime or product change must assess
+those artefacts independently under the delivery lifecycle.
 
 ## Remaining delivery work
 
