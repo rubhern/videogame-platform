@@ -42,6 +42,10 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
             SELECT region_id::text, display_name
             FROM catalogue.region
             """;
+    private static final String COUNT_SELECT = "SELECT count(*) FROM catalogue.release_snapshot rs";
+    private static final String PAGE_PREFIX =
+            "WITH filtered_release AS MATERIALIZED ("
+                    + "SELECT * FROM catalogue.release_snapshot rs";
     private static final String PAGE_SELECT =
             """
             SELECT rs.release_id::text,
@@ -71,7 +75,7 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
                    rs.last_verified_at,
                    rs.verification_level,
                    rs.review_status
-            FROM catalogue.release_snapshot rs
+            FROM filtered_release rs
             JOIN LATERAL (
                 SELECT snapshot.slug,
                        snapshot.canonical_title,
@@ -88,6 +92,34 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
             JOIN catalogue.platform p ON p.platform_id = rs.platform_id
             JOIN catalogue.region r ON r.region_id = rs.region_id
             """;
+    private static final String RECENT_WHERE =
+            " WHERE rs.publication_id = ?::uuid"
+                    + " AND rs.release_status = 'released'"
+                    + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
+                    + " AND daterange(rs.period_start, rs.period_end, '[]')"
+                    + " && daterange(?::date, ?::date, '[]')";
+    private static final String UPCOMING_WHERE =
+            " WHERE rs.publication_id = ?::uuid"
+                    + " AND rs.release_status NOT IN ('released', 'cancelled')"
+                    + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
+                    + " AND daterange(rs.period_start, rs.period_end, '[]')"
+                    + " && daterange(?::date, ?::date, '[]')";
+    private static final String UPCOMING_WITH_UNKNOWN_WHERE =
+            " WHERE rs.publication_id = ?::uuid"
+                    + " AND rs.release_status NOT IN ('released', 'cancelled') AND ("
+                    + "(rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
+                    + " AND daterange(rs.period_start, rs.period_end, '[]')"
+                    + " && daterange(?::date, ?::date, '[]'))"
+                    + " OR rs.date_precision = 'unknown')";
+    private static final String PLATFORM_FILTER = " AND rs.platform_id = ?::uuid";
+    private static final String REGION_FILTER = " AND rs.region_id = ?::uuid";
+    private static final String RECENT_ORDER =
+            " ORDER BY rs.period_end DESC NULLS LAST,"
+                    + " lower(gs.canonical_title), rs.game_id, rs.release_id";
+    private static final String UPCOMING_ORDER =
+            " ORDER BY rs.period_start ASC NULLS LAST,"
+                    + " lower(gs.canonical_title), rs.game_id, rs.release_id";
+    private static final String PAGE_SUFFIX = " LIMIT ? OFFSET ?";
 
     private final JdbcTemplate jdbcTemplate;
     private final TransactionTemplate readTransaction;
@@ -151,26 +183,13 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
         Query query = query(publication.id(), criteria);
         Long totalItems =
                 jdbcTemplate.queryForObject(
-                        "SELECT count(*) FROM catalogue.release_snapshot rs " + query.where(),
-                        Long.class,
-                        query.parameters().toArray());
+                        query.sql().count(), Long.class, query.parameters().toArray());
 
         List<Object> pageParameters = new ArrayList<>(query.parameters());
         pageParameters.add(criteria.pagination().pageSize());
         pageParameters.add(criteria.pagination().offset());
         List<Item> items =
-                jdbcTemplate.query(
-                        "WITH filtered_release AS MATERIALIZED ("
-                                + "SELECT * FROM catalogue.release_snapshot rs"
-                                + query.where()
-                                + ") "
-                                + PAGE_SELECT.replace(
-                                        "FROM catalogue.release_snapshot rs",
-                                        "FROM filtered_release rs")
-                                + orderBy(criteria.view())
-                                + " LIMIT ? OFFSET ?",
-                        this::mapItem,
-                        pageParameters.toArray());
+                jdbcTemplate.query(query.sql().page(), this::mapItem, pageParameters.toArray());
 
         return Optional.of(
                 new Result(
@@ -187,52 +206,49 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
     }
 
     private static Query query(String publicationId, Criteria criteria) {
-        StringBuilder where = new StringBuilder(" WHERE rs.publication_id = ?::uuid");
         List<Object> parameters = new ArrayList<>();
         parameters.add(publicationId);
-
-        if (criteria.view() == BrowseReleasesUseCase.View.RECENT) {
-            where.append(
-                    " AND rs.release_status = 'released'"
-                            + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
-                            + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                            + " && daterange(?::date, ?::date, '[]')");
-            parameters.add(criteria.window().from());
-            parameters.add(criteria.window().to());
-        } else {
-            where.append(" AND rs.release_status NOT IN ('released', 'cancelled') AND (");
-            where.append(
-                    "(rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
-                            + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                            + " && daterange(?::date, ?::date, '[]')");
-            parameters.add(criteria.window().from());
-            parameters.add(criteria.window().to());
-            if (criteria.includeUnknownUpcomingDates()) {
-                where.append(") OR rs.date_precision = 'unknown'");
-            } else {
-                where.append(')');
-            }
-            where.append(')');
-        }
+        parameters.add(criteria.window().from());
+        parameters.add(criteria.window().to());
         if (criteria.platformId() != null) {
-            where.append(" AND rs.platform_id = ?::uuid");
             parameters.add(criteria.platformId());
         }
         if (criteria.regionId() != null) {
-            where.append(" AND rs.region_id = ?::uuid");
             parameters.add(criteria.regionId());
         }
-        return new Query(where.toString(), List.copyOf(parameters));
+        return new Query(sql(criteria), List.copyOf(parameters));
     }
 
-    private static String orderBy(BrowseReleasesUseCase.View view) {
-        String periodOrder =
-                view == BrowseReleasesUseCase.View.RECENT
-                        ? "rs.period_end DESC NULLS LAST"
-                        : "rs.period_start ASC NULLS LAST";
-        return " ORDER BY "
-                + periodOrder
-                + ", lower(gs.canonical_title), rs.game_id, rs.release_id";
+    private static Sql sql(Criteria criteria) {
+        int filters =
+                (criteria.platformId() == null ? 0 : 2) + (criteria.regionId() == null ? 0 : 1);
+        if (criteria.view() == BrowseReleasesUseCase.View.RECENT) {
+            return switch (filters) {
+                case 0 -> RECENT_SQL;
+                case 1 -> RECENT_REGION_SQL;
+                case 2 -> RECENT_PLATFORM_SQL;
+                case 3 -> RECENT_PLATFORM_REGION_SQL;
+                default ->
+                        throw new IllegalStateException("Unsupported release filter combination");
+            };
+        }
+        if (criteria.includeUnknownUpcomingDates()) {
+            return switch (filters) {
+                case 0 -> UPCOMING_WITH_UNKNOWN_SQL;
+                case 1 -> UPCOMING_WITH_UNKNOWN_REGION_SQL;
+                case 2 -> UPCOMING_WITH_UNKNOWN_PLATFORM_SQL;
+                case 3 -> UPCOMING_WITH_UNKNOWN_PLATFORM_REGION_SQL;
+                default ->
+                        throw new IllegalStateException("Unsupported release filter combination");
+            };
+        }
+        return switch (filters) {
+            case 0 -> UPCOMING_SQL;
+            case 1 -> UPCOMING_REGION_SQL;
+            case 2 -> UPCOMING_PLATFORM_SQL;
+            case 3 -> UPCOMING_PLATFORM_REGION_SQL;
+            default -> throw new IllegalStateException("Unsupported release filter combination");
+        };
     }
 
     private Item mapItem(ResultSet resultSet, int rowNumber) throws SQLException {
@@ -302,5 +318,37 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
 
     private record Publication(String id, String version) {}
 
-    private record Query(String where, List<Object> parameters) {}
+    private record Query(Sql sql, List<Object> parameters) {}
+
+    private record Sql(String count, String page) {
+
+        private static Sql from(String where, String order) {
+            return new Sql(
+                    COUNT_SELECT + where,
+                    PAGE_PREFIX + where + ") " + PAGE_SELECT + order + PAGE_SUFFIX);
+        }
+    }
+
+    private static final Sql RECENT_SQL = Sql.from(RECENT_WHERE, RECENT_ORDER);
+    private static final Sql RECENT_REGION_SQL =
+            Sql.from(RECENT_WHERE + REGION_FILTER, RECENT_ORDER);
+    private static final Sql RECENT_PLATFORM_SQL =
+            Sql.from(RECENT_WHERE + PLATFORM_FILTER, RECENT_ORDER);
+    private static final Sql RECENT_PLATFORM_REGION_SQL =
+            Sql.from(RECENT_WHERE + PLATFORM_FILTER + REGION_FILTER, RECENT_ORDER);
+    private static final Sql UPCOMING_SQL = Sql.from(UPCOMING_WHERE, UPCOMING_ORDER);
+    private static final Sql UPCOMING_REGION_SQL =
+            Sql.from(UPCOMING_WHERE + REGION_FILTER, UPCOMING_ORDER);
+    private static final Sql UPCOMING_PLATFORM_SQL =
+            Sql.from(UPCOMING_WHERE + PLATFORM_FILTER, UPCOMING_ORDER);
+    private static final Sql UPCOMING_PLATFORM_REGION_SQL =
+            Sql.from(UPCOMING_WHERE + PLATFORM_FILTER + REGION_FILTER, UPCOMING_ORDER);
+    private static final Sql UPCOMING_WITH_UNKNOWN_SQL =
+            Sql.from(UPCOMING_WITH_UNKNOWN_WHERE, UPCOMING_ORDER);
+    private static final Sql UPCOMING_WITH_UNKNOWN_REGION_SQL =
+            Sql.from(UPCOMING_WITH_UNKNOWN_WHERE + REGION_FILTER, UPCOMING_ORDER);
+    private static final Sql UPCOMING_WITH_UNKNOWN_PLATFORM_SQL =
+            Sql.from(UPCOMING_WITH_UNKNOWN_WHERE + PLATFORM_FILTER, UPCOMING_ORDER);
+    private static final Sql UPCOMING_WITH_UNKNOWN_PLATFORM_REGION_SQL =
+            Sql.from(UPCOMING_WITH_UNKNOWN_WHERE + PLATFORM_FILTER + REGION_FILTER, UPCOMING_ORDER);
 }
