@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 export function NotFoundPage() {
   return (
-    <main className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
+    <div className="mx-auto max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
       <p className="text-sm font-semibold text-cyan-300">404</p>
       <h1 className="mt-3 text-4xl font-bold tracking-tight text-white">
         Página no encontrada
@@ -16,6 +16,6 @@ export function NotFoundPage() {
       >
         Volver al inicio
       </Link>
-    </main>
+    </div>
   );
 }

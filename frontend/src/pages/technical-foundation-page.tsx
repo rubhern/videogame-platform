@@ -9,7 +9,7 @@ const technicalCapabilities = [
 
 export function TechnicalFoundationPage() {
   return (
-    <main className="mx-auto flex max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
+    <div className="mx-auto flex max-w-5xl px-5 py-16 sm:px-8 sm:py-24">
       <section aria-labelledby="foundation-title" className="max-w-3xl">
         <p className="mb-4 inline-flex rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-sm font-medium text-emerald-300">
           Base técnica preparada
@@ -40,6 +40,6 @@ export function TechnicalFoundationPage() {
           ))}
         </ul>
       </section>
-    </main>
+    </div>
   );
 }

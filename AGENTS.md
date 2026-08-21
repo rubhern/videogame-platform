@@ -76,6 +76,18 @@ Distinguish evidence, decisions, assumptions, and proposals.
 
 ## Instruction and skill precedence
 
+The precedence is:
+
+```text
+explicit owner decision
+    >
+AGENTS.md and approved repository sources
+    >
+VideoGame Platform-specific skill
+    >
+external generic skill
+```
+
 1. An explicit owner decision may initiate a change to an existing decision, but do
    not leave implementation, contracts, ADRs, or approved documentation in a
    contradictory state.
@@ -94,17 +106,38 @@ Distinguish evidence, decisions, assumptions, and proposals.
 
 - `videogame-platform-backend-development` is the primary skill for backend
   implementation, refactoring, debugging, and review.
+- `videogame-platform-frontend-development` is the primary skill for frontend
+  implementation, React/TypeScript changes, refactoring, review, UI debugging, and
+  browser-behaviour changes.
 - `scalability-by-design` is mandatory before designing or modifying any API,
   persistence query, repository, pagination, synchronization, cache, metric, batch,
   or large-collection processing path.
 - `java-springboot` provides complementary Java and Spring idioms.
 - `architecture-patterns` provides complementary DDD, Hexagonal Architecture, and
   Clean Architecture reasoning.
+- `vercel-react-best-practices` provides complementary React performance guidance.
+- `vercel-composition-patterns` provides complementary React composition guidance.
+- `react-testing` provides complementary React Testing Library and browser-test
+  boundary guidance.
+- `frontend-accessibility-best-practices` provides complementary accessibility
+  guidance.
 - `tdd` provides complementary red/green/refactor discipline and test-design advice.
 
-The three external skills are subordinate to the project-specific skill and the
-repository authorities above. Load only the skills relevant to the task; trivial
-work does not require loading the complete backend skill set.
+All external skills are subordinate to the applicable project-specific skill and the
+repository authorities above. The project-specific skill selects the complementary
+skills useful for the task. Do not load every external frontend or backend skill for
+trivial work.
+
+External frontend advice does not authorize a baseline change:
+
+- Next.js, SSR, and React Server Components remain deferred.
+- SWR does not replace TanStack Query.
+- shadcn/ui, Zustand, Redux, or another library requires an approved need; a skill
+  recommendation alone is insufficient.
+- generic design-system advice does not justify creating a design system
+  prematurely.
+- external testing guidance complements but never replaces repository validation
+  gates.
 
 ## Scalability and performance invariants
 
