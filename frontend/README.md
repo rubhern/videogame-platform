@@ -37,10 +37,14 @@ remain authoritative.
 | Typed HTTP transport | openapi-fetch | 0.17.0 |
 | Unit and component tests | Vitest and React Testing Library | 4.1.10 / 16.3.2 |
 | Browser tests | Playwright with axe-core | 1.62.1 / 4.12.1 |
-| Static analysis | ESLint and typescript-eslint | 10.8.0 / 8.66.0 |
+| Node.js tooling types | @types/node | 24.13.3 |
+| Static analysis | ESLint and typescript-eslint | 10.8.1 / 8.66.0 |
 
 Every direct dependency is exact in [`package.json`](package.json), and the root
 [`package-lock.json`](../package-lock.json) locks the complete npm workspace graph.
+Vite is pinned to the same approved exact version in the root tooling manifest so
+hoisted plugins and Vitest resolve the same Vite implementation as the frontend
+build.
 
 ## Repository layout
 
@@ -208,9 +212,11 @@ The current shell provides:
 
 - Spanish document language and visible Spanish-first copy;
 - semantic `header`, `main`, section, heading, list, and link structure;
-- keyboard-usable navigation and visible focus treatment;
+- keyboard-usable navigation, visible focus treatment, and route-change focus moved
+  to the main landmark;
 - responsive spacing and text sizing from 320 pixels upward;
-- contrast checked by the Playwright axe-core scan.
+- no horizontal overflow at 320px, phone, tablet, and desktop evidence viewports;
+- contrast checked by Playwright axe-core scans on the current routes.
 
 Automated checks are a baseline. New interaction must also be reviewed for keyboard
 order, focus movement, accessible names, announcements, zoom, responsive behaviour,
@@ -225,7 +231,7 @@ and contrast.
 | Static analysis | ESLint recommended, strict TypeScript, Hooks and Fast Refresh rules |
 | Component | Placeholder semantics and unknown-route keyboard return |
 | API transport | Generated path type, URL construction, and same-origin credentials |
-| Browser | Production preview navigation and axe-core accessibility scan |
+| Browser | Production preview navigation, route focus, responsive overflow checks, and axe-core accessibility scans |
 | Build | Optimized static HTML, CSS, and JavaScript output in `dist` |
 
 Product behaviour requires tests for loading, success, empty, stale, unavailable,

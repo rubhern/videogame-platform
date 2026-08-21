@@ -96,10 +96,16 @@ required_files=(
   "tools/openapi-validation/normalize-generated-html.mjs"
   ".agents/skills/README.md"
   ".agents/skills/product-brief-review/SKILL.md"
+  ".agents/skills/scalability-by-design/SKILL.md"
   ".agents/skills/videogame-platform-backend-development/SKILL.md"
+  ".agents/skills/videogame-platform-frontend-development/SKILL.md"
   ".agents/skills/java-springboot/SKILL.md"
   ".agents/skills/architecture-patterns/SKILL.md"
   ".agents/skills/tdd/SKILL.md"
+  ".agents/skills/vercel-react-best-practices/SKILL.md"
+  ".agents/skills/vercel-composition-patterns/SKILL.md"
+  ".agents/skills/react-testing/SKILL.md"
+  ".agents/skills/frontend-accessibility-best-practices/SKILL.md"
   ".github/dependabot.yml"
   ".github/workflows/dependency-submission.yml"
   ".github/workflows/quality-gates.yml"
@@ -133,7 +139,20 @@ from urllib.parse import unquote
 
 root = pathlib.Path(sys.argv[1])
 link_pattern = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+skill_resource_pattern = re.compile(
+    r"(?:`|@)((?:assets|references|rules|scripts)/[A-Za-z0-9._/-]+)"
+)
 errors = []
+
+skills_root = root / ".agents/skills"
+skills_registry = (skills_root / "README.md").read_text(encoding="utf-8")
+vendored_skill_names = set(
+    re.findall(
+        r"^\| `([^`]+)` .* \| `vendored-unmodified` \|$",
+        skills_registry,
+        flags=re.MULTILINE,
+    )
+)
 
 json_documents = (
     "backend/postman/actuator.postman_collection.json",
@@ -262,19 +281,44 @@ for markdown in root.rglob("*.md"):
     if any(part in {".git", "node_modules", "target"} for part in markdown.parts):
         continue
     text = markdown.read_text(encoding="utf-8")
+    relative_markdown = markdown.relative_to(root)
+    vendored_skill_root = None
+    if (
+        len(relative_markdown.parts) >= 4
+        and relative_markdown.parts[:2] == (".agents", "skills")
+        and relative_markdown.parts[2] in vendored_skill_names
+    ):
+        vendored_skill_root = skills_root / relative_markdown.parts[2]
+
+    if vendored_skill_root is not None and markdown.name != "SKILL.md":
+        continue
+
     for raw_link in link_pattern.findall(text):
         link = raw_link.strip().split(maxsplit=1)[0].strip("<>")
         if not link or link.startswith(("#", "http://", "https://", "mailto:")):
             continue
         relative = unquote(link.split("#", 1)[0])
         target = (markdown.parent / relative).resolve()
+        if vendored_skill_root is not None:
+            try:
+                target.relative_to(vendored_skill_root.resolve())
+            except ValueError:
+                # Unmodified upstream entrypoints may link to optional sibling
+                # skill packages that are not dependencies of this vendored skill.
+                continue
         try:
             target.relative_to(root.resolve())
         except ValueError:
-            errors.append(f"{markdown.relative_to(root)}: link leaves repository: {link}")
+            errors.append(f"{relative_markdown}: link leaves repository: {link}")
             continue
         if not target.exists():
-            errors.append(f"{markdown.relative_to(root)}: missing target: {link}")
+            errors.append(f"{relative_markdown}: missing target: {link}")
+
+    if vendored_skill_root is not None:
+        for relative in skill_resource_pattern.findall(text):
+            target = vendored_skill_root / relative
+            if not target.exists():
+                errors.append(f"{relative_markdown}: missing skill resource: {relative}")
 
 if errors:
     print("\n".join(errors), file=sys.stderr)

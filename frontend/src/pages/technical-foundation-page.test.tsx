@@ -31,11 +31,10 @@ describe("technical foundation routing", () => {
     homeLink.focus();
     await user.keyboard("{Enter}");
 
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "El frontend ya puede crecer por slices verticales.",
-      }),
-    ).toBeInTheDocument();
+    await screen.findByRole("heading", {
+      level: 1,
+      name: "El frontend ya puede crecer por slices verticales.",
+    });
+    expect(screen.getByRole("main")).toHaveFocus();
   });
 });

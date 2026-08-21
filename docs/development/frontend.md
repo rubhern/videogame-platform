@@ -1,7 +1,7 @@
 # Frontend development
 
 - **Status:** Active initial skeleton
-- **Last verified:** 2026-08-07
+- **Last verified:** 2026-08-22
 - **Runtime:** Node.js 24 and npm 11
 - **Stack:** React 19.2, TypeScript strict mode, Vite 8.1
 - **Technical reference:** [Frontend README](../../frontend/README.md)
@@ -13,6 +13,11 @@ The current frontend is the smallest client-rendered foundation for the approved
 stack. It proves React, routing, TanStack Query, Tailwind CSS, complete OpenAPI type
 generation, typed same-origin transport, static analysis, component tests,
 accessibility smoke coverage, and the production build.
+
+The browser evidence covers the technical routes with axe-core, keyboard route
+focus, and horizontal-overflow checks at 320px, phone, tablet, and desktop
+viewports. It remains skeleton evidence rather than proof of future product-journey
+responsive behavior.
 
 It intentionally implements no product API call or journey. The visible page is a
 technical placeholder, not release discovery or another MVP capability.
