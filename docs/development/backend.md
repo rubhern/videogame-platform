@@ -168,7 +168,7 @@ normal local start.
 The full verification already creates the executable artifact. Run it directly with:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.3.2-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.3.3-SNAPSHOT.jar
 ```
 
 This command uses the same Java 25 runtime constraint as the Maven build. Container
