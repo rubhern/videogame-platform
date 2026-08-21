@@ -19,3 +19,5 @@ follow-up actions. Trivial folder or naming choices do not require an ADR.
 - [ADR-0011: Use Flyway and persistence adapters with PostgreSQL](0011-use-postgresql-and-flyway-for-application-persistence.md)
 - [ADR-0012: Use React, TypeScript, and Vite for the web frontend](0012-use-react-typescript-and-vite-for-the-web-frontend.md)
 - [ADR-0013: Use model-backed and purpose-specific architecture diagrams](0013-use-model-backed-and-purpose-specific-architecture-diagrams.md)
+- [ADR-0014: Generate backend HTTP contracts from OpenAPI](0014-generate-backend-http-contracts-from-openapi.md)
+- [ADR-0015: Query published release pages with a bounded PostgreSQL read model](0015-query-published-release-pages-with-postgresql.md)

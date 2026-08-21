@@ -27,6 +27,16 @@ spring:
 server:
   shutdown: graceful
 
+catalogue:
+  releases:
+    recent-window-months: ${CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS:6}
+    upcoming-window-months: ${CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS:6}
+    freshness-threshold: ${CATALOGUE_RELEASES_FRESHNESS_THRESHOLD:P7D}
+
+api:
+  releases:
+    cache-control: ${CATALOGUE_RELEASES_CACHE_CONTROL:public, max-age=60, stale-while-revalidate=300}
+
 management:
   endpoint:
     health:

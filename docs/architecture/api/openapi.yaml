@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 1.0.0
+  version: 1.1.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -16,6 +16,8 @@ servers:
   - url: /api/v1
     description: Same-origin application deployment
 tags:
+  - name: Releases
+    description: Public recent and upcoming release discovery.
   - name: Catalogue
     description: Public reads from the bounded local catalogue.
   - name: Ratings
@@ -26,13 +28,14 @@ security: []
 paths:
   /releases:
     get:
-      tags: [Catalogue]
+      tags: [Releases]
       operationId: listReleases
       summary: Browse recent or upcoming releases
       description: |
-        Reads the last valid local catalogue snapshot. The application derives the
+        Reads a bounded page from the last valid local catalogue publication. The application derives the
         evaluation date and release window in `Europe/Madrid`. Empty, stale,
-        review-required, imprecise-date, and fallback-cover results are valid states.
+        review-required, imprecise-date, TBA, and fallback-cover results are valid
+        states. PostgreSQL applies filters, total ordering, count, limit, and offset.
       security: []
       parameters:
         - $ref: '#/components/parameters/ReleaseView'
@@ -815,8 +818,8 @@ components:
       properties:
         number: { type: integer, minimum: 1 }
         size: { type: integer, minimum: 1, maximum: 100 }
-        totalItems: { type: integer, minimum: 0 }
-        totalPages: { type: integer, minimum: 0 }
+        totalItems: { type: integer, format: int64, minimum: 0 }
+        totalPages: { type: integer, format: int64, minimum: 0 }
       description: One-based page metadata; `totalPages` is zero for an empty result.
     Platform:
       type: object
@@ -844,35 +847,35 @@ components:
       type: object
       required: [precision, value]
       properties:
-        precision: { const: day }
+        precision: { type: string, pattern: '^day$' }
         value: { type: string, format: date }
       unevaluatedProperties: false
     MonthReleaseDate:
       type: object
       required: [precision, value]
       properties:
-        precision: { const: month }
+        precision: { type: string, pattern: '^month$' }
         value: { type: string, pattern: '^[0-9]{4}-(0[1-9]|1[0-2])$' }
       unevaluatedProperties: false
     QuarterReleaseDate:
       type: object
       required: [precision, value]
       properties:
-        precision: { const: quarter }
+        precision: { type: string, pattern: '^quarter$' }
         value: { type: string, pattern: '^[0-9]{4}-Q[1-4]$' }
       unevaluatedProperties: false
     YearReleaseDate:
       type: object
       required: [precision, value]
       properties:
-        precision: { const: year }
+        precision: { type: string, pattern: '^year$' }
         value: { type: string, pattern: '^[0-9]{4}$' }
       unevaluatedProperties: false
     UnknownReleaseDate:
       type: object
       required: [precision, value]
       properties:
-        precision: { const: unknown }
+        precision: { type: string, pattern: '^unknown$' }
         value: { type: 'null' }
       unevaluatedProperties: false
     ReleaseDate:
@@ -926,7 +929,7 @@ components:
       type: object
       required: [kind, url, alternativeText, attribution]
       properties:
-        kind: { const: provider }
+        kind: { type: string, pattern: '^provider$' }
         url:
           type: string
           format: uri
@@ -938,7 +941,7 @@ components:
       type: object
       required: [kind, url, alternativeText, attribution]
       properties:
-        kind: { const: fallback }
+        kind: { type: string, pattern: '^fallback$' }
         url:
           type: string
           format: uri-reference
@@ -950,16 +953,11 @@ components:
       oneOf:
         - $ref: '#/components/schemas/ProviderCover'
         - $ref: '#/components/schemas/FallbackCover'
-      discriminator:
-        propertyName: kind
-        mapping:
-          provider: '#/components/schemas/ProviderCover'
-          fallback: '#/components/schemas/FallbackCover'
     EditorialSummary:
       type: object
       required: [kind, text, language]
       properties:
-        kind: { const: editorial }
+        kind: { type: string, pattern: '^editorial$' }
         text: { type: string, minLength: 1 }
         language: { type: string, minLength: 2 }
       unevaluatedProperties: false
@@ -967,7 +965,7 @@ components:
       type: object
       required: [kind, text, language, provenance]
       properties:
-        kind: { const: sourced }
+        kind: { type: string, pattern: '^sourced$' }
         text: { type: string, minLength: 1 }
         language: { type: string, minLength: 2 }
         provenance: { $ref: '#/components/schemas/Provenance' }
@@ -976,7 +974,6 @@ components:
       oneOf:
         - $ref: '#/components/schemas/EditorialSummary'
         - $ref: '#/components/schemas/SourcedSummary'
-      discriminator: { propertyName: kind }
     GameSummary:
       type: object
       required: [gameId, slug, canonicalTitle, primaryCover, releaseContext]
@@ -1076,7 +1073,7 @@ components:
       type: object
       required: [status, mean, count, distribution]
       properties:
-        status: { const: available }
+        status: { type: string, pattern: '^available$' }
         mean:
           oneOf:
             - { type: number, minimum: 1, maximum: 10, multipleOf: 0.1 }
@@ -1089,14 +1086,13 @@ components:
       type: object
       required: [status, reasonCode]
       properties:
-        status: { const: unavailable }
-        reasonCode: { const: RATING_STATISTICS_READ_FAILED }
+        status: { type: string, pattern: '^unavailable$' }
+        reasonCode: { type: string, pattern: '^RATING_STATISTICS_READ_FAILED$' }
       unevaluatedProperties: false
     RatingStatistics:
       oneOf:
         - $ref: '#/components/schemas/AvailableRatingStatistics'
         - $ref: '#/components/schemas/UnavailableRatingStatistics'
-      discriminator: { propertyName: status }
     GameDetails:
       type: object
       required: [gameId, slug, canonicalTitle, aliases, summary, primaryCover, releases, ratingEligibility, ratingStatistics]
@@ -1118,13 +1114,18 @@ components:
     AnonymousSession:
       type: object
       required: [authenticated]
-      properties: { authenticated: { const: false } }
+      properties:
+        authenticated:
+          type: boolean
+          not: { const: true }
       unevaluatedProperties: false
     AuthenticatedSession:
       type: object
       required: [authenticated, csrfToken]
       properties:
-        authenticated: { const: true }
+        authenticated:
+          type: boolean
+          not: { const: false }
         csrfToken: { type: string, minLength: 1 }
       unevaluatedProperties: false
     SessionState:

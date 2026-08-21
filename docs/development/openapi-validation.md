@@ -3,6 +3,7 @@
 - **Status:** Active
 - **Contract:** [`docs/architecture/api/openapi.yaml`](../architecture/api/openapi.yaml)
 - **OpenAPI version:** `3.1.2`
+- **Contract version:** `1.0.1`
 - **Validator:** Redocly CLI `2.43.2`
 
 ## Purpose
@@ -49,6 +50,9 @@ The command stops on the first failed phase and returns a non-zero exit code.
 
 After a contract change passes validation, regenerate the human-readable reference
 using the [OpenAPI web documentation tutorial](openapi-web-documentation.md).
+The backend additionally generates and compiles its Spring interfaces and transport
+models during Maven `generate-sources`; see the mandatory
+[backend generation standard](backend-openapi-generation.md).
 
 ## Validation phases
 
@@ -118,7 +122,8 @@ Configuration:
 The GitHub Actions quality workflow installs Node.js 24 and the locked npm
 dependencies, then runs both documentation and OpenAPI validation on pull requests
 to `main` and trusted `main` pushes. A validation or generated-reference diff fails
-the required quality gate.
+the required quality gate. The subsequent Maven build regenerates all backend HTTP
+interfaces and DTOs and fails when a manual implementation is incompatible.
 
 ## Updating validation tooling
 

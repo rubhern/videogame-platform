@@ -14,6 +14,9 @@
 - [Backend observability](observability.md): health semantics, build metadata,
   correlation, structured logs, metrics, W3C tracing, OTLP configuration, telemetry
   safety, and automated evidence.
+- [Release discovery API](release-api.md): `GET /api/v1/releases` behaviour,
+  bounded PostgreSQL snapshot reads, query-plan/scale evidence, configuration, safe
+  covers, caching, errors, telemetry, Postman examples, and automated evidence.
 - [Walking-skeleton continuous integration](continuous-integration.md): PR and
   trusted `main` quality/security gates, permissions, caching, retries, dependency
   monitoring, and local command parity.
@@ -21,6 +24,8 @@
   rationale, risks, and deferred capabilities.
 - [OpenAPI contract validation](openapi-validation.md): syntax, lint, references,
   schemas, examples, local execution, and CI integration.
+- [Backend OpenAPI generation](backend-openapi-generation.md): mandatory Maven
+  generation, manual controller boundaries, compatibility rules, and upgrades.
 - [OpenAPI web documentation tutorial](openapi-web-documentation.md): regenerate,
   inspect, and update the static Redoc API reference.
 - [Learning MVP delivery lifecycle](delivery-lifecycle.md): readiness, Git and pull

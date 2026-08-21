@@ -1,9 +1,9 @@
 # Learning MVP API Conventions
 
 - **Status:** Approved
-- **Version:** 1.0
+- **Version:** 1.1
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-31
+- **Last updated:** 2026-08-19
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Scope:** Private, non-commercial learning MVP
 - **Architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
@@ -325,10 +325,15 @@ Page metadata:
 Rules:
 
 - Scope, filters, search, and sorting precede pagination.
-- Every collection uses `gameId` as final deterministic tie-breaker.
+- Every collection uses a unique final deterministic tie-breaker. `gameId` remains
+  the final tie-breaker for one-row-per-game collections; release collections use
+  `releaseId` after `gameId` because one game can have several distinct releases.
 - No matches and a page beyond the last return `200` with `items: []`.
 - Invalid values return `422` with `PAGINATION_INVALID`.
-- A future cursor contract requires a separate compatibility decision.
+- Retain page/offset while measured bounded-window counts and requested offsets meet
+  agreed objectives. Re-evaluate keyset/cursor pagination through a compatibility
+  decision when deep offsets, very large match sets, or exact `COUNT(*)` produce
+  incompatible measured latency or database work.
 
 ## 10. Filtering, search, and sorting
 
@@ -390,7 +395,11 @@ Default order:
 
 - `recent`: most recent effective release period first;
 - `upcoming`: earliest effective release period first;
-- ties: `canonicalTitle` ascending, then `gameId`.
+- ties: `canonicalTitle` ascending, then `gameId`, then unique `releaseId`.
+
+Unknown-date, non-released and non-cancelled releases are explicit TBA entries in the
+`upcoming` view. They sort after all releases with known effective periods and do not
+pretend to fall within the configured calendar window.
 
 Ordering may use represented period boundaries internally but never exposes an
 invented date. Window lengths remain configuration documented with OpenAPI.
@@ -1074,5 +1083,6 @@ Ruben Hernandez accepted every review item on 2026-07-31.
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-19 | 1.1 | Required a unique final row tie-breaker, corrected release ordering to end in `releaseId`, made upcoming TBA semantics explicit, and recorded the evidence trigger for replacing page/offset pagination. | Ruben Hernandez |
 | 2026-07-31 | 1.0 | Owner-approved the REST API conventions without expanding product scope; fixed the initial resource map, HTTP semantics, representation rules, security boundary, errors, compatibility policy, and OpenAPI authoring direction. | Ruben Hernandez |
 | 2026-07-30 | 0.1 | Initial draft derived from the approved domain, application, solution architecture, and ADR-0001 through ADR-0004. | Ruben Hernandez |

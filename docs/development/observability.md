@@ -1,12 +1,13 @@
 # Backend observability
 
 - **Status:** Active walking-skeleton implementation
-- **Last verified:** 2026-08-10
-- **Backend version:** `0.2.0-SNAPSHOT`
+- **Last verified:** 2026-08-19
+- **Backend version:** `0.3.1-SNAPSHOT`
 - **Decision:** [ADR-0009](../decisions/0009-use-opentelemetry-compatible-instrumentation.md)
 - **Architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
 
-This guide records the operational inspection boundary implemented for issue #23.
+This guide records the operational inspection boundary implemented for issue #23 and
+the bounded release-read telemetry added by issue #25.
 It covers safe health probes, build metadata, request correlation, structured logs,
 baseline metrics, W3C trace context, and optional OTLP export. It does not provision a
 collector, OCI integration, dashboard, alert, or remote environment.
@@ -26,12 +27,14 @@ telemetry component participates in readiness.
 | Logs | Human-readable local access logs; ECS JSON through the `structured` profile |
 | Correlation | Validated or generated `X-Correlation-ID`, returned to the caller and placed in log context |
 | Traces | W3C `traceparent` consumption/production and Micrometer-to-OpenTelemetry tracing |
-| Metrics | HTTP server, JVM/runtime, process, system, JDBC, and Hikari pool meters |
+| Metrics | HTTP server, release-query, JVM/runtime, process, system, JDBC, and Hikari pool meters |
 | Export | Independently enabled OTLP/HTTP trace and metric export to replaceable endpoints |
 
-The only new releasable artefact is the backend Maven reactor. This compatible
-material enabler increments it from `0.1.0-SNAPSHOT` to `0.2.0-SNAPSHOT` under the
-pre-1.0 Semantic Versioning policy. The frontend and isolated IGDB PoC do not change.
+Issue #23 originally incremented the backend from `0.1.0-SNAPSHOT` to
+`0.2.0-SNAPSHOT`. Issue #25 subsequently adds a compatible product capability and
+increments the same Maven reactor to `0.3.0-SNAPSHOT` under the pre-1.0 Semantic
+Versioning policy. The later composition-root correction increments the backend
+patch to `0.3.1-SNAPSHOT`. The frontend and isolated IGDB PoC do not change.
 
 ## Health semantics
 
@@ -67,7 +70,7 @@ returns its safe fields under `build`:
 {
   "build": {
     "name": "VideoGame Platform Backend",
-    "version": "0.2.0-SNAPSHOT",
+    "version": "0.3.1-SNAPSHOT",
     "sourceRevision": "local-development"
   }
 }
@@ -196,6 +199,11 @@ diagnostic registry. The initial baseline includes:
   class tags;
 - `jvm.*`, `process.*`, and `system.*` runtime meters;
 - `jdbc.connections.*` and `hikaricp.connections.*` database-pool meters.
+- `catalogue.releases.requests` and `catalogue.releases.latency`, tagged only with
+  the closed release view/outcome values;
+- `catalogue.releases.result.count`, tagged only with the release view and recording
+  returned items for `200` responses; conditional `304` responses record no sample;
+- `catalogue.releases.failures`, tagged only with a stable reviewed error code.
 
 Requests are not probabilistically sampled out of these metrics: every relevant
 instrumented request updates the HTTP meter. The local registry lives in the process

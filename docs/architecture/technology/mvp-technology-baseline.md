@@ -1,11 +1,11 @@
 # Learning MVP Technology Baseline
 
 - **Status:** Approved
-- **Version:** 1.4
+- **Version:** 1.6
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-08-13
 - **Phase:** 1 — MVP solution definition (complete)
-- **Implementation evidence:** Partial — application foundations, local dependencies, PostgreSQL/Flyway persistence, baseline observability, and current CI/security gates
+- **Implementation evidence:** Partial — application foundations, local dependencies, PostgreSQL/Flyway persistence, generated backend HTTP contracts, first public read, baseline observability, and current CI/security gates
 - **Scope:** Private, non-commercial learning MVP
 - **Solution architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
 - **API conventions:** [Learning MVP API conventions](../api/api-conventions.md)
@@ -104,6 +104,7 @@ as the API conventions.
 | Integration database | Testcontainers PostgreSQL | Exact image pinned | ADR-0011 |
 | API contract | OpenAPI `3.1.2` | Source-controlled contract | Existing API conventions |
 | Contract tooling | Redocly CLI and Redoc CE | Exact npm versions locked | Existing API conventions |
+| Backend contract generation | OpenAPI Generator Maven Plugin with Spring interfaces and models | Exact version pinned; currently `7.24.0` | [ADR-0014](../../decisions/0014-generate-backend-http-contracts-from-openapi.md) |
 | Frontend contract types | openapi-typescript | `7.x`, exact version locked | ADR-0012 |
 | Frontend HTTP client | openapi-fetch behind a product API layer | Current compatible stable line, exact version locked | ADR-0012 |
 | Frontend language | TypeScript strict mode | Current stable compatible line | [ADR-0012](../../decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md) |
@@ -310,13 +311,21 @@ Tooling:
 
 - Redocly CLI for linting, bundling, and compatibility checks;
 - Redoc CE for static readable documentation;
+- OpenAPI Generator Maven Plugin for disposable Spring interfaces and transport
+  models compiled before backend implementation;
 - openapi-typescript for frontend contract types and openapi-fetch for the thin
   same-origin client;
 - contract tests validating implementation and examples;
 - generated source treated as disposable output;
 - RFC 9457 Problem Details for errors.
 
-The domain MUST NOT depend on generated OpenAPI classes.
+Manual delivery adapters MUST implement generated interfaces and map generated
+transport models to application-owned contracts. Domain, application, catalogue,
+ratings, persistence, identity, and provider code MUST NOT depend on generated
+OpenAPI classes. Generated Java remains ignored output under `backend/target` and is
+never edited or committed. The detailed mandatory workflow and current OpenAPI 3.1
+compatibility mappings are recorded in the
+[backend generation standard](../../development/backend-openapi-generation.md).
 
 ## 8. Frontend baseline
 
@@ -598,6 +607,8 @@ Minimum acceptance criteria:
 - Flyway creates a new PostgreSQL 18 database from zero;
 - a persistence integration test passes through Testcontainers;
 - a public endpoint conforms to an OpenAPI fragment;
+- Maven regenerates and compiles every backend Spring interface and transport model
+  from the complete reviewed OpenAPI source;
 - openapi-typescript generates types from the complete reviewed OpenAPI 3.1.2 source,
   including its `oneOf` schemas, and the generated types pass `tsc --noEmit`;
 - openapi-fetch builds and calls the same-origin API through the product-facing layer;
@@ -613,8 +624,9 @@ Minimum acceptance criteria:
 - liveness, readiness, structured logs, metrics, and trace correlation are visible;
 - CI runs the proof reproducibly.
 
-As of 2026-08-13, the PostgreSQL/Flyway, baseline observability, and current CI
-portions are executable. The production migration creates a fresh PostgreSQL 18
+As of 2026-08-13, the PostgreSQL/Flyway, backend contract generation, first public
+read, baseline observability, and current CI portions are executable. The production
+migration creates a fresh PostgreSQL 18
 schema and Testcontainers verifies migration and persistence constraints. Explicit
 health groups, safe build/source metadata, ECS request correlation, route-template
 metrics, W3C trace context, and optional OTLP trace/metric export are covered by an
@@ -622,7 +634,7 @@ automated PostgreSQL-backed smoke test. Pull requests and trusted `main` builds 
 the same documentation, OpenAPI, generated-type, frontend, browser, backend,
 architecture, migration and fixture checks plus Gitleaks, dependency review and
 CodeQL. This is partial compatibility evidence; it does not close the public
-endpoint, identity, deployed collector, combined packaging, or multi-architecture
+remaining endpoints, identity, deployed collector, combined packaging, or multi-architecture
 parts of the gate.
 
 A failure blocks feature expansion and reopens the affected ADR or baseline row. It
@@ -699,6 +711,8 @@ the replaceable local telemetry backend.
 - [x] React 19.2, TypeScript strict mode, Vite 8.1, Node 24 LTS, and npm are accepted.
 - [x] TanStack Query is accepted for server state; another global state store remains deferred.
 - [x] openapi-typescript and openapi-fetch are accepted for the OpenAPI 3.1.2 frontend boundary.
+- [x] OpenAPI Generator Maven Plugin is accepted for disposable backend Spring
+      interfaces and transport models with manual delivery adapters.
 - [x] Keycloak 26.7 is accepted for local and `dev` identity.
 - [x] GitHub Actions and GHCR remain accepted for initial delivery.
 - [x] OpenTelemetry-compatible instrumentation remains accepted.
@@ -711,6 +725,8 @@ the replaceable local telemetry backend.
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-13 | 1.6 | Adopted OpenAPI Generator Maven Plugin 7.24.0 as the mandatory backend HTTP interface/model generation standard and recorded the enforced delivery-only dependency boundary. | Ruben Hernandez |
+| 2026-08-13 | 1.5 | Recorded the Java/Spring/JDBC implementation of the reviewed PostgreSQL-backed release API with PostgreSQL 18 repository/API integration evidence and no request-path provider call. | Ruben Hernandez |
 | 2026-08-13 | 1.4 | Recorded reproducible PR/`main` quality and security gates with Java 25, Node.js 24, PostgreSQL 18, Spotless, JaCoCo, plan-aware SonarQube Cloud, dependency submission, pinned actions, minimal permissions, dependency-only caches, and no test retries. | Ruben Hernandez |
 | 2026-08-09 | 1.3 | Recorded executable health, version metadata, structured correlation, bounded metrics, W3C tracing, telemetry-safety, and optional OTLP export evidence without claiming a deployed collector. | Ruben Hernandez |
 | 2026-08-09 | 1.2 | Recorded executable PostgreSQL 18 migration-from-zero, deterministic seed, persistence-constraint, runtime-privilege, and Flyway checksum evidence without closing the broader compatibility gate. | Ruben Hernandez |

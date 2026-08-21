@@ -26,7 +26,7 @@ cancelled, or is skipped, so a later diagnostic step cannot hide an incomplete g
 | Documentation and API contracts | changed-range `git diff --check`, `validate-actions.sh`, `validate-docs.sh`, `validate-openapi.sh`, generated Redoc diff | Reject whitespace errors, invalid workflow syntax or expressions, broken links, malformed sources, contract errors, or stale API documentation |
 | Frontend static, type, component and build checks | `npm ci --ignore-scripts`, OpenAPI type generation diff, `npm run frontend:verify` | Prove the locked dependency graph without executing dependency lifecycle scripts, ESLint, strict `tsc --noEmit`, Vitest and the production Vite build |
 | Frontend Chromium smoke and accessibility check | `validate-browser.sh` with the digest-pinned Playwright image | Exercise the production preview, keyboard navigation and the axe-core accessibility baseline in a real browser |
-| Java backend, architecture and PostgreSQL integration | `./mvnw clean verify` plus retained JaCoCo report | Enforce Spotless, compile/package with Java 25, run unit and startup checks, Spring Modulith verification, ArchUnit rules and PostgreSQL 18 integration tests, and produce XML/HTML coverage evidence |
+| Java backend, architecture and PostgreSQL integration | `./mvnw clean verify` plus retained JaCoCo report | Regenerate Spring interfaces/DTOs from OpenAPI, enforce Spotless, compile/package with Java 25, run unit and startup checks, Spring Modulith verification, ArchUnit rules and PostgreSQL 18 integration tests, and produce XML/HTML coverage evidence |
 | Fresh PostgreSQL 18 migration | `validate-migrations.sh` | Independently create an empty database, apply Flyway from zero and verify schema, seed and runtime-privilege guarantees |
 | IGDB PoC local fixtures | targeted Maven `clean verify` | Preserve the provider decision evidence without credentials or live provider traffic |
 | SonarQube Cloud quality gate | Maven verify, JaCoCo XML import and SonarScanner for Maven | Analyze Java 25 and repository non-JVM sources, then wait for the configured Sonar way result when analysis is applicable |
@@ -34,6 +34,8 @@ cancelled, or is skipped, so a later diagnostic step cannot hide an incomplete g
 The backend build receives `GITHUB_SHA` as its safe source revision. Hosted runners
 already provide Docker, so Testcontainers creates a new `postgres:18.4-bookworm`
 container and database for each backend or migration job.
+The same Maven build runs OpenAPI Generator in `generate-sources`; generated Java is
+ignored disposable output, and any incompatible manual controller fails compilation.
 
 Spotless Maven 3.9.0 uses the explicitly pinned google-java-format 1.36.1 AOSP style,
 removes unused imports, and rejects wildcard imports. Its `check` goal is bound to
@@ -218,10 +220,14 @@ and a compatible transitive development-tool lock. Spotless establishes one
 format-only baseline but does not alter runtime semantics; JaCoCo instruments tests,
 not the packaged application. The change does not alter the backend jar's supported
 behaviour, frontend production assets or isolated IGDB PoC behaviour. Their versions
-therefore remain `0.2.0-SNAPSHOT`, `0.0.1` and `0.1.0-SNAPSHOT` respectively. The
-private root tooling package also remains `1.0.0`; it is not a published runtime
-artefact. A later runtime or product change must assess those artefacts independently
-under the delivery lifecycle.
+therefore remained `0.2.0-SNAPSHOT`, `0.0.1` and `0.1.0-SNAPSHOT` respectively for
+that change. Issue #25 later increments the backend to `0.3.0-SNAPSHOT`; its
+contract-first generator adoption increments the compatible OpenAPI metadata from
+`1.0.0` to `1.0.1` without changing the wire operations. The private root tooling
+package remains `1.0.0`; it is not a published runtime artefact. The subsequent
+composition-root correction increments only the backend patch to `0.3.1-SNAPSHOT`.
+A later runtime or
+product change must assess those artefacts independently under the delivery lifecycle.
 
 ## Remaining delivery work
 

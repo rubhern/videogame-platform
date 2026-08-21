@@ -8,53 +8,21 @@ for solution architecture and technical leadership.
 
 ## Current phase
 
-**Product alignment is closed.** The approved Product Brief, first journey, MVP
-release cut, clickable prototype, and accepted simulated usability round form the
-closed phase record for this private learning project. The journey gate is `PASS`:
-four of five sessions completed unaided and a focused simulated regression resolved
-the blocking personal-rating state.
+Product alignment and Phase 1 solution definition are closed. Implementation is
+active at the walking-skeleton compatibility gate. Preserve the approved MVP,
+domain, application, solution, platform, technology, API, delivery, and diagram
+decisions while completing the smallest executable vertical slices.
 
-The minimum provider-independent domain model, application use-case contract, MVP
-solution architecture, and REST API conventions are approved. The OpenAPI contract
-for one vertical slice is defined. Prototype and usability work remain closed for
-the current learning objective.
+The current release remains a private, non-commercial learning MVP. Public
+production, a business model, paid infrastructure, and distributed architecture are
+not approved. Remote infrastructure must not be provisioned before the applicable
+walking-skeleton evidence exists.
 
-The minimum platform and delivery design is approved. The persistent private `dev`
-environment uses OCI Always Free with private Tailscale access. PostgreSQL and
-versioned forward migrations, Keycloak, GitHub Actions/GHCR, and
-OpenTelemetry-compatible instrumentation are accepted through ADR-0005 to ADR-0009.
-
-**Phase 1 — MVP solution definition is complete.** The approved
-[technology baseline](docs/architecture/technology/mvp-technology-baseline.md) and
-ADR-0010 through ADR-0012 select the supported implementation stack. Application
-implementation is now active at the walking-skeleton gate: prove local, CI,
-`linux/amd64`, and `linux/arm64` compatibility before feature expansion. No remote
-infrastructure has been implemented yet.
-
-The initial backend and frontend walking-skeleton foundations are executable locally.
-The backend proves the Java/Spring module boundaries, explicit health groups, safe
-version/source metadata, structured request correlation, bounded metrics, W3C trace
-context, and optional OTLP export; the
-frontend proves the React/TypeScript/Vite baseline, complete OpenAPI type generation,
-and its static-analysis, component, browser-smoke, and production-build paths. The
-local PostgreSQL 18 and Keycloak 26.7 topology is executable with isolated roles,
-reproducible identity configuration, health checks, persistent disposable data, and
-verified AMD64/ARM64 dependency manifests. SQL-first Flyway migration from zero, a
-module-owned catalogue schema, deterministic opt-in seed data, and PostgreSQL 18
-Testcontainers persistence constraints are also executable. Pull requests and
-trusted `main` builds reproduce the current documentation, contract, frontend,
-browser, backend, architecture, migration, provider-fixture, secret, dependency, and
-CodeQL evidence with explicit minimal permissions. Spotless, JaCoCo XML/HTML,
-plan-aware SonarQube Cloud analysis, actionlint, changed-range whitespace validation,
-and Maven dependency submission complete the current code-quality boundary. This
-does not close the broader
-compatibility gate: BFF identity integration, a deployed telemetry backend, combined
-packaging, and application multi-architecture evidence remain outstanding.
-
-The initial architecture diagram baseline is established through ADR-0013. Approved
-documents and ADRs remain authoritative; Structurizr owns shared C4 views, Mermaid
-owns focused code-based views, and diagrams.net is reserved for polished derived
-communication views.
+The repository uses one Java/Spring modular monolith, PostgreSQL with SQL-first
+Flyway migrations, a same-origin React frontend and BFF/API boundary, Keycloak for
+initial identity, and provider-independent local catalogue data. Product-facing HTTP
+APIs are contract-first from OpenAPI and use disposable Maven-generated Spring
+interfaces and transport models with manual delivery adapters.
 
 - Treat the approved MVP boundary, IGDB decision, accepted limitations, and private
   non-commercial release mode as the current product constraints.
@@ -101,10 +69,88 @@ communication views.
 - Architecture diagram catalogue and ownership rules:
   `docs/architecture/diagrams/README.md`
 - Accepted architectural decisions: `docs/decisions/0001-*.md` through
-  `docs/decisions/0013-*.md`
+  `docs/decisions/0015-*.md`
 
 When sources conflict, report the conflict instead of choosing silently.
 Distinguish evidence, decisions, assumptions, and proposals.
+
+## Instruction and skill precedence
+
+1. An explicit owner decision may initiate a change to an existing decision, but do
+   not leave implementation, contracts, ADRs, or approved documentation in a
+   contradictory state.
+2. This `AGENTS.md`, approved repository documents, accepted ADRs, and repository
+   contracts are authoritative for work in this repository.
+3. A VideoGame Platform-specific skill takes precedence over generic external
+   skills.
+4. External skills provide advisory knowledge only; they are never authority over
+   repository decisions.
+5. When a skill conflicts with the approved baseline, OpenAPI, an ADR, or verified
+   architecture, follow the repository and report a material conflict.
+6. Never change an approved architecture decision solely because an external skill
+   recommends another practice.
+
+## Skills
+
+- `videogame-platform-backend-development` is the primary skill for backend
+  implementation, refactoring, debugging, and review.
+- `scalability-by-design` is mandatory before designing or modifying any API,
+  persistence query, repository, pagination, synchronization, cache, metric, batch,
+  or large-collection processing path.
+- `java-springboot` provides complementary Java and Spring idioms.
+- `architecture-patterns` provides complementary DDD, Hexagonal Architecture, and
+  Clean Architecture reasoning.
+- `tdd` provides complementary red/green/refactor discipline and test-design advice.
+
+The three external skills are subordinate to the project-specific skill and the
+repository authorities above. Load only the skills relevant to the task; trivial
+work does not require loading the complete backend skill set.
+
+## Scalability and performance invariants
+
+Never infer production scale from current fixtures. Assume substantial growth in
+catalogue records, releases, platforms, regions, users, ratings, traffic, history,
+telemetry, synchronization volume, and concurrent requests.
+
+- Online work must be bounded. For persistent paginated collections, loading or
+  streaming the complete dataset and then filtering, sorting, counting, or paging in
+  application memory is prohibited. Per-request memory should be `O(pageSize)` or
+  the smallest required result/batch, not `O(totalRows)`.
+- Push persistent filtering, search, ordering, aggregation, counting, and pagination
+  to PostgreSQL or the datastore suited to the approved boundary. Use query-specific
+  read ports or projections when aggregate repositories do not fit; logical CQRS
+  does not require distributed infrastructure.
+- Every paginated query requires deterministic total ordering whose last tie-breaker
+  uniquely identifies a row.
+- Protect critical integrity and concurrency invariants with appropriate foreign
+  keys, checks, unique constraints/indexes, and transaction boundaries. Do not use
+  `DISTINCT` to hide an invalid join cardinality.
+- Review real SQL and access paths for new or changed hot queries. Use representative
+  data plus `EXPLAIN (ANALYZE, BUFFERS)` when relevant, and retain only indexes with
+  demonstrated value.
+- Keep correctness independent of mutable process-local state so the application can
+  scale horizontally. A local cache may optimize but must not become the sole source
+  of truth.
+- Design public reads for correct `Cache-Control`, validators, and intermediary
+  caching when their semantics permit it.
+- Metric labels and trace/log dimensions must use bounded vocabularies; arbitrary
+  input and game, release, user, request, or correlation identifiers are forbidden
+  as metric tags.
+- Never call an external provider from a user request path when approved normalized
+  local state exists. Bound provider synchronization and batch work explicitly.
+- Consider concurrent requests and writes, races, uniqueness, consistency, and
+  failure behavior rather than assuming single-user execution.
+
+For every affected path, record or review expected cardinality, time and memory
+complexity, database and network work, concurrency, query plan, cacheability,
+horizontal scaling, and failure mode. The `scalability-by-design` skill owns the
+detailed workflow and is mandatory for the change categories listed above.
+
+Scalability by design means preventing avoidable rewrites through correct models,
+bounded work, SQL, indexes, constraints, HTTP caching, statelessness, and horizontal
+scaling first. It does not authorize microservices, Kafka, Redis, Elasticsearch,
+distributed caches, another database, or Kubernetes components without measured
+evidence, a real trigger, or an explicit bounded learning experiment.
 
 ## Product principles
 
@@ -126,6 +172,20 @@ Distinguish evidence, decisions, assumptions, and proposals.
   build and documentation references atomically.
 - Record significant, durable architecture decisions as ADRs.
 
+## Composition root rule
+
+- Domain and application remain framework-independent.
+- Adapters implement inbound or outbound boundaries; they do not instantiate
+  application services or policies and must not depend on `application.internal`.
+- Spring wiring that connects application implementations, ports, adapters, runtime
+  configuration, and platform services belongs to an explicit composition root in
+  the owning business module's `configuration` package (the repository-approved
+  equivalent of a global `platform.configuration` root for closed Modulith modules).
+- A composition root may deliberately know core implementations and adapters because
+  wiring is its sole responsibility.
+- Do not add Spring stereotypes to domain or application merely to avoid explicit
+  composition.
+
 ## Working method
 
 For substantial tasks:
@@ -140,6 +200,19 @@ For substantial tasks:
 7. Update affected documentation.
 8. Summarise changes, checks, risks, and next decisions.
 
+Whenever a backend API is added or modified, update its tracked Postman collection,
+requests, and assertions in the same change so the executable client examples remain
+aligned with the implemented HTTP contract.
+
+All present and future product-facing backend HTTP APIs must be contract-first from
+`docs/architecture/api/openapi.yaml`. Generate Spring interfaces and transport models
+with the backend-owned `openapi-generator-maven-plugin` execution, keep generated Java
+under disposable `target/generated-sources` output, and never edit or commit it.
+Manual controllers in `api.delivery` must implement the generated interfaces and own
+all mapping to provider-independent application models; application, domain,
+catalogue, ratings, persistence, identity, and provider code must never depend on
+generated OpenAPI types.
+
 Use English for repository documentation, code, identifiers, tests, comments,
 and commit messages.
 
@@ -150,7 +223,20 @@ starts, enters review or validation, returns for changes, or is completed.
 
 ## Validation
 
-Run:
+### Iteration checks
+
+During implementation, run the smallest relevant tests and static checks first to
+obtain fast feedback. Examples include a focused Maven test class, module compile,
+OpenAPI validation, migration validation, or documentation validation. Expand the
+scope when a focused check passes or when the affected boundary requires broader
+evidence.
+
+Focused checks do not replace completion gates.
+
+### Completion / PR-ready checks
+
+Before considering a material change complete or PR-ready, run every applicable
+repository gate. The full current suite is:
 
 ```bash
 bash scripts/validate-prerequisites.sh
