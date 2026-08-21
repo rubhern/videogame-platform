@@ -33,6 +33,10 @@ skills and repository-level rules outside its upstream skill directory. Those
 packages are not runtime resources of `react-testing` and were not implicitly
 vendored; every resource internal to the requested upstream directory is present.
 
+The pinned Vercel trees contain upstream Markdown trailing whitespace. The reviewed
+change whitespace gate excludes only those two byte-identical vendored paths; all
+repository-owned files remain subject to `git diff --check`.
+
 ## Updating a vendored skill
 
 1. Inspect the upstream skill tree and repository license at the candidate commit.

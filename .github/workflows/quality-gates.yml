@@ -33,10 +33,15 @@ jobs:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
+          whitespace_paths=(
+            .
+            ':(exclude).agents/skills/vercel-composition-patterns/**'
+            ':(exclude).agents/skills/vercel-react-best-practices/**'
+          )
           if [[ "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
-            git diff-tree --check --root --no-commit-id --recursive "$HEAD_SHA"
+            git diff-tree --check --root --no-commit-id --recursive "$HEAD_SHA" -- "${whitespace_paths[@]}"
           else
-            git diff --check "$BASE_SHA" "$HEAD_SHA"
+            git diff --check "$BASE_SHA" "$HEAD_SHA" -- "${whitespace_paths[@]}"
           fi
 
       - name: Validate GitHub Actions workflows
