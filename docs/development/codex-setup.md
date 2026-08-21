@@ -1,7 +1,7 @@
 # Codex workspace setup
 
 - **Status:** Active
-- **Last verified:** 2026-08-06
+- **Last verified:** 2026-08-19
 - **Scope:** Personal Windows workstation with Ubuntu on WSL2
 
 ## Purpose
@@ -52,7 +52,7 @@ Windows path used to open it:
 | GitHub remote | `https://github.com/rubhern/videogame-platform.git` | Publish and review the repository |
 | GitHub visibility | Public | Current repository state; review if public visibility was not intentional |
 | Figma integration | Connected; used for the editable MVP story map and mobile-first clickable prototype | Keep visual interaction artefacts editable while product rules and evidence remain in Git |
-| Docker | Docker Desktop `4.85.0`; Docker Engine/CLI `29.6.2`; Compose `5.3.1`; Ubuntu integration verified without `sudo` | Provide the supported local container daemon and Compose client |
+| Docker | Docker Desktop `4.85.0`; Docker Engine/CLI `29.7.2`; Compose `5.4.0`; Ubuntu integration verified without `sudo` | Provide the supported local container daemon and Compose client |
 
 The global Codex configuration also enables several plugins, including GitHub,
 Chrome, Computer Use, document, spreadsheet, presentation, Google, PDF, Sites,
@@ -87,7 +87,13 @@ Operational safeguards still apply:
 |---|---|
 | `AGENTS.md` | Durable product, architecture, workflow, and validation rules |
 | `.codex/config.toml` | Project-level Codex permissions |
-| `.agents/skills/product-brief-review/` | Repeatable Phase 0 Product Brief review |
+| `.agents/skills/README.md` | Repository skill inventory, upstream provenance, licenses, and update procedure |
+| `.agents/skills/product-brief-review/` | Focused Product Brief and product-alignment review |
+| `.agents/skills/scalability-by-design/` | Mandatory bounded-work, query-plan, concurrency, caching, and cardinality review for APIs and data paths |
+| `.agents/skills/videogame-platform-backend-development/` | Project-authoritative backend implementation and review workflow |
+| `.agents/skills/java-springboot/` | Vendored advisory Java/Spring practices |
+| `.agents/skills/architecture-patterns/` | Vendored advisory DDD and hexagonal/clean architecture guidance |
+| `.agents/skills/tdd/` | Vendored advisory test-first and test-design discipline |
 | `scripts/validate-prerequisites.sh` | Reproducible WSL2 local prerequisite gate |
 | `scripts/validate-actions.sh` | Check workflow syntax and expressions with checksum-verified actionlint |
 | `scripts/validate-docs.sh` | Reproducible documentation validation |
@@ -112,6 +118,22 @@ Operational safeguards still apply:
 | Quality | Automated tests, review, browser and Computer Use for real user flows |
 | Delivery | GitHub, CI/CD, release checks, Cloud tasks when setup is reproducible |
 | Operation | Logs, metrics, incident analysis, stable scheduled workflows |
+
+## Instruction and skill authority
+
+Codex discovers repository skills from `.agents/skills` and initially selects them
+through their frontmatter descriptions. For backend work, the project-specific
+`videogame-platform-backend-development` skill and repository sources of truth take
+precedence over the three vendored external skills. The external skills supply useful
+idioms and review prompts, but they cannot change the approved modular-monolith,
+OpenAPI, persistence, provider, security, or dependency-direction decisions.
+`AGENTS.md` additionally requires the project-specific `scalability-by-design` skill
+for APIs, queries, repositories, pagination, synchronization, caching, metrics,
+batches, and large-collection work so small fixtures never justify unbounded paths.
+
+Skill changes are normally detected automatically. If a newly added skill does not
+appear in the current Codex task's initial skill catalogue, start a new task or
+restart Codex; do not alter valid skill files merely to force an in-task refresh.
 
 ## GitHub workflow
 
@@ -156,7 +178,6 @@ troubleshooting.
 | Cloud setup script | Not needed | The repository has real dependencies or build steps |
 | Local environment actions | Not configured | Repeated Run/Test/Build commands exist |
 | Scheduled tasks | Deferred | A manual workflow has proved stable and worth repeating |
-| Additional project skills | Deferred | A repeatable workflow exists and prompt repetition becomes costly |
 | Advanced multi-agent work | Available but not required | Work can be divided into independent, non-overlapping outcomes |
 
 ## Known limitations and follow-ups

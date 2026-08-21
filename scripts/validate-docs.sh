@@ -15,6 +15,7 @@ required_files=(
   "backend/README.md"
   "backend/postman/README.md"
   "backend/postman/actuator.postman_collection.json"
+  "backend/postman/catalogue-releases.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
   "frontend/package.json"
@@ -33,6 +34,7 @@ required_files=(
   "docs/reference/video-game-platform-vision.pdf"
   "docs/development/codex-setup.md"
   "docs/development/backend.md"
+  "docs/development/backend-openapi-generation.md"
   "docs/development/continuous-integration.md"
   "docs/development/database-migrations.md"
   "docs/development/local-dependencies.md"
@@ -40,6 +42,7 @@ required_files=(
   "docs/development/frontend.md"
   "docs/development/openapi-validation.md"
   "docs/development/openapi-web-documentation.md"
+  "docs/development/release-api.md"
   "docs/development/delivery-lifecycle.md"
   "docs/development/work-management.md"
   "docs/architecture/domain/mvp-domain-model.md"
@@ -75,6 +78,7 @@ required_files=(
   "docs/decisions/0011-use-postgresql-and-flyway-for-application-persistence.md"
   "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md"
   "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md"
+  "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md"
   "package.json"
   "package-lock.json"
   "mvnw"
@@ -90,12 +94,19 @@ required_files=(
   "tools/openapi-validation/schemas.redocly.yaml"
   "tools/openapi-validation/examples.redocly.yaml"
   "tools/openapi-validation/normalize-generated-html.mjs"
+  ".agents/skills/README.md"
   ".agents/skills/product-brief-review/SKILL.md"
+  ".agents/skills/videogame-platform-backend-development/SKILL.md"
+  ".agents/skills/java-springboot/SKILL.md"
+  ".agents/skills/architecture-patterns/SKILL.md"
+  ".agents/skills/tdd/SKILL.md"
   ".github/dependabot.yml"
   ".github/workflows/dependency-submission.yml"
   ".github/workflows/quality-gates.yml"
   ".github/workflows/security.yml"
   "backend/src/main/resources/db/migration/V20260809_120000__create_catalogue_schema.sql"
+  "backend/src/main/resources/db/migration/V20260813_120000__add_game_external_references.sql"
+  "backend/src/main/resources/db/migration/V20260818_120000__constrain_release_date_year_range.sql"
   "backend/src/main/resources/db/dev-seed/V20260809_130000__seed_bounded_prototype_catalogue.sql"
 )
 
@@ -126,6 +137,7 @@ errors = []
 
 json_documents = (
     "backend/postman/actuator.postman_collection.json",
+    "backend/postman/catalogue-releases.postman_collection.json",
     "backend/postman/local.postman_environment.json",
     "docker/keycloak/import/videogame-platform-realm.json",
 )
@@ -237,6 +249,7 @@ expected_statuses = {
     "docs/decisions/0011-use-postgresql-and-flyway-for-application-persistence.md": "Accepted",
     "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md": "Accepted",
     "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md": "Accepted",
+    "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md": "Accepted",
 }
 
 for relative, status in expected_statuses.items():

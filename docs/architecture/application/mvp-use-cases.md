@@ -1,9 +1,9 @@
 # Learning MVP use cases and relevant errors
 
 - **Status:** Approved
-- **Version:** 1.0
+- **Version:** 1.1
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-30
+- **Last updated:** 2026-08-19
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** 1 — MVP solution definition
 - **Scope:** Learning MVP
@@ -161,7 +161,11 @@ optional platform and region filters.
 4. Preserve release status, date precision, provenance, verification, review, and
    freshness information.
 5. Resolve each game to its approved cover or product-owned fallback.
-6. Return a deterministic page of results and the active filters.
+6. Return a deterministic page of results and the active filters. Filtering,
+   ordering, counting, and pagination over persisted releases occur in PostgreSQL;
+   application memory is bounded by the requested page and small taxonomies.
+7. Order by effective period, canonical title, `gameId`, and unique `releaseId` so
+   page boundaries remain stable when one game has multiple release tuples.
 
 **Valid alternative outcomes:**
 
@@ -169,6 +173,9 @@ optional platform and region filters.
 - Local data is stale: return usable data with its freshness state.
 - A provider cover cannot be resolved: return the fallback without removing the
   game.
+- An announced, scheduled, delayed, or otherwise non-final release has no reliable
+  date: include it as an explicit TBA item at the end of `upcoming`; it is not treated
+  as falling inside the known calendar window.
 
 **Relevant errors:**
 
@@ -864,5 +871,6 @@ The following details are intentionally not fixed here:
 
 | Version | Date | Change |
 |---|---|---|
+| 1.1 | 2026-08-19 | Corrected UC-001 to require bounded datastore filtering/counting/pagination, a unique release tie-breaker, and explicit upcoming TBA semantics without changing the user-visible capability. |
 | 1.0 | 2026-07-30 | Owner-approved the minimum application contract; made evaluation time trusted, post-authentication confirmation replay-safe, search outcomes non-erroneous, rating ownership non-disclosing, degraded read states explicit, and catalogue synchronization curation-safe. |
 | 0.1 | 2026-07-29 | Initial minimum use-case and error contract derived from the approved Product Brief, story map, domain model, provider evidence, and cover ADR. |

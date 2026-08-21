@@ -23,6 +23,8 @@ The [initial architecture diagram catalogue](docs/architecture/diagrams/README.m
 is established through ADR-0013. Structurizr provides the shared C4 model, Mermaid
 provides focused code-based views, and diagrams.net provides the polished derived
 deployment view without replacing approved documents or ADRs.
+ADR-0014 makes Maven-generated OpenAPI Spring interfaces and transport models the
+mandatory backend HTTP contract boundary.
 
 **Phase 1 — MVP solution definition is complete.** Application implementation is
 active at the walking-skeleton gate. The initial backend skeleton proves Java 25,
@@ -36,7 +38,14 @@ manifests. The backend now also proves SQL-first Flyway migration from zero, a
 module-owned catalogue schema, deterministic opt-in seed data, disabled Hibernate
 schema generation, PostgreSQL 18 Testcontainers persistence checks, explicit health
 groups, build/source metadata, structured request correlation, bounded metrics, W3C
-trace context, and optional OpenTelemetry-compatible export. Pull requests and
+trace context, and optional OpenTelemetry-compatible export. The first public read,
+`GET /api/v1/releases`, now serves deterministic recent/upcoming pages only from the
+current local PostgreSQL snapshot, including filters, date precision, quality states,
+safe covers, stable errors, public caching, and bounded telemetry. PostgreSQL performs
+the filtering, counting, complete ordering, and pagination so the backend materializes
+only the requested page. The backend
+compiles that endpoint through Spring interfaces and transport models generated from
+the complete OpenAPI contract during the Maven lifecycle. Pull requests and
 trusted `main` builds now reproduce the complete current quality evidence with Java
 25, Node.js 24, PostgreSQL 18, browser accessibility smoke, fixture-only provider
 tests, Spotless, JaCoCo XML/HTML, a plan-aware SonarQube Cloud gate, workflow lint,
@@ -66,23 +75,26 @@ walking-skeleton gate; remote infrastructure follows only after that gate passes
 11. Review the [Codex workspace setup](docs/development/codex-setup.md).
 12. Use the [backend observability guide](docs/development/observability.md) to
     inspect health, version, logs, metrics, tracing, and optional OTLP export.
-13. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) to
-   validate the API contract locally and in CI.
-14. Browse the [generated API reference](docs/architecture/api/reference/index.html)
+13. Use the [release API guide](docs/development/release-api.md) to run and inspect
+    the first local product read and its Postman examples.
+14. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) and
+    [backend generation standard](docs/development/backend-openapi-generation.md) to
+    validate the API and compile backend interfaces from its contract.
+15. Browse the [generated API reference](docs/architecture/api/reference/index.html)
     or follow its [regeneration tutorial](docs/development/openapi-web-documentation.md).
-15. Use the [continuous-integration guide](docs/development/continuous-integration.md)
+16. Use the [continuous-integration guide](docs/development/continuous-integration.md)
     for quality/security jobs, local parity, permissions, caching, and failure policy.
-16. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
+17. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
     and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
     skeleton and private `dev` environment.
-17. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
+18. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
     [architecture diagram catalogue](docs/architecture/diagrams/README.md), and
-    [ADR-0005 through ADR-0013](docs/decisions/) before implementing the walking
+    [ADR-0005 through ADR-0014](docs/decisions/) before implementing the walking
     skeleton, persistence, identity, delivery, hosting, or observability.
-18. Use the [backend technical README](backend/README.md) and
+19. Use the [backend technical README](backend/README.md) and
     [backend development guide](docs/development/backend.md) to build, test, start,
     inspect, and extend the initial modular-monolith skeleton.
-19. Use the [frontend technical README](frontend/README.md) and
+20. Use the [frontend technical README](frontend/README.md) and
     [frontend development guide](docs/development/frontend.md) to install, generate
     API types, test, build, and extend the client-rendered skeleton.
 

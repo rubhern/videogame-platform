@@ -2,11 +2,14 @@ package com.videogameplatform.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
+import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
-@AnalyzeClasses(packages = "com.videogameplatform")
+@AnalyzeClasses(
+        packages = "com.videogameplatform",
+        importOptions = ImportOption.DoNotIncludeTests.class)
 class HexagonalArchitectureTest {
 
     @ArchTest
@@ -19,6 +22,7 @@ class HexagonalArchitectureTest {
                     .resideInAnyPackage(
                             "org.springframework..",
                             "jakarta..",
+                            "java.sql..",
                             "..application..",
                             "..adapter..",
                             "..api..",
@@ -29,14 +33,26 @@ class HexagonalArchitectureTest {
             noClasses()
                     .that()
                     .resideInAPackage("..application..")
+                    .and()
+                    .doNotHaveSimpleName("package-info")
                     .should()
                     .dependOnClassesThat()
                     .resideInAnyPackage(
                             "org.springframework..",
                             "jakarta..",
+                            "java.sql..",
                             "..adapter..",
                             "..api..",
                             "..platform..");
+
+    @ArchTest
+    static final ArchRule ADAPTERS_DO_NOT_DEPEND_ON_APPLICATION_INTERNALS =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage("..adapter..", "..api.delivery..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("..application.internal..");
 
     @ArchTest
     static final ArchRule DOMAIN_DOES_NOT_USE_BOUNDARY_MODELS =
@@ -69,4 +85,13 @@ class HexagonalArchitectureTest {
                     .should()
                     .dependOnClassesThat()
                     .resideInAPackage("..api.model..");
+
+    @ArchTest
+    static final ArchRule GENERATED_OPENAPI_TYPES_STAY_INSIDE_HTTP_DELIVERY =
+            noClasses()
+                    .that()
+                    .resideOutsideOfPackages("..api.delivery..", "..api.generated..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAPackage("..api.generated..");
 }

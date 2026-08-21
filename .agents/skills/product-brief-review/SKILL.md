@@ -1,6 +1,6 @@
 ---
 name: product-brief-review
-description: Review or update the VideoGame Platform Product Brief and its supporting assumptions, open questions, glossary, and source vision. Use when Codex is asked to assess Product Brief completeness, coherence, evidence, scope, hypotheses, risks, approval readiness, or Phase 0 progress without inventing product decisions.
+description: Review or update VideoGame Platform product alignment through the Product Brief, source vision, assumptions, open questions, glossary, and optionally the story map. Use for Product Brief completeness, coherence, evidence, scope, hypotheses, risks, or approval readiness. Do not use for backend implementation, technical refactoring, Java/Spring review, persistence design, or code architecture unless the task explicitly asks to review their product reasoning.
 ---
 
 # Product Brief Review
@@ -14,7 +14,9 @@ Preserve uncertainty and make the next decision easier.
    original vision matters.
 2. Read `docs/product/product-brief.md`.
 3. Read `docs/product/assumptions.md`, `open-questions.md`, and `glossary.md`.
-4. Read `AGENTS.md` for current phase constraints.
+4. Read `docs/product/mvp-story-map.md` only when journey, release-cut, or scope
+   alignment is part of the review.
+5. Read `AGENTS.md` for current phase constraints.
 
 ## Review workflow
 
