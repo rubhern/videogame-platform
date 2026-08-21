@@ -226,7 +226,9 @@ contract-first generator adoption increments the compatible OpenAPI metadata fro
 `1.0.0` to `1.0.1` without changing the wire operations. The private root tooling
 package remains `1.0.0`; it is not a published runtime artefact. The subsequent
 composition-root correction increments only the backend patch to `0.3.1-SNAPSHOT`.
-A later runtime or
+The subsequent PostgreSQL JDBC security remediation increments the backend patch to
+`0.3.2-SNAPSHOT`; it leaves the OpenAPI, frontend, root tooling package and isolated
+IGDB PoC versions unchanged. A later runtime or
 product change must assess those artefacts independently under the delivery lifecycle.
 
 ## Remaining delivery work

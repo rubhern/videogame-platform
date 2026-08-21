@@ -1,8 +1,8 @@
 # Release discovery API
 
 - **Status:** Active walking-skeleton implementation
-- **Last verified:** 2026-08-19
-- **Backend version:** `0.3.1-SNAPSHOT`
+- **Last verified:** 2026-08-22
+- **Backend version:** `0.3.2-SNAPSHOT`
 - **Issue:** [#25](https://github.com/rubhern/videogame-platform/issues/25)
 - **Use case:** [UC-001](../architecture/application/mvp-use-cases.md#uc-001--browse-recent-or-upcoming-releases)
 - **Contract:** [`GET /api/v1/releases`](../architecture/api/openapi.yaml)
@@ -214,3 +214,5 @@ endpoint implementation and now to `1.1.0` for compatible `int64` page totals an
 clarified bounded-query/order semantics. The composition-root correction is a
 compatible internal fix, so the backend increments from `0.3.0-SNAPSHOT` to
 `0.3.1-SNAPSHOT` without changing the OpenAPI contract.
+The PostgreSQL JDBC security remediation then increments the backend patch to
+`0.3.2-SNAPSHOT`; the release HTTP contract remains unchanged.
