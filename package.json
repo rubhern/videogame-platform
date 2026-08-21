@@ -25,7 +25,7 @@
     "validate:openapi:examples": "redocly lint docs/architecture/api/openapi.yaml --config tools/openapi-validation/examples.redocly.yaml"
   },
   "devDependencies": {
-    "@redocly/cli": "2.43.2",
+    "@redocly/cli": "2.46.1",
     "vite": "8.1.5"
   }
 }
