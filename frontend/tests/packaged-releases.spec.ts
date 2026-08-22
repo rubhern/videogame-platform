@@ -3,6 +3,8 @@ import { expect, test } from "@playwright/test";
 
 import type { ReleasePage } from "../src/features/releases/releases-api";
 
+const igdbHosts = new Set(["api.igdb.com", "igdb.com", "images.igdb.com", "www.igdb.com"]);
+
 test("the packaged releases shell reads PostgreSQL through the same-origin API", async ({
   page,
   request,
@@ -10,7 +12,7 @@ test("the packaged releases shell reads PostgreSQL through the same-origin API",
   const providerRequests: string[] = [];
   page.on("request", (browserRequest) => {
     const url = new URL(browserRequest.url());
-    if (url.hostname.includes("igdb.com") || url.pathname.toLowerCase().includes("igdb")) {
+    if (igdbHosts.has(url.hostname) || url.pathname.toLowerCase().includes("igdb")) {
       providerRequests.push(browserRequest.url());
     }
   });
