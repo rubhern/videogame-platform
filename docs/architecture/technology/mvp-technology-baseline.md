@@ -1,11 +1,11 @@
 # Learning MVP Technology Baseline
 
 - **Status:** Approved
-- **Version:** 1.7
+- **Version:** 1.8
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-08-22
 - **Phase:** 1 — MVP solution definition (complete)
-- **Implementation evidence:** Partial — application foundations, local dependencies, PostgreSQL/Flyway persistence, generated HTTP contracts, typed releases shell, combined JAR packaging, baseline observability, and current CI/security gates
+- **Implementation evidence:** Partial — application foundations, local dependencies, PostgreSQL/Flyway persistence, generated HTTP contracts, typed releases shell, combined JAR packaging, real local/CI OIDC BFF session proof, baseline observability, and current CI/security gates
 - **Scope:** Private, non-commercial learning MVP
 - **Solution architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
 - **API conventions:** [Learning MVP API conventions](../api/api-conventions.md)
@@ -636,8 +636,11 @@ the same documentation, OpenAPI, generated-type, frontend, browser, backend,
 architecture, migration and fixture checks plus Gitleaks, dependency review and
 CodeQL. Chromium now proves the packaged browser assets call the real same-origin
 release API backed by a fresh PostgreSQL 18 database, with typed date unions,
-keyboard navigation, and axe-core evidence. This is partial compatibility evidence;
-it does not close identity, a deployed collector, OCI image assembly, or the
+keyboard navigation, and axe-core evidence. A separate real-browser gate now proves
+Keycloak 26.7 Authorization Code/OIDC with PKCE, server-side token exchange and
+validation, an opaque HttpOnly application session, minimal no-store session state,
+CSRF/origin/fetch-metadata protection, and logout without protocol mocks or retries.
+This is partial compatibility evidence; it does not close a deployed collector, OCI image assembly, or the
 multi-architecture parts of the gate.
 
 A failure blocks feature expansion and reopens the affected ADR or baseline row. It
@@ -728,6 +731,7 @@ the replaceable local telemetry backend.
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-22 | 1.8 | Recorded the real Keycloak 26.7 browser/BFF Authorization Code with PKCE, opaque session and CSRF/logout local/CI compatibility evidence without selecting a distributed session store. | Ruben Hernandez |
 | 2026-08-22 | 1.7 | Recorded the typed accessible releases shell, reproducible combined Spring Boot JAR, and real browser-to-PostgreSQL same-origin smoke as partial compatibility evidence. | Ruben Hernandez |
 | 2026-08-13 | 1.6 | Adopted OpenAPI Generator Maven Plugin 7.24.0 as the mandatory backend HTTP interface/model generation standard and recorded the enforced delivery-only dependency boundary. | Ruben Hernandez |
 | 2026-08-13 | 1.5 | Recorded the Java/Spring/JDBC implementation of the reviewed PostgreSQL-backed release API with PostgreSQL 18 repository/API integration evidence and no request-path provider call. | Ruben Hernandez |

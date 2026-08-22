@@ -26,6 +26,15 @@ spring:
 
 server:
   shutdown: graceful
+  servlet:
+    session:
+      timeout: ${APPLICATION_SESSION_TIMEOUT:30m}
+      cookie:
+        name: ${APPLICATION_SESSION_COOKIE_NAME:vgp_session}
+        http-only: true
+        secure: ${APPLICATION_SESSION_COOKIE_SECURE:false}
+        same-site: lax
+        path: /
 
 catalogue:
   releases:

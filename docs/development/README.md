@@ -17,6 +17,9 @@
 - [Release discovery API](release-api.md): `GET /api/v1/releases` behaviour,
   bounded PostgreSQL snapshot reads, query-plan/scale evidence, configuration, safe
   covers, caching, errors, telemetry, Postman examples, and automated evidence.
+- [Local OIDC BFF session](identity-bff.md): real Keycloak 26.7 Authorization Code
+  with PKCE, server-side tokens, opaque session, CSRF/logout, configuration,
+  scalability boundary, and local/CI browser evidence.
 - [Walking-skeleton continuous integration](continuous-integration.md): PR and
   trusted `main` quality/security gates, permissions, caching, retries, dependency
   monitoring, and local command parity.

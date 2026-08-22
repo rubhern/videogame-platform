@@ -55,6 +55,8 @@ security advisories, build output, and troubleshooting.
 - Only the fixed, bounded recent page is visible; filters, pagination controls and
   final stale-data presentation remain deferred.
 - `/games/:slug` is an explicit navigation placeholder, not game details.
-- Identity/BFF session, ratings, provider synchronization, OCI image assembly and
-  multi-architecture evidence remain separate walking-skeleton work.
+- Login controls, authenticated product UI, ratings, provider synchronization, OCI
+  image assembly and multi-architecture evidence remain separate work. The
+  server-owned BFF session compatibility proof is covered by the identity guide and
+  its real-browser gate.
 - Full responsive polish and critical journey coverage belong to later feature work.

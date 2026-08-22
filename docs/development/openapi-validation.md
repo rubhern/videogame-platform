@@ -3,7 +3,7 @@
 - **Status:** Active
 - **Contract:** [`docs/architecture/api/openapi.yaml`](../architecture/api/openapi.yaml)
 - **OpenAPI version:** `3.1.2`
-- **Contract version:** `1.0.1`
+- **Contract version:** `1.2.0`
 - **Validator:** Redocly CLI `2.43.2`
 
 ## Purpose

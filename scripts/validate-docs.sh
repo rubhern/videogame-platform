@@ -6,6 +6,7 @@ cd "$ROOT_DIR"
 
 required_files=(
   ".env.example"
+  "backend/.env.example"
   "compose.yaml"
   "docker/keycloak/import/videogame-platform-realm.json"
   "docker/postgres/init/001-create-local-databases.sh"
@@ -233,7 +234,7 @@ try:
 except (OSError, UnicodeError, json.JSONDecodeError):
     pass
 
-env_example = (root / ".env.example").read_text(encoding="utf-8")
+infrastructure_env_example = (root / ".env.example").read_text(encoding="utf-8")
 for secret_variable in (
     "POSTGRES_ADMIN_PASSWORD",
     "APPLICATION_DB_PASSWORD",
@@ -243,8 +244,79 @@ for secret_variable in (
     "KEYCLOAK_BFF_CLIENT_SECRET",
     "LOCAL_TEST_USER_PASSWORD",
 ):
-    if f"{secret_variable}=GENERATE_ME" not in env_example.splitlines():
+    if f"{secret_variable}=GENERATE_ME" not in infrastructure_env_example.splitlines():
         errors.append(f".env.example: {secret_variable} must use the GENERATE_ME placeholder")
+
+backend_env_example = (root / "backend/.env.example").read_text(encoding="utf-8")
+for secret_variable in (
+    "APPLICATION_DB_PASSWORD",
+    "APPLICATION_MIGRATION_DB_PASSWORD",
+    "KEYCLOAK_BFF_CLIENT_SECRET",
+):
+    if f"{secret_variable}=GENERATE_ME" not in backend_env_example.splitlines():
+        errors.append(
+            f"backend/.env.example: {secret_variable} must use the GENERATE_ME placeholder"
+        )
+
+def env_variable_names(content):
+    return {
+        line.split("=", 1)[0]
+        for line in content.splitlines()
+        if line and not line.startswith("#") and "=" in line
+    }
+
+expected_infrastructure_variables = {
+    "COMPOSE_PROJECT_NAME",
+    "POSTGRES_PORT",
+    "POSTGRES_ADMIN_PASSWORD",
+    "APPLICATION_DB_PASSWORD",
+    "APPLICATION_MIGRATION_DB_PASSWORD",
+    "KEYCLOAK_DB_PASSWORD",
+    "KEYCLOAK_HTTP_PORT",
+    "KEYCLOAK_MANAGEMENT_PORT",
+    "KEYCLOAK_HOSTNAME",
+    "KEYCLOAK_ADMIN_USERNAME",
+    "KEYCLOAK_ADMIN_PASSWORD",
+    "KEYCLOAK_BFF_CLIENT_SECRET",
+    "LOCAL_TEST_USER_USERNAME",
+    "LOCAL_TEST_USER_PASSWORD",
+}
+expected_backend_variables = {
+    "SPRING_PROFILES_ACTIVE",
+    "SERVER_PORT",
+    "LOGGING_LEVEL_COM_VIDEOGAMEPLATFORM",
+    "APPLICATION_DB_URL",
+    "APPLICATION_DB_USERNAME",
+    "APPLICATION_DB_PASSWORD",
+    "APPLICATION_FLYWAY_ENABLED",
+    "APPLICATION_MIGRATION_DB_URL",
+    "APPLICATION_MIGRATION_DB_USERNAME",
+    "APPLICATION_MIGRATION_DB_PASSWORD",
+    "SPRING_FLYWAY_LOCATIONS",
+    "KEYCLOAK_BFF_CLIENT_SECRET",
+    "OIDC_ISSUER_URI",
+    "APPLICATION_SESSION_TIMEOUT",
+    "APPLICATION_SESSION_COOKIE_NAME",
+    "APPLICATION_SESSION_COOKIE_SECURE",
+    "CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS",
+    "CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS",
+    "CATALOGUE_RELEASES_FRESHNESS_THRESHOLD",
+    "CATALOGUE_RELEASES_CACHE_CONTROL",
+    "TELEMETRY_OTLP_TRACES_ENABLED",
+    "TELEMETRY_OTLP_TRACES_ENDPOINT",
+    "TELEMETRY_OTLP_METRICS_ENABLED",
+    "TELEMETRY_OTLP_METRICS_ENDPOINT",
+    "TELEMETRY_OTLP_METRICS_STEP",
+    "TELEMETRY_TRACING_SAMPLING_PROBABILITY",
+}
+for path, actual, expected in (
+    (".env.example", env_variable_names(infrastructure_env_example), expected_infrastructure_variables),
+    ("backend/.env.example", env_variable_names(backend_env_example), expected_backend_variables),
+):
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unexpected = sorted(actual - expected)
+        errors.append(f"{path}: environment scope mismatch; missing={missing}, unexpected={unexpected}")
 
 expected_statuses = {
     "docs/product/product-brief.md": "Approved",

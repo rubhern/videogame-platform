@@ -132,7 +132,7 @@ the first local startup:
 ```bash
 bash scripts/local-dependencies.sh up
 set -a
-source .env
+source backend/.env
 set +a
 APPLICATION_FLYWAY_ENABLED=true ./mvnw -pl backend spring-boot:run
 ```
@@ -168,7 +168,7 @@ normal local start.
 The full verification already creates the executable artifact. Run it directly with:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.4.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.5.0-SNAPSHOT.jar
 ```
 
 That default artifact is backend-only. Build the combined browser application with:
@@ -182,6 +182,10 @@ The command creates the Vite production output and invokes Maven's explicit
 routes and leaves `/api`, `/auth`, and `/actuator` under Spring/server ownership.
 `bash scripts/validate-browser.sh` starts this exact artifact with a disposable
 PostgreSQL 18 database and proves the complete same-origin release read.
+`bash scripts/validate-identity.sh` starts it with the `oidc` profile, a fresh
+PostgreSQL/Keycloak 26.7 topology, and a real no-retry Chromium login/session/logout
+proof. Configuration and security boundaries are in the
+[identity guide](identity-bff.md).
 
 This command uses the same Java 25 runtime constraint as the Maven build. Container
 packaging and multi-architecture evidence are not part of this backend-only slice.
@@ -192,8 +196,7 @@ The broader walking-skeleton gate remains open. The following evidence is delibe
 not claimed by this skeleton:
 
 - Catalogue write/publication commands, search, and game-detail reads;
-- application integration with the proven local Keycloak 26.7 realm and server-side
-  OIDC session compatibility;
+- durable product `UserId` mapping and authenticated ratings authorization;
 - Remaining OpenAPI operations beyond `GET /api/v1/releases`;
 - combined OCI images for `linux/amd64` and `linux/arm64`;
 - a deployed collector or OCI telemetry integration, combined-application resource

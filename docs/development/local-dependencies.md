@@ -7,10 +7,9 @@
 - **Platform design:** [Learning MVP platform and delivery design](../architecture/deployment/mvp-platform-and-delivery.md)
 
 This topology provides the backend dependencies approved for the walking skeleton. It
-does not add the application or frontend containers, implement a product feature, or
-provision remote infrastructure. The executable application skeleton exists
-separately and deliberately does not connect to these services until the focused
-persistence and BFF identity work implements those contracts.
+does not add the long-running application or frontend containers, or provision
+remote infrastructure. The executable application connects through the documented
+persistence configuration and opt-in OIDC profile.
 
 ## Topology
 
@@ -45,12 +44,15 @@ Run this from the repository root:
 bash scripts/local-dependencies.sh up
 ```
 
-When `.env` is absent, the wrapper creates it with mode `0600`, independent random
-database passwords, an administration password, a confidential-client secret, and a
-local test-user password. `.env` is ignored by Git. `.env.example` documents every
-variable using non-secret placeholders; copying those placeholders is not required.
-The wrapper reapplies mode `0600` before every lifecycle command if the file already
-exists.
+When the root `.env` is absent, the wrapper creates it with mode `0600`, independent
+random database passwords, an administration password, a confidential-client secret,
+and a local test-user password. It also creates `backend/.env` with the complete
+application configuration and copies the runtime-role password, migration-role
+password, and BFF client secret that the backend shares with the provisioned
+infrastructure. Both files are ignored by Git. The corresponding `.env.example`
+files document their separate scopes with non-secret placeholders; copying those
+placeholders is not required. The wrapper reapplies mode `0600` when it handles an
+existing local environment file.
 
 The imported identity configuration is:
 
@@ -61,9 +63,14 @@ The imported identity configuration is:
 | Authorization flow | Authorization Code with PKCE `S256` |
 | Redirect URI | `http://localhost:8080/login/oauth2/code/keycloak` |
 | Direct password grant | Disabled |
-| Local username | `LOCAL_TEST_USER_USERNAME` from `.env` |
-| Local user password | `LOCAL_TEST_USER_PASSWORD` from `.env` |
-| Client secret | `KEYCLOAK_BFF_CLIENT_SECRET` from `.env` |
+| Local username | `LOCAL_TEST_USER_USERNAME` from root `.env` |
+| Local user password | `LOCAL_TEST_USER_PASSWORD` from root `.env` |
+| Client secret | `KEYCLOAK_BFF_CLIENT_SECRET` from root `.env` |
+
+The disposable user also has the synthetic non-routable profile
+`Local User <local-user@localhost.invalid>` so Keycloak 26.7 does not interrupt the
+automated compatibility login with `VERIFY_PROFILE`. It is test data, not a product
+identity or personal account.
 
 Keycloak substitutes the ignored environment values into the reviewed realm file at
 first import. The repository therefore contains the reproducible realm, client, and
@@ -86,6 +93,10 @@ OIDC issuer:       http://localhost:8180/realms/videogame-platform
 OIDC client ID:    videogame-platform-bff
 OIDC client secret: KEYCLOAK_BFF_CLIENT_SECRET
 ```
+
+These application-side values are loaded from `backend/.env`. The same three secret
+values also remain in the root infrastructure `.env` because PostgreSQL and Keycloak
+must provision credentials that exactly match the backend clients.
 
 The application runtime role is deliberately not the database owner and has no DDL
 permission. Migrations created by `videogame_app_migrator` grant the standard table
@@ -134,8 +145,8 @@ non-zero instead of racing dependent tests.
 Runtime verification checks the actual PostgreSQL and Keycloak version lines, both
 role passwords, database ownership and cross-database isolation, the OIDC discovery
 document, acceptance of the exact callback URI, confidential-client flags, PKCE
-`S256`, and the environment-backed local user's password credential. It prints no
-secret value.
+`S256`, both exact local/CI callbacks, rejection of an unlisted callback, and the
+environment-backed local user's password credential. It prints no secret value.
 
 ## Verified acceptance evidence
 
@@ -185,8 +196,8 @@ bash scripts/local-dependencies.sh reset --yes
 Reset executes Compose removal only for the project named by `COMPOSE_PROJECT_NAME`
 and deletes that project's containers, network, and named PostgreSQL volume. The
 wrapper requires the reviewed project name `videogame-platform` before any lifecycle
-command, preventing a modified `.env` from targeting another Compose project. It does
-not delete `.env`, repository files, images, unrelated volumes, or remote data. Run
+command, preventing a modified root `.env` from targeting another Compose project. It
+does not delete either `.env`, repository files, images, unrelated volumes, or remote data. Run
 `up` afterwards to recreate both databases and re-import the current realm definition.
 Reset is required when testing a changed initialization script or realm import against
 fresh state.
@@ -195,11 +206,12 @@ fresh state.
 
 - The topology uses Keycloak development mode and plain HTTP on loopback; it is not a
   remote or production configuration.
-- Passwords and the OIDC client secret exist only in the ignored `.env` and the local
-  container runtime. Do not paste them into logs, issues, commits, or documentation.
-- Changing credentials in `.env` does not rotate credentials already stored in the
-  persistent volume. Reset disposable data, or use an explicit rotation procedure
-  once persistent environments exist.
+- Passwords and the OIDC client secret exist only in the ignored root/backend `.env`
+  files and the local container runtime. Do not paste them into logs, issues, commits,
+  or documentation.
+- Changing a shared credential requires the same value in both ignored files and does
+  not rotate credentials already stored in the persistent volume. Reset disposable
+  data, or use an explicit rotation procedure once persistent environments exist.
 - The bootstrap administrator is for local administration only. Remote `dev` requires
   its own protected secret source, HTTPS, private ingress, backups, and operational
   configuration from the approved platform design.
@@ -211,10 +223,12 @@ This topology remains the dependency contract:
 - Flyway migrations, JPA configuration, the initial catalogue schema, deterministic
   catalogue data, and Testcontainers persistence evidence are implemented and
   documented separately in the database migration guide.
-- Authorization Code exchange, opaque application sessions, CSRF protection, logout,
-  and browser-level BFF compatibility evidence belong to issue #40.
+- Authorization Code exchange, opaque application sessions, CSRF protection,
+  logout, and browser-level BFF compatibility evidence are implemented by issue #40
+  and documented in the [identity guide](identity-bff.md).
 - Pull-request CI integration is implemented by issue #24; the commands here are
   reused by that gate without creating a second dependency definition.
 
-Keeping those boundaries explicit avoids presenting a healthy dependency container as
-evidence that application persistence or authentication is already implemented.
+Keeping those boundaries explicit avoids presenting a healthy dependency container
+alone as application authentication evidence; `validate-identity.sh` owns the
+end-to-end proof.

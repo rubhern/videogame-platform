@@ -6,7 +6,7 @@ explicit. The [prototype journey gate](../research/simulated-round-synthesis.md)
 [minimum application use cases](application/mvp-use-cases.md) and
 [MVP solution architecture](mvp-solution-architecture.md), and the
 [REST API conventions](api/api-conventions.md) are `Approved`. The
-[OpenAPI 3.1.2 contract](api/openapi.yaml) implements the eight approved operations
+[OpenAPI 3.1.2 contract](api/openapi.yaml) implements the nine approved operations
 for the first vertical slice. The
 [platform and delivery design](deployment/mvp-platform-and-delivery.md) defines its
 minimum local, CI, and private zero-cost OCI `dev` platform.
