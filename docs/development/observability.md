@@ -2,7 +2,7 @@
 
 - **Status:** Active walking-skeleton implementation
 - **Last verified:** 2026-08-22
-- **Backend version:** `0.3.3-SNAPSHOT`
+- **Backend version:** `0.4.0-SNAPSHOT`
 - **Decision:** [ADR-0009](../decisions/0009-use-opentelemetry-compatible-instrumentation.md)
 - **Architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
 
@@ -38,6 +38,8 @@ patch to `0.3.1-SNAPSHOT`. The frontend and isolated IGDB PoC do not change.
 The PostgreSQL JDBC security remediation then increments the backend patch to
 `0.3.2-SNAPSHOT`. The later release-query builder refactor increments the backend
 patch to `0.3.3-SNAPSHOT`; neither correction changes the observability contract.
+Issue #26 advances the backend reactor to `0.4.0-SNAPSHOT` for compatible combined
+frontend packaging without changing these observability semantics.
 
 ## Health semantics
 
@@ -73,7 +75,7 @@ returns its safe fields under `build`:
 {
   "build": {
     "name": "VideoGame Platform Backend",
-    "version": "0.3.3-SNAPSHOT",
+    "version": "0.4.0-SNAPSHOT",
     "sourceRevision": "local-development"
   }
 }

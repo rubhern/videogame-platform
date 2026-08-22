@@ -1,7 +1,7 @@
 # Learning MVP delivery lifecycle
 
 - **Status:** Approved
-- **Version:** 1.4
+- **Version:** 1.5
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-08-13
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
@@ -194,8 +194,8 @@ bash scripts/validate-migrations.sh
 The current walking skeleton adds compilation, Spotless formatting, JaCoCo XML/HTML,
 plan-aware SonarQube Cloud analysis, domain and application tests, architecture
 tests, persistence/migration integration tests, API conformance, provider-fixture
-tests, secret scanning, dependency checks/submission, CodeQL, and a browser
-accessibility smoke. Session/CSRF tests and image build/scan are added when their
+tests, secret scanning, dependency checks/submission, CodeQL, and a no-mock browser
+accessibility smoke against the combined JAR and PostgreSQL. Session/CSRF tests and image build/scan are added when their
 corresponding code exists.
 
 Accessibility is an MVP gate, not a public-production-only activity. Frontend changes
@@ -312,6 +312,7 @@ A work item is done when all applicable conditions are true:
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.5 | 2026-08-22 | Recorded the stable combined-package command and no-mock packaged browser/API/PostgreSQL smoke as walking-skeleton gates. | Ruben Hernandez |
 | 1.4 | 2026-08-13 | Recorded the executable PR/`main` quality, coverage, SonarQube Cloud, dependency-submission, and security gates, real no-retry browser smoke, and local command parity. | Ruben Hernandez |
 | 1.3 | 2026-08-09 | Added mandatory per-artefact Semantic Versioning assessment, pre-1.0 increment rules, Maven inheritance consistency, and release suffix/tag conventions. | Ruben Hernandez |
 | 1.2 | 2026-08-06 | Linked the approved work-management baseline and clarified acceptance-aware issue closure after merge. | Ruben Hernandez |

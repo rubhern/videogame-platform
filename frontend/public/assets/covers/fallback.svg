@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" role="img" aria-labelledby="title description">
+  <title id="title">Portada no disponible</title>
+  <desc id="description">Imagen de reemplazo de VideoGame Platform</desc>
+  <rect width="600" height="800" fill="#0f172a"/>
+  <path d="M170 260h260v280H170z" fill="#1e293b" stroke="#67e8f9" stroke-width="12"/>
+  <path d="m220 470 70-80 55 55 35-40 50 65" fill="none" stroke="#67e8f9" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>
+  <circle cx="365" cy="335" r="28" fill="#67e8f9"/>
+  <text x="300" y="620" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="28" text-anchor="middle">VideoGame Platform</text>
+</svg>

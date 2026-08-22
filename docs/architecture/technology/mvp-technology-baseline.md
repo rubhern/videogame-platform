@@ -1,11 +1,11 @@
 # Learning MVP Technology Baseline
 
 - **Status:** Approved
-- **Version:** 1.6
+- **Version:** 1.7
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-13
+- **Last updated:** 2026-08-22
 - **Phase:** 1 — MVP solution definition (complete)
-- **Implementation evidence:** Partial — application foundations, local dependencies, PostgreSQL/Flyway persistence, generated backend HTTP contracts, first public read, baseline observability, and current CI/security gates
+- **Implementation evidence:** Partial — application foundations, local dependencies, PostgreSQL/Flyway persistence, generated HTTP contracts, typed releases shell, combined JAR packaging, baseline observability, and current CI/security gates
 - **Scope:** Private, non-commercial learning MVP
 - **Solution architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
 - **API conventions:** [Learning MVP API conventions](../api/api-conventions.md)
@@ -624,8 +624,9 @@ Minimum acceptance criteria:
 - liveness, readiness, structured logs, metrics, and trace correlation are visible;
 - CI runs the proof reproducibly.
 
-As of 2026-08-13, the PostgreSQL/Flyway, backend contract generation, first public
-read, baseline observability, and current CI portions are executable. The production
+As of 2026-08-22, the PostgreSQL/Flyway, generated backend/frontend contracts, first
+public read, minimal accessible releases shell, combined JAR packaging, baseline
+observability, and current CI portions are executable. The production
 migration creates a fresh PostgreSQL 18
 schema and Testcontainers verifies migration and persistence constraints. Explicit
 health groups, safe build/source metadata, ECS request correlation, route-template
@@ -633,9 +634,11 @@ metrics, W3C trace context, and optional OTLP trace/metric export are covered by
 automated PostgreSQL-backed smoke test. Pull requests and trusted `main` builds run
 the same documentation, OpenAPI, generated-type, frontend, browser, backend,
 architecture, migration and fixture checks plus Gitleaks, dependency review and
-CodeQL. This is partial compatibility evidence; it does not close the public
-remaining endpoints, identity, deployed collector, combined packaging, or multi-architecture
-parts of the gate.
+CodeQL. Chromium now proves the packaged browser assets call the real same-origin
+release API backed by a fresh PostgreSQL 18 database, with typed date unions,
+keyboard navigation, and axe-core evidence. This is partial compatibility evidence;
+it does not close identity, a deployed collector, OCI image assembly, or the
+multi-architecture parts of the gate.
 
 A failure blocks feature expansion and reopens the affected ADR or baseline row. It
 does not automatically force Java 21 or permit dropping ARM64. First identify whether
@@ -725,6 +728,7 @@ the replaceable local telemetry backend.
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-22 | 1.7 | Recorded the typed accessible releases shell, reproducible combined Spring Boot JAR, and real browser-to-PostgreSQL same-origin smoke as partial compatibility evidence. | Ruben Hernandez |
 | 2026-08-13 | 1.6 | Adopted OpenAPI Generator Maven Plugin 7.24.0 as the mandatory backend HTTP interface/model generation standard and recorded the enforced delivery-only dependency boundary. | Ruben Hernandez |
 | 2026-08-13 | 1.5 | Recorded the Java/Spring/JDBC implementation of the reviewed PostgreSQL-backed release API with PostgreSQL 18 repository/API integration evidence and no request-path provider call. | Ruben Hernandez |
 | 2026-08-13 | 1.4 | Recorded reproducible PR/`main` quality and security gates with Java 25, Node.js 24, PostgreSQL 18, Spotless, JaCoCo, plan-aware SonarQube Cloud, dependency submission, pinned actions, minimal permissions, dependency-only caches, and no test retries. | Ruben Hernandez |
