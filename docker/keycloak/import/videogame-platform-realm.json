@@ -32,14 +32,16 @@
       "rootUrl": "http://localhost:8080",
       "baseUrl": "/",
       "redirectUris": [
-        "http://localhost:8080/login/oauth2/code/keycloak"
+        "http://localhost:8080/login/oauth2/code/keycloak",
+        "http://application:8080/login/oauth2/code/keycloak"
       ],
       "webOrigins": [
-        "http://localhost:8080"
+        "http://localhost:8080",
+        "http://application:8080"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:8080/",
+        "post.logout.redirect.uris": "http://localhost:8080/##http://application:8080/",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.session.required": "true",
         "backchannel.logout.revoke.offline.tokens": "false"
@@ -50,7 +52,10 @@
     {
       "username": "${LOCAL_TEST_USER_USERNAME}",
       "enabled": true,
-      "emailVerified": false,
+      "firstName": "Local",
+      "lastName": "User",
+      "email": "local-user@localhost.invalid",
+      "emailVerified": true,
       "requiredActions": [],
       "credentials": [
         {

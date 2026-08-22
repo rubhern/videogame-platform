@@ -1,12 +1,12 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 1.1.0
+  version: 1.2.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
     search, public game details, BFF session discovery, and the authenticated user's
-    ratings. It contains only the eight approved method/path operations.
+    ratings. It contains only the nine approved method/path operations.
 
     Authentication navigation under `/auth` and catalogue synchronization are separate
     BFF and operational boundaries and are intentionally not exposed here. Provider
@@ -419,6 +419,27 @@ paths:
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
+    post:
+      tags: [Session]
+      operationId: logoutSession
+      summary: Terminate the current BFF session
+      description: |
+        Invalidates the opaque application session. OAuth/OIDC tokens remain
+        server-side and are never returned in the response or redirect URL.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      responses:
+        '204':
+          description: The application session is no longer authenticated.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+        '403': { $ref: '#/components/responses/CsrfValidationFailed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '429': { $ref: '#/components/responses/RateLimitExceeded' }
+        '500': { $ref: '#/components/responses/InternalError' }
 
   /me/ratings:
     get:
@@ -638,7 +659,9 @@ components:
       name: __Host-vgp_session
       description: |
         Opaque BFF cookie issued with `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`,
-        and no `Domain` attribute. OAuth/OIDC tokens remain server-side.
+        and no `Domain` attribute. The loopback HTTP compatibility profile uses the
+        unprefixed `vgp_session` name because browsers require `Secure` for
+        `__Host-` cookies. OAuth/OIDC tokens remain server-side.
 
   parameters:
     GameIdPath:

@@ -2,7 +2,7 @@
 
 - **Status:** Active walking-skeleton implementation
 - **Last verified:** 2026-08-22
-- **Backend version:** `0.4.0-SNAPSHOT`
+- **Backend version:** `0.5.0-SNAPSHOT`
 - **Issue:** [#25](https://github.com/rubhern/videogame-platform/issues/25)
 - **Use case:** [UC-001](../architecture/application/mvp-use-cases.md#uc-001--browse-recent-or-upcoming-releases)
 - **Contract:** [`GET /api/v1/releases`](../architecture/api/openapi.yaml)
@@ -155,7 +155,7 @@ Use a fresh disposable local database when opting into the deterministic seed:
 ```bash
 bash scripts/local-dependencies.sh up
 set -a
-source .env
+source backend/.env
 set +a
 APPLICATION_FLYWAY_ENABLED=true \
 SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \

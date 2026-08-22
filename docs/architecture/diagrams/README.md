@@ -7,10 +7,10 @@ The diagrams communicate approved decisions. They do not replace the Product Bri
 domain model, use cases, solution architecture, platform design, delivery lifecycle,
 technology baseline, OpenAPI contract, or ADRs.
 
-**Status:** Initial diagram baseline established on 2026-08-06 for the approved MVP
-solution, private-dev deployment target, and walking-skeleton delivery gate. Future
-views should be added only when they answer a new architectural question or clarify
-an approved change.
+**Status:** Diagram baseline established for the approved MVP solution, private-dev
+deployment target, walking-skeleton delivery gate, and the implemented issue #40
+OIDC/BFF compatibility proof. Future views should be added only when they answer a
+new architectural question or clarify an approved or implemented change.
 
 The governing decision is
 [ADR-0013: Use model-backed and purpose-specific architecture diagrams](../../decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md).
@@ -58,6 +58,8 @@ docs/architecture/diagrams/
 ├── mermaid/
 │   ├── module-context-map.mmd
 │   ├── hexagonal-dependency-rules.mmd
+│   ├── oidc-bff-session-sequence.mmd
+│   ├── session-csrf-logout-sequence.mmd
 │   ├── authenticate-and-create-rating-sequence.mmd
 │   ├── synchronize-bounded-catalogue-sequence.mmd
 │   ├── catalogue-persistence-model.mmd
@@ -83,6 +85,18 @@ docs/architecture/diagrams/
 The C4 diagrams share one model. Change a person, system, container, relationship, or
 deployment node once in the DSL rather than maintaining independent drawings.
 
+Each C4 view answers a structural question:
+
+| View | Question answered |
+|---|---|
+| System Context | Who uses VideoGame Platform, and which external systems does the product depend on? |
+| Containers | Which runtime containers own the React UI, same-origin BFF/API, product data, and external identity relationships? |
+| Private Dev Deployment | Where would the approved private target containers and infrastructure nodes run? This remains a target design, not issue #40 runtime evidence. |
+
+C4 intentionally does not describe callback order, token visibility, session-cookie
+contents, or CSRF processing. The implementation-backed sequence diagrams below own
+those behavioural communication questions.
+
 ### diagrams.net
 
 `diagrams-net/private-dev-deployment.drawio` is the polished target-deployment
@@ -103,14 +117,41 @@ authoritative.
 
 The canonical Mermaid files are:
 
-| File | Purpose | Decision owner |
+| File | Question answered | Decision or evidence owner |
 |---|---|---|
-| `module-context-map.mmd` | Strategic DDD boundaries and their allowed relationships | `../mvp-solution-architecture.md` |
-| `hexagonal-dependency-rules.mmd` | Inward dependency rules inside Catalogue and Ratings | `../mvp-solution-architecture.md` |
-| `authenticate-and-create-rating-sequence.mmd` | Authentication only at rating confirmation and replay-safe rating creation | `../application/mvp-use-cases.md` |
-| `synchronize-bounded-catalogue-sequence.mmd` | Bounded IGDB synchronization, staging, validation, review, and last-valid-state preservation | `../application/mvp-use-cases.md` and `../deployment/mvp-platform-and-delivery.md` |
-| `catalogue-persistence-model.mmd` | Implemented PostgreSQL catalogue tables, columns, keys, and cardinalities | `../../development/database-migrations.md`; versioned SQL is the executable authority |
-| `delivery-pipeline.mmd` | Source-to-image and manually approved private-dev deployment pipeline | `../deployment/mvp-platform-and-delivery.md` and `../../development/delivery-lifecycle.md` |
+| `module-context-map.mmd` | Which strategic DDD boundaries exist, and which relationships are allowed? | `../mvp-solution-architecture.md` |
+| `hexagonal-dependency-rules.mmd` | Which dependency directions are allowed inside Catalogue and Ratings? | `../mvp-solution-architecture.md` |
+| `oidc-bff-session-sequence.mmd` | How does the implemented browser → Spring Security BFF → Keycloak 26.7 flow establish an opaque application session, and where do codes, cookies, and tokens travel? | ADR-0003, ADR-0007, `../api/openapi.yaml`, `IdentitySecurityConfiguration`, the `oidc` profile, realm import, and issue #40 tests |
+| `session-csrf-logout-sequence.mmd` | How does the implemented session read return CSRF material, and how does `POST /api/v1/session` validate browser metadata, cookie-bound session and explicit CSRF proof before logout? | `../api/openapi.yaml`, `SessionController`, `SameOriginStateChangeFilter`, Spring Security configuration, and issue #40 tests |
+| `authenticate-and-create-rating-sequence.mmd` | How should authentication at future rating confirmation and replay-safe rating creation behave? | `../application/mvp-use-cases.md`; approved design, not implemented by issue #40 |
+| `synchronize-bounded-catalogue-sequence.mmd` | How should bounded IGDB synchronization, staging, validation, review, and last-valid-state preservation behave? | `../application/mvp-use-cases.md` and `../deployment/mvp-platform-and-delivery.md` |
+| `catalogue-persistence-model.mmd` | Which PostgreSQL catalogue tables, columns, keys, and cardinalities are implemented? | `../../development/database-migrations.md`; versioned SQL is the executable authority |
+| `delivery-pipeline.mmd` | How does source become an image and then a manually approved private-dev deployment? | `../deployment/mvp-platform-and-delivery.md` and `../../development/delivery-lifecycle.md` |
+
+For the two issue #40 sequence diagrams, approved intent remains owned by
+[ADR-0003](../../decisions/0003-use-a-same-origin-bff-and-http-json-api.md),
+[ADR-0007](../../decisions/0007-use-keycloak-as-the-initial-identity-provider.md),
+the API conventions, and OpenAPI. Exact implemented behaviour is evidenced by the
+Spring Security Java configuration, application YAML, reviewed Keycloak realm, and
+automated backend/browser tests. The diagrams are communication views and must be
+updated with those sources; they do not become a separate protocol specification.
+
+The exact issue #40 implementation evidence is:
+
+- [`IdentitySecurityConfiguration`](../../../backend/src/main/java/com/videogameplatform/identity/configuration/IdentitySecurityConfiguration.java),
+  including `/auth/login`, PKCE, OIDC validation, server-side authorized-client
+  storage, and `POST /api/v1/session` logout;
+- [`SameOriginStateChangeFilter`](../../../backend/src/main/java/com/videogameplatform/identity/configuration/SameOriginStateChangeFilter.java)
+  and the configured Spring Security CSRF filter chain;
+- [`SessionController`](../../../backend/src/main/java/com/videogameplatform/api/delivery/SessionController.java)
+  for the minimal no-store session representation;
+- [`application-oidc.yaml`](../../../backend/src/main/resources/application-oidc.yaml)
+  and [`application.yaml`](../../../backend/src/main/resources/application.yaml) for
+  client, callback, session timeout, and cookie settings;
+- the reviewed [Keycloak realm import](../../../docker/keycloak/import/videogame-platform-realm.json);
+- [`SessionSecurityIntegrationTest`](../../../backend/src/test/java/com/videogameplatform/api/delivery/SessionSecurityIntegrationTest.java),
+  [`OidcIdTokenValidationTest`](../../../backend/src/test/java/com/videogameplatform/identity/configuration/OidcIdTokenValidationTest.java),
+  and the real [Keycloak browser proof](../../../frontend/tests/oidc-session.spec.ts).
 
 The conceptual domain model remains embedded in `../domain/mvp-domain-model.md`, and
 the change lifecycle remains embedded in `../../development/delivery-lifecycle.md`.
@@ -220,6 +261,8 @@ Before adding or changing a diagram:
 8. Keep names aligned with the approved ubiquitous language.
 9. Record durable decisions in the relevant document or ADR, not only in a diagram.
 10. Regenerate exports and review the visual diff before merge.
+11. For implementation-backed sequences, cite the exact code, configuration,
+    contract, and executable test evidence in this catalogue.
 
 ## 9. Naming rules
 
@@ -257,9 +300,15 @@ are ignored by default and remain local until a repository document needs to ref
 one. If an export becomes a committed documentation dependency, remove the relevant
 ignore rule and add generated-output drift validation in the same change.
 
-## 11. Future CI
+## 11. Diagram validation and future CI
 
-When the walking skeleton exists, CI should eventually:
+The current local syntax and render validation is:
+
+```bash
+bash docs/architecture/diagrams/scripts/render-mermaid.sh
+```
+
+A future dedicated CI diagram gate may:
 
 - validate the Structurizr workspace;
 - render all Mermaid sources;

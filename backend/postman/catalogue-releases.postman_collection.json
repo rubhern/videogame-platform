@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
     "name": "VideoGame Platform Backend - Catalogue Releases",
-    "description": "Executable examples for the OpenAPI 1.1.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI 1.2.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

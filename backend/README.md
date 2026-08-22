@@ -14,11 +14,14 @@ first approved public product read.
 - **Build:** Maven Wrapper from the repository root
 - **HTTP contract generation:** OpenAPI Generator Maven Plugin 7.24.0
 - **Persistence:** PostgreSQL 18, SQL-first Flyway, JPA schema generation disabled
-- **Current HTTP surface:** `GET /api/v1/releases`, packaged browser routes, and Actuator health, info, and metrics
+- **Current HTTP surface:** `GET /api/v1/releases`, `GET`/`POST /api/v1/session`,
+  `/auth/login/keycloak`, packaged browser routes, and Actuator health, info, and metrics
 
 The application implements UC-001 through a framework-independent use case and a
-local JDBC catalogue repository. It has no JPA entity, authentication, or request-path
-external provider call. The optional combined package serves the generated frontend
+local JDBC catalogue repository. It has no JPA entity or request-path external
+provider call. Its opt-in OIDC profile proves a real Keycloak Authorization Code
+flow and opaque server-side BFF session without exposing provider tokens. The
+optional combined package serves the generated frontend
 for `/` and `/games/{slug}` while preserving server ownership of `/api`, `/auth`, and
 `/actuator`. The minimum module-owned catalogue
 schema, deterministic opt-in development seed, and PostgreSQL 18 evidence support
@@ -130,7 +133,7 @@ the first application startup:
 ```bash
 bash scripts/local-dependencies.sh up
 set -a
-source .env
+source backend/.env
 set +a
 APPLICATION_FLYWAY_ENABLED=true ./mvnw -pl backend spring-boot:run
 ```
@@ -147,7 +150,7 @@ The default address is `http://localhost:8080`. Stop the process gracefully with
 After a successful package, run the executable artifact directly:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.4.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.5.0-SNAPSHOT.jar
 ```
 
 The normal Maven lifecycle remains backend-only. Build the reproducible combined JAR
@@ -277,7 +280,7 @@ The only application-specific shared bean is a `java.time.Clock` configured for
 calling the system clock directly, so tests can replace it deterministically.
 
 `APPLICATION_DB_PASSWORD` and `APPLICATION_MIGRATION_DB_PASSWORD` are secrets. The
-local dependency wrapper generates them in ignored `.env`; maintained environments
+local dependency wrapper copies them into ignored `backend/.env`; maintained environments
 must supply them through a protected secret source. Never add credentials to
 `application.yaml`, this README, Postman files, Git history, logs, or URLs.
 
@@ -388,7 +391,7 @@ do not copy real secrets into shared run configurations.
 | An Actuator endpoint returns `404` | Only `health`, `info`, and `metrics` are exposed; verify the path and committed configuration. |
 | Application startup reports a module violation | Inspect the dependency named by Spring Modulith and restore the inward dependency direction. |
 | Testcontainers cannot find Docker | Start Docker Desktop, enable this WSL distribution, and verify `docker info`. |
-| PostgreSQL authentication fails locally | Start the dependency topology and load the generated `.env` into the shell without printing it. |
+| PostgreSQL authentication fails locally | Start the dependency topology and load the generated `backend/.env` into the shell without printing it. |
 | Flyway reports a checksum mismatch | Stop; do not repair automatically. Restore the immutable applied file or add a corrective migration. |
 | Tests work in IntelliJ but not Maven | Align IntelliJ's Project SDK and Maven runner with the Java 25 JDK used by the wrapper. |
 
@@ -410,9 +413,10 @@ For each future change:
    observability guide.
 9. Run `./mvnw clean verify` and the repository documentation validations.
 
-The local PostgreSQL/Keycloak topology and application persistence are implemented
-separately. Remaining catalogue queries, the Keycloak-backed BFF session, later
-product APIs, a deployed telemetry backend, application containers, the
+The local PostgreSQL/Keycloak topology, application persistence, and Keycloak-backed
+BFF session compatibility are implemented and documented separately. Remaining
+catalogue queries, authenticated product identity mapping, later product APIs, a
+deployed telemetry backend, application containers, the
 multi-architecture compatibility gate, and remote deployment remain focused work
 items. The current backend, architecture and PostgreSQL checks are reproduced by the
 [walking-skeleton CI gate](../docs/development/continuous-integration.md). This

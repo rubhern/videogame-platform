@@ -12,6 +12,10 @@ Actuator APIs plus a non-secret local environment.
   recent/upcoming release discovery, product filters, public headers, weak-validator
   conditional reads, `int64` page totals, strict query parameters, pagination, and
   stable validation errors with automated tests.
+- [`session.postman_collection.json`](session.postman_collection.json): minimal
+  anonymous session state and CSRF-protected logout rejection. The successful OIDC
+  flow is intentionally covered by the real-browser identity gate instead of
+  scripting credentials in Postman.
 - [`local.postman_environment.json`](local.postman_environment.json): local
   `baseUrl`, defaulting to `http://localhost:8080`.
 
@@ -23,17 +27,18 @@ Actuator APIs plus a non-secret local environment.
    ```bash
    bash scripts/local-dependencies.sh up
    set -a
-   source .env
+   source backend/.env
    set +a
    APPLICATION_FLYWAY_ENABLED=true \
    SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
    ./mvnw -pl backend spring-boot:run
    ```
 
-2. In Postman, select **Import** and import the environment and both collections.
+2. In Postman, select **Import** and import the environment and all three collections.
 3. Select the **VideoGame Platform - Local** environment.
 4. Run **VideoGame Platform Backend - Catalogue Releases** and
-   **VideoGame Platform Backend - Actuator**.
+   **VideoGame Platform Backend - Actuator**, then run **VideoGame Platform Backend -
+   BFF Session** while signed out.
 
 The product collection verifies the reviewed release-page shape, active and available
 filters, correlation/cache/ETag headers, `304` weak-validator handling,

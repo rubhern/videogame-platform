@@ -26,6 +26,7 @@ cancelled, or is skipped, so a later diagnostic step cannot hide an incomplete g
 | Documentation and API contracts | changed-range `git diff --check`, `validate-actions.sh`, `validate-docs.sh`, `validate-openapi.sh`, generated Redoc diff | Reject whitespace errors, invalid workflow syntax or expressions, broken links, malformed sources, contract errors, or stale API documentation |
 | Frontend static, type, component and build checks | `npm ci --ignore-scripts`, OpenAPI type generation diff, `npm run frontend:verify` | Prove the locked dependency graph without executing dependency lifecycle scripts, ESLint, strict `tsc --noEmit`, Vitest and the production Vite build |
 | Packaged application Chromium smoke and accessibility check | `validate-browser.sh` with digest-pinned Java and Playwright images | Build the combined JAR and exercise browser → same-origin releases API → disposable PostgreSQL, keyboard navigation and axe-core without mocks |
+| Real Keycloak 26.7 OIDC BFF compatibility | `validate-identity.sh` with the same reviewed realm plus digest-pinned Java and Playwright images | Build the combined JAR and exercise browser → BFF → real Keycloak → callback → opaque session → CSRF logout without protocol mocks, retries, or credential-bearing traces |
 | Java backend, architecture and PostgreSQL integration | `./mvnw clean verify` plus retained JaCoCo report | Regenerate Spring interfaces/DTOs from OpenAPI, enforce Spotless, compile/package with Java 25, run unit and startup checks, Spring Modulith verification, ArchUnit rules and PostgreSQL 18 integration tests, and produce XML/HTML coverage evidence |
 | Fresh PostgreSQL 18 migration | `validate-migrations.sh` | Independently create an empty database, apply Flyway from zero and verify schema, seed and runtime-privilege guarantees |
 | IGDB PoC local fixtures | targeted Maven `clean verify` | Preserve the provider decision evidence without credentials or live provider traffic |
@@ -171,6 +172,7 @@ npm run frontend:generate-api
 git diff --exit-code -- frontend/src/shared/api/generated/schema.d.ts
 npm run frontend:verify
 bash scripts/validate-browser.sh
+bash scripts/validate-identity.sh
 bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
@@ -200,13 +202,19 @@ unset SONAR_TOKEN
 Never place the token in a file, command history, pull-request log, or Maven
 configuration. Normal local verification does not require Sonar credentials.
 
-The browser wrapper runs the same official Playwright 1.62.1 Noble and Eclipse
+The browser wrappers run the same official Playwright 1.62.1 Noble and Eclipse
 Temurin 25 runtime images by immutable digest in local and CI environments. It builds
 the Vite assets and combined Spring Boot JAR, then starts that artifact and a fresh
 PostgreSQL 18 database on an isolated disposable Docker network. Chromium consumes
 the real same-origin response; no request interception or provider credential is
 used, and the internal network prevents IGDB egress. The wrapper removes its exact
 containers and network on exit.
+
+`validate-identity.sh` also starts real Keycloak 26.7 from the existing realm import,
+uses a fresh isolated PostgreSQL database and random ephemeral credentials, and
+starts the packaged application with the `oidc` profile. Its focused Chromium test
+does not intercept OIDC or product requests. The script never prints credentials,
+disables retries and traces, and removes its exact containers and internal network.
 
 Gitleaks, dependency review, CodeQL and dependency submission are GitHub-context
 controls: their complete range comparison, token permissions and service upload
@@ -236,6 +244,11 @@ behaviour and combined application packaging, so the frontend advances to `0.1.0
 and the backend reactor to `0.4.0-SNAPSHOT`; the unchanged OpenAPI and tooling
 package versions remain as-is. A later runtime or product change must assess those
 artefacts independently under the delivery lifecycle.
+
+Issue #40 adds a compatible BFF identity capability and session logout operation.
+The backend reactor therefore advances to `0.5.0-SNAPSHOT` and OpenAPI to `1.2.0`.
+The frontend remains `0.1.0`; its product runtime is unchanged. Root tooling and the
+isolated IGDB PoC also remain unchanged.
 
 ## Remaining delivery work
 

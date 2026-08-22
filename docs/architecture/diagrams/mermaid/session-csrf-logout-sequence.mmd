@@ -1,0 +1,36 @@
+sequenceDiagram
+    autonumber
+
+    participant Browser as Browser / React
+    participant OriginFilter as SameOriginStateChangeFilter
+    participant Security as CsrfFilter + LogoutFilter
+    participant SessionApi as SessionController
+    participant Session as Server-side HTTP session
+
+    Browser->>Security: GET /api/v1/session + vgp_session automatically
+    Security->>Session: Resolve opaque session and SecurityContext
+    Security->>SessionApi: Dispatch authenticated request
+    SessionApi->>Session: Obtain session-bound CsrfToken
+    Session-->>SessionApi: Current CSRF token
+    SessionApi-->>Browser: 200 {authenticated:true, csrfToken} + Cache-Control:no-store
+    Note over Browser,SessionApi: The cookie is automatic and HttpOnly, React reads only the session state
+
+    Browser->>OriginFilter: POST /api/v1/session + Cookie automatically + X-CSRF-Token explicitly
+    OriginFilter->>OriginFilter: Validate Origin and Sec-Fetch-Site when present
+    alt Browser metadata rejected
+        OriginFilter-->>Browser: 403 CSRF_VALIDATION_FAILED, session remains authenticated
+    else Same-origin metadata accepted
+        OriginFilter->>Security: Forward logout request
+        Security->>Session: Resolve session and expected CSRF token
+        Security->>Security: Compare X-CSRF-Token with session token
+        alt Missing or invalid CSRF token
+            Security-->>Browser: 403 CSRF_VALIDATION_FAILED, session remains authenticated
+        else Current CSRF token
+            Security->>Session: Clear SecurityContext and invalidate HTTP session
+            Session-->>Security: Session invalidated
+            Security-->>Browser: 204 + expire vgp_session + Cache-Control:no-store
+            Browser->>Security: GET /api/v1/session without application session
+            Security->>SessionApi: Dispatch anonymous request
+            SessionApi-->>Browser: 200 {authenticated:false} + Cache-Control:no-store
+        end
+    end

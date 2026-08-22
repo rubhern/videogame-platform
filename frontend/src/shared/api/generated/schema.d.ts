@@ -89,7 +89,12 @@ export interface paths {
          */
         get: operations["getSession"];
         put?: never;
-        post?: never;
+        /**
+         * Terminate the current BFF session
+         * @description Invalidates the opaque application session. OAuth/OIDC tokens remain
+         *     server-side and are never returned in the response or redirect URL.
+         */
+        post: operations["logoutSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -966,6 +971,36 @@ export interface operations {
                     "application/json": components["schemas"]["SessionState"];
                 };
             };
+            406: components["responses"]["NotAcceptable"];
+            429: components["responses"]["RateLimitExceeded"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    logoutSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The application session is no longer authenticated. */
+            204: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["CsrfValidationFailed"];
             406: components["responses"]["NotAcceptable"];
             429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];

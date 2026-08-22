@@ -1,9 +1,9 @@
 # Learning MVP API Conventions
 
 - **Status:** Approved
-- **Version:** 1.1
+- **Version:** 1.2
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-19
+- **Last updated:** 2026-08-22
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Scope:** Private, non-commercial learning MVP
 - **Architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
@@ -153,6 +153,7 @@ because redirects and callbacks are not product resources.
 | `GET` | `/api/v1/games` | Public | `UC-002` | Search the bounded catalogue. |
 | `GET` | `/api/v1/games/{gameId}` | Public | `UC-003` | Read public game, release, eligibility, and aggregate context. |
 | `GET` | `/api/v1/session` | Optional | BFF boundary | Read minimal session state and obtain CSRF material when authenticated. |
+| `POST` | `/api/v1/session` | Optional | BFF boundary | Terminate the current application session with CSRF proof. |
 | `GET` | `/api/v1/me/ratings` | Required | `UC-008` | Read, search, sort, and page `Mis puntuaciones`. |
 | `GET` | `/api/v1/me/ratings/{gameId}` | Required | `UC-003`, `UC-008` | Read the current user's rating for one game. |
 | `PUT` | `/api/v1/me/ratings/{gameId}` | Required | `UC-005`, `UC-006` | Create or update according to an explicit precondition. |
@@ -776,6 +777,7 @@ These codes never replace a more specific domain or application error.
 |---:|---|
 | `200 OK` | Query, update, delete with result, session read, or empty collection. |
 | `201 Created` | Rating created; includes `Location` and `ETag`. |
+| `204 No Content` | Application-session logout completed; no representation is required. |
 | `304 Not Modified` | Conditional public `GET`; no body. |
 
 The API does not return `202` for synchronous work or `204` when a result is needed.
@@ -848,6 +850,10 @@ SameSite=Lax
 Path=/
 no Domain attribute
 ```
+
+The plain-HTTP loopback compatibility environment cannot use a `Secure` cookie and
+therefore uses host-only `vgp_session` with the remaining attributes unchanged.
+Every HTTPS environment uses the approved `__Host-vgp_session` name and `Secure`.
 
 Session persistence and encryption remain internal.
 
@@ -1020,7 +1026,7 @@ Generated code is disposable. The reviewed OpenAPI source remains the contract.
 - frontend and backend frameworks;
 - database product and persistence mapping;
 - identity-provider product;
-- session persistence and CSRF algorithm;
+- deployment session persistence beyond the process-local compatibility proof;
 - exact public cache durations;
 - release-window lengths and stale thresholds;
 - database locking or version columns;
@@ -1083,6 +1089,7 @@ Ruben Hernandez accepted every review item on 2026-07-31.
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-22 | 1.2 | Added the approved state-changing session logout resource and documented the loopback-only cookie-name/Secure exception demonstrated by the real Keycloak compatibility proof. | Ruben Hernandez |
 | 2026-08-19 | 1.1 | Required a unique final row tie-breaker, corrected release ordering to end in `releaseId`, made upcoming TBA semantics explicit, and recorded the evidence trigger for replacing page/offset pagination. | Ruben Hernandez |
 | 2026-07-31 | 1.0 | Owner-approved the REST API conventions without expanding product scope; fixed the initial resource map, HTTP semantics, representation rules, security boundary, errors, compatibility policy, and OpenAPI authoring direction. | Ruben Hernandez |
 | 2026-07-30 | 0.1 | Initial draft derived from the approved domain, application, solution architecture, and ADR-0001 through ADR-0004. | Ruben Hernandez |

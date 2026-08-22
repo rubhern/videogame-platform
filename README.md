@@ -37,7 +37,10 @@ to reach the existing same-origin release endpoint while preserving all date
 precisions. The local PostgreSQL 18 and
 Keycloak 26.7 dependency topology proves isolated roles, reproducible identity
 configuration, health, persistence, reset, and AMD64/ARM64 dependency-image
-manifests. The backend now also proves SQL-first Flyway migration from zero, a
+manifests. The backend now also proves a real Keycloak 26.7 Authorization Code/OIDC
+flow with PKCE, server-side token handling, an opaque HttpOnly BFF session, minimal
+no-store session discovery, same-origin CSRF-protected logout, and fixed allowlisted
+redirects. It proves SQL-first Flyway migration from zero, a
 module-owned catalogue schema, deterministic opt-in seed data, disabled Hibernate
 schema generation, PostgreSQL 18 Testcontainers persistence checks, explicit health
 groups, build/source metadata, structured request correlation, bounded metrics, W3C
@@ -54,8 +57,9 @@ trusted `main` builds now reproduce the complete current quality evidence with J
 tests, Spotless, JaCoCo XML/HTML, a plan-aware SonarQube Cloud gate, workflow lint,
 secret scanning, dependency review/submission, and CodeQL. A stable build now embeds
 the Vite production output in the Spring Boot JAR, and the real Chromium smoke proves
-browser → packaged frontend → same-origin API → PostgreSQL. BFF identity integration,
-OCI image assembly, and application multi-architecture evidence remain in the
+browser → packaged frontend → same-origin API → PostgreSQL. A separate no-retry
+Chromium gate proves browser → BFF → real Keycloak → opaque session without protocol
+mocks. OCI image assembly and application multi-architecture evidence remain in the
 walking-skeleton gate; remote infrastructure follows only after that gate passes.
 
 ## Start here
@@ -82,24 +86,26 @@ walking-skeleton gate; remote infrastructure follows only after that gate passes
     inspect health, version, logs, metrics, tracing, and optional OTLP export.
 13. Use the [release API guide](docs/development/release-api.md) to run and inspect
     the first local product read and its Postman examples.
-14. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) and
+14. Use the [local OIDC BFF session guide](docs/development/identity-bff.md) to run
+    and inspect the real Keycloak login, session, CSRF, and logout proof.
+15. Use the [OpenAPI validation guide](docs/development/openapi-validation.md) and
     [backend generation standard](docs/development/backend-openapi-generation.md) to
     validate the API and compile backend interfaces from its contract.
-15. Browse the [generated API reference](docs/architecture/api/reference/index.html)
+16. Browse the [generated API reference](docs/architecture/api/reference/index.html)
     or follow its [regeneration tutorial](docs/development/openapi-web-documentation.md).
-16. Use the [continuous-integration guide](docs/development/continuous-integration.md)
+17. Use the [continuous-integration guide](docs/development/continuous-integration.md)
     for quality/security jobs, local parity, permissions, caching, and failure policy.
-17. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
+18. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
     and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
     skeleton and private `dev` environment.
-18. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
+19. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
     [architecture diagram catalogue](docs/architecture/diagrams/README.md), and
     [ADR-0005 through ADR-0014](docs/decisions/) before implementing the walking
     skeleton, persistence, identity, delivery, hosting, or observability.
-19. Use the [backend technical README](backend/README.md) and
+20. Use the [backend technical README](backend/README.md) and
     [backend development guide](docs/development/backend.md) to build, test, start,
     inspect, and extend the initial modular-monolith skeleton.
-20. Use the [frontend technical README](frontend/README.md) and
+21. Use the [frontend technical README](frontend/README.md) and
     [frontend development guide](docs/development/frontend.md) to install, generate
     API types, test, build, and extend the client-rendered skeleton.
 
@@ -139,6 +145,7 @@ npm ci
 bash scripts/validate-openapi.sh
 npm run frontend:verify
 bash scripts/validate-browser.sh
+bash scripts/validate-identity.sh
 bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
@@ -150,10 +157,12 @@ validation and the root Maven verification use disposable PostgreSQL 18
 Testcontainers; the root command checks formatting, compiles, tests, produces JaCoCo
 XML/HTML evidence, and packages the backend. The
 browser wrapper exercises the combined JAR against disposable PostgreSQL, keyboard
-navigation, and automated accessibility checks without retries. The targeted Maven command tests
-the isolated IGDB PoC only with local fixtures. No verification requires provider
-credentials or calls IGDB. The continuous-integration guide maps each local command
-to its PR and trusted `main` job.
+navigation, and automated accessibility checks without retries. The identity wrapper
+adds a fresh PostgreSQL/Keycloak topology and drives the real OIDC BFF flow with
+ephemeral credentials, no mocks, no retries, and no credential-bearing trace. The
+targeted Maven command tests the isolated IGDB PoC only with local fixtures. No
+verification requires provider credentials or calls IGDB. The continuous-integration
+guide maps each local command to its PR and trusted `main` job.
 
 The backend dependency topology has its own lifecycle and verification commands:
 

@@ -1,7 +1,7 @@
 # Learning MVP platform and delivery design
 
 - **Status:** Approved
-- **Version:** 1.6
+- **Version:** 1.7
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-08-22
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
@@ -184,7 +184,9 @@ reviewed commit -> tests -> frontend/backend build -> OCI image -> scan -> GHCR 
 The source-to-application portion is executable: `scripts/package-application.sh`
 builds Vite output and embeds it in the Spring Boot JAR through an explicit Maven
 profile. `scripts/validate-browser.sh` proves those exact assets against the real API
-and a disposable PostgreSQL 18 database. OCI image assembly, scanning, publication,
+and a disposable PostgreSQL 18 database. `scripts/validate-identity.sh` additionally
+proves the same JAR against real Keycloak 26.7 through a no-retry browser/BFF login,
+opaque session and CSRF logout flow in local and CI. OCI image assembly, scanning, publication,
 and multi-architecture evidence remain deferred to the image-owning work.
 
 The image MUST:
@@ -362,8 +364,9 @@ exporters, not domain or API contracts.
    OCI/Tailscale `dev` with Terraform and no paid resource.
 6. **Remote acceptance:** deploy manually, migrate, smoke test, verify telemetry,
    backup, isolated restore, and application rollback.
-7. **Complete journey:** add bounded synchronization, Keycloak/BFF flow, rating CRUD,
-   `Mis puntuaciones`, accessibility, concurrency, CSRF, and degraded-state tests.
+7. **Complete journey:** add bounded synchronization, authenticated product identity
+   mapping, rating CRUD, `Mis puntuaciones`, accessibility, concurrency, and
+   degraded-state tests while preserving the proven BFF/CSRF boundary.
 8. **Runbook:** record only proven commands for deployment, backup, restore, rotation,
    diagnostics, and recovery.
 
@@ -385,6 +388,7 @@ exporters, not domain or API contracts.
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.7 | 2026-08-22 | Recorded the local/CI real Keycloak 26.7 browser-to-BFF Authorization Code with PKCE, opaque session and CSRF logout proof without changing the remote topology or selecting a distributed session store. | Ruben Hernandez |
 | 1.6 | 2026-08-22 | Recorded reproducible combined frontend/backend JAR packaging and the real browser-to-PostgreSQL smoke while leaving OCI image work open. | Ruben Hernandez |
 | 1.5 | 2026-08-13 | Recorded the executable PostgreSQL-backed first public release read, local-snapshot failure behaviour, and bounded endpoint telemetry without closing remote acceptance. | Ruben Hernandez |
 | 1.4 | 2026-08-13 | Recorded the executable walking-skeleton PR/`main` quality, coverage, SonarQube Cloud, dependency-submission, and security gates while keeping image publication and deployment work separate. | Ruben Hernandez |

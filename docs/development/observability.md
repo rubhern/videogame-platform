@@ -2,7 +2,7 @@
 
 - **Status:** Active walking-skeleton implementation
 - **Last verified:** 2026-08-22
-- **Backend version:** `0.4.0-SNAPSHOT`
+- **Backend version:** `0.5.0-SNAPSHOT`
 - **Decision:** [ADR-0009](../decisions/0009-use-opentelemetry-compatible-instrumentation.md)
 - **Architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
 
@@ -40,6 +40,8 @@ The PostgreSQL JDBC security remediation then increments the backend patch to
 patch to `0.3.3-SNAPSHOT`; neither correction changes the observability contract.
 Issue #26 advances the backend reactor to `0.4.0-SNAPSHOT` for compatible combined
 frontend packaging without changing these observability semantics.
+Issue #40 advances it to `0.5.0-SNAPSHOT` for compatible OIDC BFF session behaviour,
+again without changing the observability contract.
 
 ## Health semantics
 
@@ -57,10 +59,10 @@ readiness `DOWN`. Startup with Flyway enabled still fails before serving traffic
 migration validation or execution fails.
 
 IGDB, Keycloak, and telemetry exporters are deliberately absent from readiness. IGDB
-is not a request-path dependency, identity integration is not implemented yet, and a
-telemetry outage must not block product traffic. Liveness must never gain database,
-provider, identity, or collector checks because that would turn dependency failures
-into restart loops.
+is not a request-path dependency, Keycloak is required for new login rather than
+public-read readiness, and a telemetry outage must not block product traffic.
+Liveness must never gain database, provider, identity, or collector checks because
+that would turn dependency failures into restart loops.
 
 Every health response uses `management.endpoint.health.show-details=never`. Database
 addresses, exceptions, credentials, schema names, and internal component details are
@@ -75,7 +77,7 @@ returns its safe fields under `build`:
 {
   "build": {
     "name": "VideoGame Platform Backend",
-    "version": "0.4.0-SNAPSHOT",
+    "version": "0.5.0-SNAPSHOT",
     "sourceRevision": "local-development"
   }
 }
@@ -282,7 +284,7 @@ read-only Actuator surface for manual local inspection.
 
 ### Manual console verification
 
-With the local dependencies and ignored `.env` loaded, run the application once in
+With the local dependencies and ignored `backend/.env` loaded, run the application once in
 each console mode and issue the same request:
 
 ```bash

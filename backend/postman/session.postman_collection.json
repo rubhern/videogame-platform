@@ -1,0 +1,102 @@
+{
+  "info": {
+    "_postman_id": "4c9dc52f-47d7-4209-afeb-5c5de51d6dc7",
+    "name": "VideoGame Platform Backend - BFF Session",
+    "description": "Executable anonymous-session and CSRF rejection examples for the contract-first same-origin BFF boundary. Complete OIDC login remains a real-browser flow.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Read anonymous session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Anonymous state is minimal and not cacheable\", function () {",
+              "    pm.expect(pm.response.json()).to.eql({ authenticated: false });",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/session",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "session"
+          ]
+        },
+        "description": "Returns the exact anonymous session representation without creating CSRF or token material."
+      },
+      "response": []
+    },
+    {
+      "name": "Reject logout without CSRF material",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 403\", function () {",
+              "    pm.response.to.have.status(403);",
+              "});",
+              "",
+              "pm.test(\"Failure uses the stable CSRF problem code\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"CSRF_VALIDATION_FAILED\");",
+              "    pm.expect(body.status).to.eql(403);",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/problem+json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/session",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "session"
+          ]
+        },
+        "description": "Demonstrates that logout is state-changing and cannot be invoked without current session-bound CSRF material."
+      },
+      "response": []
+    }
+  ]
+}

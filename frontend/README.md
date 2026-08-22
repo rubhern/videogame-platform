@@ -135,7 +135,7 @@ Start the backend in one terminal:
 ```bash
 bash scripts/local-dependencies.sh up
 set -a
-source .env
+source backend/.env
 set +a
 APPLICATION_FLYWAY_ENABLED=true ./mvnw -pl backend spring-boot:run
 ```
@@ -264,13 +264,17 @@ bash scripts/package-application.sh
 The script installs the locked npm graph, regenerates OpenAPI types, builds Vite, and
 activates the Maven `with-frontend` profile. Maven fails if `dist/index.html` is
 missing and copies the generated assets into the JAR's `BOOT-INF/classes/static`.
-After preparing PostgreSQL and loading the ignored local `.env` as above, run it
+After preparing PostgreSQL and loading the ignored local `backend/.env` as above, run it
 using:
 
 ```bash
 APPLICATION_FLYWAY_ENABLED=true \
-  java -jar backend/target/videogame-platform-backend-0.4.0-SNAPSHOT.jar
+  java -jar backend/target/videogame-platform-backend-0.5.0-SNAPSHOT.jar
 ```
+
+The separate `bash scripts/validate-identity.sh` gate uses the same assets and drives
+the real server-owned Keycloak login/session/logout path. It does not add a
+client-side token flow or persist authentication state in browser storage.
 
 ## Security and dependency notes
 

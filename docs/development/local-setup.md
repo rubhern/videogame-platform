@@ -17,8 +17,8 @@ or any remote infrastructure. After it passes, use the
 [backend development guide](backend.md) and
 [frontend development guide](frontend.md) to start the current application
 skeletons. The local PostgreSQL and Keycloak dependencies use their own explicit
-lifecycle and remain decoupled from the application until the persistence and BFF
-integration issues implement those contracts.
+lifecycle. Persistence and the opt-in OIDC BFF profile now connect to those reviewed
+contracts; see the database and identity guides for application startup.
 
 ## 1. Prepare Windows and WSL2
 
@@ -71,10 +71,12 @@ git clone https://github.com/rubhern/videogame-platform.git
 cd videogame-platform
 ```
 
-`.env.example` contains only non-secret defaults and placeholders and explains every
-current variable. Do not put credentials in that template. The dependency wrapper
-creates an ignored `.env` with generated local credentials when the topology is first
-started; never commit its contents.
+The root `.env.example` documents only Docker Compose infrastructure variables;
+`backend/.env.example` documents only backend application variables. Both contain
+non-secret defaults and placeholders, never usable credentials. The dependency
+wrapper creates ignored `.env` files at those same locations when the topology is
+first started and copies the three shared PostgreSQL/OIDC credentials between them;
+never commit either file.
 
 ## 4. Run the prerequisite gate
 
@@ -122,14 +124,16 @@ bash scripts/local-dependencies.sh verify
 See [local backend dependencies](local-dependencies.md) for the topology, generated
 credential boundary, backend connection settings, health and manifest checks, normal
 shutdown, and the explicitly scoped disposable-data reset procedure.
+Use the [local OIDC BFF session guide](identity-bff.md) for the OIDC-enabled combined
+application and real browser compatibility command.
 
 ## 6. Reproduce continuous integration locally
 
 After the prerequisite gate passes, use the exact command sequence in the
 [walking-skeleton continuous-integration guide](continuous-integration.md). It covers
 documentation, OpenAPI generation, strict frontend checks, the no-retry Chromium
-smoke, PostgreSQL 18 migration from zero, the complete backend build and the isolated
-IGDB fixture suite.
+release smoke, the no-retry real Keycloak identity proof, PostgreSQL 18 migration
+from zero, the complete backend build and the isolated IGDB fixture suite.
 
 ## Troubleshooting
 

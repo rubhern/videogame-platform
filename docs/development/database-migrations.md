@@ -132,16 +132,16 @@ fails.
 |---|---|---|---|
 | `APPLICATION_DB_URL` | `jdbc:postgresql://localhost:5432/videogame_platform` | Runtime JDBC target | No |
 | `APPLICATION_DB_USERNAME` | `videogame_app` | DML-only runtime principal | No |
-| `APPLICATION_DB_PASSWORD` | Empty; local `.env` or protected source required | Runtime database credential | Yes |
+| `APPLICATION_DB_PASSWORD` | Empty; local `backend/.env` or protected source required | Runtime database credential | Yes |
 | `APPLICATION_MIGRATION_DB_URL` | Runtime JDBC target | Flyway JDBC target | No |
 | `APPLICATION_MIGRATION_DB_USERNAME` | `videogame_app_migrator` | Schema-owning Flyway principal | No |
-| `APPLICATION_MIGRATION_DB_PASSWORD` | Empty; local `.env` or protected source required | Flyway database credential | Yes |
+| `APPLICATION_MIGRATION_DB_PASSWORD` | Empty; local `backend/.env` or protected source required | Flyway database credential | Yes |
 | `APPLICATION_FLYWAY_ENABLED` | `false` | Explicitly permits migrations during this startup | No |
 | `SPRING_FLYWAY_LOCATIONS` | `classpath:db/migration` | Overrides locations; add `classpath:db/dev-seed` only for disposable local/test data | No |
 
 Passwords must never enter committed configuration, command-line arguments, URLs,
 logs, screenshots, or evidence. The local dependency wrapper generates them in the
-ignored `.env` file with mode `0600`.
+ignored `backend/.env` file with mode `0600`.
 
 ## Validation
 
@@ -192,7 +192,7 @@ first startup, and optionally include the demonstration seed:
 
 ```bash
 set -a
-source .env
+source backend/.env
 set +a
 APPLICATION_FLYWAY_ENABLED=true \
 SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
