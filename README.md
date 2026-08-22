@@ -31,7 +31,10 @@ active at the walking-skeleton gate. The initial backend skeleton proves Java 25
 Spring Boot 4.1, Spring MVC, Actuator, Spring Modulith 2.1, and the initial module
 fitness functions locally. The frontend skeleton proves React 19.2, strict
 TypeScript, Vite 8.1, routing, server-state infrastructure, Tailwind CSS, complete
-OpenAPI type generation, tests, and a production build. The local PostgreSQL 18 and
+OpenAPI type generation, tests, a production build, and a minimal accessible
+recent-releases shell. The shell uses a product-facing typed API and TanStack Query
+to reach the existing same-origin release endpoint while preserving all date
+precisions. The local PostgreSQL 18 and
 Keycloak 26.7 dependency topology proves isolated roles, reproducible identity
 configuration, health, persistence, reset, and AMD64/ARM64 dependency-image
 manifests. The backend now also proves SQL-first Flyway migration from zero, a
@@ -49,8 +52,10 @@ the complete OpenAPI contract during the Maven lifecycle. Pull requests and
 trusted `main` builds now reproduce the complete current quality evidence with Java
 25, Node.js 24, PostgreSQL 18, browser accessibility smoke, fixture-only provider
 tests, Spotless, JaCoCo XML/HTML, a plan-aware SonarQube Cloud gate, workflow lint,
-secret scanning, dependency review/submission, and CodeQL. BFF identity integration,
-combined packaging, and application multi-architecture evidence remain in the
+secret scanning, dependency review/submission, and CodeQL. A stable build now embeds
+the Vite production output in the Spring Boot JAR, and the real Chromium smoke proves
+browser → packaged frontend → same-origin API → PostgreSQL. BFF identity integration,
+OCI image assembly, and application multi-architecture evidence remain in the
 walking-skeleton gate; remote infrastructure follows only after that gate passes.
 
 ## Start here
@@ -110,6 +115,19 @@ walking-skeleton gate; remote infrastructure follows only after that gate passes
 Markdown files in this repository are the source of truth. Generated Word or PDF
 documents, if needed later, are exports rather than authoritative copies.
 
+## Combined application package
+
+From a clean checkout with the approved Java 25, Node.js 24, npm and Docker
+prerequisites, build the frontend and embed it in the executable Spring Boot JAR:
+
+```bash
+bash scripts/package-application.sh
+```
+
+Use the [frontend guide](docs/development/frontend.md) for the separate Vite
+development loop and the [backend guide](docs/development/backend.md) for local
+PostgreSQL configuration and direct JAR execution.
+
 ## Validation
 
 ```bash
@@ -131,8 +149,8 @@ Node.js 24, Docker Desktop integration, and the repository Maven Wrapper. Migrat
 validation and the root Maven verification use disposable PostgreSQL 18
 Testcontainers; the root command checks formatting, compiles, tests, produces JaCoCo
 XML/HTML evidence, and packages the backend. The
-browser wrapper exercises the production frontend preview, keyboard navigation,
-and automated accessibility checks without retries. The targeted Maven command tests
+browser wrapper exercises the combined JAR against disposable PostgreSQL, keyboard
+navigation, and automated accessibility checks without retries. The targeted Maven command tests
 the isolated IGDB PoC only with local fixtures. No verification requires provider
 credentials or calls IGDB. The continuous-integration guide maps each local command
 to its PR and trusted `main` job.

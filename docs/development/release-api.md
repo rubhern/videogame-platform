@@ -2,7 +2,7 @@
 
 - **Status:** Active walking-skeleton implementation
 - **Last verified:** 2026-08-22
-- **Backend version:** `0.3.3-SNAPSHOT`
+- **Backend version:** `0.4.0-SNAPSHOT`
 - **Issue:** [#25](https://github.com/rubhern/videogame-platform/issues/25)
 - **Use case:** [UC-001](../architecture/application/mvp-use-cases.md#uc-001--browse-recent-or-upcoming-releases)
 - **Contract:** [`GET /api/v1/releases`](../architecture/api/openapi.yaml)
@@ -219,3 +219,6 @@ The PostgreSQL JDBC security remediation then increments the backend patch to
 The subsequent release-query builder refactor increments the backend patch to
 `0.3.3-SNAPSHOT`; it preserves the same SQL semantics and OpenAPI contract while
 removing filter-combination growth from the persistence adapter.
+Issue #26 then increments the backend reactor to `0.4.0-SNAPSHOT` for the compatible
+combined application package; this release endpoint and its database query remain
+unchanged.

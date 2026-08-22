@@ -1,7 +1,7 @@
 # Walking-skeleton continuous integration
 
 - **Status:** Active
-- **Last updated:** 2026-08-13
+- **Last updated:** 2026-08-22
 - **Runtimes:** Eclipse Temurin Java 25, Node.js 24, PostgreSQL 18 through Testcontainers
 - **Workflows:** [`quality-gates.yml`](../../.github/workflows/quality-gates.yml),
   [`security.yml`](../../.github/workflows/security.yml), and
@@ -25,7 +25,7 @@ cancelled, or is skipped, so a later diagnostic step cannot hide an incomplete g
 |---|---|---|
 | Documentation and API contracts | changed-range `git diff --check`, `validate-actions.sh`, `validate-docs.sh`, `validate-openapi.sh`, generated Redoc diff | Reject whitespace errors, invalid workflow syntax or expressions, broken links, malformed sources, contract errors, or stale API documentation |
 | Frontend static, type, component and build checks | `npm ci --ignore-scripts`, OpenAPI type generation diff, `npm run frontend:verify` | Prove the locked dependency graph without executing dependency lifecycle scripts, ESLint, strict `tsc --noEmit`, Vitest and the production Vite build |
-| Frontend Chromium smoke and accessibility check | `validate-browser.sh` with the digest-pinned Playwright image | Exercise the production preview, keyboard navigation and the axe-core accessibility baseline in a real browser |
+| Packaged application Chromium smoke and accessibility check | `validate-browser.sh` with digest-pinned Java and Playwright images | Build the combined JAR and exercise browser → same-origin releases API → disposable PostgreSQL, keyboard navigation and axe-core without mocks |
 | Java backend, architecture and PostgreSQL integration | `./mvnw clean verify` plus retained JaCoCo report | Regenerate Spring interfaces/DTOs from OpenAPI, enforce Spotless, compile/package with Java 25, run unit and startup checks, Spring Modulith verification, ArchUnit rules and PostgreSQL 18 integration tests, and produce XML/HTML coverage evidence |
 | Fresh PostgreSQL 18 migration | `validate-migrations.sh` | Independently create an empty database, apply Flyway from zero and verify schema, seed and runtime-privilege guarantees |
 | IGDB PoC local fixtures | targeted Maven `clean verify` | Preserve the provider decision evidence without credentials or live provider traffic |
@@ -200,11 +200,13 @@ unset SONAR_TOKEN
 Never place the token in a file, command history, pull-request log, or Maven
 configuration. Normal local verification does not require Sonar credentials.
 
-The browser wrapper runs the same official Playwright 1.62.1 Noble image by immutable
-digest in local and CI environments. The image provides Node 24, Chromium and its
-native libraries; the container runs as the current user with external network access
-disabled and consumes the lockfile-installed workspace from the preceding
-`npm ci --ignore-scripts`.
+The browser wrapper runs the same official Playwright 1.62.1 Noble and Eclipse
+Temurin 25 runtime images by immutable digest in local and CI environments. It builds
+the Vite assets and combined Spring Boot JAR, then starts that artifact and a fresh
+PostgreSQL 18 database on an isolated disposable Docker network. Chromium consumes
+the real same-origin response; no request interception or provider credential is
+used, and the internal network prevents IGDB egress. The wrapper removes its exact
+containers and network on exit.
 
 Gitleaks, dependency review, CodeQL and dependency submission are GitHub-context
 controls: their complete range comparison, token permissions and service upload
@@ -229,8 +231,11 @@ composition-root correction increments only the backend patch to `0.3.1-SNAPSHOT
 The subsequent PostgreSQL JDBC security remediation increments the backend patch to
 `0.3.2-SNAPSHOT`; it leaves the OpenAPI, frontend, root tooling package and isolated
 IGDB PoC versions unchanged. The later release-query builder refactor increments only
-the backend patch to `0.3.3-SNAPSHOT`. A later runtime or product change must assess
-those artefacts independently under the delivery lifecycle.
+the backend patch to `0.3.3-SNAPSHOT`. Issue #26 adds compatible frontend product
+behaviour and combined application packaging, so the frontend advances to `0.1.0`
+and the backend reactor to `0.4.0-SNAPSHOT`; the unchanged OpenAPI and tooling
+package versions remain as-is. A later runtime or product change must assess those
+artefacts independently under the delivery lifecycle.
 
 ## Remaining delivery work
 

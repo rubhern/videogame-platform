@@ -1,9 +1,9 @@
 # Learning MVP platform and delivery design
 
 - **Status:** Approved
-- **Version:** 1.5
+- **Version:** 1.6
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-13
+- **Last updated:** 2026-08-22
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP
@@ -181,6 +181,12 @@ The source-to-image flow is:
 reviewed commit -> tests -> frontend/backend build -> OCI image -> scan -> GHCR -> dev
 ```
 
+The source-to-application portion is executable: `scripts/package-application.sh`
+builds Vite output and embeds it in the Spring Boot JAR through an explicit Maven
+profile. `scripts/validate-browser.sh` proves those exact assets against the real API
+and a disposable PostgreSQL 18 database. OCI image assembly, scanning, publication,
+and multi-architecture evidence remain deferred to the image-owning work.
+
 The image MUST:
 
 - contain the compiled frontend, BFF/API, modular monolith, and version metadata;
@@ -345,7 +351,8 @@ exporters, not domain or API contracts.
 2. **Local skeleton — in progress:** the application foundations, local PostgreSQL
    and Keycloak topology, SQL-first Flyway migrations, deterministic seed,
    PostgreSQL 18 persistence tests, observability baseline, and current CI/security
-   gates are executable. The first public local read is also complete. Add identity integration, combined packaging, and
+   gates are executable. The first public local read and combined application JAR are
+   also complete. Add identity integration and
    `linux/amd64`/`linux/arm64` application compatibility.
 3. **First public read — complete:** `GET /api/v1/releases` reads PostgreSQL and proves
    `CATALOGUE_NOT_READY` without live request-path IGDB calls.
@@ -378,6 +385,7 @@ exporters, not domain or API contracts.
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.6 | 2026-08-22 | Recorded reproducible combined frontend/backend JAR packaging and the real browser-to-PostgreSQL smoke while leaving OCI image work open. | Ruben Hernandez |
 | 1.5 | 2026-08-13 | Recorded the executable PostgreSQL-backed first public release read, local-snapshot failure behaviour, and bounded endpoint telemetry without closing remote acceptance. | Ruben Hernandez |
 | 1.4 | 2026-08-13 | Recorded the executable walking-skeleton PR/`main` quality, coverage, SonarQube Cloud, dependency-submission, and security gates while keeping image publication and deployment work separate. | Ruben Hernandez |
 | 1.3 | 2026-08-09 | Recorded the executable module-owned catalogue schema, immutable Flyway migration, separated development seed, and PostgreSQL 18 Testcontainers evidence while keeping remote migration and recovery work open. | Ruben Hernandez |

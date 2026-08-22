@@ -168,8 +168,20 @@ normal local start.
 The full verification already creates the executable artifact. Run it directly with:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.3.3-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.4.0-SNAPSHOT.jar
 ```
+
+That default artifact is backend-only. Build the combined browser application with:
+
+```bash
+bash scripts/package-application.sh
+```
+
+The command creates the Vite production output and invokes Maven's explicit
+`with-frontend` profile. The resulting JAR serves only the approved browser entry
+routes and leaves `/api`, `/auth`, and `/actuator` under Spring/server ownership.
+`bash scripts/validate-browser.sh` starts this exact artifact with a disposable
+PostgreSQL 18 database and proves the complete same-origin release read.
 
 This command uses the same Java 25 runtime constraint as the Maven build. Container
 packaging and multi-architecture evidence are not part of this backend-only slice.

@@ -14,11 +14,13 @@ first approved public product read.
 - **Build:** Maven Wrapper from the repository root
 - **HTTP contract generation:** OpenAPI Generator Maven Plugin 7.24.0
 - **Persistence:** PostgreSQL 18, SQL-first Flyway, JPA schema generation disabled
-- **Current HTTP surface:** `GET /api/v1/releases` plus Actuator health, info, and metrics
+- **Current HTTP surface:** `GET /api/v1/releases`, packaged browser routes, and Actuator health, info, and metrics
 
 The application implements UC-001 through a framework-independent use case and a
-local JDBC catalogue repository. It has no JPA entity, authentication, request-path
-external provider call, or frontend integration. The minimum module-owned catalogue
+local JDBC catalogue repository. It has no JPA entity, authentication, or request-path
+external provider call. The optional combined package serves the generated frontend
+for `/` and `/games/{slug}` while preserving server ownership of `/api`, `/auth`, and
+`/actuator`. The minimum module-owned catalogue
 schema, deterministic opt-in development seed, and PostgreSQL 18 evidence support
 the public read. Safe liveness/readiness groups, build/source metadata, correlation,
 structured logs, bounded metrics, W3C trace context, and disabled-by-default OTLP
@@ -145,8 +147,21 @@ The default address is `http://localhost:8080`. Stop the process gracefully with
 After a successful package, run the executable artifact directly:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.3.3-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.4.0-SNAPSHOT.jar
 ```
+
+The normal Maven lifecycle remains backend-only. Build the reproducible combined JAR
+from a clean checkout with:
+
+```bash
+bash scripts/package-application.sh
+```
+
+That command installs the locked frontend dependencies, regenerates its OpenAPI
+types, builds `frontend/dist`, and activates the Maven `with-frontend` profile. The
+profile fails when the production entry point is missing and copies only generated
+Vite output into `BOOT-INF/classes/static`; it never writes compiled assets into
+`src/main/resources`.
 
 To change the HTTP port for a local run, use a standard Spring Boot override:
 
