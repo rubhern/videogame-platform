@@ -88,8 +88,7 @@ class OidcIdTokenValidationTest {
 
     @Test
     void frameworkDecoderFactoryAppliesTheExternallyConfiguredIssuerValidator() {
-        var factory =
-                new IdentitySecurityConfiguration().oidcIdTokenDecoderFactory(ISSUER);
+        var factory = new IdentitySecurityConfiguration().oidcIdTokenDecoderFactory(ISSUER);
 
         assertThat(factory.createDecoder(clientRegistration())).isNotNull();
     }
