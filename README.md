@@ -175,6 +175,13 @@ runtime configuration, and the trusted `main` publication boundary.
 
 ## Validation
 
+Use the risk-based, incremental policy in the
+[delivery lifecycle](docs/development/delivery-lifecycle.md). Run only the smallest
+meaningful local checks for the affected area; trusted GitHub CI for the current
+commit is the authoritative affected-area validation on pull requests, and trusted
+`main` CI is the complete repository integration validation. The commands below are
+the available full-parity catalogue, not a mandatory sequence for every change:
+
 ```bash
 bash scripts/validate-prerequisites.sh
 bash scripts/validate-actions.sh
@@ -205,7 +212,8 @@ using explicitly registered emulation for ARM64 when the runner is AMD64, then
 produces Trivy and CycloneDX evidence. The targeted Maven command tests the isolated
 IGDB PoC only with local fixtures. No
 verification requires provider credentials or calls IGDB. The continuous-integration
-guide maps each local command to its PR and trusted `main` job.
+guide maps each local command to its PR and trusted `main` job and documents when a
+complete local parity run is justified.
 
 The backend dependency topology has its own lifecycle and verification commands:
 

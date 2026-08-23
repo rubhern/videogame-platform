@@ -107,7 +107,11 @@ the controller to expose placeholder methods.
 6. Update the tracked Postman collection, requests, and assertions in the same change.
 7. Regenerate the frontend types and committed readable OpenAPI reference.
 8. Add behavioural, contract, and architecture tests.
-9. Run `./mvnw clean verify` and the repository-wide validation sequence.
+9. Apply the delivery lifecycle's risk-based validation policy to the affected
+   OpenAPI consumers. Run contract generation/validation and the relevant backend or
+   frontend checks locally; rely on the applicable pull-request gates and the full
+   trusted-`main` sequence unless a concrete cross-boundary risk justifies broader
+   local validation.
 
 If generated code does not compile, stop and resolve the contract or the smallest
 documented generator compatibility option. Never patch `target/generated-sources`,

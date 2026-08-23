@@ -423,7 +423,9 @@ For each future change:
    changes.
 8. Preserve the telemetry allowlist and route-template cardinality rules in the
    observability guide.
-9. Run `./mvnw clean verify` and the repository documentation validations.
+9. Apply the delivery lifecycle's risk-based validation policy: run the relevant
+   backend/module and documentation checks locally, then use trusted CI for complete
+   repository evidence; expand local scope only for a concrete cross-boundary risk.
 
 The local PostgreSQL/Keycloak topology, application persistence, and Keycloak-backed
 BFF session compatibility are implemented and documented separately. Remaining

@@ -15,6 +15,39 @@ concurrency:
 permissions: {}
 
 jobs:
+  detect-changes:
+    name: Detect affected security areas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+      provider_fixtures: ${{ steps.changes.outputs.provider_fixtures }}
+      dependencies: ${{ steps.changes.outputs.dependencies }}
+      npm_dependencies: ${{ steps.changes.outputs.npm_dependencies }}
+      codeql_java: ${{ steps.changes.outputs.codeql_java }}
+      codeql_javascript: ${{ steps.changes.outputs.codeql_javascript }}
+    steps:
+      - name: Check out the analyzed revision with complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify changed paths
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          FULL_VALIDATION: ${{ github.event_name == 'push' }}
+        run: |
+          arguments=(--base "$BASE_SHA" --head "$HEAD_SHA")
+          if [[ "$FULL_VALIDATION" == "true" ]]; then
+            arguments+=(--full)
+          fi
+          bash scripts/detect-ci-changes.sh "${arguments[@]}" >>"$GITHUB_OUTPUT"
+
   secrets:
     name: Secret scan
     runs-on: ubuntu-24.04
@@ -38,7 +71,33 @@ jobs:
           GITLEAKS_VERSION: "8.30.1"
 
   dependencies:
-    name: Dependency audit and review
+    name: Dependency review
+    if: ${{ needs.detect-changes.outputs.dependencies == 'true' }}
+    needs: detect-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Reject newly introduced high-severity vulnerabilities
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          base-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          head-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fail-on-severity: high
+          license-check: false
+          retry-on-snapshot-warnings: false
+          warn-only: false
+
+  npm-audit:
+    name: npm dependency audit
+    if: ${{ needs.detect-changes.outputs.npm_dependencies == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -62,32 +121,16 @@ jobs:
       - name: Reject known high-severity npm vulnerabilities
         run: npm audit --audit-level=high
 
-      - name: Reject newly introduced high-severity vulnerabilities
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
-        with:
-          base-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-          head-ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          fail-on-severity: high
-          license-check: false
-          retry-on-snapshot-warnings: false
-          warn-only: false
-
-  codeql:
-    name: CodeQL (${{ matrix.language }})
+  codeql-java:
+    name: CodeQL (java-kotlin)
+    if: ${{ needs.detect-changes.outputs.codeql_java == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       actions: read
       contents: read
       security-events: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: java-kotlin
-            build-mode: manual
-          - language: javascript-typescript
-            build-mode: none
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -95,7 +138,6 @@ jobs:
           persist-credentials: false
 
       - name: Set up Java 25
-        if: ${{ matrix.language == 'java-kotlin' }}
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
@@ -104,43 +146,97 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+            tools/igdb-poc/pom.xml
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: java-kotlin
+          build-mode: manual
           queries: security-extended
 
-      - name: Build Java for CodeQL
-        if: ${{ matrix.language == 'java-kotlin' }}
-        run: ./mvnw -DskipTests -Dsource.revision="${GITHUB_SHA}" clean package
+      - name: Build affected Java sources for CodeQL
+        env:
+          BACKEND_APPLICABLE: ${{ needs.detect-changes.outputs.backend }}
+          PROVIDER_APPLICABLE: ${{ needs.detect-changes.outputs.provider_fixtures }}
+        run: |
+          if [[ "$BACKEND_APPLICABLE" == "true" ]]; then
+            ./mvnw -DskipTests -Dsource.revision="${GITHUB_SHA}" clean package
+          fi
+          if [[ "$PROVIDER_APPLICABLE" == "true" ]]; then
+            ./mvnw -f tools/igdb-poc/pom.xml -DskipTests clean package
+          fi
 
       - name: Analyze source
         uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
-          category: /language:${{ matrix.language }}
+          category: /language:java-kotlin
+
+  codeql-javascript:
+    name: CodeQL (javascript-typescript)
+    if: ${{ needs.detect-changes.outputs.codeql_javascript == 'true' }}
+    needs: detect-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+
+      - name: Analyze source
+        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
+        with:
+          category: /language:javascript-typescript
 
   required-security-gate:
     name: Required security gate
     if: ${{ always() }}
     needs:
+      - detect-changes
       - secrets
       - dependencies
-      - codeql
+      - npm-audit
+      - codeql-java
+      - codeql-javascript
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
-      - name: Reject any incomplete security check
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify applicable security checks
         env:
+          DETECT_CHANGES: ${{ needs.detect-changes.result }}
           SECRETS: ${{ needs.secrets.result }}
+          DEPENDENCIES_EXPECTED: ${{ needs.detect-changes.outputs.dependencies }}
           DEPENDENCIES: ${{ needs.dependencies.result }}
-          CODEQL: ${{ needs.codeql.result }}
+          NPM_AUDIT_EXPECTED: ${{ needs.detect-changes.outputs.npm_dependencies }}
+          NPM_AUDIT: ${{ needs.npm-audit.result }}
+          CODEQL_JAVA_EXPECTED: ${{ needs.detect-changes.outputs.codeql_java }}
+          CODEQL_JAVA: ${{ needs.codeql-java.result }}
+          CODEQL_JAVASCRIPT_EXPECTED: ${{ needs.detect-changes.outputs.codeql_javascript }}
+          CODEQL_JAVASCRIPT: ${{ needs.codeql-javascript.result }}
         run: |
-          for result in "$SECRETS" "$DEPENDENCIES" "$CODEQL"
-          do
-            if [[ "$result" != "success" ]]; then
-              printf 'Required job finished with result: %s\n' "$result" >&2
-              exit 1
-            fi
-          done
+          bash scripts/verify-ci-results.sh \
+            detect-changes true "$DETECT_CHANGES" \
+            secrets true "$SECRETS" \
+            dependencies "$DEPENDENCIES_EXPECTED" "$DEPENDENCIES" \
+            npm-audit "$NPM_AUDIT_EXPECTED" "$NPM_AUDIT" \
+            codeql-java "$CODEQL_JAVA_EXPECTED" "$CODEQL_JAVA" \
+            codeql-javascript "$CODEQL_JAVASCRIPT_EXPECTED" "$CODEQL_JAVASCRIPT"

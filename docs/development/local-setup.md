@@ -127,13 +127,15 @@ shutdown, and the explicitly scoped disposable-data reset procedure.
 Use the [local OIDC BFF session guide](identity-bff.md) for the OIDC-enabled combined
 application and real browser compatibility command.
 
-## 6. Reproduce continuous integration locally
+## 6. Opt-in complete CI parity locally
 
-After the prerequisite gate passes, use the exact command sequence in the
-[walking-skeleton continuous-integration guide](continuous-integration.md). It covers
-documentation, OpenAPI generation, strict frontend checks, the no-retry Chromium
-release smoke, the no-retry real Keycloak identity proof, PostgreSQL 18 migration
-from zero, the complete backend build and the isolated IGDB fixture suite.
+Normal development follows the risk-based, incremental policy in the
+[delivery lifecycle](delivery-lifecycle.md): run the smallest meaningful local checks
+for the affected boundary and rely on trusted GitHub CI for complete repository
+integration validation on `main`. When a cross-cutting/high-risk change, insufficient
+CI evidence, critical release, local-only failure, or explicit owner request justifies full local parity,
+use the exact opt-in sequence in the
+[walking-skeleton continuous-integration guide](continuous-integration.md).
 
 ## Troubleshooting
 

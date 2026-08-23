@@ -256,41 +256,38 @@ starts, enters review or validation, returns for changes, or is completed.
 
 ## Validation
 
-### Iteration checks
+Validation must be risk-based and incremental. Local validation provides fast,
+change-specific feedback; pull-request CI is the authoritative affected-area gate,
+and trusted `main` CI is the complete repository integration gate.
 
-During implementation, run the smallest relevant tests and static checks first to
-obtain fast feedback. Examples include a focused Maven test class, module compile,
-OpenAPI validation, migration validation, or documentation validation. Expand the
-scope when a focused check passes or when the affected boundary requires broader
+Before running checks, identify the affected areas and select the smallest meaningful
+local validation set that could detect a regression related to the change. Do not run
+unaffected frontend, backend, OpenAPI, migration, identity, provider, browser, or
+container suites merely because the commands exist. In particular, dependency updates
+normally validate the affected component locally while CI supplies complete integration
 evidence.
 
-Focused checks do not replace completion gates.
+Pull-request CI must execute the smallest complete set of quality and security gates
+justified by the changed areas. Expensive unrelated jobs must not run solely because
+they exist. Every trusted push to `main` must retain the full integration suite as the
+safety net.
 
-### Completion / PR-ready checks
+Do not routinely reproduce the complete CI pipeline locally when equivalent trusted
+GitHub checks will run against the same commit. Green remote checks for that commit are
+valid evidence. If they predate the current `main`, update or rebase first and use the
+new CI run rather than compensating with an exhaustive local run.
 
-Before considering a material change complete or PR-ready, run every applicable
-repository gate. The full current suite is:
+Broaden local validation only when a concrete risk crosses boundaries, the change
+affects shared build/runtime/CI/validation infrastructure, a migration is high risk, a
+failure needs local reproduction, CI is unavailable or insufficient, a critical
+release is being prepared, or the user explicitly requests it. Explain briefly what
+additional failure the broader check can detect. If a local check fails, diagnose it
+and narrow the reproducer before expanding validation.
 
-```bash
-bash scripts/validate-prerequisites.sh
-bash scripts/validate-actions.sh
-git diff --check
-bash scripts/validate-docs.sh
-npm ci
-bash scripts/validate-openapi.sh
-npm run frontend:verify
-bash scripts/validate-browser.sh
-bash scripts/validate-container-image.sh
-bash scripts/validate-migrations.sh
-./mvnw clean verify
-./mvnw -f tools/igdb-poc/pom.xml clean verify
-```
-
-OpenAPI validation and frontend checks require the approved Node.js 24 line. The
-Maven commands run with Java 25. The browser command runs the production-preview
-Playwright smoke without retries. The root Maven build verifies the backend, while
-the targeted Maven command validates the isolated IGDB PoC using local fixtures only.
-Authenticated provider calls remain manual and explicit.
+The authoritative selection policy, examples, complete gate catalogue, and CI evidence
+rules are in `docs/development/delivery-lifecycle.md`. The opt-in local parity sequence
+is documented in `docs/development/continuous-integration.md`; it is a capability, not
+the default completion requirement.
 
 ## Permissions and safety
 
@@ -309,7 +306,7 @@ is personal and currently non-critical. Full access does not remove the need to:
 A change is complete when:
 
 - the requested outcome and applicable acceptance criteria are satisfied;
-- relevant automated checks pass;
+- relevant local checks and required GitHub CI gates pass when applicable;
 - Semantic Versioning impact has been assessed and affected artefact versions and
   references are consistent;
 - sources of truth remain coherent;

@@ -10,29 +10,60 @@
 
 ## Purpose and boundary
 
-The walking-skeleton workflows reproduce the current repository evidence on every
-pull request targeting `main` and every trusted push to `main`. Pull requests build,
-start, inspect, scan, and describe the application image but never publish it.
-Trusted `main` builds publish the exact validated OCI index to GHCR. No workflow
-deploys infrastructure, uses provider credentials, or calls IGDB.
+Pull requests targeting `main` run the smallest complete quality and security set
+selected from their changed areas. Every trusted push to `main` deliberately enables
+the complete integration suite, builds and validates the multi-architecture image,
+and publishes the exact validated OCI index to GHCR. No workflow deploys
+infrastructure, uses provider credentials, or calls IGDB.
 
 The quality and security workflows expose one stable aggregate result each:
-`Required quality gate` and `Required security gate`. Either aggregate fails when any required job fails, is
-cancelled, or is skipped, so a later diagnostic step cannot hide an incomplete gate.
+`Required quality gate` and `Required security gate`. Each always runs. It requires
+every applicable job to finish with `success`, requires every inapplicable job to be
+`skipped`, and fails on failure, cancellation, unexpected execution, or an unexpected
+skip. These are the only two check names that need to be stable for repository rules.
+
+## Change detection and fail-safe behaviour
+
+Both workflows invoke [`detect-ci-changes.sh`](../../scripts/detect-ci-changes.sh)
+with the event's complete base/head range. Pull requests use
+`pull_request.base.sha` and `pull_request.head.sha`; pushes use `event.before` and
+`github.sha`. The script disables rename detection so a rename is deliberately
+classified as both a deletion and an addition, preserving the impact of the old and
+new paths. It also covers ordinary added, modified, and deleted paths.
+
+One centralized mapping emits independent `documentation`, `openapi`, `frontend`,
+`browser`, `backend`, `migrations`, `identity`, `provider_fixtures`, `container`,
+`build`, `ci`, `dependencies`, `npm_dependencies`, `sonar`, and language-specific
+CodeQL outputs. A path
+may enable several categories: OpenAPI enables documentation/contracts plus backend
+and frontend contract consumers. CI/classifier changes and unknown paths enable all
+categories rather than risking a false negative. `push main` passes `--full`, which
+also enables all categories regardless of the changed paths.
+
+[`test-ci-change-detection.sh`](../../scripts/test-ci-change-detection.sh) exercises
+the required path scenarios, combined changes, full `main` selection, unknown-path
+fail-safe behaviour, real Git ranges with additions/modifications/deletions/renames,
+and aggregate-result handling. [`verify-ci-results.sh`](../../scripts/verify-ci-results.sh)
+implements the stable final-gate semantics used by both workflows.
 
 ## Quality workflow
 
-| Job | Repository command or evidence | Purpose |
+| Job | Pull-request applicability | Repository command or evidence |
 |---|---|---|
-| Documentation and API contracts | changed-range `git diff --check`, `validate-actions.sh`, `validate-docs.sh`, `validate-openapi.sh`, generated Redoc diff | Reject whitespace errors, invalid workflow syntax or expressions, broken links, malformed sources, contract errors, or stale API documentation |
-| Frontend static, type, component and build checks | `npm ci --ignore-scripts`, OpenAPI type generation diff, `npm run frontend:verify` | Prove the locked dependency graph without executing dependency lifecycle scripts, ESLint, strict `tsc --noEmit`, Vitest and the production Vite build |
-| Packaged application Chromium smoke and accessibility check | `validate-browser.sh` with digest-pinned Java and Playwright images | Build the combined JAR and exercise browser → same-origin releases API → disposable PostgreSQL, keyboard navigation and axe-core without mocks |
-| Real Keycloak 26.7 OIDC BFF compatibility | `validate-identity.sh` with the same reviewed realm plus digest-pinned Java and Playwright images | Build the combined JAR and exercise browser → BFF → real Keycloak → callback → opaque session → CSRF logout without protocol mocks, retries, or credential-bearing traces |
-| Immutable multi-architecture application image | `validate-container-image.sh` with pinned Buildx, BuildKit, QEMU, Java, Node and Trivy inputs | Build one OCI index, prove AMD64 and emulated ARM64 runtime/health/routing, inspect the non-root filesystem and metadata, fail on high/critical vulnerabilities, and retain CycloneDX SBOMs |
-| Java backend, architecture and PostgreSQL integration | `./mvnw clean verify` plus retained JaCoCo report | Regenerate Spring interfaces/DTOs from OpenAPI, enforce Spotless, compile/package with Java 25, run unit and startup checks, Spring Modulith verification, ArchUnit rules and PostgreSQL 18 integration tests, and produce XML/HTML coverage evidence |
-| Fresh PostgreSQL 18 migration | `validate-migrations.sh` | Independently create an empty database, apply Flyway from zero and verify schema, seed and runtime-privilege guarantees |
-| IGDB PoC local fixtures | targeted Maven `clean verify` | Preserve the provider decision evidence without credentials or live provider traffic |
-| SonarQube Cloud quality gate | Maven verify, JaCoCo XML import and SonarScanner for Maven | Analyze Java 25 and repository non-JVM sources, then wait for the configured Sonar way result when analysis is applicable |
+| Detect affected CI areas | Always | Changed-range whitespace check, central classifier, and classifier tests when CI logic changes |
+| Documentation and API contracts | Documentation, OpenAPI, build metadata, or CI | `validate-docs.sh`; actionlint only for CI changes; npm/OpenAPI/Redoc only for OpenAPI consumers |
+| Frontend static, type, component and build checks | Frontend, OpenAPI, or relevant packaging/build input | `npm ci --ignore-scripts`, generated-type diff, and `npm run frontend:verify` |
+| Packaged application Chromium smoke and accessibility check | UI/browser behaviour, identity, or shared packaging/runtime inputs | `validate-browser.sh` with digest-pinned Java and Playwright images |
+| Real Keycloak 26.7 OIDC BFF compatibility | Identity/OIDC/BFF/session/CSRF or shared runtime inputs | `validate-identity.sh` with real Keycloak and PostgreSQL |
+| Multi-architecture application image | Dockerfile, image/packaging scripts, or shared container inputs | `validate-container-image.sh` with Buildx, QEMU, runtime checks, Trivy, and CycloneDX |
+| Java backend, architecture and PostgreSQL integration | Backend, OpenAPI backend consumer, persistence, identity, container, or shared Maven/build input | `./mvnw clean verify` plus retained JaCoCo report |
+| Fresh PostgreSQL 18 migration | Flyway, schema, PostgreSQL initialization, persistence, or shared Maven input | `validate-migrations.sh` |
+| IGDB PoC local fixtures | `tools/igdb-poc/**` or fail-safe broad selection | Isolated Maven `clean verify` with local fixtures |
+| SonarQube Cloud quality gate | Backend/source/build/CI changes when trust and plan permit | Maven verify, JaCoCo import, and the pinned scanner |
+| Required quality gate | Always | Strict comparison of classifier applicability with every job result |
+
+Every row is enabled on trusted `main`, independently of the pull-request
+applicability column.
 
 The backend build receives `GITHUB_SHA` as its safe source revision. Hosted runners
 already provide Docker, so Testcontainers creates a new `postgres:18.4-bookworm`
@@ -85,11 +116,11 @@ Plan and trust behaviour is explicit:
   variable `SONAR_PR_ANALYSIS_ENABLED=true` enables the scan for same-repository,
   non-Dependabot PRs and Sonar applies the PR/new-code conditions;
 - the Free plan does not provide pre-merge PR analysis. Set
-  `SONAR_PR_ANALYSIS_ENABLED=false`; PRs still run all local quality and security
-  gates, while the next trusted `main` run performs the Sonar analysis;
+  `SONAR_PR_ANALYSIS_ENABLED=false`; PRs still run all applicable quality and security
+  gates, while the next trusted `main` run performs the complete Sonar analysis;
 - fork and Dependabot PRs never receive `SONAR_TOKEN`, so Sonar is explicitly not
-  applicable there. Their local gates remain required and `main` is analyzed after
-  merge.
+  applicable there. Their other applicable gates remain required and `main` is
+  analyzed after merge.
 
 The repository is public and is configured with the variable set to `true` for its
 intended OSS-plan behaviour. If SonarQube Cloud reports that the organization uses
@@ -98,13 +129,18 @@ Free rather than OSS/Team, change only that variable to `false`; do not weaken t
 
 ## Security workflow
 
-| Control | Behaviour | Failure policy |
+| Control | Pull-request applicability | Failure policy |
 |---|---|---|
-| Gitleaks 8.30.1 | Scans complete committed history with the pinned Gitleaks action; PR comments and finding artifacts are disabled to keep permissions read-only and findings out of artifacts | Any detected secret fails the job; rotate a real exposed credential before repository cleanup |
-| Dependency audit and review | Audits the complete npm lock graph, then compares the PR base/head or the previous/current `main` revisions across supported ecosystems | Any current or newly introduced `high`/`critical` advisory fails; snapshot warnings are not retried and `warn-only` is disabled |
-| CodeQL | Runs extended security queries for Java/Kotlin and JavaScript/TypeScript | Any action or upload failure fails; findings are reported through GitHub code scanning |
+| Gitleaks 8.30.1 | Always, including documentation-only changes; scans complete committed history | Any detected secret fails the job; rotate a real exposed credential before repository cleanup |
+| Dependency review | Any dependency manifest/lock, Dependabot/workflow dependency configuration, or fail-safe broad selection | Any newly introduced `high`/`critical` advisory fails; snapshot warnings are not retried and `warn-only` is disabled |
+| npm dependency audit | npm manifests/lock, npm tooling configuration, or fail-safe broad selection | Any current high-severity npm advisory fails after a locked install without lifecycle scripts |
+| CodeQL Java/Kotlin | Affected backend/provider Java or cross-cutting build/CI changes | Any action, build, or upload failure fails; findings are reported through GitHub code scanning |
+| CodeQL JavaScript/TypeScript | Affected frontend/OpenAPI JavaScript tooling or cross-cutting build/CI changes | Any action or upload failure fails; findings are reported through GitHub code scanning |
 | Dependabot | Checks npm, the backend Maven reactor, the isolated IGDB PoC and pinned GitHub Actions weekly | Updates create reviewable pull requests and must pass the same gates; they are never merged automatically |
 | Maven dependency submission | Resolves the backend reactor and isolated IGDB PoC graph after relevant `main` changes and submits both under distinct correlators | A failed submission is visible as a failed workflow; no PR or untrusted code receives write permission |
+
+All security controls, including both CodeQL languages, dependency review, and npm
+audit, run on trusted `main`. `Secret scan` remains unconditional on both event types.
 
 `dependency-submission.yml` is the repository-owned automatic Maven submission. It
 uses the committed wrapper, Java 25 and the maintained GitHub submission action so
@@ -122,7 +158,8 @@ introduces a new high-severity vulnerability is blocked.
 ## Permissions and untrusted code
 
 - Quality defaults to no token permissions. Only jobs that check out source receive
-  `contents: read`; the aggregate gate receives none. The trusted `main` publication
+  `contents: read`, including the aggregate gate's read-only verifier checkout. The
+  trusted `main` publication
   job alone adds `packages: write`, uses `GITHUB_TOKEN`, and does not run for pull
   requests.
 - Security defaults to no token permissions. Gitleaks and dependency review receive
@@ -170,10 +207,18 @@ retries. A person may manually rerun a workflow to diagnose runner infrastructur
 but the original failed check remains evidence and flaky behaviour must be fixed or
 handled through the lifecycle's explicit temporary-waiver process.
 
-## Equivalent local verification
+## Opt-in complete local parity
 
-First run the workstation prerequisite gate. Then use these repository commands,
-which are the same commands executed by CI:
+The delivery lifecycle requires risk-based, incremental local validation and treats
+pull-request CI as the authoritative affected-area result and trusted `main` CI as
+the complete integration result. The following parity sequence is therefore not the
+routine local completion check. Use it only when a cross-cutting or high-risk change,
+insufficient CI evidence, critical release, local-only failure, or explicit owner
+request justifies full local coverage. Otherwise run only the commands related to the
+affected boundary and let CI execute its event-appropriate set.
+
+When full local parity is justified, first run the workstation prerequisite gate,
+then use the repository commands also executed by CI:
 
 ```bash
 bash scripts/validate-prerequisites.sh
@@ -273,6 +318,11 @@ the versioned image payload. The image scan also advances the Spring-managed Log
 and Jackson lines to compatible security patches without changing their approved
 minor baselines. Frontend source and behaviour, OpenAPI, root tooling, and the
 isolated IGDB PoC are unchanged, so their versions remain unchanged.
+
+Selective pull-request routing changes delivery automation and evidence placement,
+not the supported behaviour of the backend JAR, frontend assets, OpenAPI contract, or
+isolated IGDB PoC. This change therefore does not increment those executable artefact
+versions or the private root tooling package.
 
 ## Remaining delivery work
 
