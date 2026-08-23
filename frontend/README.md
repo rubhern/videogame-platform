@@ -36,7 +36,7 @@ remain authoritative.
 | Contract generation | openapi-typescript | 7.13.0 |
 | Typed HTTP transport | openapi-fetch | 0.17.0 |
 | Unit and component tests | Vitest and React Testing Library | 4.1.10 / 16.3.2 |
-| Browser tests | Playwright with axe-core | 1.62.1 / 4.12.1 |
+| Browser tests | Playwright with axe-core | 1.62.1 / 4.13.0 |
 | Node.js tooling types | @types/node | 24.13.3 |
 | Static analysis | ESLint and typescript-eslint | 10.8.1 / 8.66.0 |
 
