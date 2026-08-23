@@ -2,8 +2,8 @@
 
 The backend is the executable walking skeleton for the VideoGame Platform learning
 MVP. It proves the approved Java and Spring baseline, enforceable module boundaries,
-the initial PostgreSQL/Flyway persistence contract, and baseline observability before
-product behaviour is implemented.
+the initial PostgreSQL/Flyway persistence contract, baseline observability, and the
+first approved public product read.
 
 ## Current status and scope
 
@@ -12,16 +12,22 @@ product behaviour is implemented.
 - **Framework:** Spring Boot 4.1.0 with Spring MVC
 - **Architecture:** Modular monolith with Spring Modulith 2.1.0
 - **Build:** Maven Wrapper from the repository root
+- **HTTP contract generation:** OpenAPI Generator Maven Plugin 7.24.0
 - **Persistence:** PostgreSQL 18, SQL-first Flyway, JPA schema generation disabled
-- **Current HTTP surface:** Spring Boot Actuator health, info, and metrics only
+- **Current HTTP surface:** `GET /api/v1/releases`, `GET`/`POST /api/v1/session`,
+  `/auth/login/keycloak`, packaged browser routes, and Actuator health, info, and metrics
 
-The application currently has no product endpoint, catalogue repository, JPA entity,
-authentication, external provider call, or frontend integration. It does have the
-minimum module-owned catalogue schema, deterministic opt-in development seed, and
-PostgreSQL 18 migration/persistence evidence required before the first public read.
-It also has safe liveness/readiness groups, build/source metadata, correlation,
+The application implements UC-001 through a framework-independent use case and a
+local JDBC catalogue repository. It has no JPA entity or request-path external
+provider call. Its opt-in OIDC profile proves a real Keycloak Authorization Code
+flow and opaque server-side BFF session without exposing provider tokens. The
+optional combined package serves the generated frontend
+for `/` and `/games/{slug}` while preserving server ownership of `/api`, `/auth`, and
+`/actuator`. The minimum module-owned catalogue
+schema, deterministic opt-in development seed, and PostgreSQL 18 evidence support
+the public read. Safe liveness/readiness groups, build/source metadata, correlation,
 structured logs, bounded metrics, W3C trace context, and disabled-by-default OTLP
-export.
+export remain part of the same executable boundary.
 
 The repository-level [backend development guide](../docs/development/backend.md)
 tracks the broader walking-skeleton boundary and deferred evidence. The approved
@@ -37,6 +43,7 @@ remain authoritative when this README and an approved source conflict.
 | Language | Java | 25; preview features disabled |
 | Application framework | Spring Boot | 4.1.0 |
 | HTTP runtime | Spring MVC | Managed by Spring Boot |
+| HTTP contract generation | OpenAPI Generator Maven Plugin | 7.24.0, exact version inherited from the reactor |
 | Module model | Spring Modulith | 2.1.0 |
 | Operational endpoints | Spring Boot Actuator | `health`, `info`, and `metrics` exposed |
 | Metrics and traces | Micrometer and OpenTelemetry | Spring Boot-managed Micrometer 1.17/Tracing 1.7 and OpenTelemetry 1.62 |
@@ -87,6 +94,13 @@ Run the complete backend verification and create the executable jar:
 ./mvnw clean verify
 ```
 
+During `generate-sources`, Maven reads
+`docs/architecture/api/openapi.yaml` and writes disposable Spring interfaces and
+transport models below `backend/target/generated-sources/openapi`. Manual delivery
+controllers implement those interfaces; generated Java is never edited or committed.
+The complete contract-first workflow is documented in the
+[backend generation standard](../docs/development/backend-openapi-generation.md).
+
 The same command enforces the committed Java format and creates
 `backend/target/site/jacoco/jacoco.xml` plus the browsable
 `backend/target/site/jacoco/index.html`. It does not enforce an arbitrary global
@@ -119,7 +133,7 @@ the first application startup:
 ```bash
 bash scripts/local-dependencies.sh up
 set -a
-source .env
+source backend/.env
 set +a
 APPLICATION_FLYWAY_ENABLED=true ./mvnw -pl backend spring-boot:run
 ```
@@ -136,8 +150,33 @@ The default address is `http://localhost:8080`. Stop the process gracefully with
 After a successful package, run the executable artifact directly:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.2.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
 ```
+
+The normal Maven lifecycle remains backend-only. Build the reproducible combined JAR
+from a clean checkout with:
+
+```bash
+bash scripts/package-application.sh
+```
+
+That command installs the locked frontend dependencies, regenerates its OpenAPI
+types, builds `frontend/dist`, and activates the Maven `with-frontend` profile. The
+profile fails when the production entry point is missing and copies only generated
+Vite output into `BOOT-INF/classes/static`; it never writes compiled assets into
+`src/main/resources`.
+
+Build, start, inspect, and scan the same application as a production
+`linux/amd64`/`linux/arm64` OCI image with:
+
+```bash
+bash scripts/validate-container-image.sh
+```
+
+The [container image guide](../docs/development/container-image.md) owns the image
+boundary, generated evidence, external configuration, and trusted publication rules.
+Its dedicated Maven profile removes the opt-in development seed while retaining all
+production migrations; ordinary local combined-JAR packaging is unchanged.
 
 To change the HTTP port for a local run, use a standard Spring Boot override:
 
@@ -156,9 +195,10 @@ backend/src/main/java/com/videogameplatform
 ├── catalogue                # Provider-independent catalogue and releases
 │   ├── domain               # Framework-independent domain types and rules
 │   ├── application          # Use cases and inbound/outbound ports
-│   └── adapter
-│       ├── persistence      # Database implementation and persistence models
-│       └── provider/igdb    # IGDB adapter and provider transport models
+│   ├── adapter
+│   │   ├── persistence      # Database implementation and persistence models
+│   │   └── provider/igdb    # IGDB adapter and provider transport models
+│   └── configuration        # Module-local Spring composition root
 ├── ratings                  # Personal and aggregate ratings boundary
 │   ├── domain
 │   ├── application
@@ -180,15 +220,18 @@ flowchart LR
     HTTP["API delivery"] --> APP["Application use cases and ports"]
     OUT["Persistence, identity and provider adapters"] --> APP
     APP --> DOMAIN["Domain"]
-    PLATFORM["Platform configuration"] -. "bootstraps" .-> HTTP
-    PLATFORM -. "bootstraps" .-> OUT
+    ROOT["Catalogue composition root"] -. "wires" .-> APP
+    ROOT -. "wires adapter beans" .-> OUT
+    PLATFORM["Platform services and runtime configuration"] -. "Clock" .-> ROOT
 ```
 
 The current automated rules enforce that:
 
-- domain code does not depend on Spring, Jakarta, application, adapter, API, or
-  platform packages;
-- application code does not depend on Spring, Jakarta, adapters, API, or platform;
+- domain code does not depend on Spring, Jakarta, JDBC, application, adapter, API,
+  or platform packages;
+- application code does not depend on Spring, Jakarta, JDBC, adapters, API, or
+  platform;
+- adapter and HTTP delivery code does not depend on `application.internal`;
 - domain types do not use API, persistence, or provider transport models;
 - API models and outbound adapter models do not depend on each other;
 - the Spring Modulith model contains exactly `catalogue`, `ratings`, `identity`,
@@ -197,6 +240,12 @@ The current automated rules enforce that:
 Keep product rules in domain code, orchestration and ports in application code, and
 framework or integration details in adapters. Do not reuse transport or persistence
 records as domain models.
+
+`catalogue.configuration` is the explicit composition root for the closed Catalogue
+Spring Modulith module. It alone wires the internal use-case implementation and
+policies to the outbound port bean, validated release properties, and the platform
+`Clock`. `CataloguePersistenceConfiguration` only constructs the JDBC
+`ReleaseBrowseReadPort` implementation.
 
 ## Runtime configuration
 
@@ -243,7 +292,7 @@ The only application-specific shared bean is a `java.time.Clock` configured for
 calling the system clock directly, so tests can replace it deterministically.
 
 `APPLICATION_DB_PASSWORD` and `APPLICATION_MIGRATION_DB_PASSWORD` are secrets. The
-local dependency wrapper generates them in ignored `.env`; maintained environments
+local dependency wrapper copies them into ignored `backend/.env`; maintained environments
 must supply them through a protected secret source. Never add credentials to
 `application.yaml`, this README, Postman files, Git history, logs, or URLs.
 
@@ -252,7 +301,17 @@ structured-log profile, source-revision build option, OTLP endpoints, cardinalit
 policy, and security rules are maintained in the
 [backend observability guide](../docs/development/observability.md).
 
-## Actuator API
+## Product and Actuator APIs
+
+The first public product read, `GET /api/v1/releases`, implements UC-001 against the
+current local PostgreSQL publication. It supports recent/upcoming views, optional
+product platform and region filters, one-based pagination, deterministic ordering,
+all five release-date precision variants, stale-but-usable data, safe cover
+resolution, representation-derived `ETag` validation, stable Problem Details, and
+bounded metrics. PostgreSQL filters, counts, totally orders, and pages; Java receives
+only the requested page. It never calls IGDB in the request path. The complete
+behaviour, query-plan evidence, and configuration are in the
+[release API guide](../docs/development/release-api.md).
 
 Actuator is served on the application port under `/actuator`. All currently exposed
 operations are read-only and require no request body.
@@ -275,13 +334,13 @@ curl --fail --silent http://localhost:8080/actuator/health
 
 Liveness includes process state only. Readiness includes application state, the
 database, and the migrated catalogue schema; an empty catalogue remains ready because
-the later API can safely report `CATALOGUE_NOT_READY`. IGDB and telemetry never control
+the release API safely reports `CATALOGUE_NOT_READY`. IGDB and telemetry never control
 readiness. Health details stay hidden by default, and endpoints such as
 `env`, `configprops`, `beans`, `heapdump`, and `loggers` are deliberately not
 exposed.
 
-Import the prepared collection and environment from [`postman/`](postman/) to call
-every exposed endpoint and run status/schema checks in Postman.
+Import the prepared collections and environment from [`postman/`](postman/) to call
+the release and operational endpoints and run status/schema checks in Postman.
 
 ## Test strategy
 
@@ -291,8 +350,13 @@ every exposed endpoint and run status/schema checks in Postman.
 | `CorrelationIdFilterTest` | Focused servlet-filter unit test | Valid/invalid IDs, response header, MDC lifecycle, safe route fields, and exceptional completion |
 | `CatalogueStoreHealthIndicatorTest` | Database failure integration test | Missing schema produces detail-free `DOWN` |
 | `CataloguePersistenceIntegrationTest` | Flyway and JDBC integration test | Migration from zero, seed determinism, checksums, constraints, and runtime privileges |
+| `JdbcReleaseBrowseReadAdapterIntegrationTest` | PostgreSQL 18 read-adapter integration test | Database filters/count/page, complete ordering, TBA placement, product taxonomies, and safe published cover inputs |
+| `ReleaseBrowseScalabilityIT` | Opt-in PostgreSQL 18 scale evidence | 10k/100k/1M synthetic rows, real query plans, index use, and only one page materialized in Java |
+| `ReleaseDateTest` and `ReleaseCatalogueServiceTest` | Domain/application tests | Five date variants, windows, ordering, filters, freshness, and cover fallback |
+| `ReleaseApiIntegrationTest` | Full HTTP/PostgreSQL 18 integration test | Contract payloads, filters, pages, errors, caching, local-snapshot failure, and bounded telemetry |
+| `CatalogueModuleConfigurationTest` | Focused Spring context test | Typed configuration, policy beans, and registration of the public `BrowseReleasesUseCase` contract |
 | `ModularityTest` | Architecture test | Spring Modulith dependency verification and approved module set |
-| `HexagonalArchitectureTest` | Architecture test | Inward dependencies and separation of boundary models |
+| `HexagonalArchitectureTest` | Architecture test | Inward dependencies, adapter isolation from application internals, separation of boundary models, and confinement of generated OpenAPI types to HTTP delivery |
 
 Run one test class when diagnosing a focused failure:
 
@@ -301,6 +365,10 @@ Run one test class when diagnosing a focused failure:
 ./mvnw -pl backend -Dtest=CorrelationIdFilterTest test
 ./mvnw -pl backend -Dtest=CatalogueStoreHealthIndicatorTest test
 ./mvnw -pl backend -Dtest=CataloguePersistenceIntegrationTest test
+./mvnw -pl backend -Dtest=JdbcReleaseBrowseReadAdapterIntegrationTest test
+./mvnw -pl backend -Dtest=ReleaseDateTest,ReleaseCatalogueServiceTest test
+./mvnw -pl backend -Dtest=ReleaseApiIntegrationTest test
+./mvnw -pl backend -Dtest=CatalogueModuleConfigurationTest test
 ./mvnw -pl backend -Dtest=ModularityTest test
 ./mvnw -pl backend -Dtest=HexagonalArchitectureTest test
 ```
@@ -335,7 +403,7 @@ do not copy real secrets into shared run configurations.
 | An Actuator endpoint returns `404` | Only `health`, `info`, and `metrics` are exposed; verify the path and committed configuration. |
 | Application startup reports a module violation | Inspect the dependency named by Spring Modulith and restore the inward dependency direction. |
 | Testcontainers cannot find Docker | Start Docker Desktop, enable this WSL distribution, and verify `docker info`. |
-| PostgreSQL authentication fails locally | Start the dependency topology and load the generated `.env` into the shell without printing it. |
+| PostgreSQL authentication fails locally | Start the dependency topology and load the generated `backend/.env` into the shell without printing it. |
 | Flyway reports a checksum mismatch | Stop; do not repair automatically. Restore the immutable applied file or add a corrective migration. |
 | Tests work in IntelliJ but not Maven | Align IntelliJ's Project SDK and Maven runner with the Java 25 JDK used by the wrapper. |
 
@@ -344,22 +412,25 @@ do not copy real secrets into shared run configurations.
 For each future change:
 
 1. Start from an approved use case and the OpenAPI contract.
-2. Put behaviour in the owning module and preserve the package dependency rules.
-3. Keep API, persistence, identity, and provider models at their boundaries.
-4. Add behavioural and architecture evidence proportional to the change.
-5. Document every configuration property, including safe default, secret status,
+2. Regenerate the Spring interface and transport models before implementing the
+   manual delivery adapter; never edit or commit generated Java.
+3. Put behaviour in the owning module and preserve the package dependency rules.
+4. Keep generated API, persistence, identity, and provider models at their boundaries.
+5. Add behavioural and architecture evidence proportional to the change.
+6. Document every configuration property, including safe default, secret status,
    validation, and restart behaviour.
-6. Update OpenAPI, Postman, operational checks, and this README when the HTTP surface
+7. Update OpenAPI, Postman, operational checks, and this README when the HTTP surface
    changes.
-7. Preserve the telemetry allowlist and route-template cardinality rules in the
+8. Preserve the telemetry allowlist and route-template cardinality rules in the
    observability guide.
-8. Run `./mvnw clean verify` and the repository documentation validations.
+9. Run `./mvnw clean verify` and the repository documentation validations.
 
-The local PostgreSQL/Keycloak topology and initial application persistence are
-implemented separately. Catalogue repositories and queries, the Keycloak-backed BFF
-session, product APIs, a deployed telemetry backend, application containers, the
-multi-architecture compatibility gate, and remote deployment remain focused work
-items. The current backend, architecture and PostgreSQL checks are reproduced by the
+The local PostgreSQL/Keycloak topology, application persistence, and Keycloak-backed
+BFF session compatibility are implemented and documented separately. Remaining
+catalogue queries, authenticated product identity mapping, later product APIs, a
+deployed telemetry backend, complete-topology resource budgeting, and remote
+deployment remain focused work items. The current backend, architecture and
+PostgreSQL checks are reproduced by the
 [walking-skeleton CI gate](../docs/development/continuous-integration.md). This
-backend does not claim a product read or remote operational evidence merely because
-its schema can migrate or its telemetry can be exported.
+backend does not claim the wider user journey or remote operational evidence merely
+because its first product read works locally.

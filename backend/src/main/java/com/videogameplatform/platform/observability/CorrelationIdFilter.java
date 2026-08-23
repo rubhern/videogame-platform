@@ -10,7 +10,6 @@ import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -18,7 +17,7 @@ import org.springframework.web.servlet.HandlerMapping;
 
 /** Adds a safe request correlation identifier and emits one allowlisted access log. */
 @Component
-@Order(Ordered.LOWEST_PRECEDENCE)
+@Order(-101)
 final class CorrelationIdFilter extends OncePerRequestFilter {
 
     static final String CORRELATION_ID_HEADER = "X-Correlation-ID";

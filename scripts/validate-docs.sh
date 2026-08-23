@@ -6,6 +6,9 @@ cd "$ROOT_DIR"
 
 required_files=(
   ".env.example"
+  ".dockerignore"
+  "Dockerfile"
+  "backend/.env.example"
   "compose.yaml"
   "docker/keycloak/import/videogame-platform-realm.json"
   "docker/postgres/init/001-create-local-databases.sh"
@@ -15,6 +18,7 @@ required_files=(
   "backend/README.md"
   "backend/postman/README.md"
   "backend/postman/actuator.postman_collection.json"
+  "backend/postman/catalogue-releases.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
   "frontend/package.json"
@@ -33,13 +37,16 @@ required_files=(
   "docs/reference/video-game-platform-vision.pdf"
   "docs/development/codex-setup.md"
   "docs/development/backend.md"
+  "docs/development/backend-openapi-generation.md"
   "docs/development/continuous-integration.md"
+  "docs/development/container-image.md"
   "docs/development/database-migrations.md"
   "docs/development/local-dependencies.md"
   "docs/development/local-setup.md"
   "docs/development/frontend.md"
   "docs/development/openapi-validation.md"
   "docs/development/openapi-web-documentation.md"
+  "docs/development/release-api.md"
   "docs/development/delivery-lifecycle.md"
   "docs/development/work-management.md"
   "docs/architecture/domain/mvp-domain-model.md"
@@ -75,6 +82,7 @@ required_files=(
   "docs/decisions/0011-use-postgresql-and-flyway-for-application-persistence.md"
   "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md"
   "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md"
+  "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md"
   "package.json"
   "package-lock.json"
   "mvnw"
@@ -83,6 +91,7 @@ required_files=(
   "scripts/validate-migrations.sh"
   "scripts/validate-actions.sh"
   "scripts/validate-browser.sh"
+  "scripts/validate-container-image.sh"
   "scripts/local-dependencies.sh"
   "scripts/validate-prerequisites.sh"
   "scripts/build-openapi-docs.sh"
@@ -90,12 +99,25 @@ required_files=(
   "tools/openapi-validation/schemas.redocly.yaml"
   "tools/openapi-validation/examples.redocly.yaml"
   "tools/openapi-validation/normalize-generated-html.mjs"
+  ".agents/skills/README.md"
   ".agents/skills/product-brief-review/SKILL.md"
+  ".agents/skills/scalability-by-design/SKILL.md"
+  ".agents/skills/videogame-platform-backend-development/SKILL.md"
+  ".agents/skills/videogame-platform-frontend-development/SKILL.md"
+  ".agents/skills/java-springboot/SKILL.md"
+  ".agents/skills/architecture-patterns/SKILL.md"
+  ".agents/skills/tdd/SKILL.md"
+  ".agents/skills/vercel-react-best-practices/SKILL.md"
+  ".agents/skills/vercel-composition-patterns/SKILL.md"
+  ".agents/skills/react-testing/SKILL.md"
+  ".agents/skills/frontend-accessibility-best-practices/SKILL.md"
   ".github/dependabot.yml"
   ".github/workflows/dependency-submission.yml"
-  ".github/workflows/quality-gates.yml"
+  ".github/workflows/build-and-verify.yml"
   ".github/workflows/security.yml"
   "backend/src/main/resources/db/migration/V20260809_120000__create_catalogue_schema.sql"
+  "backend/src/main/resources/db/migration/V20260813_120000__add_game_external_references.sql"
+  "backend/src/main/resources/db/migration/V20260818_120000__constrain_release_date_year_range.sql"
   "backend/src/main/resources/db/dev-seed/V20260809_130000__seed_bounded_prototype_catalogue.sql"
 )
 
@@ -122,10 +144,24 @@ from urllib.parse import unquote
 
 root = pathlib.Path(sys.argv[1])
 link_pattern = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+skill_resource_pattern = re.compile(
+    r"(?:`|@)((?:assets|references|rules|scripts)/[A-Za-z0-9._/-]+)"
+)
 errors = []
+
+skills_root = root / ".agents/skills"
+skills_registry = (skills_root / "README.md").read_text(encoding="utf-8")
+vendored_skill_names = set(
+    re.findall(
+        r"^\| `([^`]+)` .* \| `vendored-unmodified` \|$",
+        skills_registry,
+        flags=re.MULTILINE,
+    )
+)
 
 json_documents = (
     "backend/postman/actuator.postman_collection.json",
+    "backend/postman/catalogue-releases.postman_collection.json",
     "backend/postman/local.postman_environment.json",
     "docker/keycloak/import/videogame-platform-realm.json",
 )
@@ -202,7 +238,7 @@ try:
 except (OSError, UnicodeError, json.JSONDecodeError):
     pass
 
-env_example = (root / ".env.example").read_text(encoding="utf-8")
+infrastructure_env_example = (root / ".env.example").read_text(encoding="utf-8")
 for secret_variable in (
     "POSTGRES_ADMIN_PASSWORD",
     "APPLICATION_DB_PASSWORD",
@@ -212,8 +248,79 @@ for secret_variable in (
     "KEYCLOAK_BFF_CLIENT_SECRET",
     "LOCAL_TEST_USER_PASSWORD",
 ):
-    if f"{secret_variable}=GENERATE_ME" not in env_example.splitlines():
+    if f"{secret_variable}=GENERATE_ME" not in infrastructure_env_example.splitlines():
         errors.append(f".env.example: {secret_variable} must use the GENERATE_ME placeholder")
+
+backend_env_example = (root / "backend/.env.example").read_text(encoding="utf-8")
+for secret_variable in (
+    "APPLICATION_DB_PASSWORD",
+    "APPLICATION_MIGRATION_DB_PASSWORD",
+    "KEYCLOAK_BFF_CLIENT_SECRET",
+):
+    if f"{secret_variable}=GENERATE_ME" not in backend_env_example.splitlines():
+        errors.append(
+            f"backend/.env.example: {secret_variable} must use the GENERATE_ME placeholder"
+        )
+
+def env_variable_names(content):
+    return {
+        line.split("=", 1)[0]
+        for line in content.splitlines()
+        if line and not line.startswith("#") and "=" in line
+    }
+
+expected_infrastructure_variables = {
+    "COMPOSE_PROJECT_NAME",
+    "POSTGRES_PORT",
+    "POSTGRES_ADMIN_PASSWORD",
+    "APPLICATION_DB_PASSWORD",
+    "APPLICATION_MIGRATION_DB_PASSWORD",
+    "KEYCLOAK_DB_PASSWORD",
+    "KEYCLOAK_HTTP_PORT",
+    "KEYCLOAK_MANAGEMENT_PORT",
+    "KEYCLOAK_HOSTNAME",
+    "KEYCLOAK_ADMIN_USERNAME",
+    "KEYCLOAK_ADMIN_PASSWORD",
+    "KEYCLOAK_BFF_CLIENT_SECRET",
+    "LOCAL_TEST_USER_USERNAME",
+    "LOCAL_TEST_USER_PASSWORD",
+}
+expected_backend_variables = {
+    "SPRING_PROFILES_ACTIVE",
+    "SERVER_PORT",
+    "LOGGING_LEVEL_COM_VIDEOGAMEPLATFORM",
+    "APPLICATION_DB_URL",
+    "APPLICATION_DB_USERNAME",
+    "APPLICATION_DB_PASSWORD",
+    "APPLICATION_FLYWAY_ENABLED",
+    "APPLICATION_MIGRATION_DB_URL",
+    "APPLICATION_MIGRATION_DB_USERNAME",
+    "APPLICATION_MIGRATION_DB_PASSWORD",
+    "SPRING_FLYWAY_LOCATIONS",
+    "KEYCLOAK_BFF_CLIENT_SECRET",
+    "OIDC_ISSUER_URI",
+    "APPLICATION_SESSION_TIMEOUT",
+    "APPLICATION_SESSION_COOKIE_NAME",
+    "APPLICATION_SESSION_COOKIE_SECURE",
+    "CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS",
+    "CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS",
+    "CATALOGUE_RELEASES_FRESHNESS_THRESHOLD",
+    "CATALOGUE_RELEASES_CACHE_CONTROL",
+    "TELEMETRY_OTLP_TRACES_ENABLED",
+    "TELEMETRY_OTLP_TRACES_ENDPOINT",
+    "TELEMETRY_OTLP_METRICS_ENABLED",
+    "TELEMETRY_OTLP_METRICS_ENDPOINT",
+    "TELEMETRY_OTLP_METRICS_STEP",
+    "TELEMETRY_TRACING_SAMPLING_PROBABILITY",
+}
+for path, actual, expected in (
+    (".env.example", env_variable_names(infrastructure_env_example), expected_infrastructure_variables),
+    ("backend/.env.example", env_variable_names(backend_env_example), expected_backend_variables),
+):
+    if actual != expected:
+        missing = sorted(expected - actual)
+        unexpected = sorted(actual - expected)
+        errors.append(f"{path}: environment scope mismatch; missing={missing}, unexpected={unexpected}")
 
 expected_statuses = {
     "docs/product/product-brief.md": "Approved",
@@ -237,6 +344,7 @@ expected_statuses = {
     "docs/decisions/0011-use-postgresql-and-flyway-for-application-persistence.md": "Accepted",
     "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md": "Accepted",
     "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md": "Accepted",
+    "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md": "Accepted",
 }
 
 for relative, status in expected_statuses.items():
@@ -249,19 +357,44 @@ for markdown in root.rglob("*.md"):
     if any(part in {".git", "node_modules", "target"} for part in markdown.parts):
         continue
     text = markdown.read_text(encoding="utf-8")
+    relative_markdown = markdown.relative_to(root)
+    vendored_skill_root = None
+    if (
+        len(relative_markdown.parts) >= 4
+        and relative_markdown.parts[:2] == (".agents", "skills")
+        and relative_markdown.parts[2] in vendored_skill_names
+    ):
+        vendored_skill_root = skills_root / relative_markdown.parts[2]
+
+    if vendored_skill_root is not None and markdown.name != "SKILL.md":
+        continue
+
     for raw_link in link_pattern.findall(text):
         link = raw_link.strip().split(maxsplit=1)[0].strip("<>")
         if not link or link.startswith(("#", "http://", "https://", "mailto:")):
             continue
         relative = unquote(link.split("#", 1)[0])
         target = (markdown.parent / relative).resolve()
+        if vendored_skill_root is not None:
+            try:
+                target.relative_to(vendored_skill_root.resolve())
+            except ValueError:
+                # Unmodified upstream entrypoints may link to optional sibling
+                # skill packages that are not dependencies of this vendored skill.
+                continue
         try:
             target.relative_to(root.resolve())
         except ValueError:
-            errors.append(f"{markdown.relative_to(root)}: link leaves repository: {link}")
+            errors.append(f"{relative_markdown}: link leaves repository: {link}")
             continue
         if not target.exists():
-            errors.append(f"{markdown.relative_to(root)}: missing target: {link}")
+            errors.append(f"{relative_markdown}: missing target: {link}")
+
+    if vendored_skill_root is not None:
+        for relative in skill_resource_pattern.findall(text):
+            target = vendored_skill_root / relative
+            if not target.exists():
+                errors.append(f"{relative_markdown}: missing skill resource: {relative}")
 
 if errors:
     print("\n".join(errors), file=sys.stderr)

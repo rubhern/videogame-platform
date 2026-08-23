@@ -38,7 +38,7 @@ class CataloguePersistenceIntegrationTest {
         var migrationResult = flyway.migrate();
         flyway.validate();
 
-        assertThat(migrationResult.migrationsExecuted).isEqualTo(2);
+        assertThat(migrationResult.migrationsExecuted).isEqualTo(6);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -56,7 +56,7 @@ class CataloguePersistenceIntegrationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(2);
+                    .isEqualTo(6);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
                     .isEqualTo(8);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.release_snapshot"))
@@ -95,8 +95,19 @@ class CataloguePersistenceIntegrationTest {
             insertReleaseIdentity(releaseId);
             String sql = releaseSnapshotInsert(releaseId, invalidValues.get(index), PLATFORM_ID);
 
-            assertSqlState(sql, "23514");
+            assertSqlStateIn(sql, "23514", "22008");
         }
+    }
+
+    @Test
+    void rejectsExactDatesOutsideTheFourDigitContractYearRange() throws SQLException {
+        String releaseId = "50000000-0000-4000-8000-000000000009";
+        insertReleaseIdentity(releaseId);
+
+        assertSqlState(
+                releaseSnapshotInsert(
+                        releaseId, "'day', DATE '10000-01-01', NULL, NULL, NULL", PLATFORM_ID),
+                "23514");
     }
 
     @Test
@@ -123,11 +134,70 @@ class CataloguePersistenceIntegrationTest {
     }
 
     @Test
+    void rejectsUnsafeExternalReferenceUrls() {
+        assertSqlState(
+                "INSERT INTO catalogue.game_external_reference (game_id, provider, provider_entity_type, provider_id, provider_url) "
+                        + "VALUES ('"
+                        + GAME_ID
+                        + "', 'IGDB', 'game', 'unsafe-example', 'http://www.igdb.com/games/unsafe')",
+                "23514");
+    }
+
+    @Test
+    void preventsExternalReferenceJoinCardinalityFromMultiplyingARelease() throws SQLException {
+        execute(
+                "INSERT INTO catalogue.game_external_reference (game_id, provider, provider_entity_type, provider_id, provider_url) "
+                        + "VALUES ('"
+                        + GAME_ID
+                        + "', 'IGDB', 'game', 'first-reference', 'https://www.igdb.com/games/example')");
+        try {
+            assertSqlState(
+                    "INSERT INTO catalogue.game_external_reference (game_id, provider, provider_entity_type, provider_id, provider_url) "
+                            + "VALUES ('"
+                            + GAME_ID
+                            + "', 'IGDB', 'game', 'second-reference', 'https://www.igdb.com/games/example-2')",
+                    "23505");
+        } finally {
+            execute(
+                    "DELETE FROM catalogue.game_external_reference WHERE game_id = '"
+                            + GAME_ID
+                            + "' AND provider = 'IGDB' AND provider_entity_type = 'game'");
+        }
+    }
+
+    @Test
+    void rejectsUnsafePublishedCoverDeliveryState() {
+        assertSqlState(
+                "UPDATE catalogue.game_snapshot SET cover_reference = '/untrusted/cover.svg' "
+                        + "WHERE publication_id = '"
+                        + PUBLICATION_ID
+                        + "' AND game_id = '"
+                        + GAME_ID
+                        + "'",
+                "23514");
+        assertSqlState(
+                "UPDATE catalogue.game_snapshot SET cover_usage_mode = 'provider_cdn_reference', "
+                        + "cover_source = 'IGDB', cover_reference = 'co_safe', "
+                        + "cover_source_url = 'https://evil.example/games/example' "
+                        + "WHERE publication_id = '"
+                        + PUBLICATION_ID
+                        + "' AND game_id = '"
+                        + GAME_ID
+                        + "'",
+                "23514");
+    }
+
+    @Test
     void grantsRuntimeDmlButNotSchemaChanges() throws SQLException {
         try (Connection connection = PostgreSqlTestDatabase.runtimeConnection(DATABASE_NAME);
                 Statement statement = connection.createStatement()) {
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
                     .isEqualTo(8);
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM catalogue.game_external_reference"))
+                    .isZero();
             assertThatThrownBy(
                             () ->
                                     statement.execute(
@@ -198,6 +268,13 @@ class CataloguePersistenceIntegrationTest {
                 .isInstanceOf(SQLException.class)
                 .extracting(exception -> ((SQLException) exception).getSQLState())
                 .isEqualTo(expectedSqlState);
+    }
+
+    private static void assertSqlStateIn(String sql, String... expectedSqlStates) {
+        assertThatThrownBy(() -> execute(sql))
+                .isInstanceOf(SQLException.class)
+                .extracting(exception -> ((SQLException) exception).getSQLState())
+                .isIn((Object[]) expectedSqlStates);
     }
 
     private static void execute(String sql) throws SQLException {

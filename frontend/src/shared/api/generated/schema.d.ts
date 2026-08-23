@@ -13,9 +13,10 @@ export interface paths {
         };
         /**
          * Browse recent or upcoming releases
-         * @description Reads the last valid local catalogue snapshot. The application derives the
+         * @description Reads a bounded page from the last valid local catalogue publication. The application derives the
          *     evaluation date and release window in `Europe/Madrid`. Empty, stale,
-         *     review-required, imprecise-date, and fallback-cover results are valid states.
+         *     review-required, imprecise-date, TBA, and fallback-cover results are valid
+         *     states. PostgreSQL applies filters, total ordering, count, limit, and offset.
          */
         get: operations["listReleases"];
         put?: never;
@@ -88,7 +89,12 @@ export interface paths {
          */
         get: operations["getSession"];
         put?: never;
-        post?: never;
+        /**
+         * Terminate the current BFF session
+         * @description Invalidates the opaque application session. OAuth/OIDC tokens remain
+         *     server-side and are never returned in the response or redirect URL.
+         */
+        post: operations["logoutSession"];
         delete?: never;
         options?: never;
         head?: never;
@@ -177,7 +183,9 @@ export interface components {
         PageMetadata: {
             number: number;
             size: number;
+            /** Format: int64 */
             totalItems: number;
+            /** Format: int64 */
             totalPages: number;
         };
         Platform: {
@@ -196,29 +204,24 @@ export interface components {
             sourceEntityType: string;
         };
         DayReleaseDate: {
-            /** @constant */
-            precision: "day";
+            precision: string;
             /** Format: date */
             value: string;
         };
         MonthReleaseDate: {
-            /** @constant */
-            precision: "month";
+            precision: string;
             value: string;
         };
         QuarterReleaseDate: {
-            /** @constant */
-            precision: "quarter";
+            precision: string;
             value: string;
         };
         YearReleaseDate: {
-            /** @constant */
-            precision: "year";
+            precision: string;
             value: string;
         };
         UnknownReleaseDate: {
-            /** @constant */
-            precision: "unknown";
+            precision: string;
             value: null;
         };
         /** @description Closed date/precision union; missing precision is never invented. */
@@ -260,22 +263,14 @@ export interface components {
             sourceUrl: string;
         };
         ProviderCover: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            kind: "provider";
+            kind: string;
             /** Format: uri */
             url: string;
             alternativeText: string;
             attribution: components["schemas"]["Attribution"];
         };
         FallbackCover: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            kind: "fallback";
+            kind: string;
             /** Format: uri-reference */
             url: string;
             alternativeText: string;
@@ -283,20 +278,12 @@ export interface components {
         };
         Cover: components["schemas"]["ProviderCover"] | components["schemas"]["FallbackCover"];
         EditorialSummary: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            kind: "EditorialSummary";
+            kind: string;
             text: string;
             language: string;
         };
         SourcedSummary: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            kind: "SourcedSummary";
+            kind: string;
             text: string;
             language: string;
             provenance: components["schemas"]["Provenance"];
@@ -368,23 +355,14 @@ export interface components {
         };
         /** @description Mean is null exactly when count is zero; otherwise it is rounded half up to one decimal. */
         AvailableRatingStatistics: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            status: "AvailableRatingStatistics";
+            status: string;
             mean: number | null;
             count: number;
             distribution: components["schemas"]["RatingDistribution"];
         };
         UnavailableRatingStatistics: {
-            /**
-             * @description discriminator enum property added by openapi-typescript
-             * @enum {string}
-             */
-            status: "UnavailableRatingStatistics";
-            /** @constant */
-            reasonCode: "RATING_STATISTICS_READ_FAILED";
+            status: string;
+            reasonCode: string;
         };
         RatingStatistics: components["schemas"]["AvailableRatingStatistics"] | components["schemas"]["UnavailableRatingStatistics"];
         GameDetails: {
@@ -399,12 +377,10 @@ export interface components {
             ratingStatistics: components["schemas"]["RatingStatistics"];
         };
         AnonymousSession: {
-            /** @constant */
-            authenticated: false;
+            authenticated: boolean;
         };
         AuthenticatedSession: {
-            /** @constant */
-            authenticated: true;
+            authenticated: boolean;
             csrfToken: string;
         };
         SessionState: components["schemas"]["AnonymousSession"] | components["schemas"]["AuthenticatedSession"];
@@ -995,6 +971,36 @@ export interface operations {
                     "application/json": components["schemas"]["SessionState"];
                 };
             };
+            406: components["responses"]["NotAcceptable"];
+            429: components["responses"]["RateLimitExceeded"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    logoutSession: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The application session is no longer authenticated. */
+            204: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["CsrfValidationFailed"];
             406: components["responses"]["NotAcceptable"];
             429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];

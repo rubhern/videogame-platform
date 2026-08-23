@@ -89,7 +89,7 @@ versioned CDN URL; fully offline delivery is outside the current scope.
 After generation:
 
 1. open the page and confirm that navigation, search, schemas, and examples render;
-2. confirm that all eight approved operations are present;
+2. confirm that all nine approved operations are present;
 3. inspect the generated change:
 
    ```bash

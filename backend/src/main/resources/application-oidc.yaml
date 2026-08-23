@@ -1,0 +1,23 @@
+spring:
+  config:
+    activate:
+      on-profile: oidc
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            provider: keycloak
+            client-id: videogame-platform-bff
+            client-secret: ${KEYCLOAK_BFF_CLIENT_SECRET}
+            client-authentication-method: client_secret_basic
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: openid
+        provider:
+          keycloak:
+            authorization-uri: ${OIDC_AUTHORIZATION_URI:http://localhost:8180/realms/videogame-platform/protocol/openid-connect/auth}
+            token-uri: ${OIDC_TOKEN_URI:http://localhost:8180/realms/videogame-platform/protocol/openid-connect/token}
+            jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/videogame-platform/protocol/openid-connect/certs}
+            user-info-uri: ${OIDC_USER_INFO_URI:http://localhost:8180/realms/videogame-platform/protocol/openid-connect/userinfo}
+            user-name-attribute: sub

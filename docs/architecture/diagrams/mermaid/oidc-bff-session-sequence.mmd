@@ -1,0 +1,32 @@
+sequenceDiagram
+    autonumber
+
+    participant Browser as Browser / React
+    participant BFF as BFF / Spring Security
+    participant Keycloak as Keycloak 26.7
+    participant Session as Server-side HTTP session
+
+    Browser->>BFF: GET /auth/login/keycloak
+    BFF->>Session: Save authorization request, state, nonce and PKCE verifier
+    Session-->>BFF: Pre-authentication session identifier
+    BFF-->>Browser: 302 Keycloak authorize + Set-Cookie vgp_session=opaque
+    Note over Browser,Session: vgp_session contains only an opaque session identifier and is HttpOnly
+    Browser->>Keycloak: GET authorization endpoint with state, nonce and PKCE S256 challenge
+    Keycloak-->>Browser: Render login form
+    Browser->>Keycloak: Submit local test-user credentials
+    Keycloak-->>Browser: 302 /login/oauth2/code/keycloak with temporary code and state
+    Note over Browser,Keycloak: The authorization code is temporary and single-use
+    Browser->>BFF: GET /login/oauth2/code/keycloak?code=...&state=...
+    BFF->>Session: Load saved request and verify state
+    BFF->>Keycloak: POST token endpoint with code, verifier and confidential-client authentication
+    Keycloak-->>BFF: Access token, ID token and refresh token when issued
+    Note over BFF,Keycloak: The token response travels server-to-server only
+    BFF->>BFF: Validate issuer, signature, audience, expiry and nonce
+    BFF->>Session: Rotate identifier and store SecurityContext plus OAuth2AuthorizedClient
+    Note over BFF,Session: Access and refresh tokens remain exclusively server-side
+    BFF-->>Browser: 302 / + Set-Cookie vgp_session=new opaque identifier
+    Browser->>BFF: GET /api/v1/session + session cookie
+    BFF->>Session: Resolve authenticated session and CSRF material
+    Session-->>BFF: Authenticated context and session-bound CSRF token
+    BFF-->>Browser: 200 {authenticated:true, csrfToken} + Cache-Control:no-store
+    Note over Browser,BFF: React consumes session state, never OAuth/OIDC tokens

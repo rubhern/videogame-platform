@@ -7,6 +7,7 @@ title: catalogue schema - physical persistence model
 erDiagram
     catalogue_publication ||--o{ game_snapshot : publishes
     game ||--o{ game_snapshot : "is versioned as"
+    game ||--o{ game_external_reference : identifies
     game ||--o{ game_release : owns
     catalogue_publication ||--o{ release_snapshot : publishes
     game_snapshot ||--o{ release_snapshot : exposes
@@ -38,7 +39,16 @@ erDiagram
         varchar cover_source "max 200"
         varchar cover_usage_mode "closed values"
         varchar cover_alternative_text "max 500"
+        varchar cover_source_url "nullable published HTTPS source"
         varchar cover_usage_status "must be approved"
+    }
+
+    game_external_reference {
+        uuid game_id PK,FK
+        varchar provider PK "max 100"
+        varchar provider_entity_type PK "closed values"
+        varchar provider_id UK "max 200"
+        varchar provider_url "nullable HTTPS max 500"
     }
 
     platform {
@@ -66,10 +76,12 @@ erDiagram
         uuid platform_id FK
         uuid region_id FK
         varchar date_precision "day month quarter year unknown"
-        date exact_date "day precision only"
-        smallint release_year "month quarter or year"
+        date exact_date "day precision only year 1 to 9999"
+        smallint release_year "month quarter or year 1 to 9999"
         smallint release_month "1 to 12"
         smallint release_quarter "1 to 4"
+        date period_start "generated query boundary"
+        date period_end "generated query boundary"
         varchar release_status "closed values"
         varchar source_kind "closed values"
         varchar source_name "max 200"

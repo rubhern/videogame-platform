@@ -1,0 +1,393 @@
+{
+  "info": {
+    "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
+    "name": "VideoGame Platform Backend - Catalogue Releases",
+    "description": "Executable examples for the OpenAPI 1.2.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "releaseEtag",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Recent releases",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response follows the reviewed release-page contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.view).to.eql(\"recent\");",
+              "    pm.expect(body).to.have.all.keys(\"view\", \"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect(body.page.number).to.eql(1);",
+              "    pm.expect(body.page.size).to.eql(20);",
+              "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
+              "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item.release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"lastSyncedAt\", \"verificationLevel\", \"reviewStatus\", \"freshnessStatus\");",
+              "        pm.expect([\"day\", \"month\", \"quarter\", \"year\", \"unknown\"]).to.include(item.release.releaseDate.precision);",
+              "        pm.expect([\"fresh\", \"stale\"]).to.include(item.release.freshnessStatus);",
+              "    });",
+              "});",
+              "",
+              "pm.test(\"Public cache and correlation headers are present\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
+              "});",
+              "",
+              "pm.collectionVariables.set(\"releaseEtag\", pm.response.headers.get(\"ETag\"));"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&page=1&pageSize=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "Returns one bounded page from the current local publication. PostgreSQL filters, counts, orders and pages; ordering ends with unique releaseId."
+      },
+      "response": []
+    },
+    {
+      "name": "Conditional recent releases with a weak validator",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Equivalent weak validator returns 304\", function () {",
+              "    pm.response.to.have.status(304);",
+              "    pm.expect(pm.response.text()).to.eql(\"\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"releaseEtag\"));",
+              "});",
+              "",
+              "pm.test(\"Conditional response retains public cache and correlation headers\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "W/{{releaseEtag}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&page=1&pageSize=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "Reuses the preceding response validator with the weak form required by If-None-Match comparison semantics. Run the collection in order."
+      },
+      "response": []
+    },
+    {
+      "name": "Upcoming releases filtered by platform and region",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Active filters are echoed without changing available taxonomies\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.view).to.eql(\"upcoming\");",
+              "    pm.expect(body.activeFilters.platformId).to.eql(\"10000000-0000-4000-8000-000000000004\");",
+              "    pm.expect(body.activeFilters.regionId).to.eql(\"20000000-0000-4000-8000-000000000001\");",
+              "    pm.expect(body.availableFilters.platforms).to.be.an(\"array\").and.not.empty;",
+              "    pm.expect(body.availableFilters.regions).to.be.an(\"array\").and.not.empty;",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&platformId=10000000-0000-4000-8000-000000000004&regionId=20000000-0000-4000-8000-000000000001",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "upcoming"
+            },
+            {
+              "key": "platformId",
+              "value": "10000000-0000-4000-8000-000000000004"
+            },
+            {
+              "key": "regionId",
+              "value": "20000000-0000-4000-8000-000000000001"
+            }
+          ]
+        },
+        "description": "Uses stable product-owned IDs from the deterministic local seed, never provider IDs."
+      },
+      "response": []
+    },
+    {
+      "name": "Unsupported platform",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable Problem Details code is returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(body.code).to.eql(\"PLATFORM_NOT_SUPPORTED\");",
+              "    pm.expect(body.correlationId).to.be.a(\"string\").and.not.empty;",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&platformId=unsupported-platform",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "platformId",
+              "value": "unsupported-platform"
+            }
+          ]
+        },
+        "description": "Demonstrates the stable product validation error for an identifier outside the local taxonomy."
+      },
+      "response": []
+    },
+    {
+      "name": "Invalid pagination",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable pagination code and violation are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"PAGINATION_INVALID\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/pageSize\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&pageSize=101",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "pageSize",
+              "value": "101"
+            }
+          ]
+        },
+        "description": "Demonstrates one-based bounded pagination validation."
+      },
+      "response": []
+    },
+    {
+      "name": "Unknown query parameter",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Shared strict-query convention returns a stable error\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/unbounded\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&unbounded=true",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "unbounded",
+              "value": "true"
+            }
+          ]
+        },
+        "description": "Proves the central API convention rejects parameters outside the endpoint policy instead of ignoring them."
+      },
+      "response": []
+    }
+  ]
+}

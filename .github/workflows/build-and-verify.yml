@@ -1,0 +1,499 @@
+name: Walking-skeleton build and verify
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: quality-gates-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions: {}
+
+jobs:
+  documentation-contracts:
+    name: Documentation and API contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Reject whitespace errors in the reviewed change
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          whitespace_paths=(
+            .
+            ':(exclude).agents/skills/vercel-composition-patterns/**'
+            ':(exclude).agents/skills/vercel-react-best-practices/**'
+          )
+          if [[ "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            git diff-tree --check --root --no-commit-id --recursive "$HEAD_SHA" -- "${whitespace_paths[@]}"
+          else
+            git diff --check "$BASE_SHA" "$HEAD_SHA" -- "${whitespace_paths[@]}"
+          fi
+
+      - name: Validate GitHub Actions workflows
+        run: bash scripts/validate-actions.sh
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate documentation
+        run: bash scripts/validate-docs.sh
+
+      - name: Validate OpenAPI contract
+        run: bash scripts/validate-openapi.sh
+
+      - name: Verify generated OpenAPI web documentation
+        run: |
+          npm run build:openapi-docs
+          git diff --exit-code -- docs/architecture/api/reference/index.html
+
+  frontend:
+    name: Frontend static, type, component and build checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify generated OpenAPI types are current
+        run: |
+          npm run frontend:generate-api
+          git diff --exit-code -- frontend/src/shared/api/generated/schema.d.ts
+
+      - name: Run frontend verification
+        run: npm run frontend:verify
+
+  browser-smoke:
+    name: Packaged application Chromium smoke and accessibility check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up Java 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            backend/pom.xml
+
+      - name: Install locked npm dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run the pinned browser smoke test without retries
+        run: bash scripts/validate-browser.sh
+
+      - name: Preserve browser diagnostics
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  identity-compatibility:
+    name: Real Keycloak 26.7 OIDC BFF compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Set up Java 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            backend/pom.xml
+
+      - name: Prove real OIDC login and opaque BFF session without retries
+        run: bash scripts/validate-identity.sh
+
+      - name: Preserve sanitized identity-browser diagnostics
+        if: ${{ failure() && !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: identity-browser-diagnostics
+          path: frontend/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  container-image:
+    name: Multi-architecture application image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pinned ARM64 emulation
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          image: docker.io/tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          platforms: arm64
+          cache-image: false
+
+      - name: Set up pinned Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        with:
+          version: v0.36.1
+          driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+          cache-binary: false
+
+      - name: Build, inspect, run and scan both application platforms
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+        run: bash scripts/validate-container-image.sh
+
+      - name: Preserve manifest, runtime, scan and CycloneDX evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: application-image-evidence-${{ github.sha }}
+          path: |
+            target/container-evidence/
+            !target/container-evidence/application-image.oci.tar
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Preserve the exact scanned OCI archive for trusted publication
+        if: ${{ github.event_name == 'push' && !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: application-image-oci-${{ github.sha }}
+          path: |
+            target/container-evidence/application-image.oci.tar
+            target/container-evidence/SHA256SUMS
+            target/container-evidence/image-digest.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  backend:
+    name: Java backend, architecture and PostgreSQL integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            backend/pom.xml
+
+      - name: Compile, test and package the backend
+        run: ./mvnw -Dsource.revision="${GITHUB_SHA}" clean verify
+
+      - name: Preserve JaCoCo XML and HTML reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: backend-jacoco
+          path: backend/target/site/jacoco/
+          if-no-files-found: error
+          retention-days: 7
+
+  migrations:
+    name: Fresh PostgreSQL 18 migration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            backend/pom.xml
+
+      - name: Create and migrate a fresh PostgreSQL 18 database
+        run: bash scripts/validate-migrations.sh
+
+  provider-fixtures:
+    name: IGDB PoC local fixtures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 25
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+          cache-dependency-path: tools/igdb-poc/pom.xml
+
+      - name: Verify provider behaviour with local fixtures only
+        run: ./mvnw -f tools/igdb-poc/pom.xml clean verify
+
+  sonarcloud:
+    name: SonarQube Cloud quality gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      SONAR_ANALYSIS_ENABLED: ${{ github.event_name == 'push' || (vars.SONAR_PR_ANALYSIS_ENABLED == 'true' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: Explain why SonarQube Cloud is not applicable
+        if: ${{ env.SONAR_ANALYSIS_ENABLED != 'true' }}
+        run: |
+          printf '%s\n' \
+            'SonarQube Cloud PR analysis is disabled for this plan or unavailable to untrusted code.' \
+            'The local quality and security gates remain required.'
+
+      - name: Require the configured SonarQube Cloud token
+        if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN == '' }}
+        run: |
+          printf 'SONAR_TOKEN is required for applicable SonarQube Cloud analysis.\n' >&2
+          exit 1
+
+      - name: Check out the analyzed revision with complete history
+        if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Set up Java 25
+        if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: maven
+          cache-dependency-path: |
+            pom.xml
+            backend/pom.xml
+
+      - name: Set up Node.js 24 for JavaScript and TypeScript analysis
+        if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Build, import JaCoCo XML and wait for Sonar way
+        if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN != '' }}
+        run: |
+          ./mvnw \
+            -Dsource.revision="${GITHUB_SHA}" \
+            -Dsonar.qualitygate.wait=true \
+            -Dsonar.qualitygate.timeout=300 \
+            clean verify \
+            org.sonarsource.scanner.maven:sonar-maven-plugin:5.7.0.6970:sonar
+
+  required-quality-gate:
+    name: Required quality gate
+    if: ${{ always() }}
+    needs:
+      - documentation-contracts
+      - frontend
+      - browser-smoke
+      - identity-compatibility
+      - container-image
+      - backend
+      - migrations
+      - provider-fixtures
+      - sonarcloud
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Reject any incomplete quality check
+        env:
+          DOCUMENTATION_CONTRACTS: ${{ needs.documentation-contracts.result }}
+          FRONTEND: ${{ needs.frontend.result }}
+          BROWSER_SMOKE: ${{ needs.browser-smoke.result }}
+          IDENTITY_COMPATIBILITY: ${{ needs.identity-compatibility.result }}
+          CONTAINER_IMAGE: ${{ needs.container-image.result }}
+          BACKEND: ${{ needs.backend.result }}
+          MIGRATIONS: ${{ needs.migrations.result }}
+          PROVIDER_FIXTURES: ${{ needs.provider-fixtures.result }}
+          SONARCLOUD: ${{ needs.sonarcloud.result }}
+        run: |
+          for result in \
+            "$DOCUMENTATION_CONTRACTS" \
+            "$FRONTEND" \
+            "$BROWSER_SMOKE" \
+            "$IDENTITY_COMPATIBILITY" \
+            "$CONTAINER_IMAGE" \
+            "$BACKEND" \
+            "$MIGRATIONS" \
+            "$PROVIDER_FIXTURES" \
+            "$SONARCLOUD"
+          do
+            if [[ "$result" != "success" ]]; then
+              printf 'Required job finished with result: %s\n' "$result" >&2
+              exit 1
+            fi
+          done
+
+  publish-container-image:
+    name: Publish immutable application image
+    if: ${{ github.event_name == 'push' }}
+    needs:
+      - container-image
+      - required-quality-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository }}
+      IMAGE_TAG: ${{ github.sha }}
+      SKOPEO_IMAGE: quay.io/skopeo/stable:v1.20.0@sha256:47853bb9fb24202af9110531ebd6e43c5f97701254ca290596640290d17942f4
+    steps:
+      - name: Download the exact scanned OCI archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: application-image-oci-${{ github.sha }}
+          path: target/container-evidence
+
+      - name: Verify the retained archive checksum
+        working-directory: target/container-evidence
+        run: sha256sum --check SHA256SUMS
+
+      - name: Authenticate to GHCR with the workflow token
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Publish the already-scanned OCI index by commit SHA
+        run: |
+          docker run --rm \
+            --volume "$PWD/target/container-evidence:/evidence:ro" \
+            --volume "$HOME/.docker/config.json:/auth.json:ro" \
+            "$SKOPEO_IMAGE" \
+            copy \
+              --all \
+              --preserve-digests \
+              --authfile /auth.json \
+              oci-archive:/evidence/application-image.oci.tar \
+              "docker://$IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Verify and record the published digest and platforms
+        run: |
+          expected_digest="$(cat target/container-evidence/image-digest.txt)"
+          inspection="$(docker buildx imagetools inspect "$IMAGE_NAME:$IMAGE_TAG")"
+          actual_digest="$(sed -n 's/^Digest:[[:space:]]*//p' <<<"$inspection" | head -n 1)"
+          if [[ "$actual_digest" != "$expected_digest" ]]; then
+            printf 'Published digest %s does not match scanned digest %s.\n' \
+              "$actual_digest" "$expected_digest" >&2
+            exit 1
+          fi
+          grep -q 'linux/amd64' <<<"$inspection"
+          grep -q 'linux/arm64' <<<"$inspection"
+          {
+            printf 'tag=%s:%s\n' "$IMAGE_NAME" "$IMAGE_TAG"
+            printf 'digest=%s@%s\n' "$IMAGE_NAME" "$actual_digest"
+            printf '%s\n' "$inspection"
+          } | tee target/container-evidence/published-image.txt
+          {
+            printf '### Published immutable OCI image\n\n'
+            printf -- '- Commit tag: `%s:%s`\n' "$IMAGE_NAME" "$IMAGE_TAG"
+            printf -- '- Immutable reference: `%s@%s`\n' "$IMAGE_NAME" "$actual_digest"
+            printf -- '- Platforms: `linux/amd64`, `linux/arm64`\n'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve the publication record
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: application-image-publication-${{ github.sha }}
+          path: target/container-evidence/published-image.txt
+          if-no-files-found: error
+          retention-days: 30

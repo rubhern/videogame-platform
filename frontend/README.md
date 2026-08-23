@@ -1,22 +1,22 @@
 # VideoGame Platform frontend
 
 The frontend is the client-rendered walking skeleton for the VideoGame Platform
-learning MVP. It proves the approved browser stack, contract generation, routing,
-state boundaries, testing, and production build without implementing a product
-journey ahead of its dedicated issue.
+learning MVP. It proves the approved browser stack and the first bounded product
+read from a packaged same-origin application without expanding into the final
+release-discovery experience.
 
 ## Current status and scope
 
 - **Status:** Active walking skeleton
 - **Runtime for tooling:** Node.js 24 and npm 11
 - **Rendering:** Client-rendered React SPA
-- **Current UI:** Technical placeholder and not-found route only
-- **Current API traffic:** None from the rendered UI
+- **Current UI:** Minimal recent-releases shell, explicit game placeholder, and not-found route
+- **Current API traffic:** Bounded `GET /api/v1/releases?view=recent&page=1&pageSize=6`
 - **Contract source:** `docs/architecture/api/openapi.yaml`
 
-The placeholder is intentionally not release discovery, catalogue search,
-authentication, or ratings functionality. Those slices must add their own behaviour,
-states, tests, and accessibility evidence when their issues begin.
+The shell proves loading, results, empty, and failure states plus keyboard navigation
+to a deliberately non-functional game destination. Full filters, pagination, game
+details, authentication, ratings, and final responsive polish remain deferred.
 
 The approved [technology baseline](../docs/architecture/technology/mvp-technology-baseline.md),
 [solution architecture](../docs/architecture/mvp-solution-architecture.md), and
@@ -37,10 +37,14 @@ remain authoritative.
 | Typed HTTP transport | openapi-fetch | 0.17.0 |
 | Unit and component tests | Vitest and React Testing Library | 4.1.10 / 16.3.2 |
 | Browser tests | Playwright with axe-core | 1.62.1 / 4.12.1 |
-| Static analysis | ESLint and typescript-eslint | 10.8.0 / 8.66.0 |
+| Node.js tooling types | @types/node | 24.13.3 |
+| Static analysis | ESLint and typescript-eslint | 10.8.1 / 8.66.0 |
 
 Every direct dependency is exact in [`package.json`](package.json), and the root
 [`package-lock.json`](../package-lock.json) locks the complete npm workspace graph.
+Vite is pinned to the same approved exact version in the root tooling manifest so
+hoisted plugins and Vitest resolve the same Vite implementation as the frontend
+build.
 
 ## Repository layout
 
@@ -53,6 +57,7 @@ frontend
 │   │   ├── query-client.ts        # TanStack Query defaults
 │   │   └── router.tsx             # Browser routes
 │   ├── pages                      # Route-level UI
+│   ├── features/releases          # Product API, query, UI model and accessible shell
 │   ├── shared/api
 │   │   ├── generated/schema.d.ts  # Disposable OpenAPI-generated types
 │   │   └── product-api-client.ts  # Internal same-origin typed transport
@@ -103,17 +108,15 @@ trace so diagnostics cannot convert an unreliable check into a passing result. C
 executes this browser command in addition to `frontend:verify` and retains the HTML
 report for seven days as diagnostic output only.
 
-The wrapper uses the matching official Playwright 1.62.1 Noble image pinned by digest
-and runs as the current user with network access disabled. This avoids changing WSL
-system packages and ensures local and CI use the same Node 24/Chromium runtime. Its
-equivalent container command is:
+The wrapper first creates the combined application JAR, then starts that JAR and a
+fresh PostgreSQL 18 database in a private disposable Docker network. Chromium uses
+the matching official Playwright 1.62.1 Noble image pinned by digest to exercise the
+same-origin path. The network has no external route, so neither the browser nor the
+application can contact IGDB. The wrapper cleans up its exact containers and network
+on success or failure.
 
 ```bash
-docker run --rm --ipc=host --network none \
-  --user "$(id -u):$(id -g)" -e HOME=/tmp \
-  -v "$PWD:/work" -w /work \
-  mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e \
-  npm run frontend:test:e2e
+bash scripts/validate-browser.sh
 ```
 
 Focused commands are:
@@ -130,7 +133,11 @@ npm run frontend:build
 Start the backend in one terminal:
 
 ```bash
-./mvnw -pl backend spring-boot:run
+bash scripts/local-dependencies.sh up
+set -a
+source backend/.env
+set +a
+APPLICATION_FLYWAY_ENABLED=true ./mvnw -pl backend spring-boot:run
 ```
 
 Start Vite in another terminal:
@@ -143,10 +150,10 @@ Open `http://localhost:5173`. Vite proxies `/api`, `/auth`, and `/actuator` to
 `http://localhost:8080`, preserving the same-origin browser contract during local
 development. The proxy does not make those routes frontend-owned.
 
-Vite provides the SPA fallback in development and preview. The packaged backend must
-eventually serve `index.html` for browser routes while leaving `/api`, `/auth`, and
-operational routes server-owned; that packaging belongs to the dedicated walking-
-skeleton image work.
+Vite provides the SPA fallback in development. For production-like local execution,
+`bash scripts/package-application.sh` builds Vite, copies only `frontend/dist` through
+the Maven `with-frontend` profile, and produces one Spring Boot JAR. The server owns
+explicit browser routes while `/api`, `/auth`, and `/actuator` remain server-owned.
 
 ## Routing policy
 
@@ -154,7 +161,8 @@ skeleton image work.
 
 | Route | Purpose |
 |---|---|
-| `/` | Technical placeholder proving the frontend runtime |
+| `/` | Minimal recent-releases shell |
+| `/games/:slug` | Explicit placeholder used only to prove semantic navigation |
 | `*` | Accessible not-found page with keyboard-usable return navigation |
 
 Do not add a frontend route under `/api`, `/auth`, or `/actuator`. Authentication
@@ -194,9 +202,14 @@ low-level transport, not the UI-facing API. Each product slice must wrap only th
 operations it owns, map transport failures to explicit product states, and expose
 small functions or hooks to React code.
 
-The rendered walking skeleton does not call the product API. Its transport test uses
-the typed `/session` path only to prove URL construction and cookie credential policy
-without a network request.
+`features/releases/releases-api.ts` owns the typed `GET /releases` operation and
+stable error semantics. Its TanStack Query hook requests a fixed page of six items.
+React components consume an intentional presentation model and never import
+`openapi-fetch` or generated operation types directly. Date formatting exhaustively
+handles the generated `day`, `month`, `quarter`, `year`, and `unknown` union without
+inventing missing precision. This minimum shell deliberately does not render remote
+provider covers, so it performs no browser request to IGDB; cover presentation and
+its ADR-required attribution belong to the final release UI.
 
 ## Styling and accessibility
 
@@ -208,9 +221,11 @@ The current shell provides:
 
 - Spanish document language and visible Spanish-first copy;
 - semantic `header`, `main`, section, heading, list, and link structure;
-- keyboard-usable navigation and visible focus treatment;
+- keyboard-usable navigation, visible focus treatment, and route-change focus moved
+  to the main landmark;
 - responsive spacing and text sizing from 320 pixels upward;
-- contrast checked by the Playwright axe-core scan.
+- no horizontal overflow at 320px, phone, tablet, and desktop evidence viewports;
+- contrast checked by Playwright axe-core scans on the current routes.
 
 Automated checks are a baseline. New interaction must also be reviewed for keyboard
 order, focus movement, accessible names, announcements, zoom, responsive behaviour,
@@ -223,9 +238,9 @@ and contrast.
 | Type generation | Complete OpenAPI document generates without error |
 | Type checking | Browser and Node/tooling configs pass strict `tsc --noEmit` |
 | Static analysis | ESLint recommended, strict TypeScript, Hooks and Fast Refresh rules |
-| Component | Placeholder semantics and unknown-route keyboard return |
-| API transport | Generated path type, URL construction, and same-origin credentials |
-| Browser | Production preview navigation and axe-core accessibility scan |
+| Component | Loading, representative result, empty, failure, date precision, accessible list naming and navigation |
+| API transport | Generated release operation, bounded query parameters, stable errors and same-origin credentials |
+| Browser | Packaged JAR → real API → PostgreSQL seed, keyboard navigation and axe-core scan |
 | Build | Optimized static HTML, CSS, and JavaScript output in `dist` |
 
 Product behaviour requires tests for loading, success, empty, stale, unavailable,
@@ -233,15 +248,38 @@ rejection, and relevant accessibility states rather than implementation details.
 
 ## Production output
 
-Create static assets with:
+Create static assets only with:
 
 ```bash
 npm run frontend:build
 ```
 
-Vite writes disposable output to `frontend/dist`, which is ignored by Git. The
-current issue proves the production frontend build only; copying these assets into
-the Spring Boot jar or final OCI image is intentionally deferred.
+Vite writes disposable output to `frontend/dist`, which is ignored by Git. Create the
+combined executable artifact from a clean checkout with:
+
+```bash
+bash scripts/package-application.sh
+```
+
+The script installs the locked npm graph, regenerates OpenAPI types, builds Vite, and
+activates the Maven `with-frontend` profile. Maven fails if `dist/index.html` is
+missing and copies the generated assets into the JAR's `BOOT-INF/classes/static`.
+After preparing PostgreSQL and loading the ignored local `backend/.env` as above, run it
+using:
+
+```bash
+APPLICATION_FLYWAY_ENABLED=true \
+  java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
+```
+
+The production container build uses the same locked Vite output and Maven profile;
+`bash scripts/validate-container-image.sh` verifies both supported architectures.
+Generated `dist` assets remain ignored build output and are never committed. See the
+[container image guide](../docs/development/container-image.md).
+
+The separate `bash scripts/validate-identity.sh` gate uses the same assets and drives
+the real server-owned Keycloak login/session/logout path. It does not add a
+client-side token flow or persist authentication state in browser storage.
 
 ## Security and dependency notes
 

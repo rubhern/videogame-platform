@@ -13,7 +13,7 @@
 
   <groupId>com.videogameplatform</groupId>
   <artifactId>videogame-platform</artifactId>
-  <version>0.2.0-SNAPSHOT</version>
+  <version>0.7.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>VideoGame Platform</name>
@@ -31,7 +31,11 @@
     <archunit.version>1.5.0</archunit.version>
     <spring-modulith.version>2.1.0</spring-modulith.version>
     <google-java-format.version>1.36.1</google-java-format.version>
+    <jackson-bom.version>3.1.5</jackson-bom.version>
     <jacoco.version>0.8.15</jacoco.version>
+    <log4j2.version>2.25.5</log4j2.version>
+    <openapi-generator.version>7.24.0</openapi-generator.version>
+    <postgresql.version>42.7.12</postgresql.version>
     <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
     <spotless-maven-plugin.version>3.9.0</spotless-maven-plugin.version>
     <source.revision>local-development</source.revision>

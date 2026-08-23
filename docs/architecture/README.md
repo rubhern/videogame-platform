@@ -6,7 +6,7 @@ explicit. The [prototype journey gate](../research/simulated-round-synthesis.md)
 [minimum application use cases](application/mvp-use-cases.md) and
 [MVP solution architecture](mvp-solution-architecture.md), and the
 [REST API conventions](api/api-conventions.md) are `Approved`. The
-[OpenAPI 3.1.2 contract](api/openapi.yaml) implements the eight approved operations
+[OpenAPI 3.1.2 contract](api/openapi.yaml) implements the nine approved operations
 for the first vertical slice. The
 [platform and delivery design](deployment/mvp-platform-and-delivery.md) defines its
 minimum local, CI, and private zero-cost OCI `dev` platform.
@@ -35,9 +35,9 @@ contracts, and ADRs remain authoritative.
 
 - [Architecture diagram catalogue](diagrams/README.md)
 - [Learning MVP domain model v1.1](domain/mvp-domain-model.md)
-- [Learning MVP use cases and relevant errors v1.0](application/mvp-use-cases.md)
+- [Learning MVP use cases and relevant errors v1.1](application/mvp-use-cases.md)
 - [Learning MVP solution architecture v1.2](mvp-solution-architecture.md)
-- [Learning MVP REST API conventions v1.0](api/api-conventions.md)
+- [Learning MVP REST API conventions v1.1](api/api-conventions.md)
 - [Learning MVP OpenAPI 3.1.2 contract](api/openapi.yaml)
 - [Generated OpenAPI web reference](api/reference/index.html)
 - [Learning MVP platform and delivery design v1.1](deployment/mvp-platform-and-delivery.md)
@@ -55,3 +55,5 @@ contracts, and ADRs remain authoritative.
 - [ADR-0011: Use Flyway and persistence adapters with PostgreSQL](../decisions/0011-use-postgresql-and-flyway-for-application-persistence.md)
 - [ADR-0012: Use React, TypeScript, and Vite](../decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md)
 - [ADR-0013: Use model-backed and purpose-specific architecture diagrams](../decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md)
+- [ADR-0014: Generate backend HTTP contracts from OpenAPI](../decisions/0014-generate-backend-http-contracts-from-openapi.md)
+- [ADR-0015: Query published release pages with a bounded PostgreSQL read model](../decisions/0015-query-published-release-pages-with-postgresql.md)

@@ -1,9 +1,9 @@
 # Learning MVP Solution Architecture
 
 - **Status:** Approved
-- **Version:** 1.2
+- **Version:** 1.3
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-04
+- **Last updated:** 2026-08-21
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** 1 — MVP solution definition (complete)
 - **Initial release mode:** Private, non-commercial learning MVP
@@ -560,17 +560,19 @@ backend
 │   ├── application
 │   │   ├── inbound
 │   │   └── outbound
-│   └── adapters
-│       ├── inbound
-│       └── outbound
+│   ├── adapters
+│   │   ├── inbound
+│   │   └── outbound
+│   └── configuration
 ├── ratings
 │   ├── domain
 │   ├── application
 │   │   ├── inbound
 │   │   └── outbound
-│   └── adapters
-│       ├── inbound
-│       └── outbound
+│   ├── adapters
+│   │   ├── inbound
+│   │   └── outbound
+│   └── configuration
 ├── identity
 │   └── adapters
 ├── api
@@ -583,6 +585,14 @@ backend
 This is a conceptual structure, not a mandatory package tree. Hexagonal architecture
 is enforced through dependency direction and replaceable boundaries, not by counting
 folders named `ports` and `adapters`.
+
+Dependency direction and object composition are separate concerns. Domain and
+application define behaviour and ports, adapters implement external boundaries, and
+an explicit module-local `configuration` package is the Spring composition root
+that connects core implementations, adapter beans, runtime properties, and platform
+services. Keeping the root inside its closed Spring Modulith business module permits
+deliberate access to `application.internal` without exposing those implementations
+as a public module contract.
 
 ### 9.1 Dependency rules
 
@@ -606,17 +616,20 @@ Required rules:
    messaging, cache, or telemetry product.
 2. Application use cases coordinate domain behaviour through explicit ports.
 3. Inbound and outbound adapters depend inward on application contracts.
-4. Provider DTOs are translated at the IGDB adapter boundary.
-5. Persistence records do not become domain objects or public API payloads by
+4. Adapters do not compose application services or policies and do not depend on
+   `application.internal`; only the owning module's composition root may wire those
+   implementations.
+5. Provider DTOs are translated at the IGDB adapter boundary.
+6. Persistence records do not become domain objects or public API payloads by
    default.
-6. Cross-module access occurs through explicit application contracts, not direct
+7. Cross-module access occurs through explicit application contracts, not direct
    repository or table access.
-7. Shared code is limited to genuinely stable technical primitives; a generic
+8. Shared code is limited to genuinely stable technical primitives; a generic
    `common` module must not become a dumping ground for business concepts.
-8. Time-dependent product policies receive time from an application-owned `Clock`
+9. Time-dependent product policies receive time from an application-owned `Clock`
    port configured for `Europe/Madrid`; clients never supply the authoritative
    evaluation date.
-9. Dependency rules are enforced by automated architecture tests once implementation
+10. Dependency rules are enforced by automated architecture tests once implementation
    begins.
 
 ## 10. Module responsibilities
@@ -1385,6 +1398,7 @@ future ADR should compare gRPC with the actual alternatives for a concrete bound
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-21 | 1.3 | Distinguished inward dependency direction from Spring composition, assigned module-local composition roots, and prohibited adapters from accessing application internals. | Ruben Hernandez |
 | 2026-08-04 | 1.2 | Linked the approved technology baseline and ADR-0010 through ADR-0012, closed Phase 1 solution definition, and identified the walking skeleton as the next gate. | Ruben Hernandez |
 | 2026-08-03 | 1.1 | Linked the approved platform decisions for OCI Always Free hosting, PostgreSQL migrations, Keycloak, GitHub Actions/GHCR, and OpenTelemetry without changing the logical solution boundary. | Ruben Hernandez |
 | 2026-07-30 | 1.0 | Approved the minimum solution architecture after review; selected a same-origin server-side BFF with Authorization Code and PKCE, deferred API Management to explicit triggers, aligned synchronization and degraded states with the application contract, and reduced speculative roadmap and ADR scope. | Ruben Hernandez |

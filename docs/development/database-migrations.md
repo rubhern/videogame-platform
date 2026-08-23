@@ -1,16 +1,16 @@
 # Application database migrations
 
 - **Status:** Active walking-skeleton implementation
-- **Last verified:** 2026-08-09
+- **Last verified:** 2026-08-19
 - **Database:** PostgreSQL `18.4`
 - **Migration engine:** Flyway Community `12.4.0`, managed by Spring Boot
 - **Owners:** Catalogue owns `catalogue.*`; Flyway owns schema evolution
 - **Decisions:** [ADR-0006](../decisions/0006-use-postgresql-and-versioned-forward-migrations.md) and [ADR-0011](../decisions/0011-use-postgresql-and-flyway-for-application-persistence.md)
 
-This guide records the executable persistence boundary introduced for issue #22. It
-implements the minimum catalogue state required by the first public read without
-implementing that endpoint, JPA entities, catalogue synchronization, ratings, or a
-remote deployment procedure.
+This guide records the executable persistence boundary introduced for issue #22 and
+extended for the first public read in issue #25. It implements the minimum catalogue
+state and provider attribution reference required by that read without adding JPA
+entities, catalogue synchronization, ratings, or a remote deployment procedure.
 
 ## Schema model
 
@@ -32,15 +32,35 @@ column types, constraints, indexes, privileges, and schema evolution.
 |---|---|---|
 | `catalogue.catalogue_publication` | Valid catalogue snapshot metadata and current pointer | Unique version and at most one current publication |
 | `catalogue.game` | Stable provider-independent game identity | UUID primary key |
-| `catalogue.game_snapshot` | Publication-scoped title, slug, and displayable primary cover | Game/publication foreign keys, unique slug per publication, approved cover only |
+| `catalogue.game_snapshot` | Publication-scoped title, slug, and normalized displayable primary cover/source page | Game/publication foreign keys, unique slug per publication, approved allowlisted delivery state |
+| `catalogue.game_external_reference` | Provider identity and optional HTTPS source-page reference for a game | Game ownership, unique provider identity, closed entity type, HTTPS-only URL |
 | `catalogue.platform` | Normalized platform identity | UUID primary key and unique stable code |
 | `catalogue.region` | Normalized known, worldwide, or explicit unknown region | UUID primary key and unique stable code |
 | `catalogue.game_release` | Stable provider-independent release identity and owning game | Release UUID uniqueness and game foreign key |
-| `catalogue.release_snapshot` | Publication-scoped release tuple, provenance, quality, and freshness timestamps | Composite ownership foreign keys, tuple uniqueness, closed value checks |
+| `catalogue.release_snapshot` | Publication-scoped release tuple, provenance, quality, freshness timestamps, and generated query period | Composite ownership foreign keys, tuple uniqueness, closed value checks, range-query boundaries |
 
 Freshness status is intentionally not stored. The application derives it from the
 recorded timestamps, the evaluation instant, and the operational threshold, as the
 approved domain model requires.
+
+The additive `V20260813_120000` migration supplies the source-page reference needed
+to attribute an approved provider cover. It does not store provider payloads,
+credentials, or image binaries. If the release read cannot safely resolve both the
+approved image reference and its matching source page, it returns the product-owned
+fallback cover.
+
+The additive `V20260818_120000` migration constrains exact release dates to years
+`1..9999`, matching the existing partial-date constraints and the API's four-digit
+year representation. It is a forward correction; the earlier migration remains
+immutable.
+
+`V20260819_120000` snapshots the validated cover source URL and adds stored
+`period_start`/`period_end` columns derived from the partial date. Its checks ensure
+that product covers use product asset paths, provider references are approved IGDB
+references, and unknown dates have no query period. `V20260819_130000` enables
+`btree_gist` and adds partial GiST indexes for recent/upcoming period overlap plus a
+partial B-tree index for upcoming unknown/TBA releases. These indexes follow the
+measured UC-001 count/page SQL; unused speculative ordering indexes were not retained.
 
 ## Release date representation
 
@@ -55,9 +75,16 @@ The named `ck_release_snapshot_date_value` constraint permits only these states:
 | `year` | year | exact date, month, quarter |
 | `unknown` | none | exact date, year, month, quarter |
 
-PostgreSQL therefore rejects invented partial dates, invalid months or quarters, and
-unknown dates carrying a synthetic value. The API adapter added later will format
-these columns as the reviewed `ReleaseDate` union without increasing precision.
+PostgreSQL therefore rejects invented partial dates, years outside `1..9999`, invalid
+months or quarters, and unknown dates carrying a synthetic value. The API adapter
+formats these columns as the reviewed `ReleaseDate` union without increasing
+precision.
+
+The database also guarantees at most one current publication through a partial
+unique index. `game_external_reference` has one row per
+`game + provider + provider_entity_type` and one owner per provider identity, so a
+join cannot multiply release rows. UC-001 no longer joins that live table: validated
+cover attribution data is copied into the publication snapshot.
 
 ## Migration locations and immutability
 
@@ -105,16 +132,16 @@ fails.
 |---|---|---|---|
 | `APPLICATION_DB_URL` | `jdbc:postgresql://localhost:5432/videogame_platform` | Runtime JDBC target | No |
 | `APPLICATION_DB_USERNAME` | `videogame_app` | DML-only runtime principal | No |
-| `APPLICATION_DB_PASSWORD` | Empty; local `.env` or protected source required | Runtime database credential | Yes |
+| `APPLICATION_DB_PASSWORD` | Empty; local `backend/.env` or protected source required | Runtime database credential | Yes |
 | `APPLICATION_MIGRATION_DB_URL` | Runtime JDBC target | Flyway JDBC target | No |
 | `APPLICATION_MIGRATION_DB_USERNAME` | `videogame_app_migrator` | Schema-owning Flyway principal | No |
-| `APPLICATION_MIGRATION_DB_PASSWORD` | Empty; local `.env` or protected source required | Flyway database credential | Yes |
+| `APPLICATION_MIGRATION_DB_PASSWORD` | Empty; local `backend/.env` or protected source required | Flyway database credential | Yes |
 | `APPLICATION_FLYWAY_ENABLED` | `false` | Explicitly permits migrations during this startup | No |
 | `SPRING_FLYWAY_LOCATIONS` | `classpath:db/migration` | Overrides locations; add `classpath:db/dev-seed` only for disposable local/test data | No |
 
 Passwords must never enter committed configuration, command-line arguments, URLs,
 logs, screenshots, or evidence. The local dependency wrapper generates them in the
-ignored `.env` file with mode `0600`.
+ignored `backend/.env` file with mode `0600`.
 
 ## Validation
 
@@ -131,11 +158,13 @@ proves:
 - Flyway validation and no-op reapplication;
 - checksum failure after an applied migration is changed in a controlled probe;
 - deterministic eight-game seed content and all date precision variants;
-- identifier, uniqueness, foreign-key, and date-coherence constraints;
+- coherent current-snapshot JDBC reads and provider attribution constraints;
+- identifier, current-publication, external-reference-cardinality, cover-delivery,
+  foreign-key, and date/period-coherence constraints;
 - runtime read access without runtime DDL permission.
 
 The same command runs in the dedicated migration job in
-`.github/workflows/quality-gates.yml` with Java 25. The complete backend verification
+`.github/workflows/build-and-verify.yml` with Java 25. The complete backend verification
 also starts the Spring application against PostgreSQL 18 and
 runs the production migration before Hibernate initializes:
 
@@ -144,6 +173,11 @@ runs the production migration before Hibernate initializes:
 ```
 
 H2 is not a dependency and is not used as a PostgreSQL substitute.
+
+The opt-in `scripts/analyze-release-browse.sh` tool generates 10k, 100k, or 1M
+release rows, executes the production read adapter, and prints PostgreSQL 18
+`EXPLAIN (ANALYZE, BUFFERS)` evidence. It is diagnostic local evidence rather than a
+shared-CI latency gate.
 
 ## Local application startup
 
@@ -158,7 +192,7 @@ first startup, and optionally include the demonstration seed:
 
 ```bash
 set -a
-source .env
+source backend/.env
 set +a
 APPLICATION_FLYWAY_ENABLED=true \
 SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \

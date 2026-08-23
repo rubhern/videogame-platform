@@ -2,7 +2,8 @@ import createClient from "openapi-fetch";
 
 import type { paths } from "./generated/schema";
 
-const DEFAULT_API_BASE_URL = "/api/v1";
+const DEFAULT_API_BASE_URL =
+  typeof window === "undefined" ? "/api/v1" : new URL("/api/v1", window.location.origin).toString();
 
 type ProductApiClientOptions = {
   baseUrl?: string;
@@ -22,3 +23,9 @@ export function createProductApiClient(options: ProductApiClientOptions = {}) {
     ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
   });
 }
+
+export type ProductApiClient = ReturnType<typeof createProductApiClient>;
+
+export const productApiClient = createProductApiClient({
+  fetch: (...args) => globalThis.fetch(...args),
+});

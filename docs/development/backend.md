@@ -1,7 +1,7 @@
 # Backend development
 
-- **Status:** Active walking skeleton with persistence and baseline observability
-- **Last verified:** 2026-08-10
+- **Status:** Active walking skeleton with the first public catalogue read
+- **Last verified:** 2026-08-23
 - **Runtime:** Java 25 without preview features
 - **Build:** Repository Maven Wrapper
 - **Technology baseline:** [Learning MVP technology baseline](../architecture/technology/mvp-technology-baseline.md)
@@ -10,22 +10,30 @@
 The module-local [backend README](../../backend/README.md) is the complete technical
 reference for the implementation, runtime configuration, architecture rules, tests,
 Actuator API, IntelliJ setup, and troubleshooting. The tracked
-[Postman assets](../../backend/postman/) exercise every currently exposed Actuator
-operation.
+[Postman assets](../../backend/postman/) exercise the implemented product and Actuator
+operations.
 
 ## Supported boundary
 
 The current backend is the smallest executable foundation for the approved modular
 monolith. It compiles and starts with Spring Boot 4.1.0, Spring MVC, Actuator, and
 Spring Modulith 2.1.0. PostgreSQL 18, SQL-first Flyway migrations, the module-owned
-catalogue schema, and deterministic opt-in seed data now provide the initial
-persistence boundary. It intentionally implements no product endpoint,
-authentication, provider call, catalogue repository, or product behaviour.
+catalogue schema, deterministic opt-in seed data, and a JDBC read adapter provide the
+initial persistence boundary. `GET /api/v1/releases` implements UC-001 from the
+current local snapshot with recent/upcoming views, filters, pagination, explicit
+quality states, safe covers, public caching, stable errors, and bounded telemetry.
+It intentionally makes no request-path provider call.
 
-Actuator health, info, and metrics are the only current HTTP surface. Explicit probe
+The release read and Actuator health, info, and metrics form the current HTTP
+surface. Explicit probe
 groups, build metadata, safe correlation, structured access logs, route-template
 metrics, W3C tracing, and optional OTLP export provide the baseline observability
 boundary before real product models are introduced.
+
+Every product-facing backend HTTP interface and transport model is now generated
+from the reviewed OpenAPI source during Maven `generate-sources`. Manual controllers
+implement those interfaces and keep generated types inside delivery. See the
+[backend OpenAPI generation standard](backend-openapi-generation.md).
 
 ## Project layout
 
@@ -37,7 +45,8 @@ backend/src/main/java/com/videogameplatform
 ├── catalogue
 │   ├── domain
 │   ├── application
-│   └── adapter
+│   ├── adapter
+│   └── configuration
 ├── ratings
 │   ├── domain
 │   ├── application
@@ -45,17 +54,26 @@ backend/src/main/java/com/videogameplatform
 ├── identity
 │   └── adapter
 ├── api
-│   ├── delivery
-│   └── model
+│   └── delivery
 └── platform
     ├── configuration
     └── observability
 ```
 
+Disposable OpenAPI output is created separately under
+`backend/target/generated-sources/openapi/java/com/videogameplatform/api/generated`.
+It is not source-controlled.
+
 Spring Modulith treats the five direct packages as application modules. Catalogue
 and Ratings reserve their inward domain and application boundaries. Identity, API,
 and Platform are supporting adapter or technical boundaries; they do not contain
 business logic.
+
+`catalogue.configuration` is the module-local Spring composition root. It wires
+the framework-independent use-case implementation and policies to the
+`ReleaseBrowseReadPort` adapter bean, the shared `Clock`, and validated runtime
+properties. Persistence configuration only creates the PostgreSQL port
+implementation; adapters and HTTP delivery cannot access `application.internal`.
 
 ## Verify
 
@@ -71,6 +89,8 @@ This is the stable backend verification command. It:
 - enforces the Spotless/google-java-format AOSP baseline and rejects unused or
   wildcard imports;
 - compiles with Java release 25 and preview features disabled;
+- regenerates all Spring HTTP interfaces and transport models from OpenAPI before
+  compilation, so contract/implementation drift fails the build;
 - starts an embedded servlet server and checks health groups, version metadata,
   baseline metrics, structured correlation, W3C trace context, and telemetry safety;
 - verifies the five application modules with Spring Modulith;
@@ -79,6 +99,9 @@ This is the stable backend verification command. It:
 - creates and migrates disposable PostgreSQL 18 databases through Testcontainers;
 - verifies Flyway checksums, seed determinism, database constraints, and runtime
   privileges;
+- verifies the release repository and API against PostgreSQL 18, including filters,
+  deterministic ordering, date precision, stale data, empty results, local-snapshot
+  failure, contract headers, and bounded telemetry;
 - generates JaCoCo XML at `backend/target/site/jacoco/jacoco.xml` and a human-readable
   report at `backend/target/site/jacoco/index.html`, without a global coverage
   threshold;
@@ -109,7 +132,7 @@ the first local startup:
 ```bash
 bash scripts/local-dependencies.sh up
 set -a
-source .env
+source backend/.env
 set +a
 APPLICATION_FLYWAY_ENABLED=true ./mvnw -pl backend spring-boot:run
 ```
@@ -125,8 +148,11 @@ curl --fail --silent http://localhost:8080/actuator/metrics
 The expected response contains `"status":"UP"`. Stop the application with
 `Ctrl+C`.
 
-For discovery, health, info, and metric checks, import the
-[Actuator Postman collection and local environment](../../backend/postman/README.md).
+For product and operational checks, import the
+[Postman collections and local environment](../../backend/postman/README.md).
+
+The [release API guide](release-api.md) owns its exact query policy, configuration,
+snapshot and cover behaviour, HTTP errors, telemetry, and focused test commands.
 
 The [observability guide](observability.md) owns health semantics, source-revision
 injection, human and `structured` logging modes, package log levels, correlation and
@@ -142,22 +168,40 @@ normal local start.
 The full verification already creates the executable artifact. Run it directly with:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.2.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
 ```
 
-This command uses the same Java 25 runtime constraint as the Maven build. Container
-packaging and multi-architecture evidence are not part of this backend-only slice.
+That default artifact is backend-only. Build the combined browser application with:
+
+```bash
+bash scripts/package-application.sh
+```
+
+The command creates the Vite production output and invokes Maven's explicit
+`with-frontend` profile. The resulting JAR serves only the approved browser entry
+routes and leaves `/api`, `/auth`, and `/actuator` under Spring/server ownership.
+`bash scripts/validate-browser.sh` starts this exact artifact with a disposable
+PostgreSQL 18 database and proves the complete same-origin release read.
+`bash scripts/validate-identity.sh` starts it with the `oidc` profile, a fresh
+PostgreSQL/Keycloak 26.7 topology, and a real no-retry Chromium login/session/logout
+proof. Configuration and security boundaries are in the
+[identity guide](identity-bff.md).
+
+Build and verify the production image containing this JAR and its frontend with
+`bash scripts/validate-container-image.sh`. The
+[container image guide](container-image.md) owns that multi-architecture runtime,
+inspection, scan, SBOM, and publication boundary; container concerns do not enter a
+domain or application module. Its image-only Maven profile excludes the opt-in
+development seed without changing ordinary local packaging or production migrations.
 
 ## Current limitations
 
 The broader walking-skeleton gate remains open. The following evidence is deliberately
 not claimed by this skeleton:
 
-- Catalogue JPA entities, repository adapters, publication commands, or public reads;
-- application integration with the proven local Keycloak 26.7 realm and server-side
-  OIDC session compatibility;
-- OpenAPI-backed product delivery;
-- combined OCI images for `linux/amd64` and `linux/arm64`;
+- Catalogue write/publication commands, search, and game-detail reads;
+- durable product `UserId` mapping and authenticated ratings authorization;
+- Remaining OpenAPI operations beyond `GET /api/v1/releases`;
 - a deployed collector or OCI telemetry integration, combined-application resource
   budgeting, and remote deployment.
 
