@@ -67,5 +67,57 @@ services:
     cpus: 1.0
     stop_grace_period: 30s
 
+  application:
+    profiles: ["full"]
+    image: videogame-platform/application:${APPLICATION_VERSION:-0.7.0-SNAPSHOT}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        APPLICATION_VERSION: ${APPLICATION_VERSION:-0.7.0-SNAPSHOT}
+        SOURCE_REVISION: ${SOURCE_REVISION:-local-development}
+        SOURCE_URL: ${SOURCE_URL:-https://github.com/rubhern/videogame-platform}
+    environment:
+      SPRING_PROFILES_ACTIVE: oidc
+      APPLICATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
+      APPLICATION_DB_USERNAME: videogame_app
+      APPLICATION_DB_PASSWORD: ${APPLICATION_DB_PASSWORD:?Set APPLICATION_DB_PASSWORD in .env}
+      APPLICATION_FLYWAY_ENABLED: "true"
+      APPLICATION_MIGRATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
+      APPLICATION_MIGRATION_DB_USERNAME: videogame_app_migrator
+      APPLICATION_MIGRATION_DB_PASSWORD: ${APPLICATION_MIGRATION_DB_PASSWORD:?Set APPLICATION_MIGRATION_DB_PASSWORD in .env}
+      KEYCLOAK_BFF_CLIENT_SECRET: ${KEYCLOAK_BFF_CLIENT_SECRET:?Set KEYCLOAK_BFF_CLIENT_SECRET in .env}
+      OIDC_ISSUER_URI: ${KEYCLOAK_HOSTNAME:-http://localhost:8180}/realms/videogame-platform
+      OIDC_AUTHORIZATION_URI: ${KEYCLOAK_HOSTNAME:-http://localhost:8180}/realms/videogame-platform/protocol/openid-connect/auth
+      OIDC_TOKEN_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs
+      OIDC_USER_INFO_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo
+      APPLICATION_SESSION_COOKIE_NAME: vgp_session
+      APPLICATION_SESSION_COOKIE_SECURE: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    user: "10001:10001"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "-T", "3", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    mem_limit: 1g
+    cpus: 0.5
+    stop_grace_period: 30s
+
 volumes:
   postgres-data:

@@ -1,7 +1,7 @@
 # Frontend development
 
 - **Status:** Active minimal product shell
-- **Last verified:** 2026-08-22
+- **Last verified:** 2026-08-23
 - **Runtime:** Node.js 24 and npm 11
 - **Stack:** React 19.2, TypeScript strict mode, Vite 8.1
 - **Technical reference:** [Frontend README](../../frontend/README.md)
@@ -28,6 +28,7 @@ npm ci
 npm run frontend:verify
 bash scripts/package-application.sh
 bash scripts/validate-browser.sh
+bash scripts/validate-container-image.sh
 ```
 
 For local development:
@@ -55,8 +56,8 @@ security advisories, build output, and troubleshooting.
 - Only the fixed, bounded recent page is visible; filters, pagination controls and
   final stale-data presentation remain deferred.
 - `/games/:slug` is an explicit navigation placeholder, not game details.
-- Login controls, authenticated product UI, ratings, provider synchronization, OCI
-  image assembly and multi-architecture evidence remain separate work. The
+- Login controls, authenticated product UI, ratings, and provider synchronization
+  remain separate work. The
   server-owned BFF session compatibility proof is covered by the identity guide and
   its real-browser gate.
 - Full responsive polish and critical journey coverage belong to later feature work.

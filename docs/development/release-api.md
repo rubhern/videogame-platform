@@ -1,8 +1,8 @@
 # Release discovery API
 
 - **Status:** Active walking-skeleton implementation
-- **Last verified:** 2026-08-22
-- **Backend version:** `0.5.0-SNAPSHOT`
+- **Last verified:** 2026-08-23
+- **Backend version:** `0.7.0-SNAPSHOT`
 - **Issue:** [#25](https://github.com/rubhern/videogame-platform/issues/25)
 - **Use case:** [UC-001](../architecture/application/mvp-use-cases.md#uc-001--browse-recent-or-upcoming-releases)
 - **Contract:** [`GET /api/v1/releases`](../architecture/api/openapi.yaml)

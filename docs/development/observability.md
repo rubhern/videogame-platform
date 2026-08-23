@@ -1,8 +1,8 @@
 # Backend observability
 
 - **Status:** Active walking-skeleton implementation
-- **Last verified:** 2026-08-22
-- **Backend version:** `0.5.0-SNAPSHOT`
+- **Last verified:** 2026-08-23
+- **Backend version:** `0.7.0-SNAPSHOT`
 - **Decision:** [ADR-0009](../decisions/0009-use-opentelemetry-compatible-instrumentation.md)
 - **Architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
 
@@ -42,6 +42,10 @@ Issue #26 advances the backend reactor to `0.4.0-SNAPSHOT` for compatible combin
 frontend packaging without changing these observability semantics.
 Issue #40 advances it to `0.5.0-SNAPSHOT` for compatible OIDC BFF session behaviour,
 again without changing the observability contract.
+Issue #27 advances it to `0.6.0-SNAPSHOT` for compatible production-image delivery,
+and the optional complete local Compose topology advances it to `0.7.0-SNAPSHOT` for
+compatible containerized runtime configuration. Neither changes the observability
+contract.
 
 ## Health semantics
 
@@ -77,7 +81,7 @@ returns its safe fields under `build`:
 {
   "build": {
     "name": "VideoGame Platform Backend",
-    "version": "0.5.0-SNAPSHOT",
+    "version": "0.7.0-SNAPSHOT",
     "sourceRevision": "local-development"
   }
 }
@@ -349,5 +353,5 @@ change health readiness or product responses.
   implemented.
 - Database statement tracing is not enabled; the baseline exposes pool metrics and
   health without adding raw SQL to telemetry.
-- Remote smoke, resource-budget, and multi-architecture evidence remain in later
-  walking-skeleton work items.
+- Remote smoke, complete-topology resource-budget, and hosted compatibility evidence
+  remain in later walking-skeleton work items.

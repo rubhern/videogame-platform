@@ -1,7 +1,7 @@
 # Backend development
 
 - **Status:** Active walking skeleton with the first public catalogue read
-- **Last verified:** 2026-08-21
+- **Last verified:** 2026-08-23
 - **Runtime:** Java 25 without preview features
 - **Build:** Repository Maven Wrapper
 - **Technology baseline:** [Learning MVP technology baseline](../architecture/technology/mvp-technology-baseline.md)
@@ -168,7 +168,7 @@ normal local start.
 The full verification already creates the executable artifact. Run it directly with:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.5.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
 ```
 
 That default artifact is backend-only. Build the combined browser application with:
@@ -187,8 +187,12 @@ PostgreSQL/Keycloak 26.7 topology, and a real no-retry Chromium login/session/lo
 proof. Configuration and security boundaries are in the
 [identity guide](identity-bff.md).
 
-This command uses the same Java 25 runtime constraint as the Maven build. Container
-packaging and multi-architecture evidence are not part of this backend-only slice.
+Build and verify the production image containing this JAR and its frontend with
+`bash scripts/validate-container-image.sh`. The
+[container image guide](container-image.md) owns that multi-architecture runtime,
+inspection, scan, SBOM, and publication boundary; container concerns do not enter a
+domain or application module. Its image-only Maven profile excludes the opt-in
+development seed without changing ordinary local packaging or production migrations.
 
 ## Current limitations
 
@@ -198,7 +202,6 @@ not claimed by this skeleton:
 - Catalogue write/publication commands, search, and game-detail reads;
 - durable product `UserId` mapping and authenticated ratings authorization;
 - Remaining OpenAPI operations beyond `GET /api/v1/releases`;
-- combined OCI images for `linux/amd64` and `linux/arm64`;
 - a deployed collector or OCI telemetry integration, combined-application resource
   budgeting, and remote deployment.
 

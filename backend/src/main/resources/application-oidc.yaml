@@ -16,4 +16,8 @@ spring:
             scope: openid
         provider:
           keycloak:
-            issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/videogame-platform}
+            authorization-uri: ${OIDC_AUTHORIZATION_URI:http://localhost:8180/realms/videogame-platform/protocol/openid-connect/auth}
+            token-uri: ${OIDC_TOKEN_URI:http://localhost:8180/realms/videogame-platform/protocol/openid-connect/token}
+            jwk-set-uri: ${OIDC_JWK_SET_URI:http://localhost:8180/realms/videogame-platform/protocol/openid-connect/certs}
+            user-info-uri: ${OIDC_USER_INFO_URI:http://localhost:8180/realms/videogame-platform/protocol/openid-connect/userinfo}
+            user-name-attribute: sub

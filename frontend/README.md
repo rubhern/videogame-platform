@@ -269,8 +269,13 @@ using:
 
 ```bash
 APPLICATION_FLYWAY_ENABLED=true \
-  java -jar backend/target/videogame-platform-backend-0.5.0-SNAPSHOT.jar
+  java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
 ```
+
+The production container build uses the same locked Vite output and Maven profile;
+`bash scripts/validate-container-image.sh` verifies both supported architectures.
+Generated `dist` assets remain ignored build output and are never committed. See the
+[container image guide](../docs/development/container-image.md).
 
 The separate `bash scripts/validate-identity.sh` gate uses the same assets and drives
 the real server-owned Keycloak login/session/logout path. It does not add a

@@ -1,9 +1,9 @@
 # Walking-skeleton continuous integration
 
 - **Status:** Active
-- **Last updated:** 2026-08-22
-- **Runtimes:** Eclipse Temurin Java 25, Node.js 24, PostgreSQL 18 through Testcontainers
-- **Workflows:** [`quality-gates.yml`](../../.github/workflows/quality-gates.yml),
+- **Last updated:** 2026-08-23
+- **Runtimes:** Eclipse Temurin Java 25, Node.js 24, PostgreSQL 18, Docker Buildx and QEMU
+- **Workflows:** [`build-and-verify.yml`](../../.github/workflows/build-and-verify.yml),
   [`security.yml`](../../.github/workflows/security.yml), and
   [`dependency-submission.yml`](../../.github/workflows/dependency-submission.yml)
 - **Delivery rules:** [Learning MVP delivery lifecycle](delivery-lifecycle.md)
@@ -11,9 +11,10 @@
 ## Purpose and boundary
 
 The walking-skeleton workflows reproduce the current repository evidence on every
-pull request targeting `main` and every trusted push to `main`. They do not publish
-an OCI image, deploy infrastructure, use provider credentials, or call IGDB. Image
-assembly, multi-architecture scanning and GHCR publication belong to issue #27.
+pull request targeting `main` and every trusted push to `main`. Pull requests build,
+start, inspect, scan, and describe the application image but never publish it.
+Trusted `main` builds publish the exact validated OCI index to GHCR. No workflow
+deploys infrastructure, uses provider credentials, or calls IGDB.
 
 The quality and security workflows expose one stable aggregate result each:
 `Required quality gate` and `Required security gate`. Either aggregate fails when any required job fails, is
@@ -27,6 +28,7 @@ cancelled, or is skipped, so a later diagnostic step cannot hide an incomplete g
 | Frontend static, type, component and build checks | `npm ci --ignore-scripts`, OpenAPI type generation diff, `npm run frontend:verify` | Prove the locked dependency graph without executing dependency lifecycle scripts, ESLint, strict `tsc --noEmit`, Vitest and the production Vite build |
 | Packaged application Chromium smoke and accessibility check | `validate-browser.sh` with digest-pinned Java and Playwright images | Build the combined JAR and exercise browser → same-origin releases API → disposable PostgreSQL, keyboard navigation and axe-core without mocks |
 | Real Keycloak 26.7 OIDC BFF compatibility | `validate-identity.sh` with the same reviewed realm plus digest-pinned Java and Playwright images | Build the combined JAR and exercise browser → BFF → real Keycloak → callback → opaque session → CSRF logout without protocol mocks, retries, or credential-bearing traces |
+| Immutable multi-architecture application image | `validate-container-image.sh` with pinned Buildx, BuildKit, QEMU, Java, Node and Trivy inputs | Build one OCI index, prove AMD64 and emulated ARM64 runtime/health/routing, inspect the non-root filesystem and metadata, fail on high/critical vulnerabilities, and retain CycloneDX SBOMs |
 | Java backend, architecture and PostgreSQL integration | `./mvnw clean verify` plus retained JaCoCo report | Regenerate Spring interfaces/DTOs from OpenAPI, enforce Spotless, compile/package with Java 25, run unit and startup checks, Spring Modulith verification, ArchUnit rules and PostgreSQL 18 integration tests, and produce XML/HTML coverage evidence |
 | Fresh PostgreSQL 18 migration | `validate-migrations.sh` | Independently create an empty database, apply Flyway from zero and verify schema, seed and runtime-privilege guarantees |
 | IGDB PoC local fixtures | targeted Maven `clean verify` | Preserve the provider decision evidence without credentials or live provider traffic |
@@ -37,6 +39,15 @@ already provide Docker, so Testcontainers creates a new `postgres:18.4-bookworm`
 container and database for each backend or migration job.
 The same Maven build runs OpenAPI Generator in `generate-sources`; generated Java is
 ignored disposable output, and any incompatible manual controller fails compilation.
+
+The image job registers only ARM64 QEMU emulation on the AMD64 hosted runner and
+uses Buildx for `linux/amd64,linux/arm64`. Its result is part of `Required quality
+gate`. On trusted `main` only, the publication job waits for both the image job and
+the complete aggregate quality result, downloads the exact validated OCI archive,
+verifies its checksum, and copies it to
+`ghcr.io/rubhern/videogame-platform:<full-commit-sha>` with Skopeo
+`--preserve-digests`. It rejects a remote digest mismatch or missing architecture and
+never creates `latest`.
 
 Spotless Maven 3.9.0 uses the explicitly pinned google-java-format 1.36.1 AOSP style,
 removes unused imports, and rejects wildcard imports. Its `check` goal is bound to
@@ -111,7 +122,9 @@ introduces a new high-severity vulnerability is blocked.
 ## Permissions and untrusted code
 
 - Quality defaults to no token permissions. Only jobs that check out source receive
-  `contents: read`; the aggregate gate receives none.
+  `contents: read`; the aggregate gate receives none. The trusted `main` publication
+  job alone adds `packages: write`, uses `GITHUB_TOKEN`, and does not run for pull
+  requests.
 - Security defaults to no token permissions. Gitleaks and dependency review receive
   only `contents: read`; CodeQL additionally receives `actions: read` and
   `security-events: write` so it can publish analysis.
@@ -142,8 +155,11 @@ repository's checks do not require dependency lifecycle hooks, so suppressing th
 reduces the execution surface of an untrusted dependency graph.
 
 The browser job retains its Playwright HTML diagnostics and the backend job retains
-JaCoCo XML/HTML for seven days. Those artifacts are never consumed as build input and
-cannot change the test result.
+JaCoCo XML/HTML for seven days. The image job retains inspection, runtime, Trivy, and
+CycloneDX evidence for seven days. Trusted `main` additionally transfers the exact
+validated OCI archive for one day so the publication job does not rebuild it and
+retains the published SHA/digest/platform record for 30 days. Those artifacts cannot
+change a completed validation result.
 
 ## Failure and retry policy
 
@@ -173,6 +189,7 @@ git diff --exit-code -- frontend/src/shared/api/generated/schema.d.ts
 npm run frontend:verify
 bash scripts/validate-browser.sh
 bash scripts/validate-identity.sh
+bash scripts/validate-container-image.sh
 bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
@@ -250,6 +267,13 @@ The backend reactor therefore advances to `0.5.0-SNAPSHOT` and OpenAPI to `1.2.0
 The frontend remains `0.1.0`; its product runtime is unchanged. Root tooling and the
 isolated IGDB PoC also remain unchanged.
 
+Issue #27 adds a compatible production delivery format for the combined application.
+The backend reactor advances to `0.6.0-SNAPSHOT` because its executable JAR is now
+the versioned image payload. The image scan also advances the Spring-managed Log4j
+and Jackson lines to compatible security patches without changing their approved
+minor baselines. Frontend source and behaviour, OpenAPI, root tooling, and the
+isolated IGDB PoC are unchanged, so their versions remain unchanged.
+
 ## Remaining delivery work
 
 - Pull requests and trusted `main` runs retain the GitHub-hosted execution evidence;
@@ -257,6 +281,10 @@ isolated IGDB PoC also remain unchanged.
 - Repository rules should require the two stable aggregate checks after their first
   successful run; configuring merge policy is repository administration, not
   executable workflow source.
-- Trivy, CycloneDX and OCI provenance remain approved incremental controls for the
-  image-owning issue. Spotless, JaCoCo and SonarQube Cloud are implemented here
-  alongside CodeQL, compiler lint, ArchUnit, Spring Modulith and ESLint.
+- The first trusted hosted `main` run must confirm the GHCR package visibility,
+  published digest, and retained evidence; local validation cannot exercise GitHub
+  token permissions or mutate GHCR.
+- Deployment, infrastructure provenance, remote smoke, and resource-budget evidence
+  remain later work. Trivy and CycloneDX image evidence are implemented here without
+  replacing CodeQL, compiler lint, ArchUnit, Spring Modulith, ESLint, Spotless,
+  JaCoCo, or SonarQube Cloud.

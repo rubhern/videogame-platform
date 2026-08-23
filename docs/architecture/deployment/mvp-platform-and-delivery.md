@@ -1,9 +1,9 @@
 # Learning MVP platform and delivery design
 
 - **Status:** Approved
-- **Version:** 1.7
+- **Version:** 1.8
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-22
+- **Last updated:** 2026-08-23
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP
@@ -186,8 +186,12 @@ builds Vite output and embeds it in the Spring Boot JAR through an explicit Mave
 profile. `scripts/validate-browser.sh` proves those exact assets against the real API
 and a disposable PostgreSQL 18 database. `scripts/validate-identity.sh` additionally
 proves the same JAR against real Keycloak 26.7 through a no-retry browser/BFF login,
-opaque session and CSRF logout flow in local and CI. OCI image assembly, scanning, publication,
-and multi-architecture evidence remain deferred to the image-owning work.
+opaque session and CSRF logout flow in local and CI.
+`scripts/validate-container-image.sh` now builds that same combined application as
+one `linux/amd64`/`linux/arm64` OCI index, starts and probes both variants, inspects
+their non-root runtime boundary and metadata, scans them with Trivy, and generates
+CycloneDX SBOMs. Trusted `main` copies the exact validated index to GHCR by full
+commit SHA and verifies the preserved digest; pull requests never publish it.
 
 The image MUST:
 
@@ -257,10 +261,11 @@ Actions:
 4. publishes the immutable image to GHCR from trusted `main`;
 5. makes its digest eligible for a manually approved `dev` deployment.
 
-The current source-backed implementation of steps 1 and 2, including formatting,
+The current source-backed implementation of steps 1 through 4, including formatting,
 coverage, SonarQube Cloud, secret, dependency and CodeQL gates, is documented in the
 [walking-skeleton continuous-integration guide](../../development/continuous-integration.md).
-Image build, scan, publication and deployment remain separate later work.
+The first hosted `main` result must still confirm GHCR package visibility and the
+recorded remote digest. Deployment remains separate later work.
 
 The initial deployment sequence is:
 
@@ -354,12 +359,13 @@ exporters, not domain or API contracts.
    and Keycloak topology, SQL-first Flyway migrations, deterministic seed,
    PostgreSQL 18 persistence tests, observability baseline, and current CI/security
    gates are executable. The first public local read and combined application JAR are
-   also complete. Add identity integration and
-   `linux/amd64`/`linux/arm64` application compatibility.
+   also complete. Identity integration and `linux/amd64`/`linux/arm64` application
+   compatibility are now covered; complete the topology resource budget and hosted
+   compatibility evidence.
 3. **First public read — complete:** `GET /api/v1/releases` reads PostgreSQL and proves
    `CATALOGUE_NOT_READY` without live request-path IGDB calls.
-4. **Delivery:** build and scan `linux/arm64`/`linux/amd64` image; publish digest to
-   public GHCR from `main`.
+4. **Delivery — implemented in CI:** build and scan the `linux/arm64`/`linux/amd64`
+   image and publish its preserved digest to public GHCR from trusted `main`.
 5. **Infrastructure:** verify current free terms and A1 capacity; provision reviewed
    OCI/Tailscale `dev` with Terraform and no paid resource.
 6. **Remote acceptance:** deploy manually, migrate, smoke test, verify telemetry,
@@ -388,6 +394,7 @@ exporters, not domain or API contracts.
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.8 | 2026-08-23 | Recorded the single non-root multi-architecture application image, runtime/manifest/Trivy/CycloneDX evidence, and digest-preserving trusted-main GHCR publication without claiming deployment. | Ruben Hernandez |
 | 1.7 | 2026-08-22 | Recorded the local/CI real Keycloak 26.7 browser-to-BFF Authorization Code with PKCE, opaque session and CSRF logout proof without changing the remote topology or selecting a distributed session store. | Ruben Hernandez |
 | 1.6 | 2026-08-22 | Recorded reproducible combined frontend/backend JAR packaging and the real browser-to-PostgreSQL smoke while leaving OCI image work open. | Ruben Hernandez |
 | 1.5 | 2026-08-13 | Recorded the executable PostgreSQL-backed first public release read, local-snapshot failure behaviour, and bounded endpoint telemetry without closing remote acceptance. | Ruben Hernandez |
