@@ -136,9 +136,13 @@ docker run --detach \
   --env SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
   --env KEYCLOAK_BFF_CLIENT_SECRET="$bff_client_secret" \
   --env OIDC_ISSUER_URI=http://keycloak:8080/realms/videogame-platform \
+  --env OIDC_AUTHORIZATION_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/auth \
+  --env OIDC_TOKEN_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token \
+  --env OIDC_JWK_SET_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs \
+  --env OIDC_USER_INFO_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo \
   --env APPLICATION_SESSION_COOKIE_NAME=vgp_session \
   --env APPLICATION_SESSION_COOKIE_SECURE=false \
-  --volume "$repository_root/backend/target/videogame-platform-backend-0.5.0-SNAPSHOT.jar:/application.jar:ro" \
+  --volume "$repository_root/backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar:/application.jar:ro" \
   "$java_image" java -jar /application.jar >/dev/null
 
 for _ in $(seq 1 90); do

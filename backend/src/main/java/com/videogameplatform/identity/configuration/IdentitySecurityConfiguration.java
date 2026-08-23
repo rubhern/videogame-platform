@@ -90,17 +90,19 @@ public class IdentitySecurityConfiguration {
     }
 
     @Bean
-    JwtDecoderFactory<ClientRegistration> oidcIdTokenDecoderFactory() {
+    JwtDecoderFactory<ClientRegistration> oidcIdTokenDecoderFactory(
+            @Value("${OIDC_ISSUER_URI:http://localhost:8180/realms/videogame-platform}")
+                    String expectedIssuer) {
         OidcIdTokenDecoderFactory factory = new OidcIdTokenDecoderFactory();
-        factory.setJwtValidatorFactory(IdentitySecurityConfiguration::idTokenValidators);
+        factory.setJwtValidatorFactory(
+                registration -> idTokenValidators(registration, expectedIssuer));
         return factory;
     }
 
     static DelegatingOAuth2TokenValidator<org.springframework.security.oauth2.jwt.Jwt>
-            idTokenValidators(ClientRegistration registration) {
+            idTokenValidators(ClientRegistration registration, String expectedIssuer) {
         return new DelegatingOAuth2TokenValidator<>(
-                JwtValidators.createDefaultWithIssuer(
-                        registration.getProviderDetails().getIssuerUri()),
+                JwtValidators.createDefaultWithIssuer(expectedIssuer),
                 new OidcIdTokenValidator(registration));
     }
 }

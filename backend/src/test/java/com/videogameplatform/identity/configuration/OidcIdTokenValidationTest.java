@@ -87,6 +87,13 @@ class OidcIdTokenValidationTest {
     }
 
     @Test
+    void frameworkDecoderFactoryAppliesTheExternallyConfiguredIssuerValidator() {
+        var factory = new IdentitySecurityConfiguration().oidcIdTokenDecoderFactory(ISSUER);
+
+        assertThat(factory.createDecoder(clientRegistration())).isNotNull();
+    }
+
+    @Test
     void frameworkProviderRejectsAnIdTokenWhoseNonceIsNotBoundToTheAuthorizationRequest() {
         OAuth2AccessTokenResponse tokenResponse =
                 OAuth2AccessTokenResponse.withToken("server-side-access-token")
@@ -114,7 +121,7 @@ class OidcIdTokenValidationTest {
     }
 
     private static OAuth2TokenValidator<Jwt> validator() {
-        return IdentitySecurityConfiguration.idTokenValidators(clientRegistration());
+        return IdentitySecurityConfiguration.idTokenValidators(clientRegistration(), ISSUER);
     }
 
     private static ClientRegistration clientRegistration() {
@@ -125,11 +132,10 @@ class OidcIdTokenValidationTest {
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .redirectUri("{baseUrl}/login/oauth2/code/{registrationId}")
                 .scope("openid")
-                .authorizationUri(ISSUER + "/protocol/openid-connect/auth")
-                .tokenUri(ISSUER + "/protocol/openid-connect/token")
-                .jwkSetUri(ISSUER + "/protocol/openid-connect/certs")
-                .issuerUri(ISSUER)
-                .userInfoUri(ISSUER + "/protocol/openid-connect/userinfo")
+                .authorizationUri("http://localhost:8180/realms/test/protocol/openid-connect/auth")
+                .tokenUri("http://keycloak:8080/realms/test/protocol/openid-connect/token")
+                .jwkSetUri("http://keycloak:8080/realms/test/protocol/openid-connect/certs")
+                .userInfoUri("http://keycloak:8080/realms/test/protocol/openid-connect/userinfo")
                 .userNameAttributeName("sub")
                 .clientName("Test Keycloak")
                 .build();

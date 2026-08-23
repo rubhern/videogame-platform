@@ -1,15 +1,16 @@
 # Local backend dependencies
 
 - **Status:** Active
-- **Last verified:** 2026-08-08
-- **Scope:** Disposable local PostgreSQL and Keycloak topology on the supported WSL2 workstation
+- **Last verified:** 2026-08-23
+- **Scope:** Disposable local PostgreSQL and Keycloak, with an optional complete application profile, on the supported WSL2 workstation
 - **Technology baseline:** [Learning MVP technology baseline](../architecture/technology/mvp-technology-baseline.md)
 - **Platform design:** [Learning MVP platform and delivery design](../architecture/deployment/mvp-platform-and-delivery.md)
 
-This topology provides the backend dependencies approved for the walking skeleton. It
-does not add the long-running application or frontend containers, or provision
-remote infrastructure. The executable application connects through the documented
-persistence configuration and opt-in OIDC profile.
+The default topology provides the backend dependencies approved for the walking
+skeleton. The opt-in `full` profile adds the existing complete application image;
+it does not add a separate frontend container or provision remote infrastructure.
+The executable application connects through the documented persistence configuration
+and OIDC profile.
 
 ## Topology
 
@@ -18,14 +19,16 @@ persistence configuration and opt-in OIDC profile.
 | PostgreSQL | `postgres:18.4-bookworm` | `127.0.0.1:5432` | One server containing isolated application and Keycloak databases |
 | Keycloak | `quay.io/keycloak/keycloak:26.7.0` | `http://localhost:8180` | Local OIDC provider and private administration console |
 | Keycloak management | Keycloak 26.7.0 | `127.0.0.1:9000` | Local health and metrics endpoints |
+| Application (`full` profile only) | `videogame-platform/application:0.7.0-SNAPSHOT` | `http://localhost:8080` | Packaged React frontend, same-origin BFF/API and Spring Boot modular monolith |
 | `videogame_app` | PostgreSQL login role | Application database only | Runtime DML role; it cannot create schema objects |
 | `videogame_app_migrator` | PostgreSQL login role | Application database only | Owns the application database and is reserved for Flyway migrations |
 | `videogame_keycloak` | PostgreSQL login role | Keycloak database only | Owns and operates the Keycloak database |
 
 All published host ports bind to loopback; they are not exposed to the LAN. Compose
-limits the topology to 1.5 CPUs and 1.5 GiB of memory in total, below the approved
-private `dev` ceiling of 2 CPUs and 12 GiB. These are development limits, not
-production sizing.
+limits the default dependency topology to 1.5 CPUs and 1.5 GiB of memory. The `full`
+profile limits the complete topology to 2 CPUs and 2.5 GiB, within the approved
+private `dev` CPU and memory ceilings. These are development limits, not production
+sizing or final issue #34 capacity evidence.
 
 PostgreSQL must become healthy before Compose starts Keycloak. Keycloak then initializes
 its own schema, imports the realm, and becomes healthy only when its readiness endpoint
@@ -76,6 +79,20 @@ Keycloak substitutes the ignored environment values into the reviewed realm file
 first import. The repository therefore contains the reproducible realm, client, and
 user shape but no usable password or client secret.
 
+After the wrapper has created the ignored `.env`, the two direct Compose modes are:
+
+```bash
+# PostgreSQL and Keycloak only (the existing default)
+docker compose up
+
+# PostgreSQL, Keycloak and the complete application image
+docker compose --profile full up --build
+```
+
+The `application` service is profile-gated, so it is not selected by the first
+command. Compose waits for both dependencies to become healthy before it starts the
+application. The application then exposes its own readiness health check.
+
 ## Backend connection contract
 
 The backend persistence integration uses:
@@ -94,9 +111,17 @@ OIDC client ID:    videogame-platform-bff
 OIDC client secret: KEYCLOAK_BFF_CLIENT_SECRET
 ```
 
-These application-side values are loaded from `backend/.env`. The same three secret
-values also remain in the root infrastructure `.env` because PostgreSQL and Keycloak
-must provision credentials that exactly match the backend clients.
+Direct host execution loads these application-side values from `backend/.env`. The
+`full` Compose profile reads the same three secret values from the ignored root
+`.env`, changes both JDBC hosts to `postgres`, and keeps the usernames and database
+names unchanged. PostgreSQL and Keycloak must provision credentials that exactly
+match the application clients.
+
+For OIDC, the application sends the browser to the public issuer and authorization
+endpoint under `http://localhost:8180`. Server-only token exchange, key retrieval and
+UserInfo calls use `http://keycloak:8080` on the Compose network. ID tokens are still
+required to contain the exact public issuer; the internal connection does not weaken
+issuer, signature, audience, lifetime or nonce validation.
 
 The application runtime role is deliberately not the database owner and has no DDL
 permission. Migrations created by `videogame_app_migrator` grant the standard table

@@ -100,7 +100,7 @@ Operational safeguards still apply:
 | `scripts/validate-openapi.sh` | Reproducible OpenAPI contract validation |
 | `scripts/build-openapi-docs.sh` | Validated static Redoc API reference generation |
 | `scripts/validate-browser.sh` | Run the no-retry browser/accessibility smoke in the digest-pinned Playwright runtime |
-| `.github/workflows/quality-gates.yml` | Reproduce the complete walking-skeleton quality evidence on PRs and trusted `main` builds |
+| `.github/workflows/build-and-verify.yml` | Reproduce the complete walking-skeleton quality evidence on PRs and trusted `main` builds |
 | `.github/workflows/security.yml` | Scan secrets, dependency changes, and Java/TypeScript source with explicit minimal permissions |
 | `.github/workflows/dependency-submission.yml` | Submit complete backend and IGDB PoC Maven graphs after relevant `main` changes |
 | `.github/dependabot.yml` | Propose reviewable npm, Maven, IGDB PoC, and GitHub Actions dependency updates |

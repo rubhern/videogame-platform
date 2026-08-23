@@ -1,9 +1,9 @@
 # Learning MVP delivery lifecycle
 
 - **Status:** Approved
-- **Version:** 1.6
+- **Version:** 1.7
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-22
+- **Last updated:** 2026-08-23
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** MVP implementation after completed Phase 1 solution definition
 - **Scope:** Private, non-commercial learning MVP operated by one person
@@ -187,6 +187,7 @@ bash scripts/validate-openapi.sh
 npm run frontend:verify
 bash scripts/validate-browser.sh
 bash scripts/validate-identity.sh
+bash scripts/validate-container-image.sh
 bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
@@ -197,8 +198,9 @@ plan-aware SonarQube Cloud analysis, domain and application tests, architecture
 tests, persistence/migration integration tests, API conformance, provider-fixture
 tests, secret scanning, dependency checks/submission, CodeQL, and a no-mock browser
 accessibility smoke against the combined JAR and PostgreSQL, plus a real Keycloak
-OIDC/session/CSRF/logout browser gate. Image build/scan is added with its corresponding
-code.
+OIDC/session/CSRF/logout browser gate. The image gate builds and runs both supported
+architectures, inspects source/runtime metadata and contents, applies the unsuppressed
+Trivy severity policy, and retains CycloneDX SBOMs before trusted publication.
 
 Accessibility is an MVP gate, not a public-production-only activity. Frontend changes
 MUST cover applicable semantic structure, accessible names, keyboard and focus
@@ -304,8 +306,8 @@ A work item is done when all applicable conditions are true:
 | OpenAPI and documentation validation | Completed | Keep generated reference synchronized |
 | Platform and persistent decisions | Completed by this design and ADR-0005 through ADR-0009 | Implement incrementally |
 | Technology baseline | Completed by baseline v1.0 and ADR-0010 through ADR-0012 | Preserve selected lines and upgrade policy |
-| Application skeleton and implementation tests | Implemented locally and in CI, including public read and BFF identity compatibility | Preserve the aggregate quality/security gates while completing image evidence |
-| Immutable multi-architecture image | After local skeleton | Build and publish from `main` |
+| Application skeleton and implementation tests | Implemented locally and in CI, including public read, BFF identity compatibility, and production-image evidence | Preserve the aggregate quality/security gates while completing hosted compatibility evidence |
+| Immutable multi-architecture image | Implemented locally and in CI; trusted `main` publication defined | Confirm the first hosted SHA/digest result and public package visibility |
 | Private OCI `dev` environment | After local skeleton | Provision only Always Free resources from reviewed IaC |
 | Operations runbook | After commands exist | Record exact start, deploy, backup, restore, and recovery procedures |
 | Public production | Deferred | Reopen legal, provider, privacy, security, support, and cost gates |
@@ -314,6 +316,7 @@ A work item is done when all applicable conditions are true:
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.7 | 2026-08-23 | Added the built-image multi-architecture runtime, scanning, SBOM, source-correlation, and immutable trusted-main GHCR evidence to the delivery gates. | Ruben Hernandez |
 | 1.6 | 2026-08-22 | Added the real no-retry Keycloak 26.7 OIDC/BFF/session/CSRF browser proof to the required local and CI gates. | Ruben Hernandez |
 | 1.5 | 2026-08-22 | Recorded the stable combined-package command and no-mock packaged browser/API/PostgreSQL smoke as walking-skeleton gates. | Ruben Hernandez |
 | 1.4 | 2026-08-13 | Recorded the executable PR/`main` quality, coverage, SonarQube Cloud, dependency-submission, and security gates, real no-retry browser smoke, and local command parity. | Ruben Hernandez |

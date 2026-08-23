@@ -280,6 +280,7 @@ npm ci
 bash scripts/validate-openapi.sh
 npm run frontend:verify
 bash scripts/validate-browser.sh
+bash scripts/validate-container-image.sh
 bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify

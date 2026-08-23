@@ -1,4 +1,4 @@
-name: Walking-skeleton quality gates
+name: Walking-skeleton build and verify
 
 on:
   pull_request:
@@ -183,6 +183,60 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  container-image:
+    name: Multi-architecture application image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up pinned ARM64 emulation
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+        with:
+          image: docker.io/tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
+          platforms: arm64
+          cache-image: false
+
+      - name: Set up pinned Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        with:
+          version: v0.36.1
+          driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+          cache-binary: false
+
+      - name: Build, inspect, run and scan both application platforms
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+        run: bash scripts/validate-container-image.sh
+
+      - name: Preserve manifest, runtime, scan and CycloneDX evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: application-image-evidence-${{ github.sha }}
+          path: |
+            target/container-evidence/
+            !target/container-evidence/application-image.oci.tar
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Preserve the exact scanned OCI archive for trusted publication
+        if: ${{ github.event_name == 'push' && !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: application-image-oci-${{ github.sha }}
+          path: |
+            target/container-evidence/application-image.oci.tar
+            target/container-evidence/SHA256SUMS
+            target/container-evidence/image-digest.txt
+          if-no-files-found: error
+          retention-days: 1
+
   backend:
     name: Java backend, architecture and PostgreSQL integration
     runs-on: ubuntu-24.04
@@ -330,6 +384,7 @@ jobs:
       - frontend
       - browser-smoke
       - identity-compatibility
+      - container-image
       - backend
       - migrations
       - provider-fixtures
@@ -343,6 +398,7 @@ jobs:
           FRONTEND: ${{ needs.frontend.result }}
           BROWSER_SMOKE: ${{ needs.browser-smoke.result }}
           IDENTITY_COMPATIBILITY: ${{ needs.identity-compatibility.result }}
+          CONTAINER_IMAGE: ${{ needs.container-image.result }}
           BACKEND: ${{ needs.backend.result }}
           MIGRATIONS: ${{ needs.migrations.result }}
           PROVIDER_FIXTURES: ${{ needs.provider-fixtures.result }}
@@ -353,6 +409,7 @@ jobs:
             "$FRONTEND" \
             "$BROWSER_SMOKE" \
             "$IDENTITY_COMPATIBILITY" \
+            "$CONTAINER_IMAGE" \
             "$BACKEND" \
             "$MIGRATIONS" \
             "$PROVIDER_FIXTURES" \
@@ -363,3 +420,80 @@ jobs:
               exit 1
             fi
           done
+
+  publish-container-image:
+    name: Publish immutable application image
+    if: ${{ github.event_name == 'push' }}
+    needs:
+      - container-image
+      - required-quality-gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      packages: write
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository }}
+      IMAGE_TAG: ${{ github.sha }}
+      SKOPEO_IMAGE: quay.io/skopeo/stable:v1.20.0@sha256:47853bb9fb24202af9110531ebd6e43c5f97701254ca290596640290d17942f4
+    steps:
+      - name: Download the exact scanned OCI archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: application-image-oci-${{ github.sha }}
+          path: target/container-evidence
+
+      - name: Verify the retained archive checksum
+        working-directory: target/container-evidence
+        run: sha256sum --check SHA256SUMS
+
+      - name: Authenticate to GHCR with the workflow token
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Publish the already-scanned OCI index by commit SHA
+        run: |
+          docker run --rm \
+            --volume "$PWD/target/container-evidence:/evidence:ro" \
+            --volume "$HOME/.docker/config.json:/auth.json:ro" \
+            "$SKOPEO_IMAGE" \
+            copy \
+              --all \
+              --preserve-digests \
+              --authfile /auth.json \
+              oci-archive:/evidence/application-image.oci.tar \
+              "docker://$IMAGE_NAME:$IMAGE_TAG"
+
+      - name: Verify and record the published digest and platforms
+        run: |
+          expected_digest="$(cat target/container-evidence/image-digest.txt)"
+          inspection="$(docker buildx imagetools inspect "$IMAGE_NAME:$IMAGE_TAG")"
+          actual_digest="$(sed -n 's/^Digest:[[:space:]]*//p' <<<"$inspection" | head -n 1)"
+          if [[ "$actual_digest" != "$expected_digest" ]]; then
+            printf 'Published digest %s does not match scanned digest %s.\n' \
+              "$actual_digest" "$expected_digest" >&2
+            exit 1
+          fi
+          grep -q 'linux/amd64' <<<"$inspection"
+          grep -q 'linux/arm64' <<<"$inspection"
+          {
+            printf 'tag=%s:%s\n' "$IMAGE_NAME" "$IMAGE_TAG"
+            printf 'digest=%s@%s\n' "$IMAGE_NAME" "$actual_digest"
+            printf '%s\n' "$inspection"
+          } | tee target/container-evidence/published-image.txt
+          {
+            printf '### Published immutable OCI image\n\n'
+            printf -- '- Commit tag: `%s:%s`\n' "$IMAGE_NAME" "$IMAGE_TAG"
+            printf -- '- Immutable reference: `%s@%s`\n' "$IMAGE_NAME" "$actual_digest"
+            printf -- '- Platforms: `linux/amd64`, `linux/arm64`\n'
+          } >>"$GITHUB_STEP_SUMMARY"
+
+      - name: Preserve the publication record
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: application-image-publication-${{ github.sha }}
+          path: target/container-evidence/published-image.txt
+          if-no-files-found: error
+          retention-days: 30

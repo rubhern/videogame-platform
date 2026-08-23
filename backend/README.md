@@ -150,7 +150,7 @@ The default address is `http://localhost:8080`. Stop the process gracefully with
 After a successful package, run the executable artifact directly:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.5.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
 ```
 
 The normal Maven lifecycle remains backend-only. Build the reproducible combined JAR
@@ -165,6 +165,18 @@ types, builds `frontend/dist`, and activates the Maven `with-frontend` profile. 
 profile fails when the production entry point is missing and copies only generated
 Vite output into `BOOT-INF/classes/static`; it never writes compiled assets into
 `src/main/resources`.
+
+Build, start, inspect, and scan the same application as a production
+`linux/amd64`/`linux/arm64` OCI image with:
+
+```bash
+bash scripts/validate-container-image.sh
+```
+
+The [container image guide](../docs/development/container-image.md) owns the image
+boundary, generated evidence, external configuration, and trusted publication rules.
+Its dedicated Maven profile removes the opt-in development seed while retaining all
+production migrations; ordinary local combined-JAR packaging is unchanged.
 
 To change the HTTP port for a local run, use a standard Spring Boot override:
 
@@ -416,9 +428,9 @@ For each future change:
 The local PostgreSQL/Keycloak topology, application persistence, and Keycloak-backed
 BFF session compatibility are implemented and documented separately. Remaining
 catalogue queries, authenticated product identity mapping, later product APIs, a
-deployed telemetry backend, application containers, the
-multi-architecture compatibility gate, and remote deployment remain focused work
-items. The current backend, architecture and PostgreSQL checks are reproduced by the
+deployed telemetry backend, complete-topology resource budgeting, and remote
+deployment remain focused work items. The current backend, architecture and
+PostgreSQL checks are reproduced by the
 [walking-skeleton CI gate](../docs/development/continuous-integration.md). This
 backend does not claim the wider user journey or remote operational evidence merely
 because its first product read works locally.

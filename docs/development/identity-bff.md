@@ -2,7 +2,7 @@
 
 - **Status:** Implemented compatibility evidence for issue #40
 - **Version:** 1.1
-- **Last verified:** 2026-08-22
+- **Last verified:** 2026-08-23
 - **Boundary:** Private local/CI walking skeleton; not a public-production session design
 - **Contract:** [OpenAPI 1.2.0](../architecture/api/openapi.yaml)
 - **Identity decision:** [ADR-0007](../decisions/0007-use-keycloak-as-the-initial-identity-provider.md)
@@ -65,6 +65,15 @@ bash scripts/local-dependencies.sh up
 bash scripts/local-dependencies.sh verify
 ```
 
+Alternatively, start the same dependencies and the packaged application together:
+
+```bash
+docker compose --profile full up --build
+```
+
+This profile exposes the application at `http://localhost:8080` and keeps the
+browser-facing Keycloak issuer at `http://localhost:8180`.
+
 If the project-scoped volume was created before issue #40, the existing realm will
 not be overwritten by Keycloak's safe `IGNORE_EXISTING` import. After confirming that
 the volume contains only disposable local data, run
@@ -82,7 +91,7 @@ set +a
 SPRING_PROFILES_ACTIVE=oidc \
 APPLICATION_FLYWAY_ENABLED=true \
 SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
-java -jar backend/target/videogame-platform-backend-0.5.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
 ```
 
 Open `http://localhost:8080/auth/login/keycloak`. The supported callback is
@@ -94,7 +103,11 @@ The relevant runtime settings are:
 | Setting | Purpose | Safe local default / source |
 |---|---|---|
 | `SPRING_PROFILES_ACTIVE=oidc` | Enables OIDC client registration | Explicit opt-in |
-| `OIDC_ISSUER_URI` | Keycloak realm issuer | `http://localhost:8180/realms/videogame-platform` |
+| `OIDC_ISSUER_URI` | Exact issuer required in ID tokens | `http://localhost:8180/realms/videogame-platform` |
+| `OIDC_AUTHORIZATION_URI` | Browser-visible authorization endpoint | Public `localhost:8180` realm endpoint |
+| `OIDC_TOKEN_URI` | Server-side code exchange endpoint | Public endpoint for host execution; `keycloak:8080` in Compose |
+| `OIDC_JWK_SET_URI` | Server-side signing-key endpoint | Public endpoint for host execution; `keycloak:8080` in Compose |
+| `OIDC_USER_INFO_URI` | Server-side UserInfo endpoint | Public endpoint for host execution; `keycloak:8080` in Compose |
 | `KEYCLOAK_BFF_CLIENT_SECRET` | Confidential-client authentication | Generated ignored `backend/.env`; required and never logged |
 | `APPLICATION_SESSION_TIMEOUT` | Inactivity expiry | `30m` |
 | `APPLICATION_SESSION_COOKIE_NAME` | Opaque cookie name | `vgp_session` locally |
@@ -105,6 +118,10 @@ uses the unprefixed host-only `vgp_session` cookie with `HttpOnly`, `SameSite=La
 and `Path=/`. An HTTPS environment must use `Secure=true` and the approved
 `__Host-vgp_session` name. This is a deliberate local compatibility exception, not
 a production default.
+
+The split endpoints do not create a second issuer. The browser and ID token continue
+to use the exact Keycloak issuer on `localhost:8180`; only container-to-container
+backchannel traffic uses Docker DNS. Issuer and signature validation remain strict.
 
 Normal shutdown preserves the dependency database:
 
@@ -178,7 +195,8 @@ deployment evidence that actually requires replication.
 - provider logout or single logout across devices;
 - refresh-token lifecycle beyond the bounded Spring Security compatibility proof;
 - public HTTPS, remote Keycloak, distributed sessions, or remote provisioning;
-- closing issue #34, which still requires OCI image and multi-architecture evidence.
+- closing issue #34, which still requires complete-topology resource-budget and final
+  hosted compatibility evidence.
 
 ## Semantic Versioning
 
@@ -187,4 +205,8 @@ The new compatible backend/session capability advances the backend reactor from
 the OpenAPI contract from `1.1.0` to `1.2.0`. The frontend package remains `0.1.0`
 because its runtime product UI did not change; only its generated contract types and
 browser compatibility evidence changed. Root tooling and the isolated IGDB PoC are
-unchanged.
+unchanged. Issue #27 later advances only the backend reactor to `0.6.0-SNAPSHOT` for
+the compatible production-image delivery boundary. The optional complete local
+Compose topology advances it to `0.7.0-SNAPSHOT` because it adds a compatible runtime
+capability with distinct browser-facing and container-internal OIDC endpoints. The
+session and OpenAPI contracts remain unchanged.
