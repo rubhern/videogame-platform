@@ -377,8 +377,14 @@ For a material backend change:
 8. Make the smallest coherent implementation.
 9. Run focused checks.
 10. Refactor only while tests remain green.
-11. Run architecture/module checks.
-12. Run all completion gates applicable to the change.
+11. Run architecture/module checks when the affected dependency boundary requires
+    them.
+12. Apply the risk-based local validation policy in
+    `docs/development/delivery-lifecycle.md`: run the smallest meaningful backend and
+    related-boundary checks locally, then use the applicable pull-request gates and
+    trusted `main` integration CI. Do not run frontend, container, migration,
+    identity, or IGDB suites unless the change or a concrete cross-boundary risk
+    affects them.
 13. Inspect the entire diff.
 14. Update OpenAPI, Postman, migrations, configuration and documentation when affected.
 15. Assess versioning impact according to the repository delivery lifecycle.

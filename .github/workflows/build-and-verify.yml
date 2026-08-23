@@ -15,14 +15,27 @@ concurrency:
 permissions: {}
 
 jobs:
-  documentation-contracts:
-    name: Documentation and API contracts
+  detect-changes:
+    name: Detect affected CI areas
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 5
     permissions:
       contents: read
+    outputs:
+      documentation: ${{ steps.changes.outputs.documentation }}
+      openapi: ${{ steps.changes.outputs.openapi }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      browser: ${{ steps.changes.outputs.browser }}
+      backend: ${{ steps.changes.outputs.backend }}
+      migrations: ${{ steps.changes.outputs.migrations }}
+      identity: ${{ steps.changes.outputs.identity }}
+      provider_fixtures: ${{ steps.changes.outputs.provider_fixtures }}
+      container: ${{ steps.changes.outputs.container }}
+      build: ${{ steps.changes.outputs.build }}
+      ci: ${{ steps.changes.outputs.ci }}
+      sonar: ${{ steps.changes.outputs.sonar }}
     steps:
-      - name: Check out repository
+      - name: Check out the analyzed revision with complete history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
@@ -44,10 +57,44 @@ jobs:
             git diff --check "$BASE_SHA" "$HEAD_SHA" -- "${whitespace_paths[@]}"
           fi
 
+      - name: Classify changed paths
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          FULL_VALIDATION: ${{ github.event_name == 'push' }}
+        run: |
+          arguments=(--base "$BASE_SHA" --head "$HEAD_SHA")
+          if [[ "$FULL_VALIDATION" == "true" ]]; then
+            arguments+=(--full)
+          fi
+          bash scripts/detect-ci-changes.sh "${arguments[@]}" >>"$GITHUB_OUTPUT"
+
+      - name: Test CI change classification and result handling
+        if: ${{ steps.changes.outputs.ci == 'true' }}
+        run: bash scripts/test-ci-change-detection.sh
+
+  documentation-contracts:
+    name: Documentation and API contracts
+    if: ${{ needs.detect-changes.outputs.documentation == 'true' }}
+    needs: detect-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
       - name: Validate GitHub Actions workflows
+        if: ${{ needs.detect-changes.outputs.ci == 'true' }}
         run: bash scripts/validate-actions.sh
 
       - name: Set up Node.js 24
+        if: ${{ needs.detect-changes.outputs.openapi == 'true' }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
@@ -55,21 +102,26 @@ jobs:
           cache-dependency-path: package-lock.json
 
       - name: Install locked npm dependencies
+        if: ${{ needs.detect-changes.outputs.openapi == 'true' }}
         run: npm ci --ignore-scripts
 
       - name: Validate documentation
         run: bash scripts/validate-docs.sh
 
       - name: Validate OpenAPI contract
+        if: ${{ needs.detect-changes.outputs.openapi == 'true' }}
         run: bash scripts/validate-openapi.sh
 
       - name: Verify generated OpenAPI web documentation
+        if: ${{ needs.detect-changes.outputs.openapi == 'true' }}
         run: |
           npm run build:openapi-docs
           git diff --exit-code -- docs/architecture/api/reference/index.html
 
   frontend:
     name: Frontend static, type, component and build checks
+    if: ${{ needs.detect-changes.outputs.frontend == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -100,6 +152,8 @@ jobs:
 
   browser-smoke:
     name: Packaged application Chromium smoke and accessibility check
+    if: ${{ needs.detect-changes.outputs.browser == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -144,6 +198,8 @@ jobs:
 
   identity-compatibility:
     name: Real Keycloak 26.7 OIDC BFF compatibility
+    if: ${{ needs.detect-changes.outputs.identity == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
@@ -185,6 +241,8 @@ jobs:
 
   container-image:
     name: Multi-architecture application image
+    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -239,6 +297,8 @@ jobs:
 
   backend:
     name: Java backend, architecture and PostgreSQL integration
+    if: ${{ needs.detect-changes.outputs.backend == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
@@ -272,6 +332,8 @@ jobs:
 
   migrations:
     name: Fresh PostgreSQL 18 migration
+    if: ${{ needs.detect-changes.outputs.migrations == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -297,6 +359,8 @@ jobs:
 
   provider-fixtures:
     name: IGDB PoC local fixtures
+    if: ${{ needs.detect-changes.outputs.provider_fixtures == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -320,6 +384,8 @@ jobs:
 
   sonarcloud:
     name: SonarQube Cloud quality gate
+    if: ${{ needs.detect-changes.outputs.sonar == 'true' }}
+    needs: detect-changes
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -333,7 +399,7 @@ jobs:
         run: |
           printf '%s\n' \
             'SonarQube Cloud PR analysis is disabled for this plan or unavailable to untrusted code.' \
-            'The local quality and security gates remain required.'
+            'All other applicable pull-request quality and security gates remain required.'
 
       - name: Require the configured SonarQube Cloud token
         if: ${{ env.SONAR_ANALYSIS_ENABLED == 'true' && env.SONAR_TOKEN == '' }}
@@ -380,6 +446,7 @@ jobs:
     name: Required quality gate
     if: ${{ always() }}
     needs:
+      - detect-changes
       - documentation-contracts
       - frontend
       - browser-smoke
@@ -391,35 +458,47 @@ jobs:
       - sonarcloud
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    permissions:
+      contents: read
     steps:
-      - name: Reject any incomplete quality check
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify applicable quality checks
         env:
+          DETECT_CHANGES: ${{ needs.detect-changes.result }}
+          DOCUMENTATION_EXPECTED: ${{ needs.detect-changes.outputs.documentation }}
           DOCUMENTATION_CONTRACTS: ${{ needs.documentation-contracts.result }}
+          FRONTEND_EXPECTED: ${{ needs.detect-changes.outputs.frontend }}
           FRONTEND: ${{ needs.frontend.result }}
+          BROWSER_EXPECTED: ${{ needs.detect-changes.outputs.browser }}
           BROWSER_SMOKE: ${{ needs.browser-smoke.result }}
+          IDENTITY_EXPECTED: ${{ needs.detect-changes.outputs.identity }}
           IDENTITY_COMPATIBILITY: ${{ needs.identity-compatibility.result }}
+          CONTAINER_EXPECTED: ${{ needs.detect-changes.outputs.container }}
           CONTAINER_IMAGE: ${{ needs.container-image.result }}
+          BACKEND_EXPECTED: ${{ needs.detect-changes.outputs.backend }}
           BACKEND: ${{ needs.backend.result }}
+          MIGRATIONS_EXPECTED: ${{ needs.detect-changes.outputs.migrations }}
           MIGRATIONS: ${{ needs.migrations.result }}
+          PROVIDER_EXPECTED: ${{ needs.detect-changes.outputs.provider_fixtures }}
           PROVIDER_FIXTURES: ${{ needs.provider-fixtures.result }}
+          SONAR_EXPECTED: ${{ needs.detect-changes.outputs.sonar }}
           SONARCLOUD: ${{ needs.sonarcloud.result }}
         run: |
-          for result in \
-            "$DOCUMENTATION_CONTRACTS" \
-            "$FRONTEND" \
-            "$BROWSER_SMOKE" \
-            "$IDENTITY_COMPATIBILITY" \
-            "$CONTAINER_IMAGE" \
-            "$BACKEND" \
-            "$MIGRATIONS" \
-            "$PROVIDER_FIXTURES" \
-            "$SONARCLOUD"
-          do
-            if [[ "$result" != "success" ]]; then
-              printf 'Required job finished with result: %s\n' "$result" >&2
-              exit 1
-            fi
-          done
+          bash scripts/verify-ci-results.sh \
+            detect-changes true "$DETECT_CHANGES" \
+            documentation-contracts "$DOCUMENTATION_EXPECTED" "$DOCUMENTATION_CONTRACTS" \
+            frontend "$FRONTEND_EXPECTED" "$FRONTEND" \
+            browser-smoke "$BROWSER_EXPECTED" "$BROWSER_SMOKE" \
+            identity-compatibility "$IDENTITY_EXPECTED" "$IDENTITY_COMPATIBILITY" \
+            container-image "$CONTAINER_EXPECTED" "$CONTAINER_IMAGE" \
+            backend "$BACKEND_EXPECTED" "$BACKEND" \
+            migrations "$MIGRATIONS_EXPECTED" "$MIGRATIONS" \
+            provider-fixtures "$PROVIDER_EXPECTED" "$PROVIDER_FIXTURES" \
+            sonarcloud "$SONAR_EXPECTED" "$SONARCLOUD"
 
   publish-container-image:
     name: Publish immutable application image

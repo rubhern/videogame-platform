@@ -455,7 +455,12 @@ For a material frontend change:
 11. Refactor only while tests stay green.
 12. Run typecheck and lint.
 13. Run browser and accessibility checks when affected.
-14. Run all applicable completion gates.
+14. Apply the risk-based local validation policy in
+    `docs/development/delivery-lifecycle.md`: run the smallest meaningful frontend and
+    related contract checks locally, then use the applicable pull-request gates and
+    trusted `main` integration CI. Do not run backend, persistence, identity,
+    container, or provider suites unless the change or a concrete cross-boundary
+    risk affects them.
 15. Inspect the complete diff.
 16. Update frontend README and docs when behavior, architecture, or setup changes.
 17. Report changes, evidence, risks, and intentionally deferred improvements.

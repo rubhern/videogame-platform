@@ -96,11 +96,14 @@ Operational safeguards still apply:
 | `.agents/skills/tdd/` | Vendored advisory test-first and test-design discipline |
 | `scripts/validate-prerequisites.sh` | Reproducible WSL2 local prerequisite gate |
 | `scripts/validate-actions.sh` | Check workflow syntax and expressions with checksum-verified actionlint |
+| `scripts/detect-ci-changes.sh` | Classify changed paths once for selective pull-request CI and full trusted-`main` CI |
+| `scripts/test-ci-change-detection.sh` | Exercise path categories, Git ranges, fail-safe classification, and aggregate-result rules |
+| `scripts/verify-ci-results.sh` | Fail stable required gates when applicable jobs do not succeed or inapplicable jobs do not skip |
 | `scripts/validate-docs.sh` | Reproducible documentation validation |
 | `scripts/validate-openapi.sh` | Reproducible OpenAPI contract validation |
 | `scripts/build-openapi-docs.sh` | Validated static Redoc API reference generation |
 | `scripts/validate-browser.sh` | Run the no-retry browser/accessibility smoke in the digest-pinned Playwright runtime |
-| `.github/workflows/build-and-verify.yml` | Reproduce the complete walking-skeleton quality evidence on PRs and trusted `main` builds |
+| `.github/workflows/build-and-verify.yml` | Run affected quality gates on PRs and the complete walking-skeleton evidence on trusted `main` builds |
 | `.github/workflows/security.yml` | Scan secrets, dependency changes, and Java/TypeScript source with explicit minimal permissions |
 | `.github/workflows/dependency-submission.yml` | Submit complete backend and IGDB PoC Maven graphs after relevant `main` changes |
 | `.github/dependabot.yml` | Propose reviewable npm, Maven, IGDB PoC, and GitHub Actions dependency updates |
@@ -150,25 +153,18 @@ becomes sensitive. Never copy the credential or its value into project files.
 
 ## Validation
 
-Run the local prerequisite gate before the current repository checks:
-
-```bash
-bash scripts/validate-prerequisites.sh
-bash scripts/validate-actions.sh
-git diff --check
-bash scripts/validate-docs.sh
-npm ci
-bash scripts/validate-openapi.sh
-```
+Codex MUST follow the risk-based, incremental selection policy in the
+[delivery lifecycle](delivery-lifecycle.md). It identifies the affected boundaries,
+runs the smallest meaningful local validation set, and relies on trusted GitHub CI
+against the current commit for applicable pull-request evidence and on trusted
+`main` CI for complete integration evidence. It does not run the prerequisite,
+workflow, documentation, OpenAPI, frontend, browser, identity, container, migration,
+backend, and IGDB gates as a routine bundle.
 
 The [local setup guide](local-setup.md) owns installation and troubleshooting. The
-action script verifies its pinned actionlint download and checks workflow syntax and
-expressions. `git diff --check` rejects whitespace errors. The documentation script
-checks required artefacts, local Markdown links, and file modes.
-The OpenAPI script validates syntax, project rules, references,
-schemas, and examples. See the
-[OpenAPI validation manual](openapi-validation.md) for individual commands and
-troubleshooting.
+[continuous-integration guide](continuous-integration.md) maps individual commands to
+CI jobs and retains the complete local parity sequence for explicitly justified
+cases; that sequence is not Codex's default completion workflow.
 
 ## Deferred by design
 

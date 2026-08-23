@@ -1,7 +1,7 @@
 # Learning MVP delivery lifecycle
 
 - **Status:** Approved
-- **Version:** 1.7
+- **Version:** 1.9
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-08-23
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
@@ -175,8 +175,74 @@ the parent and reactor versions inconsistent.
 
 ## 6. Validation and quality gates
 
-The repository MUST expose stable validation commands as implementation appears. The
-current commands are:
+Local validation provides fast, change-specific feedback. Pull-request CI is the
+authoritative validation of the affected areas for the exact commit it checks, while
+trusted `main` CI is the authoritative complete repository integration validation.
+This placement rule does not weaken testing or any required gate: it puts focused
+feedback in the local loop, affected-area evidence on the pull request, and complete
+integration evidence after merge.
+
+Validation MUST be risk-based and incremental:
+
+1. Identify the files, behaviours, contracts, runtime boundaries, and dependency
+   graph actually affected by the change.
+2. Select the smallest meaningful local validation set that can quickly detect a
+   reasonably related regression.
+3. Add a broader check only when its affected-boundary or failure hypothesis is
+   explicit. The existence of a command is not by itself a reason to run it.
+4. Diagnose a local failure with the narrowest useful reproducer before adding more
+   suites. Do not respond to one failure by indiscriminately expanding validation.
+5. Use the required GitHub checks against the current commit as the complete
+   affected-area evidence. A local pass never overrides failed or missing required CI.
+
+Pull-request CI MUST execute the smallest complete set of quality and security gates
+justified by the changed areas. Expensive unrelated jobs MUST be skipped, while stable
+aggregate required checks distinguish a valid inapplicable skip from a failed,
+cancelled, or unexpectedly skipped applicable job. Secret scanning remains applicable
+to every pull request. Unknown paths and changes to the CI classifier or shared CI
+logic fail safe by selecting broad validation. Every trusted push to `main` MUST run
+the full integration suite regardless of the changed paths.
+
+Typical local scope follows the affected boundary. Frontend changes use frontend
+static, type, component, and build checks; add a real browser only for visible
+behaviour, accessibility, routing, browser integration, or related dependency risk.
+Backend changes use focused tests during development and the affected backend module
+gate before hand-off. OpenAPI changes use contract validation and add generated
+backend/frontend checks only for consumers the contract can affect. Persistence and
+Flyway changes use the relevant PostgreSQL/migration and backend evidence. Workflow,
+container/packaging, and documentation changes use their respective validators.
+Unrelated component suites are omitted locally unless a concrete transversal
+dependency makes them relevant.
+
+For dependency updates, first assess the affected ecosystem and component, SemVer,
+release notes, compatibility, security impact, and rollback. Routine patch/minor
+updates receive component-specific local validation, selective pull-request CI, and
+complete trusted-`main` integration validation.
+Major runtime/framework upgrades and critical or cross-cutting dependencies justify
+broader local evidence. A dependency update never justifies unrelated database,
+provider, container, frontend, or backend suites solely because those checks exist.
+For a Dependabot pull request, update or rebase onto current `main` before treating
+older green checks as evidence, apply the same component/risk analysis, and let the
+new CI run provide the complete affected-area result.
+
+Do not routinely reproduce the complete CI pipeline locally when equivalent trusted
+GitHub checks will run against the same commit. Green required checks attached to that
+commit are valid evidence. When a pull request's green checks ran against an older
+`main`, update or rebase the branch first, then wait for the new CI result; do not use
+an exhaustive local run to compensate for stale remote evidence.
+
+Broader or complete local validation is justified when a specific risk requires it,
+including changes to shared/root build configuration, major runtime or framework
+versions, the Dockerfile or packaging, shared infrastructure, cross-cutting CI or
+validation scripts, high-risk migrations, locally reproducible failures, unavailable
+or insufficient CI, a critical release, or an explicit owner request. State briefly
+why the added scope is needed and what failure it could reveal. Give particular
+scrutiny to the cost of multi-architecture/ARM64 image builds, Testcontainers,
+PostgreSQL/Flyway-from-zero, real browsers, image scans, identity environments, the
+IGDB PoC, full Maven builds, and E2E suites.
+
+The repository MUST continue to expose stable validation commands. The following is
+the complete gate catalogue, not a mandatory local sequence for every change:
 
 ```bash
 bash scripts/validate-actions.sh
@@ -192,6 +258,13 @@ bash scripts/validate-migrations.sh
 ./mvnw clean verify
 ./mvnw -f tools/igdb-poc/pom.xml clean verify
 ```
+
+The matching CI workflows retain their existing coverage. The
+[continuous-integration guide](continuous-integration.md) maps these commands to
+required jobs and records the opt-in full local parity sequence for the exceptional
+cases above. Before hand-off, relevant local checks MUST pass and required GitHub CI
+for the current commit MUST be green when it is available and applicable. Codex does
+not need to rerun locally every check already supplied by that trusted CI result.
 
 The current walking skeleton adds compilation, Spotless formatting, JaCoCo XML/HTML,
 plan-aware SonarQube Cloud analysis, domain and application tests, architecture
@@ -316,6 +389,8 @@ A work item is done when all applicable conditions are true:
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.9 | 2026-08-23 | Made pull-request CI affected-area selective with stable aggregate gates and retained the full trusted-`main` integration suite as the safety net. | Ruben Hernandez |
+| 1.8 | 2026-08-23 | Made local validation risk-based and incremental, retained CI as the authoritative validation boundary, and defined dependency, stale-branch, escalation, and costly-check rules without weakening workflow coverage. | Ruben Hernandez |
 | 1.7 | 2026-08-23 | Added the built-image multi-architecture runtime, scanning, SBOM, source-correlation, and immutable trusted-main GHCR evidence to the delivery gates. | Ruben Hernandez |
 | 1.6 | 2026-08-22 | Added the real no-retry Keycloak 26.7 OIDC/BFF/session/CSRF browser proof to the required local and CI gates. | Ruben Hernandez |
 | 1.5 | 2026-08-22 | Recorded the stable combined-package command and no-mock packaged browser/API/PostgreSQL smoke as walking-skeleton gates. | Ruben Hernandez |
