@@ -1,7 +1,7 @@
 # Learning MVP platform and delivery design
 
 - **Status:** Approved
-- **Version:** 1.8
+- **Version:** 1.9
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-08-23
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
@@ -264,8 +264,8 @@ Actions:
 The current source-backed implementation of steps 1 through 4, including formatting,
 coverage, SonarQube Cloud, secret, dependency and CodeQL gates, is documented in the
 [walking-skeleton continuous-integration guide](../../development/continuous-integration.md).
-The first hosted `main` result must still confirm GHCR package visibility and the
-recorded remote digest. Deployment remains separate later work.
+Trusted `main` run `32661542668` confirmed GHCR publication and the recorded remote
+digest for commit `e138f54`. Deployment remains separate later work.
 
 The initial deployment sequence is:
 
@@ -355,13 +355,13 @@ exporters, not domain or API contracts.
 
 1. **Technology baseline — complete:** approved version lines, maintenance policy,
    quality toolset, durable ADRs, and an explicit executable compatibility gate.
-2. **Local skeleton — in progress:** the application foundations, local PostgreSQL
+2. **Local skeleton — complete:** the application foundations, local PostgreSQL
    and Keycloak topology, SQL-first Flyway migrations, deterministic seed,
    PostgreSQL 18 persistence tests, observability baseline, and current CI/security
    gates are executable. The first public local read and combined application JAR are
-   also complete. Identity integration and `linux/amd64`/`linux/arm64` application
-   compatibility are now covered; complete the topology resource budget and hosted
-   compatibility evidence.
+   also complete. Identity integration, `linux/amd64`/`linux/arm64` application and
+   dependency compatibility, the 2 OCPU/12 GB resource ceiling, and hosted
+   trusted-main evidence are covered by the issue #34 PASS record.
 3. **First public read — complete:** `GET /api/v1/releases` reads PostgreSQL and proves
    `CATALOGUE_NOT_READY` without live request-path IGDB calls.
 4. **Delivery — implemented in CI:** build and scan the `linux/arm64`/`linux/amd64`
@@ -394,6 +394,7 @@ exporters, not domain or API contracts.
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.9 | 2026-08-23 | Closed the local walking-skeleton compatibility gate with executable complete-topology resource limits and hosted CI evidence; remote OCI infrastructure, deployment and recovery remain separate work. | Ruben Hernandez |
 | 1.8 | 2026-08-23 | Recorded the single non-root multi-architecture application image, runtime/manifest/Trivy/CycloneDX evidence, and digest-preserving trusted-main GHCR publication without claiming deployment. | Ruben Hernandez |
 | 1.7 | 2026-08-22 | Recorded the local/CI real Keycloak 26.7 browser-to-BFF Authorization Code with PKCE, opaque session and CSRF logout proof without changing the remote topology or selecting a distributed session store. | Ruben Hernandez |
 | 1.6 | 2026-08-22 | Recorded reproducible combined frontend/backend JAR packaging and the real browser-to-PostgreSQL smoke while leaving OCI image work open. | Ruben Hernandez |

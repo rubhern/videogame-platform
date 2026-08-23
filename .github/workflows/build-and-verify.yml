@@ -267,6 +267,11 @@ jobs:
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
           cache-binary: false
 
+      - name: Verify dependency platforms and the OCI resource budget
+        run: |
+          bash scripts/local-dependencies.sh verify-images
+          bash scripts/validate-topology-budget.sh
+
       - name: Build, inspect, run and scan both application platforms
         env:
           SOURCE_REVISION: ${{ github.sha }}

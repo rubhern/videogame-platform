@@ -103,6 +103,7 @@ Operational safeguards still apply:
 | `scripts/validate-openapi.sh` | Reproducible OpenAPI contract validation |
 | `scripts/build-openapi-docs.sh` | Validated static Redoc API reference generation |
 | `scripts/validate-browser.sh` | Run the no-retry browser/accessibility smoke in the digest-pinned Playwright runtime |
+| `scripts/validate-topology-budget.sh` | Assert the complete Compose topology stays within the approved 2 OCPU / 12 GB ceiling |
 | `.github/workflows/build-and-verify.yml` | Run affected quality gates on PRs and the complete walking-skeleton evidence on trusted `main` builds |
 | `.github/workflows/security.yml` | Scan secrets, dependency changes, and Java/TypeScript source with explicit minimal permissions |
 | `.github/workflows/dependency-submission.yml` | Submit complete backend and IGDB PoC Maven graphs after relevant `main` changes |

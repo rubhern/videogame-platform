@@ -141,6 +141,10 @@ for path in "${changed_paths[@]}"; do
       enable migrations backend
       matched=true
       ;;
+    scripts/validate-topology-budget.sh)
+      enable documentation container build
+      matched=true
+      ;;
     compose.yaml)
       enable build container identity migrations backend
       matched=true

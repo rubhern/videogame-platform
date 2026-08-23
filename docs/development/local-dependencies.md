@@ -27,8 +27,9 @@ and OIDC profile.
 All published host ports bind to loopback; they are not exposed to the LAN. Compose
 limits the default dependency topology to 1.5 CPUs and 1.5 GiB of memory. The `full`
 profile limits the complete topology to 2 CPUs and 2.5 GiB, within the approved
-private `dev` CPU and memory ceilings. These are development limits, not production
-sizing or final issue #34 capacity evidence.
+private `dev` CPU and memory ceilings. `bash scripts/validate-topology-budget.sh`
+renders and checks those limits without starting the topology. These are compatibility
+limits, not production sizing or capacity planning.
 
 PostgreSQL must become healthy before Compose starts Keycloak. Keycloak then initializes
 its own schema, imports the realm, and becomes healthy only when its readiness endpoint
@@ -144,6 +145,9 @@ bash scripts/local-dependencies.sh verify
 # Verify both image manifests contain linux/amd64 and linux/arm64
 bash scripts/local-dependencies.sh verify-images
 
+# Verify the complete application/PostgreSQL/Keycloak CPU and memory limits
+bash scripts/validate-topology-budget.sh
+
 # Follow dependency logs
 bash scripts/local-dependencies.sh logs
 
@@ -151,7 +155,7 @@ bash scripts/local-dependencies.sh logs
 bash scripts/local-dependencies.sh down
 ```
 
-The image-manifest check was executed successfully on 2026-08-08 for
+The image-manifest check was executed successfully again on 2026-08-23 for
 `postgres:18.4-bookworm` and `quay.io/keycloak/keycloak:26.7.0`. Both advertised
 `linux/amd64` and `linux/arm64` variants. This check requires registry access and
 should be rerun whenever either exact image reference changes.
@@ -198,8 +202,8 @@ initialized Keycloak's schema, imported the realm/client/user configuration, and
 reached healthy status. The persistence proof reached the same verified state without
 re-running destructive initialization. The manifest proof found `linux/amd64` and
 `linux/arm64` variants for both exact dependency images. Native or emulated ARM64
-startup of the complete application remains part of the broader compatibility gate,
-not this dependency-manifest criterion.
+startup of the complete application is proven separately by the container-image
+gate; this command owns only the dependency manifests.
 
 ## Persistence and reset
 

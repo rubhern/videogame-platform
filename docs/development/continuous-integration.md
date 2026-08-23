@@ -55,7 +55,7 @@ implements the stable final-gate semantics used by both workflows.
 | Frontend static, type, component and build checks | Frontend, OpenAPI, or relevant packaging/build input | `npm ci --ignore-scripts`, generated-type diff, and `npm run frontend:verify` |
 | Packaged application Chromium smoke and accessibility check | UI/browser behaviour, identity, or shared packaging/runtime inputs | `validate-browser.sh` with digest-pinned Java and Playwright images |
 | Real Keycloak 26.7 OIDC BFF compatibility | Identity/OIDC/BFF/session/CSRF or shared runtime inputs | `validate-identity.sh` with real Keycloak and PostgreSQL |
-| Multi-architecture application image | Dockerfile, image/packaging scripts, or shared container inputs | `validate-container-image.sh` with Buildx, QEMU, runtime checks, Trivy, and CycloneDX |
+| Multi-architecture application image | Dockerfile, image/packaging scripts, resource-budget check, or shared container inputs | Dependency ARM64 manifest checks; `validate-topology-budget.sh`; `validate-container-image.sh` with Buildx, QEMU, runtime checks, Trivy, and CycloneDX |
 | Java backend, architecture and PostgreSQL integration | Backend, OpenAPI backend consumer, persistence, identity, container, or shared Maven/build input | `./mvnw clean verify` plus retained JaCoCo report |
 | Fresh PostgreSQL 18 migration | Flyway, schema, PostgreSQL initialization, persistence, or shared Maven input | `validate-migrations.sh` |
 | IGDB PoC local fixtures | `tools/igdb-poc/**` or fail-safe broad selection | Isolated Maven `clean verify` with local fixtures |
@@ -72,10 +72,12 @@ The same Maven build runs OpenAPI Generator in `generate-sources`; generated Jav
 ignored disposable output, and any incompatible manual controller fails compilation.
 
 The image job registers only ARM64 QEMU emulation on the AMD64 hosted runner and
-uses Buildx for `linux/amd64,linux/arm64`. Its result is part of `Required quality
-gate`. On trusted `main` only, the publication job waits for both the image job and
-the complete aggregate quality result, downloads the exact validated OCI archive,
-verifies its checksum, and copies it to
+uses Buildx for `linux/amd64,linux/arm64`. Before the application build, it verifies
+that the exact PostgreSQL and Keycloak images expose both supported manifests and
+that the rendered complete Compose topology remains within 2 OCPU and 12 GB. Its
+result is part of `Required quality gate`. On trusted `main` only, the publication
+job waits for both the image job and the complete aggregate quality result, downloads
+the exact validated OCI archive, verifies its checksum, and copies it to
 `ghcr.io/rubhern/videogame-platform:<full-commit-sha>` with Skopeo
 `--preserve-digests`. It rejects a remote digest mismatch or missing architecture and
 never creates `latest`.
@@ -234,6 +236,8 @@ git diff --exit-code -- frontend/src/shared/api/generated/schema.d.ts
 npm run frontend:verify
 bash scripts/validate-browser.sh
 bash scripts/validate-identity.sh
+bash scripts/local-dependencies.sh verify-images
+bash scripts/validate-topology-budget.sh
 bash scripts/validate-container-image.sh
 bash scripts/validate-migrations.sh
 ./mvnw clean verify
@@ -324,6 +328,11 @@ not the supported behaviour of the backend JAR, frontend assets, OpenAPI contrac
 isolated IGDB PoC. This change therefore does not increment those executable artefact
 versions or the private root tooling package.
 
+Issue #34 adds an executable assertion over existing Compose CPU/memory limits and
+runs the existing PostgreSQL/Keycloak manifest proof in the image job. It changes
+validation and documentation only, not backend, frontend, OpenAPI, root npm tooling,
+or IGDB PoC runtime behaviour; their versions remain unchanged.
+
 ## Remaining delivery work
 
 - Pull requests and trusted `main` runs retain the GitHub-hosted execution evidence;
@@ -331,10 +340,11 @@ versions or the private root tooling package.
 - Repository rules should require the two stable aggregate checks after their first
   successful run; configuring merge policy is repository administration, not
   executable workflow source.
-- The first trusted hosted `main` run must confirm the GHCR package visibility,
-  published digest, and retained evidence; local validation cannot exercise GitHub
-  token permissions or mutate GHCR.
-- Deployment, infrastructure provenance, remote smoke, and resource-budget evidence
-  remain later work. Trivy and CycloneDX image evidence are implemented here without
+- Trusted `main` run `32661542668` confirmed the GHCR publication, preserved digest,
+  both application platforms and retained evidence for commit `e138f54`; later runs
+  must preserve the same controls.
+- Deployment, infrastructure provenance, remote smoke, and capacity evidence remain
+  later work. The initial compatibility resource budget, Trivy, and CycloneDX image
+  evidence are implemented here without
   replacing CodeQL, compiler lint, ArchUnit, Spring Modulith, ESLint, Spotless,
   JaCoCo, or SonarQube Cloud.

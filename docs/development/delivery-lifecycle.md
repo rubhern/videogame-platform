@@ -1,7 +1,7 @@
 # Learning MVP delivery lifecycle
 
 - **Status:** Approved
-- **Version:** 1.9
+- **Version:** 1.10
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-08-23
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
@@ -379,9 +379,9 @@ A work item is done when all applicable conditions are true:
 | OpenAPI and documentation validation | Completed | Keep generated reference synchronized |
 | Platform and persistent decisions | Completed by this design and ADR-0005 through ADR-0009 | Implement incrementally |
 | Technology baseline | Completed by baseline v1.0 and ADR-0010 through ADR-0012 | Preserve selected lines and upgrade policy |
-| Application skeleton and implementation tests | Implemented locally and in CI, including public read, BFF identity compatibility, and production-image evidence | Preserve the aggregate quality/security gates while completing hosted compatibility evidence |
-| Immutable multi-architecture image | Implemented locally and in CI; trusted `main` publication defined | Confirm the first hosted SHA/digest result and public package visibility |
-| Private OCI `dev` environment | After local skeleton | Provision only Always Free resources from reviewed IaC |
+| Application skeleton and implementation tests | Walking-skeleton compatibility gate passed locally and in trusted `main` CI | Preserve the aggregate gates while implementing only the approved next slices |
+| Immutable multi-architecture image | Implemented, validated and published by immutable SHA/digest on trusted `main` | Promote the unchanged digest only after the private `dev` delivery gate exists |
+| Private OCI `dev` environment | After the passed local skeleton gate | Provision only Always Free resources from reviewed IaC |
 | Operations runbook | After commands exist | Record exact start, deploy, backup, restore, and recovery procedures |
 | Public production | Deferred | Reopen legal, provider, privacy, security, support, and cost gates |
 
@@ -389,6 +389,7 @@ A work item is done when all applicable conditions are true:
 
 | Version | Date | Change | Owner |
 |---|---|---|---|
+| 1.10 | 2026-08-23 | Recorded the issue #34 walking-skeleton PASS, trusted hosted SHA/digest evidence, and executable initial resource budget while keeping private deployment and recovery as later acceptance gates. | Ruben Hernandez |
 | 1.9 | 2026-08-23 | Made pull-request CI affected-area selective with stable aggregate gates and retained the full trusted-`main` integration suite as the safety net. | Ruben Hernandez |
 | 1.8 | 2026-08-23 | Made local validation risk-based and incremental, retained CI as the authoritative validation boundary, and defined dependency, stale-branch, escalation, and costly-check rules without weakening workflow coverage. | Ruben Hernandez |
 | 1.7 | 2026-08-23 | Added the built-image multi-architecture runtime, scanning, SBOM, source-correlation, and immutable trusted-main GHCR evidence to the delivery gates. | Ruben Hernandez |

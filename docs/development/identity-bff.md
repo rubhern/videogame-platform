@@ -1,7 +1,7 @@
 # Local OIDC BFF session
 
 - **Status:** Implemented compatibility evidence for issue #40
-- **Version:** 1.1
+- **Version:** 1.2
 - **Last verified:** 2026-08-23
 - **Boundary:** Private local/CI walking skeleton; not a public-production session design
 - **Contract:** [OpenAPI 1.2.0](../architecture/api/openapi.yaml)
@@ -195,8 +195,8 @@ deployment evidence that actually requires replication.
 - provider logout or single logout across devices;
 - refresh-token lifecycle beyond the bounded Spring Security compatibility proof;
 - public HTTPS, remote Keycloak, distributed sessions, or remote provisioning;
-- closing issue #34, which still requires complete-topology resource-budget and final
-  hosted compatibility evidence.
+- private HTTPS, deployed identity configuration, ratings authentication and the
+  later remote acceptance gates; issue #34 already reuses this proof and is closed.
 
 ## Semantic Versioning
 

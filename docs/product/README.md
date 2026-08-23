@@ -1,7 +1,7 @@
 # Product documentation
 
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-04
+- **Last updated:** 2026-08-23
 
 The [Product Brief](product-brief.md) is the approved, closed product alignment
 record. The [clickable prototype](clickable-prototype.md) is the accepted interaction
@@ -36,25 +36,26 @@ boundary. Supporting documents keep uncertain information out of the main narrat
 - The [minimum provider-independent domain model](../architecture/domain/mvp-domain-model.md)
   is approved at version `1.1`.
 - The [minimum application use cases and relevant errors](../architecture/application/mvp-use-cases.md)
-  are approved at version `1.0`; they complete the application-level basis for the
+  are approved at version `1.1`; they complete the application-level basis for the
   provider-independent API contract without selecting implementation technology.
 - The [MVP solution architecture](../architecture/mvp-solution-architecture.md) is
-  approved at version `1.2`; it selects a same-origin server-side BFF, modular
+  approved at version `1.4`; it selects a same-origin server-side BFF, modular
   monolith, relational data boundary, and local catalogue synchronization while
   deferring API Management and distributed infrastructure until explicit triggers.
 - The [REST API conventions](../architecture/api/api-conventions.md) are approved at
-  version `1.0`; they fix the initial HTTP resource map, representations, errors,
+  version `1.2`; they fix the initial HTTP resource map, representations, errors,
   BFF session boundary, concurrency controls, compatibility policy, and OpenAPI
   authoring rules.
 - The [platform and delivery design](../architecture/deployment/mvp-platform-and-delivery.md)
   and [delivery lifecycle](../development/delivery-lifecycle.md) are approved at
-  version `1.1`. ADR-0005 through ADR-0009 accept the zero-cost private `dev`,
+  versions `1.9` and `1.10`. ADR-0005 through ADR-0009 accept the zero-cost private `dev`,
   PostgreSQL migration, Keycloak, GitHub delivery, and OpenTelemetry boundaries.
 - The [technology baseline](../architecture/technology/mvp-technology-baseline.md) is
-  approved at version `1.0`; ADR-0010 through ADR-0012 accept the backend,
+  approved at version `1.10`; ADR-0010 through ADR-0012 accept the backend,
   persistence-tooling, and frontend choices without duplicating platform ADRs.
-- Phase 1 MVP solution definition is complete. Application implementation is active
-  at the walking-skeleton gate; remote infrastructure has not started.
+- Phase 1 MVP solution definition and the walking-skeleton compatibility gate are
+  complete; remote infrastructure has not started and remains constrained by the
+  approved zero-cost private-platform sequence.
 - The medium-fidelity mobile-first prototype contains eight transparently curated
   games and 23 states. All eight game pages are navigable, and one representative
   game contains the complete simulated rating journey.

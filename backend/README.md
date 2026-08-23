@@ -427,11 +427,11 @@ For each future change:
    backend/module and documentation checks locally, then use trusted CI for complete
    repository evidence; expand local scope only for a concrete cross-boundary risk.
 
-The local PostgreSQL/Keycloak topology, application persistence, and Keycloak-backed
-BFF session compatibility are implemented and documented separately. Remaining
-catalogue queries, authenticated product identity mapping, later product APIs, a
-deployed telemetry backend, complete-topology resource budgeting, and remote
-deployment remain focused work items. The current backend, architecture and
+The walking-skeleton compatibility gate, local PostgreSQL/Keycloak topology,
+application persistence, and Keycloak-backed BFF session are implemented and
+documented separately. Remaining catalogue queries, authenticated product identity
+mapping, later product APIs, a deployed telemetry backend, and remote deployment
+remain focused work items. The current backend, architecture and
 PostgreSQL checks are reproduced by the
 [walking-skeleton CI gate](../docs/development/continuous-integration.md). This
 backend does not claim the wider user journey or remote operational evidence merely
