@@ -196,14 +196,13 @@ development seed without changing ordinary local packaging or production migrati
 
 ## Current limitations
 
-The broader walking-skeleton gate remains open. The following evidence is deliberately
-not claimed by this skeleton:
+The walking-skeleton compatibility gate has passed. The following later capabilities
+are deliberately not claimed by this backend slice:
 
 - Catalogue write/publication commands, search, and game-detail reads;
 - durable product `UserId` mapping and authenticated ratings authorization;
 - Remaining OpenAPI operations beyond `GET /api/v1/releases`;
-- a deployed collector or OCI telemetry integration, combined-application resource
-  budgeting, and remote deployment.
+- a deployed collector or OCI telemetry integration and remote deployment.
 
 Add those capabilities only through their focused work items. Do not turn a
 placeholder into a product feature without the corresponding approved use case,

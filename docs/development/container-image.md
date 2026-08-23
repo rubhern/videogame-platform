@@ -101,9 +101,9 @@ No `latest` tag is created. Deployment work must select the digest, not rebuild 
 resolve a mutable tag.
 
 GHCR package visibility is repository administration. ADR-0008 requires the linked
-package to remain public while this public-repository delivery design applies; the
-first hosted publication must confirm that setting. No long-lived registry secret is
-required.
+package to remain public while this public-repository delivery design applies;
+trusted `main` run `32661542668` completed the first immutable publication and digest
+verification. No long-lived registry secret is required.
 
 ## Failure policy and scope
 
@@ -113,5 +113,5 @@ platform or finding and apply the delivery lifecycle's existing risk process whe
 compatible remediation exists.
 
 This workflow does not provision OCI resources, deploy the image, define backup or
-restore procedures, implement product features, or claim the complete resource-budget
-evidence owned by issue #34.
+restore procedures, or implement product features. Issue #34 combines this image
+proof with the separate executable complete-topology resource-budget check.

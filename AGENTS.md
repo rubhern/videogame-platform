@@ -8,10 +8,11 @@ for solution architecture and technical leadership.
 
 ## Current phase
 
-Product alignment and Phase 1 solution definition are closed. Implementation is
-active at the walking-skeleton compatibility gate. Preserve the approved MVP,
-domain, application, solution, platform, technology, API, delivery, and diagram
-decisions while completing the smallest executable vertical slices.
+Product alignment, Phase 1 solution definition, and the walking-skeleton
+compatibility gate are closed. Implementation is active in the private-platform and
+first-journey sequence. Preserve the approved MVP, domain, application, solution,
+platform, technology, API, delivery, and diagram decisions while completing the
+smallest executable vertical slices.
 
 The current release remains a private, non-commercial learning MVP. Public
 production, a business model, paid infrastructure, and distributed architecture are
@@ -31,8 +32,9 @@ interfaces and transport models with manual delivery adapters.
   architecture has been approved.
 - Preserve the zero recurring-cost constraint: use only currently eligible free
   resources and stop rather than silently provisioning a paid alternative.
-- Prove the approved baseline through the smallest executable walking skeleton before
-  expanding feature implementation or provisioning remote infrastructure.
+- Preserve the passed walking-skeleton baseline and its executable CI evidence while
+  expanding only through the approved issue sequence; remote infrastructure still
+  requires its applicable zero-cost and delivery gates.
 - Keep proposed product decisions labelled as hypotheses until evidence or an
   explicit owner decision supports them.
 - Use the story map as the current planning boundary; prefer minimum contracts and

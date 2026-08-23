@@ -72,6 +72,11 @@ run_case migration \
   'backend,migrations' \
   'frontend,browser,identity,provider_fixtures,container'
 
+run_case topology-budget \
+  'scripts/validate-topology-budget.sh' \
+  'documentation,container,build' \
+  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
 run_case identity \
   'backend/src/main/java/com/videogameplatform/identity/configuration/IdentitySecurityConfiguration.java' \
   'backend,browser,identity,sonar,codeql_java' \

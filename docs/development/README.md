@@ -24,7 +24,7 @@
   trusted `main` quality/security gates, permissions, caching, retries, dependency
   monitoring, and local command parity.
 - [Walking-skeleton compatibility evidence](walking-skeleton-evidence.md): concise
-  mapping of repeatable #34 evidence and the items that remain open.
+  PASS record and reproduction map for every #34 criterion.
 - [Codex workspace setup](codex-setup.md): verified tools, configuration,
   rationale, risks, and deferred capabilities.
 - [OpenAPI contract validation](openapi-validation.md): syntax, lint, references,
@@ -45,6 +45,6 @@ environment and deployment mechanics belong in the
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md). It must
 not contain credentials, tokens, personal data, or machine-specific secrets.
 
-Phase 1 solution definition is complete. The current implementation gate is the
-smallest local walking skeleton, including CI and explicit `linux/amd64` and
-`linux/arm64` compatibility evidence before feature expansion.
+Phase 1 solution definition and the executable walking-skeleton compatibility gate
+are complete. The next platform work may use the proven local/CI baseline without
+expanding the approved MVP or provisioning paid resources.

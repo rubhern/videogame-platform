@@ -23,8 +23,9 @@ Phase 1 solution definition is complete. The
 [approved technology baseline](technology/mvp-technology-baseline.md) selects the
 application frameworks, persistence and migration libraries, frontend tooling,
 quality controls, and supported version lines. The executable walking skeleton is
-the current implementation gate; remote infrastructure starts only after local, CI,
-`linux/amd64`, and `linux/arm64` compatibility are proven.
+recorded as `PASS` with local, CI, `linux/amd64`, `linux/arm64`, dependency-manifest
+and resource-budget evidence. Remote infrastructure remains limited to the approved
+zero-cost private-platform sequence.
 
 The initial diagram baseline is established and governed by
 [ADR-0013](../decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md).
@@ -36,12 +37,12 @@ contracts, and ADRs remain authoritative.
 - [Architecture diagram catalogue](diagrams/README.md)
 - [Learning MVP domain model v1.1](domain/mvp-domain-model.md)
 - [Learning MVP use cases and relevant errors v1.1](application/mvp-use-cases.md)
-- [Learning MVP solution architecture v1.2](mvp-solution-architecture.md)
-- [Learning MVP REST API conventions v1.1](api/api-conventions.md)
+- [Learning MVP solution architecture v1.4](mvp-solution-architecture.md)
+- [Learning MVP REST API conventions v1.2](api/api-conventions.md)
 - [Learning MVP OpenAPI 3.1.2 contract](api/openapi.yaml)
 - [Generated OpenAPI web reference](api/reference/index.html)
-- [Learning MVP platform and delivery design v1.1](deployment/mvp-platform-and-delivery.md)
-- [Learning MVP technology baseline v1.0](technology/mvp-technology-baseline.md)
+- [Learning MVP platform and delivery design v1.9](deployment/mvp-platform-and-delivery.md)
+- [Learning MVP technology baseline v1.10](technology/mvp-technology-baseline.md)
 - [ADR-0001: Reference IGDB cover images without copying binaries](../decisions/0001-reference-igdb-cover-images.md)
 - [ADR-0002: Use a modular monolith and relational data boundary](../decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md)
 - [ADR-0003: Use a same-origin BFF and HTTP/JSON API](../decisions/0003-use-a-same-origin-bff-and-http-json-api.md)

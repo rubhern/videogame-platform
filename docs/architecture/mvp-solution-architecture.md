@@ -1,9 +1,9 @@
 # Learning MVP Solution Architecture
 
 - **Status:** Approved
-- **Version:** 1.3
+- **Version:** 1.4
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-08-21
+- **Last updated:** 2026-08-23
 - **Approval:** Owner-approved for the private, non-commercial learning MVP
 - **Phase:** 1 — MVP solution definition (complete)
 - **Initial release mode:** Private, non-commercial learning MVP
@@ -1352,7 +1352,9 @@ public production environment or distributed application architecture.
 The technology baseline is approved and Phase 1 solution definition is complete.
 ADR-0010 through ADR-0012 contain the only new durable baseline choices. Individual
 quality and test libraries remain governed by the baseline rather than receiving one
-decision record each. The walking skeleton is the next implementation gate.
+decision record each. The walking-skeleton compatibility gate passed on 2026-08-23;
+private platform and journey work must preserve that evidence without expanding the
+architecture implicitly.
 
 No gRPC ADR is required while the decision is simply to defer protocol selection. A
 future ADR should compare gRPC with the actual alternatives for a concrete boundary.
@@ -1398,6 +1400,7 @@ future ADR should compare gRPC with the actual alternatives for a concrete bound
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-23 | 1.4 | Recorded the executable walking-skeleton compatibility PASS as implementation evidence without changing any approved architecture decision. | Ruben Hernandez |
 | 2026-08-21 | 1.3 | Distinguished inward dependency direction from Spring composition, assigned module-local composition roots, and prohibited adapters from accessing application internals. | Ruben Hernandez |
 | 2026-08-04 | 1.2 | Linked the approved technology baseline and ADR-0010 through ADR-0012, closed Phase 1 solution definition, and identified the walking skeleton as the next gate. | Ruben Hernandez |
 | 2026-08-03 | 1.1 | Linked the approved platform decisions for OCI Always Free hosting, PostgreSQL migrations, Keycloak, GitHub Actions/GHCR, and OpenTelemetry without changing the logical solution boundary. | Ruben Hernandez |

@@ -26,8 +26,9 @@ deployment view without replacing approved documents or ADRs.
 ADR-0014 makes Maven-generated OpenAPI Spring interfaces and transport models the
 mandatory backend HTTP contract boundary.
 
-**Phase 1 — MVP solution definition is complete.** Application implementation is
-active at the walking-skeleton gate. The initial backend skeleton proves Java 25,
+**Phase 1 — MVP solution definition and the walking-skeleton compatibility gate are
+complete.** Application implementation can proceed through the approved private
+platform and first-journey sequence. The initial backend skeleton proves Java 25,
 Spring Boot 4.1, Spring MVC, Actuator, Spring Modulith 2.1, and the initial module
 fitness functions locally. The frontend skeleton proves React 19.2, strict
 TypeScript, Vite 8.1, routing, server-state infrastructure, Tailwind CSS, complete
@@ -63,7 +64,11 @@ mocks. The same combined application is now assembled as one non-root OCI image 
 `linux/amd64` and `linux/arm64`; both platform images are started, probed, inspected,
 scanned with Trivy, and described by retained CycloneDX SBOMs. Trusted `main` builds
 publish the exact scanned OCI index to GHCR by commit SHA and record its digest.
-Remote infrastructure follows only after the remaining walking-skeleton gate passes.
+The complete application/PostgreSQL/Keycloak profile is bounded to 2 OCPU and
+2.5 GiB, dependency manifests include ARM64, and the concise
+[compatibility evidence](docs/development/walking-skeleton-evidence.md) records the
+gate as `PASS`. Remote infrastructure may follow only through the approved zero-cost,
+private-delivery and recovery work items.
 
 ## Start here
 
@@ -101,12 +106,12 @@ Remote infrastructure follows only after the remaining walking-skeleton gate pas
 18. Use the [continuous-integration guide](docs/development/continuous-integration.md)
     for quality/security jobs, local parity, permissions, caching, and failure policy.
 19. Use the [platform and delivery design](docs/architecture/deployment/mvp-platform-and-delivery.md)
-    and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the walking
-    skeleton and private `dev` environment.
+    and [delivery lifecycle](docs/development/delivery-lifecycle.md) for the passed
+    walking skeleton and later private `dev` environment.
 20. Review the [approved technology baseline](docs/architecture/technology/mvp-technology-baseline.md),
     [architecture diagram catalogue](docs/architecture/diagrams/README.md), and
-    [ADR-0005 through ADR-0014](docs/decisions/) before implementing the walking
-    skeleton, persistence, identity, delivery, hosting, or observability.
+    [ADR-0005 through ADR-0015](docs/decisions/) before extending persistence,
+    identity, delivery, hosting, or observability.
 21. Use the [backend technical README](backend/README.md) and
     [backend development guide](docs/development/backend.md) to build, test, start,
     inspect, and extend the initial modular-monolith skeleton.

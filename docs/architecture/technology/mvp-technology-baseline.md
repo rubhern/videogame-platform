@@ -1,11 +1,11 @@
 # Learning MVP Technology Baseline
 
 - **Status:** Approved
-- **Version:** 1.9
+- **Version:** 1.10
 - **Owner:** Ruben Hernandez
 - **Last updated:** 2026-08-23
 - **Phase:** 1 — MVP solution definition (complete)
-- **Implementation evidence:** Partial — application foundations, local dependencies, PostgreSQL/Flyway persistence, generated HTTP contracts, typed releases shell, combined JAR and multi-architecture OCI packaging, real local/CI OIDC BFF session proof, baseline observability, and current CI/security gates
+- **Implementation evidence:** Complete for the walking-skeleton compatibility gate; private OCI infrastructure and journey expansion remain separate later work
 - **Scope:** Private, non-commercial learning MVP
 - **Solution architecture:** [Learning MVP solution architecture](../mvp-solution-architecture.md)
 - **API conventions:** [Learning MVP API conventions](../api/api-conventions.md)
@@ -645,8 +645,14 @@ both variants start as non-root, pass liveness/readiness and same-origin boundar
 checks, expose matching source metadata, pass the unsuppressed Trivy severity gate,
 and have retained CycloneDX SBOMs. CI defines explicit ARM64 QEMU evidence and copies
 the exact validated index to GHCR by commit SHA with its digest preserved. This is
-still partial compatibility evidence: complete-topology resource budgeting and final
-hosted evidence remain open.
+complete compatibility evidence: the full application/PostgreSQL/Keycloak Compose
+profile has executable resource-limit validation at 2 OCPU and 2.5 GiB, both exact
+dependency images expose AMD64 and ARM64 manifests, and trusted `main` run
+`32661542668` passed the complete hosted suite and published the inspected index for
+commit `e138f54`. The concise commands and immutable digest are recorded in the
+[walking-skeleton evidence](../../development/walking-skeleton-evidence.md). Remote
+OCI provisioning, telemetry integration, deployment, recovery and the later product
+journey remain separate gates and are not implied by this PASS.
 
 A failure blocks feature expansion and reopens the affected ADR or baseline row. It
 does not automatically force Java 21 or permit dropping ARM64. First identify whether
@@ -736,6 +742,7 @@ the replaceable local telemetry backend.
 
 | Date | Version | Change | Owner |
 |---|---|---|---|
+| 2026-08-23 | 1.10 | Closed the walking-skeleton compatibility gate with executable dependency-manifest and 2 OCPU/12 GB resource-budget checks, complete trusted-main CI evidence, and an immutable published multi-architecture digest without changing the approved baseline. | Ruben Hernandez |
 | 2026-08-23 | 1.9 | Recorded the non-root multi-architecture application image, ARM64 runtime probes, manifest/source metadata, Trivy/CycloneDX evidence, digest-preserving trusted-main GHCR publication workflow, and compatible Log4j/Jackson security patches identified by the image scan. | Ruben Hernandez |
 | 2026-08-22 | 1.8 | Recorded the real Keycloak 26.7 browser/BFF Authorization Code with PKCE, opaque session and CSRF/logout local/CI compatibility evidence without selecting a distributed session store. | Ruben Hernandez |
 | 2026-08-22 | 1.7 | Recorded the typed accessible releases shell, reproducible combined Spring Boot JAR, and real browser-to-PostgreSQL same-origin smoke as partial compatibility evidence. | Ruben Hernandez |

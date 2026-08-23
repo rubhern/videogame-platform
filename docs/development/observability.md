@@ -353,5 +353,6 @@ change health readiness or product responses.
   implemented.
 - Database statement tracing is not enabled; the baseline exposes pool metrics and
   health without adding raw SQL to telemetry.
-- Remote smoke, complete-topology resource-budget, and hosted compatibility evidence
-  remain in later walking-skeleton work items.
+- A deployed collector, remote telemetry retention, dashboards and private-`dev`
+  smoke evidence remain later platform work; issue #34 already proves the initial
+  topology budget and hosted walking-skeleton compatibility.
