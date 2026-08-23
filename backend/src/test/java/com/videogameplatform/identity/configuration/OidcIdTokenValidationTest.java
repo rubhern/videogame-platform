@@ -87,6 +87,14 @@ class OidcIdTokenValidationTest {
     }
 
     @Test
+    void frameworkDecoderFactoryAppliesTheExternallyConfiguredIssuerValidator() {
+        var factory =
+                new IdentitySecurityConfiguration().oidcIdTokenDecoderFactory(ISSUER);
+
+        assertThat(factory.createDecoder(clientRegistration())).isNotNull();
+    }
+
+    @Test
     void frameworkProviderRejectsAnIdTokenWhoseNonceIsNotBoundToTheAuthorizationRequest() {
         OAuth2AccessTokenResponse tokenResponse =
                 OAuth2AccessTokenResponse.withToken("server-side-access-token")
