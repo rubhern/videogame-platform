@@ -14,6 +14,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
+import com.videogameplatform.catalogue.application.ReleaseQueryValidationException;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.sql.SQLException;
 import java.util.UUID;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -156,6 +158,48 @@ class ReleaseApiFailureIntegrationTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(header().exists(CORRELATION_HEADER));
 
+        mockMvc.perform(
+                        get("/api/v1/releases")
+                                .queryParam("view", "recent")
+                                .queryParam("page", "1", "2")
+                                .header(HttpHeaders.ACCEPT, "application/json"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(header().exists(CORRELATION_HEADER));
+
+        mockMvc.perform(
+                        get("/api/v1/releases")
+                                .queryParam("view", "recent")
+                                .queryParam("platformId", "ps5", "windows")
+                                .header(HttpHeaders.ACCEPT, "application/json"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(header().exists(CORRELATION_HEADER));
+
+        assertThat(appender.list).isEmpty();
+    }
+
+    @Test
+    void unsupportedRegionUsesItsContractedTypedProblemCodeWithoutTechnicalLogging()
+            throws Exception {
+        doThrow(
+                        new ReleaseQueryValidationException(
+                                ReleaseQueryValidationException.Code.REGION_NOT_SUPPORTED))
+                .when(useCase)
+                .browse(any());
+
+        var result =
+                mockMvc.perform(
+                                get("/api/v1/releases")
+                                        .queryParam("view", "recent")
+                                        .queryParam("regionId", "not-supported")
+                                        .header(HttpHeaders.ACCEPT, "application/json"))
+                        .andExpect(status().isUnprocessableContent())
+                        .andExpect(header().exists(CORRELATION_HEADER))
+                        .andReturn();
+
+        JsonNode body = OBJECT_MAPPER.readTree(result.getResponse().getContentAsString());
+        assertThat(body.path("code").stringValue()).isEqualTo("REGION_NOT_SUPPORTED");
+        assertThat(body.path("violations").get(0).path("pointer").stringValue())
+                .isEqualTo("/query/regionId");
         assertThat(appender.list).isEmpty();
     }
 
@@ -174,6 +218,42 @@ class ReleaseApiFailureIntegrationTest {
         ILoggingEvent event = singleFailureEvent();
         assertThat(keyValue(event, "error.code")).isEqualTo("INTERNAL_ERROR");
         assertThat(loggedThrowable(event)).isSameAs(exception);
+    }
+
+    @Test
+    void directProblemConstructionReusesMdcCorrelationWhenTheServletFilterIsAbsent() {
+        var response = new MockHttpServletResponse();
+        MDC.put("correlationId", "mdc-correlation");
+        try {
+            var result =
+                    new ApiExceptionHandler()
+                            .requestInvalid(
+                                    new ApiRequestException(
+                                            ProblemCode.FILTER_INVALID, "/query/view"),
+                                    response);
+
+            assertThat(result.getBody()).isNotNull();
+            assertThat(result.getBody().getCorrelationId()).isEqualTo("mdc-correlation");
+            assertThat(response.getHeader(CORRELATION_HEADER)).isEqualTo("mdc-correlation");
+        } finally {
+            MDC.remove("correlationId");
+        }
+    }
+
+    @Test
+    void directProblemConstructionGeneratesOneCorrelationWhenNoRequestContextExists() {
+        var response = new MockHttpServletResponse();
+
+        var result =
+                new ApiExceptionHandler()
+                        .requestInvalid(
+                                new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/view"),
+                                response);
+
+        assertThat(result.getBody()).isNotNull();
+        String correlationId = result.getBody().getCorrelationId();
+        assertThat(UUID.fromString(correlationId)).isNotNull();
+        assertThat(response.getHeader(CORRELATION_HEADER)).isEqualTo(correlationId);
     }
 
     private ILoggingEvent singleFailureEvent() {
