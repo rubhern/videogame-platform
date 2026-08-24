@@ -2,7 +2,7 @@
 
 - **Status:** Active walking-skeleton implementation
 - **Last verified:** 2026-08-23
-- **Backend version:** `0.7.0-SNAPSHOT`
+- **Backend version:** `0.7.1-SNAPSHOT`
 - **Issue:** [#25](https://github.com/rubhern/videogame-platform/issues/25)
 - **Use case:** [UC-001](../architecture/application/mvp-use-cases.md#uc-001--browse-recent-or-upcoming-releases)
 - **Contract:** [`GET /api/v1/releases`](../architecture/api/openapi.yaml)
@@ -222,3 +222,6 @@ removing filter-combination growth from the persistence adapter.
 Issue #26 then increments the backend reactor to `0.4.0-SNAPSHOT` for the compatible
 combined application package; this release endpoint and its database query remain
 unchanged.
+Issue #80 is a compatible application-contract and type-safety correction, so it
+increments the backend patch from `0.7.0-SNAPSHOT` to `0.7.1-SNAPSHOT` without
+changing the OpenAPI contract.

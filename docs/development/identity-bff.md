@@ -91,7 +91,7 @@ set +a
 SPRING_PROFILES_ACTIVE=oidc \
 APPLICATION_FLYWAY_ENABLED=true \
 SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
-java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.1-SNAPSHOT.jar
 ```
 
 Open `http://localhost:8080/auth/login/keycloak`. The supported callback is

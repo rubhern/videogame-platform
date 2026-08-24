@@ -212,7 +212,7 @@
                   "",
                   "pm.test(\"Response contains safe build and source metadata\", function () {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(body.build.version).to.eql(\"0.7.0-SNAPSHOT\");",
+                  "    pm.expect(body.build.version).to.eql(\"0.7.1-SNAPSHOT\");",
                   "    pm.expect(body.build.sourceRevision).to.be.a(\"string\").and.not.empty;",
                   "    pm.expect(JSON.stringify(body)).not.to.include(\"password\");",
                   "    pm.expect(JSON.stringify(body)).not.to.include(\"jdbc:\");",

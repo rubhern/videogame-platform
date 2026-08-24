@@ -150,7 +150,7 @@ The default address is `http://localhost:8080`. Stop the process gracefully with
 After a successful package, run the executable artifact directly:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.1-SNAPSHOT.jar
 ```
 
 The normal Maven lifecycle remains backend-only. Build the reproducible combined JAR

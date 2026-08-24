@@ -1,8 +1,9 @@
 package com.videogameplatform.api.delivery;
 
 import com.videogameplatform.api.generated.ReleasesApi;
+import com.videogameplatform.api.generated.model.ReleasePage;
+import com.videogameplatform.catalogue.application.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
-import com.videogameplatform.catalogue.application.ReleasePage;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,7 +34,7 @@ public class ReleaseController implements ReleasesApi {
     }
 
     @Override
-    public ResponseEntity<com.videogameplatform.api.generated.model.ReleasePage> listReleases(
+    public ResponseEntity<ReleasePage> listReleases(
             String view,
             String platformId,
             String regionId,
@@ -43,11 +44,11 @@ public class ReleaseController implements ReleasesApi {
         long startedAt = metrics.start();
         try {
             BrowseReleasesUseCase.View releaseView = parseView(view);
-            ReleasePage result =
+            BrowseReleasesResult result =
                     useCase.browse(
                             new BrowseReleasesUseCase.Query(
                                     releaseView, platformId, regionId, page, pageSize));
-            com.videogameplatform.api.generated.model.ReleasePage body = mapper.toResponse(result);
+            ReleasePage body = mapper.toResponse(result);
             String entityTag = conditionalRequests.strongEntityTag(body);
 
             HttpHeaders headers = new HttpHeaders();

@@ -2,7 +2,7 @@
 
 - **Status:** Active walking-skeleton implementation
 - **Last verified:** 2026-08-23
-- **Backend version:** `0.7.0-SNAPSHOT`
+- **Backend version:** `0.7.1-SNAPSHOT`
 - **Decision:** [ADR-0009](../decisions/0009-use-opentelemetry-compatible-instrumentation.md)
 - **Architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
 
@@ -81,7 +81,7 @@ returns its safe fields under `build`:
 {
   "build": {
     "name": "VideoGame Platform Backend",
-    "version": "0.7.0-SNAPSHOT",
+    "version": "0.7.1-SNAPSHOT",
     "sourceRevision": "local-development"
   }
 }

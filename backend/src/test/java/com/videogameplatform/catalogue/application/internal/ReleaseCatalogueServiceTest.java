@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.application.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.videogameplatform.catalogue.application.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
@@ -86,17 +87,32 @@ class ReleaseCatalogueServiceTest {
 
         assertThat(page.items().getFirst().primaryCover())
                 .isEqualTo(
-                        new com.videogameplatform.catalogue.application.ReleasePage
-                                .ProviderCoverReference(
+                        new BrowseReleasesResult.ProviderCoverReference(
                                 "IGDB",
                                 "co-safe_1",
                                 "Cover",
                                 "https://www.igdb.com/games/example"));
         assertThat(page.items().getFirst().release().status())
-                .isEqualTo(
-                        com.videogameplatform.catalogue.application.ReleasePage.Status.SCHEDULED);
+                .isEqualTo(BrowseReleasesResult.Status.SCHEDULED);
         assertThat(page.items().getFirst().release().freshnessStatus())
-                .isEqualTo(com.videogameplatform.catalogue.application.ReleasePage.Freshness.FRESH);
+                .isEqualTo(BrowseReleasesResult.Freshness.FRESH);
+    }
+
+    @Test
+    void mapsUnavailableCoverToTheProductFallback() {
+        ReleaseBrowseReadPort.Item item =
+                release(
+                        "release-unavailable",
+                        new ReleaseBrowseReadPort.UnavailableCoverReference("Unavailable"));
+
+        var page =
+                service(criteria -> Optional.of(result(List.of(item), 1)))
+                        .browse(query(BrowseReleasesUseCase.View.UPCOMING, 1, 20));
+
+        assertThat(page.items().getFirst().primaryCover())
+                .isEqualTo(
+                        new BrowseReleasesResult.FallbackCover(
+                                "/assets/covers/fallback.svg", "Carátula oficial no disponible"));
     }
 
     @Test
