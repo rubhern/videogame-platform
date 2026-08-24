@@ -13,7 +13,11 @@ import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -21,7 +25,6 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import tools.jackson.databind.JsonNode;
@@ -29,38 +32,22 @@ import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(ReleaseApiIntegrationTest.FixedClockConfiguration.class)
+@Execution(ExecutionMode.SAME_THREAD)
 class ReleaseApiIntegrationTest {
 
-    private static final String DATABASE_NAME = "release_api";
+    private static final String DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("release_api");
     private static final String PLATFORM_PS5 = "10000000-0000-4000-8000-000000000001";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    static {
-        try {
-            PostgreSqlTestDatabase.createDatabase(DATABASE_NAME);
-        } catch (Exception exception) {
-            throw new ExceptionInInitializerError(exception);
-        }
-    }
+    private static final OpenApiResponseContract OPENAPI = OpenApiResponseContract.load();
 
     @LocalServerPort private int port;
-
-    @Autowired private JdbcTemplate jdbcTemplate;
 
     @Autowired private MeterRegistry meterRegistry;
 
     @DynamicPropertySource
     static void configurePostgreSql(DynamicPropertyRegistry registry) {
-        registry.add(
-                "spring.datasource.url", () -> PostgreSqlTestDatabase.runtimeUrl(DATABASE_NAME));
-        registry.add("spring.datasource.username", PostgreSqlTestDatabase::runtimeUsername);
-        registry.add("spring.datasource.password", PostgreSqlTestDatabase::runtimePassword);
-        registry.add("spring.flyway.enabled", () -> true);
-        registry.add("spring.flyway.url", () -> PostgreSqlTestDatabase.adminUrl(DATABASE_NAME));
-        registry.add("spring.flyway.user", PostgreSqlTestDatabase::migratorUsername);
-        registry.add("spring.flyway.password", PostgreSqlTestDatabase::migratorPassword);
-        registry.add(
-                "spring.flyway.locations", () -> "classpath:db/migration,classpath:db/dev-seed");
+        PostgreSqlTestDatabase.configureSpringDatabase(registry, DATABASE_NAME, true);
         registry.add("catalogue.releases.freshness-threshold", () -> "P1D");
     }
 
@@ -69,7 +56,7 @@ class ReleaseApiIntegrationTest {
         HttpResponse<String> response = get("/api/v1/releases?view=recent");
         JsonNode body = OBJECT_MAPPER.readTree(response.body());
 
-        assertThat(response.statusCode()).isEqualTo(200);
+        OPENAPI.assertJsonResponse(response, 200, "ReleasePage");
         assertThat(response.headers().firstValue("X-Correlation-ID")).isPresent();
         assertThat(response.headers().firstValue("Cache-Control"))
                 .contains("public, max-age=60, stale-while-revalidate=300");
@@ -81,10 +68,12 @@ class ReleaseApiIntegrationTest {
         assertThat(body.path("items").size()).isEqualTo(2);
         assertThat(body.path("items").get(0).path("canonicalTitle").stringValue())
                 .isEqualTo("Pragmata");
-        assertThat(body.path("items").get(0).path("release").path("releaseDate").toString())
-                .isEqualTo("{\"precision\":\"quarter\",\"value\":\"2026-Q2\"}");
-        assertThat(body.path("items").get(1).path("release").path("releaseDate").toString())
-                .isEqualTo("{\"precision\":\"day\",\"value\":\"2026-02-27\"}");
+        JsonNode firstReleaseDate = body.path("items").get(0).path("release").path("releaseDate");
+        assertThat(firstReleaseDate.path("precision").stringValue()).isEqualTo("quarter");
+        assertThat(firstReleaseDate.path("value").stringValue()).isEqualTo("2026-Q2");
+        JsonNode secondReleaseDate = body.path("items").get(1).path("release").path("releaseDate");
+        assertThat(secondReleaseDate.path("precision").stringValue()).isEqualTo("day");
+        assertThat(secondReleaseDate.path("value").stringValue()).isEqualTo("2026-02-27");
         assertThat(body.path("items").get(0).path("release").path("freshnessStatus").stringValue())
                 .isEqualTo("stale");
         assertThat(body.path("items").get(0).path("primaryCover").path("kind").stringValue())
@@ -94,8 +83,7 @@ class ReleaseApiIntegrationTest {
 
         HttpResponse<String> notModified =
                 get("/api/v1/releases?view=recent", "If-None-Match", entityTag);
-        assertThat(notModified.statusCode()).isEqualTo(304);
-        assertThat(notModified.body()).isEmpty();
+        OPENAPI.assertEmptyResponse(notModified, 304);
         assertThat(notModified.headers().firstValue("ETag")).contains(entityTag);
 
         DistributionSummary resultCount =
@@ -111,7 +99,7 @@ class ReleaseApiIntegrationTest {
                 get(
                         "/api/v1/releases?view=recent",
                         "If-None-Match",
-                        "\"different\", W/" + entityTag);
+                        "\"different,with,commas\", W/" + entityTag);
         assertThat(weakNotModified.statusCode()).isEqualTo(304);
         assertThat(weakNotModified.body()).isEmpty();
         assertThat(weakNotModified.headers().firstValue("ETag")).contains(entityTag);
@@ -124,16 +112,28 @@ class ReleaseApiIntegrationTest {
                                 .tag("outcome", "not_modified")
                                 .counter())
                 .isNotNull();
+
+        HttpResponse<String> malformedConditional =
+                get(
+                        "/api/v1/releases?view=recent",
+                        "If-None-Match",
+                        "\"unterminated, W/" + entityTag);
+        assertThat(malformedConditional.statusCode()).isEqualTo(200);
+        assertThat(malformedConditional.headers().firstValue("ETag")).contains(entityTag);
+        assertThat(OBJECT_MAPPER.readTree(malformedConditional.body()).path("view").stringValue())
+                .isEqualTo("recent");
     }
 
     @Test
     void supportsFiltersPaginationEmptyPagesAndUnknownDatePrecision() throws Exception {
         JsonNode upcoming = json(get("/api/v1/releases?view=upcoming&page=1&pageSize=20"));
         assertThat(upcoming.path("items")).hasSize(2);
-        assertThat(upcoming.path("items").get(0).path("release").path("releaseDate").toString())
-                .isEqualTo("{\"precision\":\"year\",\"value\":\"2027\"}");
-        assertThat(upcoming.path("items").get(1).path("release").path("releaseDate").toString())
-                .isEqualTo("{\"precision\":\"unknown\",\"value\":null}");
+        JsonNode knownDate = upcoming.path("items").get(0).path("release").path("releaseDate");
+        assertThat(knownDate.path("precision").stringValue()).isEqualTo("year");
+        assertThat(knownDate.path("value").stringValue()).isEqualTo("2027");
+        JsonNode unknownDate = upcoming.path("items").get(1).path("release").path("releaseDate");
+        assertThat(unknownDate.path("precision").stringValue()).isEqualTo("unknown");
+        assertThat(unknownDate.path("value").isNull()).isTrue();
 
         JsonNode empty = json(get("/api/v1/releases?view=upcoming&platformId=" + PLATFORM_PS5));
         assertThat(empty.path("items")).isEmpty();
@@ -158,6 +158,7 @@ class ReleaseApiIntegrationTest {
 
     @Test
     void returnsStableValidationProblemsAndBoundedTelemetry() throws Exception {
+        assertProblem(get("/api/v1/releases"), 400, "REQUEST_MALFORMED");
         assertProblem(get("/api/v1/releases?view=invalid"), 422, "FILTER_INVALID");
         assertProblem(get("/api/v1/releases?view=recent&pageSize=101"), 422, "PAGINATION_INVALID");
         assertProblem(
@@ -170,14 +171,14 @@ class ReleaseApiIntegrationTest {
                 "PLATFORM_NOT_SUPPORTED");
 
         JsonNode meters = json(get("/actuator/metrics"));
-        assertThat(meters.toString())
+        assertThat(textValues(meters.path("names")))
                 .contains(
                         "catalogue.releases.requests",
                         "catalogue.releases.latency",
                         "catalogue.releases.result.count",
                         "catalogue.releases.failures");
         JsonNode failures = json(get("/actuator/metrics/catalogue.releases.failures"));
-        assertThat(failures.toString())
+        assertThat(tagValues(failures, "code"))
                 .contains("FILTER_INVALID", "PLATFORM_NOT_SUPPORTED")
                 .doesNotContain("not-supported", "X-Correlation-ID");
         assertThat(
@@ -189,29 +190,9 @@ class ReleaseApiIntegrationTest {
                 .isNotNull();
     }
 
-    @Test
-    void noCurrentLocalSnapshotReturnsCatalogueNotReady() throws Exception {
-        jdbcTemplate.update(
-                "UPDATE catalogue.catalogue_publication SET is_current = false WHERE is_current");
-        try {
-            assertProblem(get("/api/v1/releases?view=recent"), 503, "CATALOGUE_NOT_READY");
-            assertThat(
-                            meterRegistry
-                                    .find("catalogue.releases.requests")
-                                    .tag("view", "recent")
-                                    .tag("outcome", "read_failure")
-                                    .counter())
-                    .isNotNull();
-        } finally {
-            jdbcTemplate.update(
-                    "UPDATE catalogue.catalogue_publication SET is_current = true WHERE publication_id = ?::uuid",
-                    "00000000-0000-4000-8000-000000000001");
-        }
-    }
-
     private void assertProblem(HttpResponse<String> response, int status, String code) {
         JsonNode body = OBJECT_MAPPER.readTree(response.body());
-        assertThat(response.statusCode()).isEqualTo(status);
+        OPENAPI.assertJsonResponse(response, status, "Problem");
         assertThat(response.headers().firstValue("Content-Type").orElseThrow())
                 .startsWith("application/problem+json");
         assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
@@ -225,6 +206,21 @@ class ReleaseApiIntegrationTest {
     private JsonNode json(HttpResponse<String> response) {
         assertThat(response.statusCode()).isEqualTo(200);
         return OBJECT_MAPPER.readTree(response.body());
+    }
+
+    private static List<String> textValues(JsonNode values) {
+        List<String> result = new ArrayList<>();
+        values.forEach(value -> result.add(value.stringValue()));
+        return result;
+    }
+
+    private static List<String> tagValues(JsonNode metric, String tagName) {
+        for (JsonNode tag : metric.path("availableTags")) {
+            if (tagName.equals(tag.path("tag").stringValue())) {
+                return textValues(tag.path("values"));
+            }
+        }
+        return List.of();
     }
 
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {

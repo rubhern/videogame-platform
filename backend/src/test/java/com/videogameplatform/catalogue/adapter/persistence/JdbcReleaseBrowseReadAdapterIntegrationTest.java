@@ -20,6 +20,8 @@ import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -30,9 +32,11 @@ import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
+@Execution(ExecutionMode.SAME_THREAD)
 class JdbcReleaseBrowseReadAdapterIntegrationTest {
 
-    private static final String DATABASE_NAME = "release_browse_adapter";
+    private static final String DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("release_browse_adapter");
     private static final String PLATFORM_PLAYSTATION_5 = "10000000-0000-4000-8000-000000000001";
     private static final String PLATFORM_WINDOWS_PC = "10000000-0000-4000-8000-000000000003";
     private static final String PLATFORM_XBOX_SERIES = "10000000-0000-4000-8000-000000000004";

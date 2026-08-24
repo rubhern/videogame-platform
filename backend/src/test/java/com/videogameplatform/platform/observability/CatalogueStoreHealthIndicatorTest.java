@@ -12,7 +12,8 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 class CatalogueStoreHealthIndicatorTest {
 
-    private static final String UNMIGRATED_DATABASE = "observability_unmigrated";
+    private static final String UNMIGRATED_DATABASE =
+            PostgreSqlTestDatabase.isolatedDatabaseName("observability_unmigrated");
 
     @BeforeAll
     static void createUnmigratedDatabase() throws SQLException {

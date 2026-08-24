@@ -56,6 +56,11 @@ conflict/precondition `409/412/428`; semantic validation/business rejection `422
 unexpected internal failure `500`; unavailable/not-ready local catalogue `503`.
 OpenAPI owns the exact code-to-status mapping.
 
+`GET /releases` does not declare `429`: the private MVP currently has no application
+or edge rate limiter responsible for that response. Adding an abuse limit later must
+identify its owner and update the operation contract and executable HTTP evidence
+together.
+
 ## Session, CSRF, and privacy
 
 The BFF is the confidential OAuth/OIDC client. Tokens stay server-side; identity maps

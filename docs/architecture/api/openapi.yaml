@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 1.2.0
+  version: 1.2.1
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -150,9 +150,9 @@ paths:
                     page: { number: 1, size: 20, totalItems: 0, totalPages: 0 }
         '304': { $ref: '#/components/responses/PublicNotModified' }
         '400': { $ref: '#/components/responses/MalformedRequest' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/ReleaseValidationFailed' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -796,6 +796,11 @@ components:
       required: true
       schema: { type: string, format: uri-reference }
       example: /api/v1/me/ratings/game_example
+    AllowedMethods:
+      description: Methods supported by the selected resource.
+      required: true
+      schema: { type: string, minLength: 1 }
+      example: GET
     RetryAfter:
       description: Retry delay in seconds when a useful value is known.
       required: false
@@ -1349,6 +1354,17 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             representationNotAcceptable: { $ref: '#/components/examples/RepresentationNotAcceptable' }
+    MethodNotAllowed:
+      description: The resource does not support the requested HTTP method.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+        Allow: { $ref: '#/components/headers/AllowedMethods' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            methodNotAllowed: { $ref: '#/components/examples/MethodNotAllowed' }
     RatingPreconditionFailed:
       description: The create target exists or the update entity tag is stale.
       headers:
@@ -1590,6 +1606,20 @@ components:
         code: REPRESENTATION_NOT_ACCEPTABLE
         category: validation
         correlationId: correlation-opaque
+    MethodNotAllowed:
+      value:
+        type: urn:videogame-platform:problem:method-not-allowed
+        title: Method is not allowed
+        status: 405
+        detail: Use a supported method for this resource.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: METHOD_NOT_ALLOWED
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /method
+            code: METHOD_NOT_ALLOWED
+            message: This HTTP method is not supported.
     RatingAlreadyExists:
       value:
         type: urn:videogame-platform:problem:rating-already-exists

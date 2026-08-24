@@ -3,7 +3,9 @@ package com.videogameplatform.api.delivery;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,6 +15,7 @@ import ch.qos.logback.classic.spi.ThrowableProxy;
 import ch.qos.logback.core.read.ListAppender;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.ReleaseQueryValidationException;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
@@ -21,12 +24,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -37,19 +43,14 @@ import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Execution(ExecutionMode.SAME_THREAD)
 class ReleaseApiFailureIntegrationTest {
 
-    private static final String DATABASE_NAME = "release_api_failures";
+    private static final String DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("release_api_failures");
     private static final String CORRELATION_HEADER = "X-Correlation-ID";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-    static {
-        try {
-            PostgreSqlTestDatabase.createDatabase(DATABASE_NAME);
-        } catch (Exception exception) {
-            throw new ExceptionInInitializerError(exception);
-        }
-    }
+    private static final OpenApiResponseContract OPENAPI = OpenApiResponseContract.load();
 
     @Autowired private MockMvc mockMvc;
 
@@ -60,14 +61,7 @@ class ReleaseApiFailureIntegrationTest {
 
     @DynamicPropertySource
     static void configurePostgreSql(DynamicPropertyRegistry registry) {
-        registry.add(
-                "spring.datasource.url", () -> PostgreSqlTestDatabase.runtimeUrl(DATABASE_NAME));
-        registry.add("spring.datasource.username", PostgreSqlTestDatabase::runtimeUsername);
-        registry.add("spring.datasource.password", PostgreSqlTestDatabase::runtimePassword);
-        registry.add("spring.flyway.enabled", () -> true);
-        registry.add("spring.flyway.url", () -> PostgreSqlTestDatabase.adminUrl(DATABASE_NAME));
-        registry.add("spring.flyway.user", PostgreSqlTestDatabase::migratorUsername);
-        registry.add("spring.flyway.password", PostgreSqlTestDatabase::migratorPassword);
+        PostgreSqlTestDatabase.configureSpringDatabase(registry, DATABASE_NAME, false);
     }
 
     @BeforeEach
@@ -100,6 +94,7 @@ class ReleaseApiFailureIntegrationTest {
                         .andReturn();
 
         JsonNode body = OBJECT_MAPPER.readTree(result.getResponse().getContentAsString());
+        OPENAPI.assertJsonResponse(result.getResponse(), 500, "Problem");
         assertThat(body.path("code").stringValue()).isEqualTo("INTERNAL_ERROR");
         assertThat(body.path("category").stringValue()).isEqualTo("technical");
         assertThat(body.path("correlationId").stringValue()).isEqualTo(correlationId);
@@ -135,6 +130,7 @@ class ReleaseApiFailureIntegrationTest {
 
         String effectiveCorrelationId = result.getResponse().getHeader(CORRELATION_HEADER);
         JsonNode body = OBJECT_MAPPER.readTree(result.getResponse().getContentAsString());
+        OPENAPI.assertJsonResponse(result.getResponse(), 503, "Problem");
         assertThat(UUID.fromString(effectiveCorrelationId)).isNotNull();
         assertThat(body.path("code").stringValue()).isEqualTo("CATALOGUE_READ_FAILED");
         assertThat(body.path("correlationId").stringValue()).isEqualTo(effectiveCorrelationId);
@@ -147,6 +143,63 @@ class ReleaseApiFailureIntegrationTest {
         assertThat(failure).hasCause(rootCause);
         assertThat(event.getMDCPropertyMap())
                 .containsEntry("correlationId", effectiveCorrelationId);
+    }
+
+    @Test
+    void catalogueWithoutPublishedSnapshotReturnsContracted503WithoutMutatingSharedState()
+            throws Exception {
+        doThrow(new CatalogueNotReadyException()).when(useCase).browse(any());
+
+        var result =
+                mockMvc.perform(
+                                get("/api/v1/releases")
+                                        .queryParam("view", "recent")
+                                        .header(HttpHeaders.ACCEPT, "application/json"))
+                        .andExpect(status().isServiceUnavailable())
+                        .andExpect(header().exists(CORRELATION_HEADER))
+                        .andReturn();
+
+        JsonNode body = OBJECT_MAPPER.readTree(result.getResponse().getContentAsString());
+        OPENAPI.assertJsonResponse(result.getResponse(), 503, "Problem");
+        assertThat(body.path("code").stringValue()).isEqualTo("CATALOGUE_NOT_READY");
+        assertThat(body.path("status").intValue()).isEqualTo(503);
+        assertThat(appender.list).isEmpty();
+    }
+
+    @Test
+    void unsupportedMethodReturnsProblemDetailsAndAllowHeader() throws Exception {
+        var result =
+                mockMvc.perform(
+                                request(HttpMethod.PUT, "/api/v1/releases")
+                                        .with(csrf())
+                                        .header(HttpHeaders.ACCEPT, "application/json"))
+                        .andExpect(status().isMethodNotAllowed())
+                        .andExpect(header().string(HttpHeaders.ALLOW, "GET"))
+                        .andReturn();
+
+        JsonNode body = OBJECT_MAPPER.readTree(result.getResponse().getContentAsString());
+        OPENAPI.assertJsonResponse(result.getResponse(), 405, "Problem");
+        assertThat(body.path("code").stringValue()).isEqualTo("METHOD_NOT_ALLOWED");
+        assertThat(body.path("status").intValue()).isEqualTo(405);
+        assertThat(appender.list).isEmpty();
+    }
+
+    @Test
+    void unsupportedRepresentationReturnsContracted406ProblemDetails() throws Exception {
+        var result =
+                mockMvc.perform(
+                                get("/api/v1/releases")
+                                        .queryParam("view", "recent")
+                                        .header(HttpHeaders.ACCEPT, "application/xml"))
+                        .andExpect(status().isNotAcceptable())
+                        .andExpect(header().exists(CORRELATION_HEADER))
+                        .andReturn();
+
+        JsonNode body = OBJECT_MAPPER.readTree(result.getResponse().getContentAsString());
+        OPENAPI.assertJsonResponse(result.getResponse(), 406, "Problem");
+        assertThat(body.path("code").stringValue()).isEqualTo("REPRESENTATION_NOT_ACCEPTABLE");
+        assertThat(body.path("status").intValue()).isEqualTo(406);
+        assertThat(appender.list).isEmpty();
     }
 
     @Test
@@ -197,6 +250,7 @@ class ReleaseApiFailureIntegrationTest {
                         .andReturn();
 
         JsonNode body = OBJECT_MAPPER.readTree(result.getResponse().getContentAsString());
+        OPENAPI.assertJsonResponse(result.getResponse(), 422, "Problem");
         assertThat(body.path("code").stringValue()).isEqualTo("REGION_NOT_SUPPORTED");
         assertThat(body.path("violations").get(0).path("pointer").stringValue())
                 .isEqualTo("/query/regionId");
