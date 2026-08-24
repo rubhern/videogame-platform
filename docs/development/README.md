@@ -1,50 +1,18 @@
-# Development environment
+# Development documentation
 
-- [Local development setup](local-setup.md): supported WSL2 boundary, mandatory
-  prerequisites, non-secret local configuration, validation, and troubleshooting.
-- [Backend development](backend.md): initial module boundaries, supported build,
-  verification, start, health, and packaging commands.
-- [Frontend development](frontend.md): React/TypeScript/Vite skeleton, OpenAPI type
-  generation, verification, local development, and current limitations.
-- [Local backend dependencies](local-dependencies.md): PostgreSQL and Keycloak
-  topology, generated local credentials, verification, shutdown, and safe reset.
-- [Application database migrations](database-migrations.md): module-owned catalogue
-  schema, Flyway immutability, deterministic seed data, Testcontainers evidence, and
-  local migration configuration.
-- [Backend observability](observability.md): health semantics, build metadata,
-  correlation, structured logs, metrics, W3C tracing, OTLP configuration, telemetry
-  safety, and automated evidence.
-- [Release discovery API](release-api.md): `GET /api/v1/releases` behaviour,
-  bounded PostgreSQL snapshot reads, query-plan/scale evidence, configuration, safe
-  covers, caching, errors, telemetry, Postman examples, and automated evidence.
-- [Local OIDC BFF session](identity-bff.md): real Keycloak 26.7 Authorization Code
-  with PKCE, server-side tokens, opaque session, CSRF/logout, configuration,
-  scalability boundary, and local/CI browser evidence.
-- [Walking-skeleton continuous integration](continuous-integration.md): PR and
-  trusted `main` quality/security gates, permissions, caching, retries, dependency
-  monitoring, and local command parity.
-- [Walking-skeleton compatibility evidence](walking-skeleton-evidence.md): concise
-  PASS record and reproduction map for every #34 criterion.
-- [Codex workspace setup](codex-setup.md): verified tools, configuration,
-  rationale, risks, and deferred capabilities.
-- [OpenAPI contract validation](openapi-validation.md): syntax, lint, references,
-  schemas, examples, local execution, and CI integration.
-- [Backend OpenAPI generation](backend-openapi-generation.md): mandatory Maven
-  generation, manual controller boundaries, compatibility rules, and upgrades.
-- [OpenAPI web documentation tutorial](openapi-web-documentation.md): regenerate,
-  inspect, and update the static Redoc API reference.
-- [Learning MVP delivery lifecycle](delivery-lifecycle.md): readiness, Git and pull
-  requests, quality gates, acceptance, releases, and Definition of Done.
-- [Work management](work-management.md): GitHub Issues and Projects workflow,
-  planning fields, work-in-progress limit, and pull-request traceability.
-- [IGDB provider PoC](../../tools/igdb-poc/README.md): isolated Java CLI,
-  local-fixture validation, and authenticated execution instructions.
+These documents own stable workflows. Executable details remain in scripts,
+manifests, configuration, migrations, and workflows.
 
-This section documents reproducible development and delivery setup. Technical
-environment and deployment mechanics belong in the
-[platform design](../architecture/deployment/mvp-platform-and-delivery.md). It must
-not contain credentials, tokens, personal data, or machine-specific secrets.
+| Document | Responsibility |
+|---|---|
+| [Local setup](local-setup.md) | Supported workstation, dependencies, local run modes, and reset boundary |
+| [OpenAPI workflow](openapi.md) | Contract validation, generated clients/interfaces, and change sequence |
+| [Database migrations](database-migrations.md) | Flyway authoring, privilege, seed, and validation policy |
+| [Observability](observability.md) | Health, correlation, logs, metrics, tracing, and telemetry safety |
+| [Continuous integration](continuous-integration.md) | CI selection, stable gates, and command mapping |
+| [Delivery lifecycle](delivery-lifecycle.md) | Human workflow, risk, versioning, validation policy, acceptance, and Definition of Done |
+| [Work management](work-management.md) | GitHub Issue/Project statuses and field meaning |
 
-Phase 1 solution definition and the executable walking-skeleton compatibility gate
-are complete. The next platform work may use the proven local/CI baseline without
-expanding the approved MVP or provisioning paid resources.
+Immediate backend/frontend commands belong in their module READMEs. Environment and
+deployment architecture belong in the
+[platform design](../architecture/deployment/mvp-platform-and-delivery.md).
