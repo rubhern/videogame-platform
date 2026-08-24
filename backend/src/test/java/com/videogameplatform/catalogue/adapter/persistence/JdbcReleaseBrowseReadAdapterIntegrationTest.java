@@ -1,15 +1,10 @@
 package com.videogameplatform.catalogue.adapter.persistence;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Stream;
-import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -20,6 +15,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
 
+import javax.sql.DataSource;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 class JdbcReleaseBrowseReadAdapterIntegrationTest {
 
     private static final String DATABASE_NAME = "release_browse_adapter";
@@ -29,6 +32,7 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
     private static final String REGION_WORLDWIDE = "20000000-0000-4000-8000-000000000001";
     private static final String REGION_UNKNOWN = "20000000-0000-4000-8000-000000000003";
     private static JdbcTemplate jdbcTemplate;
+    private static JdbcTemplate adminJdbcTemplate;
     private static JdbcReleaseBrowseReadAdapter adapter;
 
     @BeforeAll
@@ -48,6 +52,12 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         PostgreSqlTestDatabase.runtimeUsername(),
                         PostgreSqlTestDatabase.runtimePassword());
         jdbcTemplate = new JdbcTemplate(dataSource);
+        adminJdbcTemplate =
+                new JdbcTemplate(
+                        new DriverManagerDataSource(
+                                PostgreSqlTestDatabase.adminUrl(DATABASE_NAME),
+                                PostgreSqlTestDatabase.adminUsername(),
+                                PostgreSqlTestDatabase.adminPassword()));
         adapter =
                 new JdbcReleaseBrowseReadAdapter(
                         jdbcTemplate, new JdbcTransactionManager(dataSource));
@@ -151,6 +161,32 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                     "DELETE FROM catalogue.game_release WHERE release_id IN (?::uuid, ?::uuid)",
                     firstRelease,
                     secondRelease);
+        }
+    }
+
+    @Test
+    void rejectsAnUnknownPersistedEnumAsNonRetryableInvalidData() {
+        String releaseId = "40000000-0000-4000-8000-000000000006";
+        adminJdbcTemplate.execute(
+                "ALTER TABLE catalogue.release_snapshot DROP CONSTRAINT ck_release_snapshot_source_kind");
+        adminJdbcTemplate.update(
+                "UPDATE catalogue.release_snapshot SET source_kind = 'corrupt' WHERE release_id = ?::uuid",
+                releaseId);
+        try {
+            assertThatThrownBy(
+                            () ->
+                                    adapter.findPublishedReleases(
+                                            criteria(BrowseReleasesUseCase.View.RECENT, 1, 20)))
+                    .isInstanceOf(CatalogueDataInvalidException.class)
+                    .rootCause()
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Unsupported source kind");
+        } finally {
+            adminJdbcTemplate.update(
+                    "UPDATE catalogue.release_snapshot SET source_kind = 'product_curated' WHERE release_id = ?::uuid",
+                    releaseId);
+            adminJdbcTemplate.execute(
+                    "ALTER TABLE catalogue.release_snapshot ADD CONSTRAINT ck_release_snapshot_source_kind CHECK (source_kind IN ('external_provider', 'product_curated', 'official_source'))");
         }
     }
 

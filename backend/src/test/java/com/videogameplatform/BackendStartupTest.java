@@ -1,13 +1,6 @@
 package com.videogameplatform;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.videogameplatform.test.PostgreSqlTestDatabase;
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +15,14 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("structured")
@@ -81,7 +82,7 @@ class BackendStartupTest {
         assertThat(sourceRevision).matches("[A-Za-z0-9._-]{1,64}");
         assertThat(info.statusCode()).isEqualTo(200);
         assertThat(info.body())
-                .contains("\"version\":\"0.7.0-SNAPSHOT\"")
+                .contains("\"version\":\"0.7.1-SNAPSHOT\"")
                 .contains("\"sourceRevision\":\"" + sourceRevision + "\"")
                 .doesNotContain("password", "token", "jdbc:");
 

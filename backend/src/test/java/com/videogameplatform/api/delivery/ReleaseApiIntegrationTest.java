@@ -1,18 +1,8 @@
 package com.videogameplatform.api.delivery;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.io.IOException;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneId;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,6 +16,17 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(ReleaseApiIntegrationTest.FixedClockConfiguration.class)
@@ -217,6 +218,8 @@ class ReleaseApiIntegrationTest {
         assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
         assertThat(body.path("code").stringValue()).isEqualTo(code);
         assertThat(body.path("correlationId").stringValue()).isNotBlank();
+        assertThat(response.headers().firstValue("X-Correlation-ID"))
+                .contains(body.path("correlationId").stringValue());
         assertThat(body.path("violations")).hasSize(1);
     }
 

@@ -1,12 +1,16 @@
 package com.videogameplatform.catalogue.adapter.persistence;
 
+import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
-import com.videogameplatform.catalogue.domain.ReleaseDate;
-import com.videogameplatform.catalogue.domain.ReleaseStatus;
-import com.videogameplatform.catalogue.domain.ReviewStatus;
-import com.videogameplatform.catalogue.domain.SourceKind;
-import com.videogameplatform.catalogue.domain.VerificationLevel;
+import com.videogameplatform.catalogue.domain.*;
+import org.springframework.dao.*;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -15,12 +19,6 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.IncorrectResultSizeDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
 
 /** PostgreSQL read adapter that returns only the requested release page. */
 final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
@@ -129,8 +127,11 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
     public Optional<Result> findPublishedReleases(Criteria criteria) {
         try {
             return readTransaction.execute(status -> findInTransaction(criteria));
-        } catch (DataAccessException exception) {
+        } catch (CannotCreateTransactionException | DataAccessResourceFailureException |
+                 RecoverableDataAccessException | TransientDataAccessException exception) {
             throw new CatalogueReadException(exception);
+        }  catch (DataAccessException exception) {
+            throw new CatalogueDataInvalidException(exception);
         }
     }
 
@@ -227,43 +228,52 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
     }
 
     private Item mapItem(ResultSet resultSet, int rowNumber) throws SQLException {
-        return new Item(
-                resultSet.getString("release_id"),
-                resultSet.getString("game_id"),
-                resultSet.getString("slug"),
-                resultSet.getString("canonical_title"),
-                cover(resultSet),
-                new Taxonomy(
-                        resultSet.getString("platform_id"), resultSet.getString("platform_name")),
-                new Taxonomy(resultSet.getString("region_id"), resultSet.getString("region_name")),
-                releaseDate(resultSet),
-                ReleaseStatus.fromValue(resultSet.getString("release_status")),
-                SourceKind.fromValue(resultSet.getString("source_kind")),
-                resultSet.getString("source_name"),
-                resultSet.getString("source_entity_type"),
-                instant(resultSet, "provider_updated_at"),
-                instant(resultSet, "last_synchronized_at"),
-                instant(resultSet, "last_verified_at"),
-                VerificationLevel.fromValue(resultSet.getString("verification_level")),
-                ReviewStatus.fromValue(resultSet.getString("review_status")));
+        try {
+            return new Item(
+                    resultSet.getString("release_id"),
+                    resultSet.getString("game_id"),
+                    resultSet.getString("slug"),
+                    resultSet.getString("canonical_title"),
+                    cover(resultSet),
+                    new Taxonomy(
+                            resultSet.getString("platform_id"),
+                            resultSet.getString("platform_name")),
+                    new Taxonomy(
+                            resultSet.getString("region_id"), resultSet.getString("region_name")),
+                    releaseDate(resultSet),
+                    ReleaseStatus.fromValue(resultSet.getString("release_status")),
+                    SourceKind.fromValue(resultSet.getString("source_kind")),
+                    resultSet.getString("source_name"),
+                    resultSet.getString("source_entity_type"),
+                    instant(resultSet, "provider_updated_at"),
+                    instant(resultSet, "last_synchronized_at"),
+                    instant(resultSet, "last_verified_at"),
+                    VerificationLevel.fromValue(resultSet.getString("verification_level")),
+                    ReviewStatus.fromValue(resultSet.getString("review_status")));
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new CatalogueDataInvalidException(exception);
+        }
     }
 
     private static CoverReference cover(ResultSet resultSet) throws SQLException {
         String usageMode = resultSet.getString("cover_usage_mode");
         String alternativeText = resultSet.getString("cover_alternative_text");
-        if ("product_owned".equals(usageMode)) {
-            return new ProductCoverReference(
-                    resultSet.getString("cover_reference"), alternativeText);
-        }
-        String sourceUrl = resultSet.getString("cover_source_url");
-        if (sourceUrl == null) {
-            return new UnavailableCoverReference(alternativeText);
-        }
-        return new ProviderCoverReference(
-                resultSet.getString("cover_source"),
-                resultSet.getString("cover_reference"),
-                alternativeText,
-                sourceUrl);
+        return switch (usageMode) {
+            case "product_owned" ->
+                    new ProductCoverReference(
+                            resultSet.getString("cover_reference"), alternativeText);
+            case "provider_cdn_reference" -> {
+                String sourceUrl = resultSet.getString("cover_source_url");
+                yield sourceUrl == null
+                        ? new UnavailableCoverReference(alternativeText)
+                        : new ProviderCoverReference(
+                                resultSet.getString("cover_source"),
+                                resultSet.getString("cover_reference"),
+                                alternativeText,
+                                sourceUrl);
+            }
+            default -> throw new IllegalArgumentException("Unsupported persisted cover usage mode");
+        };
     }
 
     private static ReleaseDate releaseDate(ResultSet resultSet) throws SQLException {
@@ -281,7 +291,7 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
                             resultSet.getInt("release_year"), resultSet.getInt("release_quarter"));
             case "year" -> new ReleaseDate.YearOnly(Year.of(resultSet.getInt("release_year")));
             case "unknown" -> new ReleaseDate.Unknown();
-            default -> throw new SQLException("Unsupported persisted date precision");
+            default -> throw new IllegalArgumentException("Unsupported persisted date precision");
         };
     }
 

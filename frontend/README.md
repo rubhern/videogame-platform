@@ -269,7 +269,7 @@ using:
 
 ```bash
 APPLICATION_FLYWAY_ENABLED=true \
-  java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
+  java -jar backend/target/videogame-platform-backend-0.7.1-SNAPSHOT.jar
 ```
 
 The production container build uses the same locked Vite output and Maven profile;

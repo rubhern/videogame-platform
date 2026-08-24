@@ -168,7 +168,7 @@ normal local start.
 The full verification already creates the executable artifact. Run it directly with:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.1-SNAPSHOT.jar
 ```
 
 That default artifact is backend-only. Build the combined browser application with:

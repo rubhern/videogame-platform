@@ -2,7 +2,7 @@
 
 - **Status:** Active walking-skeleton implementation
 - **Last verified:** 2026-08-23
-- **Backend version:** `0.7.0-SNAPSHOT`
+- **Backend version:** `0.7.1-SNAPSHOT`
 - **Decision:** [ADR-0009](../decisions/0009-use-opentelemetry-compatible-instrumentation.md)
 - **Architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
 
@@ -46,6 +46,9 @@ Issue #27 advances it to `0.6.0-SNAPSHOT` for compatible production-image delive
 and the optional complete local Compose topology advances it to `0.7.0-SNAPSHOT` for
 compatible containerized runtime configuration. Neither changes the observability
 contract.
+Issue #79 then increments the backend patch to `0.7.1-SNAPSHOT` for compatible,
+single-boundary technical-failure logging and correlation hardening; the public error
+contract remains unchanged.
 
 ## Health semantics
 
@@ -81,7 +84,7 @@ returns its safe fields under `build`:
 {
   "build": {
     "name": "VideoGame Platform Backend",
-    "version": "0.7.0-SNAPSHOT",
+    "version": "0.7.1-SNAPSHOT",
     "sourceRevision": "local-development"
   }
 }

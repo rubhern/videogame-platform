@@ -42,7 +42,8 @@ Actuator APIs plus a non-secret local environment.
 
 The product collection verifies the reviewed release-page shape, active and available
 filters, correlation/cache/ETag headers, `304` weak-validator handling,
-date/freshness states, and stable Problem Details codes. The operational collection
+date/freshness states, stable Problem Details codes, and equality between each error
+body correlation ID and its response header. The operational collection
 verifies HTTP `200`, discovery links, `UP`
 for health and probes, generated build/source metadata, meter names, and bounded HTTP
 route tags. Backend integration tests remain authoritative for PostgreSQL behaviour,

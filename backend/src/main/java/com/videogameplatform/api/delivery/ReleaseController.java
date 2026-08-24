@@ -1,6 +1,7 @@
 package com.videogameplatform.api.delivery;
 
 import com.videogameplatform.api.generated.ReleasesApi;
+import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.ReleasePage;
 import org.springframework.http.HttpHeaders;
@@ -74,7 +75,7 @@ public class ReleaseController implements ReleasesApi {
         return switch (view) {
             case "recent" -> BrowseReleasesUseCase.View.RECENT;
             case "upcoming" -> BrowseReleasesUseCase.View.UPCOMING;
-            default -> throw new ApiRequestException("FILTER_INVALID", "/query/view");
+            default -> throw new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/view");
         };
     }
 }
