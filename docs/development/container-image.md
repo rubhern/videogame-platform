@@ -2,7 +2,7 @@
 
 - **Status:** Implemented local and CI evidence for issue #27
 - **Last verified:** 2026-08-23
-- **Application version:** `0.7.0-SNAPSHOT`
+- **Application version:** `0.7.1-SNAPSHOT`
 - **Delivery decision:** [ADR-0008](../decisions/0008-use-github-actions-and-ghcr-for-initial-delivery.md)
 - **Platform design:** [Learning MVP platform and delivery design](../architecture/deployment/mvp-platform-and-delivery.md)
 

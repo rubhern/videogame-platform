@@ -19,7 +19,7 @@ and OIDC profile.
 | PostgreSQL | `postgres:18.4-bookworm` | `127.0.0.1:5432` | One server containing isolated application and Keycloak databases |
 | Keycloak | `quay.io/keycloak/keycloak:26.7.0` | `http://localhost:8180` | Local OIDC provider and private administration console |
 | Keycloak management | Keycloak 26.7.0 | `127.0.0.1:9000` | Local health and metrics endpoints |
-| Application (`full` profile only) | `videogame-platform/application:0.7.0-SNAPSHOT` | `http://localhost:8080` | Packaged React frontend, same-origin BFF/API and Spring Boot modular monolith |
+| Application (`full` profile only) | `videogame-platform/application:0.7.1-SNAPSHOT` | `http://localhost:8080` | Packaged React frontend, same-origin BFF/API and Spring Boot modular monolith |
 | `videogame_app` | PostgreSQL login role | Application database only | Runtime DML role; it cannot create schema objects |
 | `videogame_app_migrator` | PostgreSQL login role | Application database only | Owns the application database and is reserved for Flyway migrations |
 | `videogame_keycloak` | PostgreSQL login role | Keycloak database only | Owns and operates the Keycloak database |
