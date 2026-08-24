@@ -5,8 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
-import java.time.Duration;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
@@ -17,11 +17,14 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 /** Opt-in local scalability evidence; intentionally excluded from the normal test pattern. */
 class ReleaseBrowseScalabilityIT {
 
     private static final String PUBLICATION_ID = "90000000-0000-4000-8000-000000000001";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Test
     void reportsThePlanWithoutMaterializingTheDatasetInJava() throws Exception {
@@ -30,7 +33,7 @@ class ReleaseBrowseScalabilityIT {
             throw new IllegalArgumentException(
                     "release.scale.rows must be between 10000 and 1000000");
         }
-        String databaseName = "release_scale_" + rows;
+        String databaseName = PostgreSqlTestDatabase.isolatedDatabaseName("release_scale_" + rows);
         PostgreSqlTestDatabase.createDatabase(databaseName);
         Flyway.configure()
                 .dataSource(
@@ -59,52 +62,32 @@ class ReleaseBrowseScalabilityIT {
                         new NamedParameterJdbcTemplate(runtimeDataSource),
                         readTransaction(runtimeDataSource));
 
-        long startedAt = System.nanoTime();
         ReleaseBrowseReadPort.Result result =
                 adapter.findPublishedReleases(criteria()).orElseThrow();
-        long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
 
-        List<String> countPlan = explain(admin, countSql());
-        List<String> pagePlan = explain(admin, pageSql());
+        JsonNode countPlan = explain(admin, countSql());
+        JsonNode pagePlan = explain(admin, pageSql());
         long expectedMatches = admin.queryForObject(countSql(), Long.class);
-        System.out.printf(
-                "RELEASE_SCALE rows=%d returned=%d total=%d adapterMillis=%d%n",
-                rows, result.items().size(), result.totalItems(), elapsedMillis);
-        System.out.println("RELEASE_COUNT_PLAN");
-        countPlan.forEach(System.out::println);
-        System.out.println("RELEASE_PAGE_PLAN");
-        pagePlan.forEach(System.out::println);
 
         assertThat(result.totalItems()).isEqualTo(expectedMatches);
         assertThat(expectedMatches).isBetween(1L, rows - 1L);
         assertThat(result.items()).hasSize(20);
-        assertThat(countPlan).anyMatch(line -> line.contains("ix_release_browse_recent_period"));
-        assertThat(pagePlan).anyMatch(line -> line.contains("ix_release_browse_recent_period"));
-        assertThat(pagePlan).noneMatch(line -> line.contains("Seq Scan on release_snapshot"));
-        assertThat(pagePlan).noneMatch(line -> line.contains("Seq Scan on game_snapshot"));
+        assertUsesIndex(countPlan, "ix_release_browse_recent_period");
+        assertUsesIndex(pagePlan, "ix_release_browse_recent_period");
+        assertDoesNotSequentiallyScan(pagePlan, "release_snapshot", "game_snapshot");
 
         ReleaseBrowseReadPort.Result upcoming =
                 adapter.findPublishedReleases(upcomingCriteria()).orElseThrow();
-        List<String> upcomingCountPlan = explain(admin, upcomingCountSql());
-        List<String> upcomingPagePlan = explain(admin, upcomingPageSql());
-        System.out.printf(
-                "UPCOMING_RELEASE_SCALE rows=%d returned=%d total=%d%n",
-                rows, upcoming.items().size(), upcoming.totalItems());
-        System.out.println("UPCOMING_RELEASE_COUNT_PLAN");
-        upcomingCountPlan.forEach(System.out::println);
-        System.out.println("UPCOMING_RELEASE_PAGE_PLAN");
-        upcomingPagePlan.forEach(System.out::println);
+        JsonNode upcomingCountPlan = explain(admin, upcomingCountSql());
+        JsonNode upcomingPagePlan = explain(admin, upcomingPageSql());
+        long expectedUpcomingMatches = admin.queryForObject(upcomingCountSql(), Long.class);
 
         assertThat(upcoming.items()).hasSize(20);
-        assertThat(upcomingCountPlan)
-                .anyMatch(line -> line.contains("ix_release_browse_upcoming_period"));
-        assertThat(upcomingCountPlan)
-                .anyMatch(line -> line.contains("ix_release_browse_upcoming_unknown"));
-        assertThat(upcomingPagePlan)
-                .anyMatch(line -> line.contains("ix_release_browse_upcoming_period"));
-        assertThat(upcomingPagePlan)
-                .noneMatch(line -> line.contains("Seq Scan on release_snapshot"));
-        assertThat(upcomingPagePlan).noneMatch(line -> line.contains("Seq Scan on game_snapshot"));
+        assertThat(upcoming.totalItems()).isEqualTo(expectedUpcomingMatches);
+        assertUsesIndex(upcomingCountPlan, "ix_release_browse_upcoming_period");
+        assertUsesIndex(upcomingCountPlan, "ix_release_browse_upcoming_unknown");
+        assertUsesIndex(upcomingPagePlan, "ix_release_browse_upcoming_period");
+        assertDoesNotSequentiallyScan(upcomingPagePlan, "release_snapshot", "game_snapshot");
     }
 
     private static ReleaseBrowseReadPort.Criteria criteria() {
@@ -164,10 +147,42 @@ class ReleaseBrowseScalabilityIT {
         jdbc.execute("ANALYZE catalogue.release_snapshot");
     }
 
-    private static List<String> explain(JdbcTemplate jdbc, String sql) {
-        return jdbc.query(
-                "EXPLAIN (ANALYZE, BUFFERS) " + sql,
-                (resultSet, rowNumber) -> resultSet.getString(1));
+    private static JsonNode explain(JdbcTemplate jdbc, String sql) {
+        String json =
+                jdbc.queryForObject("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) " + sql, String.class);
+        return OBJECT_MAPPER.readTree(json).get(0);
+    }
+
+    private static void assertUsesIndex(JsonNode plan, String indexName) {
+        assertThat(
+                        planNodes(plan).stream()
+                                .map(node -> node.path("Index Name"))
+                                .filter(JsonNode::isString)
+                                .map(JsonNode::stringValue))
+                .contains(indexName);
+    }
+
+    private static void assertDoesNotSequentiallyScan(JsonNode plan, String... relationNames) {
+        List<String> prohibitedRelations = List.of(relationNames);
+        assertThat(planNodes(plan))
+                .noneMatch(
+                        node ->
+                                node.path("Node Type").isString()
+                                        && "Seq Scan".equals(node.path("Node Type").stringValue())
+                                        && node.path("Relation Name").isString()
+                                        && prohibitedRelations.contains(
+                                                node.path("Relation Name").stringValue()));
+    }
+
+    private static List<JsonNode> planNodes(JsonNode explain) {
+        List<JsonNode> result = new ArrayList<>();
+        collectPlanNodes(explain.path("Plan"), result);
+        return result;
+    }
+
+    private static void collectPlanNodes(JsonNode plan, List<JsonNode> result) {
+        result.add(plan);
+        plan.path("Plans").forEach(child -> collectPlanNodes(child, result));
     }
 
     private static String countSql() {

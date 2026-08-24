@@ -17,11 +17,16 @@ import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
+@Execution(ExecutionMode.SAME_THREAD)
 class CataloguePersistenceIntegrationTest {
 
-    private static final String DATABASE_NAME = "catalogue_persistence";
-    private static final String CHECKSUM_DATABASE_NAME = "flyway_checksum";
+    private static final String DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("catalogue_persistence");
+    private static final String CHECKSUM_DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("flyway_checksum");
     private static final String PUBLICATION_ID = "00000000-0000-4000-8000-000000000001";
     private static final String GAME_ID = "30000000-0000-4000-8000-000000000001";
     private static final String PLATFORM_ID = "10000000-0000-4000-8000-000000000001";

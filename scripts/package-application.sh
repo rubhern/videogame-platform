@@ -12,4 +12,4 @@ npm run frontend:build
 ./mvnw -Pwith-frontend clean package
 
 printf 'Combined application package: %s\n' \
-  "$repository_root/backend/target/videogame-platform-backend-0.7.3-SNAPSHOT.jar"
+  "$repository_root/backend/target/videogame-platform-backend-0.7.4-SNAPSHOT.jar"

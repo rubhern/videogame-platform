@@ -533,6 +533,18 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The resource does not support the requested HTTP method. */
+        MethodNotAllowed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                Allow: components["headers"]["AllowedMethods"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description The create target exists or the update entity tag is stale. */
         RatingPreconditionFailed: {
             headers: {
@@ -800,6 +812,11 @@ export interface components {
          */
         RatingLocation: string;
         /**
+         * @description Methods supported by the selected resource.
+         * @example GET
+         */
+        AllowedMethods: string;
+        /**
          * @description Retry delay in seconds when a useful value is known.
          * @example 60
          */
@@ -852,9 +869,9 @@ export interface operations {
             };
             304: components["responses"]["PublicNotModified"];
             400: components["responses"]["MalformedRequest"];
+            405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseValidationFailed"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };
