@@ -8,10 +8,9 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import org.springframework.stereotype.Component;
-
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import org.springframework.stereotype.Component;
 
 /**
  * Bounded-cardinality telemetry for the release query.

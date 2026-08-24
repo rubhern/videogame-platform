@@ -3,12 +3,11 @@ package com.videogameplatform.api.delivery;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.Map;
+import java.util.Set;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
-
-import java.util.Map;
-import java.util.Set;
 
 /**
  * Central enforcement of the API convention that query parameters are closed.

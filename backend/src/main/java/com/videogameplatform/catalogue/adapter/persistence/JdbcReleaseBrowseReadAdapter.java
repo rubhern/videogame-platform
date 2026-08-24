@@ -3,14 +3,11 @@ package com.videogameplatform.catalogue.adapter.persistence;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
-import com.videogameplatform.catalogue.domain.*;
-import org.springframework.dao.*;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.CannotCreateTransactionException;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
-
+import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStatus;
+import com.videogameplatform.catalogue.domain.ReviewStatus;
+import com.videogameplatform.catalogue.domain.SourceKind;
+import com.videogameplatform.catalogue.domain.VerificationLevel;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -19,6 +16,16 @@ import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.dao.RecoverableDataAccessException;
+import org.springframework.dao.TransientDataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** PostgreSQL read adapter that returns only the requested release page. */
 final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {

@@ -1,10 +1,17 @@
 package com.videogameplatform.catalogue.adapter.persistence;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Stream;
+import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -14,14 +21,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
-
-import javax.sql.DataSource;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JdbcReleaseBrowseReadAdapterIntegrationTest {
 

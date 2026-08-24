@@ -1,9 +1,17 @@
 package com.videogameplatform.catalogue.adapter.persistence;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
+import java.sql.SQLException;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.jdbc.BadSqlGrammarException;
@@ -12,15 +20,6 @@ import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
-
-import java.sql.SQLException;
-import java.time.LocalDate;
-
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class JdbcReleaseBrowseReadAdapterFailureTest {
 
