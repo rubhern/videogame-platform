@@ -238,6 +238,6 @@ removing filter-combination growth from the persistence adapter.
 Issue #26 then increments the backend reactor to `0.4.0-SNAPSHOT` for the compatible
 combined application package; this release endpoint and its database query remain
 unchanged.
-Later private-platform capabilities advance the reactor to `0.7.0-SNAPSHOT`. Issue
-#79 is a compatible error-semantics correction, so it increments the backend patch to
-`0.7.1-SNAPSHOT` without changing the OpenAPI contract.
+Issue #80 is a compatible application-contract and type-safety correction, so it
+increments the backend patch from `0.7.0-SNAPSHOT` to `0.7.1-SNAPSHOT` without
+changing the OpenAPI contract.

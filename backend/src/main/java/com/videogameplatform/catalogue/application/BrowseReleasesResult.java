@@ -5,7 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 /** Provider-independent result of browsing the current local release snapshot. */
-public record ReleasePage(
+public record BrowseReleasesResult(
         String publicationVersion,
         BrowseReleasesUseCase.View view,
         LocalDate evaluatedOn,
@@ -70,82 +70,32 @@ public record ReleasePage(
     }
 
     public enum Status {
-        ANNOUNCED("announced"),
-        SCHEDULED("scheduled"),
-        RELEASED("released"),
-        DELAYED("delayed"),
-        CANCELLED("cancelled"),
-        UNKNOWN("unknown");
-
-        private final String value;
-
-        Status(String value) {
-            this.value = value;
-        }
-
-        public String value() {
-            return value;
-        }
+        ANNOUNCED,
+        SCHEDULED,
+        RELEASED,
+        DELAYED,
+        CANCELLED,
+        UNKNOWN
     }
 
     public enum Source {
-        EXTERNAL_PROVIDER("external_provider"),
-        PRODUCT_CURATED("product_curated"),
-        OFFICIAL_SOURCE("official_source");
-
-        private final String value;
-
-        Source(String value) {
-            this.value = value;
-        }
-
-        public String value() {
-            return value;
-        }
+        EXTERNAL_PROVIDER,
+        PRODUCT_CURATED,
+        OFFICIAL_SOURCE
     }
 
     public enum Verification {
-        PROVIDER_ONLY("provider_only"),
-        VERIFIED("verified");
-
-        private final String value;
-
-        Verification(String value) {
-            this.value = value;
-        }
-
-        public String value() {
-            return value;
-        }
+        PROVIDER_ONLY,
+        VERIFIED
     }
 
     public enum Review {
-        NOT_REQUIRED("not_required"),
-        REQUIRED("required");
-
-        private final String value;
-
-        Review(String value) {
-            this.value = value;
-        }
-
-        public String value() {
-            return value;
-        }
+        NOT_REQUIRED,
+        REQUIRED
     }
 
     public enum Freshness {
-        FRESH("fresh"),
-        STALE("stale");
-
-        private final String value;
-
-        Freshness(String value) {
-            this.value = value;
-        }
-
-        public String value() {
-            return value;
-        }
+        FRESH,
+        STALE
     }
 }
