@@ -19,6 +19,7 @@ required_files=(
   "backend/postman/README.md"
   "backend/postman/actuator.postman_collection.json"
   "backend/postman/catalogue-releases.postman_collection.json"
+  "backend/postman/session.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
   "frontend/package.json"
@@ -31,25 +32,24 @@ required_files=(
   "docs/product/assumptions.md"
   "docs/product/open-questions.md"
   "docs/product/glossary.md"
-  "docs/research/prototype-usability-test-guide.md"
-  "docs/research/simulated-session-observation-sheets.md"
+  "docs/research/README.md"
+  "docs/research/competitor-journey-comparison-metacritic.md"
+  "docs/research/game-data-providers-spike.md"
+  "docs/research/igdb-poc-results.md"
+  "docs/research/igdb-poc-sample.csv"
   "docs/research/simulated-round-synthesis.md"
+  "docs/reference/README.md"
   "docs/reference/video-game-platform-vision.pdf"
-  "docs/development/codex-setup.md"
-  "docs/development/backend.md"
-  "docs/development/backend-openapi-generation.md"
+  "docs/README.md"
+  "docs/development/README.md"
   "docs/development/continuous-integration.md"
-  "docs/development/container-image.md"
   "docs/development/database-migrations.md"
-  "docs/development/local-dependencies.md"
   "docs/development/local-setup.md"
-  "docs/development/frontend.md"
-  "docs/development/openapi-validation.md"
-  "docs/development/openapi-web-documentation.md"
-  "docs/development/release-api.md"
+  "docs/development/observability.md"
+  "docs/development/openapi.md"
   "docs/development/delivery-lifecycle.md"
   "docs/development/work-management.md"
-  "docs/development/walking-skeleton-evidence.md"
+  "docs/architecture/README.md"
   "docs/architecture/domain/mvp-domain-model.md"
   "docs/architecture/application/mvp-use-cases.md"
   "docs/architecture/mvp-solution-architecture.md"
@@ -84,6 +84,8 @@ required_files=(
   "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md"
   "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md"
   "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md"
+  "docs/decisions/0015-query-published-release-pages-with-postgresql.md"
+  "docs/decisions/README.md"
   "package.json"
   "package-lock.json"
   "mvnw"
@@ -104,6 +106,7 @@ required_files=(
   "tools/openapi-validation/schemas.redocly.yaml"
   "tools/openapi-validation/examples.redocly.yaml"
   "tools/openapi-validation/normalize-generated-html.mjs"
+  "tools/igdb-poc/README.md"
   ".agents/skills/README.md"
   ".agents/skills/product-brief-review/SKILL.md"
   ".agents/skills/scalability-by-design/SKILL.md"
@@ -199,7 +202,7 @@ try:
         )
     if reactor_version is not None:
         expected_jar = f"videogame-platform-backend-{reactor_version}.jar"
-        for relative in ("backend/README.md", "docs/development/backend.md"):
+        for relative in ("backend/README.md",):
             if expected_jar not in (root / relative).read_text(encoding="utf-8"):
                 errors.append(
                     f"{relative}: expected current backend artefact {expected_jar}"
@@ -358,6 +361,7 @@ expected_statuses = {
     "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md": "Accepted",
     "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md": "Accepted",
     "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md": "Accepted",
+    "docs/decisions/0015-query-published-release-pages-with-postgresql.md": "Accepted",
 }
 
 for relative, status in expected_statuses.items():

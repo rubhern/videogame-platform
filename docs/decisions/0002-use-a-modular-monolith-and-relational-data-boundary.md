@@ -4,93 +4,47 @@
 - **Date:** 2026-07-30
 - **Owner:** Ruben Hernandez
 - **Scope:** Private, non-commercial learning MVP
-- **Related architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
 
 ## Context
 
-The first vertical slice covers catalogue discovery, game details, personal ratings,
-aggregate ratings, and bounded catalogue synchronization. Catalogue and Ratings have
-different business ownership, but they collaborate synchronously and share
-consistency needs. There is one product owner, no demonstrated independent scaling
-or deployment need, and no requirement for distributed failure isolation.
-
-Rating uniqueness, safe update and deletion, coherent aggregate results, and atomic
-catalogue publication benefit from database constraints and transactions. The
-current data is structured and does not require a specialized store.
+The product is developed and operated by one person, its principal data is relational
+and its domain boundaries still need evidence. Distributed services and stores would
+add deployment and consistency costs before supplying product value.
 
 ## Decision
 
-Implement the initial backend as one deployable modular monolith with explicit
-`Catalogue and Releases` and `Ratings` business modules.
+Build one deployable modular monolith backed by one PostgreSQL service:
 
-Use one application-owned relational database as the initial physical data boundary.
-Each module owns its logical tables or schema. Modules collaborate through
-application contracts and must not read or write another module's persistence
-directly.
+- organize code by business modules, not only technical layers;
+- keep domain and application framework-independent behind inbound and outbound
+  ports;
+- give each module logical ownership of its tables and prevent bypassing module
+  boundaries merely because the physical database is shared;
+- communicate through explicit application contracts or events where useful;
+- place Spring wiring in each owning module's `configuration` composition root;
+- keep external providers behind adapters and keep correctness independent of
+  process-local state.
 
-Apply hexagonal dependency rules inside the modules:
-
-- domain code remains independent from frameworks and infrastructure;
-- application use cases define inbound and outbound ports at meaningful boundaries;
-- delivery, persistence, identity, provider, and telemetry integrations are adapters;
-- automated architecture tests protect dependency and module-ownership rules.
-
-PostgreSQL and versioned forward migrations are subsequently selected by
-[ADR-0006](0006-use-postgresql-and-versioned-forward-migrations.md). The persistence
-framework, schema layout, and migration tool remain implementation decisions.
+The current module and dependency view is canonical in the
+[solution architecture](../architecture/mvp-solution-architecture.md).
 
 ## Alternatives considered
 
-### Microservices with separate databases
-
-This offers independent deployment and failure isolation, but adds network
-contracts, distributed consistency, more infrastructure, and greater operational
-cost without a current requirement.
-
-### A layered monolith without explicit business modules
-
-This is initially simple, but makes ownership and extraction boundaries easier to
-erode as catalogue and rating behaviour grows.
-
-### Multiple stores or a non-relational primary store
-
-Specialized stores could support future query or scale needs, but they add
-consistency and operational complexity without evidence that the relational model is
-insufficient.
+- **Microservices and separate databases:** rejected as premature operational and
+  consistency complexity.
+- **Layered monolith without business modules:** rejected because ownership and
+  change boundaries would remain implicit.
+- **Multiple stores or non-relational primary storage:** rejected without an access
+  pattern that requires them.
 
 ## Consequences
 
-### Positive
+The system remains simple to build, transact and operate while preserving explicit
+domain boundaries. Discipline and architecture tests are required because the
+compiler and database cannot enforce every logical boundary. A future extraction
+would still require evidence and deliberate data separation.
 
-- One deployable and one transactional data boundary keep the MVP operable by one
-  person.
-- Database constraints can protect rating uniqueness and other durable invariants.
-- Explicit module contracts preserve business ownership and allow later extraction.
-- Domain and application tests remain independent from infrastructure choices.
+## Reconsider when
 
-### Negative
-
-- Modules share a deployment and failure boundary.
-- Independent scaling is unavailable until a justified extraction.
-- A shared database makes accidental cross-module coupling possible.
-
-## Risks and mitigations
-
-- **Boundary erosion:** enforce no cross-module repository or table access with
-  architecture tests and code review.
-- **Oversized abstractions:** create ports and domain objects only where behaviour or
-  an external boundary justifies them.
-- **Premature extraction assumptions:** treat module boundaries as ownership rules,
-  not promises of future microservices.
-- **Database contention:** establish measurements and optimize queries and indexes
-  before adding stores or extracting services.
-
-## Follow-up actions
-
-- Use ADR-0006 as the database and migration-strategy decision; select the persistence
-  framework and migration tool in the technology baseline.
-- Define schema ownership, migrations, constraints, and indexes during
-  implementation design.
-- Add automated dependency and module-boundary tests with the first vertical slice.
-- Revisit this decision only when measured scaling, ownership, security, deployment,
-  or failure-isolation needs justify a different boundary.
+Revisit only when measured independent scaling, availability, release cadence,
+ownership or data-boundary needs cannot be met inside the modular monolith.

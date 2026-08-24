@@ -63,8 +63,9 @@ interfaces and transport models with manual delivery adapters.
 - Glossary: `docs/product/glossary.md`
 - Accepted simulated usability synthesis:
   `docs/research/simulated-round-synthesis.md`
-- Tooling and Codex setup: `docs/development/codex-setup.md`
 - Supported local development setup: `docs/development/local-setup.md`
+- OpenAPI development workflow: `docs/development/openapi.md`
+- Documentation ownership map: `docs/README.md`
 - Architectural decisions, once required: `docs/decisions/`
 - Approved technology baseline:
   `docs/architecture/technology/mvp-technology-baseline.md`
@@ -75,6 +76,61 @@ interfaces and transport models with manual delivery adapters.
 
 When sources conflict, report the conflict instead of choosing silently.
 Distinguish evidence, decisions, assumptions, and proposals.
+
+## Documentation governance
+
+`docs/README.md` is the documentation ownership map. Before creating or changing
+documentation, identify the single canonical owner for the information. Update that
+owner and replace secondary explanations with a short link and only the local context
+needed by that document.
+
+Preserve these responsibilities:
+
+- the root README provides rapid orientation, current implemented status, first-run
+  guidance, and navigation;
+- backend and frontend READMEs provide immediate module-specific use and
+  troubleshooting;
+- development documents define stable human workflows and procedures;
+- architecture documents define the current structural, domain, application, API,
+  technology, and platform design;
+- ADRs preserve durable context, decision, alternatives, consequences, and
+  reconsideration triggers; they are not implementation plans, status reports, or
+  operating manuals;
+- research and spikes preserve decision-relevant method, evidence, limitations, and
+  conclusions; preparatory scripts, raw synthetic detail, and empty templates are
+  retained only when they remain necessary for reproducibility or a future approved
+  activity.
+
+Executable sources own executable facts. OpenAPI owns HTTP shapes; Flyway SQL owns
+the schema; Maven/npm manifests and lock files own exact dependency versions; scripts,
+Compose, Dockerfiles, configuration, and workflows own their mechanics. Prose may
+explain intent, policy, prerequisites, failure behavior, or a stable entry point, but
+must not duplicate those sources line by line. Avoid patch-level versions in prose
+unless required in an executable command, current artefact name, compatibility
+boundary, or immutable historical evidence.
+
+Do not create a document merely because a topic exists. A new document requires a
+distinct long-lived responsibility, intended consumer, canonical owner, and reason it
+cannot fit clearly in an existing source. Prefer deleting, merging, or linking over
+adding another partial authority. Do not preserve issue timelines, completed
+checklists, point-in-time reviews, CI run transcripts, or `Last verified` chronicles
+as evergreen documentation when Git, issues, CI, code, or current sources already
+provide the evidence.
+
+For every substantive change:
+
+1. Compare implementation, approved future behavior, and historical evidence; label
+   them explicitly rather than presenting them as one current state.
+2. Update every affected canonical document atomically with code, contract,
+   migration, configuration, or decision changes.
+3. Remove or shorten text made obsolete by the change and update all inbound links,
+   indexes, `AGENTS.md`, scripts, and workflows after moving or deleting a file.
+4. Preserve durable constraints, invariant identifiers, evidence limitations,
+   accepted owner exceptions, and decision-reopening conditions.
+5. Run `bash scripts/validate-docs.sh` for documentation changes. Add focused OpenAPI,
+   diagram, or generated-reference validation only when those artefacts changed.
+6. Review the final documentation diff for duplicated facts, stale implementation
+   claims, misplaced detail, unclear ownership, and unnecessary net growth.
 
 ## Instruction and skill precedence
 
@@ -232,7 +288,7 @@ For substantial tasks:
 5. Validate the result.
 6. Assess and update affected artefact versions using the Semantic Versioning policy
    in `docs/development/delivery-lifecycle.md`.
-7. Update affected documentation.
+7. Update the affected canonical documentation and remove superseded duplication.
 8. Summarise changes, checks, risks, and next decisions.
 
 Whenever a backend API is added or modified, update its tracked Postman collection,
@@ -311,6 +367,8 @@ A change is complete when:
 - relevant local checks and required GitHub CI gates pass when applicable;
 - Semantic Versioning impact has been assessed and affected artefact versions and
   references are consistent;
+- affected documentation follows `docs/README.md` ownership, distinguishes current
+  implementation from approved future behavior, and adds no stale duplicate source;
 - sources of truth remain coherent;
 - significant decisions and remaining risks are documented;
 - no unrelated scope was added.

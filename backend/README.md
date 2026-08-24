@@ -1,134 +1,39 @@
 # VideoGame Platform backend
 
-The backend is the executable walking skeleton for the VideoGame Platform learning
-MVP. It proves the approved Java and Spring baseline, enforceable module boundaries,
-the initial PostgreSQL/Flyway persistence contract, baseline observability, and the
-first approved public product read.
+The backend is a Java 25 / Spring Boot modular monolith. It currently implements the
+PostgreSQL-backed `GET /api/v1/releases` operation, the minimal BFF session resource,
+Keycloak login navigation, packaged frontend routes, and Actuator health/info/metrics.
+The remaining operations in the [OpenAPI contract](../docs/architecture/api/openapi.yaml)
+are approved contracts, not implemented claims.
 
-## Current status and scope
+## Build and verify
 
-- **Status:** Active walking skeleton
-- **Runtime:** Java 25, without preview features
-- **Framework:** Spring Boot 4.1.0 with Spring MVC
-- **Architecture:** Modular monolith with Spring Modulith 2.1.0
-- **Build:** Maven Wrapper from the repository root
-- **HTTP contract generation:** OpenAPI Generator Maven Plugin 7.24.0
-- **Persistence:** PostgreSQL 18, SQL-first Flyway, JPA schema generation disabled
-- **Current HTTP surface:** `GET /api/v1/releases`, `GET`/`POST /api/v1/session`,
-  `/auth/login/keycloak`, packaged browser routes, and Actuator health, info, and metrics
-
-The application implements UC-001 through a framework-independent use case and a
-local JDBC catalogue repository. It has no JPA entity or request-path external
-provider call. Its opt-in OIDC profile proves a real Keycloak Authorization Code
-flow and opaque server-side BFF session without exposing provider tokens. The
-optional combined package serves the generated frontend
-for `/` and `/games/{slug}` while preserving server ownership of `/api`, `/auth`, and
-`/actuator`. The minimum module-owned catalogue
-schema, deterministic opt-in development seed, and PostgreSQL 18 evidence support
-the public read. Safe liveness/readiness groups, build/source metadata, correlation,
-structured logs, bounded metrics, W3C trace context, and disabled-by-default OTLP
-export remain part of the same executable boundary.
-
-The repository-level [backend development guide](../docs/development/backend.md)
-tracks the broader walking-skeleton boundary and deferred evidence. The approved
-[solution architecture](../docs/architecture/mvp-solution-architecture.md),
-[technology baseline](../docs/architecture/technology/mvp-technology-baseline.md),
-and [ADR-0010](../docs/decisions/0010-use-java-25-spring-boot-4-and-spring-modulith.md)
-remain authoritative when this README and an approved source conflict.
-
-## Technology stack
-
-| Concern | Technology | Version or policy |
-|---|---|---|
-| Language | Java | 25; preview features disabled |
-| Application framework | Spring Boot | 4.1.0 |
-| HTTP runtime | Spring MVC | Managed by Spring Boot |
-| HTTP contract generation | OpenAPI Generator Maven Plugin | 7.24.0, exact version inherited from the reactor |
-| Module model | Spring Modulith | 2.1.0 |
-| Operational endpoints | Spring Boot Actuator | `health`, `info`, and `metrics` exposed |
-| Metrics and traces | Micrometer and OpenTelemetry | Spring Boot-managed Micrometer 1.17/Tracing 1.7 and OpenTelemetry 1.62 |
-| Persistence | PostgreSQL, Spring Data JPA, Hibernate | PostgreSQL 18; Hibernate DDL disabled |
-| Schema evolution | Flyway Community, SQL-first | Spring Boot-managed 12.4.0 |
-| Persistence integration tests | Testcontainers PostgreSQL | 2.0.5 with `postgres:18.4-bookworm` |
-| Architecture tests | Spring Modulith Test and ArchUnit | ArchUnit 1.4.2 |
-| Unit and integration tests | JUnit Jupiter, AssertJ, Spring Boot Test | Managed by Spring Boot |
-| Java formatting | Spotless and google-java-format AOSP | Spotless 3.9.0; formatter 1.36.1 |
-| Coverage evidence | JaCoCo | 0.8.15; XML and HTML without a global threshold |
-| Build and packaging | Maven Wrapper and Spring Boot Maven Plugin | Maven 3.9 line enforced |
-
-Dependencies are declared in [`pom.xml`](pom.xml). Their versions are managed by
-the root [`pom.xml`](../pom.xml) or declared explicitly when no approved BOM owns
-them.
-
-## Prerequisites
-
-Use the supported WSL2 development environment described in the
-[local setup guide](../docs/development/local-setup.md). The backend itself requires:
-
-- a complete Java 25 JDK available through `PATH`;
-- the committed Maven Wrapper;
-- Docker Desktop available from WSL2 for PostgreSQL 18 Testcontainers;
-- network access to Maven Central and the container registry on the first build.
-
-Confirm the active toolchain from the repository root:
-
-```bash
-java --version
-javac --version
-./mvnw --version
-```
-
-The Maven build fails early when Java is outside `[25,26)` or Maven is outside the
-supported `[3.9,4.0)` range. Verification starts an isolated PostgreSQL 18 container;
-it needs Docker but not the long-lived local dependency topology, Keycloak, an IGDB
-credential, or Node.js. The separately managed PostgreSQL and Keycloak topology is
-documented in the [dependency guide](../docs/development/local-dependencies.md).
-
-## Build, test, and run
-
-All commands below run from the repository root.
-
-Run the complete backend verification and create the executable jar:
+Run from the repository root:
 
 ```bash
 ./mvnw clean verify
 ```
 
-During `generate-sources`, Maven reads
-`docs/architecture/api/openapi.yaml` and writes disposable Spring interfaces and
-transport models below `backend/target/generated-sources/openapi`. Manual delivery
-controllers implement those interfaces; generated Java is never edited or committed.
-The complete contract-first workflow is documented in the
-[backend generation standard](../docs/development/backend-openapi-generation.md).
+This generates the Spring HTTP boundary from OpenAPI, checks formatting and module
+rules, runs unit and PostgreSQL/Testcontainers integration tests, produces JaCoCo
+reports, and packages the executable JAR. Docker is required for persistence tests.
 
-The same command enforces the committed Java format and creates
-`backend/target/site/jacoco/jacoco.xml` plus the browsable
-`backend/target/site/jacoco/index.html`. It does not enforce an arbitrary global
-coverage percentage. Apply the formatter deliberately, review the result, and rerun
-verification with:
+Useful focused commands:
 
 ```bash
+./mvnw -pl backend -am test
+./mvnw -pl backend clean generate-sources
 ./mvnw spotless:apply
-./mvnw clean verify
-```
-
-This command requires Docker because it migrates a fresh PostgreSQL 18 database and
-executes the persistence constraint tests. Run only the focused migration gate with:
-
-```bash
 bash scripts/validate-migrations.sh
 ```
 
-Run only the backend module while also building any required reactor dependencies:
+Dependency and plugin versions are authoritative in the root and backend Maven
+POMs; this README intentionally does not duplicate them.
 
-```bash
-./mvnw -pl backend -am clean verify
-```
+## Run locally
 
-Start and migrate the local application as documented in the
-[database migration guide](../docs/development/database-migrations.md). In summary,
-start the dependencies, load the ignored local credentials, and opt into Flyway on
-the first application startup:
+Start PostgreSQL and Keycloak, load the generated ignored configuration, and opt in
+to Flyway:
 
 ```bash
 bash scripts/local-dependencies.sh up
@@ -138,307 +43,76 @@ set +a
 APPLICATION_FLYWAY_ENABLED=true ./mvnw -pl backend spring-boot:run
 ```
 
-The central
-[catalogue persistence model](../docs/architecture/diagrams/mermaid/catalogue-persistence-model.mmd)
-visualizes the implemented tables, columns, keys, and relationships. Keep executable
-schema changes in versioned Flyway SQL rather than creating a separate `backend/docs`
-copy of the model.
-
-The default address is `http://localhost:8080`. Stop the process gracefully with
-`Ctrl+C`; Spring allows up to 20 seconds for each shutdown phase.
-
-After a successful package, run the executable artifact directly:
+The application listens on `http://localhost:8080`. Add
+`SPRING_PROFILES_ACTIVE=oidc` to exercise the Keycloak BFF flow, or use the complete
+packaged topology:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.7.3-SNAPSHOT.jar
+docker compose --profile full up --build
 ```
 
-The normal Maven lifecycle remains backend-only. Build the reproducible combined JAR
-from a clean checkout with:
+For deterministic release examples, add
+`SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed`. The seed is
+development-only and excluded from the production image profile.
+
+Configuration names, defaults, and secret classification are maintained in
+[`backend/.env.example`](.env.example) and
+[`application.yaml`](src/main/resources/application.yaml). Never commit
+`backend/.env`.
+
+## Modules and dependency direction
+
+| Module | Responsibility |
+|---|---|
+| `catalogue` | Games, releases, local publication reads, and future provider synchronization |
+| `ratings` | Personal ratings and aggregates; currently a skeleton |
+| `identity` | BFF session and external identity integration |
+| `api` | HTTP delivery and mapping only |
+| `platform` | Cross-cutting runtime configuration and observability |
+
+Domain and application code remain independent from Spring, HTTP, generated OpenAPI
+types, persistence models, and provider DTOs. Adapters depend inward and do not
+instantiate application services. Module composition belongs in the owning
+`configuration` package. Spring Modulith and ArchUnit tests enforce these rules.
+
+The approved structure and trade-offs live in the
+[solution architecture](../docs/architecture/mvp-solution-architecture.md) and
+[ADR-0002](../docs/decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md).
+
+## HTTP contract
+
+`docs/architecture/api/openapi.yaml` is the product HTTP source of truth. Maven
+generates disposable interfaces and transport models below
+`backend/target/generated-sources/openapi`; never edit or commit them. Manual
+controllers in `api.delivery` implement generated interfaces and map to application
+models.
+
+Follow the [OpenAPI workflow](../docs/development/openapi.md) for contract changes.
+Update the relevant [Postman collection](postman/README.md) in the same change.
+
+## Persistence and observability
+
+Flyway SQL under `src/main/resources/db/migration/` is the executable schema
+authority. Hibernate schema generation is disabled, the migration role owns DDL,
+and the runtime role has only required DML privileges. See the
+[migration workflow](../docs/development/database-migrations.md).
+
+Actuator exposes health groups, build information, and metrics. Correlation uses
+`X-Correlation-ID`; tracing uses W3C context; OTLP export is disabled by default.
+Metric labels must remain bounded and must not include user, game, request, or
+correlation identifiers. See [observability](../docs/development/observability.md).
+
+## Packaged application and image
 
 ```bash
 bash scripts/package-application.sh
-```
-
-That command installs the locked frontend dependencies, regenerates its OpenAPI
-types, builds `frontend/dist`, and activates the Maven `with-frontend` profile. The
-profile fails when the production entry point is missing and copies only generated
-Vite output into `BOOT-INF/classes/static`; it never writes compiled assets into
-`src/main/resources`.
-
-Build, start, inspect, and scan the same application as a production
-`linux/amd64`/`linux/arm64` OCI image with:
-
-```bash
+java -jar backend/target/videogame-platform-backend-0.7.3-SNAPSHOT.jar
+bash scripts/validate-browser.sh
+bash scripts/validate-identity.sh
 bash scripts/validate-container-image.sh
 ```
 
-The [container image guide](../docs/development/container-image.md) owns the image
-boundary, generated evidence, external configuration, and trusted publication rules.
-Its dedicated Maven profile removes the opt-in development seed while retaining all
-production migrations; ordinary local combined-JAR packaging is unchanged.
-
-To change the HTTP port for a local run, use a standard Spring Boot override:
-
-```bash
-SERVER_PORT=8081 ./mvnw -pl backend spring-boot:run
-```
-
-## Architecture and module ownership
-
-`VideoGamePlatformApplication` is the single executable boundary. Spring Modulith
-discovers the five direct packages below `com.videogameplatform` as application
-modules:
-
-```text
-backend/src/main/java/com/videogameplatform
-├── catalogue                # Provider-independent catalogue and releases
-│   ├── domain               # Framework-independent domain types and rules
-│   ├── application          # Use cases and inbound/outbound ports
-│   ├── adapter
-│   │   ├── persistence      # Database implementation and persistence models
-│   │   └── provider/igdb    # IGDB adapter and provider transport models
-│   └── configuration        # Module-local Spring composition root
-├── ratings                  # Personal and aggregate ratings boundary
-│   ├── domain
-│   ├── application
-│   └── adapter/persistence
-├── identity                 # Translation from external to product identity
-│   └── adapter
-├── api                      # Inbound HTTP delivery and API transport models
-│   ├── delivery
-│   └── model
-└── platform                 # Replaceable technical concerns
-    ├── configuration
-    └── observability
-```
-
-The intended dependency direction is inward:
-
-```mermaid
-flowchart LR
-    HTTP["API delivery"] --> APP["Application use cases and ports"]
-    OUT["Persistence, identity and provider adapters"] --> APP
-    APP --> DOMAIN["Domain"]
-    ROOT["Catalogue composition root"] -. "wires" .-> APP
-    ROOT -. "wires adapter beans" .-> OUT
-    PLATFORM["Platform services and runtime configuration"] -. "Clock" .-> ROOT
-```
-
-The current automated rules enforce that:
-
-- domain code does not depend on Spring, Jakarta, JDBC, application, adapter, API,
-  or platform packages;
-- application code does not depend on Spring, Jakarta, JDBC, adapters, API, or
-  platform;
-- adapter and HTTP delivery code does not depend on `application.internal`;
-- domain types do not use API, persistence, or provider transport models;
-- API models and outbound adapter models do not depend on each other;
-- the Spring Modulith model contains exactly `catalogue`, `ratings`, `identity`,
-  `api`, and `platform`, and all detected module dependencies are valid.
-
-Keep product rules in domain code, orchestration and ports in application code, and
-framework or integration details in adapters. Do not reuse transport or persistence
-records as domain models.
-
-`catalogue.configuration` is the explicit composition root for the closed Catalogue
-Spring Modulith module. It alone wires the internal use-case implementation and
-policies to the outbound port bean, validated release properties, and the platform
-`Clock`. `CataloguePersistenceConfiguration` only constructs the JDBC
-`ReleaseBrowseReadPort` implementation.
-
-## Runtime configuration
-
-The committed defaults live in
-[`src/main/resources/application.yaml`](src/main/resources/application.yaml).
-
-| Property | Default | Purpose |
-|---|---|---|
-| `spring.application.name` | `videogame-platform-backend` | Stable application identity |
-| `spring.datasource.url` | Local application JDBC URL | Runtime database connection |
-| `spring.datasource.username` | `videogame_app` | DML-only runtime role |
-| `spring.datasource.password` | Empty; required from the environment | Runtime secret |
-| `spring.flyway.enabled` | `false` | Keeps maintained-environment migration separate from normal startup |
-| `spring.flyway.url` | Application database URL | Migration connection target |
-| `spring.flyway.user` | `videogame_app_migrator` | Schema-owning migration role |
-| `spring.flyway.password` | Empty; required when Flyway is enabled | Migration secret |
-| `spring.flyway.locations` | `classpath:db/migration` | Production migration location; seed is opt-in |
-| `spring.flyway.clean-disabled` | `true` | Prevents destructive clean through committed configuration |
-| `spring.jpa.hibernate.ddl-auto` | `none` | Disables Hibernate schema generation |
-| `spring.jpa.open-in-view` | `false` | Keeps persistence work outside HTTP rendering |
-| `spring.lifecycle.timeout-per-shutdown-phase` | `20s` | Maximum graceful-shutdown time per phase |
-| `spring.modulith.runtime.verification-enabled` | `true` | Verifies module structure during startup |
-| `server.shutdown` | `graceful` | Stops accepting work before terminating |
-| `management.endpoint.health.probes.enabled` | `true` | Enables liveness and readiness health groups |
-| `management.endpoint.health.group.liveness.include` | `livenessState` | Keeps liveness limited to process viability |
-| `management.endpoint.health.group.readiness.include` | `readinessState,db,catalogueStore` | Requires application readiness, database connectivity, and migrated catalogue query access |
-| `management.endpoint.health.show-details` | `never` | Avoids exposing component details |
-| `management.endpoints.web.exposure.include` | `health,info,metrics` | Restricts the public Actuator surface |
-| `management.info.env.enabled` | `false` | Prevents arbitrary environment-backed info fields |
-| `management.tracing.propagation.type` | `w3c` | Consumes and produces W3C trace context only |
-| `management.tracing.sampling.probability` | `1.0` | Keeps complete root-trace evidence at the current low-volume stage |
-| `management.tracing.export.otlp.enabled` | `false` | Keeps trace export optional and fail-open |
-| `management.otlp.metrics.export.enabled` | `false` | Keeps metric export optional and fail-open |
-| `logging.level.root` | `INFO` | Avoids dependency-framework debug noise |
-| `logging.level.com.videogameplatform` | `INFO` | Application log baseline; override with `LOGGING_LEVEL_COM_VIDEOGAMEPLATFORM` |
-
-Spring Boot properties can be overridden with command-line arguments, environment
-variables, or an external configuration file. For example,
-`MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS=always` is technically valid but must not
-be committed or used in a shared environment without a security review.
-
-The only application-specific shared bean is a `java.time.Clock` configured for
-`Europe/Madrid`. Inject that clock into time-dependent application code instead of
-calling the system clock directly, so tests can replace it deterministically.
-
-`APPLICATION_DB_PASSWORD` and `APPLICATION_MIGRATION_DB_PASSWORD` are secrets. The
-local dependency wrapper copies them into ignored `backend/.env`; maintained environments
-must supply them through a protected secret source. Never add credentials to
-`application.yaml`, this README, Postman files, Git history, logs, or URLs.
-
-The complete observability property table, safe defaults, restart behaviour,
-structured-log profile, source-revision build option, OTLP endpoints, cardinality
-policy, and security rules are maintained in the
-[backend observability guide](../docs/development/observability.md).
-
-## Product and Actuator APIs
-
-The first public product read, `GET /api/v1/releases`, implements UC-001 against the
-current local PostgreSQL publication. It supports recent/upcoming views, optional
-product platform and region filters, one-based pagination, deterministic ordering,
-all five release-date precision variants, stale-but-usable data, safe cover
-resolution, representation-derived `ETag` validation, stable Problem Details, and
-bounded metrics. PostgreSQL filters, counts, totally orders, and pages; Java receives
-only the requested page. It never calls IGDB in the request path. The complete
-behaviour, query-plan evidence, and configuration are in the
-[release API guide](../docs/development/release-api.md).
-
-Actuator is served on the application port under `/actuator`. All currently exposed
-operations are read-only and require no request body.
-
-| Method | Path | Purpose | Expected local result |
-|---|---|---|---|
-| `GET` | `/actuator` | Discovery links for exposed Actuator resources | `200 OK` |
-| `GET` | `/actuator/health` | Aggregate application health | `200 OK`, status `UP` |
-| `GET` | `/actuator/health/liveness` | Whether the process should be restarted | `200 OK`, status `UP` |
-| `GET` | `/actuator/health/readiness` | Whether the process can receive traffic | `200 OK`, status `UP` |
-| `GET` | `/actuator/info` | Non-sensitive build/application information | `200 OK`; build version and source revision |
-| `GET` | `/actuator/metrics` | Available bounded diagnostic meter names | `200 OK`; HTTP, JVM, process, system, JDBC, and pool meters |
-| `GET` | `/actuator/metrics/{name}` | Measurements and available low-cardinality tags | `200 OK` for a known meter |
-
-Example:
-
-```bash
-curl --fail --silent http://localhost:8080/actuator/health
-```
-
-Liveness includes process state only. Readiness includes application state, the
-database, and the migrated catalogue schema; an empty catalogue remains ready because
-the release API safely reports `CATALOGUE_NOT_READY`. IGDB and telemetry never control
-readiness. Health details stay hidden by default, and endpoints such as
-`env`, `configprops`, `beans`, `heapdump`, and `loggers` are deliberately not
-exposed.
-
-Import the prepared collections and environment from [`postman/`](postman/) to call
-the release and operational endpoints and run status/schema checks in Postman.
-
-## Test strategy
-
-| Test | Type | Evidence |
-|---|---|---|
-| `BackendStartupTest` | Full-context HTTP/database integration test | Java 25, PostgreSQL 18, migration, health groups, build info, metrics, ECS correlation, W3C trace propagation, and telemetry safety |
-| `CorrelationIdFilterTest` | Focused servlet-filter unit test | Valid/invalid IDs, response header, MDC lifecycle, safe route fields, and exceptional completion |
-| `CatalogueStoreHealthIndicatorTest` | Database failure integration test | Missing schema produces detail-free `DOWN` |
-| `CataloguePersistenceIntegrationTest` | Flyway and JDBC integration test | Migration from zero, seed determinism, checksums, constraints, and runtime privileges |
-| `JdbcReleaseBrowseReadAdapterIntegrationTest` | PostgreSQL 18 read-adapter integration test | Database filters/count/page, named-parameter combinations, complete ordering, TBA placement, bounded statement cancellation, safe published cover inputs, and corrupt persisted enum rejection |
-| `JdbcReleaseBrowseReadAdapterFailureTest` | Focused read-adapter unit test | Transient JDBC/transaction failures preserve causes while deterministic persistence failures are non-retryable |
-| `ReleaseBrowseScalabilityIT` | Opt-in PostgreSQL 18 scale evidence | 10k/100k/1M synthetic rows, real query plans, index use, and only one page materialized in Java |
-| `ReleaseDateTest` and `ReleaseCatalogueServiceTest` | Domain/application tests | Five date variants, windows, ordering, filters, freshness, and cover fallback |
-| `ReleaseApiIntegrationTest` | Full HTTP/PostgreSQL 18 integration test | Contract payloads, filters, pages, errors, caching, local-snapshot failure, and bounded telemetry |
-| `ReleaseApiFailureIntegrationTest` | Focused Spring MVC failure integration test | Safe `500`/`503` problems, single cause-preserving technical log, typed problem fallback, correlation equality, and quiet validation failures |
-| `CatalogueModuleConfigurationTest` | Focused Spring context test | Typed configuration, policy beans, and registration of the public `BrowseReleasesUseCase` contract |
-| `CataloguePersistenceConfigurationTest` | Focused Spring context test | Catalogue-owned JDBC isolation plus read-only, repeatable-read and timeout transaction policy |
-| `ModularityTest` | Architecture test | Spring Modulith dependency verification and approved module set |
-| `HexagonalArchitectureTest` | Architecture test | Inward dependencies, adapter isolation from application internals, separation of boundary models, and confinement of generated OpenAPI types to HTTP delivery |
-
-Run one test class when diagnosing a focused failure:
-
-```bash
-./mvnw -pl backend -Dtest=BackendStartupTest test
-./mvnw -pl backend -Dtest=CorrelationIdFilterTest test
-./mvnw -pl backend -Dtest=CatalogueStoreHealthIndicatorTest test
-./mvnw -pl backend -Dtest=CataloguePersistenceIntegrationTest test
-./mvnw -pl backend -Dtest=JdbcReleaseBrowseReadAdapterIntegrationTest test
-./mvnw -pl backend -Dtest=JdbcReleaseBrowseReadAdapterFailureTest test
-./mvnw -pl backend -Dtest=ReleaseDateTest,ReleaseCatalogueServiceTest test
-./mvnw -pl backend -Dtest=ReleaseApiIntegrationTest test
-./mvnw -pl backend -Dtest=ReleaseApiFailureIntegrationTest test
-./mvnw -pl backend -Dtest=CatalogueModuleConfigurationTest test
-./mvnw -pl backend -Dtest=CataloguePersistenceConfigurationTest test
-./mvnw -pl backend -Dtest=ModularityTest test
-./mvnw -pl backend -Dtest=HexagonalArchitectureTest test
-```
-
-New behaviour should add the smallest suitable unit, application, adapter, contract,
-and integration tests. Architecture tests complement behavioural tests; they do not
-replace them.
-
-## IntelliJ IDEA
-
-Open the repository root as a Maven project and use Java 25 for both the Project SDK
-and Maven runner. IntelliJ Ultimate already provides the required Spring, Maven, and
-Actuator support.
-
-Either run `VideoGamePlatformApplication` directly or create a Maven configuration
-with working directory set to the repository root and command line:
-
-```text
--pl backend spring-boot:run
-```
-
-Use the imported Postman environment or IntelliJ's HTTP client to inspect Actuator;
-do not copy real secrets into shared run configurations.
-
-## Troubleshooting
-
-| Symptom | Likely cause and action |
-|---|---|
-| Maven Enforcer rejects Java | Select a Java 25 JDK in `PATH` and `JAVA_HOME`, then re-run `./mvnw --version`. |
-| Port `8080` is already in use | Stop the conflicting process or run with `SERVER_PORT=8081`. |
-| `/actuator/health` is unreachable | Confirm the startup completed, the selected port is correct, and no unsupported management base-path override is active. |
-| An Actuator endpoint returns `404` | Only `health`, `info`, and `metrics` are exposed; verify the path and committed configuration. |
-| Application startup reports a module violation | Inspect the dependency named by Spring Modulith and restore the inward dependency direction. |
-| Testcontainers cannot find Docker | Start Docker Desktop, enable this WSL distribution, and verify `docker info`. |
-| PostgreSQL authentication fails locally | Start the dependency topology and load the generated `backend/.env` into the shell without printing it. |
-| Flyway reports a checksum mismatch | Stop; do not repair automatically. Restore the immutable applied file or add a corrective migration. |
-| Tests work in IntelliJ but not Maven | Align IntelliJ's Project SDK and Maven runner with the Java 25 JDK used by the wrapper. |
-
-## Adding backend capabilities safely
-
-For each future change:
-
-1. Start from an approved use case and the OpenAPI contract.
-2. Regenerate the Spring interface and transport models before implementing the
-   manual delivery adapter; never edit or commit generated Java.
-3. Put behaviour in the owning module and preserve the package dependency rules.
-4. Keep generated API, persistence, identity, and provider models at their boundaries.
-5. Add behavioural and architecture evidence proportional to the change.
-6. Document every configuration property, including safe default, secret status,
-   validation, and restart behaviour.
-7. Update OpenAPI, Postman, operational checks, and this README when the HTTP surface
-   changes.
-8. Preserve the telemetry allowlist and route-template cardinality rules in the
-   observability guide.
-9. Apply the delivery lifecycle's risk-based validation policy: run the relevant
-   backend/module and documentation checks locally, then use trusted CI for complete
-   repository evidence; expand local scope only for a concrete cross-boundary risk.
-
-The walking-skeleton compatibility gate, local PostgreSQL/Keycloak topology,
-application persistence, and Keycloak-backed BFF session are implemented and
-documented separately. Remaining catalogue queries, authenticated product identity
-mapping, later product APIs, a deployed telemetry backend, and remote deployment
-remain focused work items. The current backend, architecture and
-PostgreSQL checks are reproduced by the
-[walking-skeleton CI gate](../docs/development/continuous-integration.md). This
-backend does not claim the wider user journey or remote operational evidence merely
-because its first product read works locally.
+The package command embeds the Vite output. The browser and identity checks exercise
+the packaged JAR; the container check validates the non-root multi-architecture OCI
+image, scans it, and generates SBOM evidence. Exact mechanics are owned by the
+scripts, Dockerfile, Compose file, and CI workflow.
