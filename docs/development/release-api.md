@@ -2,7 +2,7 @@
 
 - **Status:** Active walking-skeleton implementation
 - **Last verified:** 2026-08-23
-- **Backend version:** `0.7.1-SNAPSHOT`
+- **Backend version:** `0.7.2-SNAPSHOT`
 - **Issue:** [#25](https://github.com/rubhern/videogame-platform/issues/25)
 - **Use case:** [UC-001](../architecture/application/mvp-use-cases.md#uc-001--browse-recent-or-upcoming-releases)
 - **Contract:** [`GET /api/v1/releases`](../architecture/api/openapi.yaml)
@@ -111,6 +111,21 @@ the stable reviewed codes:
 - applicable delivery codes such as `REPRESENTATION_NOT_ACCEPTABLE`,
   `METHOD_NOT_ALLOWED`, and `INTERNAL_ERROR`.
 
+Delivery constructs these responses from the generated `ProblemCode` and
+`ErrorCategory` enums; no unchecked string-to-enum conversion occurs while handling
+an error. The request filter chooses the effective correlation ID once, and the
+handler reuses that response-header value for the Problem Details body and diagnostic
+log context.
+
+Expected validation failures return their stable problem without an error
+stacktrace. A transient/resource PostgreSQL failure or inability to open its read
+transaction preserves the original exception chain, returns
+`CATALOGUE_READ_FAILED`, and is logged once at the HTTP error boundary. Invalid local
+catalogue state that cannot be mapped safely is instead an `INTERNAL_ERROR`; it is
+deterministic and is never advertised as a retryable catalogue outage. Neither path
+exposes persistence exception text, SQL, stacktraces, or implementation details to
+the client.
+
 The ETag deliberately does not equal the catalogue version: evaluated freshness and
 global taxonomy labels can change the body while the publication stays constant.
 Hashing the wire model preserves HTTP correctness and lets a future reverse proxy or
@@ -166,14 +181,15 @@ Import the local environment and the catalogue release collection from
 [`backend/postman/`](../../backend/postman/). The collection covers success,
 filtering, contract headers, stable validation, and pagination. Automated tests remain
 authoritative and cover framework-independent date/window and freshness policy, safe
-cover resolution, the bounded JDBC read adapter, PostgreSQL 18 constraints, HTTP
-payloads, empty and stale states, `ETag`/`304`, `CATALOGUE_NOT_READY`, and bounded
-telemetry.
+cover resolution, the bounded JDBC read adapter, PostgreSQL 18 constraints and
+corrupt-enum handling, HTTP payloads, empty and stale states, `ETag`/`304`,
+`CATALOGUE_NOT_READY`, safe `500`/`503` responses, single technical-failure logging,
+correlation equality, and bounded telemetry.
 
 ```bash
 ./mvnw -pl backend -Dtest=ReleaseDateTest,ReleaseCatalogueServiceTest test
 ./mvnw -pl backend -Dtest=JdbcReleaseBrowseReadAdapterIntegrationTest test
-./mvnw -pl backend -Dtest=ReleaseApiIntegrationTest test
+./mvnw -pl backend -Dtest=ReleaseApiIntegrationTest,ReleaseApiFailureIntegrationTest test
 ./mvnw clean verify
 ```
 
@@ -223,5 +239,5 @@ Issue #26 then increments the backend reactor to `0.4.0-SNAPSHOT` for the compat
 combined application package; this release endpoint and its database query remain
 unchanged.
 Issue #80 is a compatible application-contract and type-safety correction, so it
-increments the backend patch from `0.7.0-SNAPSHOT` to `0.7.1-SNAPSHOT` without
+increments the backend patch from `0.7.1-SNAPSHOT` to `0.7.2-SNAPSHOT` without
 changing the OpenAPI contract.

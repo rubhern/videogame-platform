@@ -1,5 +1,6 @@
 package com.videogameplatform.api.delivery;
 
+import com.videogameplatform.api.generated.model.ProblemCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
@@ -8,7 +9,9 @@ import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-/** Central enforcement of the API convention that query parameters are closed. */
+/**
+ * Central enforcement of the API convention that query parameters are closed.
+ */
 @Component
 final class StrictQueryParameterInterceptor implements HandlerInterceptor {
 
@@ -44,17 +47,18 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                         .orElse(null);
         if (unknown != null) {
             ApiRequestException exception =
-                    new ApiRequestException("REQUEST_PARAMETER_UNKNOWN", "/query/" + unknown);
+                    new ApiRequestException(
+                            ProblemCode.REQUEST_PARAMETER_UNKNOWN, "/query/" + unknown);
             metrics.validationFailure(request.getParameter("view"), exception);
             throw exception;
         }
         for (String name : policy.allowed()) {
             String[] values = request.getParameterValues(name);
             if (values != null && values.length > 1) {
-                String code =
+                ProblemCode code =
                         policy.pagination().contains(name)
-                                ? "PAGINATION_INVALID"
-                                : "FILTER_INVALID";
+                                ? ProblemCode.PAGINATION_INVALID
+                                : ProblemCode.FILTER_INVALID;
                 ApiRequestException exception = new ApiRequestException(code, "/query/" + name);
                 metrics.validationFailure(request.getParameter("view"), exception);
                 throw exception;

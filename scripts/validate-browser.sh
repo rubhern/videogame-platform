@@ -81,7 +81,7 @@ docker run --detach \
   --env APPLICATION_MIGRATION_DB_USERNAME=videogame_app_migrator \
   --env APPLICATION_MIGRATION_DB_PASSWORD="$migration_password" \
   --env SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
-  --volume "$repository_root/backend/target/videogame-platform-backend-0.7.1-SNAPSHOT.jar:/application.jar:ro" \
+  --volume "$repository_root/backend/target/videogame-platform-backend-0.7.2-SNAPSHOT.jar:/application.jar:ro" \
   "$java_image" \
   java -jar /application.jar >/dev/null
 

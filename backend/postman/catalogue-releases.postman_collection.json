@@ -235,7 +235,7 @@
               "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
               "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
               "    pm.expect(body.code).to.eql(\"PLATFORM_NOT_SUPPORTED\");",
-              "    pm.expect(body.correlationId).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "});"
             ],
             "type": "text/javascript",
@@ -291,6 +291,7 @@
               "pm.test(\"Stable pagination code and violation are returned\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(body.code).to.eql(\"PAGINATION_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/pageSize\");",
               "});"
             ],
@@ -347,6 +348,7 @@
               "pm.test(\"Shared strict-query convention returns a stable error\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/unbounded\");",
               "});"
             ],

@@ -1,5 +1,6 @@
 package com.videogameplatform.api.delivery;
 
+import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.ReleaseQueryValidationException;
@@ -11,7 +12,9 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Component;
 
-/** Bounded-cardinality telemetry for the release query. */
+/**
+ * Bounded-cardinality telemetry for the release query.
+ */
 @Component
 final class ReleaseApiMetrics {
 
@@ -49,7 +52,7 @@ final class ReleaseApiMetrics {
 
     void failure(String view, RuntimeException exception, long startedAt) {
         String safeView = safeView(view);
-        String code = failureCode(exception);
+        ProblemCode code = failureCode(exception);
         Outcome outcome = failureOutcome(exception);
         Counter.builder("catalogue.releases.requests")
                 .tag("view", safeView)
@@ -57,7 +60,7 @@ final class ReleaseApiMetrics {
                 .register(registry)
                 .increment();
         Counter.builder("catalogue.releases.failures")
-                .tag("code", code)
+                .tag("code", code.getValue())
                 .register(registry)
                 .increment();
         recordDuration(safeView, outcome.value, startedAt);
@@ -85,20 +88,23 @@ final class ReleaseApiMetrics {
                 : "invalid";
     }
 
-    private static String failureCode(RuntimeException exception) {
+    private static ProblemCode failureCode(RuntimeException exception) {
         if (exception instanceof ApiRequestException requestException) {
             return requestException.code();
         }
         if (exception instanceof ReleaseQueryValidationException validationException) {
-            return validationException.code().name();
+            return switch (validationException.code()) {
+                case PLATFORM_NOT_SUPPORTED -> ProblemCode.PLATFORM_NOT_SUPPORTED;
+                case REGION_NOT_SUPPORTED -> ProblemCode.REGION_NOT_SUPPORTED;
+            };
         }
         if (exception instanceof CatalogueNotReadyException) {
-            return "CATALOGUE_NOT_READY";
+            return ProblemCode.CATALOGUE_NOT_READY;
         }
         if (exception instanceof CatalogueReadException) {
-            return "CATALOGUE_READ_FAILED";
+            return ProblemCode.CATALOGUE_READ_FAILED;
         }
-        return "INTERNAL_ERROR";
+        return ProblemCode.INTERNAL_ERROR;
     }
 
     private static Outcome failureOutcome(RuntimeException exception) {

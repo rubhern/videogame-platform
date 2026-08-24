@@ -217,6 +217,8 @@ class ReleaseApiIntegrationTest {
         assertThat(response.headers().firstValue("Cache-Control")).contains("no-store");
         assertThat(body.path("code").stringValue()).isEqualTo(code);
         assertThat(body.path("correlationId").stringValue()).isNotBlank();
+        assertThat(response.headers().firstValue("X-Correlation-ID"))
+                .contains(body.path("correlationId").stringValue());
         assertThat(body.path("violations")).hasSize(1);
     }
 
