@@ -37,7 +37,7 @@
     <openapi-generator.version>7.24.0</openapi-generator.version>
     <postgresql.version>42.7.12</postgresql.version>
     <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
-    <spotless-maven-plugin.version>3.9.0</spotless-maven-plugin.version>
+    <spotless-maven-plugin.version>3.10.0</spotless-maven-plugin.version>
     <source.revision>local-development</source.revision>
     <sonar.coverage.jacoco.xmlReportPaths>${maven.multiModuleProjectDirectory}/backend/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     <sonar.exclusions>frontend/src/shared/api/generated/**,docs/architecture/api/reference/**,**/target/**,frontend/dist/**,frontend/playwright-report/**,frontend/test-results/**</sonar.exclusions>
