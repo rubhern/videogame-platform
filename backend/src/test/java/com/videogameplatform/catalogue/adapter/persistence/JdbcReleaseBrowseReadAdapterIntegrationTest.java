@@ -5,9 +5,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
+import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
@@ -19,8 +24,11 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class JdbcReleaseBrowseReadAdapterIntegrationTest {
 
@@ -32,6 +40,7 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
     private static final String REGION_UNKNOWN = "20000000-0000-4000-8000-000000000003";
     private static JdbcTemplate jdbcTemplate;
     private static JdbcTemplate adminJdbcTemplate;
+    private static DataSource runtimeDataSource;
     private static JdbcReleaseBrowseReadAdapter adapter;
 
     @BeforeAll
@@ -45,12 +54,12 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                 .locations("classpath:db/migration", "classpath:db/dev-seed")
                 .load()
                 .migrate();
-        DataSource dataSource =
+        runtimeDataSource =
                 new DriverManagerDataSource(
                         PostgreSqlTestDatabase.runtimeUrl(DATABASE_NAME),
                         PostgreSqlTestDatabase.runtimeUsername(),
                         PostgreSqlTestDatabase.runtimePassword());
-        jdbcTemplate = new JdbcTemplate(dataSource);
+        jdbcTemplate = new JdbcTemplate(runtimeDataSource);
         adminJdbcTemplate =
                 new JdbcTemplate(
                         new DriverManagerDataSource(
@@ -59,7 +68,8 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                                 PostgreSqlTestDatabase.adminPassword()));
         adapter =
                 new JdbcReleaseBrowseReadAdapter(
-                        jdbcTemplate, new JdbcTransactionManager(dataSource));
+                        new NamedParameterJdbcTemplate(jdbcTemplate),
+                        readTransaction(runtimeDataSource, 5));
     }
 
     @Test
@@ -189,6 +199,41 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         }
     }
 
+    @Test
+    void cancelsABlockedStatementWithinTheConfiguredReadTimeout() throws Exception {
+        JdbcTemplate boundedJdbc = new JdbcTemplate(runtimeDataSource);
+        boundedJdbc.setQueryTimeout(1);
+        var boundedAdapter =
+                new JdbcReleaseBrowseReadAdapter(
+                        new NamedParameterJdbcTemplate(boundedJdbc),
+                        readTransaction(runtimeDataSource, 1));
+
+        try (Connection blocker = PostgreSqlTestDatabase.adminConnection(DATABASE_NAME);
+                Statement statement = blocker.createStatement()) {
+            blocker.setAutoCommit(false);
+            statement.execute(
+                    "LOCK TABLE catalogue.catalogue_publication IN ACCESS EXCLUSIVE MODE");
+            long startedAt = System.nanoTime();
+            try {
+                assertThatThrownBy(
+                                () ->
+                                        boundedAdapter.findPublishedReleases(
+                                                criteria(BrowseReleasesUseCase.View.RECENT, 1, 20)))
+                        .isInstanceOf(CatalogueReadException.class)
+                        .rootCause()
+                        .isInstanceOf(SQLException.class)
+                        .satisfies(
+                                exception ->
+                                        assertThat(((SQLException) exception).getSQLState())
+                                                .isEqualTo("57014"));
+                assertThat(Duration.ofNanos(System.nanoTime() - startedAt))
+                        .isLessThan(Duration.ofSeconds(5));
+            } finally {
+                blocker.rollback();
+            }
+        }
+    }
+
     private static ReleaseBrowseReadPort.Criteria criteria(
             BrowseReleasesUseCase.View view, int page, int pageSize) {
         return criteria(view, page, pageSize, null, null, true);
@@ -260,6 +305,15 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         PLATFORM_WINDOWS_PC,
                         REGION_UNKNOWN,
                         List.of("The Witcher IV")));
+    }
+
+    private static TransactionTemplate readTransaction(DataSource dataSource, int timeoutSeconds) {
+        TransactionTemplate transaction =
+                new TransactionTemplate(new JdbcTransactionManager(dataSource));
+        transaction.setReadOnly(true);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        transaction.setTimeout(timeoutSeconds);
+        return transaction;
     }
 
     private static void insertTiedRelease(String releaseId, String platformId) {

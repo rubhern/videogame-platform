@@ -2,7 +2,7 @@
 
 - **Status:** Active walking-skeleton implementation
 - **Last verified:** 2026-08-23
-- **Backend version:** `0.7.2-SNAPSHOT`
+- **Backend version:** `0.7.3-SNAPSHOT`
 - **Decision:** [ADR-0009](../decisions/0009-use-opentelemetry-compatible-instrumentation.md)
 - **Architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
 
@@ -49,6 +49,9 @@ contract.
 Issue #79 then increments the backend patch to `0.7.2-SNAPSHOT` for compatible,
 single-boundary technical-failure logging and correlation hardening; the public error
 contract remains unchanged.
+Issue #81 increments it to `0.7.3-SNAPSHOT` for bounded catalogue JDBC and
+transaction execution; timeout failures reuse the same diagnostic and public error
+semantics without changing the observability contract.
 
 ## Health semantics
 
@@ -84,7 +87,7 @@ returns its safe fields under `build`:
 {
   "build": {
     "name": "VideoGame Platform Backend",
-    "version": "0.7.2-SNAPSHOT",
+    "version": "0.7.3-SNAPSHOT",
     "sourceRevision": "local-development"
   }
 }

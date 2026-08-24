@@ -53,6 +53,10 @@ create_env_if_missing() {
     printf 'POSTGRES_ADMIN_PASSWORD=%s\n' "$(random_secret)"
     printf 'APPLICATION_DB_PASSWORD=%s\n' "$(random_secret)"
     printf 'APPLICATION_MIGRATION_DB_PASSWORD=%s\n' "$(random_secret)"
+    printf 'APPLICATION_DB_CONNECTION_TIMEOUT=3000\n'
+    printf 'APPLICATION_DB_VALIDATION_TIMEOUT=1000\n'
+    printf 'APPLICATION_DB_MAXIMUM_POOL_SIZE=10\n'
+    printf 'CATALOGUE_JDBC_READ_TIMEOUT=5s\n'
     printf 'KEYCLOAK_DB_PASSWORD=%s\n' "$(random_secret)"
     printf 'KEYCLOAK_HTTP_PORT=8180\n'
     printf 'KEYCLOAK_MANAGEMENT_PORT=9000\n'
@@ -109,6 +113,12 @@ env_value() {
   sed -n "s/^${variable}=//p" "$env_file" | tail -n 1
 }
 
+env_value_or_default() {
+  local value
+  value="$(env_value "$1")"
+  printf '%s' "${value:-$2}"
+}
+
 create_backend_env_if_missing() {
   if [[ -f "$backend_env_file" ]]; then
     chmod 600 "$backend_env_file"
@@ -124,6 +134,9 @@ create_backend_env_if_missing() {
     printf 'APPLICATION_DB_URL=jdbc:postgresql://localhost:5432/videogame_platform\n'
     printf 'APPLICATION_DB_USERNAME=videogame_app\n'
     printf 'APPLICATION_DB_PASSWORD=%s\n' "$(env_value APPLICATION_DB_PASSWORD)"
+    printf 'APPLICATION_DB_CONNECTION_TIMEOUT=%s\n' "$(env_value_or_default APPLICATION_DB_CONNECTION_TIMEOUT 3000)"
+    printf 'APPLICATION_DB_VALIDATION_TIMEOUT=%s\n' "$(env_value_or_default APPLICATION_DB_VALIDATION_TIMEOUT 1000)"
+    printf 'APPLICATION_DB_MAXIMUM_POOL_SIZE=%s\n' "$(env_value_or_default APPLICATION_DB_MAXIMUM_POOL_SIZE 10)"
     printf 'APPLICATION_FLYWAY_ENABLED=false\n'
     printf 'APPLICATION_MIGRATION_DB_URL=jdbc:postgresql://localhost:5432/videogame_platform\n'
     printf 'APPLICATION_MIGRATION_DB_USERNAME=videogame_app_migrator\n'
@@ -134,6 +147,7 @@ create_backend_env_if_missing() {
     printf 'APPLICATION_SESSION_TIMEOUT=30m\n'
     printf 'APPLICATION_SESSION_COOKIE_NAME=vgp_session\n'
     printf 'APPLICATION_SESSION_COOKIE_SECURE=false\n'
+    printf 'CATALOGUE_JDBC_READ_TIMEOUT=%s\n' "$(env_value_or_default CATALOGUE_JDBC_READ_TIMEOUT 5s)"
     printf 'CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS=6\n'
     printf 'CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS=6\n'
     printf 'CATALOGUE_RELEASES_FRESHNESS_THRESHOLD=P7D\n'
