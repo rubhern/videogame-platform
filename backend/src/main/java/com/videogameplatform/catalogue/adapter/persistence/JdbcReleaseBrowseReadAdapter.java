@@ -127,10 +127,12 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
     public Optional<Result> findPublishedReleases(Criteria criteria) {
         try {
             return readTransaction.execute(status -> findInTransaction(criteria));
-        } catch (CannotCreateTransactionException | DataAccessResourceFailureException |
-                 RecoverableDataAccessException | TransientDataAccessException exception) {
+        } catch (CannotCreateTransactionException
+                | DataAccessResourceFailureException
+                | RecoverableDataAccessException
+                | TransientDataAccessException exception) {
             throw new CatalogueReadException(exception);
-        }  catch (DataAccessException exception) {
+        } catch (DataAccessException exception) {
             throw new CatalogueDataInvalidException(exception);
         }
     }

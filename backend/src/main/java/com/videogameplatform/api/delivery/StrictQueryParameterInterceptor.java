@@ -10,7 +10,9 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import java.util.Map;
 import java.util.Set;
 
-/** Central enforcement of the API convention that query parameters are closed. */
+/**
+ * Central enforcement of the API convention that query parameters are closed.
+ */
 @Component
 final class StrictQueryParameterInterceptor implements HandlerInterceptor {
 

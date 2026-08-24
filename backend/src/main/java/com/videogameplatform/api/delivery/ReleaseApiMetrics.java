@@ -13,7 +13,9 @@ import org.springframework.stereotype.Component;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-/** Bounded-cardinality telemetry for the release query. */
+/**
+ * Bounded-cardinality telemetry for the release query.
+ */
 @Component
 final class ReleaseApiMetrics {
 
