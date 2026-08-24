@@ -12,14 +12,16 @@ import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.QueryTimeoutException;
 import org.springframework.jdbc.BadSqlGrammarException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.SimpleTransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 
 class JdbcReleaseBrowseReadAdapterFailureTest {
 
@@ -57,7 +59,9 @@ class JdbcReleaseBrowseReadAdapterFailureTest {
         PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
         when(transactionManager.getTransaction(any())).thenThrow(failure);
         var adapter =
-                new JdbcReleaseBrowseReadAdapter(mock(JdbcTemplate.class), transactionManager);
+                new JdbcReleaseBrowseReadAdapter(
+                        mock(NamedParameterJdbcOperations.class),
+                        new TransactionTemplate(transactionManager));
 
         assertThatThrownBy(() -> adapter.findPublishedReleases(criteria()))
                 .isInstanceOf(CatalogueReadException.class)
@@ -68,11 +72,13 @@ class JdbcReleaseBrowseReadAdapterFailureTest {
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static JdbcReleaseBrowseReadAdapter adapterThrowing(RuntimeException failure) {
-        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
-        when(jdbcTemplate.query(anyString(), any(ResultSetExtractor.class))).thenThrow(failure);
+        NamedParameterJdbcOperations jdbcOperations = mock(NamedParameterJdbcOperations.class);
+        when(jdbcOperations.query(anyString(), any(Map.class), any(ResultSetExtractor.class)))
+                .thenThrow(failure);
         PlatformTransactionManager transactionManager = mock(PlatformTransactionManager.class);
         when(transactionManager.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
-        return new JdbcReleaseBrowseReadAdapter(jdbcTemplate, transactionManager);
+        return new JdbcReleaseBrowseReadAdapter(
+                jdbcOperations, new TransactionTemplate(transactionManager));
     }
 
     private static ReleaseBrowseReadPort.Criteria criteria() {

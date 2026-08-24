@@ -133,6 +133,9 @@ fails.
 | `APPLICATION_DB_URL` | `jdbc:postgresql://localhost:5432/videogame_platform` | Runtime JDBC target | No |
 | `APPLICATION_DB_USERNAME` | `videogame_app` | DML-only runtime principal | No |
 | `APPLICATION_DB_PASSWORD` | Empty; local `backend/.env` or protected source required | Runtime database credential | Yes |
+| `APPLICATION_DB_CONNECTION_TIMEOUT` | `3000` ms | Maximum wait for a runtime connection from Hikari | No |
+| `APPLICATION_DB_VALIDATION_TIMEOUT` | `1000` ms | Maximum Hikari connection-validation wait | No |
+| `APPLICATION_DB_MAXIMUM_POOL_SIZE` | `10` | Upper bound on concurrent runtime database connections | No |
 | `APPLICATION_MIGRATION_DB_URL` | Runtime JDBC target | Flyway JDBC target | No |
 | `APPLICATION_MIGRATION_DB_USERNAME` | `videogame_app_migrator` | Schema-owning Flyway principal | No |
 | `APPLICATION_MIGRATION_DB_PASSWORD` | Empty; local `backend/.env` or protected source required | Flyway database credential | Yes |
@@ -142,6 +145,12 @@ fails.
 Passwords must never enter committed configuration, command-line arguments, URLs,
 logs, screenshots, or evidence. The local dependency wrapper generates them in the
 ignored `backend/.env` file with mode `0600`.
+
+The pool maximum explicitly preserves Hikari's current default while making the
+database-concurrency ceiling visible. The private MVP has no measured evidence for a
+smaller or larger pool, or for overriding minimum-idle, idle-timeout, or max-lifetime;
+those settings therefore remain framework-managed. The shorter acquisition and
+validation timeouts bound request waits when PostgreSQL or the pool is unavailable.
 
 ## Validation
 

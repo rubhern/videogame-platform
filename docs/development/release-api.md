@@ -1,8 +1,8 @@
 # Release discovery API
 
 - **Status:** Active walking-skeleton implementation
-- **Last verified:** 2026-08-23
-- **Backend version:** `0.7.2-SNAPSHOT`
+- **Last verified:** 2026-08-24
+- **Backend version:** `0.7.3-SNAPSHOT`
 - **Issue:** [#25](https://github.com/rubhern/videogame-platform/issues/25)
 - **Use case:** [UC-001](../architecture/application/mvp-use-cases.md#uc-001--browse-recent-or-upcoming-releases)
 - **Contract:** [`GET /api/v1/releases`](../architecture/api/openapi.yaml)
@@ -62,7 +62,9 @@ status/window/platform/region, counts, applies the complete order, and uses
 small platform/region taxonomies; it never returns a Java snapshot containing every
 release. The read transaction is read-only `REPEATABLE READ`, so publication
 selection, taxonomy, count, and page observe one database snapshot during concurrent
-publication changes.
+publication changes. The catalogue composition root prepares that transaction and a
+catalogue-owned `NamedParameterJdbcTemplate`; the adapter receives both abstractions
+already configured and cannot mutate the shared application `JdbcTemplate`.
 
 `period_start` and `period_end` are stored generated columns derived from the approved
 day/month/quarter/year representation. They support range queries but do not alter
@@ -138,10 +140,19 @@ secrets.
 
 | Environment variable | Default | Purpose |
 |---|---:|---|
+| `CATALOGUE_JDBC_READ_TIMEOUT` | `5s` | Whole-second statement and total read-transaction timeout (`1s..60s`) |
 | `CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS` | `6` | Months before `evaluatedOn` included in `recent` |
 | `CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS` | `6` | Months after `evaluatedOn` included in `upcoming` |
 | `CATALOGUE_RELEASES_FRESHNESS_THRESHOLD` | `P7D` | ISO-8601 duration after which a release is stale |
 | `CATALOGUE_RELEASES_CACHE_CONTROL` | `public, max-age=60, stale-while-revalidate=300` | Public response cache policy |
+
+The same five-second budget configures both JDBC statements and the complete
+read-only transaction. A PostgreSQL timeout is translated through the transient read
+failure path introduced by #79, so the API returns `CATALOGUE_READ_FAILED` without
+exposing SQL while retaining the cause for server-side diagnosis. Hikari separately
+bounds connection acquisition to three seconds; under normal configured failure
+conditions a request cannot wait indefinitely for either a connection or a stuck
+statement.
 
 These defaults are the initial operational policy for the private learning MVP. The
 approved API conventions deliberately leave exact window lengths, freshness
@@ -181,13 +192,15 @@ Import the local environment and the catalogue release collection from
 [`backend/postman/`](../../backend/postman/). The collection covers success,
 filtering, contract headers, stable validation, and pagination. Automated tests remain
 authoritative and cover framework-independent date/window and freshness policy, safe
-cover resolution, the bounded JDBC read adapter, PostgreSQL 18 constraints and
-corrupt-enum handling, HTTP payloads, empty and stale states, `ETag`/`304`,
+cover resolution, isolated JDBC/transaction configuration, named parameter binding,
+bounded PostgreSQL 18 statement cancellation, constraints and corrupt-enum handling,
+HTTP payloads, empty and stale states, `ETag`/`304`,
 `CATALOGUE_NOT_READY`, safe `500`/`503` responses, single technical-failure logging,
 correlation equality, and bounded telemetry.
 
 ```bash
 ./mvnw -pl backend -Dtest=ReleaseDateTest,ReleaseCatalogueServiceTest test
+./mvnw -pl backend -Dtest=CataloguePersistenceConfigurationTest test
 ./mvnw -pl backend -Dtest=JdbcReleaseBrowseReadAdapterIntegrationTest test
 ./mvnw -pl backend -Dtest=ReleaseApiIntegrationTest,ReleaseApiFailureIntegrationTest test
 ./mvnw clean verify
@@ -241,3 +254,6 @@ unchanged.
 Issue #80 is a compatible application-contract and type-safety correction, so it
 increments the backend patch from `0.7.1-SNAPSHOT` to `0.7.2-SNAPSHOT` without
 changing the OpenAPI contract.
+Issue #81 is compatible JDBC and transaction hardening, so it increments the backend
+patch from `0.7.2-SNAPSHOT` to `0.7.3-SNAPSHOT`; query semantics and the OpenAPI
+contract remain unchanged.

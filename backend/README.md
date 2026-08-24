@@ -150,7 +150,7 @@ The default address is `http://localhost:8080`. Stop the process gracefully with
 After a successful package, run the executable artifact directly:
 
 ```bash
-java -jar backend/target/videogame-platform-backend-0.7.2-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.3-SNAPSHOT.jar
 ```
 
 The normal Maven lifecycle remains backend-only. Build the reproducible combined JAR
@@ -350,13 +350,14 @@ the release and operational endpoints and run status/schema checks in Postman.
 | `CorrelationIdFilterTest` | Focused servlet-filter unit test | Valid/invalid IDs, response header, MDC lifecycle, safe route fields, and exceptional completion |
 | `CatalogueStoreHealthIndicatorTest` | Database failure integration test | Missing schema produces detail-free `DOWN` |
 | `CataloguePersistenceIntegrationTest` | Flyway and JDBC integration test | Migration from zero, seed determinism, checksums, constraints, and runtime privileges |
-| `JdbcReleaseBrowseReadAdapterIntegrationTest` | PostgreSQL 18 read-adapter integration test | Database filters/count/page, complete ordering, TBA placement, product taxonomies, safe published cover inputs, and corrupt persisted enum rejection |
+| `JdbcReleaseBrowseReadAdapterIntegrationTest` | PostgreSQL 18 read-adapter integration test | Database filters/count/page, named-parameter combinations, complete ordering, TBA placement, bounded statement cancellation, safe published cover inputs, and corrupt persisted enum rejection |
 | `JdbcReleaseBrowseReadAdapterFailureTest` | Focused read-adapter unit test | Transient JDBC/transaction failures preserve causes while deterministic persistence failures are non-retryable |
 | `ReleaseBrowseScalabilityIT` | Opt-in PostgreSQL 18 scale evidence | 10k/100k/1M synthetic rows, real query plans, index use, and only one page materialized in Java |
 | `ReleaseDateTest` and `ReleaseCatalogueServiceTest` | Domain/application tests | Five date variants, windows, ordering, filters, freshness, and cover fallback |
 | `ReleaseApiIntegrationTest` | Full HTTP/PostgreSQL 18 integration test | Contract payloads, filters, pages, errors, caching, local-snapshot failure, and bounded telemetry |
 | `ReleaseApiFailureIntegrationTest` | Focused Spring MVC failure integration test | Safe `500`/`503` problems, single cause-preserving technical log, typed problem fallback, correlation equality, and quiet validation failures |
 | `CatalogueModuleConfigurationTest` | Focused Spring context test | Typed configuration, policy beans, and registration of the public `BrowseReleasesUseCase` contract |
+| `CataloguePersistenceConfigurationTest` | Focused Spring context test | Catalogue-owned JDBC isolation plus read-only, repeatable-read and timeout transaction policy |
 | `ModularityTest` | Architecture test | Spring Modulith dependency verification and approved module set |
 | `HexagonalArchitectureTest` | Architecture test | Inward dependencies, adapter isolation from application internals, separation of boundary models, and confinement of generated OpenAPI types to HTTP delivery |
 
@@ -373,6 +374,7 @@ Run one test class when diagnosing a focused failure:
 ./mvnw -pl backend -Dtest=ReleaseApiIntegrationTest test
 ./mvnw -pl backend -Dtest=ReleaseApiFailureIntegrationTest test
 ./mvnw -pl backend -Dtest=CatalogueModuleConfigurationTest test
+./mvnw -pl backend -Dtest=CataloguePersistenceConfigurationTest test
 ./mvnw -pl backend -Dtest=ModularityTest test
 ./mvnw -pl backend -Dtest=HexagonalArchitectureTest test
 ```

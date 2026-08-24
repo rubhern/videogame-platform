@@ -12,8 +12,11 @@ import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /** Opt-in local scalability evidence; intentionally excluded from the normal test pattern. */
 class ReleaseBrowseScalabilityIT {
@@ -53,8 +56,8 @@ class ReleaseBrowseScalabilityIT {
                         PostgreSqlTestDatabase.runtimePassword());
         var adapter =
                 new JdbcReleaseBrowseReadAdapter(
-                        new JdbcTemplate(runtimeDataSource),
-                        new JdbcTransactionManager(runtimeDataSource));
+                        new NamedParameterJdbcTemplate(runtimeDataSource),
+                        readTransaction(runtimeDataSource));
 
         long startedAt = System.nanoTime();
         ReleaseBrowseReadPort.Result result =
@@ -124,6 +127,15 @@ class ReleaseBrowseScalabilityIT {
                 null,
                 new ReleaseBrowseReadPort.Pagination(1, 20, 0),
                 true);
+    }
+
+    private static TransactionTemplate readTransaction(DataSource dataSource) {
+        TransactionTemplate transaction =
+                new TransactionTemplate(new JdbcTransactionManager(dataSource));
+        transaction.setReadOnly(true);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        transaction.setTimeout(5);
+        return transaction;
     }
 
     private static void seed(JdbcTemplate jdbc, int rows) {
