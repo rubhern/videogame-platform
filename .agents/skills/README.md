@@ -1,7 +1,8 @@
 # Repository skills
 
-This directory contains project-specific and vendored instruction skills for Codex.
-Repository authorities and `AGENTS.md` take precedence over generic external advice.
+This directory contains project-specific, CLI-managed, and vendored instruction
+skills for Codex. `AGENTS.md`, approved architecture and ADRs, executable
+configuration, and other repository rules take precedence over generic skill advice.
 
 ## Project-specific skills
 
@@ -12,7 +13,21 @@ Repository authorities and `AGENTS.md` take precedence over generic external adv
 | `videogame-platform-backend-development` | Implement, refactor, debug, or review the backend according to the approved project architecture and contracts. |
 | `videogame-platform-frontend-development` | Implement, refactor, debug, test, or review the React/TypeScript frontend according to the approved SPA, BFF, OpenAPI, state, accessibility, and testing decisions. |
 
-## Vendored external skills
+## CLI-managed external skills
+
+The generated [`skills-lock.json`](../../skills-lock.json) owns source, upstream path,
+and content tracking. These skills are advisory and do not authorize new platforms,
+services, paid resources, deployment targets, or changes to approved architecture.
+
+| Name | Purpose | Use when |
+|---|---|---|
+| `terraform-style-guide` | HashiCorp Terraform organization, naming, formatting, security, and review guidance. | Writing or reviewing Terraform while preserving the approved OCI, zero-cost, state, secret, and provisioning gates. |
+| `terraform-test` | Terraform test files, plan/apply modes, assertions, mocks, and CI test patterns. | Adding or troubleshooting `.tftest.hcl`; prefer plan or mock evidence unless an approved test explicitly requires resources. |
+| `dockerfile-optimise` | Docker build caching, multi-stage images, minimal runtimes, and container hardening guidance. | Changing or reviewing a Dockerfile or image build; this skill is experimental upstream, and the repository's multi-architecture, non-root, immutable-image contract remains authoritative. |
+| `github-actions-templates` | Generic GitHub Actions test, build, security, matrix, and deployment patterns. | Changing workflows after applying the repository's selective pull-request gates, complete trusted-`main` integration, least privilege, GHCR, and protected deployment rules. |
+| `observability-monitoring` | Generic metrics, logs, traces, dashboards, alerts, and Prometheus/Grafana patterns. | Working on an evidenced observability need; bounded labels, safe telemetry, optional OpenTelemetry-compatible export, zero cost, and the constrained private environment override its production/distributed examples. |
+
+## Manually vendored external skills
 
 | Name | Purpose | Upstream repository | Upstream path | Commit SHA | License | Incorporated | Modification status |
 |---|---|---|---|---|---|---|---|
