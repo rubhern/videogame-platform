@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 1.2.1
+  version: 1.2.2
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -675,7 +675,7 @@ components:
       name: view
       in: query
       required: true
-      schema: { type: string, enum: [recent, upcoming] }
+      schema: { $ref: '#/components/schemas/ReleaseView' }
       example: upcoming
     PlatformIdQuery:
       name: platformId
@@ -808,6 +808,12 @@ components:
       example: 60
 
   schemas:
+    ReleaseView:
+      type: string
+      enum: [recent, upcoming]
+      # Keep Spring's generated enum identifiers identical to the accepted query values.
+      x-enum-varnames: [recent, upcoming]
+
     GameId:
       type: string
       minLength: 1
@@ -1055,7 +1061,7 @@ components:
       type: object
       required: [view, evaluatedOn, window, activeFilters, availableFilters, items, page]
       properties:
-        view: { type: string, enum: [recent, upcoming] }
+        view: { $ref: '#/components/schemas/ReleaseView' }
         evaluatedOn: { type: string, format: date }
         window: { $ref: '#/components/schemas/ReleaseWindow' }
         activeFilters: { $ref: '#/components/schemas/ActiveFilters' }

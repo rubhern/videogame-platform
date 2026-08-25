@@ -161,6 +161,8 @@ class ReleaseApiIntegrationTest {
         assertProblem(get("/api/v1/releases"), 400, "REQUEST_MALFORMED");
         assertProblem(get("/api/v1/releases?view=invalid"), 422, "FILTER_INVALID");
         assertProblem(get("/api/v1/releases?view=recent&pageSize=101"), 422, "PAGINATION_INVALID");
+        assertProblem(get("/api/v1/releases?view=recent&view=upcoming"), 422, "FILTER_INVALID");
+        assertProblem(get("/api/v1/releases?view=recent&page=1&page=2"), 422, "PAGINATION_INVALID");
         assertProblem(
                 get("/api/v1/releases?view=recent&unexpected=true"),
                 422,

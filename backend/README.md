@@ -106,7 +106,7 @@ correlation identifiers. See [observability](../docs/development/observability.m
 
 ```bash
 bash scripts/package-application.sh
-java -jar backend/target/videogame-platform-backend-0.7.4-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.5-SNAPSHOT.jar
 bash scripts/validate-browser.sh
 bash scripts/validate-identity.sh
 bash scripts/validate-container-image.sh

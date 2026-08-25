@@ -1,8 +1,8 @@
 package com.videogameplatform.api.delivery;
 
 import com.videogameplatform.api.generated.ReleasesApi;
-import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ReleasePage;
+import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.catalogue.application.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import org.springframework.http.HttpHeaders;
@@ -36,7 +36,7 @@ public class ReleaseController implements ReleasesApi {
 
     @Override
     public ResponseEntity<ReleasePage> listReleases(
-            String view,
+            ReleaseView view,
             String platformId,
             String regionId,
             Integer page,
@@ -44,11 +44,10 @@ public class ReleaseController implements ReleasesApi {
             String ifNoneMatch) {
         long startedAt = metrics.start();
         try {
-            BrowseReleasesUseCase.View releaseView = parseView(view);
             BrowseReleasesResult result =
                     useCase.browse(
                             new BrowseReleasesUseCase.Query(
-                                    releaseView, platformId, regionId, page, pageSize));
+                                    toApplicationView(view), platformId, regionId, page, pageSize));
             ReleasePage body = mapper.toResponse(result);
             String entityTag = conditionalRequests.strongEntityTag(body);
 
@@ -56,7 +55,8 @@ public class ReleaseController implements ReleasesApi {
             headers.set(HttpHeaders.CACHE_CONTROL, properties.cacheControl());
             headers.setETag(entityTag);
             if (conditionalRequests.matches(ifNoneMatch, entityTag)) {
-                metrics.complete(view, ReleaseApiMetrics.Outcome.NOT_MODIFIED, null, startedAt);
+                metrics.complete(
+                        view.getValue(), ReleaseApiMetrics.Outcome.NOT_MODIFIED, null, startedAt);
                 return ResponseEntity.status(304).headers(headers).build();
             }
 
@@ -64,19 +64,18 @@ public class ReleaseController implements ReleasesApi {
                     body.getItems().isEmpty()
                             ? ReleaseApiMetrics.Outcome.EMPTY
                             : ReleaseApiMetrics.Outcome.SUCCESS;
-            metrics.complete(view, outcome, body.getItems().size(), startedAt);
+            metrics.complete(view.getValue(), outcome, body.getItems().size(), startedAt);
             return ResponseEntity.ok().headers(headers).body(body);
         } catch (RuntimeException exception) {
-            metrics.failure(view, exception, startedAt);
+            metrics.failure(view == null ? null : view.getValue(), exception, startedAt);
             throw exception;
         }
     }
 
-    private static BrowseReleasesUseCase.View parseView(String view) {
+    private static BrowseReleasesUseCase.View toApplicationView(ReleaseView view) {
         return switch (view) {
-            case "recent" -> BrowseReleasesUseCase.View.RECENT;
-            case "upcoming" -> BrowseReleasesUseCase.View.UPCOMING;
-            default -> throw new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/view");
+            case recent -> BrowseReleasesUseCase.View.RECENT;
+            case upcoming -> BrowseReleasesUseCase.View.UPCOMING;
         };
     }
 }

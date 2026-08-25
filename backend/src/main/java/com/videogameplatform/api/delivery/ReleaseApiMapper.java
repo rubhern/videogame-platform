@@ -1,27 +1,23 @@
 package com.videogameplatform.api.delivery;
 
 import com.videogameplatform.api.generated.model.ActiveFilters;
-import com.videogameplatform.api.generated.model.Attribution;
 import com.videogameplatform.api.generated.model.AvailableFilters;
-import com.videogameplatform.api.generated.model.Cover;
 import com.videogameplatform.api.generated.model.DayReleaseDate;
-import com.videogameplatform.api.generated.model.FallbackCover;
 import com.videogameplatform.api.generated.model.MonthReleaseDate;
 import com.videogameplatform.api.generated.model.PageMetadata;
 import com.videogameplatform.api.generated.model.Platform;
 import com.videogameplatform.api.generated.model.Provenance;
-import com.videogameplatform.api.generated.model.ProviderCover;
 import com.videogameplatform.api.generated.model.QuarterReleaseDate;
 import com.videogameplatform.api.generated.model.Region;
 import com.videogameplatform.api.generated.model.Release;
 import com.videogameplatform.api.generated.model.ReleaseItem;
 import com.videogameplatform.api.generated.model.ReleasePage;
+import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.api.generated.model.ReleaseWindow;
 import com.videogameplatform.api.generated.model.UnknownReleaseDate;
 import com.videogameplatform.api.generated.model.YearReleaseDate;
 import com.videogameplatform.catalogue.application.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
-import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -33,8 +29,11 @@ import org.springframework.stereotype.Component;
 @Component
 final class ReleaseApiMapper {
 
-    private static final String IGDB_COVER_BASE =
-            "https://images.igdb.com/igdb/image/upload/t_cover_big/";
+    private final ReleaseCoverMapper coverMapper;
+
+    ReleaseApiMapper(ReleaseCoverMapper coverMapper) {
+        this.coverMapper = coverMapper;
+    }
 
     ReleasePage toResponse(BrowseReleasesResult result) {
         List<Platform> platforms =
@@ -85,26 +84,8 @@ final class ReleaseApiMapper {
                 item.gameId(),
                 item.slug(),
                 item.canonicalTitle(),
-                toCover(item.primaryCover()),
+                coverMapper.toResponse(item.primaryCover()),
                 release);
-    }
-
-    private static Cover toCover(BrowseReleasesResult.Cover source) {
-        return switch (source) {
-            case BrowseReleasesResult.ProviderCoverReference provider -> {
-                if (!"IGDB".equalsIgnoreCase(provider.provider())) {
-                    throw new IllegalStateException("Unsupported published cover provider");
-                }
-                yield new ProviderCover(
-                        "provider",
-                        URI.create(IGDB_COVER_BASE + provider.reference() + ".webp"),
-                        provider.alternativeText(),
-                        new Attribution("IGDB", URI.create(provider.sourceUrl())));
-            }
-            case BrowseReleasesResult.FallbackCover fallback ->
-                    new FallbackCover(
-                            "fallback", fallback.assetPath(), fallback.alternativeText(), null);
-        };
     }
 
     private static com.videogameplatform.api.generated.model.ReleaseDate toReleaseDate(
@@ -118,10 +99,10 @@ final class ReleaseApiMapper {
         };
     }
 
-    private static ReleasePage.ViewEnum toView(BrowseReleasesUseCase.View source) {
+    private static ReleaseView toView(BrowseReleasesUseCase.View source) {
         return switch (source) {
-            case RECENT -> ReleasePage.ViewEnum.RECENT;
-            case UPCOMING -> ReleasePage.ViewEnum.UPCOMING;
+            case RECENT -> ReleaseView.recent;
+            case UPCOMING -> ReleaseView.upcoming;
         };
     }
 
