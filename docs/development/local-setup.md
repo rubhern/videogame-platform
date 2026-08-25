@@ -31,6 +31,7 @@ separate container.
 | Keycloak | `http://localhost:8180` | Development-mode OIDC provider |
 | Keycloak management | `127.0.0.1:9000` | Local health and metrics |
 | Application (`full` only) | `http://localhost:8080` | Frontend + BFF/API + modular monolith |
+| Application management | `127.0.0.1:8081` | Local Actuator health, info, and metrics |
 
 Exact images, health checks, ports, resources, and wiring are authoritative in
 [`compose.yaml`](../../compose.yaml). `.env.example` and `backend/.env.example` own

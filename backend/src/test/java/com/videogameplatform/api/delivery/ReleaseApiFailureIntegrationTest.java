@@ -110,6 +110,9 @@ class ReleaseApiFailureIntegrationTest {
         assertThat(keyValue(event, "error.code")).isEqualTo("INTERNAL_ERROR");
         assertThat(loggedThrowable(event)).isSameAs(failure);
         assertThat(event.getMDCPropertyMap()).containsEntry("correlationId", correlationId);
+        assertThat(event.getMDCPropertyMap())
+                .containsKeys("traceId", "spanId")
+                .doesNotContainKeys("userId", "gameId");
     }
 
     @Test

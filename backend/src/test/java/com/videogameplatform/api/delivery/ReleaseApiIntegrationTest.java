@@ -21,6 +21,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -30,7 +31,9 @@ import org.springframework.test.context.DynamicPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "management.server.port=0")
 @Import(ReleaseApiIntegrationTest.FixedClockConfiguration.class)
 @Execution(ExecutionMode.SAME_THREAD)
 class ReleaseApiIntegrationTest {
@@ -42,6 +45,8 @@ class ReleaseApiIntegrationTest {
     private static final OpenApiResponseContract OPENAPI = OpenApiResponseContract.load();
 
     @LocalServerPort private int port;
+
+    @LocalManagementPort private int managementPort;
 
     @Autowired private MeterRegistry meterRegistry;
 
@@ -105,13 +110,7 @@ class ReleaseApiIntegrationTest {
         assertThat(weakNotModified.headers().firstValue("ETag")).contains(entityTag);
         assertThat(resultCount.count()).isEqualTo(measurementsBeforeWeakRead);
         assertThat(resultCount.totalAmount()).isEqualTo(itemsBeforeWeakRead);
-        assertThat(
-                        meterRegistry
-                                .find("catalogue.releases.requests")
-                                .tag("view", "recent")
-                                .tag("outcome", "not_modified")
-                                .counter())
-                .isNotNull();
+        assertThat(meterRegistry.find("catalogue.releases.requests").meters()).isEmpty();
 
         HttpResponse<String> malformedConditional =
                 get(
@@ -149,10 +148,9 @@ class ReleaseApiIntegrationTest {
         assertThat(beyond.path("page").path("totalItems").asLong()).isEqualTo(2);
         assertThat(
                         meterRegistry
-                                .find("catalogue.releases.requests")
+                                .find("catalogue.releases.result.count")
                                 .tag("view", "upcoming")
-                                .tag("outcome", "empty")
-                                .counter())
+                                .summary())
                 .isNotNull();
     }
 
@@ -172,24 +170,14 @@ class ReleaseApiIntegrationTest {
                 422,
                 "PLATFORM_NOT_SUPPORTED");
 
-        JsonNode meters = json(get("/actuator/metrics"));
+        JsonNode meters = managementJson("/actuator/metrics");
         assertThat(textValues(meters.path("names")))
-                .contains(
+                .contains("catalogue.releases.result.count")
+                .doesNotContain(
                         "catalogue.releases.requests",
                         "catalogue.releases.latency",
-                        "catalogue.releases.result.count",
                         "catalogue.releases.failures");
-        JsonNode failures = json(get("/actuator/metrics/catalogue.releases.failures"));
-        assertThat(tagValues(failures, "code"))
-                .contains("FILTER_INVALID", "PLATFORM_NOT_SUPPORTED")
-                .doesNotContain("not-supported", "X-Correlation-ID");
-        assertThat(
-                        meterRegistry
-                                .find("catalogue.releases.requests")
-                                .tag("view", "invalid")
-                                .tag("outcome", "validation_error")
-                                .counter())
-                .isNotNull();
+        assertThat(meterRegistry.find("catalogue.releases.latency").meters()).isEmpty();
     }
 
     private void assertProblem(HttpResponse<String> response, int status, String code) {
@@ -210,19 +198,20 @@ class ReleaseApiIntegrationTest {
         return OBJECT_MAPPER.readTree(response.body());
     }
 
+    private JsonNode managementJson(String path) throws IOException, InterruptedException {
+        HttpRequest request =
+                HttpRequest.newBuilder()
+                        .uri(URI.create("http://localhost:%d%s".formatted(managementPort, path)))
+                        .header("Accept", "application/json")
+                        .GET()
+                        .build();
+        return json(HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString()));
+    }
+
     private static List<String> textValues(JsonNode values) {
         List<String> result = new ArrayList<>();
         values.forEach(value -> result.add(value.stringValue()));
         return result;
-    }
-
-    private static List<String> tagValues(JsonNode metric, String tagName) {
-        for (JsonNode tag : metric.path("availableTags")) {
-            if (tagName.equals(tag.path("tag").stringValue())) {
-                return textValues(tag.path("values"));
-            }
-        }
-        return List.of();
     }
 
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {

@@ -97,7 +97,8 @@ authority. Hibernate schema generation is disabled, the migration role owns DDL,
 and the runtime role has only required DML privileges. See the
 [migration workflow](../docs/development/database-migrations.md).
 
-Actuator exposes health groups, build information, and metrics. Correlation uses
+Actuator exposes health groups, build information, and metrics on the separate local
+management port (`8081` by default), not on the product port. Correlation uses
 `X-Correlation-ID`; tracing uses W3C context; OTLP export is disabled by default.
 Metric labels must remain bounded and must not include user, game, request, or
 correlation identifiers. See [observability](../docs/development/observability.md).
@@ -106,7 +107,7 @@ correlation identifiers. See [observability](../docs/development/observability.m
 
 ```bash
 bash scripts/package-application.sh
-java -jar backend/target/videogame-platform-backend-0.7.5-SNAPSHOT.jar
+java -jar backend/target/videogame-platform-backend-0.7.6-SNAPSHOT.jar
 bash scripts/validate-browser.sh
 bash scripts/validate-identity.sh
 bash scripts/validate-container-image.sh
