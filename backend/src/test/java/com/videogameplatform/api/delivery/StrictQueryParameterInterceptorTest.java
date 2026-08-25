@@ -2,7 +2,6 @@ package com.videogameplatform.api.delivery;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
 
 import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ReleaseView;
@@ -14,7 +13,7 @@ import org.springframework.web.method.HandlerMethod;
 class StrictQueryParameterInterceptorTest {
 
     private final StrictQueryParameterInterceptor interceptor =
-            new StrictQueryParameterInterceptor(mock(ReleaseApiMetrics.class));
+            new StrictQueryParameterInterceptor();
     private final HandlerMethod releaseHandler = releaseHandler();
 
     @Test

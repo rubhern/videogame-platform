@@ -28,6 +28,13 @@ final class CorrelationIdFilter extends OncePerRequestFilter {
             Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String requestPath = request.getRequestURI().substring(request.getContextPath().length());
+        return "/actuator/health/liveness".equals(requestPath)
+                || "/actuator/health/readiness".equals(requestPath);
+    }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {

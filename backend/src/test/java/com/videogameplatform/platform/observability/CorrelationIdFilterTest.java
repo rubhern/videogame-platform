@@ -113,6 +113,21 @@ class CorrelationIdFilterTest {
                 .doesNotContain("private-user-123", "query-secret", "credential-secret");
     }
 
+    @Test
+    void skipsRoutineLivenessAndReadinessProbeLogging() throws Exception {
+        for (String path :
+                new String[] {"/actuator/health/liveness", "/actuator/health/readiness"}) {
+            var request = new MockHttpServletRequest("GET", path);
+            var response = new MockHttpServletResponse();
+
+            filter.doFilter(request, response, (servletRequest, servletResponse) -> {});
+
+            assertThat(response.getHeader(CorrelationIdFilter.CORRELATION_ID_HEADER)).isNull();
+        }
+
+        assertThat(appender.list).isEmpty();
+    }
+
     private static MockHttpServletRequest request(String correlationId) {
         var request = new MockHttpServletRequest("GET", "/games/123");
         request.addHeader(CorrelationIdFilter.CORRELATION_ID_HEADER, correlationId);

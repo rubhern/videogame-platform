@@ -16,8 +16,9 @@ Actuator APIs plus a non-secret local environment.
   anonymous session state and CSRF-protected logout rejection. The successful OIDC
   flow is intentionally covered by the real-browser identity gate instead of
   scripting credentials in Postman.
-- [`local.postman_environment.json`](local.postman_environment.json): local
-  `baseUrl`, defaulting to `http://localhost:8080`.
+- [`local.postman_environment.json`](local.postman_environment.json): local product
+  `baseUrl` (`http://localhost:8080`) and loopback-only `managementBaseUrl`
+  (`http://localhost:8081`).
 
 ## Import and run
 
@@ -49,8 +50,9 @@ for health and probes, generated build/source metadata, meter names, and bounded
 route tags. Backend integration tests remain authoritative for PostgreSQL behaviour,
 W3C propagation, structured correlation, and negative sensitive-data assertions.
 
-To target another instance, change only the environment's `baseUrl`. Do not add
-tokens, passwords, cookies, client secrets, or machine-specific values to these
+To target another instance, change the environment's product and management base
+URLs while keeping the management address on its approved private boundary. Do not
+add tokens, passwords, cookies, client secrets, or machine-specific values to these
 tracked files. Create a private Postman environment for future authenticated APIs.
 
 The collections document implemented behaviour; the reviewed

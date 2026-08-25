@@ -20,12 +20,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
  */
 @Component
 final class StrictQueryParameterInterceptor implements HandlerInterceptor {
-    private final ReleaseApiMetrics metrics;
-
-    StrictQueryParameterInterceptor(ReleaseApiMetrics metrics) {
-        this.metrics = metrics;
-    }
-
     @Override
     public boolean preHandle(
             HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -50,7 +44,6 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
             ApiRequestException exception =
                     new ApiRequestException(
                             ProblemCode.REQUEST_PARAMETER_UNKNOWN, "/query/" + unknown);
-            metrics.validationFailure(request.getParameter("view"), exception);
             throw exception;
         }
         for (QueryParameter parameter : parameters) {
@@ -62,7 +55,6 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                                 : ProblemCode.FILTER_INVALID;
                 ApiRequestException exception =
                         new ApiRequestException(code, "/query/" + parameter.name());
-                metrics.validationFailure(request.getParameter("view"), exception);
                 throw exception;
             }
             if (values != null
@@ -71,7 +63,6 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                 ApiRequestException exception =
                         new ApiRequestException(
                                 ProblemCode.FILTER_INVALID, "/query/" + parameter.name());
-                metrics.validationFailure(request.getParameter("view"), exception);
                 throw exception;
             }
         }

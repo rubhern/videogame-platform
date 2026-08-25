@@ -142,12 +142,13 @@ docker run --detach \
   --env OIDC_USER_INFO_URI=http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo \
   --env APPLICATION_SESSION_COOKIE_NAME=vgp_session \
   --env APPLICATION_SESSION_COOKIE_SECURE=false \
-  --volume "$repository_root/backend/target/videogame-platform-backend-0.7.5-SNAPSHOT.jar:/application.jar:ro" \
+  --env MANAGEMENT_SERVER_ADDRESS=0.0.0.0 \
+  --volume "$repository_root/backend/target/videogame-platform-backend-0.7.6-SNAPSHOT.jar:/application.jar:ro" \
   "$java_image" java -jar /application.jar >/dev/null
 
 for _ in $(seq 1 90); do
   if docker run --rm --network "$identity_network" "$playwright_image" \
-      node -e 'fetch("http://application:8080/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))'; then
+      node -e 'fetch("http://application:8081/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))'; then
     break
   fi
   if [[ "$(docker inspect --format '{{.State.Running}}' "$application_container" 2>/dev/null || true)" != "true" ]]; then
@@ -158,7 +159,7 @@ for _ in $(seq 1 90); do
 done
 
 docker run --rm --network "$identity_network" "$playwright_image" \
-  node -e 'fetch("http://application:8080/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))' || {
+  node -e 'fetch("http://application:8081/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))' || {
   echo "The OIDC-enabled packaged application did not become ready." >&2
   exit 1
 }

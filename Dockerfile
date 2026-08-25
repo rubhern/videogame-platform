@@ -44,7 +44,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 
 FROM ${JRE_IMAGE} AS runtime
 
-ARG APPLICATION_VERSION=0.7.5-SNAPSHOT
+ARG APPLICATION_VERSION=0.7.6-SNAPSHOT
 ARG SOURCE_REVISION=local-development
 ARG SOURCE_URL=https://github.com/rubhern/videogame-platform
 

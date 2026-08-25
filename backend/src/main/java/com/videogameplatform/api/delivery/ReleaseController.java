@@ -42,34 +42,22 @@ public class ReleaseController implements ReleasesApi {
             Integer page,
             Integer pageSize,
             String ifNoneMatch) {
-        long startedAt = metrics.start();
-        try {
-            BrowseReleasesResult result =
-                    useCase.browse(
-                            new BrowseReleasesUseCase.Query(
-                                    toApplicationView(view), platformId, regionId, page, pageSize));
-            ReleasePage body = mapper.toResponse(result);
-            String entityTag = conditionalRequests.strongEntityTag(body);
+        BrowseReleasesResult result =
+                useCase.browse(
+                        new BrowseReleasesUseCase.Query(
+                                toApplicationView(view), platformId, regionId, page, pageSize));
+        ReleasePage body = mapper.toResponse(result);
+        String entityTag = conditionalRequests.strongEntityTag(body);
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.set(HttpHeaders.CACHE_CONTROL, properties.cacheControl());
-            headers.setETag(entityTag);
-            if (conditionalRequests.matches(ifNoneMatch, entityTag)) {
-                metrics.complete(
-                        view.getValue(), ReleaseApiMetrics.Outcome.NOT_MODIFIED, null, startedAt);
-                return ResponseEntity.status(304).headers(headers).build();
-            }
-
-            ReleaseApiMetrics.Outcome outcome =
-                    body.getItems().isEmpty()
-                            ? ReleaseApiMetrics.Outcome.EMPTY
-                            : ReleaseApiMetrics.Outcome.SUCCESS;
-            metrics.complete(view.getValue(), outcome, body.getItems().size(), startedAt);
-            return ResponseEntity.ok().headers(headers).body(body);
-        } catch (RuntimeException exception) {
-            metrics.failure(view == null ? null : view.getValue(), exception, startedAt);
-            throw exception;
+        HttpHeaders headers = new HttpHeaders();
+        headers.set(HttpHeaders.CACHE_CONTROL, properties.cacheControl());
+        headers.setETag(entityTag);
+        if (conditionalRequests.matches(ifNoneMatch, entityTag)) {
+            return ResponseEntity.status(304).headers(headers).build();
         }
+
+        metrics.recordResult(view.getValue(), body.getItems().size());
+        return ResponseEntity.ok().headers(headers).body(body);
     }
 
     private static BrowseReleasesUseCase.View toApplicationView(ReleaseView view) {

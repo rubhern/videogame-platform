@@ -1,15 +1,8 @@
 package com.videogameplatform.api.delivery;
 
-import com.videogameplatform.api.generated.model.ProblemCode;
-import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
-import com.videogameplatform.catalogue.application.CatalogueReadException;
-import com.videogameplatform.catalogue.application.ReleaseQueryValidationException;
-import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
 import org.springframework.stereotype.Component;
 
 /**
@@ -30,52 +23,13 @@ final class ReleaseApiMetrics {
         }
     }
 
-    long start() {
-        return System.nanoTime();
-    }
-
-    void complete(String view, Outcome outcome, Integer resultCount, long startedAt) {
+    void recordResult(String view, int resultCount) {
         String safeView = safeView(view);
-        Counter.builder("catalogue.releases.requests")
+        DistributionSummary.builder("catalogue.releases.result.count")
+                .description("Number of release items returned by a successful request")
                 .tag("view", safeView)
-                .tag("outcome", outcome.value)
                 .register(registry)
-                .increment();
-        if (resultCount != null) {
-            DistributionSummary.builder("catalogue.releases.result.count")
-                    .tag("view", safeView)
-                    .register(registry)
-                    .record(resultCount);
-        }
-        recordDuration(safeView, outcome.value, startedAt);
-    }
-
-    void failure(String view, RuntimeException exception, long startedAt) {
-        String safeView = safeView(view);
-        ProblemCode code = failureCode(exception);
-        Outcome outcome = failureOutcome(exception);
-        Counter.builder("catalogue.releases.requests")
-                .tag("view", safeView)
-                .tag("outcome", outcome.value)
-                .register(registry)
-                .increment();
-        Counter.builder("catalogue.releases.failures")
-                .tag("code", code.getValue())
-                .register(registry)
-                .increment();
-        recordDuration(safeView, outcome.value, startedAt);
-    }
-
-    void validationFailure(String view, RuntimeException exception) {
-        failure(view, exception, start());
-    }
-
-    private void recordDuration(String view, String outcome, long startedAt) {
-        Timer.builder("catalogue.releases.latency")
-                .tag("view", view)
-                .tag("outcome", outcome)
-                .register(registry)
-                .record(System.nanoTime() - startedAt, TimeUnit.NANOSECONDS);
+                .record(resultCount);
     }
 
     private static String safeView(String view) {
@@ -86,51 +40,5 @@ final class ReleaseApiMetrics {
         return "recent".equals(normalized) || "upcoming".equals(normalized)
                 ? normalized
                 : "invalid";
-    }
-
-    private static ProblemCode failureCode(RuntimeException exception) {
-        if (exception instanceof ApiRequestException requestException) {
-            return requestException.code();
-        }
-        if (exception instanceof ReleaseQueryValidationException validationException) {
-            return switch (validationException.code()) {
-                case PLATFORM_NOT_SUPPORTED -> ProblemCode.PLATFORM_NOT_SUPPORTED;
-                case REGION_NOT_SUPPORTED -> ProblemCode.REGION_NOT_SUPPORTED;
-            };
-        }
-        if (exception instanceof CatalogueNotReadyException) {
-            return ProblemCode.CATALOGUE_NOT_READY;
-        }
-        if (exception instanceof CatalogueReadException) {
-            return ProblemCode.CATALOGUE_READ_FAILED;
-        }
-        return ProblemCode.INTERNAL_ERROR;
-    }
-
-    private static Outcome failureOutcome(RuntimeException exception) {
-        if (exception instanceof ApiRequestException
-                || exception instanceof ReleaseQueryValidationException) {
-            return Outcome.VALIDATION_ERROR;
-        }
-        if (exception instanceof CatalogueNotReadyException
-                || exception instanceof CatalogueReadException) {
-            return Outcome.READ_FAILURE;
-        }
-        return Outcome.INTERNAL_ERROR;
-    }
-
-    enum Outcome {
-        SUCCESS("success"),
-        EMPTY("empty"),
-        NOT_MODIFIED("not_modified"),
-        VALIDATION_ERROR("validation_error"),
-        READ_FAILURE("read_failure"),
-        INTERNAL_ERROR("internal_error");
-
-        private final String value;
-
-        Outcome(String value) {
-            this.value = value;
-        }
     }
 }

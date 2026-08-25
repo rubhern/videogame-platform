@@ -80,8 +80,9 @@ docker run --detach \
   --env APPLICATION_MIGRATION_DB_URL=jdbc:postgresql://postgres:5432/videogame_platform \
   --env APPLICATION_MIGRATION_DB_USERNAME=videogame_app_migrator \
   --env APPLICATION_MIGRATION_DB_PASSWORD="$migration_password" \
+  --env MANAGEMENT_SERVER_ADDRESS=0.0.0.0 \
   --env SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
-  --volume "$repository_root/backend/target/videogame-platform-backend-0.7.5-SNAPSHOT.jar:/application.jar:ro" \
+  --volume "$repository_root/backend/target/videogame-platform-backend-0.7.6-SNAPSHOT.jar:/application.jar:ro" \
   "$java_image" \
   java -jar /application.jar >/dev/null
 
@@ -89,7 +90,7 @@ for _ in $(seq 1 90); do
   if docker run --rm \
       --network "$browser_network" \
       "$playwright_image" \
-      node -e 'fetch("http://application:8080/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))'; then
+      node -e 'fetch("http://application:8081/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))'; then
     break
   fi
   if [[ "$(docker inspect --format '{{.State.Running}}' "$application_container" 2>/dev/null || true)" != "true" ]]; then
@@ -104,7 +105,7 @@ done
 if ! docker run --rm \
     --network "$browser_network" \
     "$playwright_image" \
-    node -e 'fetch("http://application:8080/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))'; then
+    node -e 'fetch("http://application:8081/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))'; then
   docker logs "$application_container" >"$application_log" 2>&1 || true
   cat "$application_log" >&2
   echo "The packaged application did not become ready." >&2
