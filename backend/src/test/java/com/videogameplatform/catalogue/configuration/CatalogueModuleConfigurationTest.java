@@ -3,10 +3,12 @@ package com.videogameplatform.catalogue.configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.internal.ReleaseBrowsePolicy;
 import com.videogameplatform.catalogue.application.internal.ReleaseCatalogueService;
+import com.videogameplatform.catalogue.application.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import java.time.Clock;
 import java.time.Duration;
@@ -45,6 +47,9 @@ class CatalogueModuleConfigurationTest {
                                                     .INCLUDE_AS_TBA));
                     assertThat(context.getBean(CatalogueFreshnessPolicy.class))
                             .isEqualTo(new CatalogueFreshnessPolicy(Duration.ofDays(14)));
+                    assertThat(context).hasSingleBean(ProviderCoverReferenceResolver.class);
+                    assertThat(context.getBean(ProviderCoverReferenceResolver.class))
+                            .isInstanceOf(IgdbCoverReferenceResolver.class);
                 });
     }
 

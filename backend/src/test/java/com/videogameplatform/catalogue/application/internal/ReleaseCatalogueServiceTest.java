@@ -6,12 +6,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.videogameplatform.catalogue.application.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.application.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
+import java.net.URI;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -87,11 +89,12 @@ class ReleaseCatalogueServiceTest {
 
         assertThat(page.items().getFirst().primaryCover())
                 .isEqualTo(
-                        new BrowseReleasesResult.ProviderCoverReference(
-                                "IGDB",
-                                "co-safe_1",
+                        new BrowseReleasesResult.ProviderCover(
+                                URI.create("https://images.example.test/covers/co-safe_1.webp"),
                                 "Cover",
-                                "https://www.igdb.com/games/example"));
+                                new BrowseReleasesResult.Attribution(
+                                        "Test provider",
+                                        URI.create("https://www.igdb.com/games/example"))));
         assertThat(page.items().getFirst().release().status())
                 .isEqualTo(BrowseReleasesResult.Status.SCHEDULED);
         assertThat(page.items().getFirst().release().freshnessStatus())
@@ -99,20 +102,18 @@ class ReleaseCatalogueServiceTest {
     }
 
     @Test
-    void mapsUnavailableCoverToTheProductFallback() {
+    void preservesUnavailableCoverAsProviderIndependentApplicationState() {
         ReleaseBrowseReadPort.Item item =
                 release(
                         "release-unavailable",
-                        new ReleaseBrowseReadPort.UnavailableCoverReference("Unavailable"));
+                        new ReleaseBrowseReadPort.UnavailableCoverReference());
 
         var page =
                 service(criteria -> Optional.of(result(List.of(item), 1)))
                         .browse(query(BrowseReleasesUseCase.View.UPCOMING, 1, 20));
 
         assertThat(page.items().getFirst().primaryCover())
-                .isEqualTo(
-                        new BrowseReleasesResult.FallbackCover(
-                                "/assets/covers/fallback.svg", "Carátula oficial no disponible"));
+                .isEqualTo(new BrowseReleasesResult.UnavailableCover());
     }
 
     @Test
@@ -143,10 +144,19 @@ class ReleaseCatalogueServiceTest {
     private static ReleaseCatalogueService service(ReleaseBrowseReadPort port, Clock clock) {
         return new ReleaseCatalogueService(
                 port,
+                providerCoverReferenceResolver(),
                 clock,
                 new ReleaseBrowsePolicy(
                         6, 6, ReleaseBrowsePolicy.UnknownUpcomingDatePolicy.INCLUDE_AS_TBA),
                 new CatalogueFreshnessPolicy(Duration.ofDays(7)));
+    }
+
+    private static ProviderCoverReferenceResolver providerCoverReferenceResolver() {
+        return (provider, reference, sourceUrl) ->
+                new ProviderCoverReferenceResolver.ResolvedProviderCover(
+                        URI.create("https://images.example.test/covers/" + reference + ".webp"),
+                        "Test provider",
+                        URI.create(sourceUrl));
     }
 
     private static BrowseReleasesUseCase.Query query(

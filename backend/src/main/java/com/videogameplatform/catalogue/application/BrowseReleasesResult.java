@@ -1,5 +1,6 @@
 package com.videogameplatform.catalogue.application;
 
+import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -30,15 +31,16 @@ public record BrowseReleasesResult(
             Cover primaryCover,
             Release release) {}
 
-    public sealed interface Cover permits ProviderCoverReference, FallbackCover {
-        String alternativeText();
-    }
+    public sealed interface Cover permits ProviderCover, ProductCover, UnavailableCover {}
 
-    public record ProviderCoverReference(
-            String provider, String reference, String alternativeText, String sourceUrl)
+    public record ProviderCover(URI url, String alternativeText, Attribution attribution)
             implements Cover {}
 
-    public record FallbackCover(String assetPath, String alternativeText) implements Cover {}
+    public record Attribution(String label, URI sourceUrl) {}
+
+    public record ProductCover(String assetPath, String alternativeText) implements Cover {}
+
+    public record UnavailableCover() implements Cover {}
 
     public record Release(
             String releaseId,

@@ -1,10 +1,12 @@
 package com.videogameplatform.catalogue.configuration;
 
+import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.internal.ReleaseBrowsePolicy;
 import com.videogameplatform.catalogue.application.internal.ReleaseBrowsePolicy.UnknownUpcomingDatePolicy;
 import com.videogameplatform.catalogue.application.internal.ReleaseCatalogueService;
+import com.videogameplatform.catalogue.application.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import java.time.Clock;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -30,11 +32,18 @@ class CatalogueModuleConfiguration {
     }
 
     @Bean
+    ProviderCoverReferenceResolver providerCoverReferenceResolver() {
+        return new IgdbCoverReferenceResolver();
+    }
+
+    @Bean
     BrowseReleasesUseCase browseReleasesUseCase(
             ReleaseBrowseReadPort readPort,
+            ProviderCoverReferenceResolver coverResolver,
             Clock clock,
             ReleaseBrowsePolicy browsePolicy,
             CatalogueFreshnessPolicy freshnessPolicy) {
-        return new ReleaseCatalogueService(readPort, clock, browsePolicy, freshnessPolicy);
+        return new ReleaseCatalogueService(
+                readPort, coverResolver, clock, browsePolicy, freshnessPolicy);
     }
 }

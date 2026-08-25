@@ -4,6 +4,7 @@ import com.videogameplatform.catalogue.application.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.application.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort.Item;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort.ProductCoverReference;
@@ -25,21 +26,20 @@ import java.util.Locale;
 
 /** Framework-independent implementation of UC-001. */
 public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
-
-    private static final String FALLBACK_COVER_PATH = "/assets/covers/fallback.svg";
-    private static final String FALLBACK_ALTERNATIVE_TEXT = "Carátula oficial no disponible";
-
     private final ReleaseBrowseReadPort readPort;
+    private final ProviderCoverReferenceResolver coverResolver;
     private final Clock clock;
     private final ReleaseBrowsePolicy browsePolicy;
     private final CatalogueFreshnessPolicy freshnessPolicy;
 
     public ReleaseCatalogueService(
             ReleaseBrowseReadPort readPort,
+            ProviderCoverReferenceResolver coverResolver,
             Clock clock,
             ReleaseBrowsePolicy browsePolicy,
             CatalogueFreshnessPolicy freshnessPolicy) {
         this.readPort = readPort;
+        this.coverResolver = coverResolver;
         this.clock = clock;
         this.browsePolicy = browsePolicy;
         this.freshnessPolicy = freshnessPolicy;
@@ -156,20 +156,23 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                 item.gameId(), item.slug(), item.canonicalTitle(), cover(item), release);
     }
 
-    private static BrowseReleasesResult.Cover cover(Item item) {
+    private BrowseReleasesResult.Cover cover(Item item) {
         return switch (item.cover()) {
-            case ProviderCoverReference provider ->
-                    new BrowseReleasesResult.ProviderCoverReference(
-                            provider.provider(),
-                            provider.reference(),
-                            provider.alternativeText(),
-                            provider.sourceUrl());
+            case ProviderCoverReference provider -> {
+                ProviderCoverReferenceResolver.ResolvedProviderCover resolved =
+                        coverResolver.resolve(
+                                provider.provider(), provider.reference(), provider.sourceUrl());
+                yield new BrowseReleasesResult.ProviderCover(
+                        resolved.url(),
+                        provider.alternativeText(),
+                        new BrowseReleasesResult.Attribution(
+                                resolved.attributionLabel(), resolved.attributionUrl()));
+            }
             case ProductCoverReference product ->
-                    new BrowseReleasesResult.FallbackCover(
+                    new BrowseReleasesResult.ProductCover(
                             product.assetPath(), product.alternativeText());
             case UnavailableCoverReference unavailable ->
-                    new BrowseReleasesResult.FallbackCover(
-                            FALLBACK_COVER_PATH, FALLBACK_ALTERNATIVE_TEXT);
+                    new BrowseReleasesResult.UnavailableCover();
         };
     }
 

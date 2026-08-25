@@ -161,6 +161,8 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        ReleaseView: "recent" | "upcoming";
         /**
          * @description Opaque, provider-independent product identifier.
          * @example game_example
@@ -319,8 +321,7 @@ export interface components {
             to: string;
         };
         ReleasePage: {
-            /** @enum {string} */
-            view: "recent" | "upcoming";
+            view: components["schemas"]["ReleaseView"];
             /** Format: date */
             evaluatedOn: string;
             window: components["schemas"]["ReleaseWindow"];
@@ -731,7 +732,7 @@ export interface components {
          */
         GameIdPath: components["schemas"]["GameId"];
         /** @example upcoming */
-        ReleaseView: "recent" | "upcoming";
+        ReleaseView: components["schemas"]["ReleaseView"];
         /** @example platform_ps5 */
         PlatformIdQuery: components["schemas"]["PlatformId"];
         /** @example region_europe */

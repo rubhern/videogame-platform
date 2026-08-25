@@ -3,6 +3,7 @@ package com.videogameplatform.api.delivery;
 import com.videogameplatform.api.generated.model.ErrorCategory;
 import com.videogameplatform.api.generated.model.Problem;
 import com.videogameplatform.api.generated.model.ProblemCode;
+import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.api.generated.model.Violation;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
@@ -163,10 +164,7 @@ public class ApiExceptionHandler {
         return new ResponseEntity<>(response.getBody(), headers, response.getStatusCode());
     }
 
-    @ExceptionHandler({
-        MissingServletRequestParameterException.class,
-        MethodArgumentTypeMismatchException.class
-    })
+    @ExceptionHandler(MissingServletRequestParameterException.class)
     ResponseEntity<Problem> requestMalformed(HttpServletResponse response) {
         return problem(
                 response,
@@ -177,6 +175,23 @@ public class ApiExceptionHandler {
                 ErrorCategory.VALIDATION,
                 "/query",
                 "Use parameter names and primitive values defined by the API contract.");
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<Problem> requestValueInvalid(
+            MethodArgumentTypeMismatchException exception, HttpServletResponse response) {
+        if (ReleaseView.class.equals(exception.getRequiredType())) {
+            return problem(
+                    response,
+                    HttpStatus.UNPROCESSABLE_CONTENT,
+                    ProblemCode.FILTER_INVALID,
+                    "Release filter is invalid",
+                    "Correct the release view or filter combination.",
+                    ErrorCategory.VALIDATION,
+                    "/query/" + exception.getName(),
+                    "Use exactly one supported release view or filter value.");
+        }
+        return requestMalformed(response);
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)

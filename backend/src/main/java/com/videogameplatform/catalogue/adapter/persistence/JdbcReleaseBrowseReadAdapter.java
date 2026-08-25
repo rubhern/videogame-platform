@@ -275,7 +275,7 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             case "provider_cdn_reference" -> {
                 String sourceUrl = resultSet.getString("cover_source_url");
                 yield sourceUrl == null
-                        ? new UnavailableCoverReference(alternativeText)
+                        ? new UnavailableCoverReference()
                         : new ProviderCoverReference(
                                 resultSet.getString("cover_source"),
                                 resultSet.getString("cover_reference"),
