@@ -44,6 +44,12 @@ RUN --mount=type=cache,target=/root/.m2 \
 
 FROM ${JRE_IMAGE} AS runtime
 
+# Alpine publishes security fixes before the Temurin base image is rebuilt with them.
+# Upgrading the base packages keeps the runtime free of known HIGH/CRITICAL findings
+# without unpinning the base image; the published image remains immutable and is
+# identified by its content digest.
+RUN apk --no-cache upgrade
+
 ARG APPLICATION_VERSION=0.7.6-SNAPSHOT
 ARG SOURCE_REVISION=local-development
 ARG SOURCE_URL=https://github.com/rubhern/videogame-platform
