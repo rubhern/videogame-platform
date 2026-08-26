@@ -49,6 +49,7 @@ required_files=(
   "docs/development/openapi.md"
   "docs/development/delivery-lifecycle.md"
   "docs/development/work-management.md"
+  "docs/development/ai-assistance.md"
   "docs/architecture/README.md"
   "docs/architecture/domain/mvp-domain-model.md"
   "docs/architecture/application/mvp-use-cases.md"
@@ -108,8 +109,16 @@ required_files=(
   "tools/openapi-validation/normalize-generated-html.mjs"
   "tools/igdb-poc/README.md"
   "skills-lock.json"
+  "CLAUDE.md"
+  ".worktreeinclude"
+  ".claude/settings.json"
+  ".claude/rules/hexagonal-boundaries.md"
+  ".claude/rules/documentation-ownership.md"
   ".agents/skills/README.md"
   ".agents/skills/product-brief-review/SKILL.md"
+  ".agents/skills/validate/SKILL.md"
+  ".agents/skills/openapi-change/SKILL.md"
+  ".agents/skills/issue-implement/SKILL.md"
   ".agents/skills/scalability-by-design/SKILL.md"
   ".agents/skills/videogame-platform-backend-development/SKILL.md"
   ".agents/skills/videogame-platform-frontend-development/SKILL.md"
@@ -160,7 +169,7 @@ skill_resource_pattern = re.compile(
 errors = []
 
 skills_root = root / ".agents/skills"
-skills_registry = (skills_root / "README.md").read_text(encoding="utf-8")
+skills_registry = (root / "docs/development/ai-assistance.md").read_text(encoding="utf-8")
 vendored_skill_names = set(
     re.findall(
         r"^\| `([^`]+)` .* \| `vendored-unmodified` \|$",
@@ -482,6 +491,22 @@ if errors:
 PY
 
 while IFS= read -r file; do
+  if [[ -L "$file" ]]; then
+    link_target="$(readlink -f -- "$file" || true)"
+    if [[ -z "$link_target" || ! -e "$link_target" ]]; then
+      printf 'Symbolic link does not resolve: %s\n' "$file" >&2
+      exit 1
+    fi
+    case "$link_target" in
+      "$ROOT_DIR"/*) ;;
+      *)
+        printf 'Symbolic link must stay inside the repository: %s\n' "$file" >&2
+        exit 1
+        ;;
+    esac
+    continue
+  fi
+
   case "$file" in
     mvnw|scripts/*.sh|docker/postgres/init/*.sh|docs/architecture/diagrams/scripts/*.sh)
       [[ -x "$file" ]] || {

@@ -21,3 +21,7 @@ backend/target/
 # IGDB PoC generated evidence and Maven output
 .poc/
 tools/igdb-poc/target/
+
+# Claude Code local state
+.claude/worktrees/
+.claude/settings.local.json

@@ -1,69 +1,13 @@
 # Repository skills
 
-This directory contains project-specific, CLI-managed, and vendored instruction
-skills for Codex. `AGENTS.md`, approved architecture and ADRs, executable
-configuration, and other repository rules take precedence over generic skill advice.
+This directory holds the single canonical copy of every skill in this repository.
+[`.claude/skills/`](../../.claude/skills) contains symlinks into it, so Codex and
+Claude Code read identical text. Never maintain a second copy of a skill.
 
-## Project-specific skills
+[`docs/development/ai-assistance.md`](../../docs/development/ai-assistance.md) is the
+canonical source for the skill catalogue, the provenance, licensing, and update
+policy of external skills, and the rest of the agent configuration.
+[`AGENTS.md`](../../AGENTS.md) owns instruction and skill precedence: repository
+sources and approved decisions always outrank generic skill advice.
 
-| Name | Purpose |
-|---|---|
-| `product-brief-review` | Review the Product Brief and product-alignment evidence without inventing decisions. |
-| `scalability-by-design` | Review APIs, queries, persistence and other data paths for bounded work, deterministic behavior and evidence-based scale. |
-| `videogame-platform-backend-development` | Implement, refactor, debug, or review the backend according to the approved project architecture and contracts. |
-| `videogame-platform-frontend-development` | Implement, refactor, debug, test, or review the React/TypeScript frontend according to the approved SPA, BFF, OpenAPI, state, accessibility, and testing decisions. |
-
-## CLI-managed external skills
-
-The generated [`skills-lock.json`](../../skills-lock.json) owns source, upstream path,
-and content tracking. These skills are advisory and do not authorize new platforms,
-services, paid resources, deployment targets, or changes to approved architecture.
-
-| Name | Purpose | Use when |
-|---|---|---|
-| `terraform-style-guide` | HashiCorp Terraform organization, naming, formatting, security, and review guidance. | Writing or reviewing Terraform while preserving the approved OCI, zero-cost, state, secret, and provisioning gates. |
-| `terraform-test` | Terraform test files, plan/apply modes, assertions, mocks, and CI test patterns. | Adding or troubleshooting `.tftest.hcl`; prefer plan or mock evidence unless an approved test explicitly requires resources. |
-| `dockerfile-optimise` | Docker build caching, multi-stage images, minimal runtimes, and container hardening guidance. | Changing or reviewing a Dockerfile or image build; this skill is experimental upstream, and the repository's multi-architecture, non-root, immutable-image contract remains authoritative. |
-| `github-actions-templates` | Generic GitHub Actions test, build, security, matrix, and deployment patterns. | Changing workflows after applying the repository's selective pull-request gates, complete trusted-`main` integration, least privilege, GHCR, and protected deployment rules. |
-| `observability-monitoring` | Generic metrics, logs, traces, dashboards, alerts, and Prometheus/Grafana patterns. | Working on an evidenced observability need; bounded labels, safe telemetry, optional OpenTelemetry-compatible export, zero cost, and the constrained private environment override its production/distributed examples. |
-
-## Manually vendored external skills
-
-| Name | Purpose | Upstream repository | Upstream path | Commit SHA | License | Incorporated | Modification status |
-|---|---|---|---|---|---|---|---|
-| `java-springboot` | General Spring Boot development guidance. | `github/awesome-copilot` | `skills/java-springboot` | `318066d2213b510e89b500ed0d53506c54093ddc` | MIT; GitHub, Inc. | 2026-08-18 | `vendored-unmodified` |
-| `architecture-patterns` | General Clean, Hexagonal, and DDD architecture patterns. | `wshobson/agents` | `plugins/backend-development/skills/architecture-patterns` | `367cb6a4a182cf7e9b0a17c9429f7411ddd9cf35` | MIT; Copyright (c) 2024 Seth Hobson | 2026-08-18 | `vendored-unmodified` |
-| `tdd` | Behavior-focused red/green test-driven development. | `mattpocock/skills` | `skills/engineering/tdd` | `9c9f36ccd3995266cd675468af71639c8dde1ec5` | MIT; Copyright (c) 2026 Matt Pocock | 2026-08-18 | `vendored-unmodified` |
-| `vercel-react-best-practices` | React and Next.js performance review guidance; framework-specific advice remains subordinate to the project SPA baseline. | `vercel-labs/agent-skills` | `skills/react-best-practices` | `dd089a8c752c966dee8bf0f27cb625ba193ffd9e` | MIT declared in skill frontmatter; no separate upstream license notice at this commit | 2026-08-22 | `vendored-unmodified` |
-| `vercel-composition-patterns` | React 19 composition and component-API guidance. | `vercel-labs/agent-skills` | `skills/composition-patterns` | `dd089a8c752c966dee8bf0f27cb625ba193ffd9e` | MIT declared in skill frontmatter; no separate upstream license notice at this commit | 2026-08-22 | `vendored-unmodified` |
-| `react-testing` | Behavior-focused React, Vitest/RTL, accessibility, and E2E test-boundary guidance. | `affaan-m/ecc` | `skills/react-testing` | `d8409a4b0813771235555e32e3d8046a73988bfa` | MIT; Copyright (c) 2026 Affaan Mustafa | 2026-08-22 | `vendored-unmodified` |
-| `frontend-accessibility-best-practices` | React accessibility guidance for semantics, keyboard, focus, announcements, motion, and touch. | `sergiodxa/agent-skills` | `skills/frontend-accessibility-best-practices` | `40e21b46189d5c7de6610b68a25280af863f8775` | MIT; Copyright (c) 2026 Sergio Xalambrí | 2026-08-22 | `vendored-unmodified` |
-
-Available upstream MIT notices are preserved under `licenses/`. The Vercel skills
-carry their MIT declaration in their unmodified `SKILL.md` frontmatter; the pinned
-upstream commit does not contain a separate license notice to copy.
-
-The unmodified `react-testing` entrypoint contains optional cross-links to other ECC
-skills and repository-level rules outside its upstream skill directory. Those
-packages are not runtime resources of `react-testing` and were not implicitly
-vendored; every resource internal to the requested upstream directory is present.
-
-The pinned Vercel trees contain upstream Markdown trailing whitespace. The reviewed
-change whitespace gate excludes only those two byte-identical vendored paths; all
-repository-owned files remain subject to `git diff --check`.
-
-## Updating a vendored skill
-
-1. Inspect the upstream skill tree and repository license at the candidate commit.
-2. Record the exact commit SHA; never vendor from a floating branch without pinning
-   the resolved commit.
-3. Replace the complete skill directory with the upstream directory, including all
-   referenced files, scripts, metadata, and assets.
-4. Do not adapt upstream content silently. Put project-specific constraints in
-   `AGENTS.md` or a project-specific skill.
-5. Update this table and the preserved license notice when necessary.
-6. Validate frontmatter, unique names, internal references, and repository docs.
-7. Review the complete diff and confirm that the external advice remains subordinate
-   to approved repository decisions.
-8. Start a new Codex session when the active session's discovery catalogue needs to
-   refresh newly added repository skills.
+`licenses/` preserves the available upstream license notices for the vendored skills.

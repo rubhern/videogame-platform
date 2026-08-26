@@ -121,7 +121,7 @@ for path in "${changed_paths[@]}"; do
       enable ci documentation
       matched=true
       ;;
-    *.md | docs/* | .agents/* | .codex/* | .github/ISSUE_TEMPLATE/* | .github/pull_request_template.md | .gitignore | .gitattributes)
+    *.md | docs/* | .agents/* | .claude/* | .codex/* | .worktreeinclude | .github/ISSUE_TEMPLATE/* | .github/pull_request_template.md | .gitignore | .gitattributes)
       enable documentation
       matched=true
       ;;

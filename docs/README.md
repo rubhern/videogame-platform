@@ -21,6 +21,7 @@ must not restate its contract or become a second source of truth.
 | Environments, topology, deployment, secrets, backup, and recovery behaviour | [Platform and delivery design](architecture/deployment/mvp-platform-and-delivery.md) | No human workflow or copy of scripts |
 | Durable architecture decisions | [ADRs](decisions/README.md) | Context, decision, alternatives, consequences, and revisit triggers |
 | Development and delivery procedures | [Development docs](development/README.md) | Stable workflows; scripts/configuration own executable detail |
+| AI agent configuration, skills, and external-skill provenance | [AI assistance](development/ai-assistance.md) | `AGENTS.md` and `CLAUDE.md` own the instructions themselves |
 | Human change flow, gates, versioning, and Definition of Done | [Delivery lifecycle](development/delivery-lifecycle.md) | No deployment-command duplication |
 | Historical evidence and spikes | [Research](research/README.md) | Method, evidence, limitations, conclusion; never current operations |
 | Original direction | [Vision PDF](reference/video-game-platform-vision.pdf) | Historical input, narrowed by approved product records |

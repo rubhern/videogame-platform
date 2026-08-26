@@ -12,6 +12,7 @@ manifests, configuration, migrations, and workflows.
 | [Continuous integration](continuous-integration.md) | CI selection, stable gates, and command mapping |
 | [Delivery lifecycle](delivery-lifecycle.md) | Human workflow, risk, versioning, validation policy, acceptance, and Definition of Done |
 | [Work management](work-management.md) | GitHub Issue/Project statuses and field meaning |
+| [AI assistance](ai-assistance.md) | Agent instruction files, skill layout, and external-skill provenance and update policy |
 
 Immediate backend/frontend commands belong in their module READMEs. Environment and
 deployment architecture belong in the

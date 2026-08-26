@@ -64,9 +64,14 @@ See [local setup](docs/development/local-setup.md), the
 | `docs/research/` | Historical evidence and bounded spikes, not operational instructions |
 | `tools/igdb-poc/` | Isolated provider proof-of-concept tool |
 | `scripts/` | Executable development and validation entry points |
+| `AGENTS.md`, `CLAUDE.md` | Instructions for AI coding agents; `CLAUDE.md` imports `AGENTS.md` |
+| `.agents/skills/` | Canonical copy of every agent skill |
+| `.claude/`, `.codex/` | Per-agent configuration; `.claude/skills/` symlinks the canonical skills |
 
 The [documentation map](docs/README.md) defines the canonical owner for every
-documentation area and how conflicts are resolved.
+documentation area and how conflicts are resolved. The
+[AI assistance guide](docs/development/ai-assistance.md) owns the agent
+configuration.
 
 ## Key sources of truth
 

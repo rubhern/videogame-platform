@@ -133,6 +133,18 @@ Examples:
 
 Keep technology-specific models at their boundaries.
 
+### Composition root
+
+Spring wiring that connects application implementations, ports, adapters, runtime
+configuration, and platform services belongs to an explicit composition root in the
+owning business module's `configuration` package. That package is the
+repository-approved equivalent of a global `platform.configuration` root for closed
+Modulith modules.
+
+A composition root may deliberately know core implementations and adapters, because
+wiring is its sole responsibility. Nothing else may. Never add a Spring stereotype to
+domain or application merely to avoid writing explicit composition.
+
 ## API-first backend development
 
 All product-facing HTTP APIs are contract-first.
