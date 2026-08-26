@@ -72,6 +72,16 @@ run_case migration \
   'backend,migrations' \
   'frontend,browser,identity,provider_fixtures,container'
 
+run_case agent-configuration \
+  $'CLAUDE.md\nAGENTS.md\n.claude/settings.json\n.claude/rules/hexagonal-boundaries.md\n.claude/skills/validate\n.worktreeinclude' \
+  'documentation' \
+  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case agent-skills \
+  $'.agents/skills/validate/SKILL.md\n.codex/config.toml' \
+  'documentation' \
+  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
 run_case topology-budget \
   'scripts/validate-topology-budget.sh' \
   'documentation,container,build' \

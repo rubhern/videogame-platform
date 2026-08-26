@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "ask": [
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr merge *)",
+      "Bash(npm publish *)",
+      "Bash(./mvnw deploy*)",
+      "Bash(./mvnw release*)"
+    ],
+    "deny": [
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/*.token)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.jks)",
+      "Read(**/id_rsa*)",
+      "Read(**/.credentials.json)",
+      "Read(~/.config/gh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.ssh/**)",
+      "Read(~/.docker/config.json)"
+    ],
+    "allow": [
+      "Bash(bash scripts/validate-docs.sh:*)",
+      "Bash(bash scripts/validate-openapi.sh:*)",
+      "Bash(bash scripts/validate-migrations.sh:*)",
+      "Bash(bash scripts/validate-actions.sh:*)",
+      "Bash(bash scripts/validate-browser.sh:*)",
+      "Bash(bash scripts/validate-identity.sh:*)",
+      "Bash(bash scripts/validate-container-image.sh:*)",
+      "Bash(bash scripts/validate-topology-budget.sh:*)",
+      "Bash(bash scripts/validate-prerequisites.sh:*)",
+      "Bash(bash scripts/test-ci-change-detection.sh:*)",
+      "Bash(bash scripts/detect-ci-changes.sh:*)",
+      "Bash(bash scripts/verify-ci-results.sh:*)",
+      "Bash(bash scripts/build-openapi-docs.sh:*)",
+      "Bash(./mvnw:*)",
+      "Bash(npm:*)",
+      "Bash(gh auth status:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh workflow list:*)",
+      "Bash(gh project view:*)",
+      "Bash(gh project item-list:*)",
+      "Bash(gh project field-list:*)"
+    ]
+  }
+}
