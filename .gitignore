@@ -3,7 +3,16 @@
 .env.*
 !.env.example
 *.token
+**/terraform.tfvars
+**/*.auto.tfvars
+**/*.tfplan
+**/*.tfplan.json
+**/*.tfstate
+**/*.tfstate.*
+**/.terraform/
+infrastructure/terraform/evidence/
 .idea/
+__pycache__/
 node_modules/
 frontend/dist/
 frontend/coverage/

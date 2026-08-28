@@ -10,6 +10,7 @@ manifests, configuration, migrations, and workflows.
 | [Database migrations](database-migrations.md) | Flyway authoring, privilege, seed, and validation policy |
 | [Observability](observability.md) | Health, correlation, logs, metrics, tracing, and telemetry safety |
 | [Continuous integration](continuous-integration.md) | CI selection, stable gates, and command mapping |
+| [Private OCI Terraform](oci-terraform.md) | Live free-tier preflight, protected state, plan review, and provisioning block |
 | [Delivery lifecycle](delivery-lifecycle.md) | Human workflow, risk, versioning, validation policy, acceptance, and Definition of Done |
 | [Work management](work-management.md) | GitHub Issue/Project statuses and field meaning |
 | [AI assistance](ai-assistance.md) | Agent instruction files, skill layout, and external-skill provenance and update policy |

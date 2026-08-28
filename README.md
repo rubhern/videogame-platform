@@ -10,7 +10,9 @@ alignment and solution definition are closed; implementation is active. The
 repository currently proves a PostgreSQL-backed release page, a packaged React
 frontend, and a real Keycloak-backed BFF session. Catalogue search, game details,
 ratings, personal ratings, provider synchronization, and remote `dev` deployment
-remain later slices of the approved journey.
+remain later slices of the approved journey. The reviewed private OCI Terraform stack
+and its fail-closed zero-cost plan gate are implemented locally, but no remote
+infrastructure has been provisioned.
 
 The system is one same-origin React application and Java/Spring modular monolith,
 with PostgreSQL, Flyway, Keycloak, and provider-independent local catalogue data.
@@ -64,6 +66,7 @@ See [local setup](docs/development/local-setup.md), the
 | `docs/research/` | Historical evidence and bounded spikes, not operational instructions |
 | `tools/igdb-poc/` | Isolated provider proof-of-concept tool |
 | `scripts/` | Executable development and validation entry points |
+| `infrastructure/terraform/` | Private OCI Resource Manager stack and hard cost/resource constraints |
 | `AGENTS.md`, `CLAUDE.md` | Instructions for AI coding agents; `CLAUDE.md` imports `AGENTS.md` |
 | `.agents/skills/` | Canonical copy of every agent skill |
 | `.claude/`, `.codex/` | Per-agent configuration; `.claude/skills/` symlinks the canonical skills |

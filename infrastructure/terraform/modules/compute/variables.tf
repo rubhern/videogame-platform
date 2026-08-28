@@ -1,0 +1,12 @@
+variable "compartment_ocid" { type = string }
+variable "availability_domain" { type = string }
+variable "subnet_ocid" { type = string }
+variable "network_security_group_ocid" { type = string }
+variable "image_ocid" { type = string }
+variable "instance_shape" { type = string }
+variable "instance_ocpus" { type = number }
+variable "instance_memory_gb" { type = number }
+variable "boot_volume_size_gb" { type = number }
+variable "data_volume_ocid" { type = string }
+variable "name_prefix" { type = string }
+variable "freeform_tags" { type = map(string) }

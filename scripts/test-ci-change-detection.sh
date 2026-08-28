@@ -87,6 +87,11 @@ run_case topology-budget \
   'documentation,container,build' \
   'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
+run_case terraform \
+  'infrastructure/terraform/modules/compute/main.tf' \
+  'documentation,infrastructure' \
+  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
 run_case identity \
   'backend/src/main/java/com/videogameplatform/identity/configuration/IdentitySecurityConfiguration.java' \
   'backend,browser,identity,sonar,codeql_java' \
@@ -109,7 +114,7 @@ run_case igdb-java \
 
 run_case workflow \
   '.github/workflows/build-and-verify.yml' \
-  'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript' \
+  'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,infrastructure,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript' \
   ''
 
 run_case frontend-backend \
@@ -129,13 +134,13 @@ run_case npm-lock \
 
 run_case push-main-full \
   'docs/product/product-brief.md' \
-  'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript' \
+  'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,infrastructure,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript' \
   '' \
   '--full'
 
 run_case unknown-fail-safe \
   'new-top-level-runtime.conf' \
-  'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript' \
+  'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,infrastructure,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript' \
   ''
 
 range_repository="$(mktemp -d)"

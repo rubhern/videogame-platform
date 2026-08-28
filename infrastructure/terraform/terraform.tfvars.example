@@ -1,0 +1,8 @@
+# Non-secret identifiers only. Copy to terraform.tfvars, which is ignored by Git.
+tenancy_ocid        = "ocid1.tenancy.oc1..replace-with-your-tenancy-ocid"
+region              = "replace-with-home-region"
+availability_domain = "replace-with-reviewed-a1-availability-domain"
+image_ocid          = "ocid1.image.oc1..replace-with-current-free-eligible-ubuntu-arm64-image"
+
+# Never add passwords, tokens, auth keys, secret versions, private keys, or
+# notification endpoints to Terraform variables.

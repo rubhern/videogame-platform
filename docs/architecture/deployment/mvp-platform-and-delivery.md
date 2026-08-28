@@ -23,8 +23,10 @@ container, Keycloak, PostgreSQL, and bounded telemetry. Tailscale provides priva
 HTTPS/admin access; it does not replace Keycloak/product authorization. No public
 application, identity, database, telemetry, or SSH ingress is allowed.
 
-Remote infrastructure has not been provisioned. It may be created only after
-rechecking current zero-cost eligibility and using reviewed Terraform. If an eligible
+Remote infrastructure has not been provisioned. Reviewed Terraform now defines the
+private topology and executable free-resource quotas, but provisioning remains
+blocked until a fresh account/home-region/headroom preflight and owner-reviewed plan
+pass the [OCI Terraform workflow](../../development/oci-terraform.md). If an eligible
 free resource is unavailable, use local `dev` or wait; never silently select paid or
 trial-only resources. Public production, HA, staging, Kubernetes, distributed
 components, automatic broad sync, and paid managed services remain deferred.
@@ -58,6 +60,11 @@ safe defaults. Missing security-critical configuration fails clearly. Remote sec
 use a protected source such as OCI Vault and are independently rotatable and
 least-privileged. Secret values stay out of Git, images, Terraform state where
 possible, frontend code, URLs, logs, screenshots, and CI artifacts.
+
+OCI Resource Manager is the only remote Terraform state owner. IAM-restricted state
+access and per-stack job serialization protect it and prevent concurrent changes;
+local state and local applies are prohibited. The Terraform stack marks operational
+outputs sensitive and never reads secret payloads or notification endpoints.
 
 ## PostgreSQL, migrations, and recovery
 
