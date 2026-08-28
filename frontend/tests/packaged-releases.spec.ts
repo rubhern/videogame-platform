@@ -29,6 +29,8 @@ test("the packaged releases shell reads PostgreSQL through the same-origin API",
   expect(releasesResponse.url()).toContain("page=1&pageSize=6");
 
   const releasePage = (await releasesResponse.json()) as ReleasePage;
+  expect(releasePage.evaluatedOn).toBe("2026-08-13");
+  expect(releasePage.window).toEqual({ from: "2026-02-13", to: "2026-08-13" });
   expect(releasePage.items.map((item) => item.canonicalTitle)).toContain("Pragmata");
 
   await expect(

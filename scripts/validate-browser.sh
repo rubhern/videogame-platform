@@ -11,6 +11,7 @@ browser_run_id="${RANDOM}-$$"
 browser_network="videogame-platform-browser-${browser_run_id}"
 postgres_container="videogame-platform-browser-postgres-${browser_run_id}"
 application_container="videogame-platform-browser-application-${browser_run_id}"
+browser_test_instant="2026-08-13T10:00:00Z"
 browser_tmp_dir="$(mktemp -d)"
 application_log="$browser_tmp_dir/application.log"
 
@@ -83,6 +84,7 @@ docker run --detach \
   --env APPLICATION_MIGRATION_DB_USERNAME=videogame_app_migrator \
   --env APPLICATION_MIGRATION_DB_PASSWORD="$migration_password" \
   --env MANAGEMENT_SERVER_ADDRESS=0.0.0.0 \
+  --env PLATFORM_CLOCK_FIXED_INSTANT="$browser_test_instant" \
   --env SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
   --volume "$application_jar:/application.jar:ro" \
   "$java_image" \
