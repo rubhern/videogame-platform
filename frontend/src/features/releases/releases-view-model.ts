@@ -2,6 +2,7 @@ import { formatReleaseDate } from "./release-date";
 import type { ReleasePage } from "./releases-api";
 
 export type ReleaseListItem = {
+  releaseId: string;
   gameId: string;
   slug: string;
   title: string;
@@ -15,6 +16,7 @@ export type ReleaseListItem = {
 
 export function toReleaseListItems(page: ReleasePage): ReleaseListItem[] {
   return page.items.map((item) => ({
+    releaseId: item.release.releaseId,
     gameId: item.gameId,
     slug: item.slug,
     title: item.canonicalTitle,

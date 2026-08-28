@@ -48,7 +48,7 @@ export function ReleasesShell({ state }: ReleasesShellProps) {
         {state.status === "success" ? (
           <ul aria-label="Lanzamientos recientes" className="grid gap-5">
             {state.items.map((item) => (
-              <li key={item.gameId}>
+              <li key={item.releaseId}>
                 <article className="rounded-xl border border-slate-700 bg-slate-900 p-5">
                   <h2 className="text-2xl font-semibold text-white">{item.title}</h2>
                   <p className="mt-2 text-lg text-cyan-200">{item.date}</p>
