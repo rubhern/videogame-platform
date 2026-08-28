@@ -6,6 +6,7 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="$repository_root/.env"
 backend_env_file="$repository_root/backend/.env"
 compose_file="$repository_root/compose.yaml"
+source "$repository_root/scripts/backend-artifact.sh"
 
 readonly postgres_image="postgres:18.4-bookworm"
 readonly keycloak_image="quay.io/keycloak/keycloak:26.7.0"
@@ -18,6 +19,7 @@ Usage: bash scripts/local-dependencies.sh <command>
 Commands:
   up             Create the ignored infrastructure/backend env files when absent,
                  then start PostgreSQL and Keycloak.
+  application    Build and run the complete packaged application topology.
   down           Stop containers without deleting local data.
   status         Show container and health status.
   logs           Follow PostgreSQL and Keycloak logs.
@@ -168,11 +170,17 @@ create_backend_env_if_missing() {
 }
 
 compose() {
-  docker compose --env-file "$env_file" --file "$compose_file" "$@"
+  local application_version
+  application_version="$(backend_reactor_version)" \
+    || die "Could not read the reactor version from pom.xml"
+
+  APPLICATION_VERSION="$application_version" \
+    docker compose --env-file "$env_file" --file "$compose_file" "$@"
 }
 
 ensure_compose_available() {
   require_command docker
+  require_command python3
   docker compose version >/dev/null 2>&1 || die "Docker Compose is not available"
   docker info >/dev/null 2>&1 || die "The Docker daemon is not reachable"
 }
@@ -321,6 +329,13 @@ case "$command_name" in
     compose up --detach --wait
     printf 'PostgreSQL is available on 127.0.0.1:%s.\n' "$(env_value POSTGRES_PORT)"
     printf 'Keycloak is available at %s.\n' "$(env_value KEYCLOAK_HOSTNAME)"
+    ;;
+  application)
+    ensure_compose_available
+    create_env_if_missing
+    require_env
+    create_backend_env_if_missing
+    compose --profile full up --build
     ;;
   down)
     ensure_compose_available

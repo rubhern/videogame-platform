@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repository_root/scripts/backend-artifact.sh"
 playwright_image="mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e"
 java_image="eclipse-temurin@sha256:f9e65324a37f28209ce7dd0e5149a7aa954520ed936fb87813cf6ded2400a112"
 postgres_image="postgres:18.4-bookworm"
@@ -51,6 +52,7 @@ test_user_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 test_user_username="local-user"
 
 bash scripts/package-application.sh
+application_jar="$(resolve_backend_jar)"
 
 docker network create --internal "$identity_network" >/dev/null
 
@@ -143,7 +145,7 @@ docker run --detach \
   --env APPLICATION_SESSION_COOKIE_NAME=vgp_session \
   --env APPLICATION_SESSION_COOKIE_SECURE=false \
   --env MANAGEMENT_SERVER_ADDRESS=0.0.0.0 \
-  --volume "$repository_root/backend/target/videogame-platform-backend-0.7.6-SNAPSHOT.jar:/application.jar:ro" \
+  --volume "$application_jar:/application.jar:ro" \
   "$java_image" java -jar /application.jar >/dev/null
 
 for _ in $(seq 1 90); do

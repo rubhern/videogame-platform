@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repository_root/scripts/backend-artifact.sh"
 evidence_directory="${IMAGE_EVIDENCE_DIRECTORY:-$repository_root/target/container-evidence}"
 image_archive="$evidence_directory/application-image.oci.tar"
 node_image="node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03"
@@ -42,21 +43,6 @@ fail() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command is unavailable: $1"
-}
-
-application_version() {
-  python3 - "$repository_root/pom.xml" <<'PY'
-import pathlib
-import sys
-import xml.etree.ElementTree as ET
-
-namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
-root = ET.parse(pathlib.Path(sys.argv[1])).getroot()
-version = root.findtext("m:version", namespaces=namespace)
-if not version:
-    raise SystemExit("pom.xml has no project version")
-print(version)
-PY
 }
 
 inspect_oci_archive() {
@@ -382,7 +368,7 @@ rm -f -- \
   "$evidence_directory/trivy-version.txt" \
   "$evidence_directory/SHA256SUMS"
 
-image_version="${APPLICATION_VERSION:-$(application_version)}"
+image_version="${APPLICATION_VERSION:-$(backend_reactor_version)}"
 source_url="${SOURCE_URL:-https://github.com/rubhern/videogame-platform}"
 if [[ -n "${SOURCE_REVISION:-}" ]]; then
   source_revision="$SOURCE_REVISION"

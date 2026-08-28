@@ -46,7 +46,7 @@ at `http://localhost:8080`. Alternatively, run the packaged application and its
 dependencies together:
 
 ```bash
-docker compose --profile full up --build
+bash scripts/local-dependencies.sh application
 ```
 
 See [local setup](docs/development/local-setup.md), the

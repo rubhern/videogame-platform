@@ -48,7 +48,7 @@ The application listens on `http://localhost:8080`. Add
 packaged topology:
 
 ```bash
-docker compose --profile full up --build
+bash scripts/local-dependencies.sh application
 ```
 
 For deterministic release examples, add
@@ -107,7 +107,7 @@ correlation identifiers. See [observability](../docs/development/observability.m
 
 ```bash
 bash scripts/package-application.sh
-java -jar backend/target/videogame-platform-backend-0.7.6-SNAPSHOT.jar
+java -jar "$(bash scripts/backend-artifact.sh jar)"
 bash scripts/validate-browser.sh
 bash scripts/validate-identity.sh
 bash scripts/validate-container-image.sh

@@ -69,12 +69,12 @@ services:
 
   application:
     profiles: ["full"]
-    image: videogame-platform/application:${APPLICATION_VERSION:-0.7.6-SNAPSHOT}
+    image: videogame-platform/application:${APPLICATION_VERSION:?Use scripts/local-dependencies.sh application so the version is derived from Maven}
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        APPLICATION_VERSION: ${APPLICATION_VERSION:-0.7.6-SNAPSHOT}
+        APPLICATION_VERSION: ${APPLICATION_VERSION:?Use scripts/local-dependencies.sh application so the version is derived from Maven}
         SOURCE_REVISION: ${SOURCE_REVISION:-local-development}
         SOURCE_URL: ${SOURCE_URL:-https://github.com/rubhern/videogame-platform}
     environment:
