@@ -57,6 +57,7 @@ categories=(
   identity
   provider_fixtures
   container
+  infrastructure
   build
   ci
   dependencies
@@ -127,6 +128,10 @@ for path in "${changed_paths[@]}"; do
       ;;
     Dockerfile | .dockerignore | scripts/validate-container-image.sh)
       enable container build frontend backend
+      matched=true
+      ;;
+    infrastructure/terraform/* | scripts/collect-oci-free-tier-evidence.py | scripts/review-oci-terraform-plan.py | scripts/test-oci-terraform-plan-gate.py | scripts/validate-terraform.sh)
+      enable documentation infrastructure
       matched=true
       ;;
     scripts/package-application.sh | scripts/validate-browser.sh)

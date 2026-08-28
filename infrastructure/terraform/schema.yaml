@@ -1,0 +1,43 @@
+title: VideoGame Platform private dev
+description: Reviewed zero-recurring-cost OCI Resource Manager stack.
+schemaVersion: 1.1.0
+version: "0.1.0"
+locale: en
+variableGroups:
+  - title: Verified OCI placement
+    variables:
+      - tenancy_ocid
+      - region
+      - availability_domain
+      - image_ocid
+variables:
+  tenancy_ocid:
+    type: string
+    title: Tenancy OCID
+    required: true
+  region:
+    type: oci:identity:region:name
+    title: Verified home region
+    required: true
+  availability_domain:
+    type: oci:identity:availabilitydomain:name
+    title: Verified A1 availability domain
+    required: true
+    dependsOn:
+      compartmentId: tenancy_ocid
+  image_ocid:
+    type: oci:core:image:id
+    title: Current Always Free-eligible Ubuntu ARM64 image
+    required: true
+    dependsOn:
+      compartmentId: tenancy_ocid
+outputs:
+  instance_private_ip:
+    type: string
+    title: Private instance address
+    visible: false
+  backup_bucket_name:
+    type: string
+    title: Private backup bucket
+    visible: false
+primaryOutputButton: null

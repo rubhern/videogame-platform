@@ -36,7 +36,7 @@ pass, not independent approval.
 ## Semantic Versioning
 
 Assess each releasable artefact independently: backend Maven reactor, frontend npm
-package, OpenAPI contract, and isolated IGDB PoC.
+package, OpenAPI contract, isolated IGDB PoC, and Terraform infrastructure stack.
 
 For pre-`1.0.0` artefacts:
 
