@@ -1,7 +1,7 @@
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { render } from "@testing-library/react";
 
@@ -28,6 +28,7 @@ describe("releases shell", () => {
             status: "success",
             items: [
               {
+                releaseId: "release-pragmata-pc-worldwide",
                 gameId: "game-pragmata",
                 slug: "pragmata",
                 title: "Pragmata",
@@ -53,6 +54,55 @@ describe("releases shell", () => {
     const link = screen.getByRole("link", { name: "Ver Pragmata" });
     expect(link).toHaveFocus();
     expect(link).toHaveAttribute("href", "/games/pragmata");
+  });
+
+  it("renders distinct releases of the same game without duplicate row keys", () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    try {
+      render(
+        <MemoryRouter>
+          <ReleasesShell
+            state={{
+              status: "success",
+              items: [
+                {
+                  releaseId: "release-pragmata-ps5-europe",
+                  gameId: "game-pragmata",
+                  slug: "pragmata",
+                  title: "Pragmata",
+                  date: "24 de abril de 2026",
+                  platform: "PlayStation 5",
+                  region: "Europe",
+                  provenance: "VideoGame Platform clickable prototype",
+                  freshness: "Datos locales actualizados",
+                  review: null,
+                },
+                {
+                  releaseId: "release-pragmata-pc-worldwide",
+                  gameId: "game-pragmata",
+                  slug: "pragmata",
+                  title: "Pragmata",
+                  date: "25 de abril de 2026",
+                  platform: "Windows PC",
+                  region: "Worldwide",
+                  provenance: "VideoGame Platform clickable prototype",
+                  freshness: "Datos locales actualizados",
+                  review: null,
+                },
+              ],
+            }}
+          />
+        </MemoryRouter>,
+      );
+
+      expect(screen.getAllByRole("listitem")).toHaveLength(2);
+      expect(screen.getByText("PlayStation 5 · Europe")).toBeInTheDocument();
+      expect(screen.getByText("Windows PC · Worldwide")).toBeInTheDocument();
+      expect(consoleError).not.toHaveBeenCalled();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 
   it("announces an empty successful response", () => {
