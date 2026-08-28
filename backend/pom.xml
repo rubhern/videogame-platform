@@ -7,7 +7,7 @@
   <parent>
     <groupId>com.videogameplatform</groupId>
     <artifactId>videogame-platform</artifactId>
-    <version>0.7.6-SNAPSHOT</version>
+    <version>0.7.7-SNAPSHOT</version>
   </parent>
 
   <artifactId>videogame-platform-backend</artifactId>

@@ -67,6 +67,11 @@ run_case backend \
   'backend,sonar,codeql_java' \
   'frontend,browser,migrations,identity,provider_fixtures,container'
 
+run_case backend-postman \
+  'backend/postman/actuator.postman_collection.json' \
+  'documentation,backend' \
+  'openapi,frontend,browser,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
 run_case migration \
   'backend/src/main/resources/db/migration/V99999999_000000__test.sql' \
   'backend,migrations' \
@@ -91,6 +96,16 @@ run_case terraform \
   'infrastructure/terraform/modules/compute/main.tf' \
   'documentation,infrastructure' \
   'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case backend-artifact \
+  'scripts/backend-artifact.sh' \
+  'documentation,build,browser,backend,identity,container' \
+  'openapi,frontend,migrations,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case local-dependencies \
+  'scripts/local-dependencies.sh' \
+  'documentation,build,backend,migrations,identity,container' \
+  'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case identity \
   'backend/src/main/java/com/videogameplatform/identity/configuration/IdentitySecurityConfiguration.java' \

@@ -251,7 +251,7 @@
                   "",
                   "pm.test(\"Response contains safe build and source metadata\", function () {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(body.build.version).to.eql(\"0.7.6-SNAPSHOT\");",
+                  "    pm.expect(body.build.version).to.match(/^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$/);",
                   "    pm.expect(body.build.sourceRevision).to.be.a(\"string\").and.not.empty;",
                   "    pm.expect(JSON.stringify(body)).not.to.include(\"password\");",
                   "    pm.expect(JSON.stringify(body)).not.to.include(\"jdbc:\");",

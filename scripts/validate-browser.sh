@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repository_root/scripts/backend-artifact.sh"
 playwright_image="mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e"
 java_image="eclipse-temurin@sha256:f9e65324a37f28209ce7dd0e5149a7aa954520ed936fb87813cf6ded2400a112"
 postgres_image="postgres:18.4-bookworm"
@@ -35,6 +36,7 @@ keycloak_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 postgres_admin_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 
 bash scripts/package-application.sh
+application_jar="$(resolve_backend_jar)"
 
 docker network create --internal "$browser_network" >/dev/null
 
@@ -82,7 +84,7 @@ docker run --detach \
   --env APPLICATION_MIGRATION_DB_PASSWORD="$migration_password" \
   --env MANAGEMENT_SERVER_ADDRESS=0.0.0.0 \
   --env SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
-  --volume "$repository_root/backend/target/videogame-platform-backend-0.7.6-SNAPSHOT.jar:/application.jar:ro" \
+  --volume "$application_jar:/application.jar:ro" \
   "$java_image" \
   java -jar /application.jar >/dev/null
 

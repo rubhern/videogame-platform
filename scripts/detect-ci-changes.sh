@@ -150,6 +150,14 @@ for path in "${changed_paths[@]}"; do
       enable documentation container build
       matched=true
       ;;
+    scripts/backend-artifact.sh)
+      enable documentation build browser backend identity container
+      matched=true
+      ;;
+    scripts/local-dependencies.sh)
+      enable documentation build backend migrations identity container
+      matched=true
+      ;;
     compose.yaml)
       enable build container identity migrations backend
       matched=true
@@ -160,6 +168,10 @@ for path in "${changed_paths[@]}"; do
       ;;
     backend/pom.xml)
       enable documentation build dependencies backend sonar codeql_java
+      matched=true
+      ;;
+    backend/postman/*)
+      enable documentation backend
       matched=true
       ;;
     package.json)

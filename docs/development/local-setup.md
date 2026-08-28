@@ -15,9 +15,9 @@ the prerequisite script own compatibility.
 bash scripts/validate-prerequisites.sh
 ```
 
-The script checks WSL/filesystem placement, Java/Javac, Node/npm, Git, Docker,
-Compose, and the Maven Wrapper without starting services. Use its diagnostics rather
-than maintaining a parallel checklist here.
+The script checks WSL/filesystem placement, Java/Javac, Node/npm, Python, Git,
+Docker, Compose, and the Maven Wrapper without starting services. Use its
+diagnostics rather than maintaining a parallel checklist here.
 
 ## Local topology
 
@@ -58,7 +58,7 @@ bash scripts/validate-topology-budget.sh
 Run the complete application with:
 
 ```bash
-docker compose --profile full up --build
+bash scripts/local-dependencies.sh application
 ```
 
 For separate development loops, use the commands in the

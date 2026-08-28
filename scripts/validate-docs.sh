@@ -97,6 +97,7 @@ required_files=(
   "scripts/detect-ci-changes.sh"
   "scripts/test-ci-change-detection.sh"
   "scripts/verify-ci-results.sh"
+  "scripts/backend-artifact.sh"
   "scripts/validate-browser.sh"
   "scripts/validate-container-image.sh"
   "scripts/validate-topology-budget.sh"
@@ -265,13 +266,12 @@ try:
         errors.append(
             "backend/pom.xml: parent version must match the backend reactor version"
         )
-    if reactor_version is not None:
-        expected_jar = f"videogame-platform-backend-{reactor_version}.jar"
-        for relative in ("backend/README.md",):
-            if expected_jar not in (root / relative).read_text(encoding="utf-8"):
-                errors.append(
-                    f"{relative}: expected current backend artefact {expected_jar}"
-                )
+    backend_readme = (root / "backend/README.md").read_text(encoding="utf-8")
+    resolved_jar_command = 'java -jar "$(bash scripts/backend-artifact.sh jar)"'
+    if resolved_jar_command not in backend_readme:
+        errors.append(
+            "backend/README.md: packaged backend command must resolve the Maven JAR"
+        )
 except (OSError, ET.ParseError) as error:
     errors.append(f"Maven version validation failed: {error}")
 
@@ -530,6 +530,11 @@ done < <(git ls-files)
 
 [[ -x "scripts/validate-prerequisites.sh" ]] || {
   printf 'Shell script must be executable: scripts/validate-prerequisites.sh\n' >&2
+  exit 1
+}
+
+[[ -x "scripts/backend-artifact.sh" ]] || {
+  printf 'Shell script must be executable: scripts/backend-artifact.sh\n' >&2
   exit 1
 }
 
