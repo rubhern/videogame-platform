@@ -34,7 +34,7 @@
     <jackson-bom.version>3.1.5</jackson-bom.version>
     <jacoco.version>0.8.15</jacoco.version>
     <log4j2.version>2.25.5</log4j2.version>
-    <openapi-generator.version>7.24.0</openapi-generator.version>
+    <openapi-generator.version>7.25.0</openapi-generator.version>
     <postgresql.version>42.7.12</postgresql.version>
     <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
     <spotless-maven-plugin.version>3.9.0</spotless-maven-plugin.version>
