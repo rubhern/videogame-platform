@@ -172,16 +172,20 @@ NODE
 }
 
 seed_catalogue_for_runtime_evidence() {
-  docker exec --interactive \
-    --env PGPASSWORD="$migration_password" \
-    "$postgres_container" \
-    psql \
-      --host=127.0.0.1 \
-      --username=videogame_app_migrator \
-      --dbname=videogame_platform \
-      --set=ON_ERROR_STOP=1 \
-      <"$repository_root/backend/src/main/resources/db/dev-seed/V20260809_130000__seed_bounded_prototype_catalogue.sql" \
-      >/dev/null
+  local seed_file
+  # Apply every development seed file in Flyway version order.
+  while IFS= read -r seed_file; do
+    docker exec --interactive \
+      --env PGPASSWORD="$migration_password" \
+      "$postgres_container" \
+      psql \
+        --host=127.0.0.1 \
+        --username=videogame_app_migrator \
+        --dbname=videogame_platform \
+        --set=ON_ERROR_STOP=1 \
+        <"$seed_file" \
+        >/dev/null
+  done < <(find "$repository_root/backend/src/main/resources/db/dev-seed" -name 'V*.sql' | sort)
 }
 
 verify_runtime_image() {

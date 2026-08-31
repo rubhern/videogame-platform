@@ -41,6 +41,7 @@ class ReleaseApiIntegrationTest {
     private static final String DATABASE_NAME =
             PostgreSqlTestDatabase.isolatedDatabaseName("release_api");
     private static final String PLATFORM_PS5 = "10000000-0000-4000-8000-000000000001";
+    private static final String REGION_JAPAN = "20000000-0000-4000-8000-000000000005";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final OpenApiResponseContract OPENAPI = OpenApiResponseContract.load();
 
@@ -70,21 +71,47 @@ class ReleaseApiIntegrationTest {
         assertThat(body.path("view").stringValue()).isEqualTo("recent");
         assertThat(body.path("evaluatedOn").stringValue()).isEqualTo("2026-08-13");
         assertThat(body.path("window").path("from").stringValue()).isEqualTo("2026-02-13");
-        assertThat(body.path("items").size()).isEqualTo(2);
+        assertThat(body.path("items").size()).isEqualTo(8);
         assertThat(body.path("items").get(0).path("canonicalTitle").stringValue())
                 .isEqualTo("Pragmata");
         JsonNode firstReleaseDate = body.path("items").get(0).path("release").path("releaseDate");
         assertThat(firstReleaseDate.path("precision").stringValue()).isEqualTo("quarter");
         assertThat(firstReleaseDate.path("value").stringValue()).isEqualTo("2026-Q2");
-        JsonNode secondReleaseDate = body.path("items").get(1).path("release").path("releaseDate");
-        assertThat(secondReleaseDate.path("precision").stringValue()).isEqualTo("day");
-        assertThat(secondReleaseDate.path("value").stringValue()).isEqualTo("2026-02-27");
+        // The same game shares the effective quarter, so releaseId is the only value
+        // that separates the two rows.
+        assertThat(body.path("items").get(1).path("canonicalTitle").stringValue())
+                .isEqualTo("Pragmata");
+        assertThat(body.path("items").get(1).path("release").path("releaseId").stringValue())
+                .isNotEqualTo(
+                        body.path("items").get(0).path("release").path("releaseId").stringValue());
+        JsonNode lastReleaseDate = body.path("items").get(7).path("release").path("releaseDate");
+        assertThat(body.path("items").get(7).path("canonicalTitle").stringValue())
+                .isEqualTo("Resident Evil Requiem");
+        assertThat(lastReleaseDate.path("precision").stringValue()).isEqualTo("day");
+        assertThat(lastReleaseDate.path("value").stringValue()).isEqualTo("2026-02-27");
         assertThat(body.path("items").get(0).path("release").path("freshnessStatus").stringValue())
                 .isEqualTo("stale");
         assertThat(body.path("items").get(0).path("primaryCover").path("kind").stringValue())
                 .isEqualTo("fallback");
         assertThat(body.path("items").get(0).path("primaryCover").path("attribution").isNull())
                 .isTrue();
+        // Crimson Desert carries an approved provider image reference without an
+        // attribution URL, so ADR-0001 requires the product-owned fallback.
+        JsonNode providerReferenceWithoutAttribution = body.path("items").get(2);
+        assertThat(providerReferenceWithoutAttribution.path("canonicalTitle").stringValue())
+                .isEqualTo("Crimson Desert");
+        assertThat(
+                        providerReferenceWithoutAttribution
+                                .path("primaryCover")
+                                .path("kind")
+                                .stringValue())
+                .isEqualTo("fallback");
+        assertThat(
+                        providerReferenceWithoutAttribution
+                                .path("primaryCover")
+                                .path("alternativeText")
+                                .stringValue())
+                .isEqualTo("Carátula oficial no disponible");
 
         HttpResponse<String> notModified =
                 get("/api/v1/releases?view=recent", "If-None-Match", entityTag);
@@ -126,26 +153,42 @@ class ReleaseApiIntegrationTest {
     @Test
     void supportsFiltersPaginationEmptyPagesAndUnknownDatePrecision() throws Exception {
         JsonNode upcoming = json(get("/api/v1/releases?view=upcoming&page=1&pageSize=20"));
-        assertThat(upcoming.path("items")).hasSize(2);
+        assertThat(upcoming.path("items")).hasSize(8);
         JsonNode knownDate = upcoming.path("items").get(0).path("release").path("releaseDate");
-        assertThat(knownDate.path("precision").stringValue()).isEqualTo("year");
-        assertThat(knownDate.path("value").stringValue()).isEqualTo("2027");
-        JsonNode unknownDate = upcoming.path("items").get(1).path("release").path("releaseDate");
+        assertThat(knownDate.path("precision").stringValue()).isEqualTo("day");
+        assertThat(knownDate.path("value").stringValue()).isEqualTo("2026-09-25");
+        JsonNode unknownDate = upcoming.path("items").get(7).path("release").path("releaseDate");
         assertThat(unknownDate.path("precision").stringValue()).isEqualTo("unknown");
         assertThat(unknownDate.path("value").isNull()).isTrue();
 
-        JsonNode empty = json(get("/api/v1/releases?view=upcoming&platformId=" + PLATFORM_PS5));
+        JsonNode firstUpcomingPage = json(get("/api/v1/releases?view=upcoming&page=1&pageSize=6"));
+        JsonNode lastUpcomingPage = json(get("/api/v1/releases?view=upcoming&page=2&pageSize=6"));
+        assertThat(firstUpcomingPage.path("items")).hasSize(6);
+        assertThat(firstUpcomingPage.path("page").path("totalPages").asInt()).isEqualTo(2);
+        assertThat(lastUpcomingPage.path("items")).hasSize(2);
+        assertThat(lastUpcomingPage.path("page").path("totalItems").asLong()).isEqualTo(8);
+
+        JsonNode empty =
+                json(
+                        get(
+                                "/api/v1/releases?view=upcoming&platformId="
+                                        + PLATFORM_PS5
+                                        + "&regionId="
+                                        + REGION_JAPAN));
         assertThat(empty.path("items")).isEmpty();
         assertThat(empty.path("page").path("totalItems").asLong()).isZero();
         assertThat(empty.path("page").path("totalPages").asInt()).isZero();
         assertThat(empty.path("activeFilters").path("platformId").stringValue())
                 .isEqualTo(PLATFORM_PS5);
+        assertThat(empty.path("activeFilters").path("regionId").stringValue())
+                .isEqualTo(REGION_JAPAN);
         assertThat(empty.path("availableFilters").path("platforms")).hasSize(4);
+        assertThat(empty.path("availableFilters").path("regions")).hasSize(5);
 
         JsonNode beyond = json(get("/api/v1/releases?view=recent&page=99&pageSize=1"));
         assertThat(beyond.path("items")).isEmpty();
         assertThat(beyond.path("page").path("number").asInt()).isEqualTo(99);
-        assertThat(beyond.path("page").path("totalItems").asLong()).isEqualTo(2);
+        assertThat(beyond.path("page").path("totalItems").asLong()).isEqualTo(8);
         assertThat(
                         meterRegistry
                                 .find("catalogue.releases.result.count")

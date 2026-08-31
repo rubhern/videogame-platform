@@ -21,7 +21,10 @@ describe("generated release date oneOf", () => {
   it.each([
     [{ precision: "day", value: "2026-02-27" }, "27 de febrero de 2026"],
     [{ precision: "month", value: "2026-09" }, "septiembre de 2026"],
+    [{ precision: "quarter", value: "2026-Q1" }, "1.er trimestre de 2026"],
     [{ precision: "quarter", value: "2026-Q2" }, "2.º trimestre de 2026"],
+    [{ precision: "quarter", value: "2026-Q3" }, "3.er trimestre de 2026"],
+    [{ precision: "quarter", value: "2026-Q4" }, "4.º trimestre de 2026"],
     [{ precision: "year", value: "2027" }, "2027"],
     [{ precision: "unknown", value: null }, "Fecha por confirmar"],
   ] as const)("formats %o without inventing precision", (releaseDate, expected) => {

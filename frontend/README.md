@@ -1,9 +1,11 @@
 # VideoGame Platform frontend
 
 The frontend is a client-rendered React/TypeScript SPA for the approved same-origin
-BFF/API. It currently renders a typed recent-releases shell and placeholder game
-route. Filters, catalogue search, game details, ratings, `Mis puntuaciones`, and
-provider synchronization UI remain later slices.
+BFF/API. It currently renders the complete `UC-001` release-discovery page — recent
+and upcoming windows, platform and region filters, pagination, covers, and the
+loading, empty, stale, catalogue-not-ready and failure states — plus a placeholder
+game route. Catalogue search, game details, ratings, `Mis puntuaciones`, and provider
+synchronization UI remain later slices.
 
 ## Install and verify
 
@@ -59,9 +61,13 @@ through components. Follow the [OpenAPI workflow](../docs/development/openapi.md
 
 React Router owns browser navigation. TanStack Query owns server state, caching,
 loading, and invalidation. Component state owns transient local interaction state;
-URL parameters own navigable/shareable state when safe. OAuth tokens and personal
-responses must not be stored in browser storage. Same-origin requests preserve the
-BFF cookie and CSRF contract.
+URL parameters own navigable/shareable state when safe. The release page keeps
+`view`, `platformId`, `regionId`, `page`, and `pageSize` in the query string so a
+filtered result stays shareable. Values outside the contract shape fall back to a
+safe default before reaching the API; well-formed but unknown platform and region
+identifiers reach the API and produce the explicit unsupported-filter state. OAuth
+tokens and personal responses must not be stored in browser storage. Same-origin
+requests preserve the BFF cookie and CSRF contract.
 
 ## Accessibility and testing
 

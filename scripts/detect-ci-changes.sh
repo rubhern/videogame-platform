@@ -142,6 +142,11 @@ for path in "${changed_paths[@]}"; do
       enable identity browser backend
       matched=true
       ;;
+    backend/src/main/resources/db/dev-seed/*)
+      # The packaged browser journey asserts the demonstration catalogue it browses.
+      enable migrations backend browser
+      matched=true
+      ;;
     scripts/validate-migrations.sh | docker/postgres/* | backend/src/main/resources/db/*)
       enable migrations backend
       matched=true
