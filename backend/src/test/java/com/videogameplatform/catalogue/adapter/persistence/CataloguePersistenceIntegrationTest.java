@@ -43,7 +43,7 @@ class CataloguePersistenceIntegrationTest {
         var migrationResult = flyway.migrate();
         flyway.validate();
 
-        assertThat(migrationResult.migrationsExecuted).isEqualTo(6);
+        assertThat(migrationResult.migrationsExecuted).isEqualTo(7);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -61,11 +61,11 @@ class CataloguePersistenceIntegrationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(6);
+                    .isEqualTo(7);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
-                    .isEqualTo(8);
+                    .isEqualTo(12);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.release_snapshot"))
-                    .isEqualTo(8);
+                    .isEqualTo(20);
             assertThat(
                             singleInt(
                                     statement,
@@ -83,7 +83,11 @@ class CataloguePersistenceIntegrationTest {
                                     + "30000000-0000-4000-8000-000000000005,"
                                     + "30000000-0000-4000-8000-000000000006,"
                                     + "30000000-0000-4000-8000-000000000007,"
-                                    + "30000000-0000-4000-8000-000000000008");
+                                    + "30000000-0000-4000-8000-000000000008,"
+                                    + "30000000-0000-4000-8000-000000000009,"
+                                    + "30000000-0000-4000-8000-00000000000a,"
+                                    + "30000000-0000-4000-8000-00000000000b,"
+                                    + "30000000-0000-4000-8000-00000000000c");
         }
     }
 
@@ -197,7 +201,7 @@ class CataloguePersistenceIntegrationTest {
         try (Connection connection = PostgreSqlTestDatabase.runtimeConnection(DATABASE_NAME);
                 Statement statement = connection.createStatement()) {
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
-                    .isEqualTo(8);
+                    .isEqualTo(12);
             assertThat(
                             singleInt(
                                     statement,

@@ -53,7 +53,13 @@ bash scripts/local-dependencies.sh application
 
 For deterministic release examples, add
 `SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed`. The seed is
-development-only and excluded from the production image profile.
+development-only and excluded from the production image profile. It holds a small
+intentional matrix — twelve games over twenty releases across four platforms and five
+regions — that produces several real pages, an incomplete last page, filters with
+many, few and no results, every date precision, and both cover-fallback reasons.
+
+The seed uses absolute dates, so add `PLATFORM_CLOCK_FIXED_INSTANT=2026-08-13T10:00:00Z`
+to evaluate the same `recent` and `upcoming` windows the browser gate asserts.
 
 Configuration names, defaults, and secret classification are maintained in
 [`backend/.env.example`](.env.example) and

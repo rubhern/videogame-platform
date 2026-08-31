@@ -77,6 +77,11 @@ run_case migration \
   'backend,migrations' \
   'frontend,browser,identity,provider_fixtures,container'
 
+run_case development-seed \
+  'backend/src/main/resources/db/dev-seed/V99999999_000000__test.sql' \
+  'backend,migrations,browser' \
+  'frontend,identity,provider_fixtures,container'
+
 run_case agent-configuration \
   $'CLAUDE.md\nAGENTS.md\n.claude/settings.json\n.claude/rules/hexagonal-boundaries.md\n.claude/skills/validate\n.worktreeinclude' \
   'documentation' \

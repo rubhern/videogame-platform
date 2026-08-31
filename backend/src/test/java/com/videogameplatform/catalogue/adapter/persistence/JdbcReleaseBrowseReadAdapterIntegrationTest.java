@@ -41,7 +41,9 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
     private static final String PLATFORM_WINDOWS_PC = "10000000-0000-4000-8000-000000000003";
     private static final String PLATFORM_XBOX_SERIES = "10000000-0000-4000-8000-000000000004";
     private static final String REGION_WORLDWIDE = "20000000-0000-4000-8000-000000000001";
+    private static final String REGION_EUROPE = "20000000-0000-4000-8000-000000000002";
     private static final String REGION_UNKNOWN = "20000000-0000-4000-8000-000000000003";
+    private static final String REGION_JAPAN = "20000000-0000-4000-8000-000000000005";
     private static JdbcTemplate jdbcTemplate;
     private static JdbcTemplate adminJdbcTemplate;
     private static DataSource runtimeDataSource;
@@ -86,12 +88,19 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         .orElseThrow();
 
         assertThat(firstPage.publicationVersion()).isEqualTo("prototype-catalogue-v1");
-        assertThat(firstPage.totalItems()).isEqualTo(2);
+        assertThat(firstPage.totalItems()).isEqualTo(8);
         assertThat(firstPage.items()).singleElement();
-        assertThat(firstPage.items().getFirst().canonicalTitle()).isEqualTo("Pragmata");
         assertThat(secondPage.items()).singleElement();
-        assertThat(secondPage.items().getFirst().canonicalTitle())
-                .isEqualTo("Resident Evil Requiem");
+        // Both pages hold the same game with the same effective quarter, so only the
+        // unique releaseId keeps the two rows apart across the page boundary.
+        assertThat(firstPage.items().getFirst().canonicalTitle()).isEqualTo("Pragmata");
+        assertThat(secondPage.items().getFirst().canonicalTitle()).isEqualTo("Pragmata");
+        assertThat(firstPage.items().getFirst().gameId())
+                .isEqualTo(secondPage.items().getFirst().gameId());
+        assertThat(firstPage.items().getFirst().releaseId())
+                .isEqualTo("40000000-0000-4000-8000-000000000006");
+        assertThat(secondPage.items().getFirst().releaseId())
+                .isEqualTo("40000000-0000-4000-8000-00000000000a");
         assertThat(firstPage.items())
                 .allSatisfy(
                         item ->
@@ -105,10 +114,14 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                 adapter.findPublishedReleases(criteria(BrowseReleasesUseCase.View.UPCOMING, 1, 20))
                         .orElseThrow();
 
-        assertThat(result.items()).hasSize(2);
-        assertThat(result.items().getFirst().releaseDate())
-                .isInstanceOf(ReleaseDate.YearOnly.class);
+        assertThat(result.items()).hasSize(8);
+        assertThat(result.items().getFirst().releaseDate()).isInstanceOf(ReleaseDate.Day.class);
         assertThat(result.items().getLast().releaseDate()).isInstanceOf(ReleaseDate.Unknown.class);
+        assertThat(result.items().subList(0, 7))
+                .allSatisfy(
+                        item ->
+                                assertThat(item.releaseDate())
+                                        .isNotInstanceOf(ReleaseDate.Unknown.class));
     }
 
     @ParameterizedTest(name = "{0} with platform={1} and region={2}")
@@ -123,9 +136,8 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         .orElseThrow();
 
         assertThat(result.totalItems()).isEqualTo(expectedTitles.size());
-        assertThat(result.items())
-                .extracting(ReleaseBrowseReadPort.Item::canonicalTitle)
-                .containsExactlyElementsOf(expectedTitles);
+        assertThat(result.items().stream().map(ReleaseBrowseReadPort.Item::canonicalTitle).toList())
+                .isEqualTo(expectedTitles);
     }
 
     @Test
@@ -141,10 +153,22 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                                         false))
                         .orElseThrow();
 
-        assertThat(result.totalItems()).isEqualTo(1);
+        assertThat(result.totalItems()).isEqualTo(7);
+        assertThat(result.items())
+                .allSatisfy(
+                        item ->
+                                assertThat(item.releaseDate())
+                                        .isNotInstanceOf(ReleaseDate.Unknown.class));
         assertThat(result.items())
                 .extracting(ReleaseBrowseReadPort.Item::canonicalTitle)
-                .containsExactly("Fable");
+                .containsExactly(
+                        "Marvel's Wolverine",
+                        "Crimson Desert",
+                        "Crimson Desert",
+                        "Subnautica 2",
+                        "Fable",
+                        "Subnautica 2",
+                        "The Witcher IV");
     }
 
     @Test
@@ -273,32 +297,63 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         BrowseReleasesUseCase.View.RECENT,
                         null,
                         null,
-                        List.of("Pragmata", "Resident Evil Requiem")),
+                        List.of(
+                                "Pragmata",
+                                "Pragmata",
+                                "Crimson Desert",
+                                "Metroid Prime 4: Beyond",
+                                "Metroid Prime 4: Beyond",
+                                "Subnautica 2",
+                                "Resident Evil Requiem",
+                                "Resident Evil Requiem")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.RECENT,
                         PLATFORM_PLAYSTATION_5,
                         null,
-                        List.of("Resident Evil Requiem")),
+                        List.of("Pragmata", "Resident Evil Requiem")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.RECENT,
                         null,
                         REGION_WORLDWIDE,
-                        List.of("Pragmata")),
+                        List.of("Pragmata", "Crimson Desert", "Resident Evil Requiem")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.RECENT,
                         PLATFORM_WINDOWS_PC,
                         REGION_WORLDWIDE,
-                        List.of("Pragmata")),
+                        List.of("Pragmata", "Crimson Desert", "Resident Evil Requiem")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        PLATFORM_XBOX_SERIES,
+                        null,
+                        List.of("Subnautica 2")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        null,
+                        REGION_JAPAN,
+                        List.of("Metroid Prime 4: Beyond")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        PLATFORM_WINDOWS_PC,
+                        REGION_EUROPE,
+                        List.of()),
                 Arguments.of(
                         BrowseReleasesUseCase.View.UPCOMING,
                         null,
                         null,
-                        List.of("Fable", "The Witcher IV")),
+                        List.of(
+                                "Marvel's Wolverine",
+                                "Crimson Desert",
+                                "Crimson Desert",
+                                "Subnautica 2",
+                                "Fable",
+                                "Subnautica 2",
+                                "The Witcher IV",
+                                "The Witcher IV")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.UPCOMING,
                         PLATFORM_XBOX_SERIES,
                         null,
-                        List.of("Fable")),
+                        List.of("Crimson Desert", "Fable")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.UPCOMING,
                         null,
@@ -308,7 +363,12 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         BrowseReleasesUseCase.View.UPCOMING,
                         PLATFORM_WINDOWS_PC,
                         REGION_UNKNOWN,
-                        List.of("The Witcher IV")));
+                        List.of("The Witcher IV")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.UPCOMING,
+                        PLATFORM_PLAYSTATION_5,
+                        REGION_JAPAN,
+                        List.of()));
     }
 
     private static TransactionTemplate readTransaction(DataSource dataSource, int timeoutSeconds) {
