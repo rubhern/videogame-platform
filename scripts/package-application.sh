@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repository_root/scripts/backend-artifact.sh"
 
 cd "$repository_root"
 
@@ -11,5 +12,6 @@ npm run frontend:generate-api
 npm run frontend:build
 ./mvnw -Pwith-frontend clean package
 
+application_jar="$(resolve_backend_jar)"
 printf 'Combined application package: %s\n' \
-  "$repository_root/backend/target/videogame-platform-backend-0.7.0-SNAPSHOT.jar"
+  "$application_jar"

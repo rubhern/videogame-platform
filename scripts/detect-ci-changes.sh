@@ -57,6 +57,7 @@ categories=(
   identity
   provider_fixtures
   container
+  infrastructure
   build
   ci
   dependencies
@@ -121,12 +122,16 @@ for path in "${changed_paths[@]}"; do
       enable ci documentation
       matched=true
       ;;
-    *.md | docs/* | .agents/* | .codex/* | .github/ISSUE_TEMPLATE/* | .github/pull_request_template.md | .gitignore | .gitattributes)
+    *.md | docs/* | .agents/* | .claude/* | .codex/* | .worktreeinclude | .github/ISSUE_TEMPLATE/* | .github/pull_request_template.md | .gitignore | .gitattributes)
       enable documentation
       matched=true
       ;;
     Dockerfile | .dockerignore | scripts/validate-container-image.sh)
       enable container build frontend backend
+      matched=true
+      ;;
+    infrastructure/terraform/* | scripts/collect-oci-free-tier-evidence.py | scripts/review-oci-terraform-plan.py | scripts/test-oci-terraform-plan-gate.py | scripts/validate-terraform.sh)
+      enable documentation infrastructure
       matched=true
       ;;
     scripts/package-application.sh | scripts/validate-browser.sh)
@@ -137,12 +142,25 @@ for path in "${changed_paths[@]}"; do
       enable identity browser backend
       matched=true
       ;;
+    backend/src/main/resources/db/dev-seed/*)
+      # The packaged browser journey asserts the demonstration catalogue it browses.
+      enable migrations backend browser
+      matched=true
+      ;;
     scripts/validate-migrations.sh | docker/postgres/* | backend/src/main/resources/db/*)
       enable migrations backend
       matched=true
       ;;
     scripts/validate-topology-budget.sh)
       enable documentation container build
+      matched=true
+      ;;
+    scripts/backend-artifact.sh)
+      enable documentation build browser backend identity container
+      matched=true
+      ;;
+    scripts/local-dependencies.sh)
+      enable documentation build backend migrations identity container
       matched=true
       ;;
     compose.yaml)
@@ -155,6 +173,10 @@ for path in "${changed_paths[@]}"; do
       ;;
     backend/pom.xml)
       enable documentation build dependencies backend sonar codeql_java
+      matched=true
+      ;;
+    backend/postman/*)
+      enable documentation backend
       matched=true
       ;;
     package.json)

@@ -1,11 +1,18 @@
 package com.videogameplatform.catalogue.adapter.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
+import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
@@ -13,22 +20,33 @@ import javax.sql.DataSource;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
+@Execution(ExecutionMode.SAME_THREAD)
 class JdbcReleaseBrowseReadAdapterIntegrationTest {
 
-    private static final String DATABASE_NAME = "release_browse_adapter";
+    private static final String DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("release_browse_adapter");
     private static final String PLATFORM_PLAYSTATION_5 = "10000000-0000-4000-8000-000000000001";
     private static final String PLATFORM_WINDOWS_PC = "10000000-0000-4000-8000-000000000003";
     private static final String PLATFORM_XBOX_SERIES = "10000000-0000-4000-8000-000000000004";
     private static final String REGION_WORLDWIDE = "20000000-0000-4000-8000-000000000001";
+    private static final String REGION_EUROPE = "20000000-0000-4000-8000-000000000002";
     private static final String REGION_UNKNOWN = "20000000-0000-4000-8000-000000000003";
+    private static final String REGION_JAPAN = "20000000-0000-4000-8000-000000000005";
     private static JdbcTemplate jdbcTemplate;
+    private static JdbcTemplate adminJdbcTemplate;
+    private static DataSource runtimeDataSource;
     private static JdbcReleaseBrowseReadAdapter adapter;
 
     @BeforeAll
@@ -42,15 +60,22 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                 .locations("classpath:db/migration", "classpath:db/dev-seed")
                 .load()
                 .migrate();
-        DataSource dataSource =
+        runtimeDataSource =
                 new DriverManagerDataSource(
                         PostgreSqlTestDatabase.runtimeUrl(DATABASE_NAME),
                         PostgreSqlTestDatabase.runtimeUsername(),
                         PostgreSqlTestDatabase.runtimePassword());
-        jdbcTemplate = new JdbcTemplate(dataSource);
+        jdbcTemplate = new JdbcTemplate(runtimeDataSource);
+        adminJdbcTemplate =
+                new JdbcTemplate(
+                        new DriverManagerDataSource(
+                                PostgreSqlTestDatabase.adminUrl(DATABASE_NAME),
+                                PostgreSqlTestDatabase.adminUsername(),
+                                PostgreSqlTestDatabase.adminPassword()));
         adapter =
                 new JdbcReleaseBrowseReadAdapter(
-                        jdbcTemplate, new JdbcTransactionManager(dataSource));
+                        new NamedParameterJdbcTemplate(jdbcTemplate),
+                        readTransaction(runtimeDataSource, 5));
     }
 
     @Test
@@ -63,12 +88,19 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         .orElseThrow();
 
         assertThat(firstPage.publicationVersion()).isEqualTo("prototype-catalogue-v1");
-        assertThat(firstPage.totalItems()).isEqualTo(2);
+        assertThat(firstPage.totalItems()).isEqualTo(8);
         assertThat(firstPage.items()).singleElement();
-        assertThat(firstPage.items().getFirst().canonicalTitle()).isEqualTo("Pragmata");
         assertThat(secondPage.items()).singleElement();
-        assertThat(secondPage.items().getFirst().canonicalTitle())
-                .isEqualTo("Resident Evil Requiem");
+        // Both pages hold the same game with the same effective quarter, so only the
+        // unique releaseId keeps the two rows apart across the page boundary.
+        assertThat(firstPage.items().getFirst().canonicalTitle()).isEqualTo("Pragmata");
+        assertThat(secondPage.items().getFirst().canonicalTitle()).isEqualTo("Pragmata");
+        assertThat(firstPage.items().getFirst().gameId())
+                .isEqualTo(secondPage.items().getFirst().gameId());
+        assertThat(firstPage.items().getFirst().releaseId())
+                .isEqualTo("40000000-0000-4000-8000-000000000006");
+        assertThat(secondPage.items().getFirst().releaseId())
+                .isEqualTo("40000000-0000-4000-8000-00000000000a");
         assertThat(firstPage.items())
                 .allSatisfy(
                         item ->
@@ -82,10 +114,14 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                 adapter.findPublishedReleases(criteria(BrowseReleasesUseCase.View.UPCOMING, 1, 20))
                         .orElseThrow();
 
-        assertThat(result.items()).hasSize(2);
-        assertThat(result.items().getFirst().releaseDate())
-                .isInstanceOf(ReleaseDate.YearOnly.class);
+        assertThat(result.items()).hasSize(8);
+        assertThat(result.items().getFirst().releaseDate()).isInstanceOf(ReleaseDate.Day.class);
         assertThat(result.items().getLast().releaseDate()).isInstanceOf(ReleaseDate.Unknown.class);
+        assertThat(result.items().subList(0, 7))
+                .allSatisfy(
+                        item ->
+                                assertThat(item.releaseDate())
+                                        .isNotInstanceOf(ReleaseDate.Unknown.class));
     }
 
     @ParameterizedTest(name = "{0} with platform={1} and region={2}")
@@ -100,9 +136,8 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         .orElseThrow();
 
         assertThat(result.totalItems()).isEqualTo(expectedTitles.size());
-        assertThat(result.items())
-                .extracting(ReleaseBrowseReadPort.Item::canonicalTitle)
-                .containsExactlyElementsOf(expectedTitles);
+        assertThat(result.items().stream().map(ReleaseBrowseReadPort.Item::canonicalTitle).toList())
+                .isEqualTo(expectedTitles);
     }
 
     @Test
@@ -118,10 +153,22 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                                         false))
                         .orElseThrow();
 
-        assertThat(result.totalItems()).isEqualTo(1);
+        assertThat(result.totalItems()).isEqualTo(7);
+        assertThat(result.items())
+                .allSatisfy(
+                        item ->
+                                assertThat(item.releaseDate())
+                                        .isNotInstanceOf(ReleaseDate.Unknown.class));
         assertThat(result.items())
                 .extracting(ReleaseBrowseReadPort.Item::canonicalTitle)
-                .containsExactly("Fable");
+                .containsExactly(
+                        "Marvel's Wolverine",
+                        "Crimson Desert",
+                        "Crimson Desert",
+                        "Subnautica 2",
+                        "Fable",
+                        "Subnautica 2",
+                        "The Witcher IV");
     }
 
     @Test
@@ -151,6 +198,67 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                     "DELETE FROM catalogue.game_release WHERE release_id IN (?::uuid, ?::uuid)",
                     firstRelease,
                     secondRelease);
+        }
+    }
+
+    @Test
+    void rejectsAnUnknownPersistedEnumAsNonRetryableInvalidData() {
+        String releaseId = "40000000-0000-4000-8000-000000000006";
+        adminJdbcTemplate.execute(
+                "ALTER TABLE catalogue.release_snapshot DROP CONSTRAINT ck_release_snapshot_source_kind");
+        adminJdbcTemplate.update(
+                "UPDATE catalogue.release_snapshot SET source_kind = 'corrupt' WHERE release_id = ?::uuid",
+                releaseId);
+        try {
+            assertThatThrownBy(
+                            () ->
+                                    adapter.findPublishedReleases(
+                                            criteria(BrowseReleasesUseCase.View.RECENT, 1, 20)))
+                    .isInstanceOf(CatalogueDataInvalidException.class)
+                    .rootCause()
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Unsupported source kind");
+        } finally {
+            adminJdbcTemplate.update(
+                    "UPDATE catalogue.release_snapshot SET source_kind = 'product_curated' WHERE release_id = ?::uuid",
+                    releaseId);
+            adminJdbcTemplate.execute(
+                    "ALTER TABLE catalogue.release_snapshot ADD CONSTRAINT ck_release_snapshot_source_kind CHECK (source_kind IN ('external_provider', 'product_curated', 'official_source'))");
+        }
+    }
+
+    @Test
+    void cancelsABlockedStatementWithinTheConfiguredReadTimeout() throws Exception {
+        JdbcTemplate boundedJdbc = new JdbcTemplate(runtimeDataSource);
+        boundedJdbc.setQueryTimeout(1);
+        var boundedAdapter =
+                new JdbcReleaseBrowseReadAdapter(
+                        new NamedParameterJdbcTemplate(boundedJdbc),
+                        readTransaction(runtimeDataSource, 1));
+
+        try (Connection blocker = PostgreSqlTestDatabase.adminConnection(DATABASE_NAME);
+                Statement statement = blocker.createStatement()) {
+            blocker.setAutoCommit(false);
+            statement.execute(
+                    "LOCK TABLE catalogue.catalogue_publication IN ACCESS EXCLUSIVE MODE");
+            long startedAt = System.nanoTime();
+            try {
+                assertThatThrownBy(
+                                () ->
+                                        boundedAdapter.findPublishedReleases(
+                                                criteria(BrowseReleasesUseCase.View.RECENT, 1, 20)))
+                        .isInstanceOf(CatalogueReadException.class)
+                        .rootCause()
+                        .isInstanceOf(SQLException.class)
+                        .satisfies(
+                                exception ->
+                                        assertThat(((SQLException) exception).getSQLState())
+                                                .isEqualTo("57014"));
+                assertThat(Duration.ofNanos(System.nanoTime() - startedAt))
+                        .isLessThan(Duration.ofSeconds(5));
+            } finally {
+                blocker.rollback();
+            }
         }
     }
 
@@ -189,32 +297,63 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         BrowseReleasesUseCase.View.RECENT,
                         null,
                         null,
-                        List.of("Pragmata", "Resident Evil Requiem")),
+                        List.of(
+                                "Pragmata",
+                                "Pragmata",
+                                "Crimson Desert",
+                                "Metroid Prime 4: Beyond",
+                                "Metroid Prime 4: Beyond",
+                                "Subnautica 2",
+                                "Resident Evil Requiem",
+                                "Resident Evil Requiem")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.RECENT,
                         PLATFORM_PLAYSTATION_5,
                         null,
-                        List.of("Resident Evil Requiem")),
+                        List.of("Pragmata", "Resident Evil Requiem")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.RECENT,
                         null,
                         REGION_WORLDWIDE,
-                        List.of("Pragmata")),
+                        List.of("Pragmata", "Crimson Desert", "Resident Evil Requiem")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.RECENT,
                         PLATFORM_WINDOWS_PC,
                         REGION_WORLDWIDE,
-                        List.of("Pragmata")),
+                        List.of("Pragmata", "Crimson Desert", "Resident Evil Requiem")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        PLATFORM_XBOX_SERIES,
+                        null,
+                        List.of("Subnautica 2")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        null,
+                        REGION_JAPAN,
+                        List.of("Metroid Prime 4: Beyond")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.RECENT,
+                        PLATFORM_WINDOWS_PC,
+                        REGION_EUROPE,
+                        List.of()),
                 Arguments.of(
                         BrowseReleasesUseCase.View.UPCOMING,
                         null,
                         null,
-                        List.of("Fable", "The Witcher IV")),
+                        List.of(
+                                "Marvel's Wolverine",
+                                "Crimson Desert",
+                                "Crimson Desert",
+                                "Subnautica 2",
+                                "Fable",
+                                "Subnautica 2",
+                                "The Witcher IV",
+                                "The Witcher IV")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.UPCOMING,
                         PLATFORM_XBOX_SERIES,
                         null,
-                        List.of("Fable")),
+                        List.of("Crimson Desert", "Fable")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.UPCOMING,
                         null,
@@ -224,7 +363,21 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         BrowseReleasesUseCase.View.UPCOMING,
                         PLATFORM_WINDOWS_PC,
                         REGION_UNKNOWN,
-                        List.of("The Witcher IV")));
+                        List.of("The Witcher IV")),
+                Arguments.of(
+                        BrowseReleasesUseCase.View.UPCOMING,
+                        PLATFORM_PLAYSTATION_5,
+                        REGION_JAPAN,
+                        List.of()));
+    }
+
+    private static TransactionTemplate readTransaction(DataSource dataSource, int timeoutSeconds) {
+        TransactionTemplate transaction =
+                new TransactionTemplate(new JdbcTransactionManager(dataSource));
+        transaction.setReadOnly(true);
+        transaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        transaction.setTimeout(timeoutSeconds);
+        return transaction;
     }
 
     private static void insertTiedRelease(String releaseId, String platformId) {

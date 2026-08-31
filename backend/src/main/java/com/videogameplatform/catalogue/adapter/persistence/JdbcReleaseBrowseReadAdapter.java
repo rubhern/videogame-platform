@@ -1,5 +1,6 @@
 package com.videogameplatform.catalogue.adapter.persistence;
 
+import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
@@ -13,17 +14,21 @@ import java.time.OffsetDateTime;
 import java.time.Year;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.dao.RecoverableDataAccessException;
+import org.springframework.dao.TransientDataAccessException;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.support.TransactionOperations;
 
 /** PostgreSQL read adapter that returns only the requested release page. */
-final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
+public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
 
     private static final String CURRENT_PUBLICATION_SQL =
             """
@@ -91,53 +96,58 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
             JOIN catalogue.platform p ON p.platform_id = rs.platform_id
             JOIN catalogue.region r ON r.region_id = rs.region_id
             """;
-    private static final String PUBLICATION_PREDICATE = "rs.publication_id = ?::uuid";
+    private static final String PUBLICATION_PREDICATE =
+            "rs.publication_id = CAST(:publicationId AS uuid)";
     private static final String RELEASED_PREDICATE = "rs.release_status = 'released'";
     private static final String UPCOMING_STATUS_PREDICATE =
             "rs.release_status NOT IN ('released', 'cancelled')";
     private static final String KNOWN_PERIOD_OVERLAP_PREDICATE =
             "rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
                     + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                    + " && daterange(?::date, ?::date, '[]')";
+                    + " && daterange(CAST(:windowFrom AS date), CAST(:windowTo AS date), '[]')";
     private static final String PERIOD_OVERLAP_OR_UNKNOWN_PREDICATE =
             "((rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
                     + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                    + " && daterange(?::date, ?::date, '[]'))"
+                    + " && daterange(CAST(:windowFrom AS date), CAST(:windowTo AS date), '[]'))"
                     + " OR rs.date_precision = 'unknown')";
-    private static final String PLATFORM_PREDICATE = "rs.platform_id = ?::uuid";
-    private static final String REGION_PREDICATE = "rs.region_id = ?::uuid";
+    private static final String PLATFORM_PREDICATE = "rs.platform_id = CAST(:platformId AS uuid)";
+    private static final String REGION_PREDICATE = "rs.region_id = CAST(:regionId AS uuid)";
     private static final String RECENT_ORDER =
             " ORDER BY rs.period_end DESC NULLS LAST,"
                     + " lower(gs.canonical_title), rs.game_id, rs.release_id";
     private static final String UPCOMING_ORDER =
             " ORDER BY rs.period_start ASC NULLS LAST,"
                     + " lower(gs.canonical_title), rs.game_id, rs.release_id";
-    private static final String PAGE_SUFFIX = " LIMIT ? OFFSET ?";
+    private static final String PAGE_SUFFIX = " LIMIT :pageSize OFFSET :offset";
 
-    private final JdbcTemplate jdbcTemplate;
-    private final TransactionTemplate readTransaction;
+    private final NamedParameterJdbcOperations jdbcOperations;
+    private final TransactionOperations readTransaction;
 
-    JdbcReleaseBrowseReadAdapter(
-            JdbcTemplate jdbcTemplate, PlatformTransactionManager transactionManager) {
-        this.jdbcTemplate = jdbcTemplate;
-        this.readTransaction = new TransactionTemplate(transactionManager);
-        this.readTransaction.setReadOnly(true);
-        this.readTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+    public JdbcReleaseBrowseReadAdapter(
+            NamedParameterJdbcOperations jdbcOperations, TransactionOperations readTransaction) {
+        this.jdbcOperations = jdbcOperations;
+        this.readTransaction = readTransaction;
     }
 
     @Override
     public Optional<Result> findPublishedReleases(Criteria criteria) {
         try {
             return readTransaction.execute(status -> findInTransaction(criteria));
-        } catch (DataAccessException exception) {
+        } catch (CannotCreateTransactionException
+                | DataAccessResourceFailureException
+                | RecoverableDataAccessException
+                | TransientDataAccessException exception) {
             throw new CatalogueReadException(exception);
+        } catch (DataAccessException exception) {
+            throw new CatalogueDataInvalidException(exception);
         }
     }
 
     private Optional<Result> findInTransaction(Criteria criteria) {
         Optional<Publication> currentPublication =
-                jdbcTemplate.query(
+                jdbcOperations.query(
                         CURRENT_PUBLICATION_SQL,
+                        Map.of(),
                         resultSet -> {
                             if (!resultSet.next()) {
                                 return Optional.empty();
@@ -156,15 +166,17 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
         }
         Publication publication = currentPublication.orElseThrow();
         List<Taxonomy> platforms =
-                jdbcTemplate.query(
+                jdbcOperations.query(
                         PLATFORM_SQL,
+                        Map.of(),
                         (resultSet, rowNumber) ->
                                 new Taxonomy(
                                         resultSet.getString("platform_id"),
                                         resultSet.getString("display_name")));
         List<Taxonomy> regions =
-                jdbcTemplate.query(
+                jdbcOperations.query(
                         REGION_SQL,
+                        Map.of(),
                         (resultSet, rowNumber) ->
                                 new Taxonomy(
                                         resultSet.getString("region_id"),
@@ -175,14 +187,12 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
         }
         Query query = query(publication.id(), criteria);
         Long totalItems =
-                jdbcTemplate.queryForObject(
-                        query.sql().count(), Long.class, query.parameters().toArray());
+                jdbcOperations.queryForObject(query.sql().count(), query.parameters(), Long.class);
 
-        List<Object> pageParameters = new ArrayList<>(query.parameters());
-        pageParameters.add(criteria.pagination().pageSize());
-        pageParameters.add(criteria.pagination().offset());
-        List<Item> items =
-                jdbcTemplate.query(query.sql().page(), this::mapItem, pageParameters.toArray());
+        Map<String, Object> pageParameters = new LinkedHashMap<>(query.parameters());
+        pageParameters.put("pageSize", criteria.pagination().pageSize());
+        pageParameters.put("offset", criteria.pagination().offset());
+        List<Item> items = jdbcOperations.query(query.sql().page(), pageParameters, this::mapItem);
 
         return Optional.of(
                 new Result(
@@ -200,70 +210,80 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
 
     private static Query query(String publicationId, Criteria criteria) {
         CandidateQueryBuilder builder =
-                new CandidateQueryBuilder().where(PUBLICATION_PREDICATE, publicationId);
+                new CandidateQueryBuilder()
+                        .where(PUBLICATION_PREDICATE)
+                        .bind("publicationId", publicationId);
 
         switch (criteria.view()) {
             case RECENT ->
                     builder.where(RELEASED_PREDICATE)
-                            .where(
-                                    KNOWN_PERIOD_OVERLAP_PREDICATE,
-                                    criteria.window().from(),
-                                    criteria.window().to())
+                            .where(KNOWN_PERIOD_OVERLAP_PREDICATE)
+                            .bind("windowFrom", criteria.window().from())
+                            .bind("windowTo", criteria.window().to())
                             .orderBy(RECENT_ORDER);
             case UPCOMING ->
                     builder.where(UPCOMING_STATUS_PREDICATE)
                             .where(
                                     criteria.includeUnknownUpcomingDates()
                                             ? PERIOD_OVERLAP_OR_UNKNOWN_PREDICATE
-                                            : KNOWN_PERIOD_OVERLAP_PREDICATE,
-                                    criteria.window().from(),
-                                    criteria.window().to())
+                                            : KNOWN_PERIOD_OVERLAP_PREDICATE)
+                            .bind("windowFrom", criteria.window().from())
+                            .bind("windowTo", criteria.window().to())
                             .orderBy(UPCOMING_ORDER);
         }
 
-        return builder.whereIfPresent(PLATFORM_PREDICATE, criteria.platformId())
-                .whereIfPresent(REGION_PREDICATE, criteria.regionId())
+        return builder.whereIfPresent(PLATFORM_PREDICATE, "platformId", criteria.platformId())
+                .whereIfPresent(REGION_PREDICATE, "regionId", criteria.regionId())
                 .build();
     }
 
     private Item mapItem(ResultSet resultSet, int rowNumber) throws SQLException {
-        return new Item(
-                resultSet.getString("release_id"),
-                resultSet.getString("game_id"),
-                resultSet.getString("slug"),
-                resultSet.getString("canonical_title"),
-                cover(resultSet),
-                new Taxonomy(
-                        resultSet.getString("platform_id"), resultSet.getString("platform_name")),
-                new Taxonomy(resultSet.getString("region_id"), resultSet.getString("region_name")),
-                releaseDate(resultSet),
-                ReleaseStatus.fromValue(resultSet.getString("release_status")),
-                SourceKind.fromValue(resultSet.getString("source_kind")),
-                resultSet.getString("source_name"),
-                resultSet.getString("source_entity_type"),
-                instant(resultSet, "provider_updated_at"),
-                instant(resultSet, "last_synchronized_at"),
-                instant(resultSet, "last_verified_at"),
-                VerificationLevel.fromValue(resultSet.getString("verification_level")),
-                ReviewStatus.fromValue(resultSet.getString("review_status")));
+        try {
+            return new Item(
+                    resultSet.getString("release_id"),
+                    resultSet.getString("game_id"),
+                    resultSet.getString("slug"),
+                    resultSet.getString("canonical_title"),
+                    cover(resultSet),
+                    new Taxonomy(
+                            resultSet.getString("platform_id"),
+                            resultSet.getString("platform_name")),
+                    new Taxonomy(
+                            resultSet.getString("region_id"), resultSet.getString("region_name")),
+                    releaseDate(resultSet),
+                    ReleaseStatus.fromValue(resultSet.getString("release_status")),
+                    SourceKind.fromValue(resultSet.getString("source_kind")),
+                    resultSet.getString("source_name"),
+                    resultSet.getString("source_entity_type"),
+                    instant(resultSet, "provider_updated_at"),
+                    instant(resultSet, "last_synchronized_at"),
+                    instant(resultSet, "last_verified_at"),
+                    VerificationLevel.fromValue(resultSet.getString("verification_level")),
+                    ReviewStatus.fromValue(resultSet.getString("review_status")));
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new CatalogueDataInvalidException(exception);
+        }
     }
 
     private static CoverReference cover(ResultSet resultSet) throws SQLException {
         String usageMode = resultSet.getString("cover_usage_mode");
         String alternativeText = resultSet.getString("cover_alternative_text");
-        if ("product_owned".equals(usageMode)) {
-            return new ProductCoverReference(
-                    resultSet.getString("cover_reference"), alternativeText);
-        }
-        String sourceUrl = resultSet.getString("cover_source_url");
-        if (sourceUrl == null) {
-            return new UnavailableCoverReference(alternativeText);
-        }
-        return new ProviderCoverReference(
-                resultSet.getString("cover_source"),
-                resultSet.getString("cover_reference"),
-                alternativeText,
-                sourceUrl);
+        return switch (usageMode) {
+            case "product_owned" ->
+                    new ProductCoverReference(
+                            resultSet.getString("cover_reference"), alternativeText);
+            case "provider_cdn_reference" -> {
+                String sourceUrl = resultSet.getString("cover_source_url");
+                yield sourceUrl == null
+                        ? new UnavailableCoverReference()
+                        : new ProviderCoverReference(
+                                resultSet.getString("cover_source"),
+                                resultSet.getString("cover_reference"),
+                                alternativeText,
+                                sourceUrl);
+            }
+            default -> throw new IllegalArgumentException("Unsupported persisted cover usage mode");
+        };
     }
 
     private static ReleaseDate releaseDate(ResultSet resultSet) throws SQLException {
@@ -281,7 +301,7 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
                             resultSet.getInt("release_year"), resultSet.getInt("release_quarter"));
             case "year" -> new ReleaseDate.YearOnly(Year.of(resultSet.getInt("release_year")));
             case "unknown" -> new ReleaseDate.Unknown();
-            default -> throw new SQLException("Unsupported persisted date precision");
+            default -> throw new IllegalArgumentException("Unsupported persisted date precision");
         };
     }
 
@@ -293,7 +313,7 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
 
     private record Publication(String id, String version) {}
 
-    private record Query(Sql sql, List<Object> parameters) {}
+    private record Query(Sql sql, Map<String, Object> parameters) {}
 
     private record Sql(String count, String page) {}
 
@@ -301,17 +321,24 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
     private static final class CandidateQueryBuilder {
 
         private final List<String> predicates = new ArrayList<>();
-        private final List<Object> parameters = new ArrayList<>();
+        private final Map<String, Object> parameters = new LinkedHashMap<>();
         private String orderBy;
 
-        private CandidateQueryBuilder where(String predicate, Object... values) {
+        private CandidateQueryBuilder where(String predicate) {
             predicates.add(predicate);
-            parameters.addAll(List.of(values));
             return this;
         }
 
-        private CandidateQueryBuilder whereIfPresent(String predicate, Object value) {
-            return value == null ? this : where(predicate, value);
+        private CandidateQueryBuilder bind(String name, Object value) {
+            if (parameters.putIfAbsent(name, value) != null) {
+                throw new IllegalStateException("Duplicate release browse SQL parameter: " + name);
+            }
+            return this;
+        }
+
+        private CandidateQueryBuilder whereIfPresent(
+                String predicate, String parameterName, Object value) {
+            return value == null ? this : where(predicate).bind(parameterName, value);
         }
 
         private CandidateQueryBuilder orderBy(String order) {
@@ -328,7 +355,7 @@ final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
                     new Sql(
                             COUNT_SELECT + where,
                             PAGE_PREFIX + where + ") " + PAGE_SELECT + orderBy + PAGE_SUFFIX);
-            return new Query(sql, List.copyOf(parameters));
+            return new Query(sql, Map.copyOf(parameters));
         }
     }
 }

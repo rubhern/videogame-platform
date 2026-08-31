@@ -3,7 +3,16 @@
 .env.*
 !.env.example
 *.token
+**/terraform.tfvars
+**/*.auto.tfvars
+**/*.tfplan
+**/*.tfplan.json
+**/*.tfstate
+**/*.tfstate.*
+**/.terraform/
+infrastructure/terraform/evidence/
 .idea/
+__pycache__/
 node_modules/
 frontend/dist/
 frontend/coverage/
@@ -21,3 +30,7 @@ backend/target/
 # IGDB PoC generated evidence and Maven output
 .poc/
 tools/igdb-poc/target/
+
+# Claude Code local state
+.claude/worktrees/
+.claude/settings.local.json

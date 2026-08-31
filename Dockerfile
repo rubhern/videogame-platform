@@ -33,6 +33,7 @@ COPY mvnw pom.xml ./
 COPY backend/pom.xml backend/pom.xml
 COPY backend/src backend/src
 COPY docs/architecture/api/openapi.yaml docs/architecture/api/openapi.yaml
+COPY scripts/backend-artifact.sh scripts/backend-artifact.sh
 COPY --from=frontend-build /workspace/frontend/dist frontend/dist
 
 RUN --mount=type=cache,target=/root/.m2 \
@@ -40,13 +41,24 @@ RUN --mount=type=cache,target=/root/.m2 \
       -Pwith-frontend,production-image \
       -DskipTests \
       -Dsource.revision="${SOURCE_REVISION}" \
-      clean package
+      clean package \
+    && application_jar="$(bash scripts/backend-artifact.sh jar)" \
+    && cp "$application_jar" /workspace/application.jar
 
 FROM ${JRE_IMAGE} AS runtime
 
-ARG APPLICATION_VERSION=0.7.0-SNAPSHOT
+# Alpine publishes security fixes before the Temurin base image is rebuilt with them.
+# Upgrading the base packages keeps the runtime free of known HIGH/CRITICAL findings
+# without unpinning the base image; the published image remains immutable and is
+# identified by its content digest.
+RUN apk --no-cache upgrade
+
+ARG APPLICATION_VERSION
 ARG SOURCE_REVISION=local-development
 ARG SOURCE_URL=https://github.com/rubhern/videogame-platform
+
+RUN test -n "${APPLICATION_VERSION}" \
+    || { printf 'APPLICATION_VERSION must be derived from pom.xml by the build caller.\n' >&2; exit 1; }
 
 LABEL org.opencontainers.image.title="VideoGame Platform" \
       org.opencontainers.image.description="VideoGame Platform frontend, same-origin BFF/API and Spring Boot modular monolith" \
@@ -62,7 +74,7 @@ RUN addgroup -S -g 10001 application \
 WORKDIR /application
 
 COPY --from=backend-build --chown=10001:10001 \
-    /workspace/backend/target/videogame-platform-backend-*.jar \
+    /workspace/application.jar \
     /application/application.jar
 
 USER 10001:10001

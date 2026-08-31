@@ -161,6 +161,8 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        ReleaseView: "recent" | "upcoming";
         /**
          * @description Opaque, provider-independent product identifier.
          * @example game_example
@@ -319,8 +321,7 @@ export interface components {
             to: string;
         };
         ReleasePage: {
-            /** @enum {string} */
-            view: "recent" | "upcoming";
+            view: components["schemas"]["ReleaseView"];
             /** Format: date */
             evaluatedOn: string;
             window: components["schemas"]["ReleaseWindow"];
@@ -533,6 +534,18 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /** @description The resource does not support the requested HTTP method. */
+        MethodNotAllowed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                Allow: components["headers"]["AllowedMethods"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description The create target exists or the update entity tag is stale. */
         RatingPreconditionFailed: {
             headers: {
@@ -719,7 +732,7 @@ export interface components {
          */
         GameIdPath: components["schemas"]["GameId"];
         /** @example upcoming */
-        ReleaseView: "recent" | "upcoming";
+        ReleaseView: components["schemas"]["ReleaseView"];
         /** @example platform_ps5 */
         PlatformIdQuery: components["schemas"]["PlatformId"];
         /** @example region_europe */
@@ -800,6 +813,11 @@ export interface components {
          */
         RatingLocation: string;
         /**
+         * @description Methods supported by the selected resource.
+         * @example GET
+         */
+        AllowedMethods: string;
+        /**
          * @description Retry delay in seconds when a useful value is known.
          * @example 60
          */
@@ -852,9 +870,9 @@ export interface operations {
             };
             304: components["responses"]["PublicNotModified"];
             400: components["responses"]["MalformedRequest"];
+            405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseValidationFailed"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };

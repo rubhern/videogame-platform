@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repository_root/scripts/backend-artifact.sh"
 compose_file="$repository_root/compose.yaml"
 example_env_file="$repository_root/.env.example"
 
@@ -27,7 +28,12 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
-docker compose \
+if ! application_version="$(backend_reactor_version)"; then
+  printf 'Could not read the reactor version from pom.xml.\n' >&2
+  exit 1
+fi
+
+APPLICATION_VERSION="$application_version" docker compose \
   --env-file "$example_env_file" \
   --file "$compose_file" \
   --profile full \

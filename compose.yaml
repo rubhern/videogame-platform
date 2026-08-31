@@ -69,12 +69,12 @@ services:
 
   application:
     profiles: ["full"]
-    image: videogame-platform/application:${APPLICATION_VERSION:-0.7.0-SNAPSHOT}
+    image: videogame-platform/application:${APPLICATION_VERSION:?Use scripts/local-dependencies.sh application so the version is derived from Maven}
     build:
       context: .
       dockerfile: Dockerfile
       args:
-        APPLICATION_VERSION: ${APPLICATION_VERSION:-0.7.0-SNAPSHOT}
+        APPLICATION_VERSION: ${APPLICATION_VERSION:?Use scripts/local-dependencies.sh application so the version is derived from Maven}
         SOURCE_REVISION: ${SOURCE_REVISION:-local-development}
         SOURCE_URL: ${SOURCE_URL:-https://github.com/rubhern/videogame-platform}
     environment:
@@ -82,6 +82,13 @@ services:
       APPLICATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
       APPLICATION_DB_USERNAME: videogame_app
       APPLICATION_DB_PASSWORD: ${APPLICATION_DB_PASSWORD:?Set APPLICATION_DB_PASSWORD in .env}
+      APPLICATION_DB_CONNECTION_TIMEOUT: ${APPLICATION_DB_CONNECTION_TIMEOUT:-3000}
+      APPLICATION_DB_VALIDATION_TIMEOUT: ${APPLICATION_DB_VALIDATION_TIMEOUT:-1000}
+      APPLICATION_DB_MAXIMUM_POOL_SIZE: ${APPLICATION_DB_MAXIMUM_POOL_SIZE:-10}
+      APPLICATION_CATALOGUE_READINESS_TIMEOUT: ${APPLICATION_CATALOGUE_READINESS_TIMEOUT:-2s}
+      CATALOGUE_JDBC_READ_TIMEOUT: ${CATALOGUE_JDBC_READ_TIMEOUT:-5s}
+      MANAGEMENT_SERVER_ADDRESS: 0.0.0.0
+      MANAGEMENT_SERVER_PORT: 8081
       APPLICATION_FLYWAY_ENABLED: "true"
       APPLICATION_MIGRATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
       APPLICATION_MIGRATION_DB_USERNAME: videogame_app_migrator
@@ -110,7 +117,7 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "-T", "3", "http://127.0.0.1:8080/actuator/health/readiness"]
+      test: ["CMD", "wget", "-q", "--spider", "-T", "3", "http://127.0.0.1:8081/actuator/health/readiness"]
       interval: 10s
       timeout: 5s
       retries: 30

@@ -41,15 +41,54 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/actuator",
+              "raw": "{{managementBaseUrl}}/actuator",
               "host": [
-                "{{baseUrl}}"
+                "{{managementBaseUrl}}"
               ],
               "path": [
                 "actuator"
               ]
             },
             "description": "Returns hypermedia links for the Actuator resources exposed over HTTP."
+          },
+          "response": []
+        },
+        {
+          "name": "Product port excludes Actuator",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/metrics",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "metrics"
+              ]
+            },
+            "description": "Confirms that operational metrics are absent from the product HTTP surface."
           },
           "response": []
         }
@@ -91,9 +130,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/actuator/health",
+              "raw": "{{managementBaseUrl}}/actuator/health",
               "host": [
-                "{{baseUrl}}"
+                "{{managementBaseUrl}}"
               ],
               "path": [
                 "actuator",
@@ -135,9 +174,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/actuator/health/liveness",
+              "raw": "{{managementBaseUrl}}/actuator/health/liveness",
               "host": [
-                "{{baseUrl}}"
+                "{{managementBaseUrl}}"
               ],
               "path": [
                 "actuator",
@@ -180,9 +219,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/actuator/health/readiness",
+              "raw": "{{managementBaseUrl}}/actuator/health/readiness",
               "host": [
-                "{{baseUrl}}"
+                "{{managementBaseUrl}}"
               ],
               "path": [
                 "actuator",
@@ -212,7 +251,7 @@
                   "",
                   "pm.test(\"Response contains safe build and source metadata\", function () {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(body.build.version).to.eql(\"0.7.0-SNAPSHOT\");",
+                  "    pm.expect(body.build.version).to.match(/^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$/);",
                   "    pm.expect(body.build.sourceRevision).to.be.a(\"string\").and.not.empty;",
                   "    pm.expect(JSON.stringify(body)).not.to.include(\"password\");",
                   "    pm.expect(JSON.stringify(body)).not.to.include(\"jdbc:\");",
@@ -233,9 +272,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/actuator/info",
+              "raw": "{{managementBaseUrl}}/actuator/info",
               "host": [
-                "{{baseUrl}}"
+                "{{managementBaseUrl}}"
               ],
               "path": [
                 "actuator",
@@ -264,7 +303,8 @@
                   "",
                   "pm.test(\"Baseline HTTP, runtime and pool meters are available\", function () {",
                   "    const body = pm.response.json();",
-                  "    pm.expect(body.names).to.include.members([\"http.server.requests\", \"jvm.memory.used\", \"jdbc.connections.active\"]);",
+                  "    pm.expect(body.names).to.include.members([\"http.server.requests\", \"jvm.memory.used\", \"jdbc.connections.active\", \"catalogue.releases.result.count\"]);",
+                  "    pm.expect(body.names).not.to.include.members([\"catalogue.releases.requests\", \"catalogue.releases.latency\", \"catalogue.releases.failures\"]);",
                   "});"
                 ],
                 "type": "text/javascript",
@@ -282,9 +322,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/actuator/metrics",
+              "raw": "{{managementBaseUrl}}/actuator/metrics",
               "host": [
-                "{{baseUrl}}"
+                "{{managementBaseUrl}}"
               ],
               "path": [
                 "actuator",
@@ -328,9 +368,9 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/actuator/metrics/http.server.requests",
+              "raw": "{{managementBaseUrl}}/actuator/metrics/http.server.requests",
               "host": [
-                "{{baseUrl}}"
+                "{{managementBaseUrl}}"
               ],
               "path": [
                 "actuator",

@@ -1,30 +1,22 @@
-# Open questions
+# Resolved product questions
 
-- **Status:** Closed for Phase 0
+- **Status:** Closed for product alignment
 - **Owner:** Ruben Hernandez
-- **Last updated:** 2026-07-29
 
-Questions are ordered by how strongly they can change product direction. Every
-decision is owned by Ruben Hernandez. Synthetic research can inform a decision, but
-does not turn a product-demand hypothesis into validated market evidence. The owner
-may accept a simulation for an internal learning-project decision when its provenance
-and limitations remain explicit.
+This is a compact decision/reopening register, not an active backlog.
 
-| ID | Question | Why it matters | Decision or next action | Owner | Decision point | Status |
-|---|---|---|---|---|---|---|
-| Q-001 | Where is the original high-level product PDF, and is the current brief faithful to it? | It is the stated source for Phase 0 | Copied to `docs/reference/` and reconciled with Product Brief v0.1 on 2026-07-22 | Ruben Hernandez | 2026-07-22 | Resolved |
-| Q-002 | Which user segment is the first priority? | It determines the problem, journey, and MVP | Release-aware, Spanish-speaking multiplatform players who research several games per month and already keep a wishlist, backlog, or ratings | Ruben Hernandez | 2026-07-23 | Resolved |
-| Q-003 | What problem should the first release solve? | A solution without a focused problem becomes an unfocused catalogue | Reduce repeated research needed to understand relevant recent/upcoming releases and preserve the player's rating in one retrievable journey; accepted as a learning hypothesis, not a validated market problem | Ruben Hernandez | 2026-07-23 | Resolved |
-| Q-004 | Why would the chosen user use this product instead of current alternatives? | The value proposition needs a coherent advantage | Spanish-first, region/platform-aware clarity plus a complete personal rating loop; do not compete on catalogue breadth or recreate Metascore | Ruben Hernandez | 2026-07-23 | Resolved |
-| Q-005 | Which game-data provider and licence can support the MVP? | Data rights and provider constraints can invalidate the journey | Use IGDB for the private, non-commercial learning MVP with the limitations in the [first authenticated PoC](../research/igdb-poc-results.md): bounded catalogue, manual date reconciliation, product-owned Spanish aliases, local normalized metadata, direct IGDB CDN cover references under [ADR-0001](../decisions/0001-reference-igdb-cover-images.md), no copied provider image binaries, and no external ratings. Covers require visible attribution, a clear source path, allowlisted delivery, and fallback. RAWG remains a fallback. Public deployment, monetization, copied or stored images, redistribution, or a material terms change must reopen this question | Ruben Hernandez | 2026-07-29 | Resolved |
-| Q-006 | What rating scale, eligibility, display, and aggregation rules are understandable and useful? | This becomes visible product behaviour and a stable contract | Retain one active integer rating from 1 to 10 per user and released game, inline create/edit, explicit delete, separately labelled aggregate and personal ratings, decimal comma, and no `/10`. The [accepted simulated round and focused regression](../research/simulated-round-synthesis.md) support the conceptual separation, explicit edit feedback, and unreleased rule for the current learning scope | Ruben Hernandez | 2026-07-28 | Resolved |
-| Q-007 | What are the budget, team capacity, and desired beta horizon? | They constrain scope and operational choices | Personal, part-time project with Ruben as the only human contributor; AI assists simulated roles; no fixed beta date or recurring paid-service commitment; approve spend individually and deliver one vertical slice at a time | Ruben Hernandez | 2026-07-23 | Resolved |
-| Q-008 | Is this a learning-only initiative, a commercial product, or both? | It affects success criteria, investment, legal work, and roadmap | Learning-only for the current phase; realistic product validation supports learning but there is no commercial or market-size objective | Ruben Hernandez | 2026-07-23 | Resolved |
-| Q-009 | What thresholds will determine continue, change, or stop decisions? | Metrics without thresholds do not guide decisions | The owner accepts the five-session simulation for the private learning-project gate. The accepted round reached 4/5 unaided and the focused simulated regression resolved F-01, so the result is `PASS`. Minimum implementation contracts may begin. This is not external user validation | Ruben Hernandez | 2026-07-28 | Resolved |
-| Q-010 | What evidence standard applies to the prototype journey gate in this private training product? | Treating simulation as real-user research would create a false claim, while requiring external recruitment is not necessary for the chosen learning objective | Accept `simulated-session-observation-sheets.md` and `simulated-round-synthesis.md` as decision-grade internal evidence by explicit owner decision. Preserve their synthetic provenance in every downstream claim; they cannot substantiate real-user behaviour, demand, retention, or product–market fit | Ruben Hernandez | 2026-07-28 | Resolved |
+| ID | Decision | Reopen when |
+|---|---|---|
+| Q-001 | The translated [source vision](../reference/video-game-platform-vision.pdf) is the historical input; the Product Brief is the approved narrowing | Fidelity to the source is disputed |
+| Q-002 | Priority user: release-aware Spanish-speaking multiplatform player who already tracks games | Evidence supports a materially different first segment |
+| Q-003 | First problem: fragmented release research plus lost personal rating continuity, accepted as a hypothesis | Real evidence rejects or reframes the problem |
+| Q-004 | Value: Spanish-first platform/region clarity plus complete personal rating loop, not catalogue breadth or professional score | A different differentiator gains evidence |
+| Q-005 | IGDB for bounded private learning use, with manual date reconciliation, product-owned Spanish aliases, local normalized data, attributed direct CDN covers, no copied binaries/external scores | Public/monetized release, copied/stored/redistributed data/images, broad unattended sync, or material terms change |
+| Q-006 | One active integer 1–10 rating per user/released game; inline edit/delete; aggregate and personal values separate; decimal comma; no `/10` | Usability or domain evidence contradicts the model |
+| Q-007 | One part-time human owner, no fixed beta date, no recurring paid commitment | Capacity, ownership, schedule, or budget changes |
+| Q-008 | Current initiative is learning-only, not commercial | A commercial/public release is proposed |
+| Q-009 | Journey gate is `PASS`: accepted synthetic 4/5 plus focused regression with no blocker | Journey rules, evidence objective, or release mode changes |
+| Q-010 | Synthetic evidence is decision-grade only for this internal learning workflow | A claim about real users/demand is needed |
 
-## Decision log convention
-
-When a question is resolved, keep the row, set its status to `Resolved`, and link the
-resulting document or decision. Architectural decisions belong in `docs/decisions/`
-only after the product context makes them necessary.
+Architectural consequences are recorded in ADRs. New unresolved questions should be
+added only when they can materially change product direction.

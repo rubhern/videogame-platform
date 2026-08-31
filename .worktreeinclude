@@ -1,0 +1,7 @@
+# Gitignored files copied into every worktree Claude Code creates.
+# Only files that match a pattern and are also gitignored are copied.
+# The local topology in docs/development/local-setup.md needs these credentials to
+# match the shared Compose volume; regenerating them per worktree breaks the
+# existing PostgreSQL and Keycloak state.
+.env
+backend/.env

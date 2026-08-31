@@ -1,6 +1,6 @@
 package com.videogameplatform.catalogue.application.internal;
 
-import com.videogameplatform.catalogue.application.ReleasePage;
+import com.videogameplatform.catalogue.domain.FreshnessStatus;
 import java.time.Duration;
 import java.time.Instant;
 
@@ -15,9 +15,9 @@ public record CatalogueFreshnessPolicy(Duration threshold) {
         }
     }
 
-    ReleasePage.Freshness status(Instant lastSynchronizedAt, Instant evaluatedAt) {
+    FreshnessStatus status(Instant lastSynchronizedAt, Instant evaluatedAt) {
         return lastSynchronizedAt.plus(threshold).isBefore(evaluatedAt)
-                ? ReleasePage.Freshness.STALE
-                : ReleasePage.Freshness.FRESH;
+                ? FreshnessStatus.STALE
+                : FreshnessStatus.FRESH;
     }
 }

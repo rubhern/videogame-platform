@@ -57,9 +57,7 @@ public interface ReleaseBrowseReadPort {
             ReviewStatus reviewStatus) {}
 
     sealed interface CoverReference
-            permits ProductCoverReference, ProviderCoverReference, UnavailableCoverReference {
-        String alternativeText();
-    }
+            permits ProductCoverReference, ProviderCoverReference, UnavailableCoverReference {}
 
     record ProductCoverReference(String assetPath, String alternativeText)
             implements CoverReference {}
@@ -68,5 +66,5 @@ public interface ReleaseBrowseReadPort {
             String provider, String reference, String alternativeText, String sourceUrl)
             implements CoverReference {}
 
-    record UnavailableCoverReference(String alternativeText) implements CoverReference {}
+    record UnavailableCoverReference() implements CoverReference {}
 }

@@ -17,11 +17,16 @@ import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
+@Execution(ExecutionMode.SAME_THREAD)
 class CataloguePersistenceIntegrationTest {
 
-    private static final String DATABASE_NAME = "catalogue_persistence";
-    private static final String CHECKSUM_DATABASE_NAME = "flyway_checksum";
+    private static final String DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("catalogue_persistence");
+    private static final String CHECKSUM_DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("flyway_checksum");
     private static final String PUBLICATION_ID = "00000000-0000-4000-8000-000000000001";
     private static final String GAME_ID = "30000000-0000-4000-8000-000000000001";
     private static final String PLATFORM_ID = "10000000-0000-4000-8000-000000000001";
@@ -38,7 +43,7 @@ class CataloguePersistenceIntegrationTest {
         var migrationResult = flyway.migrate();
         flyway.validate();
 
-        assertThat(migrationResult.migrationsExecuted).isEqualTo(6);
+        assertThat(migrationResult.migrationsExecuted).isEqualTo(7);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -56,11 +61,11 @@ class CataloguePersistenceIntegrationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(6);
+                    .isEqualTo(7);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
-                    .isEqualTo(8);
+                    .isEqualTo(12);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.release_snapshot"))
-                    .isEqualTo(8);
+                    .isEqualTo(20);
             assertThat(
                             singleInt(
                                     statement,
@@ -78,7 +83,11 @@ class CataloguePersistenceIntegrationTest {
                                     + "30000000-0000-4000-8000-000000000005,"
                                     + "30000000-0000-4000-8000-000000000006,"
                                     + "30000000-0000-4000-8000-000000000007,"
-                                    + "30000000-0000-4000-8000-000000000008");
+                                    + "30000000-0000-4000-8000-000000000008,"
+                                    + "30000000-0000-4000-8000-000000000009,"
+                                    + "30000000-0000-4000-8000-00000000000a,"
+                                    + "30000000-0000-4000-8000-00000000000b,"
+                                    + "30000000-0000-4000-8000-00000000000c");
         }
     }
 
@@ -192,7 +201,7 @@ class CataloguePersistenceIntegrationTest {
         try (Connection connection = PostgreSqlTestDatabase.runtimeConnection(DATABASE_NAME);
                 Statement statement = connection.createStatement()) {
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
-                    .isEqualTo(8);
+                    .isEqualTo(12);
             assertThat(
                             singleInt(
                                     statement,

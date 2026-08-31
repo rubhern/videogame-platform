@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "dockerfile-optimise": {
+      "source": "pproenca/dot-skills",
+      "sourceType": "github",
+      "skillPath": "skills/.experimental/dockerfile-optimise/SKILL.md",
+      "computedHash": "2f13e750380090b147e24e5d5a1c5ce8146f9e0f8f31b04083db97a9f20156df"
+    },
+    "github-actions-templates": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "skillPath": "plugins/cicd-automation/skills/github-actions-templates/SKILL.md",
+      "computedHash": "93e92fd674dea084628e95f9c48af806f9672ac08f815c84f85adedb55742c59"
+    },
+    "observability-monitoring": {
+      "source": "manutej/luxor-claude-marketplace",
+      "sourceType": "github",
+      "skillPath": "plugins/luxor-devops-suite/skills/observability-monitoring/SKILL.md",
+      "computedHash": "753d74b2769d316e0228ac051eb5437ae7dd1982cf3c835c8950c52ff05732af"
+    },
+    "terraform-style-guide": {
+      "source": "hashicorp/agent-skills",
+      "sourceType": "github",
+      "skillPath": "plugins/terraform/skills/terraform-style-guide/SKILL.md",
+      "computedHash": "3b914c5ae01a7101d45b5222fbc38e0be6eb7412deba5f54d471905f22af70c6"
+    },
+    "terraform-test": {
+      "source": "hashicorp/agent-skills",
+      "sourceType": "github",
+      "skillPath": "plugins/terraform/skills/terraform-test/SKILL.md",
+      "computedHash": "2d69da79a8e714dbdfee4c9a6b323cf33cef89e6b6dcee154d6b3009814c7240"
+    }
+  }
+}

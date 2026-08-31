@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
     "name": "VideoGame Platform Backend - Catalogue Releases",
-    "description": "Executable examples for the OpenAPI 1.2.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI 1.2.2 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -235,7 +235,7 @@
               "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
               "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
               "    pm.expect(body.code).to.eql(\"PLATFORM_NOT_SUPPORTED\");",
-              "    pm.expect(body.correlationId).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "});"
             ],
             "type": "text/javascript",
@@ -291,6 +291,7 @@
               "pm.test(\"Stable pagination code and violation are returned\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(body.code).to.eql(\"PAGINATION_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/pageSize\");",
               "});"
             ],
@@ -347,6 +348,7 @@
               "pm.test(\"Shared strict-query convention returns a stable error\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/unbounded\");",
               "});"
             ],
@@ -386,6 +388,163 @@
           ]
         },
         "description": "Proves the central API convention rejects parameters outside the endpoint policy instead of ignoring them."
+      },
+      "response": []
+    },
+    {
+      "name": "Malformed conditional validator is ignored",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Malformed If-None-Match does not produce a false 304\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().view).to.eql(\"recent\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"releaseEtag\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "\"unterminated, W/{{releaseEtag}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&page=1&pageSize=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "A syntactically invalid multi-value validator is ignored instead of being split into a false matching tag. Run after Recent releases."
+      },
+      "response": []
+    },
+    {
+      "name": "Missing required release view",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Missing view returns contracted 400 Problem Details\", function () {",
+              "    pm.response.to.have.status(400);",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(body.code).to.eql(\"REQUEST_MALFORMED\");",
+              "    pm.expect(body.status).to.eql(400);",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ]
+        },
+        "description": "Proves that the required OpenAPI view parameter is enforced at the real HTTP boundary."
+      },
+      "response": []
+    },
+    {
+      "name": "Unsupported release representation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Unsupported Accept returns contracted 406 Problem Details\", function () {",
+              "    pm.response.to.have.status(406);",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(body.code).to.eql(\"REPRESENTATION_NOT_ACCEPTABLE\");",
+              "    pm.expect(body.status).to.eql(406);",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/xml",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            }
+          ]
+        },
+        "description": "Proves representation negotiation returns stable RFC 9457 Problem Details."
       },
       "response": []
     }

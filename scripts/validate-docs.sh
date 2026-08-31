@@ -19,6 +19,7 @@ required_files=(
   "backend/postman/README.md"
   "backend/postman/actuator.postman_collection.json"
   "backend/postman/catalogue-releases.postman_collection.json"
+  "backend/postman/session.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
   "frontend/package.json"
@@ -31,25 +32,25 @@ required_files=(
   "docs/product/assumptions.md"
   "docs/product/open-questions.md"
   "docs/product/glossary.md"
-  "docs/research/prototype-usability-test-guide.md"
-  "docs/research/simulated-session-observation-sheets.md"
+  "docs/research/README.md"
+  "docs/research/competitor-journey-comparison-metacritic.md"
+  "docs/research/game-data-providers-spike.md"
+  "docs/research/igdb-poc-results.md"
+  "docs/research/igdb-poc-sample.csv"
   "docs/research/simulated-round-synthesis.md"
+  "docs/reference/README.md"
   "docs/reference/video-game-platform-vision.pdf"
-  "docs/development/codex-setup.md"
-  "docs/development/backend.md"
-  "docs/development/backend-openapi-generation.md"
+  "docs/README.md"
+  "docs/development/README.md"
   "docs/development/continuous-integration.md"
-  "docs/development/container-image.md"
   "docs/development/database-migrations.md"
-  "docs/development/local-dependencies.md"
   "docs/development/local-setup.md"
-  "docs/development/frontend.md"
-  "docs/development/openapi-validation.md"
-  "docs/development/openapi-web-documentation.md"
-  "docs/development/release-api.md"
+  "docs/development/observability.md"
+  "docs/development/openapi.md"
   "docs/development/delivery-lifecycle.md"
   "docs/development/work-management.md"
-  "docs/development/walking-skeleton-evidence.md"
+  "docs/development/ai-assistance.md"
+  "docs/architecture/README.md"
   "docs/architecture/domain/mvp-domain-model.md"
   "docs/architecture/application/mvp-use-cases.md"
   "docs/architecture/mvp-solution-architecture.md"
@@ -84,6 +85,8 @@ required_files=(
   "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md"
   "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md"
   "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md"
+  "docs/decisions/0015-query-published-release-pages-with-postgresql.md"
+  "docs/decisions/README.md"
   "package.json"
   "package-lock.json"
   "mvnw"
@@ -94,6 +97,7 @@ required_files=(
   "scripts/detect-ci-changes.sh"
   "scripts/test-ci-change-detection.sh"
   "scripts/verify-ci-results.sh"
+  "scripts/backend-artifact.sh"
   "scripts/validate-browser.sh"
   "scripts/validate-container-image.sh"
   "scripts/validate-topology-budget.sh"
@@ -104,8 +108,18 @@ required_files=(
   "tools/openapi-validation/schemas.redocly.yaml"
   "tools/openapi-validation/examples.redocly.yaml"
   "tools/openapi-validation/normalize-generated-html.mjs"
+  "tools/igdb-poc/README.md"
+  "skills-lock.json"
+  "CLAUDE.md"
+  ".worktreeinclude"
+  ".claude/settings.json"
+  ".claude/rules/hexagonal-boundaries.md"
+  ".claude/rules/documentation-ownership.md"
   ".agents/skills/README.md"
   ".agents/skills/product-brief-review/SKILL.md"
+  ".agents/skills/validate/SKILL.md"
+  ".agents/skills/openapi-change/SKILL.md"
+  ".agents/skills/issue-implement/SKILL.md"
   ".agents/skills/scalability-by-design/SKILL.md"
   ".agents/skills/videogame-platform-backend-development/SKILL.md"
   ".agents/skills/videogame-platform-frontend-development/SKILL.md"
@@ -141,6 +155,7 @@ done < <(find . -type f -name '*:Zone.Identifier' -print)
 
 python3 - "$ROOT_DIR" <<'PY'
 import json
+import hashlib
 import pathlib
 import re
 import sys
@@ -155,7 +170,7 @@ skill_resource_pattern = re.compile(
 errors = []
 
 skills_root = root / ".agents/skills"
-skills_registry = (skills_root / "README.md").read_text(encoding="utf-8")
+skills_registry = (root / "docs/development/ai-assistance.md").read_text(encoding="utf-8")
 vendored_skill_names = set(
     re.findall(
         r"^\| `([^`]+)` .* \| `vendored-unmodified` \|$",
@@ -163,6 +178,60 @@ vendored_skill_names = set(
         flags=re.MULTILINE,
     )
 )
+skills_lock_path = root / "skills-lock.json"
+try:
+    skills_lock = json.loads(skills_lock_path.read_text(encoding="utf-8"))
+except (OSError, UnicodeError, json.JSONDecodeError) as error:
+    errors.append(f"skills-lock.json: invalid JSON: {error}")
+    skills_lock = {}
+
+if not isinstance(skills_lock, dict):
+    errors.append("skills-lock.json: root must be an object")
+    skills_lock = {}
+if skills_lock.get("version") != 1:
+    errors.append("skills-lock.json: version must be 1")
+
+tracked_skills = skills_lock.get("skills", {})
+if not isinstance(tracked_skills, dict):
+    errors.append("skills-lock.json: skills must be an object")
+    tracked_skills = {}
+
+cli_managed_skill_names = set(tracked_skills)
+external_skill_names = vendored_skill_names | cli_managed_skill_names
+for skill_name, tracking in tracked_skills.items():
+    if not isinstance(tracking, dict):
+        errors.append(f"skills-lock.json: {skill_name} tracking must be an object")
+        continue
+    for field in ("source", "sourceType", "skillPath", "computedHash"):
+        if not isinstance(tracking.get(field), str) or not tracking[field]:
+            errors.append(f"skills-lock.json: {skill_name} must define {field}")
+    computed_hash = tracking.get("computedHash", "")
+    if re.fullmatch(r"[0-9a-f]{64}", computed_hash) is None:
+        errors.append(
+            f"skills-lock.json: {skill_name} computedHash must be lowercase SHA-256"
+        )
+    skill_entrypoint = skills_root / skill_name / "SKILL.md"
+    if not skill_entrypoint.is_file():
+        errors.append(f"skills-lock.json: missing installed skill {skill_name}/SKILL.md")
+        continue
+    skill_root = skill_entrypoint.parent
+    skill_hash = hashlib.sha256()
+    skill_files = sorted(
+        (path for path in skill_root.rglob("*") if path.is_file()),
+        key=lambda path: path.relative_to(skill_root).as_posix().casefold(),
+    )
+    for skill_file in skill_files:
+        relative_skill_file = skill_file.relative_to(skill_root).as_posix()
+        skill_hash.update(relative_skill_file.encode("utf-8"))
+        skill_hash.update(skill_file.read_bytes())
+    if skill_hash.hexdigest() != computed_hash:
+        errors.append(f"skills-lock.json: {skill_name} computedHash is stale")
+    skill_text = skill_entrypoint.read_text(encoding="utf-8")
+    name_match = re.search(r"^name:\s*([^\s]+)\s*$", skill_text, flags=re.MULTILINE)
+    if name_match is None or name_match.group(1) != skill_name:
+        errors.append(
+            f".agents/skills/{skill_name}/SKILL.md: name must match lock key"
+        )
 
 json_documents = (
     "backend/postman/actuator.postman_collection.json",
@@ -197,13 +266,12 @@ try:
         errors.append(
             "backend/pom.xml: parent version must match the backend reactor version"
         )
-    if reactor_version is not None:
-        expected_jar = f"videogame-platform-backend-{reactor_version}.jar"
-        for relative in ("backend/README.md", "docs/development/backend.md"):
-            if expected_jar not in (root / relative).read_text(encoding="utf-8"):
-                errors.append(
-                    f"{relative}: expected current backend artefact {expected_jar}"
-                )
+    backend_readme = (root / "backend/README.md").read_text(encoding="utf-8")
+    resolved_jar_command = 'java -jar "$(bash scripts/backend-artifact.sh jar)"'
+    if resolved_jar_command not in backend_readme:
+        errors.append(
+            "backend/README.md: packaged backend command must resolve the Maven JAR"
+        )
 except (OSError, ET.ParseError) as error:
     errors.append(f"Maven version validation failed: {error}")
 
@@ -280,6 +348,11 @@ expected_infrastructure_variables = {
     "POSTGRES_ADMIN_PASSWORD",
     "APPLICATION_DB_PASSWORD",
     "APPLICATION_MIGRATION_DB_PASSWORD",
+    "APPLICATION_DB_CONNECTION_TIMEOUT",
+    "APPLICATION_DB_VALIDATION_TIMEOUT",
+    "APPLICATION_DB_MAXIMUM_POOL_SIZE",
+    "APPLICATION_CATALOGUE_READINESS_TIMEOUT",
+    "CATALOGUE_JDBC_READ_TIMEOUT",
     "KEYCLOAK_DB_PASSWORD",
     "KEYCLOAK_HTTP_PORT",
     "KEYCLOAK_MANAGEMENT_PORT",
@@ -293,10 +366,16 @@ expected_infrastructure_variables = {
 expected_backend_variables = {
     "SPRING_PROFILES_ACTIVE",
     "SERVER_PORT",
+    "MANAGEMENT_SERVER_ADDRESS",
+    "MANAGEMENT_SERVER_PORT",
     "LOGGING_LEVEL_COM_VIDEOGAMEPLATFORM",
     "APPLICATION_DB_URL",
     "APPLICATION_DB_USERNAME",
     "APPLICATION_DB_PASSWORD",
+    "APPLICATION_DB_CONNECTION_TIMEOUT",
+    "APPLICATION_DB_VALIDATION_TIMEOUT",
+    "APPLICATION_DB_MAXIMUM_POOL_SIZE",
+    "APPLICATION_CATALOGUE_READINESS_TIMEOUT",
     "APPLICATION_FLYWAY_ENABLED",
     "APPLICATION_MIGRATION_DB_URL",
     "APPLICATION_MIGRATION_DB_USERNAME",
@@ -307,6 +386,7 @@ expected_backend_variables = {
     "APPLICATION_SESSION_TIMEOUT",
     "APPLICATION_SESSION_COOKIE_NAME",
     "APPLICATION_SESSION_COOKIE_SECURE",
+    "CATALOGUE_JDBC_READ_TIMEOUT",
     "CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS",
     "CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS",
     "CATALOGUE_RELEASES_FRESHNESS_THRESHOLD",
@@ -350,6 +430,7 @@ expected_statuses = {
     "docs/decisions/0012-use-react-typescript-and-vite-for-the-web-frontend.md": "Accepted",
     "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md": "Accepted",
     "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md": "Accepted",
+    "docs/decisions/0015-query-published-release-pages-with-postgresql.md": "Accepted",
 }
 
 for relative, status in expected_statuses.items():
@@ -363,15 +444,15 @@ for markdown in root.rglob("*.md"):
         continue
     text = markdown.read_text(encoding="utf-8")
     relative_markdown = markdown.relative_to(root)
-    vendored_skill_root = None
+    external_skill_root = None
     if (
         len(relative_markdown.parts) >= 4
         and relative_markdown.parts[:2] == (".agents", "skills")
-        and relative_markdown.parts[2] in vendored_skill_names
+        and relative_markdown.parts[2] in external_skill_names
     ):
-        vendored_skill_root = skills_root / relative_markdown.parts[2]
+        external_skill_root = skills_root / relative_markdown.parts[2]
 
-    if vendored_skill_root is not None and markdown.name != "SKILL.md":
+    if external_skill_root is not None and markdown.name != "SKILL.md":
         continue
 
     for raw_link in link_pattern.findall(text):
@@ -380,12 +461,12 @@ for markdown in root.rglob("*.md"):
             continue
         relative = unquote(link.split("#", 1)[0])
         target = (markdown.parent / relative).resolve()
-        if vendored_skill_root is not None:
+        if external_skill_root is not None:
             try:
-                target.relative_to(vendored_skill_root.resolve())
+                target.relative_to(external_skill_root.resolve())
             except ValueError:
                 # Unmodified upstream entrypoints may link to optional sibling
-                # skill packages that are not dependencies of this vendored skill.
+                # packages that are not dependencies of this external skill.
                 continue
         try:
             target.relative_to(root.resolve())
@@ -395,9 +476,12 @@ for markdown in root.rglob("*.md"):
         if not target.exists():
             errors.append(f"{relative_markdown}: missing target: {link}")
 
-    if vendored_skill_root is not None:
+    if (
+        external_skill_root is not None
+        and relative_markdown.parts[2] in vendored_skill_names
+    ):
         for relative in skill_resource_pattern.findall(text):
-            target = vendored_skill_root / relative
+            target = external_skill_root / relative
             if not target.exists():
                 errors.append(f"{relative_markdown}: missing skill resource: {relative}")
 
@@ -407,6 +491,22 @@ if errors:
 PY
 
 while IFS= read -r file; do
+  if [[ -L "$file" ]]; then
+    link_target="$(readlink -f -- "$file" || true)"
+    if [[ -z "$link_target" || ! -e "$link_target" ]]; then
+      printf 'Symbolic link does not resolve: %s\n' "$file" >&2
+      exit 1
+    fi
+    case "$link_target" in
+      "$ROOT_DIR"/*) ;;
+      *)
+        printf 'Symbolic link must stay inside the repository: %s\n' "$file" >&2
+        exit 1
+        ;;
+    esac
+    continue
+  fi
+
   case "$file" in
     mvnw|scripts/*.sh|docker/postgres/init/*.sh|docs/architecture/diagrams/scripts/*.sh)
       [[ -x "$file" ]] || {
@@ -430,6 +530,11 @@ done < <(git ls-files)
 
 [[ -x "scripts/validate-prerequisites.sh" ]] || {
   printf 'Shell script must be executable: scripts/validate-prerequisites.sh\n' >&2
+  exit 1
+}
+
+[[ -x "scripts/backend-artifact.sh" ]] || {
+  printf 'Shell script must be executable: scripts/backend-artifact.sh\n' >&2
   exit 1
 }
 

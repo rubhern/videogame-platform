@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$repository_root/scripts/backend-artifact.sh"
 evidence_directory="${IMAGE_EVIDENCE_DIRECTORY:-$repository_root/target/container-evidence}"
 image_archive="$evidence_directory/application-image.oci.tar"
 node_image="node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03"
@@ -42,21 +43,6 @@ fail() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command is unavailable: $1"
-}
-
-application_version() {
-  python3 - "$repository_root/pom.xml" <<'PY'
-import pathlib
-import sys
-import xml.etree.ElementTree as ET
-
-namespace = {"m": "http://maven.apache.org/POM/4.0.0"}
-root = ET.parse(pathlib.Path(sys.argv[1])).getroot()
-version = root.findtext("m:version", namespaces=namespace)
-if not version:
-    raise SystemExit("pom.xml has no project version")
-print(version)
-PY
 }
 
 inspect_oci_archive() {
@@ -122,6 +108,7 @@ verify_http_boundary() {
     "$node_image" \
     node --input-type=module <<'NODE'
 const baseUrl = "http://application:8080";
+const managementBaseUrl = "http://application:8081";
 const expectedVersion = process.env.EXPECTED_VERSION;
 const expectedRevision = process.env.EXPECTED_REVISION;
 
@@ -132,14 +119,21 @@ async function request(path) {
   return { response, body: await response.text() };
 }
 
+async function managementRequest(path) {
+  const response = await fetch(managementBaseUrl + path, {
+    headers: { Accept: "application/json" },
+  });
+  return { response, body: await response.text() };
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-const liveness = await request("/actuator/health/liveness");
+const liveness = await managementRequest("/actuator/health/liveness");
 assert(liveness.response.ok && JSON.parse(liveness.body).status === "UP", "liveness failed");
 
-const readiness = await request("/actuator/health/readiness");
+const readiness = await managementRequest("/actuator/health/readiness");
 assert(readiness.response.ok && JSON.parse(readiness.body).status === "UP", "readiness failed");
 
 const root = await request("/");
@@ -159,13 +153,16 @@ assert(JSON.parse(releases.body).items?.length === 1, "release API payload is in
 const session = await request("/api/v1/session");
 assert(session.response.ok && JSON.parse(session.body).authenticated === false, "anonymous BFF session failed");
 
+const productMetrics = await request("/actuator/metrics");
+assert(productMetrics.response.status === 404, "management metrics leaked onto the product port");
+
 for (const path of ["/api/not-a-route", "/auth/not-a-route", "/actuator/not-a-route"]) {
   const result = await request(path);
   assert(result.response.status === 404, `${path} was not kept server-owned`);
   assert(!result.body.includes('<div id="root">'), `${path} was captured by the SPA`);
 }
 
-const info = await request("/actuator/info");
+const info = await managementRequest("/actuator/info");
 const build = JSON.parse(info.body).build;
 assert(info.response.ok, "application info failed");
 assert(build.version === expectedVersion, "application version does not match the image label");
@@ -175,16 +172,20 @@ NODE
 }
 
 seed_catalogue_for_runtime_evidence() {
-  docker exec --interactive \
-    --env PGPASSWORD="$migration_password" \
-    "$postgres_container" \
-    psql \
-      --host=127.0.0.1 \
-      --username=videogame_app_migrator \
-      --dbname=videogame_platform \
-      --set=ON_ERROR_STOP=1 \
-      <"$repository_root/backend/src/main/resources/db/dev-seed/V20260809_130000__seed_bounded_prototype_catalogue.sql" \
-      >/dev/null
+  local seed_file
+  # Apply every development seed file in Flyway version order.
+  while IFS= read -r seed_file; do
+    docker exec --interactive \
+      --env PGPASSWORD="$migration_password" \
+      "$postgres_container" \
+      psql \
+        --host=127.0.0.1 \
+        --username=videogame_app_migrator \
+        --dbname=videogame_platform \
+        --set=ON_ERROR_STOP=1 \
+        <"$seed_file" \
+        >/dev/null
+  done < <(find "$repository_root/backend/src/main/resources/db/dev-seed" -name 'V*.sql' | sort)
 }
 
 verify_runtime_image() {
@@ -265,11 +266,12 @@ PY
     --env APPLICATION_MIGRATION_DB_URL=jdbc:postgresql://postgres:5432/videogame_platform \
     --env APPLICATION_MIGRATION_DB_USERNAME=videogame_app_migrator \
     --env APPLICATION_MIGRATION_DB_PASSWORD="$migration_password" \
+    --env MANAGEMENT_SERVER_ADDRESS=0.0.0.0 \
     "$tag" >/dev/null
 
   for _ in $(seq 1 180); do
     if docker run --rm --network "$network" "$node_image" \
-        node -e 'fetch("http://application:8080/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))' \
+        node -e 'fetch("http://application:8081/actuator/health/readiness").then(response => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))' \
         >/dev/null 2>&1; then
       break
     fi
@@ -370,7 +372,7 @@ rm -f -- \
   "$evidence_directory/trivy-version.txt" \
   "$evidence_directory/SHA256SUMS"
 
-image_version="${APPLICATION_VERSION:-$(application_version)}"
+image_version="${APPLICATION_VERSION:-$(backend_reactor_version)}"
 source_url="${SOURCE_URL:-https://github.com/rubhern/videogame-platform}"
 if [[ -n "${SOURCE_REVISION:-}" ]]; then
   source_revision="$SOURCE_REVISION"
