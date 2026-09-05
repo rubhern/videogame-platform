@@ -4,12 +4,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceResolver;
-import com.videogameplatform.catalogue.application.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
+import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
-import com.videogameplatform.catalogue.application.internal.ReleaseBrowsePolicy;
-import com.videogameplatform.catalogue.application.internal.ReleaseCatalogueService;
-import com.videogameplatform.catalogue.application.port.ProviderCoverReferenceResolver;
-import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
+import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
+import com.videogameplatform.catalogue.application.releases.internal.ReleaseCatalogueService;
+import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
+import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
+import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchPolicy;
+import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchService;
+import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -29,7 +34,8 @@ class CatalogueModuleConfigurationTest {
                     .withPropertyValues(
                             "catalogue.releases.recent-window-months=4",
                             "catalogue.releases.upcoming-window-months=8",
-                            "catalogue.releases.freshness-threshold=P14D");
+                            "catalogue.releases.freshness-threshold=P14D",
+                            "catalogue.search.release-context-limit=2");
 
     @Test
     void registersTheCatalogueUseCaseAndPoliciesFromTypedRuntimeConfiguration() {
@@ -50,7 +56,20 @@ class CatalogueModuleConfigurationTest {
                     assertThat(context).hasSingleBean(ProviderCoverReferenceResolver.class);
                     assertThat(context.getBean(ProviderCoverReferenceResolver.class))
                             .isInstanceOf(IgdbCoverReferenceResolver.class);
+                    assertThat(context).hasSingleBean(CatalogueCoverPolicy.class);
+                    assertThat(context).hasSingleBean(SearchCatalogueUseCase.class);
+                    assertThat(context.getBean(SearchCatalogueUseCase.class))
+                            .isInstanceOf(CatalogueSearchService.class);
+                    assertThat(context.getBean(CatalogueSearchPolicy.class))
+                            .isEqualTo(new CatalogueSearchPolicy(2));
                 });
+    }
+
+    @Test
+    void rejectsUnsafeSearchBoundsBeforeStartupCompletes() {
+        contextRunner
+                .withPropertyValues("catalogue.search.release-context-limit=0")
+                .run(context -> assertThat(context).hasFailed());
     }
 
     @Test
@@ -73,6 +92,11 @@ class CatalogueModuleConfigurationTest {
 
         @Bean
         ReleaseBrowseReadPort releaseBrowseReadPort() {
+            return criteria -> Optional.empty();
+        }
+
+        @Bean
+        GameSearchReadPort gameSearchReadPort() {
             return criteria -> Optional.empty();
         }
 

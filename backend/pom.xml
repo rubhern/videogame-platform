@@ -7,7 +7,7 @@
   <parent>
     <groupId>com.videogameplatform</groupId>
     <artifactId>videogame-platform</artifactId>
-    <version>0.7.8-SNAPSHOT</version>
+    <version>0.8.0-SNAPSHOT</version>
   </parent>
 
   <artifactId>videogame-platform-backend</artifactId>
@@ -127,6 +127,10 @@
             <configuration>
               <inputSpec>${maven.multiModuleProjectDirectory}/docs/architecture/api/openapi.yaml</inputSpec>
               <generatorName>spring</generatorName>
+              <!-- Keep JSON Schema string length semantics: UTF-16 @Size rejects valid
+                   supplementary letters. The partial uses Hibernate's CodePointLength
+                   for string lengths and retains @Size for collection bounds. -->
+              <templateDirectory>${project.basedir}/src/main/openapi/templates</templateDirectory>
               <output>${project.build.directory}/generated-sources/openapi</output>
               <apiPackage>com.videogameplatform.api.generated</apiPackage>
               <modelPackage>com.videogameplatform.api.generated.model</modelPackage>

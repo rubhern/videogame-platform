@@ -9,13 +9,20 @@
 | ID | Operation | Actor | Required behaviour |
 |---|---|---|---|
 | `UC-001` | Browse recent/upcoming releases | Visitor | Application derives evaluation date/window; PostgreSQL filters, counts, uniquely orders, and pages local publication; TBA upcoming sorts last; stale/empty/fallback are valid states |
-| `UC-002` | Search bounded catalogue | Visitor | Search canonical titles/approved aliases only; zero/multiple matches are valid; never call provider |
+| `UC-002` | Search bounded catalogue | Visitor | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider |
 | `UC-003` | View game details | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page |
 | `UC-009` | Synchronize bounded catalogue | Scheduler/operator | Fetch curated references, normalize/validate, stage new games/changed covers, publish coherent updates, preserve last valid snapshot and cover approval on failure |
 
 `UC-001` ordering ends in unique `releaseId` after effective period, canonical title,
 and `gameId`. Request memory is `O(pageSize)` plus bounded taxonomy; persistent
 filtering/counting/pagination never occurs over a complete Java snapshot.
+
+`UC-002` normalizes the query and the searchable catalogue text with one rule, so
+matching is case- and diacritic-insensitive without ever rewriting a display title.
+Only an approved alias is searchable. Ordering ends in unique `gameId` after match
+rank and normalized canonical title; a game matched through several aliases stays one
+result and separate games matching one query stay separate. Release context per result
+is explicitly bounded, so request memory is `O(pageSize x releaseContextLimit)`.
 
 ## Identity and ratings
 

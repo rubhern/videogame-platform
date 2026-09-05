@@ -34,7 +34,13 @@ usefully expressed once in the contract.
   not supply them. Day/month/quarter/year/unknown remain a closed representation.
 - Catalogue search is trimmed, non-blank, bounded to 100 Unicode code points,
   case/diacritic-insensitive, all-token, non-fuzzy, and searches only canonical title
-  plus approved aliases.
+  plus approved aliases. A token matches a word prefix, never an infix. A query whose
+  normalized form holds no token is `SEARCH_QUERY_INVALID`, not an empty result.
+- Search results rank canonical-title matches before alias-only matches, and exact
+  before prefix before plain all-token, then order by normalized canonical title and
+  finally by the unique `gameId`. `matchedAlias` appears only when an approved alias
+  justified the match. Release context in a search result is explicitly bounded per
+  game and is never the game's complete release set.
 
 Personal rating `PUT` uses `If-None-Match: *` to create and strong `If-Match` to
 update. `DELETE` requires strong `If-Match`. Missing/contradictory preconditions

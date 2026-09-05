@@ -13,7 +13,7 @@
 
   <groupId>com.videogameplatform</groupId>
   <artifactId>videogame-platform</artifactId>
-  <version>0.7.8-SNAPSHOT</version>
+  <version>0.8.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>VideoGame Platform</name>
@@ -38,6 +38,9 @@
     <postgresql.version>42.7.12</postgresql.version>
     <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
     <spotless-maven-plugin.version>3.9.0</spotless-maven-plugin.version>
+    <!-- Security override above the Spring Boot 4.1.0 parent: clears CVE-2026-65182,
+         CVE-2026-65905 and CVE-2026-68525 in embedded Tomcat within the 11.0.x line. -->
+    <tomcat.version>11.0.25</tomcat.version>
     <source.revision>local-development</source.revision>
     <sonar.coverage.jacoco.xmlReportPaths>${maven.multiModuleProjectDirectory}/backend/target/site/jacoco/jacoco.xml</sonar.coverage.jacoco.xmlReportPaths>
     <sonar.exclusions>frontend/src/shared/api/generated/**,docs/architecture/api/reference/**,**/target/**,frontend/dist/**,frontend/playwright-report/**,frontend/test-results/**</sonar.exclusions>

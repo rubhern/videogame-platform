@@ -7,7 +7,8 @@ import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.api.generated.model.Violation;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
-import com.videogameplatform.catalogue.application.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Locale;
@@ -38,7 +39,7 @@ public class ApiExceptionHandler {
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     @ExceptionHandler(ApiRequestException.class)
-    ResponseEntity<Problem> requestInvalid(
+    public ResponseEntity<Problem> requestInvalid(
             ApiRequestException exception, HttpServletResponse response) {
         return switch (exception.code()) {
             case FILTER_INVALID ->
@@ -61,6 +62,7 @@ public class ApiExceptionHandler {
                             ErrorCategory.VALIDATION,
                             exception.pointer(),
                             "Use an integer inside the supported pagination range.");
+            case SEARCH_QUERY_INVALID -> searchQueryInvalid(response, exception.pointer());
             case REQUEST_PARAMETER_UNKNOWN ->
                     problem(
                             response,
@@ -100,6 +102,11 @@ public class ApiExceptionHandler {
                             "/query/regionId",
                             "Use a supported region identifier.");
         };
+    }
+
+    @ExceptionHandler(SearchQueryInvalidException.class)
+    ResponseEntity<Problem> searchQueryInvalid(HttpServletResponse response) {
+        return searchQueryInvalid(response, "/query/q");
     }
 
     @ExceptionHandler(CatalogueNotReadyException.class)
@@ -203,6 +210,9 @@ public class ApiExceptionHandler {
                         .filter(java.util.Objects::nonNull)
                         .findFirst()
                         .orElse("query");
+        if ("q".equals(parameter)) {
+            return searchQueryInvalid(response, "/query/q");
+        }
         boolean pagination = "page".equals(parameter) || "pageSize".equals(parameter);
         return problem(
                 response,
@@ -219,7 +229,7 @@ public class ApiExceptionHandler {
                         : "Use a value accepted by the API contract.");
     }
 
-    @ExceptionHandler(NoResourceFoundException.class)
+    @ExceptionHandler({NoResourceFoundException.class, ApiOperationNotDeliveredException.class})
     ResponseEntity<Void> resourceNotFound() {
         return ResponseEntity.notFound().build();
     }
@@ -228,6 +238,19 @@ public class ApiExceptionHandler {
     ResponseEntity<Problem> unexpectedFailure(Exception exception, HttpServletResponse response) {
         logTechnicalFailure(ProblemCode.INTERNAL_ERROR, exception);
         return internalError(response);
+    }
+
+    private static ResponseEntity<Problem> searchQueryInvalid(
+            HttpServletResponse response, String pointer) {
+        return problem(
+                response,
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ProblemCode.SEARCH_QUERY_INVALID,
+                "Search query is invalid",
+                "Supply a non-blank query of at most 100 Unicode code points.",
+                ErrorCategory.VALIDATION,
+                pointer,
+                "Use a single searchable query inside the supported bounds.");
     }
 
     private static ResponseEntity<Problem> internalError(HttpServletResponse response) {

@@ -1,7 +1,7 @@
 package com.videogameplatform.catalogue.adapter.provider.igdb;
 
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
-import com.videogameplatform.catalogue.application.port.ProviderCoverReferenceResolver;
+import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
 import java.net.URI;
 import java.util.regex.Pattern;
 

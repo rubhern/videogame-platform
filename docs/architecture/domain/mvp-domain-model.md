@@ -72,6 +72,8 @@ Downstream documents may reference these IDs but must not redefine them.
 | `GAME-013` | Cover references contain no credential/token/authenticated URL. |
 | `GAME-014` | Cover failure selects fallback without hiding the game. |
 | `GAME-015` | Approval is scoped to usage/release mode and asserts no ownership. |
+| `GAME-016` | Only an approved alias is discoverable; pending/rejected aliases are not. |
+| `GAME-017` | Comparable search text is derived; the stored display title is never rewritten. |
 | `REL-001` | A release belongs to exactly one game. |
 | `REL-002` | A release has one platform and one region or explicit unknown. |
 | `REL-003` | Date value and precision form one valid closed variant. |

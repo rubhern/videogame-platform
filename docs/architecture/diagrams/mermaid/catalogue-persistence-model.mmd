@@ -11,6 +11,7 @@ erDiagram
     game ||--o{ game_release : owns
     catalogue_publication ||--o{ release_snapshot : publishes
     game_snapshot ||--o{ release_snapshot : exposes
+    game_snapshot ||--o{ game_alias : "is searchable as"
     game_release ||--o{ release_snapshot : "is versioned as"
     platform ||--o{ release_snapshot : classifies
     region ||--o{ release_snapshot : classifies
@@ -41,6 +42,21 @@ erDiagram
         varchar cover_alternative_text "max 500"
         varchar cover_source_url "nullable published HTTPS source"
         varchar cover_usage_status "must be approved"
+        text normalized_title "generated comparable search form"
+        tsvector title_search_vector "generated simple search vector"
+    }
+
+    game_alias {
+        uuid publication_id PK,FK
+        uuid game_id PK,FK
+        varchar alias PK "max 300"
+        text normalized_alias UK "generated; unique per publication"
+        tsvector alias_search_vector "generated simple search vector"
+        varchar alias_kind "closed values"
+        varchar language_tag "nullable BCP 47 tag"
+        varchar approval_status "only approved is searchable"
+        varchar source_kind "closed values"
+        varchar source_name "max 200"
     }
 
     game_external_reference {

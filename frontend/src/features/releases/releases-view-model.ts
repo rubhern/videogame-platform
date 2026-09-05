@@ -1,4 +1,4 @@
-import { formatCalendarDay, formatReleaseDate } from "./release-date";
+import { formatCalendarDay, formatReleaseDate } from "../../shared/catalogue/release-date";
 import type { ReleasePage } from "./releases-api";
 import type { ReleaseView } from "./releases-search";
 

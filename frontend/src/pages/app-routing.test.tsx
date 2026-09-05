@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -65,6 +65,21 @@ describe("application routing", () => {
       await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
     ).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "Ver Pragmata" })).toBeInTheDocument();
+  });
+
+  it("navigates between the release and search sections from the shell", async () => {
+    const user = userEvent.setup();
+    renderApp();
+
+    await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" });
+    const sections = screen.getByRole("navigation", { name: "Secciones principales" });
+    await user.click(within(sections).getByRole("link", { name: "Buscar" }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Buscar juegos" })).toBeInTheDocument();
+    expect(within(sections).getByRole("link", { name: "Buscar" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   it("offers a keyboard-accessible return from an unknown route", async () => {
