@@ -16,6 +16,7 @@ resource "oci_limits_quota" "compute_core" {
   statements = [
     "zero compute-core quotas in compartment ${var.compartment_name}",
     "set compute-core quota standard-a1-core-count to ${var.max_a1_ocpus} in compartment ${var.compartment_name}",
+    "set compute-core quota standard-a1-core-regional-count to ${var.max_a1_ocpus} in compartment ${var.compartment_name}",
   ]
 
   depends_on = [oci_identity_compartment.dev]
@@ -28,6 +29,7 @@ resource "oci_limits_quota" "compute_memory" {
   statements = [
     "zero compute-memory quotas in compartment ${var.compartment_name}",
     "set compute-memory quota standard-a1-memory-count to ${var.max_a1_memory_gb} in compartment ${var.compartment_name}",
+    "set compute-memory quota standard-a1-memory-regional-count to ${var.max_a1_memory_gb} in compartment ${var.compartment_name}",
   ]
 
   depends_on = [oci_identity_compartment.dev]
@@ -39,7 +41,6 @@ resource "oci_limits_quota" "prohibited_compute" {
   name           = "${var.compartment_name}-prohibited-compute"
   statements = [
     "zero compute quotas in compartment ${var.compartment_name}",
-    "zero compute-gpu quotas in compartment ${var.compartment_name}",
     "zero compute-management quotas in compartment ${var.compartment_name}",
     "zero auto-scaling quotas in compartment ${var.compartment_name}",
   ]
@@ -68,4 +69,18 @@ resource "oci_limits_quota" "vault" {
   ]
 
   depends_on = [oci_identity_compartment.dev]
+}
+
+# OCI quota policy changes can take up to ten minutes to become effective. Keep
+# dependent capacity creation behind that documented propagation window.
+resource "time_sleep" "quota_propagation" {
+  create_duration = "10m"
+
+  depends_on = [
+    oci_limits_quota.compute_core,
+    oci_limits_quota.compute_memory,
+    oci_limits_quota.prohibited_compute,
+    oci_limits_quota.storage,
+    oci_limits_quota.vault,
+  ]
 }

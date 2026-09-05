@@ -1,7 +1,7 @@
 title: VideoGame Platform private dev
 description: Reviewed zero-recurring-cost OCI Resource Manager stack.
 schemaVersion: 1.1.0
-version: "0.1.0"
+version: "0.1.4"
 locale: en
 variableGroups:
   - title: Verified OCI placement

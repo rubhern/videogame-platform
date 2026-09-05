@@ -18,6 +18,7 @@ with promotional credits and Always Free resources that remain available after t
 trial. The credits may permit paid resources temporarily and therefore never count as
 project eligibility, headroom, or budget. Recheck the [official Free Tier semantics](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier.htm),
 the [Always Free resource page](https://docs.oracle.com/en-us/iaas/Content/FreeTier/freetier_topic-Always_Free_Resources.htm),
+the [Compute Capacity Report API](https://docs.oracle.com/en-us/iaas/tools/python/latest/api/core/client/oci.core.ComputeClient.html#create_compute_capacity_report),
 the [premium-jobs billing rules](https://docs.oracle.com/en-us/iaas/Content/ResourceManager/Concepts/premium-jobs.htm),
 and the [Resource Manager Terraform version matrix](https://docs.oracle.com/en-us/iaas/Content/ResourceManager/Reference/terraformversions.htm)
 immediately before every plan.
@@ -50,7 +51,7 @@ outside Terraform.
 Install and authenticate the OCI CLI without placing its config or key under the
 repository. Copy only the non-secret identifiers from
 `infrastructure/terraform/terraform.tfvars.example` into ignored local/Resource
-Manager variables. Then run the read-only preflight:
+Manager variables. Then run the non-provisioning preflight:
 
 ```bash
 python3 scripts/collect-oci-free-tier-evidence.py \
@@ -68,19 +69,28 @@ owner attestation. A trial account is valid, but it receives no extra project bu
 the preflight caps reported availability at the permanent Always Free allowance minus
 observed tenancy usage. It therefore respects a lower real availability while
 ignoring any larger trial capacity or remaining promotional credit. Evidence expires
-after 24 hours.
+after 24 hours. The plan reviewer compares that current headroom with only the
+resources the exact plan still creates, so a safe continuation after a partial apply
+does not double-count resources already present in protected state.
 
-The preflight also checks home region, A1 shape/image compatibility, at least one
+The preflight also checks home region, A1 shape/image compatibility, both
+availability-domain and regional A1 limit headroom, at least one
 ordinary Resource Manager job within the permanent free concurrency limit, and zero
 effective premium-job capacity. It checks both premium usage and remaining capacity,
-so a consumed premium job with `available == 0` is still blocked. It performs no
-create, update, delete, plan, or apply operation.
+so a consumed premium job with `available == 0` is still blocked. Separately from
+those quota and Always Free checks, it requests an ephemeral OCI Compute Capacity
+Report for exactly one `VM.Standard.A1.Flex` with 2 OCPU and 12 GB RAM. The request
+omits Fault Domain so OCI checks the whole selected Availability Domain. Only
+`AVAILABLE` with an `available-count` of at least one passes. The report provisions
+and reserves nothing; the preflight performs no infrastructure create, update,
+delete, plan, or apply operation.
 
-OCI does not expose a reliable account-mode classification or guarantee physical A1
-host capacity through a read-only query. The account mode is therefore an explicit
-owner attestation, and the evidence records capacity as unproven. An
-`out of host capacity` result in #42 means stop or try another verified availability
-domain; it never authorizes a paid fallback.
+OCI does not expose a reliable account-mode classification, so the account mode
+remains an explicit owner attestation. A capacity report is a point-in-time signal,
+not a reservation or guarantee that capacity will remain until apply. A negative,
+missing, malformed, or failed report blocks plan creation. `OUT_OF_HOST_CAPACITY` in
+the report or at launch means stop until the same exact A1 configuration reports
+available again; it never authorizes a paid fallback or a narrower Fault Domain.
 
 ## Plan and owner review
 
@@ -110,7 +120,8 @@ domain; it never authorizes a paid fallback.
    region/compartment; no amount, tier, performance setting, ingress rule, public
    output, secret payload, trial-only feature, load balancer, NAT gateway, pool, or
    autoscaling facility has appeared; the five quota policies are created before
-   dependent capacity; and every unknown value is understood.
+   a ten-minute, provider-local propagation wait and dependent capacity; and every
+   unknown value is understood.
 5. Treat plan JSON, binary plans, state, logs, and evidence as protected local data.
    Do not publish or attach them to a public issue or CI artifact.
 
@@ -124,13 +135,18 @@ replanning silently.
 
 ## What the zero-cost gate can prove
 
-Terraform variable validation and OCI compartment quotas hard-cap this stack at 2 A1
+Terraform variable validation and OCI compartment quotas hard-cap both the
+availability-domain and regional A1 envelopes at 2 A1
 OCPU, 12 GB A1 memory, 150 GB boot/block storage, and 5 GB Object Storage; paid
 compute families, GPUs, compute management/autoscaling and virtual private Vaults are
-zeroed. The plan reviewer additionally allowlists resource types and exact free
+zeroed. A provider-local ten-minute wait accounts for OCI's documented quota-policy
+propagation delay before dependent capacity is requested. The plan reviewer
+additionally allowlists resource types and exact free
 settings, including the 10 VPUs/GB balanced performance level for both block volumes.
 The live preflight proves that permanent Always Free headroom, after current tenancy
-usage and without promotional credits, covers the plan at that time. The same plan
+usage and without promotional credits, covers the plan at that time. Independently,
+the Compute Capacity Report proves that OCI reported at least one matching A1 host at
+the preflight instant; it does not reserve that host. The same plan
 allowlist and exact resource limits apply to trial, Always Free, and paid accounts.
 
 This cannot make Oracle's external terms immutable, reserve scarce A1 capacity, or

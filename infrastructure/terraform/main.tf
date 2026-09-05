@@ -22,6 +22,22 @@ data "oci_objectstorage_namespace" "tenancy" {
   compartment_id = var.tenancy_ocid
 }
 
+resource "oci_identity_policy" "object_storage_lifecycle" {
+  compartment_id = var.tenancy_ocid
+  description    = "Permit Object Storage to enforce the bounded backup lifecycle"
+  name           = "${var.compartment_name}-object-storage-lifecycle"
+  freeform_tags  = local.approved_freeform_tags
+  statements = [
+    "Allow service objectstorage-${var.region} to manage object-family in compartment ${var.compartment_name} where any {request.permission='BUCKET_INSPECT', request.permission='BUCKET_READ', request.permission='OBJECT_INSPECT', request.permission='OBJECT_UPDATE_TIER', request.permission='OBJECT_DELETE', request.permission='OBJECT_VERSION_DELETE'}",
+  ]
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [module.compartment]
+}
+
 module "network" {
   source = "./modules/network"
 
@@ -43,7 +59,7 @@ module "storage" {
   backup_retention_days = var.backup_retention_days
   freeform_tags         = local.approved_freeform_tags
 
-  depends_on = [module.compartment]
+  depends_on = [module.compartment, oci_identity_policy.object_storage_lifecycle]
 }
 
 module "compute" {

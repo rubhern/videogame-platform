@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any, Iterable
 
@@ -33,6 +34,7 @@ ALLOWED_RESOURCE_TYPES = {
     "oci_objectstorage_bucket",
     "oci_objectstorage_object_lifecycle_policy",
     "oci_ons_notification_topic",
+    "time_sleep",
 }
 REQUIRED_SHAPE = "VM.Standard.A1.Flex"
 MAX_OCPUS = 2
@@ -76,7 +78,7 @@ def parse_timestamp(value: Any) -> datetime:
 
 
 def validate_evidence(evidence: dict[str, Any], now: datetime) -> None:
-    if evidence.get("schema_version") != 2:
+    if evidence.get("schema_version") != 4:
         raise GateFailure("eligibility evidence schema version is unsupported")
     if evidence.get("verdict") != "PASS":
         raise GateFailure("live OCI eligibility evidence did not pass")
@@ -94,12 +96,14 @@ def validate_evidence(evidence: dict[str, Any], now: datetime) -> None:
         "FreeTier/freetier.htm",
         "freetier_topic-Always_Free_Resources",
         "ResourceManager/Concepts/premium-jobs.htm",
+        "resourcequotas_topic-Compute_Quotas.htm",
+        "create_compute_capacity_report",
     )
     if not isinstance(sources, list) or any(
         not any(isinstance(source, str) and fragment in source for source in sources)
         for fragment in required_source_fragments
     ):
-        raise GateFailure("required official OCI Free Trial, Always Free, or premium-jobs source is absent")
+        raise GateFailure("required official OCI eligibility or capacity source is absent")
     age = now - generated_at
     if age < timedelta(0) or age > MAX_EVIDENCE_AGE:
         raise GateFailure("live OCI eligibility evidence must be no more than 24 hours old")
@@ -110,10 +114,57 @@ def validate_evidence(evidence: dict[str, Any], now: datetime) -> None:
         "ubuntu_arm_image_verified",
         "ordinary_resource_manager_jobs_verified",
         "premium_jobs_disabled",
+        "a1_physical_capacity_verified",
     )
     missing = [name for name in required_flags if evidence.get(name) is not True]
     if missing:
         raise GateFailure("eligibility evidence is missing passed controls: " + ", ".join(missing))
+
+    physical_capacity = evidence.get("physical_capacity")
+    expected_shape_config = {"ocpus": MAX_OCPUS, "memory_in_gbs": MAX_MEMORY_GB}
+    if not isinstance(physical_capacity, dict):
+        raise GateFailure("eligibility evidence is missing physical A1 capacity")
+    if physical_capacity.get("mechanism") != "oci-compute-capacity-report":
+        raise GateFailure("physical A1 capacity did not use OCI Compute Capacity Report")
+    if physical_capacity.get("fault_domain_requested") is not None:
+        raise GateFailure("physical A1 capacity must be checked across all fault domains")
+    if physical_capacity.get("instance_shape") != REQUIRED_SHAPE:
+        raise GateFailure("physical capacity was not checked for the approved A1 shape")
+    if physical_capacity.get("instance_shape_config") != expected_shape_config:
+        raise GateFailure("physical capacity was not checked for exactly 2 OCPU and 12 GB")
+    available_count = physical_capacity.get("available_count")
+    if (
+        physical_capacity.get("availability_status") != "AVAILABLE"
+        or not isinstance(available_count, int)
+        or isinstance(available_count, bool)
+        or available_count < 1
+        or physical_capacity.get("sufficient_for_instance") is not True
+    ):
+        raise GateFailure("OCI reports insufficient physical A1 host capacity")
+
+    scope_status = evidence.get("a1_limit_scopes")
+    if not isinstance(scope_status, dict):
+        raise GateFailure("eligibility evidence is missing A1 AD and regional limit status")
+    for key in ("a1_ocpus", "a1_memory_gb"):
+        scopes = scope_status.get(key)
+        if not isinstance(scopes, dict):
+            raise GateFailure(f"eligibility evidence is missing scoped {key} status")
+        availability_domain = scopes.get("availability_domain")
+        region = scopes.get("region")
+        if not isinstance(availability_domain, dict) or not isinstance(region, dict):
+            raise GateFailure(f"eligibility evidence must include AD and regional {key} status")
+        for name, status in (("availability domain", availability_domain), ("region", region)):
+            used = status.get("used")
+            available = status.get("available")
+            if (
+                not isinstance(used, (int, float))
+                or isinstance(used, bool)
+                or used < 0
+                or not isinstance(available, (int, float))
+                or isinstance(available, bool)
+                or available < 0
+            ):
+                raise GateFailure(f"observed {name} {key} status must be non-negative")
 
     headroom = evidence.get("always_free_headroom")
     if not isinstance(headroom, dict):
@@ -121,13 +172,7 @@ def validate_evidence(evidence: dict[str, Any], now: datetime) -> None:
     observed_status = evidence.get("observed_resource_status")
     if not isinstance(observed_status, dict):
         raise GateFailure("eligibility evidence is missing observed resource status")
-    minimums = {
-        "a1_ocpus": MAX_OCPUS,
-        "a1_memory_gb": MAX_MEMORY_GB,
-        "block_storage_gb": MAX_BLOCK_STORAGE_GB,
-        "object_storage_bytes": MAX_OBJECT_STORAGE_BYTES,
-    }
-    for key, minimum in minimums.items():
+    for key in ("a1_ocpus", "a1_memory_gb", "block_storage_gb", "object_storage_bytes"):
         value = headroom.get(key)
         status = observed_status.get(key)
         if not isinstance(status, dict):
@@ -145,11 +190,19 @@ def validate_evidence(evidence: dict[str, Any], now: datetime) -> None:
             or available < 0
         ):
             raise GateFailure(f"observed {key} status must contain non-negative numeric values")
+        if key in ("a1_ocpus", "a1_memory_gb"):
+            scopes = scope_status[key]
+            expected_effective = {
+                "available": min(
+                    scopes["availability_domain"]["available"], scopes["region"]["available"]
+                ),
+                "used": max(scopes["availability_domain"]["used"], scopes["region"]["used"]),
+            }
+            if status != expected_effective:
+                raise GateFailure(f"effective {key} status is not the stricter AD/regional value")
         permanent_headroom = min(available, max(0, ALWAYS_FREE_LIMITS[key] - used))
         if value != permanent_headroom:
             raise GateFailure(f"verified {key} headroom is not derived from the permanent envelope")
-        if value < minimum:
-            raise GateFailure(f"insufficient verified {key} headroom for the reviewed plan")
 
     job_status = evidence.get("resource_manager_job_status")
     if not isinstance(job_status, dict):
@@ -230,6 +283,41 @@ def validate_actions(
         raise GateFailure("destructive approval is absent or does not match the exact plan JSON")
 
 
+def validate_plan_headroom(plan: dict[str, Any], evidence: dict[str, Any]) -> None:
+    required = {
+        "a1_ocpus": 0,
+        "a1_memory_gb": 0,
+        "block_storage_gb": 0,
+        "object_storage_bytes": MAX_OBJECT_STORAGE_BYTES,
+    }
+    for change in plan.get("resource_changes", []):
+        if not isinstance(change, dict):
+            continue
+        actions = change.get("change", {}).get("actions", [])
+        if "create" not in actions:
+            continue
+        if change.get("type") == "oci_core_instance":
+            required["a1_ocpus"] += MAX_OCPUS
+            required["a1_memory_gb"] += MAX_MEMORY_GB
+            required["block_storage_gb"] += 50
+        elif change.get("type") == "oci_core_volume":
+            required["block_storage_gb"] += 100
+
+    headroom = evidence.get("always_free_headroom")
+    if not isinstance(headroom, dict):
+        raise GateFailure("eligibility evidence is missing permanent Always Free headroom")
+    insufficient = [
+        f"{name}: requires {amount}, has {headroom.get(name)}"
+        for name, amount in required.items()
+        if not isinstance(headroom.get(name), (int, float)) or headroom[name] < amount
+    ]
+    if insufficient:
+        raise GateFailure(
+            "insufficient permanent headroom for resources created by this plan: "
+            + "; ".join(insufficient)
+        )
+
+
 def only_values(resources: list[dict[str, Any]], resource_type: str) -> list[dict[str, Any]]:
     values: list[dict[str, Any]] = []
     for resource in resources:
@@ -238,6 +326,29 @@ def only_values(resources: list[dict[str, Any]], resource_type: str) -> list[dic
             raise GateFailure(f"{resource_type} has no inspectable planned values")
         values.append(value)
     return values
+
+
+def planned_boolean(value: Any) -> bool | None:
+    if type(value) is bool:
+        return value
+    if value == "true":
+        return True
+    if value == "false":
+        return False
+    return None
+
+
+def planned_integer(value: Any) -> int | None:
+    if type(value) is int and value >= 0:
+        return value
+    if isinstance(value, str) and value.isdigit():
+        try:
+            parsed = int(value)
+        except ValueError:
+            return None
+        if value == str(parsed):
+            return parsed
+    return None
 
 
 def validate_envelope(resources: dict[str, list[dict[str, Any]]]) -> None:
@@ -258,7 +369,7 @@ def validate_envelope(resources: dict[str, list[dict[str, Any]]]) -> None:
         "oci_core_volume_attachment": 1,
         "oci_identity_compartment": 1,
         "oci_identity_dynamic_group": 1,
-        "oci_identity_policy": 1,
+        "oci_identity_policy": 2,
         "oci_kms_key": 1,
         "oci_kms_vault": 1,
         "oci_limits_quota": 5,
@@ -266,6 +377,7 @@ def validate_envelope(resources: dict[str, list[dict[str, Any]]]) -> None:
         "oci_objectstorage_bucket": 1,
         "oci_objectstorage_object_lifecycle_policy": 1,
         "oci_ons_notification_topic": 1,
+        "time_sleep": 1,
     }
     for resource_type, expected_count in expected_counts.items():
         actual_count = len(resources.get(resource_type, []))
@@ -283,32 +395,40 @@ def validate_envelope(resources: dict[str, list[dict[str, Any]]]) -> None:
     shape_config = instance.get("shape_config")
     if not isinstance(shape_config, list) or len(shape_config) != 1:
         raise GateFailure("A1 shape_config must be fully known in the plan")
-    if shape_config[0].get("ocpus") != MAX_OCPUS:
+    if planned_integer(shape_config[0].get("ocpus")) != MAX_OCPUS:
         raise GateFailure("A1 OCPU allocation is not exactly 2")
-    if shape_config[0].get("memory_in_gbs") != MAX_MEMORY_GB:
+    if planned_integer(shape_config[0].get("memory_in_gbs")) != MAX_MEMORY_GB:
         raise GateFailure("A1 memory allocation is not exactly 12 GB")
     vnics = instance.get("create_vnic_details")
-    if not isinstance(vnics, list) or len(vnics) != 1 or vnics[0].get("assign_public_ip") is not True:
+    if (
+        not isinstance(vnics, list)
+        or len(vnics) != 1
+        or planned_boolean(vnics[0].get("assign_public_ip")) is not True
+    ):
         raise GateFailure("the reviewed egress-only ephemeral public IP topology changed")
     source_details = instance.get("source_details")
     if not isinstance(source_details, list) or len(source_details) != 1:
         raise GateFailure("boot-volume configuration must be fully known")
-    if source_details[0].get("boot_volume_size_in_gbs") != 50:
+    boot_volume_size_gb = planned_integer(source_details[0].get("boot_volume_size_in_gbs"))
+    if boot_volume_size_gb != 50:
         raise GateFailure("boot volume must be exactly 50 GB")
     if (
-        source_details[0].get("boot_volume_vpus_per_gb")
+        planned_integer(source_details[0].get("boot_volume_vpus_per_gb"))
         != BALANCED_BLOCK_VOLUME_VPUS_PER_GB
     ):
         raise GateFailure("boot volume performance must remain at 10 VPUs/GB")
 
     volumes = only_values(resources.get("oci_core_volume", []), "oci_core_volume")
-    if len(volumes) != 1 or volumes[0].get("size_in_gbs") != 100:
+    if len(volumes) != 1:
         raise GateFailure("plan must contain exactly one 100 GB data volume")
-    if volumes[0].get("vpus_per_gb") != BALANCED_BLOCK_VOLUME_VPUS_PER_GB:
+    data_volume_size_gb = planned_integer(volumes[0].get("size_in_gbs"))
+    if data_volume_size_gb != 100:
+        raise GateFailure("plan must contain exactly one 100 GB data volume")
+    if planned_integer(volumes[0].get("vpus_per_gb")) != BALANCED_BLOCK_VOLUME_VPUS_PER_GB:
         raise GateFailure("data volume performance must remain at 10 VPUs/GB")
-    if volumes[0].get("is_auto_tune_enabled") is not False:
+    if planned_boolean(volumes[0].get("is_auto_tune_enabled")) is not False:
         raise GateFailure("block-volume performance auto-tuning is prohibited")
-    total_block = source_details[0]["boot_volume_size_in_gbs"] + volumes[0]["size_in_gbs"]
+    total_block = boot_volume_size_gb + data_volume_size_gb
     if total_block != MAX_BLOCK_STORAGE_GB:
         raise GateFailure("combined boot and data block storage must be exactly 150 GB")
 
@@ -337,7 +457,7 @@ def validate_envelope(resources: dict[str, list[dict[str, Any]]]) -> None:
         (
             rule.get("target"),
             rule.get("action"),
-            rule.get("time_amount"),
+            planned_integer(rule.get("time_amount")),
             rule.get("time_unit"),
             rule.get("is_enabled"),
         )
@@ -369,6 +489,34 @@ def validate_envelope(resources: dict[str, list[dict[str, Any]]]) -> None:
     if not nsg_rules or any(rule.get("direction") != "EGRESS" for rule in nsg_rules):
         raise GateFailure("network security groups may contain egress rules only")
 
+    compartments = only_values(
+        resources.get("oci_identity_compartment", []), "oci_identity_compartment"
+    )
+    if len(compartments) != 1 or not isinstance(compartments[0].get("name"), str):
+        raise GateFailure("the private dev compartment name must be fully known")
+    compartment_name = compartments[0]["name"]
+
+    policies = only_values(resources.get("oci_identity_policy", []), "oci_identity_policy")
+    lifecycle_policy_name = f"{compartment_name}-object-storage-lifecycle"
+    lifecycle_policies = [policy for policy in policies if policy.get("name") == lifecycle_policy_name]
+    lifecycle_statements = (
+        lifecycle_policies[0].get("statements") if len(lifecycle_policies) == 1 else None
+    )
+    expected_lifecycle_statement = re.compile(
+        rf"Allow service objectstorage-[a-z]+-[a-z]+-[0-9]+ to manage object-family "
+        rf"in compartment {re.escape(compartment_name)} where any "
+        r"\{request\.permission='BUCKET_INSPECT', request\.permission='BUCKET_READ', "
+        r"request\.permission='OBJECT_INSPECT', request\.permission='OBJECT_UPDATE_TIER', "
+        r"request\.permission='OBJECT_DELETE', request\.permission='OBJECT_VERSION_DELETE'\}"
+    )
+    if not (
+        isinstance(lifecycle_statements, list)
+        and len(lifecycle_statements) == 1
+        and isinstance(lifecycle_statements[0], str)
+        and expected_lifecycle_statement.fullmatch(lifecycle_statements[0])
+    ):
+        raise GateFailure("Object Storage lifecycle service permissions differ from the allowlist")
+
     quota_values = only_values(resources.get("oci_limits_quota", []), "oci_limits_quota")
     statements = {
         statement
@@ -376,17 +524,30 @@ def validate_envelope(resources: dict[str, list[dict[str, Any]]]) -> None:
         for statement in quota.get("statements", [])
         if isinstance(statement, str)
     }
-    required_fragments = (
-        "standard-a1-core-count to 2",
-        "standard-a1-memory-count to 12",
-        "total-storage-gb to 150",
-        f"storage-bytes to {MAX_OBJECT_STORAGE_BYTES}",
-        "zero auto-scaling quotas",
-        "zero kms quota virtual-private-vault-count",
-    )
-    for fragment in required_fragments:
-        if not any(fragment in statement for statement in statements):
-            raise GateFailure(f"required hard quota is absent: {fragment}")
+    expected_statements = {
+        f"zero compute-core quotas in compartment {compartment_name}",
+        f"set compute-core quota standard-a1-core-count to 2 in compartment {compartment_name}",
+        f"set compute-core quota standard-a1-core-regional-count to 2 in compartment {compartment_name}",
+        f"zero compute-memory quotas in compartment {compartment_name}",
+        f"set compute-memory quota standard-a1-memory-count to 12 in compartment {compartment_name}",
+        f"set compute-memory quota standard-a1-memory-regional-count to 12 in compartment {compartment_name}",
+        f"zero compute quotas in compartment {compartment_name}",
+        f"zero compute-management quotas in compartment {compartment_name}",
+        f"zero auto-scaling quotas in compartment {compartment_name}",
+        f"set block-storage quota total-storage-gb to 150 in compartment {compartment_name}",
+        f"set object-storage quota storage-bytes to {MAX_OBJECT_STORAGE_BYTES} in compartment {compartment_name}",
+        f"zero kms quota virtual-private-vault-count in compartment {compartment_name}",
+    }
+    if statements != expected_statements:
+        raise GateFailure("compartment quota statements differ from the exact approved allowlist")
+
+    alarms = only_values(resources.get("oci_monitoring_alarm", []), "oci_monitoring_alarm")
+    if any(alarm.get("resolution") != "1m" for alarm in alarms):
+        raise GateFailure("OCI alarm resolution must remain at the supported 1m value")
+
+    quota_waits = only_values(resources.get("time_sleep", []), "time_sleep")
+    if len(quota_waits) != 1 or quota_waits[0].get("create_duration") != "10m":
+        raise GateFailure("quota propagation wait must remain exactly 10 minutes")
 
 
 def parse_args() -> argparse.Namespace:
@@ -405,6 +566,7 @@ def main() -> int:
         validate_evidence(evidence, datetime.now(timezone.utc))
         validate_actions(args.plan_json, plan, args.destructive_approval)
         validate_envelope(resources_by_type(plan))
+        validate_plan_headroom(plan, evidence)
     except GateFailure as error:
         print(f"BLOCKED: {error}", file=sys.stderr)
         return 1
