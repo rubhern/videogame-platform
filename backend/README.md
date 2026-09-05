@@ -1,8 +1,9 @@
 # VideoGame Platform backend
 
 The backend is a Java 25 / Spring Boot modular monolith. It currently implements the
-PostgreSQL-backed `GET /api/v1/releases` operation, the minimal BFF session resource,
-Keycloak login navigation, packaged frontend routes, and Actuator health/info/metrics.
+PostgreSQL-backed `GET /api/v1/releases` and `GET /api/v1/games` operations, the
+minimal BFF session resource, Keycloak login navigation, packaged frontend routes, and
+Actuator health/info/metrics.
 The remaining operations in the [OpenAPI contract](../docs/architecture/api/openapi.yaml)
 are approved contracts, not implemented claims.
 
@@ -79,7 +80,10 @@ Configuration names, defaults, and secret classification are maintained in
 Domain and application code remain independent from Spring, HTTP, generated OpenAPI
 types, persistence models, and provider DTOs. Adapters depend inward and do not
 instantiate application services. Module composition belongs in the owning
-`configuration` package. Spring Modulith and ArchUnit tests enforce these rules.
+`configuration` package. Within a layer, cohesive use cases use capability packages
+such as `search`, `releases`, and `cover`; genuinely shared mechanisms stay at the
+layer root. Spring Modulith named interfaces expose only the public application
+contracts, while ArchUnit prevents adapters from reaching capability internals.
 
 The approved structure and trade-offs live in the
 [solution architecture](../docs/architecture/mvp-solution-architecture.md) and
@@ -102,6 +106,12 @@ Flyway SQL under `src/main/resources/db/migration/` is the executable schema
 authority. Hibernate schema generation is disabled, the migration role owns DDL,
 and the runtime role has only required DML privileges. See the
 [migration workflow](../docs/development/database-migrations.md).
+
+For catalogue-search plan evidence, run `bash scripts/analyze-catalogue-search.sh`.
+The supported fixture sizes live in the script; full production count/page plans are
+written under ignored `backend/target/query-plans/`. See
+[ADR-0016](../docs/decisions/0016-search-the-bounded-catalogue-with-postgresql-text-search.md)
+for the indexing decision and its limits.
 
 Actuator exposes health groups, build information, and metrics on the separate local
 management port (`8081` by default), not on the product port. Correlation uses

@@ -47,10 +47,14 @@ catalogue:
     recent-window-months: ${CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS:6}
     upcoming-window-months: ${CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS:6}
     freshness-threshold: ${CATALOGUE_RELEASES_FRESHNESS_THRESHOLD:P7D}
+  search:
+    release-context-limit: ${CATALOGUE_SEARCH_RELEASE_CONTEXT_LIMIT:3}
 
 api:
   releases:
     cache-control: ${CATALOGUE_RELEASES_CACHE_CONTROL:public, max-age=60, stale-while-revalidate=300}
+  games:
+    cache-control: ${CATALOGUE_SEARCH_CACHE_CONTROL:public, max-age=60, stale-while-revalidate=300}
 
 platform:
   readiness:

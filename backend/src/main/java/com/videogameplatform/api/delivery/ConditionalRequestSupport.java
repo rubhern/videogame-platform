@@ -10,15 +10,15 @@ import tools.jackson.databind.ObjectMapper;
 
 /** Strong representation validators and RFC-compatible conditional GET matching. */
 @Component
-final class ConditionalRequestSupport {
+public final class ConditionalRequestSupport {
 
     private final ObjectMapper objectMapper;
 
-    ConditionalRequestSupport(ObjectMapper objectMapper) {
+    public ConditionalRequestSupport(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
-    String strongEntityTag(Object representation) {
+    public String strongEntityTag(Object representation) {
         try {
             byte[] json = objectMapper.writeValueAsBytes(representation);
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(json);
@@ -31,7 +31,7 @@ final class ConditionalRequestSupport {
         }
     }
 
-    boolean matches(String ifNoneMatch, String entityTag) {
+    public boolean matches(String ifNoneMatch, String entityTag) {
         if (ifNoneMatch == null) {
             return false;
         }

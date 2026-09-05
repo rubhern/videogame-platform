@@ -43,7 +43,7 @@ class CataloguePersistenceIntegrationTest {
         var migrationResult = flyway.migrate();
         flyway.validate();
 
-        assertThat(migrationResult.migrationsExecuted).isEqualTo(7);
+        assertThat(migrationResult.migrationsExecuted).isEqualTo(9);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -61,11 +61,25 @@ class CataloguePersistenceIntegrationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(7);
+                    .isEqualTo(9);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
                     .isEqualTo(12);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.release_snapshot"))
                     .isEqualTo(20);
+            assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_alias"))
+                    .isEqualTo(8);
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM catalogue.game_alias WHERE approval_status = 'approved'"))
+                    .isEqualTo(7);
+            // Every published alias resolves to a game in the same publication and is
+            // searchable through its generated normalized form.
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM catalogue.game_alias WHERE btrim(normalized_alias) = ''"))
+                    .isZero();
             assertThat(
                             singleInt(
                                     statement,

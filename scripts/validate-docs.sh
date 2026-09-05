@@ -19,6 +19,7 @@ required_files=(
   "backend/postman/README.md"
   "backend/postman/actuator.postman_collection.json"
   "backend/postman/catalogue-releases.postman_collection.json"
+  "backend/postman/catalogue-search.postman_collection.json"
   "backend/postman/session.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
@@ -86,6 +87,7 @@ required_files=(
   "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md"
   "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md"
   "docs/decisions/0015-query-published-release-pages-with-postgresql.md"
+  "docs/decisions/0016-search-the-bounded-catalogue-with-postgresql-text-search.md"
   "docs/decisions/README.md"
   "package.json"
   "package-lock.json"
@@ -104,6 +106,7 @@ required_files=(
   "scripts/local-dependencies.sh"
   "scripts/validate-prerequisites.sh"
   "scripts/build-openapi-docs.sh"
+  "scripts/analyze-catalogue-search.sh"
   "tools/openapi-validation/syntax.redocly.yaml"
   "tools/openapi-validation/schemas.redocly.yaml"
   "tools/openapi-validation/examples.redocly.yaml"
@@ -137,7 +140,9 @@ required_files=(
   "backend/src/main/resources/db/migration/V20260809_120000__create_catalogue_schema.sql"
   "backend/src/main/resources/db/migration/V20260813_120000__add_game_external_references.sql"
   "backend/src/main/resources/db/migration/V20260818_120000__constrain_release_date_year_range.sql"
+  "backend/src/main/resources/db/migration/V20260831_120000__support_bounded_catalogue_search.sql"
   "backend/src/main/resources/db/dev-seed/V20260809_130000__seed_bounded_prototype_catalogue.sql"
+  "backend/src/main/resources/db/dev-seed/V20260831_130000__seed_prototype_catalogue_aliases.sql"
 )
 
 for file in "${required_files[@]}"; do
@@ -236,6 +241,7 @@ for skill_name, tracking in tracked_skills.items():
 json_documents = (
     "backend/postman/actuator.postman_collection.json",
     "backend/postman/catalogue-releases.postman_collection.json",
+    "backend/postman/catalogue-search.postman_collection.json",
     "backend/postman/local.postman_environment.json",
     "docker/keycloak/import/videogame-platform-realm.json",
 )
@@ -391,6 +397,8 @@ expected_backend_variables = {
     "CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS",
     "CATALOGUE_RELEASES_FRESHNESS_THRESHOLD",
     "CATALOGUE_RELEASES_CACHE_CONTROL",
+    "CATALOGUE_SEARCH_RELEASE_CONTEXT_LIMIT",
+    "CATALOGUE_SEARCH_CACHE_CONTROL",
     "TELEMETRY_OTLP_TRACES_ENABLED",
     "TELEMETRY_OTLP_TRACES_ENDPOINT",
     "TELEMETRY_OTLP_METRICS_ENABLED",
@@ -431,6 +439,7 @@ expected_statuses = {
     "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md": "Accepted",
     "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md": "Accepted",
     "docs/decisions/0015-query-published-release-pages-with-postgresql.md": "Accepted",
+    "docs/decisions/0016-search-the-bounded-catalogue-with-postgresql-text-search.md": "Accepted",
 }
 
 for relative, status in expected_statuses.items():

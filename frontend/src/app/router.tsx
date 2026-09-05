@@ -3,6 +3,7 @@ import { createBrowserRouter, type RouteObject } from "react-router-dom";
 import { GamePlaceholderPage } from "../pages/game-placeholder-page";
 import { NotFoundPage } from "../pages/not-found-page";
 import { ReleasesPage } from "../pages/releases-page";
+import { SearchPage } from "../pages/search-page";
 import { AppShell } from "./app-shell";
 
 export const appRoutes: RouteObject[] = [
@@ -11,6 +12,7 @@ export const appRoutes: RouteObject[] = [
     element: <AppShell />,
     children: [
       { index: true, element: <ReleasesPage /> },
+      { path: "search", element: <SearchPage /> },
       { path: "games/:slug", element: <GamePlaceholderPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],

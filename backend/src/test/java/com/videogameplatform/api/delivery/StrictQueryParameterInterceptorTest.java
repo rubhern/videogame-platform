@@ -3,6 +3,7 @@ package com.videogameplatform.api.delivery;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.videogameplatform.api.delivery.catalogue.release.ReleaseController;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ReleaseView;
 import org.junit.jupiter.api.Test;

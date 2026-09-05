@@ -3,9 +3,9 @@
 The frontend is a client-rendered React/TypeScript SPA for the approved same-origin
 BFF/API. It currently renders the complete `UC-001` release-discovery page — recent
 and upcoming windows, platform and region filters, pagination, covers, and the
-loading, empty, stale, catalogue-not-ready and failure states — plus a placeholder
-game route. Catalogue search, game details, ratings, `Mis puntuaciones`, and provider
-synchronization UI remain later slices.
+loading, empty, stale, catalogue-not-ready and failure states — the `UC-002`
+bounded-catalogue search page, and a placeholder game route. Game details, ratings,
+`Mis puntuaciones`, and provider synchronization UI remain later slices.
 
 ## Install and verify
 
@@ -44,6 +44,7 @@ browser path with `bash scripts/validate-browser.sh`.
 | `src/features/` | Product capabilities and their API/view-model/UI code |
 | `src/pages/` | Route-level composition |
 | `src/shared/api/` | Generated contract and product-facing transport boundary |
+| `src/shared/catalogue/` | Catalogue presentation shared by release browsing and search |
 | `src/styles/` | Global Tailwind entry and shared visual foundations |
 | `src/test/` | Shared component-test setup |
 | `tests/` | Packaged browser journeys |
@@ -68,6 +69,10 @@ safe default before reaching the API; well-formed but unknown platform and regio
 identifiers reach the API and produce the explicit unsupported-filter state. OAuth
 tokens and personal responses must not be stored in browser storage. Same-origin
 requests preserve the BFF cookie and CSRF contract.
+
+The search page restores query and pagination from the URL, hides old placeholder
+results during a new request, and maps transport failures to a retryable state.
+Only failures carrying a correlation ID display a support reference.
 
 ## Accessibility and testing
 

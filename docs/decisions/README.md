@@ -26,3 +26,4 @@ historical decision.
 - [ADR-0013: Use model-backed and purpose-specific architecture diagrams](0013-use-model-backed-and-purpose-specific-architecture-diagrams.md)
 - [ADR-0014: Generate backend HTTP contracts from OpenAPI](0014-generate-backend-http-contracts-from-openapi.md)
 - [ADR-0015: Query published release pages with a bounded PostgreSQL read model](0015-query-published-release-pages-with-postgresql.md)
+- [ADR-0016: Search the bounded catalogue with PostgreSQL text search](0016-search-the-bounded-catalogue-with-postgresql-text-search.md)
