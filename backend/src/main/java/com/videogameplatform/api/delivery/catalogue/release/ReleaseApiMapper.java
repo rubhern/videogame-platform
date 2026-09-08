@@ -31,7 +31,7 @@ import org.springframework.stereotype.Component;
 
 /** Maps provider-independent UC-001 results to the generated HTTP contract. */
 @Component
-final class ReleaseApiMapper {
+public final class ReleaseApiMapper {
 
     private final CatalogueCoverMapper coverMapper;
 
@@ -65,7 +65,16 @@ final class ReleaseApiMapper {
     }
 
     private ReleaseItem toItem(BrowseReleasesResult.Item item) {
-        BrowseReleasesResult.Release source = item.release();
+        Release release = toRelease(item.release());
+        return new ReleaseItem(
+                item.gameId(),
+                item.slug(),
+                item.canonicalTitle(),
+                coverMapper.toResponse(item.primaryCover()),
+                release);
+    }
+
+    public Release toRelease(BrowseReleasesResult.Release source) {
         Release release =
                 new Release(
                         source.releaseId(),
@@ -84,12 +93,7 @@ final class ReleaseApiMapper {
                         toFreshnessStatus(source.freshnessStatus()));
         release.setProviderUpdatedAt(toOffsetDateTime(source.providerUpdatedAt()));
         release.setLastVerifiedAt(toOffsetDateTime(source.lastVerifiedAt()));
-        return new ReleaseItem(
-                item.gameId(),
-                item.slug(),
-                item.canonicalTitle(),
-                coverMapper.toResponse(item.primaryCover()),
-                release);
+        return release;
     }
 
     private static com.videogameplatform.api.generated.model.ReleaseDate toReleaseDate(

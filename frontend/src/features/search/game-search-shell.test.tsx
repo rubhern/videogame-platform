@@ -96,7 +96,10 @@ describe("catalogue search shell", () => {
       .toBeInTheDocument();
     expect(
       within(results).getByRole("link", { name: "Ver Resident Evil Requiem" }),
-    ).toHaveAttribute("href", "/games/resident-evil-requiem");
+    ).toHaveAttribute(
+      "href",
+      "/games/game-resident-evil-requiem/resident-evil-requiem",
+    );
     expect(within(results).getByText("PlayStation 5 · Europa")).toBeInTheDocument();
   });
 

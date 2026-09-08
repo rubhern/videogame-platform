@@ -1,7 +1,7 @@
 package com.videogameplatform.api.delivery.catalogue.search;
 
-import com.videogameplatform.api.delivery.ApiOperationNotDeliveredException;
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
+import com.videogameplatform.api.delivery.catalogue.details.GameDetailsEndpoint;
 import com.videogameplatform.api.generated.CatalogueApi;
 import com.videogameplatform.api.generated.model.GameDetails;
 import com.videogameplatform.api.generated.model.GameSearchPage;
@@ -12,11 +12,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Public HTTP adapter for UC-002. */
+/** Generated Catalogue HTTP adapter for UC-002 and UC-003. */
 @RestController
 @RequestMapping("/api/v1")
 public class GameSearchController implements CatalogueApi {
 
+    private final GameDetailsEndpoint details;
     private final SearchCatalogueUseCase useCase;
     private final GameSearchApiMapper mapper;
     private final ConditionalRequestSupport conditionalRequests;
@@ -28,7 +29,9 @@ public class GameSearchController implements CatalogueApi {
             GameSearchApiMapper mapper,
             ConditionalRequestSupport conditionalRequests,
             GameSearchApiMetrics metrics,
-            GameSearchHttpProperties properties) {
+            GameSearchHttpProperties properties,
+            GameDetailsEndpoint details) {
+        this.details = details;
         this.useCase = useCase;
         this.mapper = mapper;
         this.conditionalRequests = conditionalRequests;
@@ -55,14 +58,8 @@ public class GameSearchController implements CatalogueApi {
         return ResponseEntity.ok().headers(headers).body(body);
     }
 
-    /**
-     * Public game details are the separate UC-003 slice and are not delivered yet. The
-     * generated contract groups both catalogue reads into one interface, so the operation is
-     * declared here and reported exactly as it behaves today: the resource is absent. Issue #29
-     * replaces this with the real read.
-     */
     @Override
     public ResponseEntity<GameDetails> getGame(String gameId, String ifNoneMatch) {
-        throw new ApiOperationNotDeliveredException();
+        return details.get(gameId, ifNoneMatch);
     }
 }

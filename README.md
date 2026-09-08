@@ -9,8 +9,9 @@ The current release is private, non-commercial, and operated by one person. Prod
 alignment and solution definition are closed; implementation is active. The
 repository currently proves the PostgreSQL-backed recent and upcoming release
 discovery page, bounded catalogue search over canonical titles and approved aliases,
-a packaged React frontend, and a real Keycloak-backed BFF session. Game details,
-ratings, personal ratings, provider synchronization, and remote `dev` deployment
+public game details with release evidence, rating eligibility and aggregate statistics,
+a packaged React frontend, and a real Keycloak-backed BFF session. Rating commands,
+personal ratings, provider synchronization, and remote `dev` deployment
 remain later slices of the approved journey. The reviewed private OCI Terraform stack
 and its fail-closed zero-cost plan gate are implemented locally, but no remote
 infrastructure has been provisioned.

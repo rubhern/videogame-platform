@@ -36,6 +36,12 @@ erDiagram
         uuid game_id PK,FK
         varchar canonical_title "max 300"
         varchar slug UK "unique per publication"
+        varchar summary_kind "editorial or sourced"
+        varchar summary_text "explicit missing-curation default"
+        varchar summary_language "retained content language"
+        varchar summary_source_kind "sourced summaries only"
+        varchar summary_source_name "sourced summaries only"
+        varchar summary_source_entity_type "sourced summaries only"
         varchar cover_reference "max 500"
         varchar cover_source "max 200"
         varchar cover_usage_mode "closed values"

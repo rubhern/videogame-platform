@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
+import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
@@ -98,6 +99,11 @@ class CatalogueModuleConfigurationTest {
         @Bean
         GameSearchReadPort gameSearchReadPort() {
             return criteria -> Optional.empty();
+        }
+
+        @Bean
+        GameDetailsReadPort gameDetailsReadPort() {
+            return id -> Optional.empty();
         }
 
         @Bean

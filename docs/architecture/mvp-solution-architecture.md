@@ -51,7 +51,7 @@ Kubernetes.
 | API | Same-origin HTTP delivery and mapping; no business policy |
 | Platform | Runtime composition, configuration, health, correlation, metrics, and tracing |
 
-Ratings obtains release eligibility through a narrow Catalogue application contract.
+Ratings evaluates release eligibility from a narrow Catalogue application context.
 It never reads Catalogue tables or provider types. Catalogue does not depend on
 Ratings. Technical boundaries are not bounded contexts merely because they have a
 module.

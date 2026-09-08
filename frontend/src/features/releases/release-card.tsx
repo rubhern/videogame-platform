@@ -8,7 +8,7 @@ type ReleaseCardProps = {
 };
 
 export function ReleaseCard({ item }: ReleaseCardProps) {
-  const gamePath = `/games/${item.slug}`;
+  const gamePath = `/games/${item.gameId}/${item.slug}`;
 
   return (
     <article className="catalogue-card">

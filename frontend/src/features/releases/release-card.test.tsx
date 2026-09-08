@@ -95,7 +95,7 @@ describe("release card", () => {
     expect(dataStates).toHaveTextContent("Información pendiente de revisión");
     expect(screen.getByRole("link", { name: "Ver The Witcher IV" })).toHaveAttribute(
       "href",
-      "/games/the-witcher-iv",
+      "/games/game-witcher/the-witcher-iv",
     );
   });
 });

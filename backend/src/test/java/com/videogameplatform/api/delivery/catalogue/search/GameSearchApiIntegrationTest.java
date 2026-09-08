@@ -224,14 +224,6 @@ class GameSearchApiIntegrationTest {
         assertThat(textValues(meters.path("names"))).contains("catalogue.search.result.outcome");
     }
 
-    @Test
-    void leavesTheUndeliveredGameDetailsResourceAbsent() throws Exception {
-        HttpResponse<String> response = get("/api/v1/games/game_example");
-
-        assertThat(response.statusCode()).isEqualTo(404);
-        assertThat(response.body()).isEmpty();
-    }
-
     private Counter counter(String outcome) {
         return meterRegistry
                 .find("catalogue.search.result.outcome")

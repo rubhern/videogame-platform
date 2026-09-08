@@ -17,6 +17,10 @@ Actuator APIs plus a non-secret local environment.
   and partial matching, ambiguous and zero-result outcomes, deterministic pagination,
   public headers, weak-validator conditional reads, and stable validation errors with
   automated tests.
+- [`game-details.postman_collection.json`](game-details.postman_collection.json):
+  public details, release evidence, empty statistics, conditional requests, missing
+  games and strict query rejection. Degraded aggregates and populated distributions
+  are covered against PostgreSQL by the API integration tests.
 - [`session.postman_collection.json`](session.postman_collection.json): minimal
   anonymous session state and CSRF-protected logout rejection. The successful OIDC
   flow is intentionally covered by the real-browser identity gate instead of
@@ -40,10 +44,11 @@ Actuator APIs plus a non-secret local environment.
    ./mvnw -pl backend spring-boot:run
    ```
 
-2. In Postman, select **Import** and import the environment and all four collections.
+2. In Postman, select **Import** and import the environment and the collections.
 3. Select the **VideoGame Platform - Local** environment.
 4. Run **VideoGame Platform Backend - Catalogue Releases**, **VideoGame Platform
-   Backend - Catalogue Search** and **VideoGame Platform Backend - Actuator**, then run
+   Backend - Catalogue Search**, **VideoGame Platform Backend - Game Details** and
+   **VideoGame Platform Backend - Actuator**, then run
    **VideoGame Platform Backend - BFF Session** while signed out.
 
 The release collection verifies the reviewed release-page shape, active and available

@@ -7,6 +7,7 @@ import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.api.generated.model.Violation;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
+import com.videogameplatform.catalogue.application.details.GameNotFoundException;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
 import jakarta.servlet.http.HttpServletResponse;
@@ -107,6 +108,19 @@ public class ApiExceptionHandler {
     @ExceptionHandler(SearchQueryInvalidException.class)
     ResponseEntity<Problem> searchQueryInvalid(HttpServletResponse response) {
         return searchQueryInvalid(response, "/query/q");
+    }
+
+    @ExceptionHandler(GameNotFoundException.class)
+    ResponseEntity<Problem> gameNotFound(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.NOT_FOUND,
+                ProblemCode.GAME_NOT_FOUND,
+                "Game not found",
+                "The game is not in the current local catalogue.",
+                ErrorCategory.NOT_FOUND,
+                "/path/gameId",
+                "Use an internal identifier from the local catalogue.");
     }
 
     @ExceptionHandler(CatalogueNotReadyException.class)
@@ -229,7 +243,7 @@ public class ApiExceptionHandler {
                         : "Use a value accepted by the API contract.");
     }
 
-    @ExceptionHandler({NoResourceFoundException.class, ApiOperationNotDeliveredException.class})
+    @ExceptionHandler(NoResourceFoundException.class)
     ResponseEntity<Void> resourceNotFound() {
         return ResponseEntity.notFound().build();
     }

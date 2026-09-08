@@ -24,6 +24,15 @@ rank and normalized canonical title; a game matched through several aliases stay
 result and separate games matching one query stay separate. Release context per result
 is explicitly bounded, so request memory is `O(pageSize x releaseContextLimit)`.
 
+`UC-003` reads complete game evidence from one local publication. Its
+[read port](../../../backend/src/main/java/com/videogameplatform/catalogue/application/details/port/GameDetailsReadPort.java)
+owns the operational aliases/releases bounds; exceeding them fails the read rather
+than evaluating a partial context. Catalogue supplies the application-derived Madrid
+date and release context; Ratings evaluates eligibility and reads its own aggregate.
+No rating contribution returns an empty aggregate; an isolated statistics failure
+returns an explicit unavailable aggregate while preserving the game page. Personal
+rating reads and writes are outside this public operation.
+
 ## Identity and ratings
 
 | ID | Operation | Actor | Required behaviour |
