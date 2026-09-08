@@ -78,6 +78,36 @@ export is review evidence, never a runtime dependency or an instruction source.
 - Keep reduced-motion and forced-colour support. Do not require hover, animation, a fixed
   desktop width or a sticky header that can obscure focus.
 
+## Public game details
+
+The owner's September 8, 2026 game-detail reference
+(`ChatGPT Image 8 sept 2026, 08_51_59.png`) is the visual target for this screen.
+It refines the catalogue foundation with a large left-hand 3:4 cover, a prominent
+sans-serif game title, platform/region pills near the title, a bordered metadata
+and compact-summary panel, and a strong community-score panel immediately below
+the cover. Use existing shell, fonts, colours, focus styles and responsive gutters;
+the detail title uses the existing sans font to match this reference.
+
+Platform and region are native labelled radio groups derived from the game's
+returned release tuples. Selection is URL-backed and updates the visible evidence;
+changing platform retains the region only when that combination exists. Unsupported
+saved selections fall back to a real combination. Preserve all records for a selected
+combination rather than merging their dates or evidence. No selector is invented for
+a game without releases. This presentation selection does not change the global
+game eligibility or community aggregate.
+
+The selected-context panel retains date precision, status, provenance, verification,
+review, freshness and available evidence timestamps. Keep summary language and source.
+There is no separate bottom release/evidence section. Display the community mean and
+count prominently, or an equally prominent “Sin nota todavía” / “Nota no disponible”
+state in the same position. The distribution remains a backend/API capability and
+is not rendered on this page. Personal-rating context remains distinct.
+
+Genre, developer and publisher are absent from the current approved detail contract
+and local model, so omit them. Adding them requires a separate scoped contract-first
+change with local persistence and provenance. Do not invent companies, genre, marketing
+taglines or background artwork from the reference. List/follow actions remain deferred.
+
 ## Server-backed states
 
 | State | Required presentation and behaviour |

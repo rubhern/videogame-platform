@@ -4,15 +4,15 @@ The frontend is a client-rendered React/TypeScript SPA for the approved same-ori
 BFF/API. It currently renders the complete `UC-001` release-discovery page — recent
 and upcoming windows, platform and region filters, pagination, covers, and the
 loading, empty, stale, catalogue-not-ready and failure states — the `UC-002`
-bounded-catalogue search page, and a placeholder game route. Game details, ratings,
-`Mis puntuaciones`, and provider synchronization UI remain later slices.
+bounded-catalogue search page, and the accessible `UC-003` public game-detail page.
+Rating commands, `Mis puntuaciones`, and provider synchronization UI remain later slices.
 
 ## Visual development
 
 Screen and component changes must follow the canonical
 [Frontend design guidelines](../docs/development/frontend-design.md).
-The Contemporary Catalogue foundation is applied to releases and reused by search
-and route fallbacks. `src/shared/ui/` holds the cover and loading patterns already
+The Contemporary Catalogue foundation is applied to releases and reused by search,
+game details and route fallbacks. `src/shared/ui/` holds the cover and loading patterns already
 shared by those experiences; the guide points to the executable visual tokens.
 
 ## Install and verify
@@ -82,6 +82,16 @@ requests preserve the BFF cookie and CSRF contract.
 The search page restores query and pagination from the URL, hides old placeholder
 results during a new request, and maps transport failures to a retryable state.
 Only failures carrying a correlation ID display a support reference.
+
+Game links use `/games/{gameId}/{slug}`; the optional slug is descriptive and the
+internal ID alone drives the public API read. Details distinguish loading, absence,
+catalogue-not-ready, retryable failure, stale/review-required evidence and unavailable
+statistics. Platform and region selection updates the displayed release context and
+is restored from the URL, without changing game-wide eligibility or aggregate state.
+The community score sits beneath the cover; its distribution is retained in the API
+but is not rendered. Personal rating controls remain undelivered. The existing shell restores main-content focus
+on navigation. Date precision and direct-provider cover fallback/attribution follow
+the same contracts as discovery.
 
 ## Accessibility and testing
 

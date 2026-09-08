@@ -1,11 +1,38 @@
 # VideoGame Platform backend
 
 The backend is a Java 25 / Spring Boot modular monolith. It currently implements the
-PostgreSQL-backed `GET /api/v1/releases` and `GET /api/v1/games` operations, the
+PostgreSQL-backed `GET /api/v1/releases`, `GET /api/v1/games` and
+`GET /api/v1/games/{gameId}` operations, the
 minimal BFF session resource, Keycloak login navigation, packaged frontend routes, and
 Actuator health/info/metrics.
 The remaining operations in the [OpenAPI contract](../docs/architecture/api/openapi.yaml)
 are approved contracts, not implemented claims.
+
+## Public game details
+
+Catalogue reads one publication through the existing read-only transaction policy.
+The application read port bounds complete aliases/releases and fails closed if a game
+exceeds either bound; it never returns a truncated eligibility context. Missing
+editorial content uses an explicit product-owned “not yet curated” message, while
+sourced summaries retain their language and provenance.
+
+Ratings consumes Catalogue application context and reads only its own active-rating
+table. PostgreSQL computes count, mean and ten distribution buckets in one statement;
+a missing contribution set is empty, and a read failure becomes unavailable without
+blocking the game. The minimal table supports this read only: authentication,
+concurrency tokens and rating write commands remain future work. No personal record
+or user identity is included in public delivery.
+
+The public representation revalidates on every reuse because Madrid evaluation dates
+and aggregate/freshness state affect its ETag. Degraded aggregates are not stored.
+The [observability policy](../docs/development/observability.md) defines the shared
+HTTP metrics and the bounded detail-read meter for eligibility and aggregate state.
+No provider request is made during a game read.
+
+The forward migration adds defaulted summary columns and a new module-owned table;
+the previous application remains compatible with the expanded schema. Apply it before
+activating this version. Roll back the application while retaining the additive data;
+do not reverse the migration or drop ratings to recover an application deployment.
 
 ## Build and verify
 
@@ -72,7 +99,7 @@ Configuration names, defaults, and secret classification are maintained in
 | Module | Responsibility |
 |---|---|
 | `catalogue` | Games, releases, local publication reads, and future provider synchronization |
-| `ratings` | Personal ratings and aggregates; currently a skeleton |
+| `ratings` | Release eligibility and active-rating aggregate reads; personal commands remain undelivered |
 | `identity` | BFF session and external identity integration |
 | `api` | HTTP delivery and mapping only |
 | `platform` | Cross-cutting runtime configuration and observability |

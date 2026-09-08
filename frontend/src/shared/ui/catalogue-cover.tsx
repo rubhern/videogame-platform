@@ -10,7 +10,7 @@ type CatalogueCoverProps = {
     | { kind: "local-preview"; attribution: { label: string; sourceUrl: string } }
     | { kind: "fallback" }
   );
-  to: string;
+  to?: string;
 };
 
 export function CatalogueCover({ cover, to }: CatalogueCoverProps) {
@@ -19,23 +19,31 @@ export function CatalogueCover({ cover, to }: CatalogueCoverProps) {
   const failed = hasImageAttribution && failedUrl === cover.url;
   const attribution = hasImageAttribution && !failed ? cover.attribution : null;
 
+  const image = (
+    <img
+      alt={failed ? "Carátula oficial no disponible" : cover.alternativeText}
+      className="catalogue-cover"
+      height={400}
+      loading="lazy"
+      onError={() => {
+        if (hasImageAttribution) {
+          setFailedUrl(cover.url);
+        }
+      }}
+      src={failed ? "/assets/covers/fallback.svg" : cover.url}
+      width={300}
+    />
+  );
+
   return (
     <figure className="cover-figure">
-      <Link className="cover-link" to={to} tabIndex={-1}>
-        <img
-          alt={failed ? "Carátula oficial no disponible" : cover.alternativeText}
-          className="catalogue-cover"
-          height={400}
-          loading="lazy"
-          onError={() => {
-            if (hasImageAttribution) {
-              setFailedUrl(cover.url);
-            }
-          }}
-          src={failed ? "/assets/covers/fallback.svg" : cover.url}
-          width={300}
-        />
-      </Link>
+      {to === undefined ? (
+        <div className="cover-link cover-static">{image}</div>
+      ) : (
+        <Link className="cover-link" to={to} tabIndex={-1}>
+          {image}
+        </Link>
+      )}
       <figcaption className="cover-caption">
         {attribution === null ? (
           "Carátula oficial no disponible"

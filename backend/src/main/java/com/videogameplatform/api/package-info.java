@@ -5,6 +5,8 @@
             "catalogue::application",
             "catalogue::cover",
             "catalogue::releases",
-            "catalogue::search"
+            "catalogue::search",
+            "catalogue::details",
+            "ratings::application"
         })
 package com.videogameplatform.api;

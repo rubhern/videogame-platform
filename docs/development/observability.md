@@ -31,6 +31,10 @@ with a dedicated short statement timeout; health details remain hidden.
   percentile histogram supports latency analysis without defining an SLO.
 - `catalogue.releases.result.count{view}` is the one release-specific meter and
   records successful page yield for the closed `recent`/`upcoming` vocabulary.
+- `catalogue.game.details{eligibility,aggregate}` counts successful detail reads,
+  including conditional responses. Eligibility uses the six contract reason codes;
+  aggregate uses only `available`/`unavailable`. This distinguishes a degraded rating
+  read from a healthy empty aggregate even when the public response remains HTTP 200.
 - Never use user, game, release, request, correlation, URL, search, provider, or raw
   input values as metric tags.
 - Propagate W3C trace context. OTLP trace and metric export remains disabled until an

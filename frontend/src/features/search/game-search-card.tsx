@@ -8,7 +8,7 @@ type GameSearchCardProps = {
 };
 
 export function GameSearchCard({ result }: GameSearchCardProps) {
-  const gamePath = `/games/${result.slug}`;
+  const gamePath = `/games/${result.gameId}/${result.slug}`;
 
   return (
     <article className="catalogue-card">

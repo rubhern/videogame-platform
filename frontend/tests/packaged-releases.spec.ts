@@ -230,9 +230,10 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     await expect(gameLink).toBeFocused();
 
     await gameLink.press("Enter");
-    await expect(page).toHaveURL(/\/games\/the-witcher-iv$/);
+    await expect(page).toHaveURL(/\/games\/30000000-0000-4000-8000-000000000008\/the-witcher-iv$/);
+    await expect(page.getByRole("heading", { level: 1, name: "The Witcher IV" })).toBeVisible();
     await expect(
-      page.getByRole("heading", { level: 1, name: "Detalle de juego todavía no disponible" }),
+      page.getByRole("heading", { name: "Todavía no disponible para puntuar", exact: true }),
     ).toBeVisible();
     await expect(page.getByRole("main")).toBeFocused();
   });

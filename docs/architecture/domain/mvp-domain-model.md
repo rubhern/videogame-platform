@@ -44,6 +44,11 @@ Eligibility reasons are `ELIGIBLE_RELEASE_FOUND`, `NO_COMMERCIAL_RELEASE`,
 `RELEASE_REVIEW_REQUIRED`. Evaluation uses an explicit application-provided date in
 `Europe/Madrid`.
 
+When several releases have different blockers, any eligible release wins. Otherwise
+report review required before uncertain date, then release not occurred; report
+cancelled only when all releases are cancelled. An empty release set reports no
+commercial release. This makes the reason independent of tuple ordering.
+
 Statistics use only active ratings. Count equals the distribution sum; count zero has
 no numeric mean; exposed mean is half-up to one decimal. Spanish presentation changes
 the decimal separator, not the numeric contract.

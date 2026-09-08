@@ -3,6 +3,9 @@ package com.videogameplatform.catalogue.configuration;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
+import com.videogameplatform.catalogue.application.details.GetGameDetailsUseCase;
+import com.videogameplatform.catalogue.application.details.internal.GameDetailsService;
+import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
@@ -71,5 +74,14 @@ class CatalogueModuleConfiguration {
             CatalogueFreshnessPolicy freshnessPolicy) {
         return new CatalogueSearchService(
                 readPort, coverPolicy, clock, searchPolicy, freshnessPolicy);
+    }
+
+    @Bean
+    GetGameDetailsUseCase getGameDetailsUseCase(
+            GameDetailsReadPort readPort,
+            CatalogueCoverPolicy coverPolicy,
+            CatalogueFreshnessPolicy freshness,
+            Clock clock) {
+        return new GameDetailsService(readPort, coverPolicy, freshness, clock);
     }
 }
