@@ -70,7 +70,7 @@ describe("catalogue search view model", () => {
       {
         key: "platform-ps5-region-europe-0",
         platform: "PlayStation 5",
-        region: "Europe",
+        region: "Europa",
         date: "27 de febrero de 2026",
         status: "Publicado",
         isStale: true,

@@ -63,7 +63,7 @@ describe("catalogue search page", () => {
 
     expect(
       await screen.findByText(
-        "Escribe un título o un título alternativo aprobado para buscar en el catálogo.",
+        "Escribe un título o un título alternativo aprobado en el buscador de la cabecera.",
       ),
     ).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalled();

@@ -17,7 +17,8 @@ Before making a material frontend change:
 
 1. Read `AGENTS.md`.
 2. Identify the approved user journey or use case affected.
-3. Read `frontend/README.md`.
+3. Read `frontend/README.md` and follow the mandatory visual rules in
+   [Frontend design guidelines](../../../docs/development/frontend-design.md).
 4. Read only the relevant approved architecture, API, and product sources.
 5. Inspect the existing frontend implementation and tests.
 6. Inspect generated OpenAPI types before inventing transport types.

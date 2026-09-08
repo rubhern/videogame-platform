@@ -67,14 +67,13 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   ]);
 
   await expect(page.getByRole("region", { name: "Lanzamientos recientes" })).toBeVisible();
-  await expect(
-    page.getByText(
-      "Del 13 de febrero de 2026 al 13 de agosto de 2026. Ventana evaluada el 13 de agosto de 2026.",
-    ),
-  ).toBeVisible();
-  await expect(page.getByRole("status")).toHaveText(
-    "8 lanzamientos en la ventana · Página 1 de 2",
+  await expect(page.locator(".release-window")).toContainText(
+    "Del 13 de febrero de 2026 al 13 de agosto de 2026",
   );
+  await expect(page.locator(".release-window")).toContainText(
+    "Ventana evaluada el 13 de agosto de 2026",
+  );
+  await expect(page.locator(".result-count")).toHaveText("8 lanzamientos · Página 1 de 2");
   await expect(releaseTitles(page)).toHaveText([
     "Pragmata",
     "Pragmata",
@@ -94,7 +93,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   await test.step("stale local data is shown as usable, not as a failure", async () => {
     await expect(
       page.getByText(
-        "Algunos lanzamientos muestran los últimos datos locales válidos, que ya están desactualizados.",
+        "Algunos lanzamientos usan la última copia local guardada y pueden estar desactualizados.",
       ),
     ).toBeVisible();
     await expect(page.getByText("Datos locales desactualizados")).toHaveCount(1);
@@ -114,37 +113,41 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
 
     await expect(page).toHaveURL(/\?page=2$/);
     await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
-    await expect(page.getByRole("status")).toHaveText(
-      "8 lanzamientos en la ventana · Página 2 de 2",
-    );
+    await expect(page.locator(".result-count")).toHaveText("8 lanzamientos · Página 2 de 2");
     await expect(releaseTitles(page)).toHaveText([
       "Resident Evil Requiem",
       "Resident Evil Requiem",
     ]);
     await expect(page.getByText("6 de marzo de 2026")).toBeVisible();
     await expect(page.getByText("27 de febrero de 2026")).toBeVisible();
-    await expect(page.getByText("Windows PC · Worldwide")).toBeVisible();
-    await expect(page.getByText("PlayStation 5 · Europe")).toBeVisible();
+    await expect(page.getByText("Windows PC · Mundial")).toBeVisible();
+    await expect(page.getByText("PlayStation 5 · Europa")).toBeVisible();
     await expect(page.getByRole("link", { name: "Página siguiente" })).toHaveCount(0);
   });
 
   await test.step("a platform filter narrows the result set and returns to the first page", async () => {
-    await page.getByLabel("Plataforma").selectOption({ label: "Windows PC" });
+    await page
+      .getByRole("list", { name: "Filtrar por plataforma" })
+      .getByRole("link", { name: "Windows PC" })
+      .click();
 
     await expect(page).toHaveURL(/\?platformId=[0-9a-f-]+$/);
-    await expect(page.getByRole("status")).toHaveText(
-      "3 lanzamientos en la ventana · Página 1 de 1",
-    );
+    await expect(page.locator(".result-count")).toHaveText("3 lanzamientos · Página 1 de 1");
     await expect(releaseTitles(page)).toHaveText([
       "Pragmata",
       "Crimson Desert",
       "Resident Evil Requiem",
     ]);
-    await expect(page.getByLabel("Plataforma")).toHaveValue(/.+/);
+    await expect(
+      page.getByRole("list", { name: "Filtrar por plataforma" }).getByRole("link", { name: "Windows PC" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   await test.step("an unmatched filter combination explains the empty result", async () => {
-    await page.getByLabel("Región").selectOption({ label: "Europe" });
+    await page
+      .getByRole("list", { name: "Filtrar por región" })
+      .getByRole("link", { name: "Europa" })
+      .click();
 
     await expect(
       page.getByText(
@@ -152,7 +155,9 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
       ),
     ).toBeVisible();
     await expect(releaseTitles(page)).toHaveCount(0);
-    await expect(page.getByLabel("Plataforma")).toHaveValue(/.+/);
+    await expect(
+      page.getByRole("list", { name: "Filtrar por plataforma" }).getByRole("link", { name: "Windows PC" }),
+    ).toHaveAttribute("aria-current", "page");
     await expectNoAccessibilityViolations(page);
   });
 
@@ -161,24 +166,24 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
 
     await expect(page).toHaveURL(/\/$/);
     await expect(releaseTitles(page)).toHaveCount(6);
-    await expect(page.getByLabel("Plataforma")).toHaveValue("");
-    await expect(page.getByLabel("Región")).toHaveValue("");
+    await expect(
+      page.getByRole("list", { name: "Filtrar por plataforma" }).getByRole("link", { name: "Todas" }),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(
+      page.getByRole("list", { name: "Filtrar por región" }).getByRole("link", { name: "Todas" }),
+    ).toHaveAttribute("aria-current", "page");
   });
 
   await test.step("the upcoming window keeps announced and delayed releases separate", async () => {
-    await page.getByRole("link", { name: "Próximos" }).click();
+    await page.getByRole("link", { name: "Próximos", exact: true }).click();
 
     await expect(
       page.getByRole("heading", { level: 1, name: "Próximos lanzamientos" }),
     ).toBeVisible();
-    await expect(
-      page.getByText(
-        "Del 13 de agosto de 2026 al 13 de febrero de 2027. Ventana evaluada el 13 de agosto de 2026.",
-      ),
-    ).toBeVisible();
-    await expect(page.getByRole("status")).toHaveText(
-      "8 lanzamientos en la ventana · Página 1 de 2",
+    await expect(page.locator(".release-window")).toContainText(
+      "Del 13 de agosto de 2026 al 13 de febrero de 2027",
     );
+    await expect(page.locator(".result-count")).toHaveText("8 lanzamientos · Página 1 de 2");
     await expect(releaseTitles(page)).toHaveText([
       "Marvel's Wolverine",
       "Crimson Desert",
@@ -205,8 +210,8 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   await test.step("an out-of-range shared page recovers directly to the last page", async () => {
     await page.goto("/?view=upcoming&page=99&pageSize=1");
 
-    await expect(page.getByRole("status")).toHaveText(
-      "8 lanzamientos en la ventana · La página 99 ya no está disponible",
+    await expect(page.locator(".result-count")).toHaveText(
+      "8 lanzamientos · La página 99 ya no está disponible",
     );
     await expect(
       page.getByText("La página solicitada ya no está disponible para estos resultados."),
@@ -257,7 +262,7 @@ test("the packaged releases page stays usable from phone to desktop", async ({ p
         page.getByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
       ).toBeVisible();
       await expect(releaseTitles(page)).toHaveCount(6);
-      await expect(page.getByLabel("Plataforma")).toBeVisible();
+      await expect(page.getByRole("list", { name: "Filtrar por plataforma" })).toBeVisible();
       await expect(page.getByRole("link", { name: "Página siguiente" })).toBeVisible();
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
       await expectNoAccessibilityViolations(page);

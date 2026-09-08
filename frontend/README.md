@@ -7,6 +7,14 @@ loading, empty, stale, catalogue-not-ready and failure states — the `UC-002`
 bounded-catalogue search page, and a placeholder game route. Game details, ratings,
 `Mis puntuaciones`, and provider synchronization UI remain later slices.
 
+## Visual development
+
+Screen and component changes must follow the canonical
+[Frontend design guidelines](../docs/development/frontend-design.md).
+The Contemporary Catalogue foundation is applied to releases and reused by search
+and route fallbacks. `src/shared/ui/` holds the cover and loading patterns already
+shared by those experiences; the guide points to the executable visual tokens.
+
 ## Install and verify
 
 Run from the repository root with Node.js 24 and npm 11:
@@ -45,6 +53,7 @@ browser path with `bash scripts/validate-browser.sh`.
 | `src/pages/` | Route-level composition |
 | `src/shared/api/` | Generated contract and product-facing transport boundary |
 | `src/shared/catalogue/` | Catalogue presentation shared by release browsing and search |
+| `src/shared/ui/` | UI patterns with demonstrated cross-feature reuse |
 | `src/styles/` | Global Tailwind entry and shared visual foundations |
 | `src/test/` | Shared component-test setup |
 | `tests/` | Packaged browser journeys |

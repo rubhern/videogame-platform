@@ -97,4 +97,17 @@ describe("application routing", () => {
     await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" });
     expect(screen.getByRole("main")).toHaveFocus();
   });
+
+  it("focuses the integrated catalogue search with its keyboard shortcut", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    const search = screen.getByRole("searchbox", { name: "Buscar en el catálogo" });
+
+    await user.keyboard("/");
+
+    expect(search).toHaveFocus();
+    await user.paste("a".repeat(101));
+    expect(search).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("Usa como máximo 100 caracteres.");
+  });
 });

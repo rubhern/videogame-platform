@@ -12,7 +12,7 @@ const baseItem: ReleaseListItem = {
   title: "The Witcher IV",
   date: "Fecha por confirmar",
   platform: "Windows PC",
-  region: "Unknown",
+  region: "Sin región confirmada",
   status: "Anunciado",
   provenance: "VideoGame Platform clickable prototype",
   isStale: true,
@@ -59,6 +59,28 @@ describe("release card", () => {
     );
     expect(screen.queryByRole("link", { name: "IGDB" })).not.toBeInTheDocument();
     expect(screen.getByText("Carátula oficial no disponible")).toBeInTheDocument();
+  });
+
+  it("shows a new approved cover after the previous URL failed", () => {
+    const { rerender } = renderCard();
+    fireEvent.error(screen.getByRole("img", { name: "Carátula de The Witcher IV" }));
+
+    const replacement: ReleaseListItem = {
+      ...baseItem,
+      cover: {
+        kind: "provider",
+        url: "https://images.igdb.com/igdb/image/upload/t_cover_big/coreplacement.webp",
+        alternativeText: "Nueva carátula de The Witcher IV",
+        attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/the-witcher-iv" },
+      },
+    };
+    rerender(<MemoryRouter><ReleaseCard item={replacement} /></MemoryRouter>);
+
+    expect(screen.getByRole("img", { name: "Nueva carátula de The Witcher IV" })).toHaveAttribute(
+      "src", replacement.cover.url,
+    );
+    expect(screen.getByRole("link", { name: "IGDB" })).toBeInTheDocument();
+    expect(screen.queryByText("Carátula oficial no disponible")).not.toBeInTheDocument();
   });
 
   it("keeps date precision, review and freshness explicit next to the game link", () => {

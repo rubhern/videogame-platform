@@ -88,14 +88,14 @@ describe("release list projection", () => {
       slug: "pragmata",
       date: "24 de abril de 2026",
       platform: "PlayStation 5",
-      region: "Europe",
+      region: "Europa",
     });
     expect(worldwideRelease).toMatchObject({
       title: "Pragmata",
       slug: "pragmata",
       date: "25 de abril de 2026",
       platform: "Windows PC",
-      region: "Worldwide",
+      region: "Mundial",
     });
   });
 });
@@ -154,7 +154,7 @@ describe("releases view model", () => {
     const model = toReleasesViewModel(upcomingPage);
 
     expect(model.platforms).toEqual([{ id: "windows-pc", name: "Windows PC" }]);
-    expect(model.regions).toEqual([{ id: "unknown", name: "Unknown" }]);
+    expect(model.regions).toEqual([{ id: "unknown", name: "Sin región confirmada" }]);
     expect(model.activePlatformId).toBe("windows-pc");
     expect(model.activeRegionId).toBeNull();
     expect(model.page).toEqual({ number: 2, size: 12, totalItems: 13, totalPages: 2 });

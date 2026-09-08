@@ -12,7 +12,7 @@ const params: GameSearchParams = { query: "resident evil", page: 1, pageSize: 6 
 const staleContext = {
   key: "platform-ps5-region-europe-0",
   platform: "PlayStation 5",
-  region: "Europe",
+  region: "Europa",
   date: "27 de febrero de 2026",
   status: "Publicado",
   isStale: true,
@@ -32,7 +32,7 @@ const requiem: GameSearchResult = {
     {
       key: "platform-ps5-region-europe-0",
       platform: "PlayStation 5",
-      region: "Europe",
+      region: "Europa",
       date: "27 de febrero de 2026",
       status: "Publicado",
       isStale: false,
@@ -63,20 +63,12 @@ function renderShell(
 }
 
 describe("catalogue search shell", () => {
-  it("offers an accessible search landmark with a labelled query field", () => {
-    renderShell({ status: "prompt" }, { params: { query: "", page: 1, pageSize: 6 } });
-
-    const form = screen.getByRole("search");
-    expect(within(form).getByRole("searchbox", { name: "Buscar en el catálogo" })).toBeInTheDocument();
-    expect(within(form).getByRole("button", { name: "Buscar" })).toBeInTheDocument();
-  });
-
   it("invites a first search instead of showing an empty result", () => {
     renderShell({ status: "prompt" }, { params: { query: "", page: 1, pageSize: 6 } });
 
     expect(
       screen.getByText(
-        "Escribe un título o un título alternativo aprobado para buscar en el catálogo.",
+        "Escribe un título o un título alternativo aprobado en el buscador de la cabecera.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Resultados de la búsqueda" })).not.toBeInTheDocument();
@@ -105,7 +97,7 @@ describe("catalogue search shell", () => {
     expect(
       within(results).getByRole("link", { name: "Ver Resident Evil Requiem" }),
     ).toHaveAttribute("href", "/games/resident-evil-requiem");
-    expect(within(results).getByText("PlayStation 5 · Europe")).toBeInTheDocument();
+    expect(within(results).getByText("PlayStation 5 · Europa")).toBeInTheDocument();
   });
 
   it("explains which approved alias produced the match", () => {
@@ -256,15 +248,4 @@ describe("catalogue search shell", () => {
     );
   });
 
-  it("warns before submitting a query longer than the contract accepts", async () => {
-    const user = userEvent.setup();
-    renderShell({ status: "prompt" }, { params: { query: "", page: 1, pageSize: 6 } });
-
-    const field = screen.getByRole("searchbox", { name: "Buscar en el catálogo" });
-    await user.click(field);
-    await user.paste("a".repeat(101));
-
-    expect(field).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByText("Usa como máximo 100 caracteres.")).toBeInTheDocument();
-  });
 });

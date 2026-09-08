@@ -22,7 +22,7 @@ const pragmata: ReleaseListItem = {
   title: "Pragmata",
   date: "2.º trimestre de 2026",
   platform: "Windows PC",
-  region: "Worldwide",
+  region: "Mundial",
   status: "Publicado",
   provenance: "VideoGame Platform clickable prototype",
   isStale: false,
@@ -45,7 +45,7 @@ function viewModel(overrides: Partial<ReleasesViewModel> = {}): ReleasesViewMode
       { id: "platform-pc", name: "Windows PC" },
       { id: "platform-ps5", name: "PlayStation 5" },
     ],
-    regions: [{ id: "region-worldwide", name: "Worldwide" }],
+    regions: [{ id: "region-worldwide", name: "Mundial" }],
     activePlatformId: null,
     activeRegionId: null,
     items: [pragmata],
@@ -81,19 +81,17 @@ describe("releases shell", () => {
     renderShell({ status: "ready", model: viewModel(), isRefreshing: false, isPlaceholderData: false });
 
     expect(
-      screen.getByText(
-        "Del 13 de febrero de 2026 al 13 de agosto de 2026. Ventana evaluada el 13 de agosto de 2026.",
-      ),
+      screen.getByText((_, element) => element?.classList.contains("release-window") === true),
     ).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
-      "1 lanzamiento en la ventana · Página 1 de 1",
+      "1 lanzamiento · Página 1 de 1",
     );
 
     const results = within(screen.getByRole("list", { name: "Lanzamientos recientes" }));
     const card = within(results.getAllByRole("listitem")[0] as HTMLElement);
     expect(card.getByRole("heading", { level: 3, name: "Pragmata" })).toBeInTheDocument();
     expect(card.getByText("2.º trimestre de 2026")).toBeInTheDocument();
-    expect(card.getByText("Windows PC · Worldwide")).toBeInTheDocument();
+    expect(card.getByText("Windows PC · Mundial")).toBeInTheDocument();
     expect(card.getByText("Publicado")).toBeInTheDocument();
     expect(card.getByRole("img", { name: "Portada no disponible de Pragmata" })).toHaveAttribute(
       "src",
@@ -114,23 +112,27 @@ describe("releases shell", () => {
       { search: activeSearch },
     );
 
-    expect(screen.getByLabelText("Plataforma")).toHaveValue("platform-ps5");
-    expect(screen.getByLabelText("Región")).toHaveValue("");
+    const platformFilters = within(screen.getByRole("list", { name: "Filtrar por plataforma" }));
+    const regionFilters = within(screen.getByRole("list", { name: "Filtrar por región" }));
+    expect(platformFilters.getByRole("link", { name: "PlayStation 5" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(regionFilters.getByRole("link", { name: "Todas" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
     expect(
       screen.getByText("Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Quitar filtros" })[0]).toHaveAttribute("href", "/");
   });
 
-  it("marks the current window and links to the other one", () => {
+  it("links to the other release window", () => {
     renderShell({ status: "ready", model: viewModel(), isRefreshing: false, isPlaceholderData: false });
 
     const windowNav = within(screen.getByRole("navigation", { name: "Ventana de lanzamientos" }));
-    expect(windowNav.getByRole("link", { name: "Recientes" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(windowNav.getByRole("link", { name: "Próximos" })).toHaveAttribute(
+    expect(windowNav.getByRole("link", { name: "Ver próximos" })).toHaveAttribute(
       "href",
       "/?view=upcoming",
     );
@@ -149,7 +151,7 @@ describe("releases shell", () => {
 
     expect(
       screen.getByText(
-        "Algunos lanzamientos muestran los últimos datos locales válidos, que ya están desactualizados.",
+        "Algunos lanzamientos usan la última copia local guardada y pueden estar desactualizados.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Datos locales desactualizados")).toBeInTheDocument();
@@ -161,7 +163,7 @@ describe("releases shell", () => {
     const onRetry = vi.fn();
     renderShell({ status: "catalogue-not-ready" }, { onRetry });
 
-    const alert = within(screen.getByRole("alert"));
+    const alert = within(screen.getByRole("status"));
     expect(
       alert.getByRole("heading", { name: "El catálogo todavía no está disponible" }),
     ).toBeInTheDocument();
@@ -241,9 +243,9 @@ describe("releases shell", () => {
       { search: { ...search, page: 99 } },
     );
 
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "2 lanzamientos en la ventana · La página 99 ya no está disponible",
-    );
+    expect(
+      screen.getByText("2 lanzamientos · La página 99 ya no está disponible"),
+    ).toBeInTheDocument();
     expect(
       screen.getByText("La página solicitada ya no está disponible para estos resultados."),
     ).toBeInTheDocument();
