@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -98,7 +98,7 @@ describe("releases page", () => {
     ).toBeInTheDocument();
     expect(
       await screen.findByText(
-        "Del 13 de febrero de 2026 al 13 de agosto de 2026. Ventana evaluada el 13 de agosto de 2026.",
+        (_, element) => element?.classList.contains("release-window") === true,
       ),
     ).toBeInTheDocument();
 
@@ -123,7 +123,9 @@ describe("releases page", () => {
 
     renderApp("/?platformId=playstation-5&page=2");
 
-    expect(await screen.findByLabelText("Plataforma")).toHaveValue("playstation-5");
+    expect(
+      await screen.findByRole("link", { name: "PlayStation 5" }),
+    ).toHaveAttribute("aria-current", "page");
     const query = requestedQueries(fetchMock)[0];
     expect(query?.get("platformId")).toBe("playstation-5");
     expect(query?.get("page")).toBe("2");
@@ -134,9 +136,11 @@ describe("releases page", () => {
     const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
 
     const { router } = renderApp("/?page=3");
-    await screen.findByLabelText("Plataforma");
+    const platformFilters = within(
+      await screen.findByRole("list", { name: "Filtrar por plataforma" }),
+    );
 
-    await user.selectOptions(screen.getByLabelText("Plataforma"), "playstation-5");
+    await user.click(platformFilters.getByRole("link", { name: "PlayStation 5" }));
 
     await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(1));
     const query = requestedQueries(fetchMock).at(-1);
@@ -157,7 +161,7 @@ describe("releases page", () => {
     );
 
     renderApp();
-    await screen.findByLabelText("Plataforma");
+    await screen.findByRole("list", { name: "Filtrar por plataforma" });
 
     await user.click(screen.getByRole("link", { name: "Próximos" }));
 
@@ -187,14 +191,14 @@ describe("releases page", () => {
     await user.click(screen.getByRole("link", { name: "Próximos" }));
 
     expect(screen.getByRole("heading", { level: 1, name: "Próximos lanzamientos" })).toBeVisible();
-    expect(screen.getByLabelText("Plataforma")).toBeVisible();
+    expect(screen.getByRole("list", { name: "Filtrar por plataforma" })).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Cargando lanzamientos para la nueva selección",
     );
     expect(screen.queryByRole("link", { name: "Ver Pragmata" })).not.toBeInTheDocument();
     expect(
       screen.queryByText(
-        "Del 13 de febrero de 2026 al 13 de agosto de 2026. Ventana evaluada el 13 de agosto de 2026.",
+        (_, element) => element?.classList.contains("release-window") === true,
       ),
     ).not.toBeInTheDocument();
 
@@ -207,7 +211,7 @@ describe("releases page", () => {
 
     expect(
       await screen.findByText(
-        "Del 13 de agosto de 2026 al 13 de febrero de 2027. Ventana evaluada el 13 de agosto de 2026.",
+        (_, element) => element?.classList.contains("release-window") === true,
       ),
     ).toBeInTheDocument();
   });

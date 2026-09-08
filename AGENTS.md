@@ -102,6 +102,13 @@ authority over a repository decision.
 - Never change an approved architecture decision because an external skill recommends
   another practice.
 
+## Frontend visual authority
+
+Before any frontend screen or component work, read and follow the mandatory rules in
+[Frontend design guidelines](docs/development/frontend-design.md). That guide is the
+single canonical owner of visual rules; link to it rather than restating them in
+agent instructions, skills, or feature documentation.
+
 ## Skills
 
 `docs/development/ai-assistance.md` owns the skill catalogue, the purpose of each

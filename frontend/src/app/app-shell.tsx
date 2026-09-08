@@ -1,57 +1,95 @@
 import { useEffect, useRef } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
-const sections = [
-  { to: "/", label: "Lanzamientos" },
-  { to: "/search", label: "Buscar" },
-] as const;
-
-const sectionLinkClass =
-  "inline-flex min-h-11 items-center text-sm font-semibold text-slate-200 hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200 aria-[current=page]:text-cyan-200";
+import { readReleasesSearch, releasesSearchPath } from "../features/releases/releases-search";
+import { CatalogueSearch } from "./catalogue-search";
 
 export function AppShell() {
   const mainContentRef = useRef<HTMLElement>(null);
-  const { pathname } = useLocation();
-  const previousPathname = useRef(pathname);
+  const location = useLocation();
+  const previousPathname = useRef(location.pathname);
+  const releaseSearch = readReleasesSearch(new URLSearchParams(location.search));
 
   useEffect(() => {
-    if (previousPathname.current === pathname) {
+    if (previousPathname.current === location.pathname) {
       return;
     }
 
-    previousPathname.current = pathname;
+    previousPathname.current = location.pathname;
     mainContentRef.current?.focus();
-  }, [pathname]);
+  }, [location.pathname]);
+
+  const onReleases = location.pathname === "/";
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-950/95">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4 sm:px-8">
-          <span className="text-sm font-semibold tracking-wide text-cyan-300">
-            VideoGame Platform
-          </span>
-          <nav aria-label="Secciones principales">
-            <ul className="flex flex-wrap gap-x-5 gap-y-2">
-              {sections.map(({ to, label }) => (
-                <li key={to}>
-                  <NavLink
-                    className={({ isActive }) =>
-                      isActive ? `${sectionLinkClass} text-cyan-200` : sectionLinkClass
-                    }
-                    end
-                    to={to}
-                  >
-                    {label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
+    <div className="app-frame">
+      <a className="skip-link button button-primary" href="#main-content">
+        Saltar al contenido
+      </a>
+      <header className="site-header">
+        <div className="header-layout page-container">
+          <Link className="brand" to="/" aria-label="VideoGame Platform · Inicio">
+            <span className="brand-mark" aria-hidden="true">
+              <span />
+            </span>
+            <span className="brand-name">
+              <span>VideoGame</span>
+              <span>Platform</span>
+            </span>
+          </Link>
+
+          <nav aria-label="Secciones principales" className="primary-nav">
+            <Link
+              aria-current={onReleases && releaseSearch.view === "recent" ? "page" : undefined}
+              className="nav-link"
+              to={releasesSearchPath(releaseSearch, { view: "recent", page: 1 })}
+            >
+              Recientes
+            </Link>
+            <Link
+              aria-current={onReleases && releaseSearch.view === "upcoming" ? "page" : undefined}
+              className="nav-link"
+              to={releasesSearchPath(releaseSearch, { view: "upcoming", page: 1 })}
+            >
+              Próximos
+            </Link>
+            <Link
+              aria-current={location.pathname === "/search" ? "page" : undefined}
+              className="nav-link"
+              to="/search"
+            >
+              Buscar
+            </Link>
           </nav>
+
+          <CatalogueSearch key={`${location.pathname}?${location.search}`} />
+
+          <span className="account-divider" aria-hidden="true" />
+          <a aria-label="Acceder a Mi cuenta" className="account-link" href="/auth/login/keycloak">
+            <span className="account-avatar" aria-hidden="true">
+              <span />
+            </span>
+            <span className="account-label">Mi cuenta</span>
+          </a>
+        </div>
+        <div className="catalogue-masthead">
+          <div className="page-container">
+            <span>Catálogo de lanzamientos · MVP privado</span>
+            <span>Datos locales · sin consultas al proveedor</span>
+          </div>
         </div>
       </header>
-      <main ref={mainContentRef} tabIndex={-1}>
+
+      <main id="main-content" ref={mainContentRef} tabIndex={-1}>
         <Outlet />
       </main>
+
+      <footer className="site-footer">
+        <div className="page-container">
+          <span>VideoGame Platform · MVP</span>
+          <span>Catálogo local de lanzamientos</span>
+        </div>
+      </footer>
     </div>
   );
 }

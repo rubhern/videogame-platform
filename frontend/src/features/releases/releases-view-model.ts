@@ -1,4 +1,5 @@
 import { formatCalendarDay, formatReleaseDate } from "../../shared/catalogue/release-date";
+import { regionLabel } from "../../shared/catalogue/region-label";
 import type { ReleasePage } from "./releases-api";
 import type { ReleaseView } from "./releases-search";
 
@@ -9,6 +10,12 @@ type ReleaseStatus = ReleaseItem["release"]["status"];
 export type ReleaseCover =
   | {
       kind: "provider";
+      url: string;
+      alternativeText: string;
+      attribution: { label: string; sourceUrl: string };
+    }
+  | {
+      kind: "local-preview";
       url: string;
       alternativeText: string;
       attribution: { label: string; sourceUrl: string };
@@ -61,6 +68,45 @@ const viewTitles: Record<ReleaseView, string> = {
   upcoming: "Próximos lanzamientos",
 };
 
+function readLocalCoverPreviews(): Record<string, string> {
+  if (!import.meta.env.DEV || import.meta.env.MODE === "test") {
+    return {};
+  }
+
+  try {
+    const value: unknown = JSON.parse(import.meta.env.VITE_LOCAL_COVER_PREVIEWS ?? "{}");
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      return {};
+    }
+
+    return Object.fromEntries(
+      Object.entries(value).filter(
+        (entry): entry is [string, string] =>
+          typeof entry[1] === "string" && /^[a-z0-9][a-z0-9.-]*\.png$/i.test(entry[1]),
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+const localCoverPreviews = readLocalCoverPreviews();
+
+function localCoverPreview(slug: string, title: string): ReleaseCover | null {
+  const filename = localCoverPreviews[slug];
+  if (filename === undefined) {
+    return null;
+  }
+
+  const url = `/local-preview/covers/${filename}`;
+  return {
+    kind: "local-preview",
+    url,
+    alternativeText: `Vista previa de la carátula de ${title}`,
+    attribution: { label: "Vista previa local", sourceUrl: url },
+  };
+}
+
 export function releaseViewTitle(view: ReleaseView): string {
   return viewTitles[view];
 }
@@ -98,7 +144,7 @@ export function toReleaseListItems(page: ReleasePage): ReleaseListItem[] {
     title: item.canonicalTitle,
     date: formatReleaseDate(item.release.releaseDate),
     platform: item.release.platform.name,
-    region: item.release.region.name,
+    region: regionLabel(item.release.region.name),
     status: statusLabels[item.release.status],
     provenance: item.release.provenance.sourceName,
     isStale: item.release.freshnessStatus === "stale",
@@ -108,7 +154,9 @@ export function toReleaseListItems(page: ReleasePage): ReleaseListItem[] {
         : "Datos locales actualizados",
     review:
       item.release.reviewStatus === "required" ? "Información pendiente de revisión" : null,
-    cover: toCover(item.primaryCover),
+    // Owner-provided previews are an opt-in Vite development overlay. The API cover
+    // remains authoritative in tests and production builds.
+    cover: localCoverPreview(item.slug, item.canonicalTitle) ?? toCover(item.primaryCover),
   }));
 }
 
@@ -128,7 +176,7 @@ export function toReleasesViewModel(page: ReleasePage): ReleasesViewModel {
     })),
     regions: page.availableFilters.regions.map((region) => ({
       id: region.regionId,
-      name: region.name,
+      name: regionLabel(region.name),
     })),
     activePlatformId: page.activeFilters.platformId,
     activeRegionId: page.activeFilters.regionId,

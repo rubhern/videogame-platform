@@ -1,4 +1,5 @@
 import { formatReleaseDate } from "../../shared/catalogue/release-date";
+import { regionLabel } from "../../shared/catalogue/region-label";
 import type { GameSearchPage } from "./game-search-api";
 
 type GameSummary = GameSearchPage["items"][number];
@@ -73,7 +74,7 @@ function toReleaseContext(context: ReleaseSummary, index: number): GameSearchRel
     // stable position inside the bounded list is the row identity.
     key: `${context.platform.platformId}-${context.region.regionId}-${index}`,
     platform: context.platform.name,
-    region: context.region.name,
+    region: regionLabel(context.region.name),
     date: formatReleaseDate(context.releaseDate),
     status: statusLabels[context.status],
     isStale: context.freshnessStatus === "stale",

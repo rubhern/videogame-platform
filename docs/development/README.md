@@ -6,6 +6,7 @@ manifests, configuration, migrations, and workflows.
 | Document | Responsibility |
 |---|---|
 | [Local setup](local-setup.md) | Supported workstation, dependencies, local run modes, and reset boundary |
+| [Frontend design guidelines](frontend-design.md) | Mandatory visual rules and shared UI conventions for contributors and agents |
 | [OpenAPI workflow](openapi.md) | Contract validation, generated clients/interfaces, and change sequence |
 | [Database migrations](database-migrations.md) | Flyway authoring, privilege, seed, and validation policy |
 | [Observability](observability.md) | Health, correlation, logs, metrics, tracing, and telemetry safety |

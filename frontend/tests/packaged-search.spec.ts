@@ -37,8 +37,9 @@ async function search(page: Page, query: string) {
   const responsePromise = page.waitForResponse(
     (response) => new URL(response.url()).pathname === "/api/v1/games",
   );
-  await page.getByRole("searchbox", { name: "Buscar en el catálogo" }).fill(query);
-  await page.getByRole("button", { name: "Buscar" }).click();
+  const searchbox = page.getByRole("searchbox", { name: "Buscar en el catálogo" });
+  await searchbox.fill(query);
+  await searchbox.press("Enter");
   return responsePromise;
 }
 
@@ -58,7 +59,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
   await test.step("no search runs until the visitor asks for one", async () => {
     await expect(
       page.getByText(
-        "Escribe un título o un título alternativo aprobado para buscar en el catálogo.",
+        "Escribe un título o un título alternativo aprobado en el buscador de la cabecera.",
       ),
     ).toBeVisible();
     await expect(page.getByRole("list", { name: "Resultados de la búsqueda" })).toHaveCount(0);
@@ -78,7 +79,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
       "1 juego del catálogo local · Página 1 de 1",
     );
     await expect(resultTitles(page)).toHaveText(["Resident Evil Requiem"]);
-    await expect(page.getByText("PlayStation 5 · Europe")).toBeVisible();
+    await expect(page.getByText("PlayStation 5 · Europa")).toBeVisible();
     await expect(page.getByText("27 de febrero de 2026")).toBeVisible();
   });
 
