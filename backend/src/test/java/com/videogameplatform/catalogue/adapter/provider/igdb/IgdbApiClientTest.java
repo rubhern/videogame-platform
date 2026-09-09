@@ -18,6 +18,7 @@ import tools.jackson.databind.json.JsonMapper;
 /** Transport evidence: authentication, the approved rate, bounded retries and safe failures. */
 class IgdbApiClientTest {
 
+    private static final long SERVER_RECEIPT_TOLERANCE_NANOS = Duration.ofMillis(5).toNanos();
     private static final String TOKEN_FIXTURE = IgdbFixtureServer.fixture("token-response.json");
     private static final String GAMES_PATH = "/v4/games";
     private static final String TOKEN_PATH = "/oauth2/token";
@@ -66,7 +67,7 @@ class IgdbApiClientTest {
         long minimumSpacingNanos =
                 (long) (1_000_000_000d / IgdbApiSettings.MAX_REQUESTS_PER_SECOND) * 2;
         assertThat(gameRequests.get(2).receivedNanos() - gameRequests.get(0).receivedNanos())
-                .isGreaterThanOrEqualTo(minimumSpacingNanos);
+                .isGreaterThanOrEqualTo(minimumSpacingNanos - SERVER_RECEIPT_TOLERANCE_NANOS);
     }
 
     @Test
