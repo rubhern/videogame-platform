@@ -32,6 +32,8 @@ class ManagementEndpointSecurityConfiguration {
 
     @Bean
     @Order(0)
+    @SuppressWarnings(
+            "java:S4502") // Stateless private port; cross-site state changes are rejected below.
     SecurityFilterChain managementEndpointSecurity(HttpSecurity http) {
         http.securityMatcher(EndpointRequest.toAnyEndpoint())
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())

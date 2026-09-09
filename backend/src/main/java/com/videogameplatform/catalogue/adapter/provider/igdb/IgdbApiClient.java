@@ -12,6 +12,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
@@ -35,7 +36,7 @@ public final class IgdbApiClient {
     private final IgdbApiSettings settings;
     private final IgdbRequestRateLimiter rateLimiter;
 
-    private CachedToken token;
+    private final AtomicReference<CachedToken> token = new AtomicReference<>();
 
     public IgdbApiClient(
             HttpClient httpClient, ObjectMapper objectMapper, IgdbApiSettings settings) {
@@ -81,8 +82,8 @@ public final class IgdbApiClient {
         return response.body();
     }
 
-    private synchronized String accessToken(Attempt attempt) {
-        CachedToken cached = token;
+    private String accessToken(Attempt attempt) {
+        CachedToken cached = token.get();
         if (cached != null && cached.isUsable()) {
             return cached.value();
         }
@@ -119,12 +120,12 @@ public final class IgdbApiClient {
                 new CachedToken(
                         payload.accessToken(),
                         Instant.now().plusSeconds(Math.max(0L, lifetimeSeconds - 60L)));
-        token = refreshed;
+        token.set(refreshed);
         return refreshed.value();
     }
 
-    private synchronized void invalidateToken() {
-        token = null;
+    private void invalidateToken() {
+        token.set(null);
     }
 
     private HttpResponse<String> send(
