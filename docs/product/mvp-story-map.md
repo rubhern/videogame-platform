@@ -10,7 +10,7 @@ architecture source.
 
 | Activity | User outcome | MVP capability |
 |---|---|---|
-| Discover | Find a relevant recent/upcoming release | Bounded catalogue, platform/region filters, title/alias search, explicit empty/boundary states |
+| Discover | Find a relevant recent/upcoming release | Provider-synchronized catalogue, platform/region filters, title/alias search, explicit empty/boundary states |
 | Evaluate | Understand the correct game and release | Game page, provider-independent identity, date precision, provenance, freshness/review state, attributed cover/fallback |
 | Rate | Record one personal score after release | Inline 1–10 selector, authentication on confirmation, replay-safe return, create/update/delete, distinct aggregate/personal context |
 | Return | Find and maintain the rating | Authenticated `Mis puntuaciones`, search, sort, game navigation, edit, delete |

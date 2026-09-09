@@ -6,8 +6,8 @@ Actuator APIs plus a non-secret local environment.
 ## Files
 
 - [`actuator.postman_collection.json`](actuator.postman_collection.json): discovery,
-  aggregate health, liveness, readiness, build info, and metric requests with
-  automated tests.
+  aggregate health, liveness, readiness, build info, metric requests, and the internal
+  catalogue-synchronization operator command, with automated tests.
 - [`catalogue-releases.postman_collection.json`](catalogue-releases.postman_collection.json):
   recent/upcoming release discovery, product filters, public headers, weak-validator
   conditional reads, `int64` page totals, strict query parameters, pagination, and
@@ -49,7 +49,9 @@ Actuator APIs plus a non-secret local environment.
 4. Run **VideoGame Platform Backend - Catalogue Releases**, **VideoGame Platform
    Backend - Catalogue Search**, **VideoGame Platform Backend - Game Details** and
    **VideoGame Platform Backend - Actuator**, then run
-   **VideoGame Platform Backend - BFF Session** while signed out.
+   **VideoGame Platform Backend - BFF Session** while signed out. The Actuator
+   collection expects a credential-free local run, so its synchronization requests
+   assert the disabled outcome rather than contacting IGDB.
 
 The release collection verifies the reviewed release-page shape, active and available
 filters, correlation/cache/ETag headers, `304` weak-validator handling,
@@ -62,6 +64,17 @@ collection verifies HTTP `200`, discovery links, `UP`
 for health and probes, generated build/source metadata, meter names, and bounded HTTP
 route tags. Backend integration tests remain authoritative for PostgreSQL behaviour,
 W3C propagation, structured correlation, and negative sensitive-data assertions.
+
+The Actuator collection also covers the internal `cataloguesync` operator command
+(`UC-009`): the last-run report plus one synchronization run that, without
+configured IGDB credentials, returns `SYNCHRONIZATION_DISABLED` and changes nothing.
+The command requires inclusive `from` and `to` dates and has no total Game limit;
+provider paging is internal. Both requests target the management base
+URL. The backend command-boundary test
+proves that the command is absent from the product port. A real run with configured
+credentials is exercised in the appropriate local environment, never scripted here; the
+command is internal and therefore intentionally absent from the product OpenAPI
+contract.
 
 To target another instance, change the environment's product and management base
 URLs while keeping the management address on its approved private boundary. Do not

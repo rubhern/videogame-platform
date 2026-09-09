@@ -15,7 +15,7 @@ flowchart LR
     end
 
     IGDB -->|Raw provider data| ACL
-    ACL -->|Provider-independent candidates| Catalogue
+    ACL -->|Provider-independent catalogue data| Catalogue
 
     Catalogue -->|Publishes| EligibilityContract
     Ratings -->|Queries; never reads Catalogue tables| EligibilityContract

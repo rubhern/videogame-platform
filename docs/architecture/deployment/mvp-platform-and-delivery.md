@@ -73,11 +73,11 @@ retain logical table ownership. A dedicated actor runs immutable forward Flyway
 migrations before application replacement. Destructive changes use expand/contract
 and explicit recovery; application rollback is allowed only while schema compatible.
 
-Back up irreplaceable ratings, identity mapping/configuration, and product curation
+Back up irreplaceable ratings, identity mapping/configuration, and product editorial
 outside the VM, encrypted and within the free limit. Record environment, time,
 PostgreSQL/schema/application version; retain only useful backups; prove isolated
 restore after setup and material changes. Catalogue provider data may be resynced,
-but personal/identity/curation state is not assumed disposable.
+but personal/identity/editorial state is not assumed disposable.
 
 ## Health, observability, privacy, and failure
 
@@ -86,6 +86,16 @@ and required local dependencies; IGDB/CDN/telemetry outages do not make the app
 unready. Health never reveals topology or secrets. Telemetry uses bounded labels,
 replaceable OpenTelemetry-compatible export, minimal retention, and no personal data
 or credentials.
+
+Catalogue synchronization is one internal management-port command, never a public
+request or scheduled job. PostgreSQL enforces one active run; an abandoned worker is
+fenced before a successor can write. Run history is retained in bounded quantity,
+independently of current catalogue state.
+[ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
+owns the date interval, in-call paging and partial-failure decisions; the
+[backend guide](../../../backend/README.md) owns invocation and migration prerequisites.
+Credentials come from backend secret configuration and are absent when disabled.
+Automatic scheduling remains deferred.
 
 | Failure | Required behaviour |
 |---|---|

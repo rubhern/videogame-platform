@@ -16,6 +16,12 @@ Browser
   -> same-origin static frontend + BFF/API + modular monolith
       -> application PostgreSQL
 
+Operator (management port, never the product port)
+  -> single catalogue synchronization use case
+      -> IGDB adapter -> normalize/validate -> import or update
+          -> atomic current Game state + catalogue revision in PostgreSQL
+              -> public reads
+
 External boundaries:
   Keycloak (authentication)
   IGDB API (bounded synchronization only)
@@ -34,8 +40,9 @@ Kubernetes.
   untrusted.
 - Keycloak authenticates; the BFF validates the protocol and maps validated
   `issuer + subject` to product `UserId`. Product authorization stays in the backend.
-- IGDB data is untrusted candidate input and must be normalized and validated before
-  publication. Provider identities never become product identity.
+- IGDB data is untrusted input and must be normalized and validated before
+  publication. It is the catalogue's acquisition source, never its serving source, and
+  provider identities never become product identity.
 - PostgreSQL stores the current product state served to users. IGDB/telemetry outages
   do not make local reads depend on a live fallback.
 - Approved covers are constrained direct CDN references under ADR-0001; no provider
@@ -90,11 +97,13 @@ imply physical CQRS, messaging, or event sourcing.
   invariants.
 - Persistent filtering, ordering, aggregation, counting, and pagination remain in
   PostgreSQL with deterministic unique final ordering. Request memory is bounded by
-  page/batch size.
+  page or aggregate bound; a synchronization date interval is not truncated to a Game count.
 - Rating create/update/delete exposes coherent personal and aggregate state; failure
   preserves the previous valid state.
-- Synchronization validates before publishing, stages new games, never approves a
-  changed cover automatically, and preserves the last valid publication on failure.
+- Synchronization validates before publishing, imports accepted provider works with
+  their identity and reference together, publishes a cover only once it validates, and
+  preserves each Game's last valid state on failure. Successful Games commit independently;
+  one failed Game does not stop later valid Games in the interval (ADR-0017).
 - Public reads can use cache validators; session/personal data is never publicly
   cacheable. The application remains correct without process-local state.
 

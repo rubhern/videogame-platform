@@ -14,7 +14,7 @@ eligibility, and aggregate calculation. Identity supplies only authenticated
 
 | Concept | Meaning |
 |---|---|
-| `Game` / `GameId` | Curated product work and provider-independent identity |
+| `Game` / `GameId` | Accepted product work and provider-independent identity |
 | `GameAlias` | Localized/alternative/historical/product-curated title resolving to one game |
 | `CoverReference` | Approved `provider_cdn_reference` or product-owned fallback with provenance, alt text, usage status, and check time |
 | `Release` / `ReleaseId` | One coherent commercial game + platform + region + date + status tuple |
@@ -25,9 +25,10 @@ eligibility, and aggregate calculation. Identity supplies only authenticated
 | `Rating` | One active integer 1–10 identified by `UserId + GameId` |
 | `RatingStatistics` | Unweighted mean, count, and 1–10 distribution from active ratings |
 
-Provider results and import candidates remain outside the domain until curation.
-Every visible game resolves to an approved cover or fallback. Provider cover binaries
-are never copied, proxied, persisted, committed, or redistributed.
+A provider result becomes a `Game` only when it satisfies the explicit import policy;
+anything else stays outside the domain. Every visible game resolves to an approved
+cover or fallback. Provider cover binaries are never copied, proxied, persisted,
+committed, or redistributed.
 
 ## Rating policies
 
@@ -59,9 +60,12 @@ Downstream documents may reference these IDs but must not redefine them.
 
 | ID | Rule |
 |---|---|
-| `CAT-001` | Every domain game is a curated member of the bounded catalogue. |
-| `CAT-002` | Provider results/candidates do not become games before curation. |
-| `CAT-003` | Provider failure/miss never removes a supported game automatically. |
+| `CAT-001` | Every domain game is an accepted catalogue member with product-owned identity. |
+| `CAT-002` | A provider result becomes a game only through the explicit import policy. |
+| `CAT-003` | Provider failure/miss never removes or degrades a supported game automatically. |
+| `CAT-004` | Importing a work creates its identity, external reference, snapshot, releases, and cover as one accepted state. |
+| `CAT-005` | Import is idempotent: one provider reference resolves to at most one game, on any retry. |
+| `CAT-006` | A provider work type the product does not model is deferred, not imported and not a failure. |
 | `GAME-001` | Every game uses a provider-independent `GameId`. |
 | `GAME-002` | Canonical title is non-blank. |
 | `GAME-003` | Slug is navigation, not identity. |
@@ -70,13 +74,14 @@ Downstream documents may reference these IDs but must not redefine them.
 | `GAME-006` | Every visible game resolves to an approved primary cover. |
 | `GAME-007` | Primary cover is an approved provider reference or product fallback. |
 | `GAME-008` | Provider cover references retain provenance and usage status. |
-| `GAME-009` | Pending/unavailable provider covers are not displayed. |
+| `GAME-009` | An invalid or unavailable provider cover is never displayed; the fallback is used instead. |
 | `GAME-010` | Provider covers are references; binaries are not product-stored. |
 | `GAME-011` | Provider covers use only the allowlisted documented image host. |
 | `GAME-012` | Provider cover display includes attribution and source path. |
 | `GAME-013` | Cover references contain no credential/token/authenticated URL. |
 | `GAME-014` | Cover failure selects fallback without hiding the game. |
-| `GAME-015` | Approval is scoped to usage/release mode and asserts no ownership. |
+| `GAME-015` | Approval is scoped to usage/release mode and asserts no ownership; it is not a per-image human review. |
+| `GAME-018` | A valid provider cover may replace an existing one automatically; an invalid one never does. |
 | `GAME-016` | Only an approved alias is discoverable; pending/rejected aliases are not. |
 | `GAME-017` | Comparable search text is derived; the stored display title is never rewritten. |
 | `REL-001` | A release belongs to exactly one game. |
@@ -90,7 +95,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `REL-009` | Unknown release information remains explicit. |
 | `REL-010` | Verification, review, and freshness remain independent. |
 | `REL-011` | Time policies receive explicit time/zone, never host defaults. |
-| `EXT-001` | Provider ID is a reference, not internal identity. |
+| `EXT-001` | Provider ID is a reference, never internal identity, slug, or matching key. |
 | `EXT-002` | Provider taxonomy does not become the public product contract. |
 | `EXT-003` | Provider failure preserves last valid local data. |
 | `EXT-004` | A typed external reference maps to at most one internal concept. |
@@ -112,5 +117,8 @@ Downstream documents may reference these IDs but must not redefine them.
 | `USR-001` | `Mis puntuaciones` exposes only the authenticated user's ratings. |
 | `USR-002` | User scoping precedes personal search/sort/pagination. |
 
-Physical deletion/audit, aggregate materialization, operational stale thresholds,
-and import/curation UI remain implementation or later product decisions.
+Physical deletion/audit, aggregate materialization, operational stale thresholds, and
+any administrative interface remain implementation or later product decisions. The
+import policy itself is a product rule; where it currently draws the line between an
+independent work and a variant is owned by
+[the use cases](../application/mvp-use-cases.md).

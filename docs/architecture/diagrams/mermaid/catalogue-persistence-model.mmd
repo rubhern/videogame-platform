@@ -6,15 +6,16 @@ title: catalogue schema - physical persistence model
 %% Decision context: docs/development/database-migrations.md.
 erDiagram
     catalogue_publication ||--o{ game_snapshot : publishes
-    game ||--o{ game_snapshot : "is versioned as"
+    game ||--o| game_snapshot : "has current state"
     game ||--o{ game_external_reference : identifies
     game ||--o{ game_release : owns
     catalogue_publication ||--o{ release_snapshot : publishes
     game_snapshot ||--o{ release_snapshot : exposes
     game_snapshot ||--o{ game_alias : "is searchable as"
-    game_release ||--o{ release_snapshot : "is versioned as"
+    game_release ||--o| release_snapshot : "has current state"
     platform ||--o{ release_snapshot : classifies
     region ||--o{ release_snapshot : classifies
+    game_release ||--o{ release_external_reference : identifies
 
     catalogue_publication {
         uuid publication_id PK
@@ -23,7 +24,7 @@ erDiagram
         timestamptz last_synchronized_at
         varchar source_kind "closed values"
         varchar source_name "max 200"
-        boolean is_current "partial unique when true"
+        boolean is_current "visibility; table has at most one row"
     }
 
     game {
@@ -113,4 +114,24 @@ erDiagram
         timestamptz last_verified_at "nullable"
         varchar verification_level "closed values"
         varchar review_status "closed values"
+    }
+
+    release_external_reference {
+        varchar provider PK
+        varchar provider_id PK
+        uuid release_id FK,UK
+        uuid game_id FK
+    }
+
+    synchronization_run {
+        uuid run_id PK
+        varchar provider "one active run per provider"
+        date window_from
+        date window_to "inclusive"
+        timestamptz started_at
+        timestamptz heartbeat_at
+        timestamptz completed_at "null while running"
+        varchar run_status "closed outcomes"
+        varchar outcome_code
+        jsonb report "operational counters, not catalogue data"
     }

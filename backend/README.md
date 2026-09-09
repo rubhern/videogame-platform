@@ -3,8 +3,9 @@
 The backend is a Java 25 / Spring Boot modular monolith. It currently implements the
 PostgreSQL-backed `GET /api/v1/releases`, `GET /api/v1/games` and
 `GET /api/v1/games/{gameId}` operations, the
-minimal BFF session resource, Keycloak login navigation, packaged frontend routes, and
-Actuator health/info/metrics.
+minimal BFF session resource, Keycloak login navigation, packaged frontend routes,
+Actuator health/info/metrics, and the internal operator-triggered IGDB catalogue
+synchronization.
 The remaining operations in the [OpenAPI contract](../docs/architecture/api/openapi.yaml)
 are approved contracts, not implemented claims.
 
@@ -96,13 +97,13 @@ Configuration names, defaults, and secret classification are maintained in
 
 ## Modules and dependency direction
 
-| Module | Responsibility |
-|---|---|
-| `catalogue` | Games, releases, local publication reads, and future provider synchronization |
-| `ratings` | Release eligibility and active-rating aggregate reads; personal commands remain undelivered |
-| `identity` | BFF session and external identity integration |
-| `api` | HTTP delivery and mapping only |
-| `platform` | Cross-cutting runtime configuration and observability |
+| Module      | Responsibility                                                                              |
+|-------------|---------------------------------------------------------------------------------------------|
+| `catalogue` | Games, releases, local publication reads, and bounded provider synchronization              |
+| `ratings`   | Release eligibility and active-rating aggregate reads; personal commands remain undelivered |
+| `identity`  | BFF session and external identity integration                                               |
+| `api`       | HTTP delivery and mapping only                                                              |
+| `platform`  | Cross-cutting runtime configuration and observability                                       |
 
 Domain and application code remain independent from Spring, HTTP, generated OpenAPI
 types, persistence models, and provider DTOs. Adapters depend inward and do not
@@ -140,9 +141,42 @@ written under ignored `backend/target/query-plans/`. See
 [ADR-0016](../docs/decisions/0016-search-the-bounded-catalogue-with-postgresql-text-search.md)
 for the indexing decision and its limits.
 
-Actuator exposes health groups, build information, and metrics on the separate local
-management port (`8081` by default), not on the product port. Correlation uses
-`X-Correlation-ID`; tracing uses W3C context; OTLP export is disabled by default.
+Catalogue synchronization (`UC-009`) is one internal management command:
+
+```bash
+curl --fail -X POST -H 'Content-Type: application/json' \
+  -d '{"from":"2026-01-01","to":"2026-12-31"}' \
+  http://localhost:8081/actuator/cataloguesync
+curl --fail http://localhost:8081/actuator/cataloguesync
+```
+
+`from` and `to` are required ISO dates and both are inclusive. One POST paginates
+internally until every IGDB Game represented by a `release_dates` row in that
+interval has been reconciled. There is no total
+Game limit. `providerPageSize` is an internal memory/transport bound only.
+The GET reports the last run or `never_run`.
+The reconciliation, date-window, retry and per-Game atomicity decisions live in
+[ADR-0017](../docs/decisions/0017-discover-catalogue-members-automatically-from-igdb.md).
+The endpoint is not scheduled and is absent from the public OpenAPI.
+
+Apply the Flyway schema before enabling this command, even if GET is the first
+operation. Application startup normally leaves Flyway disabled; see the
+[migration workflow](../docs/development/database-migrations.md).
+An earlier local #33 schema is not compatible with the rewritten, unpublished
+migration: preserve its data and arrange an explicit reviewed conversion before
+starting this version. Do not use checksum repair as a schema upgrade or reset a
+persistent database.
+
+Without `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` the command reports
+`SYNCHRONIZATION_DISABLED` and changes nothing, which is how CI and a normal local run
+behave; automated provider evidence uses the fixtures under
+`src/test/resources/provider/igdb/`. Live provider evidence needs a confidential Twitch
+developer application and belongs in the ignored `backend/.env` only.
+
+Actuator exposes health groups, build information, metrics, and that command on the
+separate local management port (`8081` by default), not on the product port.
+Correlation uses `X-Correlation-ID`; tracing uses W3C context; OTLP export is
+disabled by default.
 Metric labels must remain bounded and must not include user, game, request, or
 correlation identifiers. See [observability](../docs/development/observability.md).
 

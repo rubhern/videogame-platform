@@ -21,7 +21,7 @@ Do not recreate every view in every tool or introduce a decision only in a drawi
 | `oidc-bff-session-sequence.mmd` | Implemented browser/BFF/Keycloak login/session flow; identity code/config/tests |
 | `session-csrf-logout-sequence.mmd` | Implemented session/CSRF/logout flow; OpenAPI and identity code/tests |
 | `authenticate-and-create-rating-sequence.mmd` | Approved future rating-return behaviour; application use cases |
-| `synchronize-bounded-catalogue-sequence.mmd` | Approved future synchronization behaviour; use cases/platform |
+| `synchronize-bounded-catalogue-sequence.mmd` | Implemented date-interval synchronization behaviour; use cases/platform |
 | `catalogue-persistence-model.mmd` | Implemented physical catalogue schema; Flyway SQL |
 | `delivery-pipeline.mmd` | Source-to-image/private-`dev` target flow; platform/delivery lifecycle |
 | `private-dev-deployment.drawio` | Polished derived target deployment; Structurizr/platform |

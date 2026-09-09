@@ -36,10 +36,13 @@ historical decision aids, not provider facts or a current procurement score.
   separate concept.
 - Preserve date precision, provenance, provider update, synchronization, verification,
   review, and freshness state.
-- Provider records are untrusted candidates until normalized/validated. Conflicts and
+- Provider records are untrusted input until normalized/validated. Conflicts and
   unknowns remain explicit; failed sync preserves the last valid local snapshot.
 - Synchronization is bounded and operator/scheduler initiated. New games and material
-  cover changes require explicit curation/review.
+  cover changes required explicit curation/review at the time of this spike;
+  [ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
+  later replaced that clause with automatic import under an explicit policy. Every
+  other boundary in this list still holds.
 - Direct IGDB covers use allowlisted host/size/reference construction, visible
   attribution/source path, and product fallback. Provider image binaries are not
   copied, proxied, persisted, committed, or redistributed.

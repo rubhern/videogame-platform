@@ -27,3 +27,4 @@ historical decision.
 - [ADR-0014: Generate backend HTTP contracts from OpenAPI](0014-generate-backend-http-contracts-from-openapi.md)
 - [ADR-0015: Query published release pages with a bounded PostgreSQL read model](0015-query-published-release-pages-with-postgresql.md)
 - [ADR-0016: Search the bounded catalogue with PostgreSQL text search](0016-search-the-bounded-catalogue-with-postgresql-text-search.md)
+- [ADR-0017: Synchronize relevant catalogue Games and Releases automatically](0017-discover-catalogue-members-automatically-from-igdb.md)

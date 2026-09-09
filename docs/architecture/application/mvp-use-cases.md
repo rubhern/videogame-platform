@@ -6,12 +6,12 @@
 
 ## Catalogue
 
-| ID | Operation | Actor | Required behaviour |
-|---|---|---|---|
-| `UC-001` | Browse recent/upcoming releases | Visitor | Application derives evaluation date/window; PostgreSQL filters, counts, uniquely orders, and pages local publication; TBA upcoming sorts last; stale/empty/fallback are valid states |
-| `UC-002` | Search bounded catalogue | Visitor | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider |
-| `UC-003` | View game details | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page |
-| `UC-009` | Synchronize bounded catalogue | Scheduler/operator | Fetch curated references, normalize/validate, stage new games/changed covers, publish coherent updates, preserve last valid snapshot and cover approval on failure |
+| ID       | Operation                           | Actor                 | Required behaviour                                                                                                                                                                                   |
+|----------|-------------------------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL filters, counts, uniquely orders, and pages local publication; TBA upcoming sorts last; stale/empty/fallback are valid states                 |
+| `UC-002` | Search bounded catalogue            | Visitor               | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider                       |
+| `UC-003` | View game details                   | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page                                   |
+| `UC-009` | Synchronize catalogue from provider | Operator              | Synchronize every provider Game in an operator-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
 
 `UC-001` ordering ends in unique `releaseId` after effective period, canonical title,
 and `gameId`. Request memory is `O(pageSize)` plus bounded taxonomy; persistent
@@ -24,6 +24,13 @@ rank and normalized canonical title; a game matched through several aliases stay
 result and separate games matching one query stay separate. Release context per result
 is explicitly bounded, so request memory is `O(pageSize x releaseContextLimit)`.
 
+`UC-009` reconciles all relevant new and known Games in the requested date interval through one operation.
+[ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
+owns Game selection, import policy, stable Release identity and per-Game atomicity.
+A partial run preserves successful Games and the failed
+Game's last valid state. Provider DTOs and transport details remain in the adapter;
+no public request invokes it.
+
 `UC-003` reads complete game evidence from one local publication. Its
 [read port](../../../backend/src/main/java/com/videogameplatform/catalogue/application/details/port/GameDetailsReadPort.java)
 owns the operational aliases/releases bounds; exceeding them fails the read rather
@@ -35,13 +42,13 @@ rating reads and writes are outside this public operation.
 
 ## Identity and ratings
 
-| ID | Operation | Actor | Required behaviour |
-|---|---|---|---|
-| `UC-004` | Authenticate and resume rating | Visitor | Store short-lived tamper-resistant context; derive user from principal; atomically consume/replay-protect; return to allowlisted game context |
-| `UC-005` | Create rating | Authenticated user | Validate 1–10 and current eligibility; prevent duplicate; update personal/aggregate coherently |
-| `UC-006` | Update rating | Authenticated owner | Scope by principal + game; validate value/eligibility/concurrency; preserve previous state on failure |
-| `UC-007` | Delete rating | Authenticated owner | Scope by principal + game; delete regardless of current eligibility; update aggregate coherently |
-| `UC-008` | View/search/sort `Mis puntuaciones` | Authenticated user | Scope by user before search/sort/count/page; default updated-descending; unique `gameId` tie-breaker |
+| ID       | Operation                           | Actor               | Required behaviour                                                                                                                            |
+|----------|-------------------------------------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| `UC-004` | Authenticate and resume rating      | Visitor             | Store short-lived tamper-resistant context; derive user from principal; atomically consume/replay-protect; return to allowlisted game context |
+| `UC-005` | Create rating                       | Authenticated user  | Validate 1–10 and current eligibility; prevent duplicate; update personal/aggregate coherently                                                |
+| `UC-006` | Update rating                       | Authenticated owner | Scope by principal + game; validate value/eligibility/concurrency; preserve previous state on failure                                         |
+| `UC-007` | Delete rating                       | Authenticated owner | Scope by principal + game; delete regardless of current eligibility; update aggregate coherently                                              |
+| `UC-008` | View/search/sort `Mis puntuaciones` | Authenticated user  | Scope by user before search/sort/count/page; default updated-descending; unique `gameId` tie-breaker                                          |
 
 The client never supplies a trusted user/evaluation date. Scoped absence returns
 `RATING_NOT_FOUND` without revealing another user's state. Authentication cancellation
@@ -58,15 +65,18 @@ preserves personal and aggregate state.
 - Stable codes drive clients; localized copy is delivery-owned. Technical responses
   expose correlation, never secrets, raw provider payloads, SQL, or stack traces.
 
-| Category | Principal codes / guarantees |
-|---|---|
-| Validation | `SEARCH_QUERY_INVALID`, `FILTER_INVALID`, `PLATFORM_NOT_SUPPORTED`, `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`; do not execute invalid work |
-| Authentication/replay | `AUTHENTICATION_REQUIRED/FAILED/CANCELLED`, `RETURN_CONTEXT_INVALID/EXPIRED/REPLAYED`; no duplicate logical command |
-| Domain/conflict | `GAME_NOT_FOUND`, `RATING_NOT_ELIGIBLE`, `RATING_ALREADY_EXISTS`, `RATING_NOT_FOUND`, `RATING_WRITE_CONFLICT`, `RELEASE_DATA_REVIEW_REQUIRED`; preserve valid state |
-| Local reads | `CATALOGUE_NOT_READY`, `CATALOGUE_READ_FAILED`, `RATING_STATISTICS_READ_FAILED`, `PERSONAL_RATINGS_READ_FAILED`; never request-path provider fallback or cross-user partial data |
-| Writes | `RATING_WRITE_FAILED`, `SYNCHRONIZATION_WRITE_FAILED`; previous valid state remains |
-| Provider normalization | `PROVIDER_AUTHENTICATION_FAILED/RATE_LIMITED/UNAVAILABLE/RESPONSE_INVALID/MAPPING_FAILED`, `EXTERNAL_REFERENCE_CONFLICT`, `RELEASE_DATA_INVALID`, `COVER_REFERENCE_INVALID`; isolate candidate and keep last valid local data |
+| Category               | Principal codes / guarantees                                                                                                                                                                                                          |
+|------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Validation             | `SEARCH_QUERY_INVALID`, `FILTER_INVALID`, `PLATFORM_NOT_SUPPORTED`, `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`; do not execute invalid work                                                                       |
+| Authentication/replay  | `AUTHENTICATION_REQUIRED/FAILED/CANCELLED`, `RETURN_CONTEXT_INVALID/EXPIRED/REPLAYED`; no duplicate logical command                                                                                                                   |
+| Domain/conflict        | `GAME_NOT_FOUND`, `RATING_NOT_ELIGIBLE`, `RATING_ALREADY_EXISTS`, `RATING_NOT_FOUND`, `RATING_WRITE_CONFLICT`, `RELEASE_DATA_REVIEW_REQUIRED`; preserve valid state                                                                   |
+| Local reads            | `CATALOGUE_NOT_READY`, `CATALOGUE_READ_FAILED`, `RATING_STATISTICS_READ_FAILED`, `PERSONAL_RATINGS_READ_FAILED`; never request-path provider fallback or cross-user partial data                                                      |
+| Writes                 | `RATING_WRITE_FAILED`, `SYNCHRONIZATION_WRITE_FAILED`; previous valid state remains                                                                                                                                                   |
+| Provider normalization | `PROVIDER_AUTHENTICATION_FAILED/RATE_LIMITED/UNAVAILABLE/RESPONSE_INVALID/MAPPING_FAILED`, `EXTERNAL_REFERENCE_CONFLICT`, `RELEASE_DATA_INVALID`, `COVER_REFERENCE_INVALID`; isolate the affected Game and keep last valid local data |
 
-Database constraints/transactions must enforce concurrent rating uniqueness and
-coherent writes. Synchronization never expands catalogue membership or approves a
-cover implicitly. Exact HTTP mapping is owned by OpenAPI and API conventions.
+Database constraints/transactions must enforce concurrent rating uniqueness, coherent
+writes, and one game per provider reference. Synchronization expands catalogue
+membership only through the import policy, and publishes a cover only after it
+validates. Exact HTTP mapping is owned by OpenAPI and API conventions; the internal
+synchronization command is an operator endpoint on the management port and is
+deliberately outside the product contract.

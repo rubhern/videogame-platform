@@ -8,7 +8,8 @@
 | Release | Commercial release of a game for one platform and region, with explicit date precision/status |
 | Availability | Subscription, promotion, or rotating-catalogue access; never a commercial release |
 | Date precision | `day`, `month`, `quarter`, `year`, or `unknown`; never infer missing precision |
-| Bounded catalogue | Explicitly curated visible games; provider results remain candidates until accepted |
+| Catalogue | Accepted visible games with product-owned identity; a provider result joins it only through the explicit import policy |
+| Import policy | Product rule deciding which provider work types become a game; unsupported types are deferred, not failed |
 | Cover reference | Provider image identifier or product asset reference used without making provider binaries product-owned storage |
 | Verification / review / freshness | Independent axes: evidence level, unresolved ambiguity, and time-policy state |
 | Rating | One active personal integer score from 1 to 10 for a released game; not a written review |
