@@ -44,7 +44,7 @@ workspace "VideoGame Platform" "C4 model for the approved private learning MVP t
         }
 
         igdbApi = softwareSystem "IGDB API" {
-            description "Provides candidate video-game catalogue and release metadata."
+            description "Provides video-game catalogue and release metadata."
             tags "External System"
         }
 

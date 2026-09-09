@@ -10,11 +10,11 @@ alignment and solution definition are closed; implementation is active. The
 repository currently proves the PostgreSQL-backed recent and upcoming release
 discovery page, bounded catalogue search over canonical titles and approved aliases,
 public game details with release evidence, rating eligibility and aggregate statistics,
-a packaged React frontend, and a real Keycloak-backed BFF session. Rating commands,
-personal ratings, provider synchronization, and remote `dev` deployment
-remain later slices of the approved journey. The reviewed private OCI Terraform stack
-and its fail-closed zero-cost plan gate are implemented locally, but no remote
-infrastructure has been provisioned.
+a packaged React frontend, a real Keycloak-backed BFF session, and internal
+operator-triggered IGDB catalogue synchronization. Ratings, personal ratings, and
+remote `dev` deployment remain later slices of the approved journey. The reviewed
+private OCI Terraform stack and its fail-closed zero-cost plan gate are implemented
+locally, but no remote infrastructure has been provisioned.
 
 The system is one same-origin React application and Java/Spring modular monolith,
 with PostgreSQL, Flyway, Keycloak, and provider-independent local catalogue data.

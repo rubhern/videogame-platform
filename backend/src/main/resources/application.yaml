@@ -49,6 +49,38 @@ catalogue:
     freshness-threshold: ${CATALOGUE_RELEASES_FRESHNESS_THRESHOLD:P7D}
   search:
     release-context-limit: ${CATALOGUE_SEARCH_RELEASE_CONTEXT_LIMIT:3}
+  synchronization:
+    # Internal IGDB page bound; it never limits total Games in the requested window.
+    provider-page-size: ${CATALOGUE_SYNC_PROVIDER_PAGE_SIZE:500}
+    max-releases-per-game: ${CATALOGUE_SYNC_MAX_RELEASES_PER_GAME:25}
+    retained-runs: ${CATALOGUE_SYNC_RETAINED_RUNS:50}
+    abandon-run-after: ${CATALOGUE_SYNC_ABANDON_RUN_AFTER:PT30M}
+    cover:
+      fallback-asset-path: ${CATALOGUE_SYNC_FALLBACK_COVER_PATH:/assets/covers/fallback.svg}
+      fallback-source-name: ${CATALOGUE_SYNC_FALLBACK_COVER_SOURCE:VideoGame Platform}
+    provider:
+      client-id: ${IGDB_CLIENT_ID:}
+      client-secret: ${IGDB_CLIENT_SECRET:}
+      token-uri: ${IGDB_TOKEN_URI:https://id.twitch.tv/oauth2/token}
+      api-base-uri: ${IGDB_API_BASE_URI:https://api.igdb.com/v4/}
+      request-timeout: ${IGDB_REQUEST_TIMEOUT:10s}
+      requests-per-second: ${IGDB_REQUESTS_PER_SECOND:3}
+      max-retries: ${IGDB_MAX_RETRIES:2}
+      retry-backoff: ${IGDB_RETRY_BACKOFF:250ms}
+      # Product-owned provider taxonomy allowlist. An unmapped provider platform is a reported
+      # mapping failure, never a merge into a nearby product platform: generic PC must not absorb
+      # DOS, Linux or Mac releases.
+      platform-codes:
+        "[ps5]": playstation-5
+        "[switch-2]": nintendo-switch-2
+        "[win]": windows-pc
+        "[series-x-s]": xbox-series
+      region-codes:
+        "[worldwide]": worldwide
+        "[europe]": europe
+        "[north america]": north-america
+        "[japan]": japan
+      unknown-region-code: ${CATALOGUE_SYNC_UNKNOWN_REGION_CODE:unknown}
 
 api:
   releases:
@@ -77,7 +109,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,cataloguesync
   metrics:
     distribution:
       percentiles-histogram:

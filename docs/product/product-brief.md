@@ -50,7 +50,7 @@ proprietary/professional score.
 The [story map](mvp-story-map.md) owns the detailed release cut. The MVP includes:
 
 - recent/upcoming releases with platform and region filters;
-- title and approved-alias search in a declared bounded catalogue;
+- title and approved-alias search across the local catalogue;
 - a game page with provider-independent identity, commercial releases, provenance,
   freshness, review status, and explicit date precision;
 - an approved provider-CDN cover reference with attribution and a product-owned
@@ -64,9 +64,17 @@ The [story map](mvp-story-map.md) owns the detailed release cut. The MVP include
 - accessibility, security, testing, journey signals, and operability needed by the
   slice.
 
+The catalogue itself is acquired from the provider rather than hand-built: bounded,
+unattended synchronization discovers and imports new works and reconciles known ones
+whenever they appear in an operator-requested date interval, under an explicit import
+policy. Manual curation of each new game is no
+longer a premise. See
+[ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md).
+
 Deferred: reviews/community, libraries/lists/following, recommendations, professional
 scores, prices/stores, exhaustive editions/DLC, native apps, multiple providers,
-broad unattended ingestion, public production, and distributed infrastructure.
+exhaustive historical catalogue coverage, public production, and distributed
+infrastructure.
 
 ## Primary journey
 
@@ -88,8 +96,9 @@ aggregate value.
 - **Provider:** IGDB is a `CONDITIONAL_PASS` for a bounded catalogue. Identity,
   platform, region, provenance, cover reference, offline, security, and operational
   checks passed; release date/precision reached 83.1% against 90%, and localized
-  titles 40% against a non-blocking 80%. The owner accepts manual reconciliation and
-  product-owned Spanish aliases. See the [PoC result](../research/igdb-poc-results.md).
+  titles 40% against a non-blocking 80%. The owner accepts explicit provenance and
+  review state on uncertain release evidence, and product-owned Spanish aliases. See
+  the [PoC result](../research/igdb-poc-results.md).
 - **Engineering:** each slice must be automated, tested, observable, documented, and
   operable by one person before a major capability begins.
 
@@ -103,17 +112,19 @@ learning; they are not market targets.
 | Risk | Current response |
 |---|---|
 | Demand/differentiation unvalidated | Keep claims narrow; use real observations before expanding product scope |
-| Provider quality | Bounded catalogue, explicit uncertainty/provenance, manual reconciliation, local reads |
+| Provider quality | Explicit import policy, validation before publication, explicit uncertainty/provenance/review state, local reads |
 | Spanish data gaps | Product-owned aliases/editorial content; never present translation as provider content |
 | Provider/licensing scope | Private non-commercial use only; direct attributed IGDB CDN references; no copied images or external scores |
-| Provider coupling/outage | Internal identity, anti-corruption adapter, last valid local snapshot, no request-path IGDB |
+| Provider coupling/outage | Internal identity, anti-corruption adapter, last valid local snapshot, no request-path IGDB; provider drives acquisition, never serving |
 | Scope/architecture expansion | One journey and modular monolith; complexity requires evidence or bounded learning objective |
 | Accounts/personal ratings | Delegated identity, principal-derived ownership, privacy/security controls |
 | Solo operation | Small increments, automation, few deployables, zero recurring-cost constraint |
 
 Public deployment, monetization, copied/application-stored/redistributed provider
-data or images, broad unattended synchronization, or material provider-term changes
-reopen the provider and release-mode decisions before deployment.
+data or images, acquisition beyond the bounded synchronization
+[ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
+approves, or material provider-term changes reopen the provider and release-mode
+decisions before deployment.
 
 ## Long-term direction
 

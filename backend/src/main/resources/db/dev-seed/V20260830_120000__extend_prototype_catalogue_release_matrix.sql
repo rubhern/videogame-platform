@@ -10,7 +10,8 @@
 
 INSERT INTO catalogue.region (region_id, code, display_name) VALUES
     ('20000000-0000-4000-8000-000000000004', 'north-america', 'North America'),
-    ('20000000-0000-4000-8000-000000000005', 'japan', 'Japan');
+    ('20000000-0000-4000-8000-000000000005', 'japan', 'Japan')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO catalogue.game (game_id, created_at) VALUES
     ('30000000-0000-4000-8000-000000000009', '2026-08-09 10:00:00+00'),

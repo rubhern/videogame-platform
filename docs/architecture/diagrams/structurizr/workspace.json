@@ -605,7 +605,7 @@
       },
       "tags" : "Element,Software System,External System"
     }, {
-      "description" : "Provides candidate video-game catalogue and release metadata.",
+      "description" : "Provides video-game catalogue and release metadata.",
       "documentation" : { },
       "id" : "9",
       "name" : "IGDB API",

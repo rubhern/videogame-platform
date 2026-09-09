@@ -42,8 +42,9 @@ atomicity remains valuable; full in-memory materialization does not.
 ## Consequences
 
 Query behavior is bounded, deterministic, measurable and stateless. Exact counts and
-offsets still cost work in PostgreSQL, immutable publications duplicate snapshot rows
-and GiST adds migration/index storage.
+offsets still cost work in PostgreSQL and GiST adds migration/index storage.
+The historical immutable-publication storage assumption is replaced by current
+per-Game state in [ADR-0017](0017-discover-catalogue-members-automatically-from-igdb.md).
 
 ## Evidence and reconsideration triggers
 
@@ -54,6 +55,6 @@ matched 1,183 rows (about 1.4 ms count, 7.3 ms page) and upcoming matched 2,179 
 historical evidence, not portable latency gates.
 
 Revisit keyset pagination/count strategy for measured high-offset or count problems;
-retention before partitioning/copy-on-write for material snapshot cost; intermediary
+current-state/index storage for measured growth; intermediary
 caching for demonstrated public traffic; and replicas or another read store only for
 measured primary-load or query limitations.
