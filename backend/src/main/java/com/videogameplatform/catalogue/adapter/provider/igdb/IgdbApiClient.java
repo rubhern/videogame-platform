@@ -36,6 +36,7 @@ public final class IgdbApiClient {
     private final IgdbApiSettings settings;
     private final IgdbRequestRateLimiter rateLimiter;
 
+    @SuppressWarnings("java:S3077") // AtomicReference provides the required safe publication.
     private final AtomicReference<CachedToken> token = new AtomicReference<>();
 
     public IgdbApiClient(

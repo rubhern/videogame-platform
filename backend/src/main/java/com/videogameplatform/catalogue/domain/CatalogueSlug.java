@@ -15,11 +15,10 @@ import java.util.regex.Pattern;
 public record CatalogueSlug(String value) {
 
     private static final Pattern COMBINING_MARKS = Pattern.compile("[\\u0300-\\u036f]+");
-    private static final Pattern VALID = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
     private static final int MAX_LENGTH = 180;
 
     public CatalogueSlug {
-        if (value == null || !VALID.matcher(value).matches()) {
+        if (!isValid(value)) {
             throw new IllegalArgumentException("A catalogue slug must be lowercase and hyphenated");
         }
     }
@@ -90,5 +89,26 @@ public record CatalogueSlug(String value) {
             }
         }
         return slug.toString();
+    }
+
+    private static boolean isValid(String value) {
+        if (value == null || value.isEmpty() || value.charAt(0) == '-' || value.endsWith("-")) {
+            return false;
+        }
+        boolean previousWasSeparator = false;
+        for (int index = 0; index < value.length(); index++) {
+            char character = value.charAt(index);
+            boolean separator = character == '-';
+            if (!separator
+                    && !((character >= 'a' && character <= 'z')
+                            || (character >= '0' && character <= '9'))) {
+                return false;
+            }
+            if (separator && previousWasSeparator) {
+                return false;
+            }
+            previousWasSeparator = separator;
+        }
+        return true;
     }
 }
