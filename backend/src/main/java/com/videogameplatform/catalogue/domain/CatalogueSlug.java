@@ -15,8 +15,8 @@ import java.util.regex.Pattern;
 public record CatalogueSlug(String value) {
 
     private static final Pattern COMBINING_MARKS = Pattern.compile("[\\u0300-\\u036f]+");
-    private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^a-z0-9]+");
-    private static final Pattern TRIM_SEPARATORS = Pattern.compile("^-+|-+$");
+    private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^a-z0-9]++");
+    private static final Pattern TRIM_SEPARATORS = Pattern.compile("(?:^-+|-+$)");
     private static final Pattern VALID = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
     private static final int MAX_LENGTH = 180;
 

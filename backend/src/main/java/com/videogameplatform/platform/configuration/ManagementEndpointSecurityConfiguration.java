@@ -32,13 +32,13 @@ class ManagementEndpointSecurityConfiguration {
 
     @Bean
     @Order(0)
-    SecurityFilterChain managementEndpointSecurity(HttpSecurity http) throws Exception {
+    SecurityFilterChain managementEndpointSecurity(HttpSecurity http) {
         http.securityMatcher(EndpointRequest.toAnyEndpoint())
                 .authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
                 .requestCache(cache -> cache.disable())
                 .sessionManagement(
                         session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.ignoringRequestMatchers(EndpointRequest.toAnyEndpoint()))
                 .addFilterBefore(
                         new CrossSiteManagementRequestFilter(), SecurityContextHolderFilter.class)
                 .headers(headers -> headers.frameOptions(frame -> frame.deny()));

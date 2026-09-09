@@ -22,8 +22,8 @@ final class IgdbRequestRateLimiter {
     }
 
     synchronized void acquire() {
-        long waitNanos = nextRequestNanos - System.nanoTime();
-        if (waitNanos > 0) {
+        long waitNanos;
+        while ((waitNanos = nextRequestNanos - System.nanoTime()) > 0) {
             LockSupport.parkNanos(waitNanos);
         }
         nextRequestNanos = Math.max(System.nanoTime(), nextRequestNanos) + intervalNanos;

@@ -35,7 +35,7 @@ public final class IgdbApiClient {
     private final IgdbApiSettings settings;
     private final IgdbRequestRateLimiter rateLimiter;
 
-    private volatile CachedToken token;
+    private CachedToken token;
 
     public IgdbApiClient(
             HttpClient httpClient, ObjectMapper objectMapper, IgdbApiSettings settings) {
@@ -71,7 +71,7 @@ public final class IgdbApiClient {
                 throw failure(ProviderFailureCode.PROVIDER_AUTHENTICATION_FAILED, attempt);
             }
             // The cached application token expired earlier than announced; obtain a new one once.
-            token = null;
+            invalidateToken();
             attempt.retried();
             return executeQuery(endpoint, query, attempt, false);
         }
@@ -81,7 +81,7 @@ public final class IgdbApiClient {
         return response.body();
     }
 
-    private String accessToken(Attempt attempt) {
+    private synchronized String accessToken(Attempt attempt) {
         CachedToken cached = token;
         if (cached != null && cached.isUsable()) {
             return cached.value();
@@ -121,6 +121,10 @@ public final class IgdbApiClient {
                         Instant.now().plusSeconds(Math.max(0L, lifetimeSeconds - 60L)));
         token = refreshed;
         return refreshed.value();
+    }
+
+    private synchronized void invalidateToken() {
+        token = null;
     }
 
     private HttpResponse<String> send(
