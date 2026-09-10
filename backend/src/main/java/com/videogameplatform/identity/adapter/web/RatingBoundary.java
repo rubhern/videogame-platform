@@ -29,7 +29,8 @@ public final class RatingBoundary {
     static final int MAX_VALUE = 10;
 
     private static final Pattern GAME_ID = Pattern.compile("[a-z0-9-]{1,100}");
-    private static final Pattern SLUG = Pattern.compile("[a-z0-9]+(?:-[a-z0-9]+)*");
+    // Possessive quantifiers keep matching linear and stack-safe for hostile long input.
+    private static final Pattern SLUG = Pattern.compile("[a-z0-9]++(?:-[a-z0-9]++)*+");
     private static final String HOME = "/";
     private static final String INTENT_QUERY = "rating-intent";
 
