@@ -17,10 +17,13 @@ export is review evidence, never a runtime dependency or an instruction source.
 ## Mandatory composition
 
 - Use the full-width charcoal header with the VideoGame Platform mark and wordmark, primary
-  navigation, integrated catalogue search and the existing server-owned account entry point.
-  Keep the narrow catalogue context strip directly below it. On tablet, navigation occupies
-  a second row; on phone, identity and account lead, search spans the next row, and navigation
-  remains horizontally reachable below it.
+  navigation, integrated catalogue search and the server-owned account control. The account
+  control appears only for an authenticated session and provides `Mi cuenta` and the MVP
+  logout action; anonymous browsing shows no account or general login entry point, because
+  authentication begins at the rating boundary, not the header. Keep the narrow catalogue
+  context strip directly below it. On tablet, navigation occupies a second row; on phone,
+  identity and account lead, search spans the next row, and navigation remains horizontally
+  reachable below it.
 - Align header and main content to the shared `page-container`, capped at 1320px with 28px
   desktop, 24px tablet and 16px phone gutters. Use the editorial title block, filter rail,
   result summary, cover-led catalogue grid and pagination in that order.
@@ -101,7 +104,12 @@ review, freshness and available evidence timestamps. Keep summary language and s
 There is no separate bottom release/evidence section. Display the community mean and
 count prominently, or an equally prominent “Sin nota todavía” / “Nota no disponible”
 state in the same position. The distribution remains a backend/API capability and
-is not rendered on this page. Personal-rating context remains distinct.
+is not rendered on this page. Personal-rating context remains distinct. When the game is
+eligible, this panel carries a deliberately minimal, accessible 1-10 rating entry point
+(a labelled select plus `Puntuar`) that starts authentication at the rating boundary and,
+after returning, shows the recovered value as an explicit pending, non-persisted selection.
+It never persists a rating; the production rating selector and create/update/delete UX are
+deferred.
 
 Genre, developer and publisher are absent from the current approved detail contract
 and local model, so omit them. Adding them requires a separate scoped contract-first

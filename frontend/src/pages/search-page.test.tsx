@@ -42,10 +42,25 @@ const emptyPage = {
 function stubSearch(handler: (url: URL) => Response) {
   const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
+    // The header reads BFF session state on every page; keep tests scoped to the catalogue.
+    if (url.pathname === "/api/v1/session") {
+      return Response.json({ authenticated: false });
+    }
+    if (url.pathname.startsWith("/auth/rating-intent")) {
+      return new Response(null, { status: 404 });
+    }
     return handler(url);
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+function searchCalls(
+  fetchMock: ReturnType<typeof vi.fn<typeof fetch>>,
+): Request[] {
+  return fetchMock.mock.calls
+    .map((call) => call[0] as Request)
+    .filter((request) => new URL(request.url).pathname === "/api/v1/games");
 }
 
 afterEach(() => {
@@ -66,7 +81,7 @@ describe("catalogue search page", () => {
         "Escribe un título o un título alternativo aprobado en el buscador de la cabecera.",
       ),
     ).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(searchCalls(fetchMock)).toHaveLength(0);
   });
 
   it("searches the local catalogue from the URL and shows the match context", async () => {
@@ -78,9 +93,11 @@ describe("catalogue search page", () => {
     expect(screen.getByText(/Coincide con el título alternativo/)).toHaveTextContent(
       "The Witcher 4",
     );
-    const request = fetchMock.mock.calls[0]?.[0];
-    expect(new URL((request as Request).url).pathname).toBe("/api/v1/games");
-    expect(new URL((request as Request).url).searchParams.get("q")).toBe("the witcher 4");
+    const request = searchCalls(fetchMock)[0];
+    expect(request).toBeDefined();
+    expect(
+      new URL(request?.url ?? "http://localhost").searchParams.get("q"),
+    ).toBe("the witcher 4");
   });
 
   it("makes a submitted search shareable through the URL", async () => {
@@ -171,7 +188,7 @@ describe("catalogue search page", () => {
 
     expect(await screen.findByRole("heading", { name: "La búsqueda no es válida" }))
       .toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(searchCalls(fetchMock)).toHaveLength(0);
   });
 
   it("lets the visitor retry after a network failure without an empty support reference", async () => {

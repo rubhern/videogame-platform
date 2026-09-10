@@ -3,7 +3,7 @@
   "displayName": "VideoGame Platform",
   "enabled": true,
   "sslRequired": "external",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "resetPasswordAllowed": false,
   "rememberMe": false,
   "loginWithEmailAllowed": false,

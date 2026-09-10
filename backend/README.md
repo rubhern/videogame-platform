@@ -3,9 +3,11 @@
 The backend is a Java 25 / Spring Boot modular monolith. It currently implements the
 PostgreSQL-backed `GET /api/v1/releases`, `GET /api/v1/games` and
 `GET /api/v1/games/{gameId}` operations, the
-minimal BFF session resource, Keycloak login navigation, packaged frontend routes,
-Actuator health/info/metrics, and the internal operator-triggered IGDB catalogue
-synchronization.
+minimal BFF session resource, Keycloak login navigation, the rating authentication
+boundary (`/auth/rating-intent` start and single-use, expiring return context that
+resumes the same game and selected value without persisting a rating), packaged
+frontend routes, Actuator health/info/metrics, and the internal operator-triggered
+IGDB catalogue synchronization.
 The remaining operations in the [OpenAPI contract](../docs/architecture/api/openapi.yaml)
 are approved contracts, not implemented claims.
 
