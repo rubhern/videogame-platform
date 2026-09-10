@@ -10,10 +10,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.videogameplatform.identity.adapter.session.RatingReturnContextStore;
 import com.videogameplatform.identity.configuration.CsrfProblemAccessDeniedHandler;
 import com.videogameplatform.identity.configuration.IdentitySecurityConfiguration;
+import com.videogameplatform.identity.configuration.RatingIntentAuthenticationFailureHandler;
+import com.videogameplatform.identity.configuration.RatingResumeAuthenticationSuccessHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +45,8 @@ import tools.jackson.databind.ObjectMapper;
 @Import({
     IdentitySecurityConfiguration.class,
     CsrfProblemAccessDeniedHandler.class,
+    RatingResumeAuthenticationSuccessHandler.class,
+    RatingIntentAuthenticationFailureHandler.class,
     SessionSecurityIntegrationTest.ClientRegistrationConfiguration.class
 })
 class SessionSecurityIntegrationTest {
@@ -259,6 +266,17 @@ class SessionSecurityIntegrationTest {
         @Bean
         ClientRegistrationRepository clientRegistrationRepository() {
             return new InMemoryClientRegistrationRepository(clientRegistration());
+        }
+
+        @Bean
+        RatingReturnContextStore ratingReturnContextStore(
+                jakarta.servlet.http.HttpServletRequest request, Clock clock) {
+            return new RatingReturnContextStore(request, clock, Duration.ofMinutes(10));
+        }
+
+        @Bean
+        Clock clock() {
+            return Clock.systemUTC();
         }
 
         @Bean

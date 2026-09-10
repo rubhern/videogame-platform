@@ -5,7 +5,11 @@ BFF/API. It currently renders the complete `UC-001` release-discovery page — r
 and upcoming windows, platform and region filters, pagination, covers, and the
 loading, empty, stale, catalogue-not-ready and failure states — the `UC-002`
 bounded-catalogue search page, and the accessible `UC-003` public game-detail page.
-Rating commands, `Mis puntuaciones`, and provider synchronization UI remain later slices.
+It also implements the `UC-004` same-origin authentication boundary: an authenticated-only
+header account control with CSRF-protected logout, and a minimal game-page rating entry
+point that starts Keycloak-hosted authentication and, on return, shows the recovered value
+as a pending, non-persisted selection. Personal rating create/update/delete commands,
+`Mis puntuaciones`, and provider synchronization UI remain later slices.
 
 ## Visual development
 
@@ -89,8 +93,10 @@ catalogue-not-ready, retryable failure, stale/review-required evidence and unava
 statistics. Platform and region selection updates the displayed release context and
 is restored from the URL, without changing game-wide eligibility or aggregate state.
 The community score sits beneath the cover; its distribution is retained in the API
-but is not rendered. Personal rating controls remain undelivered. The existing shell restores main-content focus
-on navigation. Date precision and direct-provider cover fallback/attribution follow
+but is not rendered. When the game is eligible, the personal-rating panel shows the minimal
+`UC-004` rating entry point that begins authentication at the rating boundary and presents a
+recovered value as pending, non-persisted state; it never persists a rating. The existing
+shell restores main-content focus on navigation. Date precision and direct-provider cover fallback/attribution follow
 the same contracts as discovery.
 
 ## Accessibility and testing

@@ -7,6 +7,7 @@ import {
 import { regionLabel } from "../../shared/catalogue/region-label";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import type { GameDetails } from "./game-details-api";
+import { GameRatingEntry } from "./game-rating-entry";
 
 const eligibilityReasons: Record<
   GameDetails["ratingEligibility"]["reason"],
@@ -352,7 +353,11 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
           <h2 className="game-panel-title" id="personal-title">
             Tu puntuación
           </h2>
-          <p>La puntuación personal todavía no está disponible.</p>
+          {game.ratingEligibility.eligible ? (
+            <GameRatingEntry game={game} />
+          ) : (
+            <p>La puntuación todavía no está disponible para este juego.</p>
+          )}
         </section>
       </div>
     </div>

@@ -36,6 +36,8 @@ public class IdentitySecurityConfiguration {
             HttpSecurity http,
             ObjectProvider<ClientRegistrationRepository> registrations,
             CsrfProblemAccessDeniedHandler csrfProblemAccessDeniedHandler,
+            RatingResumeAuthenticationSuccessHandler ratingResumeSuccessHandler,
+            RatingIntentAuthenticationFailureHandler ratingIntentFailureHandler,
             @Value("${server.servlet.session.cookie.name:vgp_session}") String sessionCookieName)
             throws Exception {
         HttpSessionCsrfTokenRepository csrfTokens = new HttpSessionCsrfTokenRepository();
@@ -82,8 +84,8 @@ public class IdentitySecurityConfiguration {
                                             endpoint ->
                                                     endpoint.authorizationRequestResolver(
                                                             authorizationRequests))
-                                    .defaultSuccessUrl("/", true)
-                                    .failureUrl("/"));
+                                    .successHandler(ratingResumeSuccessHandler)
+                                    .failureHandler(ratingIntentFailureHandler));
         }
 
         return http.build();

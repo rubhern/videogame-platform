@@ -7,11 +7,38 @@ import { renderApp } from "../test/render-app";
 const path =
   "/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem";
 afterEach(() => vi.unstubAllGlobals());
+function requestUrl(input: unknown): string {
+  if (input instanceof Request) return input.url;
+  if (input instanceof URL) return input.toString();
+  return String(input);
+}
+
+// The header reads BFF session state, so tests route by URL rather than assuming the
+// only network call is the public game read.
 function serve(game = gameDetailsFixture()) {
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => Response.json(game)),
+    vi.fn(async (input: unknown) => {
+      const url = requestUrl(input);
+      if (url.includes("/api/v1/session")) {
+        return Response.json({ authenticated: false });
+      }
+      if (url.includes("/auth/rating-intent")) {
+        return new Response(null, { status: 404 });
+      }
+      return Response.json(game);
+    }),
   );
+}
+
+function gameRequests() {
+  return vi
+    .mocked(fetch)
+    .mock.calls.map((call) => call[0])
+    .filter(
+      (input): input is Request =>
+        input instanceof Request && input.url.includes("/api/v1/games/"),
+    );
 }
 
 describe("public game details", () => {
@@ -48,9 +75,9 @@ describe("public game details", () => {
       screen.getByRole("heading", { name: "Tu puntuación" }),
     ).toBeVisible();
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
-    const request = vi.mocked(fetch).mock.calls[0]?.[0];
+    const request = gameRequests()[0];
     expect(request).toBeInstanceOf(Request);
-    expect((request as Request).url).toContain(
+    expect(request?.url).toContain(
       "/api/v1/games/30000000-0000-4000-8000-000000000005",
     );
   });
@@ -159,7 +186,7 @@ describe("public game details", () => {
     expect(
       screen.queryByRole("radio", { name: "Mundial" }),
     ).not.toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(gameRequests()).toHaveLength(1);
   });
   it("keeps multiple records for the selected tuple and tolerates obsolete context parameters", async () => {
     const game = gameDetailsFixture();
@@ -255,12 +282,23 @@ describe("public game details", () => {
   });
   it("offers a deliberate keyboard retry for network failures", async () => {
     const user = userEvent.setup();
+    let gameAttempts = 0;
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockRejectedValueOnce(new TypeError("Network failure"))
-        .mockResolvedValueOnce(Response.json(gameDetailsFixture())),
+      vi.fn(async (input: unknown) => {
+        const url = requestUrl(input);
+        if (url.includes("/api/v1/session")) {
+          return Response.json({ authenticated: false });
+        }
+        if (url.includes("/auth/rating-intent")) {
+          return new Response(null, { status: 404 });
+        }
+        gameAttempts += 1;
+        if (gameAttempts === 1) {
+          throw new TypeError("Network failure");
+        }
+        return Response.json(gameDetailsFixture());
+      }),
     );
     renderApp(path);
     const retry = await screen.findByRole("button", { name: "Reintentar" });

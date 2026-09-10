@@ -353,6 +353,23 @@
     display: none;
   }
 
+  .account-control {
+    order: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    flex: none;
+  }
+
+  .account-logout {
+    min-height: 36px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
   .catalogue-masthead {
     border-top: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
     background: var(--color-surface);

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { readReleasesSearch, releasesSearchPath } from "../features/releases/releases-search";
+import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
 
 export function AppShell() {
@@ -65,12 +66,7 @@ export function AppShell() {
           <CatalogueSearch key={`${location.pathname}?${location.search}`} />
 
           <span className="account-divider" aria-hidden="true" />
-          <a aria-label="Acceder a Mi cuenta" className="account-link" href="/auth/login/keycloak">
-            <span className="account-avatar" aria-hidden="true">
-              <span />
-            </span>
-            <span className="account-label">Mi cuenta</span>
-          </a>
+          <AccountControl />
         </div>
         <div className="catalogue-masthead">
           <div className="page-container">

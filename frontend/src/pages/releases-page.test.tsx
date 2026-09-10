@@ -72,15 +72,31 @@ function problem(status: number, code: Problem["code"]): Problem {
 function stubReleases(
   respond: (request: Request) => Response | Promise<Response>,
 ): ReturnType<typeof vi.fn<typeof fetch>> {
-  const fetchMock = vi
-    .fn<typeof fetch>()
-    .mockImplementation(async (input) => respond(input as Request));
+  const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+    const request = input as Request;
+    // The header reads BFF session state on every page; keep tests scoped to the catalogue.
+    if (request.url.includes("/api/v1/session")) {
+      return Response.json({ authenticated: false });
+    }
+    if (request.url.includes("/auth/rating-intent")) {
+      return new Response(null, { status: 404 });
+    }
+    return respond(request);
+  });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
 
+function releaseCalls(
+  fetchMock: ReturnType<typeof vi.fn<typeof fetch>>,
+): Request[] {
+  return fetchMock.mock.calls
+    .map((call) => call[0] as Request)
+    .filter((request) => new URL(request.url).pathname === "/api/v1/releases");
+}
+
 function requestedQueries(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>): URLSearchParams[] {
-  return fetchMock.mock.calls.map((call) => new URL((call[0] as Request).url).searchParams);
+  return releaseCalls(fetchMock).map((request) => new URL(request.url).searchParams);
 }
 
 afterEach(() => {
@@ -142,7 +158,7 @@ describe("releases page", () => {
 
     await user.click(platformFilters.getByRole("link", { name: "PlayStation 5" }));
 
-    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(1));
     const query = requestedQueries(fetchMock).at(-1);
     expect(query?.get("platformId")).toBe("playstation-5");
     expect(query?.get("page")).toBe("1");
@@ -268,6 +284,6 @@ describe("releases page", () => {
     await user.click(screen.getByRole("button", { name: "Reintentar" }));
 
     expect(await screen.findByRole("link", { name: "Ver Pragmata" })).toBeInTheDocument();
-    expect(fetchMock.mock.calls.length).toBe(2);
+    expect(releaseCalls(fetchMock)).toHaveLength(2);
   });
 });
