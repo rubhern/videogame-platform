@@ -13,7 +13,6 @@ import java.time.YearMonth;
 
 public final class RatingContextService implements GetRatingContextUseCase {
     private final RatingStatisticsReadPort statistics;
-    private final RatingEligibilityPolicy eligibility = new RatingEligibilityPolicy();
 
     public RatingContextService(RatingStatisticsReadPort statistics) {
         this.statistics = statistics;
@@ -21,6 +20,15 @@ public final class RatingContextService implements GetRatingContextUseCase {
 
     @Override
     public Context get(GameDetailsResult game) {
+        var reason = eligibility(game);
+        return new Context(
+                reason == RatingEligibilityPolicy.Reason.ELIGIBLE_RELEASE_FOUND,
+                reason.name(),
+                game.evaluatedOn(),
+                statistics.read(game.gameId()));
+    }
+
+    static RatingEligibilityPolicy.Reason eligibility(GameDetailsResult game) {
         var evidence =
                 game.releases().stream()
                         .map(
@@ -37,12 +45,7 @@ public final class RatingContextService implements GetRatingContextUseCase {
                                                         == CatalogueReleaseDate.Precision.DAY,
                                                 periodEnd(r.releaseDate())))
                         .toList();
-        var reason = eligibility.evaluate(evidence, game.evaluatedOn());
-        return new Context(
-                reason == RatingEligibilityPolicy.Reason.ELIGIBLE_RELEASE_FOUND,
-                reason.name(),
-                game.evaluatedOn(),
-                statistics.read(game.gameId()));
+        return new RatingEligibilityPolicy().evaluate(evidence, game.evaluatedOn());
     }
 
     private static LocalDate periodEnd(CatalogueReleaseDate date) {

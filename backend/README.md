@@ -2,8 +2,8 @@
 
 The backend is a Java 25 / Spring Boot modular monolith. It currently implements the
 PostgreSQL-backed `GET /api/v1/releases`, `GET /api/v1/games` and
-`GET /api/v1/games/{gameId}` operations, the
-minimal BFF session resource, Keycloak login navigation, the rating authentication
+`GET /api/v1/games/{gameId}` operations, authenticated current-user rating read/write/delete,
+the minimal BFF session resource, Keycloak login navigation, the rating authentication
 boundary (`/auth/rating-intent` start and single-use, expiring return context that
 resumes the same game and selected value without persisting a rating), packaged
 frontend routes, Actuator health/info/metrics, and the internal operator-triggered
@@ -22,9 +22,7 @@ sourced summaries retain their language and provenance.
 Ratings consumes Catalogue application context and reads only its own active-rating
 table. PostgreSQL computes count, mean and ten distribution buckets in one statement;
 a missing contribution set is empty, and a read failure becomes unavailable without
-blocking the game. The minimal table supports this read only: authentication,
-concurrency tokens and rating write commands remain future work. No personal record
-or user identity is included in public delivery.
+blocking the game. No personal record or user identity is included in public delivery.
 
 The public representation revalidates on every reuse because Madrid evaluation dates
 and aggregate/freshness state affect its ETag. Degraded aggregates are not stored.
@@ -32,10 +30,34 @@ The [observability policy](../docs/development/observability.md) defines the sha
 HTTP metrics and the bounded detail-read meter for eligibility and aggregate state.
 No provider request is made during a game read.
 
-The forward migration adds defaulted summary columns and a new module-owned table;
-the previous application remains compatible with the expanded schema. Apply it before
-activating this version. Roll back the application while retaining the additive data;
-do not reverse the migration or drop ratings to recover an application deployment.
+The forward migrations add defaulted catalogue summary columns and extend the
+module-owned rating table with timestamps and an opaque version token. The previous
+application remains compatible with the expanded schema. Apply them before activating
+this version. Roll back the application while retaining the additive data; do not
+reverse the migration or drop ratings to recover an application deployment.
+
+## Personal rating commands
+
+`GET`, conditional `PUT`, and conditional `DELETE` on
+`/api/v1/me/ratings/{gameId}` implement `UC-005`, `UC-006`, and `UC-007`. The server
+derives the product `UserId` exclusively from the validated OIDC issuer and subject.
+Personal absence is scoped by that identifier, so another user's row is never exposed.
+
+Create requires `If-None-Match: *`; update and delete require the current strong,
+opaque `ETag` in `If-Match`. PostgreSQL enforces one active row per user and game,
+and conditional DML resolves concurrent races without lost updates. Create and update
+re-evaluate release eligibility with the trusted application clock; delete deliberately
+does not. Each successful write and its database-computed aggregate are read in one
+bounded transaction. A database failure rolls back the personal state before a safe
+`RATING_WRITE_FAILED` response. These authenticated responses use `no-store`, and
+state changes require the session CSRF token plus same-origin browser metadata.
+
+The collection endpoint `/api/v1/me/ratings` remains unimplemented and is owned by
+issue #32; no rating UI is included here.
+
+For the local browser login, cookie synchronization and automatic CSRF bootstrap used
+to exercise these commands, follow the
+[authenticated Postman instructions](postman/README.md#authenticated-personal-rating-run).
 
 ## Build and verify
 
@@ -102,7 +124,7 @@ Configuration names, defaults, and secret classification are maintained in
 | Module      | Responsibility                                                                              |
 |-------------|---------------------------------------------------------------------------------------------|
 | `catalogue` | Games, releases, local publication reads, and bounded provider synchronization              |
-| `ratings`   | Release eligibility and active-rating aggregate reads; personal commands remain undelivered |
+| `ratings`   | Release eligibility, aggregates, and transactional current-user rating commands             |
 | `identity`  | BFF session and external identity integration                                               |
 | `api`       | HTTP delivery and mapping only                                                              |
 | `platform`  | Cross-cutting runtime configuration and observability                                       |

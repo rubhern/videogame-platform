@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.videogameplatform.identity.adapter.session.RatingReturnContextStore;
+import com.videogameplatform.identity.configuration.AuthenticationProblemEntryPoint;
 import com.videogameplatform.identity.configuration.CsrfProblemAccessDeniedHandler;
 import com.videogameplatform.identity.configuration.IdentitySecurityConfiguration;
 import com.videogameplatform.identity.configuration.RatingIntentAuthenticationFailureHandler;
@@ -44,6 +45,7 @@ import tools.jackson.databind.ObjectMapper;
 @WebMvcTest(SessionController.class)
 @Import({
     IdentitySecurityConfiguration.class,
+    AuthenticationProblemEntryPoint.class,
     CsrfProblemAccessDeniedHandler.class,
     RatingResumeAuthenticationSuccessHandler.class,
     RatingIntentAuthenticationFailureHandler.class,

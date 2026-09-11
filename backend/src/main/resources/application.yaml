@@ -1,6 +1,9 @@
 spring:
   application:
     name: videogame-platform-backend
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
   datasource:
     url: ${APPLICATION_DB_URL:jdbc:postgresql://localhost:5432/videogame_platform}
     username: ${APPLICATION_DB_USERNAME:videogame_app}
@@ -81,6 +84,10 @@ catalogue:
         "[north america]": north-america
         "[japan]": japan
       unknown-region-code: ${CATALOGUE_SYNC_UNKNOWN_REGION_CODE:unknown}
+
+ratings:
+  jdbc:
+    operation-timeout: ${RATINGS_JDBC_OPERATION_TIMEOUT:5s}
 
 api:
   releases:

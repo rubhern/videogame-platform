@@ -20,6 +20,8 @@ required_files=(
   "backend/postman/actuator.postman_collection.json"
   "backend/postman/catalogue-releases.postman_collection.json"
   "backend/postman/catalogue-search.postman_collection.json"
+  "backend/postman/game-details.postman_collection.json"
+  "backend/postman/personal-ratings.postman_collection.json"
   "backend/postman/session.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
@@ -242,6 +244,9 @@ json_documents = (
     "backend/postman/actuator.postman_collection.json",
     "backend/postman/catalogue-releases.postman_collection.json",
     "backend/postman/catalogue-search.postman_collection.json",
+    "backend/postman/game-details.postman_collection.json",
+    "backend/postman/personal-ratings.postman_collection.json",
+    "backend/postman/session.postman_collection.json",
     "backend/postman/local.postman_environment.json",
     "docker/keycloak/import/videogame-platform-realm.json",
 )
@@ -394,6 +399,7 @@ expected_backend_variables = {
     "CATALOGUE_RELEASES_CACHE_CONTROL",
     "CATALOGUE_SEARCH_RELEASE_CONTEXT_LIMIT",
     "CATALOGUE_SEARCH_CACHE_CONTROL",
+    "RATINGS_JDBC_OPERATION_TIMEOUT",
     "IGDB_CLIENT_ID",
     "IGDB_CLIENT_SECRET",
     "IGDB_TOKEN_URI",

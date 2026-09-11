@@ -1,0 +1,232 @@
+{
+  "info": {
+    "name": "VideoGame Platform Backend - Personal Ratings",
+    "description": "Executable UC-005, UC-006 and UC-007 examples for an authenticated local OIDC session. Sign in through Keycloak in a browser and sync the localhost cookie into Postman. The first request verifies that session and stores its CSRF token automatically; no OAuth token or credential belongs in this collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gameId",
+      "value": "30000000-0000-4000-8000-000000000005"
+    },
+    {
+      "key": "csrfToken",
+      "value": ""
+    },
+    {
+      "key": "createdRatingEtag",
+      "value": ""
+    },
+    {
+      "key": "updatedRatingEtag",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Bootstrap authenticated session and CSRF",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/session",
+        "description": "Requires the browser-created vgp_session cookie to be present in Postman's localhost cookie jar. Stores the session-bound CSRF token for the remaining requests."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const authenticated = body.authenticated === true && typeof body.csrfToken === \"string\" && body.csrfToken.length > 0;",
+              "pm.test(\"Authenticated OIDC session is available\", () => pm.expect(authenticated, \"Open /auth/login/keycloak in a browser and sync the localhost cookie with Postman Interceptor\").to.eql(true));",
+              "pm.test(\"Session state is private\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "pm.collectionVariables.unset(\"createdRatingEtag\");",
+              "pm.collectionVariables.unset(\"updatedRatingEtag\");",
+              "if (authenticated) {",
+              "    pm.collectionVariables.set(\"csrfToken\", body.csrfToken);",
+              "} else {",
+              "    pm.collectionVariables.unset(\"csrfToken\");",
+              "    pm.execution.setNextRequest(null);",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create personal rating",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
+          { "key": "If-None-Match", "value": "*" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"value\": 8\n}" },
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "const etag = pm.response.headers.get(\"ETag\");",
+              "pm.test(\"Strong opaque ETag is consistent\", () => { pm.expect(etag).to.match(/^\"[^\"\\r\\n]+\"$/); pm.expect(body.personalRating.entityTag).to.eql(etag); });",
+              "pm.test(\"Created resource and coherent aggregate\", () => { pm.expect(pm.response.headers.get(\"Location\")).to.eql(`/api/v1/me/ratings/${pm.collectionVariables.get(\"gameId\")}`); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); pm.expect(body.personalRating.value).to.eql(8); pm.expect(body.ratingStatistics.count).to.be.at.least(1); });",
+              "pm.collectionVariables.set(\"createdRatingEtag\", etag);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read own personal rating",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Accept", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Read returns created validator\", () => { const body = pm.response.json(); pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(body.entityTag).to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject duplicate create",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
+          { "key": "If-None-Match", "value": "*" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"value\": 9\n}" },
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 412\", () => pm.response.to.have.status(412));",
+              "pm.test(\"Stable duplicate code\", () => pm.expect(pm.response.json().code).to.eql(\"RATING_ALREADY_EXISTS\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Update personal rating",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
+          { "key": "If-Match", "value": "{{createdRatingEtag}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"value\": 9\n}" },
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const etag = pm.response.headers.get(\"ETag\");",
+              "pm.test(\"Update rotates the validator\", () => { pm.expect(etag).to.match(/^\"[^\"\\r\\n]+\"$/); pm.expect(etag).not.to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(body.personalRating.entityTag).to.eql(etag); pm.expect(body.personalRating.value).to.eql(9); });",
+              "pm.collectionVariables.set(\"updatedRatingEtag\", etag);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject stale update",
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
+          { "key": "If-Match", "value": "{{createdRatingEtag}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\n  \"value\": 2\n}" },
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 412\", () => pm.response.to.have.status(412));",
+              "pm.test(\"Stable conflict code\", () => pm.expect(pm.response.json().code).to.eql(\"RATING_WRITE_CONFLICT\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject mutation without CSRF",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "If-Match", "value": "{{updatedRatingEtag}}" }],
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Stable CSRF code\", () => pm.expect(pm.response.json().code).to.eql(\"CSRF_VALIDATION_FAILED\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Delete personal rating",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Accept", "value": "application/json" },
+          { "key": "X-CSRF-Token", "value": "{{csrfToken}}" },
+          { "key": "If-Match", "value": "{{updatedRatingEtag}}" }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/ratings/{{gameId}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Personal state is absent and aggregate remains coherent\", () => { const body = pm.response.json(); pm.expect(body.personalRating).to.eql(null); pm.expect(body.ratingStatistics.status).to.eql(\"available\"); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

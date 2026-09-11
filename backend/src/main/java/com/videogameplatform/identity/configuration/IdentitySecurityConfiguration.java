@@ -1,5 +1,7 @@
 package com.videogameplatform.identity.configuration;
 
+import com.videogameplatform.identity.adapter.web.SecurityContextCurrentUser;
+import com.videogameplatform.identity.application.CurrentUser;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -36,6 +38,8 @@ public class IdentitySecurityConfiguration {
             HttpSecurity http,
             ObjectProvider<ClientRegistrationRepository> registrations,
             CsrfProblemAccessDeniedHandler csrfProblemAccessDeniedHandler,
+            AuthenticationProblemEntryPoint authenticationProblemEntryPoint,
+            CurrentUser currentUser,
             RatingResumeAuthenticationSuccessHandler ratingResumeSuccessHandler,
             RatingIntentAuthenticationFailureHandler ratingIntentFailureHandler,
             @Value("${server.servlet.session.cookie.name:vgp_session}") String sessionCookieName)
@@ -43,15 +47,26 @@ public class IdentitySecurityConfiguration {
         HttpSessionCsrfTokenRepository csrfTokens = new HttpSessionCsrfTokenRepository();
         csrfTokens.setHeaderName("X-CSRF-Token");
 
-        http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll())
+        http.authorizeHttpRequests(
+                        authorize ->
+                                authorize
+                                        .requestMatchers("/api/v1/me/**")
+                                        .authenticated()
+                                        .anyRequest()
+                                        .permitAll())
                 .requestCache(cache -> cache.disable())
                 .csrf(csrf -> csrf.csrfTokenRepository(csrfTokens))
                 .addFilterBefore(
-                        new SameOriginStateChangeFilter(csrfProblemAccessDeniedHandler),
+                        new SameOriginStateChangeFilter(
+                                csrfProblemAccessDeniedHandler,
+                                authenticationProblemEntryPoint,
+                                currentUser),
                         CsrfFilter.class)
                 .exceptionHandling(
                         exceptions ->
-                                exceptions.accessDeniedHandler(csrfProblemAccessDeniedHandler))
+                                exceptions
+                                        .authenticationEntryPoint(authenticationProblemEntryPoint)
+                                        .accessDeniedHandler(csrfProblemAccessDeniedHandler))
                 .logout(
                         logout ->
                                 logout.logoutRequestMatcher(
@@ -89,6 +104,11 @@ public class IdentitySecurityConfiguration {
         }
 
         return http.build();
+    }
+
+    @Bean
+    CurrentUser currentUser() {
+        return new SecurityContextCurrentUser();
     }
 
     @Bean
