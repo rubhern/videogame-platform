@@ -49,6 +49,7 @@ public class ApiExceptionHandler {
 
     private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
     private static final String CORRELATION_ID_NAME = "correlationId";
+    private static final String GAME_ID_PATH_POINTER = "/path/gameId";
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     @ExceptionHandler(ApiRequestException.class)
@@ -101,7 +102,7 @@ public class ApiExceptionHandler {
                 "Rating was not found",
                 "No active rating exists in the authenticated scope.",
                 ErrorCategory.NOT_FOUND,
-                "/path/gameId",
+                GAME_ID_PATH_POINTER,
                 "Read a rating owned by the authenticated user.");
     }
 
@@ -147,7 +148,7 @@ public class ApiExceptionHandler {
                                 ? "Current release evidence cannot authorize this rating command safely."
                                 : "The game does not currently have qualifying release evidence.",
                         ErrorCategory.BUSINESS_RULE,
-                        "/path/gameId",
+                        GAME_ID_PATH_POINTER,
                         "Choose a game with qualifying release evidence.");
         result.getBody()
                 .setEligibilityReason(Problem.EligibilityReasonEnum.valueOf(exception.reason()));
@@ -223,7 +224,7 @@ public class ApiExceptionHandler {
                 "Game not found",
                 "The game is not in the current local catalogue.",
                 ErrorCategory.NOT_FOUND,
-                "/path/gameId",
+                GAME_ID_PATH_POINTER,
                 "Use an internal identifier from the local catalogue.");
     }
 

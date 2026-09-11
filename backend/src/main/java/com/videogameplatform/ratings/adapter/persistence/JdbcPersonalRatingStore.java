@@ -17,6 +17,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataAccessException;
@@ -27,8 +28,25 @@ import org.springframework.transaction.support.TransactionOperations;
 
 /** PostgreSQL current-state store with conditional single-row writes and atomic aggregate reads. */
 public final class JdbcPersonalRatingStore implements PersonalRatingStore {
+    private static final String RATING_VALUE = "value";
     private static final String RETURNING =
             " RETURNING game_id, value, created_at, updated_at, version_token";
+    private static final String INSERT_RATING =
+            """
+            INSERT INTO ratings.rating(
+                user_id, game_id, value, created_at, updated_at, version_token)
+            VALUES (:user, :game, :value, :now, :now, :version)
+            ON CONFLICT (user_id, game_id) DO NOTHING
+            """
+                    + RETURNING;
+    private static final String UPDATE_RATING =
+            """
+            UPDATE ratings.rating
+            SET value = :value, updated_at = :now, version_token = :next
+            WHERE user_id = :user AND game_id = :game
+              AND version_token = :expected
+            """
+                    + RETURNING;
 
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
@@ -60,20 +78,11 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
                 () -> {
                     MapSqlParameterSource parameters =
                             parameters(userId, gameId)
-                                    .addValue("value", value.value())
+                                    .addValue(RATING_VALUE, value.value())
                                     .addValue("now", OffsetDateTime.ofInstant(now, ZoneOffset.UTC))
                                     .addValue("version", UUID.fromString(versionToken));
                     List<PersonalRating> inserted =
-                            jdbc.query(
-                                    """
-                                    INSERT INTO ratings.rating(
-                                        user_id, game_id, value, created_at, updated_at, version_token)
-                                    VALUES (:user, :game, :value, :now, :now, :version)
-                                    ON CONFLICT (user_id, game_id) DO NOTHING
-                                    """
-                                            + RETURNING,
-                                    parameters,
-                                    JdbcPersonalRatingStore::rating);
+                            jdbc.query(INSERT_RATING, parameters, JdbcPersonalRatingStore::rating);
                     if (inserted.isEmpty()) {
                         throw new RatingAlreadyExistsException();
                     }
@@ -96,21 +105,12 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
                     requireCurrentVersion(user, game, expectedVersion);
                     MapSqlParameterSource parameters =
                             parameters(userId, gameId)
-                                    .addValue("value", value.value())
+                                    .addValue(RATING_VALUE, value.value())
                                     .addValue("now", OffsetDateTime.ofInstant(now, ZoneOffset.UTC))
                                     .addValue("expected", UUID.fromString(expectedVersion))
                                     .addValue("next", UUID.fromString(nextVersion));
                     List<PersonalRating> updated =
-                            jdbc.query(
-                                    """
-                                    UPDATE ratings.rating
-                                    SET value = :value, updated_at = :now, version_token = :next
-                                    WHERE user_id = :user AND game_id = :game
-                                      AND version_token = :expected
-                                    """
-                                            + RETURNING,
-                                    parameters,
-                                    JdbcPersonalRatingStore::rating);
+                            jdbc.query(UPDATE_RATING, parameters, JdbcPersonalRatingStore::rating);
                     if (updated.isEmpty()) {
                         throw new RatingWriteConflictException();
                     }
@@ -173,7 +173,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     private static PersonalRating rating(ResultSet result, int row) throws SQLException {
         return new PersonalRating(
                 result.getString("game_id"),
-                result.getInt("value"),
+                result.getInt(RATING_VALUE),
                 result.getTimestamp("created_at").toInstant(),
                 result.getTimestamp("updated_at").toInstant(),
                 result.getString("version_token"));
@@ -188,18 +188,16 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     private static Optional<UUID> uuid(String value) {
         try {
             return Optional.of(UUID.fromString(value));
-        } catch (IllegalArgumentException | NullPointerException exception) {
+        } catch (IllegalArgumentException | NullPointerException _) {
             return Optional.empty();
         }
     }
 
     private <T> T write(Command<T> command) {
         try {
-            T result = transaction.execute(status -> command.execute());
-            if (result == null) {
-                throw new IllegalStateException("Rating transaction returned no result");
-            }
-            return result;
+            return Objects.requireNonNull(
+                    transaction.execute(status -> command.execute()),
+                    "Rating transaction returned no result");
         } catch (RatingAlreadyExistsException
                 | RatingNotFoundException
                 | RatingWriteConflictException exception) {

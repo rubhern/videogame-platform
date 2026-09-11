@@ -181,6 +181,10 @@ class JdbcPersonalRatingStoreIntegrationTest {
                 store.create(user, game, new RatingValue(8), NOW, UUID.randomUUID().toString())
                         .personalRating();
         String otherUser = UUID.randomUUID().toString();
+        RatingValue otherUsersRating = new RatingValue(1);
+        Instant updateTime = NOW.plusSeconds(1);
+        String ownerVersion = ownerRating.versionToken();
+        String nextVersion = UUID.randomUUID().toString();
 
         assertThat(store.find(otherUser, game)).isEmpty();
         assertThatThrownBy(
@@ -188,12 +192,12 @@ class JdbcPersonalRatingStoreIntegrationTest {
                                 store.update(
                                         otherUser,
                                         game,
-                                        new RatingValue(1),
-                                        NOW.plusSeconds(1),
-                                        ownerRating.versionToken(),
-                                        UUID.randomUUID().toString()))
+                                        otherUsersRating,
+                                        updateTime,
+                                        ownerVersion,
+                                        nextVersion))
                 .isInstanceOf(RatingNotFoundException.class);
-        assertThatThrownBy(() -> store.delete(otherUser, game, ownerRating.versionToken()))
+        assertThatThrownBy(() -> store.delete(otherUser, game, ownerVersion))
                 .isInstanceOf(RatingNotFoundException.class);
         assertThat(store.find(user, game)).contains(ownerRating);
     }
@@ -217,16 +221,20 @@ class JdbcPersonalRatingStoreIntegrationTest {
                 CREATE TRIGGER reject_rating_update AFTER UPDATE ON ratings.rating
                 FOR EACH ROW EXECUTE FUNCTION ratings.reject_rating_update()
                 """);
+        RatingValue replacementRating = new RatingValue(10);
+        Instant updateTime = NOW.plusSeconds(1);
+        String beforeVersion = before.versionToken();
+        String nextVersion = UUID.randomUUID().toString();
 
         assertThatThrownBy(
                         () ->
                                 store.update(
                                         user,
                                         game,
-                                        new RatingValue(10),
-                                        NOW.plusSeconds(1),
-                                        before.versionToken(),
-                                        UUID.randomUUID().toString()))
+                                        replacementRating,
+                                        updateTime,
+                                        beforeVersion,
+                                        nextVersion))
                 .isInstanceOf(RatingWriteException.class);
 
         assertThat(store.find(user, game)).contains(before);
