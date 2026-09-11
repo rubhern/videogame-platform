@@ -37,7 +37,7 @@
     <openapi-generator.version>7.24.0</openapi-generator.version>
     <postgresql.version>42.7.12</postgresql.version>
     <sonar-maven-plugin.version>5.7.0.6970</sonar-maven-plugin.version>
-    <spotless-maven-plugin.version>3.9.0</spotless-maven-plugin.version>
+    <spotless-maven-plugin.version>3.10.1</spotless-maven-plugin.version>
     <!-- Security override above the Spring Boot 4.1.0 parent: clears CVE-2026-65182,
          CVE-2026-65905 and CVE-2026-68525 in embedded Tomcat within the 11.0.x line. -->
     <tomcat.version>11.0.25</tomcat.version>
