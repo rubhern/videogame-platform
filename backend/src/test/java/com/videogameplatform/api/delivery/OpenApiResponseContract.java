@@ -27,22 +27,29 @@ import tools.jackson.databind.ObjectMapper;
 /** Focused runtime-response conformance checks backed by the reviewed OpenAPI source. */
 public final class OpenApiResponseContract {
 
-    private static final String OPERATION_METHOD = "get";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final Map<String, Object> contract;
     private final String path;
+    private final String operationMethod;
 
-    private OpenApiResponseContract(Map<String, Object> contract, String path) {
+    private OpenApiResponseContract(
+            Map<String, Object> contract, String path, String operationMethod) {
         this.contract = contract;
         this.path = path;
+        this.operationMethod = operationMethod;
     }
 
     /** Loads the reviewed contract for one operation so assertions cannot drift from it. */
     public static OpenApiResponseContract load(String path) {
+        return load(path, "get");
+    }
+
+    public static OpenApiResponseContract load(String path, String operationMethod) {
         Path source = findContractSource();
         try (InputStream input = Files.newInputStream(source)) {
-            return new OpenApiResponseContract(asMap(new Yaml().load(input), "OpenAPI root"), path);
+            return new OpenApiResponseContract(
+                    asMap(new Yaml().load(input), "OpenAPI root"), path, operationMethod);
         } catch (IOException exception) {
             throw new IllegalStateException(
                     "Cannot read reviewed OpenAPI source " + source, exception);
@@ -101,7 +108,9 @@ public final class OpenApiResponseContract {
     private Map<String, Object> responseSpecification(int status) {
         Map<String, Object> paths = asMap(contract.get("paths"), "paths");
         Map<String, Object> operation =
-                asMap(asMap(paths.get(path), path).get(OPERATION_METHOD), "GET " + path);
+                asMap(
+                        asMap(paths.get(path), path).get(operationMethod),
+                        operationMethod.toUpperCase(java.util.Locale.ROOT) + " " + path);
         Map<String, Object> responses = asMap(operation.get("responses"), "responses");
         Map<String, Object> response =
                 asMap(responses.get(Integer.toString(status)), "response " + status);

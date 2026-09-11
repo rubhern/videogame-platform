@@ -197,7 +197,10 @@ class GameDetailsApiIntegrationTest {
         String etag = get(game.toString()).headers().firstValue("ETag").orElseThrow();
         for (int value : new int[] {8, 9})
             admin.update(
-                    "INSERT INTO ratings.rating VALUES (?, ?, ?)", UUID.randomUUID(), game, value);
+                    "INSERT INTO ratings.rating(user_id, game_id, value) VALUES (?, ?, ?)",
+                    UUID.randomUUID(),
+                    game,
+                    value);
         var response = get(game.toString(), "If-None-Match", etag);
         CONTRACT.assertJsonResponse(response, 200, "GameDetails");
         var statistics = JSON.readTree(response.body()).path("ratingStatistics");
@@ -207,16 +210,19 @@ class GameDetailsApiIntegrationTest {
         assertThatThrownBy(
                         () ->
                                 admin.update(
-                                        "INSERT INTO ratings.rating VALUES (?, ?, 11)",
+                                        "INSERT INTO ratings.rating(user_id, game_id, value) VALUES (?, ?, 11)",
                                         UUID.randomUUID(),
                                         game))
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
         UUID user = UUID.randomUUID();
-        admin.update("INSERT INTO ratings.rating VALUES (?, ?, 5)", user, game);
+        admin.update(
+                "INSERT INTO ratings.rating(user_id, game_id, value) VALUES (?, ?, 5)", user, game);
         assertThatThrownBy(
                         () ->
                                 admin.update(
-                                        "INSERT INTO ratings.rating VALUES (?, ?, 6)", user, game))
+                                        "INSERT INTO ratings.rating(user_id, game_id, value) VALUES (?, ?, 6)",
+                                        user,
+                                        game))
                 .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 

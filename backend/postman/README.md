@@ -21,6 +21,10 @@ Actuator APIs plus a non-secret local environment.
   public details, release evidence, empty statistics, conditional requests, missing
   games and strict query rejection. Degraded aggregates and populated distributions
   are covered against PostgreSQL by the API integration tests.
+- [`personal-ratings.postman_collection.json`](personal-ratings.postman_collection.json):
+  authenticated current-user read, conditional create/update/delete, strong ETag
+  reuse, duplicate/stale-write rejection, and CSRF rejection. Its bootstrap request
+  verifies the browser-created session and stores the CSRF token automatically.
 - [`session.postman_collection.json`](session.postman_collection.json): minimal
   anonymous session state and CSRF-protected logout rejection. The successful OIDC
   flow is intentionally covered by the real-browser identity gate instead of
@@ -39,10 +43,16 @@ Actuator APIs plus a non-secret local environment.
    set -a
    source backend/.env
    set +a
+   SPRING_PROFILES_ACTIVE=oidc \
    APPLICATION_FLYWAY_ENABLED=true \
    SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
    ./mvnw -pl backend spring-boot:run
    ```
+
+   The seed locations must be present when Flyway first migrates this disposable
+   database. Do not reset an existing database unless its project-local data is known
+   to be disposable; `bash scripts/local-dependencies.sh reset` deletes that local
+   PostgreSQL volume and Keycloak state.
 
 2. In Postman, select **Import** and import the environment and the collections.
 3. Select the **VideoGame Platform - Local** environment.
@@ -52,6 +62,45 @@ Actuator APIs plus a non-secret local environment.
    **VideoGame Platform Backend - BFF Session** while signed out. The Actuator
    collection expects a credential-free local run, so its synchronization requests
    assert the disabled outcome rather than contacting IGDB.
+
+## Authenticated personal-rating run
+
+The application uses a confidential BFF and an interactive Keycloak authorization-code
+flow. `/auth/login/keycloak` is browser navigation, not a JSON credential endpoint;
+the state, nonce, PKCE verifier, application session and OAuth tokens remain under
+Spring Security and Keycloak control. Never add a `POST /login`, passwords, OAuth
+tokens or session cookies to a tracked collection or environment.
+
+1. Install Postman Interceptor and enable cookie synchronization between the browser
+   and Postman's cookie jar. In Postman, open **Tools → Cookies → Sync Cookies →
+   Interceptor**, add `http://localhost`, and start synchronization. See Postman's
+   [cookie-sync instructions](https://learning.postman.com/docs/use/capturing-request-data/syncing-cookies/).
+2. In that browser, open
+   [`http://localhost:8080/auth/login/keycloak`](http://localhost:8080/auth/login/keycloak).
+   Sign in with the local test username and password generated in the ignored root
+   `.env`, or register a local account on the imported Keycloak page. The credentials
+   stay local and are never copied into Postman.
+3. After Keycloak redirects to the application, confirm that Postman's cookie manager
+   contains `vgp_session` for `localhost`. If Interceptor is unavailable, copy that
+   one opaque cookie from the browser's developer tools into Postman's cookie manager;
+   Postman documents [manual cookie management](https://learning.postman.com/docs/use/send-requests/response-data/cookies/).
+4. Run **VideoGame Platform Backend - Personal Ratings** as a collection, in its
+   defined order. Its first request calls `GET /api/v1/session`, requires
+   `authenticated: true`, stores `csrfToken` as a collection variable and clears old
+   ETag variables. If cookie synchronization is missing or the session expired, that
+   request fails with an actionable message and stops the current runner iteration.
+5. The remaining requests create, read, reject a duplicate create, update, reject a
+   stale update, prove CSRF rejection and delete the rating. The final delete normally
+   leaves the released seed game ready for another complete run. If an earlier run
+   stopped after creation, read the current rating and delete it with its current
+   `ETag` before expecting the create step to return `201` again.
+
+Sending only `GET /auth/login/keycloak` from the Postman runner cannot complete login:
+Keycloak still needs an interactive form and the callback must return through the same
+pre-authentication application session. The login URL therefore remains a documented
+browser entry point rather than an executable API request. Postman's OAuth helper is
+also intentionally unused because it would make Postman a token-holding OAuth client,
+which is not the approved BFF boundary.
 
 The release collection verifies the reviewed release-page shape, active and available
 filters, correlation/cache/ETag headers, `304` weak-validator handling,

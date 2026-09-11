@@ -457,7 +457,7 @@ export interface components {
             };
             content?: never;
         };
-        /** @description Request path, query, or JSON syntax cannot be parsed. */
+        /** @description Request path, query, header, or JSON syntax cannot be parsed. */
         MalformedRequest: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];

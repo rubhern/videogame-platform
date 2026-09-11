@@ -7,6 +7,7 @@
             "catalogue::releases",
             "catalogue::search",
             "catalogue::details",
+            "identity::application",
             "ratings::application"
         })
 package com.videogameplatform.api;

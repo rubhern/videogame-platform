@@ -1290,7 +1290,7 @@ components:
         Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
         ETag: { $ref: '#/components/headers/PublicEntityTag' }
     MalformedRequest:
-      description: Request path, query, or JSON syntax cannot be parsed.
+      description: Request path, query, header, or JSON syntax cannot be parsed.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }

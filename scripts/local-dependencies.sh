@@ -147,6 +147,7 @@ create_backend_env_if_missing() {
     printf 'CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS=6\n'
     printf 'CATALOGUE_RELEASES_FRESHNESS_THRESHOLD=P7D\n'
     printf 'CATALOGUE_RELEASES_CACHE_CONTROL="public, max-age=60, stale-while-revalidate=300"\n'
+    printf 'RATINGS_JDBC_OPERATION_TIMEOUT=5s\n'
     printf 'TELEMETRY_OTLP_TRACES_ENABLED=false\n'
     printf 'TELEMETRY_OTLP_TRACES_ENDPOINT=http://localhost:4318/v1/traces\n'
     printf 'TELEMETRY_OTLP_METRICS_ENABLED=false\n'

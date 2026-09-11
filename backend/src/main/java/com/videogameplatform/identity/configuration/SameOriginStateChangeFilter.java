@@ -1,5 +1,6 @@
 package com.videogameplatform.identity.configuration;
 
+import com.videogameplatform.identity.application.CurrentUser;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -10,37 +11,70 @@ import java.net.URISyntaxException;
 import java.util.Locale;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** Adds browser origin and fetch-metadata checks to the CSRF-protected session mutation. */
+/** Authenticates personal APIs before CSRF and rejects cross-origin state changes. */
 final class SameOriginStateChangeFilter extends OncePerRequestFilter {
 
     private static final String FETCH_SITE_HEADER = "Sec-Fetch-Site";
 
-    private final CsrfProblemAccessDeniedHandler accessDeniedHandler;
+    private static final String PERSONAL_API_PATH = "/api/v1/me/";
 
-    SameOriginStateChangeFilter(CsrfProblemAccessDeniedHandler accessDeniedHandler) {
+    private final CsrfProblemAccessDeniedHandler accessDeniedHandler;
+    private final AuthenticationProblemEntryPoint authenticationEntryPoint;
+    private final CurrentUser currentUser;
+
+    SameOriginStateChangeFilter(
+            CsrfProblemAccessDeniedHandler accessDeniedHandler,
+            AuthenticationProblemEntryPoint authenticationEntryPoint,
+            CurrentUser currentUser) {
         this.accessDeniedHandler = accessDeniedHandler;
+        this.authenticationEntryPoint = authenticationEntryPoint;
+        this.currentUser = currentUser;
     }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !HttpMethod.POST.matches(request.getMethod())
-                || !(request.getContextPath() + IdentitySecurityConfiguration.SESSION_PATH)
-                        .equals(request.getRequestURI());
+        return !isPersonalApi(request) && !isSessionMutation(request);
     }
 
     @Override
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        if (!hasTrustedOrigin(request) || !hasTrustedFetchMetadata(request)) {
+        if (isPersonalApi(request) && currentUser.currentUserId().isEmpty()) {
+            authenticationEntryPoint.commence(
+                    request,
+                    response,
+                    new InsufficientAuthenticationException("Authenticated OIDC session required"));
+            return;
+        }
+        if (isStateChange(request)
+                && (!hasTrustedOrigin(request) || !hasTrustedFetchMetadata(request))) {
             accessDeniedHandler.handle(
                     request, response, new CsrfException("Cross-origin state change rejected"));
             return;
         }
         filterChain.doFilter(request, response);
+    }
+
+    private static boolean isPersonalApi(HttpServletRequest request) {
+        return request.getRequestURI().startsWith(request.getContextPath() + PERSONAL_API_PATH);
+    }
+
+    private static boolean isSessionMutation(HttpServletRequest request) {
+        return HttpMethod.POST.matches(request.getMethod())
+                && (request.getContextPath() + IdentitySecurityConfiguration.SESSION_PATH)
+                        .equals(request.getRequestURI());
+    }
+
+    private static boolean isStateChange(HttpServletRequest request) {
+        return isSessionMutation(request)
+                || (isPersonalApi(request)
+                        && (HttpMethod.PUT.matches(request.getMethod())
+                                || HttpMethod.DELETE.matches(request.getMethod())));
     }
 
     private static boolean hasTrustedOrigin(HttpServletRequest request) {
