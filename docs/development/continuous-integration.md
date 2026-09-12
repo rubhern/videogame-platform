@@ -24,7 +24,7 @@ Secret scanning remains applicable to every pull request.
 | Backend | `./mvnw clean verify` |
 | Migrations | `bash scripts/validate-migrations.sh` |
 | Packaged browser | `bash scripts/validate-browser.sh` |
-| Real OIDC/BFF session | `bash scripts/validate-identity.sh` |
+| Real OIDC/BFF session and Keycloak rating journey | `bash scripts/validate-identity.sh` |
 | OCI image | `bash scripts/validate-container-image.sh` |
 | Terraform infrastructure | `bash scripts/validate-terraform.sh` |
 | IGDB PoC fixtures | `./mvnw -f tools/igdb-poc/pom.xml clean verify` |

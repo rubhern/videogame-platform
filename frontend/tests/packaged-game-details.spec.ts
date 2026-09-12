@@ -23,9 +23,9 @@ test("public game details follow a real search result through the packaged API a
     page.getByRole("heading", { level: 1, name: "Resident Evil Requiem" }),
   ).toBeVisible();
   await expect(page.getByRole("main")).toBeFocused();
-  await expect(
-    page.getByRole("heading", { name: "Disponible para puntuar", exact: true }),
-  ).toBeVisible();
+  // Eligibility is expressed by the enabled inline control, not a separate block.
+  await expect(page.getByRole("button", { name: "8", exact: true })).toBeEnabled();
+  await expect(page.getByText("Disponible para puntuar")).toHaveCount(0);
   await expect(page.getByText("Sin nota todavía")).toBeVisible();
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await page.reload();

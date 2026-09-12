@@ -10,6 +10,10 @@ export class GameDetailsApiError extends Error {
     super("The public game request failed.");
   }
 }
+/** Cache key of the public game read; rating commands update its aggregate statistics in place. */
+export function gameDetailsQueryKey(gameId: string) {
+  return ["game-details", gameId] as const;
+}
 export async function getGameDetails(
   gameId: string,
   client: ProductApiClient = productApiClient,

@@ -178,6 +178,7 @@ docker run --rm \
   "$playwright_image" \
   npm --prefix frontend run test:e2e -- \
     tests/oidc-session.spec.ts \
+    tests/rating-boundary.spec.ts \
     --reporter=line \
     --trace=off
 

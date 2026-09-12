@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import {
   GameDetailsApiError,
+  gameDetailsQueryKey,
   getGameDetails,
 } from "../features/game-details/game-details-api";
 import { GameDetailsContent } from "../features/game-details/game-details-content";
@@ -11,7 +12,7 @@ import { CatalogueLoading } from "../shared/ui/catalogue-loading";
 export function GameDetailsPage() {
   const { gameId = "" } = useParams();
   const query = useQuery({
-    queryKey: ["game-details", gameId],
+    queryKey: gameDetailsQueryKey(gameId),
     queryFn: ({ signal }) => getGameDetails(gameId, undefined, signal),
     retry: false,
     staleTime: 0,

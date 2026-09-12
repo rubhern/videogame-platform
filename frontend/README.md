@@ -5,11 +5,13 @@ BFF/API. It currently renders the complete `UC-001` release-discovery page — r
 and upcoming windows, platform and region filters, pagination, covers, and the
 loading, empty, stale, catalogue-not-ready and failure states — the `UC-002`
 bounded-catalogue search page, and the accessible `UC-003` public game-detail page.
-It also implements the `UC-004` same-origin authentication boundary: an authenticated-only
-header account control with CSRF-protected logout, and a minimal game-page rating entry
-point that starts Keycloak-hosted authentication and, on return, shows the recovered value
-as a pending, non-persisted selection. Personal rating create/update/delete commands,
-`Mis puntuaciones`, and provider synchronization UI remain later slices.
+It also implements the `UC-004` same-origin authentication boundary — an authenticated-only
+header account control with CSRF-protected logout and authentication started only from the
+rating control — and the `UC-005`–`UC-007` inline personal-rating experience on the game
+page: pressing a value creates or updates through the conditional rating contract, the
+recovered selection is persisted once after authentication, and an existing rating can be
+deleted. `Mis puntuaciones` and provider synchronization
+UI remain later slices.
 
 ## Visual development
 
@@ -91,13 +93,25 @@ Game links use `/games/{gameId}/{slug}`; the optional slug is descriptive and th
 internal ID alone drives the public API read. Details distinguish loading, absence,
 catalogue-not-ready, retryable failure, stale/review-required evidence and unavailable
 statistics. Platform and region selection updates the displayed release context and
-is restored from the URL, without changing game-wide eligibility or aggregate state.
-The community score sits beneath the cover; its distribution is retained in the API
-but is not rendered. When the game is eligible, the personal-rating panel shows the minimal
-`UC-004` rating entry point that begins authentication at the rating boundary and presents a
-recovered value as pending, non-persisted state; it never persists a rating. The existing
-shell restores main-content focus on navigation. Date precision and direct-provider cover fallback/attribution follow
-the same contracts as discovery.
+is restored from the URL, without changing game-wide eligibility, the community aggregate
+or the personal rating, which belong to the game. The community score sits beneath the
+cover; its distribution is retained in the API but is not rendered.
+
+`src/features/ratings/` owns the personal rating: `personal-rating-api.ts` wraps
+`GET`/`PUT`/`DELETE /me/ratings/{gameId}` and maps every Problem Details outcome to a closed
+failure vocabulary; `use-personal-rating.ts` owns the personal rating as TanStack Query state
+(read only for an authenticated session) and the command mutation, which sends
+`If-None-Match: *` when no rating is cached and the cached strong `If-Match` otherwise, and
+writes the returned personal rating and aggregate statistics into the cache so the community
+panel never re-reads the publicly cached game representation. Mutations never retry: a
+conflict re-reads the personal rating, an authentication or CSRF rejection re-reads the
+session, an ambiguous transport failure keeps the last valid state and offers an explicit
+re-read. `game-rating-panel.tsx` renders the labelled 1-10 button scale with a roving tab
+stop (arrows move focus only; a press saves), starts authentication through the BFF
+`/auth/rating-intent` routes for an anonymous press, persists the single-use recovered value
+once on return and clears the `rating-intent` marker as that command starts. Logout removes cached personal state. The existing shell
+restores main-content focus on navigation. Date precision and direct-provider cover
+fallback/attribution follow the same contracts as discovery.
 
 ## Accessibility and testing
 

@@ -110,6 +110,10 @@ Keycloak runs over loopback HTTP and uses a non-personal synthetic test account.
 The imported realm enables Keycloak-hosted self-registration, so a new visitor can
 create an account from the Keycloak login page without administrator provisioning;
 the realm import owns this setting, so applying it to an already-provisioned instance
-needs a `reset` and re-import. Remote environments require private HTTPS, separate
+needs a `reset` and re-import. The same applies to `KEYCLOAK_BFF_CLIENT_SECRET`: the
+realm keeps the secret it was imported with, so a regenerated `.env` (for example a
+fresh worktree sharing the same Compose project) makes every login return to the game
+as "not completed" until the stored secret and `.env` agree again; `verify` reports
+this mismatch explicitly. Remote environments require private HTTPS, separate
 secrets, backups, and the platform controls; local settings are not production
 defaults.

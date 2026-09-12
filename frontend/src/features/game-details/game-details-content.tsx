@@ -6,24 +6,9 @@ import {
 } from "../../shared/catalogue/release-date";
 import { regionLabel } from "../../shared/catalogue/region-label";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
+import { GameRatingPanel } from "../ratings/game-rating-panel";
+import { RatingStar } from "../ratings/rating-star";
 import type { GameDetails } from "./game-details-api";
-import { GameRatingEntry } from "./game-rating-entry";
-
-const eligibilityReasons: Record<
-  GameDetails["ratingEligibility"]["reason"],
-  string
-> = {
-  ELIGIBLE_RELEASE_FOUND:
-    "Este juego cumple las condiciones de lanzamiento para recibir puntuaciones.",
-  NO_COMMERCIAL_RELEASE: "Todavía no hay un lanzamiento comercial registrado.",
-  RELEASE_NOT_OCCURRED:
-    "El lanzamiento todavía no cumple la fecha necesaria para puntuar.",
-  RELEASE_CANCELLED: "Los lanzamientos registrados están cancelados.",
-  RELEASE_DATE_UNCERTAIN:
-    "La fecha de lanzamiento es incierta y necesita verificación.",
-  RELEASE_REVIEW_REQUIRED:
-    "La información del lanzamiento está pendiente de revisión.",
-};
 
 const releaseStatuses: Record<
   GameDetails["releases"][number]["status"],
@@ -280,85 +265,53 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
         </section>
       </div>
 
-      <section
-        className="game-community-score"
-        aria-labelledby="statistics-title"
-      >
-        <span className="game-score-symbol" aria-hidden="true">
-          ☆
-        </span>
-        <div>
-          <h2 id="statistics-title" className="game-score-label">
-            Puntuaciones de la comunidad
-          </h2>
-          {available ? (
-            available.count === 0 ? (
-              <>
-                <p className="game-score-empty">Sin nota todavía</p>
-                <p className="game-score-description">
-                  Todavía no hay puntuaciones para este juego.
-                </p>
-              </>
+      <div className="game-rating-row">
+        <section
+          className="game-community-score"
+          aria-labelledby="statistics-title"
+        >
+          <span className="game-score-symbol">
+            <RatingStar className="game-score-star" />
+          </span>
+          <div className="game-score-body">
+            <h2 id="statistics-title" className="game-score-label">
+              Puntuaciones de la comunidad
+            </h2>
+            {available ? (
+              available.count === 0 ? (
+                <>
+                  <p className="game-score-empty">Sin nota todavía</p>
+                  <p className="game-score-description">
+                    Todavía no hay puntuaciones para este juego.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p
+                    className="game-score-value"
+                    aria-label={`Nota media: ${mean} de 10`}
+                  >
+                    {mean}
+                    <span> / 10</span>
+                  </p>
+                  <p className="game-score-description">
+                    {available.count.toLocaleString("es-ES")}{" "}
+                    {available.count === 1 ? "puntuación" : "puntuaciones"}
+                  </p>
+                </>
+              )
             ) : (
-              <>
-                <p
-                  className="game-score-value"
-                  aria-label={`Nota media: ${mean} de 10`}
-                >
-                  {mean}
-                  <span> / 10</span>
-                </p>
+              <div role="status">
+                <p className="game-score-empty">Nota no disponible</p>
                 <p className="game-score-description">
-                  {available.count.toLocaleString("es-ES")} puntuaciones
+                  Las estadísticas no están disponibles temporalmente. Puedes
+                  seguir consultando el juego.
                 </p>
-              </>
-            )
-          ) : (
-            <div role="status">
-              <p className="game-score-empty">Nota no disponible</p>
-              <p className="game-score-description">
-                Las estadísticas no están disponibles temporalmente. Puedes
-                seguir consultando el juego.
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <div className="game-rating-context">
-        <section
-          aria-labelledby="eligibility-title"
-          className="game-eligibility"
-        >
-          <p className="game-context-kicker">Elegibilidad del juego</p>
-          <h2 className="game-panel-title" id="eligibility-title">
-            {game.ratingEligibility.eligible
-              ? "Disponible para puntuar"
-              : "Todavía no disponible para puntuar"}
-          </h2>
-          <p>{eligibilityReasons[game.ratingEligibility.reason]}</p>
-          <p className="game-rating-scope">
-            La elegibilidad y la nota son globales al juego.
-          </p>
-          <p className="game-evaluated-on">
-            Evaluado el {formatCalendarDay(game.ratingEligibility.evaluatedOn)}{" "}
-            · Europe/Madrid
-          </p>
+              </div>
+            )}
+          </div>
         </section>
-        <section
-          aria-labelledby="personal-title"
-          className="game-personal-rating"
-        >
-          <p className="game-context-kicker">Contexto personal</p>
-          <h2 className="game-panel-title" id="personal-title">
-            Tu puntuación
-          </h2>
-          {game.ratingEligibility.eligible ? (
-            <GameRatingEntry game={game} />
-          ) : (
-            <p>La puntuación todavía no está disponible para este juego.</p>
-          )}
-        </section>
+        <GameRatingPanel game={game} />
       </div>
     </div>
   );
