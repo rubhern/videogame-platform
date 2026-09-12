@@ -304,6 +304,15 @@ verify_runtime() {
   [[ "$identity_result" == "t:t:t:t:t" ]] \
     || die "Realm, confidential client, PKCE or local-user verification failed: $identity_result"
 
+  # The realm import runs only against an empty database, so a regenerated .env leaves the
+  # persisted client secret behind and every code-to-token exchange fails as a cancelled login.
+  # Compare through psql variables so the secret never appears in a command line or output.
+  secret_matches="$(printf '%s\n' "SELECT count(*) = 1 FROM client c JOIN realm r ON r.id = c.realm_id WHERE r.name = 'videogame-platform' AND c.client_id = 'videogame-platform-bff' AND c.secret = :'expected';" \
+    | compose exec -T postgres psql --username=postgres --dbname=videogame_keycloak \
+        --tuples-only --no-align --variable="expected=$(env_value KEYCLOAK_BFF_CLIENT_SECRET)")"
+  [[ "$secret_matches" == "t" ]] \
+    || die "The persisted BFF client secret differs from KEYCLOAK_BFF_CLIENT_SECRET in .env; the realm was imported with an earlier value. Run the reset command and start again, or align the stored client secret."
+
   printf 'Runtime verification passed: PostgreSQL %s, Keycloak 26.7.x, health, database isolation, realm, confidential PKCE client and local user.\n' "$postgres_version"
 }
 

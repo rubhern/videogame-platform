@@ -21,25 +21,29 @@ test("anonymous browsing exposes no login entry point but offers the rating boun
     page.getByRole("button", { name: "Cerrar sesión" }),
   ).toHaveCount(0);
 
-  // The minimal, accessible rating entry point is present.
-  await expect(page.getByLabel("Tu puntuación (1-10)")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Puntuar" })).toBeVisible();
+  // The inline, accessible rating scale is present and enabled for an eligible game.
+  await expect(
+    page.getByRole("group", { name: "Nota del 1 al 10" }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "8", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: /Puntuar|Actualizar/ })).toHaveCount(0);
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
-test.describe("real Keycloak rating boundary journey", () => {
+test.describe("real Keycloak rating journey", () => {
+  // Both journeys rate the same game; serial order keeps the community assertions deterministic.
+  test.describe.configure({ mode: "serial" });
   test.skip(
     !username || !password,
     "The real Keycloak compatibility topology is not active.",
   );
 
-  test("authenticates from the rating boundary and resumes the same game and value", async ({
+  test("authenticates from the rating boundary, persists the chosen value and updates and deletes it", async ({
     context,
     page,
   }) => {
     await page.goto(gamePath);
-    await page.getByLabel("Tu puntuación (1-10)").selectOption("8");
-    await page.getByRole("button", { name: "Puntuar" }).click();
+    await page.getByRole("button", { name: "8", exact: true }).click();
 
     // Authentication is hosted by Keycloak, not a product login page.
     await expect(page).toHaveURL(
@@ -49,21 +53,37 @@ test.describe("real Keycloak rating boundary journey", () => {
     await page.locator("#password").fill(password ?? "");
     await page.getByRole("button", { name: "Sign In" }).click();
 
-    // Back on the same game with the selected value recovered as pending, non-persisted state.
+    // Back on the same game: the chosen value is persisted once through the conditional
+    // contract, and personal and community state update together.
     await expect(page).toHaveURL(new RegExp(gamePath));
+    await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 8/10." })).toHaveCount(1);
     await expect(
-      page.getByText(/Tu puntuación seleccionada es 8\/10/),
-    ).toBeVisible();
-    await expect(page.getByText(/pendiente, todavía sin guardar/)).toBeVisible();
-
-    // The header now reflects the authenticated session.
+      page.getByRole("button", { name: "8", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("Mi cuenta")).toBeVisible();
+    const community = page.getByRole("region", {
+      name: "Puntuaciones de la comunidad",
+    });
+    await expect(community.getByLabel(/Nota media: 8,0 de 10/)).toBeVisible();
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
-    // A reload cannot resume the same selection again (single-use return context).
+    // A reload reads the persisted rating back with a fresh ETag and resumes nothing.
     await page.reload();
     await expect(
-      page.getByText(/Tu puntuación seleccionada/),
-    ).toHaveCount(0);
+      page.getByRole("button", { name: "8", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByText(/Puntuación guardada/)).toHaveCount(0);
+
+    // Update with the current ETag by pressing another value.
+    await page.getByRole("button", { name: "9", exact: true }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 9/10." })).toHaveCount(1);
+    await expect(community.getByLabel(/Nota media: 9,0 de 10/)).toBeVisible();
+
+    // Delete with the new ETag.
+    await page.getByRole("button", { name: "Eliminar puntuación" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Puntuación eliminada." })).toHaveCount(1);
+    await expect(page.getByText("Selecciona una nota")).toBeVisible();
+    await expect(community.getByText("Sin nota todavía")).toBeVisible();
 
     // Logout returns the header to the anonymous state and clears the session cookie.
     await page.getByRole("button", { name: "Cerrar sesión" }).click();
@@ -75,8 +95,7 @@ test.describe("real Keycloak rating boundary journey", () => {
     page,
   }) => {
     await page.goto(gamePath);
-    await page.getByLabel("Tu puntuación (1-10)").selectOption("7");
-    await page.getByRole("button", { name: "Puntuar" }).click();
+    await page.getByRole("button", { name: "7", exact: true }).click();
 
     // Keycloak hosts registration; the product exposes no registration page.
     await expect(page).toHaveURL(
@@ -93,11 +112,12 @@ test.describe("real Keycloak rating boundary journey", () => {
     await page.locator("#password-confirm").fill("Str0ng-Passw0rd!");
     await page.getByRole("button", { name: "Register" }).click();
 
-    // First-time registration completes authentication and resumes the pending context.
+    // First-time registration completes authentication and persists the chosen value.
     await expect(page).toHaveURL(new RegExp(gamePath));
+    await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 7/10." })).toHaveCount(1);
     await expect(
-      page.getByText(/Tu puntuación seleccionada es 7\/10/),
-    ).toBeVisible();
+      page.getByRole("button", { name: "7", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     await expect(page.getByText("Mi cuenta")).toBeVisible();
   });
 });

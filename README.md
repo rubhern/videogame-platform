@@ -11,9 +11,10 @@ repository currently proves the PostgreSQL-backed recent and upcoming release
 discovery page, bounded catalogue search over canonical titles and approved aliases,
 public game details with release evidence, rating eligibility and aggregate statistics,
 a packaged React frontend, a real Keycloak-backed BFF session, transactional
-current-user rating read/write/delete, and internal operator-triggered IGDB catalogue
-synchronization. The rating UI, `Mis puntuaciones`, and remote `dev` deployment remain
-later slices of the approved journey. The reviewed
+current-user rating read/write/delete with its accessible inline game-page rating
+experience, and internal operator-triggered IGDB catalogue synchronization.
+`Mis puntuaciones` and remote `dev` deployment remain later slices of the approved
+journey. The reviewed
 private OCI Terraform stack and its fail-closed zero-cost plan gate are implemented
 locally, but no remote infrastructure has been provisioned.
 

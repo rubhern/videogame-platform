@@ -60,9 +60,6 @@ describe("public game details", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByRole("heading", { name: "Disponible para puntuar" }),
-    ).toBeVisible();
-    expect(
       screen.getByRole("heading", { name: "Puntuaciones de la comunidad" }),
     ).toBeVisible();
     expect(screen.getByText("Sin nota todavía")).toBeVisible();
@@ -74,6 +71,12 @@ describe("public game details", () => {
     expect(
       screen.getByRole("heading", { name: "Tu puntuación" }),
     ).toBeVisible();
+    // Eligibility is expressed by the enabled 1-10 control, not a separate block.
+    expect(screen.getByRole("button", { name: "8" })).toBeEnabled();
+    expect(
+      screen.queryByText(/Disponible para puntuar/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Contexto personal/)).not.toBeInTheDocument();
     expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
     const request = gameRequests()[0];
     expect(request).toBeInstanceOf(Request);
@@ -125,12 +128,12 @@ describe("public game details", () => {
     };
     serve(game);
     renderApp(path);
+    expect(await screen.findByText(/Fecha por confirmar/)).toBeVisible();
+    // Ineligibility disables the personal control and explains why in place.
+    expect(screen.getByRole("button", { name: "8" })).toBeDisabled();
     expect(
-      await screen.findByRole("heading", {
-        name: "Todavía no disponible para puntuar",
-      }),
+      screen.getByText(/pendiente de revisión\.$/),
     ).toBeVisible();
-    expect(screen.getByText(/Fecha por confirmar/)).toBeVisible();
     expect(screen.getByText("Datos locales desactualizados")).toBeVisible();
     const community = screen.getByRole("region", {
       name: "Puntuaciones de la comunidad",
@@ -178,9 +181,8 @@ describe("public game details", () => {
     expect(
       within(context).queryByText("Fecha por confirmar"),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Disponible para puntuar" }),
-    ).toBeVisible();
+    // The personal control stays game-wide and enabled whatever the selected tuple.
+    expect(screen.getByRole("button", { name: "8" })).toBeEnabled();
     await user.click(screen.getByRole("radio", { name: "PlayStation 5" }));
     expect(screen.getByRole("radio", { name: "Europa" })).toBeChecked();
     expect(
@@ -220,7 +222,10 @@ describe("public game details", () => {
     expect(
       await screen.findByText("No hay lanzamientos comerciales registrados."),
     ).toBeVisible();
-    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("radio", { name: "PlayStation 5" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "8" })).toBeDisabled();
     expect(screen.queryByText("Género")).not.toBeInTheDocument();
     expect(screen.queryByText("Desarrolladora")).not.toBeInTheDocument();
   });

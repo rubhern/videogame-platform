@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSession, logout, type SessionState } from "./session-api";
 
-const SESSION_QUERY_KEY = ["session"] as const;
+export const SESSION_QUERY_KEY = ["session"] as const;
 
 /** Owns the current BFF session state as server state. */
 export function useSession() {
@@ -19,7 +19,10 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (csrfToken: string) => logout(csrfToken),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY }),
+    onSuccess: () => {
+      // Personal server state must not outlive the session that read it.
+      queryClient.removeQueries({ queryKey: ["me"] });
+      return queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+    },
   });
 }

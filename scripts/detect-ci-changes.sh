@@ -195,6 +195,11 @@ for path in "${changed_paths[@]}"; do
       enable frontend codeql_javascript
       matched=true
       ;;
+    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts)
+      # These journeys run only inside the real Keycloak identity gate.
+      enable frontend browser identity codeql_javascript
+      matched=true
+      ;;
     frontend/src/* | frontend/public/* | frontend/tests/*)
       enable frontend browser codeql_javascript
       matched=true

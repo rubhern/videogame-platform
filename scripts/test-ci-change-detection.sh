@@ -62,6 +62,11 @@ run_case frontend-unit-test \
   'frontend,codeql_javascript' \
   'browser,backend,migrations,identity,provider_fixtures,container,sonar'
 
+run_case frontend-identity-journey \
+  'frontend/tests/rating-boundary.spec.ts' \
+  'frontend,browser,identity,codeql_javascript' \
+  'backend,migrations,provider_fixtures,container,sonar'
+
 run_case backend \
   'backend/src/main/java/com/videogameplatform/catalogue/application/internal/ReleaseCatalogueService.java' \
   'backend,sonar,codeql_java' \

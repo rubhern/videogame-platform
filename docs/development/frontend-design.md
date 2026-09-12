@@ -89,7 +89,10 @@ It refines the catalogue foundation with a large left-hand 3:4 cover, a prominen
 sans-serif game title, platform/region pills near the title, a bordered metadata
 and compact-summary panel, and a strong community-score panel immediately below
 the cover. Use existing shell, fonts, colours, focus styles and responsive gutters;
-the detail title uses the existing sans font to match this reference.
+the detail title uses the existing sans font to match this reference. The owner's
+September 11, 2026 rating references refine only the community and personal-rating
+panels described below; their card-level ratings on release and search results are
+not part of the approved MVP screens until an owner decision schedules that work.
 
 Platform and region are native labelled radio groups derived from the game's
 returned release tuples. Selection is URL-backed and updates the visible evidence;
@@ -104,12 +107,25 @@ review, freshness and available evidence timestamps. Keep summary language and s
 There is no separate bottom release/evidence section. Display the community mean and
 count prominently, or an equally prominent “Sin nota todavía” / “Nota no disponible”
 state in the same position. The distribution remains a backend/API capability and
-is not rendered on this page. Personal-rating context remains distinct. When the game is
-eligible, this panel carries a deliberately minimal, accessible 1-10 rating entry point
-(a labelled select plus `Puntuar`) that starts authentication at the rating boundary and,
-after returning, shows the recovered value as an explicit pending, non-persisted selection.
-It never persists a rating; the production rating selector and create/update/delete UX are
-deferred.
+is not rendered on this page. The community panel and the personal-rating panel share
+the bottom row as two bordered, accent-glow panels: the community score keeps its
+glowing star badge, large mean and count; **Tu puntuación** carries the inline 1-10
+scale. The scale is a labelled group of ten circular buttons; pressing a value saves it
+immediately (create or update through the conditional contract), so there is no separate
+confirm action. The current rating is the one pressed value (accent ring and glow, not
+colour alone); the subtitle never restates it. Arrow keys only move focus inside the
+scale, so browsing never saves by accident, and a quiet **Eliminar puntuación** action
+appears once a rating exists. Eligibility is expressed by the control itself: an
+ineligible game keeps the scale disabled and states the reason in the panel subtitle.
+There is no separate eligibility block, no "Contexto personal" kicker and no permanent
+authentication explanation. The rating belongs to the game: the platform/region
+selection never changes personal or community state. Command outcomes use one live
+status for the panel subtitle and a visually hidden success announcement, and one alert for rejected,
+conflicting or ambiguous commands; the last valid personal and community state stays
+visible and nothing is retried automatically. An anonymous press starts authentication
+with that value; after returning, the recovered value is persisted once automatically
+(no command when it equals the existing rating) and any failure surfaces like any other
+command.
 
 Genre, developer and publisher are absent from the current approved detail contract
 and local model, so omit them. Adding them requires a separate scoped contract-first
