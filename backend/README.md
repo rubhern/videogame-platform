@@ -2,7 +2,8 @@
 
 The backend is a Java 25 / Spring Boot modular monolith. It currently implements the
 PostgreSQL-backed `GET /api/v1/releases`, `GET /api/v1/games` and
-`GET /api/v1/games/{gameId}` operations, authenticated current-user rating read/write/delete,
+`GET /api/v1/games/{gameId}` operations, authenticated current-user rating read/write/delete
+and the paginated `GET /api/v1/me/ratings` collection,
 the minimal BFF session resource, Keycloak login navigation, the rating authentication
 boundary (`/auth/rating-intent` start and single-use, expiring return context that
 resumes the same game and selected value without persisting a rating), packaged
@@ -19,8 +20,8 @@ exceeds either bound; it never returns a truncated eligibility context. Missing
 editorial content uses an explicit product-owned “not yet curated” message, while
 sourced summaries retain their language and provenance.
 
-Ratings consumes Catalogue application context and reads only its own active-rating
-table. PostgreSQL computes count, mean and ten distribution buckets in one statement;
+Ratings consumes Catalogue application context and reads only its own tables.
+PostgreSQL computes count, mean and ten distribution buckets in one statement;
 a missing contribution set is empty, and a read failure becomes unavailable without
 blocking the game. No personal record or user identity is included in public delivery.
 

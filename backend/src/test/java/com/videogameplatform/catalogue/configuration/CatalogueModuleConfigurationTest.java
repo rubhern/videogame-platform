@@ -7,6 +7,7 @@ import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceR
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
+import com.videogameplatform.catalogue.application.details.port.GameListingReadPort;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
@@ -103,6 +104,11 @@ class CatalogueModuleConfigurationTest {
 
         @Bean
         GameDetailsReadPort gameDetailsReadPort() {
+            return id -> Optional.empty();
+        }
+
+        @Bean
+        GameListingReadPort gameListingReadPort() {
             return id -> Optional.empty();
         }
 

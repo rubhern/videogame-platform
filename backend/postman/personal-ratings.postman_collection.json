@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Personal Ratings",
-    "description": "Executable UC-005, UC-006 and UC-007 examples for an authenticated local OIDC session. Sign in through Keycloak in a browser and sync the localhost cookie into Postman. The first request verifies that session and stores its CSRF token automatically; no OAuth token or credential belongs in this collection.",
+    "description": "Executable UC-005 through UC-008 examples for an authenticated local OIDC session. Sign in through Keycloak in a browser and sync the localhost cookie into Postman. The first request verifies that session and stores its CSRF token automatically; no OAuth token or credential belongs in this collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -125,6 +125,73 @@
             "exec": [
               "pm.test(\"HTTP 412\", () => pm.response.to.have.status(412));",
               "pm.test(\"Stable duplicate code\", () => pm.expect(pm.response.json().code).to.eql(\"RATING_ALREADY_EXISTS\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List own ratings and capture the current collection ETag",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/me/ratings?page=1&pageSize=100",
+        "description": "Uses the authenticated session only. The subsequent update uses this collection item's strong ETag."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Private bounded page\", () => { pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); pm.expect(body.items.length).to.be.at.most(100); pm.expect(body.page.totalItems).to.be.at.least(body.items.length); });",
+              "pm.test(\"Default total ordering\", () => { for (let i = 1; i < body.items.length; i++) { const previous = body.items[i - 1].personalRating; const current = body.items[i].personalRating; pm.expect(previous.updatedAt > current.updatedAt || (previous.updatedAt === current.updatedAt && previous.gameId < current.gameId)).to.eql(true); } });",
+              "const own = body.items.find(item => item.game.gameId === pm.collectionVariables.get(\"gameId\"));",
+              "pm.test(\"Created rating is listed\", () => { pm.expect(own).to.exist; pm.expect(own.personalRating.entityTag).to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(own.game.slug).to.be.a(\"string\"); pm.expect(own.game.primaryCover).to.exist; });",
+              "if (own) pm.collectionVariables.set(\"createdRatingEtag\", own.personalRating.entityTag);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search only own ratings",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/me/ratings?q=resident&sort=canonicalTitle&direction=asc&page=1&pageSize=20"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"A scoped search is a valid private page\", () => { pm.response.to.have.status(200); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); const body = pm.response.json(); pm.expect(body.items.length).to.be.at.most(20); pm.expect(body.page.number).to.eql(1); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject a client-supplied owner",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/v1/me/ratings?userId=another-user"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Owner is never accepted from the client\", () => { pm.response.to.have.status(422); pm.expect(pm.response.json().code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\"); });"
             ]
           }
         }

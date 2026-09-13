@@ -37,13 +37,18 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
     private final String provider;
+    private final java.util.function.Consumer<String> listingChanged;
     private final JsonMapper json = JsonMapper.builder().build();
 
     public JdbcCatalogueSynchronizationStore(
-            NamedParameterJdbcOperations jdbc, TransactionOperations transaction, String provider) {
+            NamedParameterJdbcOperations jdbc,
+            TransactionOperations transaction,
+            String provider,
+            java.util.function.Consumer<String> listingChanged) {
         this.jdbc = jdbc;
         this.transaction = transaction;
         this.provider = provider;
+        this.listingChanged = listingChanged;
     }
 
     @Override
@@ -347,6 +352,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                             "id",
                             publication));
         }
+        listingChanged.accept(w.gameId().toString());
         return new WriteResult(w.creating(), !w.creating() && changed, created, updated, unchanged);
     }
 

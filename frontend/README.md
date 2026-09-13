@@ -10,8 +10,11 @@ header account control with CSRF-protected logout and authentication started onl
 rating control — and the `UC-005`–`UC-007` inline personal-rating experience on the game
 page: pressing a value creates or updates through the conditional rating contract, the
 recovered selection is persisted once after authentication, and an existing rating can be
-deleted. `Mis puntuaciones` and provider synchronization
-UI remain later slices.
+deleted. `UC-008` adds `/mis-puntuaciones`, reached from the authenticated account
+control, with title/alias search, server sorting and pagination, timestamps, game
+navigation, and direct conditional editing/deletion. Personal filters live only in
+component state and personal query data is discarded when the page unmounts.
+Provider synchronization UI remains a later slice.
 
 ## Visual development
 

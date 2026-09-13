@@ -11,6 +11,7 @@ import com.videogameplatform.catalogue.application.details.GameNotFoundException
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
 import com.videogameplatform.ratings.application.PersonalRatingReadException;
+import com.videogameplatform.ratings.application.PersonalRatingsReadException;
 import com.videogameplatform.ratings.application.RatingAlreadyExistsException;
 import com.videogameplatform.ratings.application.RatingNotEligibleException;
 import com.videogameplatform.ratings.application.RatingNotFoundException;
@@ -56,6 +57,16 @@ public class ApiExceptionHandler {
     public ResponseEntity<Problem> requestInvalid(
             ApiRequestException exception, HttpServletResponse response) {
         return switch (exception.code()) {
+            case SORT_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            ProblemCode.SORT_INVALID,
+                            "Sort is invalid",
+                            "Use a supported sort and direction.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Select a supported ordering.");
             case FILTER_INVALID ->
                     problem(
                             response,
@@ -91,6 +102,28 @@ public class ApiExceptionHandler {
             case REQUEST_MALFORMED -> preconditionHeaderMalformed(response, exception.pointer());
             default -> unexpectedFailure(exception, response);
         };
+    }
+
+    @ExceptionHandler(
+            com.videogameplatform.ratings.application.PersonalRatingsQueryInvalidException.class)
+    ResponseEntity<Problem> personalRatingsQueryInvalid(
+            com.videogameplatform.ratings.application.PersonalRatingsQueryInvalidException
+                    exception,
+            HttpServletResponse response) {
+        var code =
+                switch (exception.field()) {
+                    case SEARCH -> ProblemCode.SEARCH_QUERY_INVALID;
+                    case SORT, DIRECTION -> ProblemCode.SORT_INVALID;
+                    case PAGINATION -> ProblemCode.PAGINATION_INVALID;
+                };
+        String pointer =
+                switch (exception.field()) {
+                    case SEARCH -> "/query/q";
+                    case SORT -> "/query/sort";
+                    case DIRECTION -> "/query/direction";
+                    case PAGINATION -> "/query/page";
+                };
+        return requestInvalid(new ApiRequestException(code, pointer), response);
     }
 
     @ExceptionHandler(RatingNotFoundException.class)
@@ -181,6 +214,21 @@ public class ApiExceptionHandler {
             PersonalRatingReadException exception, HttpServletResponse response) {
         logTechnicalFailure(ProblemCode.INTERNAL_ERROR, exception);
         return internalError(response);
+    }
+
+    @ExceptionHandler(PersonalRatingsReadException.class)
+    ResponseEntity<Problem> personalRatingsReadFailed(
+            PersonalRatingsReadException exception, HttpServletResponse response) {
+        logTechnicalFailure(ProblemCode.PERSONAL_RATINGS_READ_FAILED, exception);
+        return problem(
+                response,
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                ProblemCode.PERSONAL_RATINGS_READ_FAILED,
+                "Personal ratings read failed",
+                "Your ratings cannot currently be read.",
+                ErrorCategory.TECHNICAL,
+                "/rating",
+                "Retry after personal ratings access is restored.");
     }
 
     @ExceptionHandler(ReleaseQueryValidationException.class)

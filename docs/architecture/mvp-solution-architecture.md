@@ -63,6 +63,24 @@ It never reads Catalogue tables or provider types. Catalogue does not depend on
 Ratings. Technical boundaries are not bounded contexts merely because they have a
 module.
 
+The current `UC-008` implementation uses a rebuildable Ratings-owned game-listing
+projection (title, normalized approved aliases, navigation and resolved cover).
+Catalogue exports this bounded context through its `details` and `cover` application
+contracts. Rating creation prepares the public context before persisting the rating;
+the provider synchronization adapter emits `GameListingChanged` inside its Game
+transaction, and a synchronous Ratings listener refreshes the projection before
+commit. A projection failure rolls back that Game publication. Any future alias or
+listing writer must publish the same notification in its transaction.
+
+Startup backfills missing context for existing rated games in keyset batches; an
+incomplete backfill fails startup rather than serving an incomplete private list.
+Per-game transaction advisory locks serialize refreshes across application instances.
+No process-local cache, cross-module table query, or asynchronous delivery is involved.
+The collection count and page share a read-only repeatable-read transaction, use
+only Ratings tables, and send at most one page to the application. Title/alias
+matching, ordering and count scale with the current user's rated set in PostgreSQL;
+the browser supplies neither ownership nor evaluation time.
+
 ## Hexagonal dependency rules
 
 ```text

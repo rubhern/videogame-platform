@@ -24,12 +24,17 @@ public final class PersonalRatingService
     private final PersonalRatingStore ratings;
     private final GetGameDetailsUseCase games;
     private final Clock clock;
+    private final com.videogameplatform.ratings.application.port.GameListingProjection listing;
 
     public PersonalRatingService(
-            PersonalRatingStore ratings, GetGameDetailsUseCase games, Clock clock) {
+            PersonalRatingStore ratings,
+            GetGameDetailsUseCase games,
+            Clock clock,
+            com.videogameplatform.ratings.application.port.GameListingProjection listing) {
         this.ratings = ratings;
         this.games = games;
         this.clock = clock;
+        this.listing = listing;
     }
 
     @Override
@@ -44,6 +49,7 @@ public final class PersonalRatingService
             throw new RatingAlreadyExistsException();
         }
         requireEligibility(gameId);
+        listing.refresh(gameId);
         return ratings.create(userId, gameId, value, clock.instant(), UUID.randomUUID().toString());
     }
 

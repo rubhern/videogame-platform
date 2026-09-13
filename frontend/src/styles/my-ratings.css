@@ -1,0 +1,50 @@
+@layer components {
+  .my-ratings-filters, .my-rating-edit, .my-rating-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+  }
+  .my-ratings-filters { margin-block: 28px; }
+  .my-ratings-filters label, .my-rating-edit label {
+    display: grid;
+    gap: 8px;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+  }
+  .my-ratings-search { flex: 1 1 260px; min-width: 0; }
+  .my-ratings-filters input, .my-ratings-filters select, .my-rating-edit select {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid var(--color-line);
+    border-radius: 22px;
+    color: var(--color-ink);
+    background: var(--color-surface);
+  }
+  .my-ratings-list { display: grid; gap: 20px; margin-block: 24px; }
+  .my-rating-card {
+    display: grid;
+    grid-template-columns: minmax(96px, 150px) minmax(0, 1fr);
+    gap: 24px;
+    padding: 20px;
+    border: 1px solid var(--color-line);
+    border-radius: 16px;
+    background: var(--color-surface);
+  }
+  .my-rating-body { min-width: 0; }
+  .my-rating-body .card-title { font-size: 1.25rem; }
+  .my-rating-value { margin-block: 14px; color: var(--color-muted); }
+  .my-rating-value strong { color: var(--color-accent); font-size: 1.5rem; }
+  .my-rating-dates { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 0.8125rem; color: var(--color-muted); }
+  .my-rating-dates dt { font-family: var(--font-mono); font-size: 0.75rem; margin-bottom: 4px; }
+  .my-rating-actions, .my-rating-edit { margin-top: 18px; }
+  .my-rating-edit { padding-block: 12px; border-block: 1px solid var(--color-line); }
+  .account-ratings { font-size: 0.8125rem; padding-inline: 12px; }
+  @media (max-width: 599px) {
+    .my-rating-card { grid-template-columns: 90px minmax(0, 1fr); gap: 14px; padding: 14px; }
+    .my-rating-actions, .my-rating-edit { align-items: stretch; flex-direction: column; }
+    .my-rating-actions .button, .my-rating-edit .button { white-space: normal; }
+    .account-control { flex-wrap: wrap; max-width: 100%; }
+  }
+}
