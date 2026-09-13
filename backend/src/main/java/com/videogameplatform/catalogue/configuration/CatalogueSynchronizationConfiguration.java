@@ -108,14 +108,20 @@ class CatalogueSynchronizationConfiguration {
 
     @Bean
     CatalogueSynchronizationStore catalogueSynchronizationStore(
-            DataSource dataSource, PlatformTransactionManager transactionManager) {
+            DataSource dataSource,
+            PlatformTransactionManager transactionManager,
+            org.springframework.context.ApplicationEventPublisher events) {
         TransactionTemplate writeTransaction = new TransactionTemplate(transactionManager);
         writeTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         writeTransaction.setTimeout(WRITE_TRANSACTION_TIMEOUT_SECONDS);
         return new JdbcCatalogueSynchronizationStore(
                 new NamedParameterJdbcTemplate(new JdbcTemplate(dataSource)),
                 writeTransaction,
-                IgdbCatalogueProviderAdapter.PROVIDER_NAME);
+                IgdbCatalogueProviderAdapter.PROVIDER_NAME,
+                gameId ->
+                        events.publishEvent(
+                                new com.videogameplatform.catalogue.application.details
+                                        .GameListingChanged(gameId)));
     }
 
     @Bean

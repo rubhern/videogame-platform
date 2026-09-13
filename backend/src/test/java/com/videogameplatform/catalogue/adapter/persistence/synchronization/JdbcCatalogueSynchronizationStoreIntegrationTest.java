@@ -72,7 +72,7 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         var tx = new TransactionTemplate(new JdbcTransactionManager(ds));
         store =
                 new JdbcCatalogueSynchronizationStore(
-                        new NamedParameterJdbcTemplate(jdbc), tx, "IGDB");
+                        new NamedParameterJdbcTemplate(jdbc), tx, "IGDB", gameId -> {});
         provider = new FixtureProvider();
         service =
                 new CatalogueSynchronizationService(

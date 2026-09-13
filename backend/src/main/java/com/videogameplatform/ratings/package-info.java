@@ -4,6 +4,7 @@
         allowedDependencies = {
             "catalogue::application",
             "catalogue::details",
+            "catalogue::cover",
             "catalogue::releases"
         })
 package com.videogameplatform.ratings;

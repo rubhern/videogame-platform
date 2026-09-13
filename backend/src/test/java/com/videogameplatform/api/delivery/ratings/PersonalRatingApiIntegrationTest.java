@@ -367,6 +367,319 @@ class PersonalRatingApiIntegrationTest {
                 .andExpect(jsonPath("$.value").value(8));
     }
 
+    @Test
+    void listingIsPrivateEmptyAndContainsOnlyThePrincipalsActiveRatings() throws Exception {
+        mockMvc.perform(get("/api/v1/me/ratings"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(jsonPath("$.page.totalItems").value(0))
+                .andExpect(jsonPath("$.items").isEmpty());
+        String tag = create(BOB, 8).getResponse().getHeader(HttpHeaders.ETAG);
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("q", "Rated"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page.totalItems").value(0));
+        var response =
+                mockMvc.perform(get("/api/v1/me/ratings").with(login(BOB)))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.page.totalItems").value(1))
+                        .andExpect(jsonPath("$.items[0].game.gameId").value(game.toString()))
+                        .andExpect(jsonPath("$.items[0].game.canonicalTitle").value("Rated game"))
+                        .andExpect(jsonPath("$.items[0].personalRating.value").value(8))
+                        .andExpect(jsonPath("$.items[0].personalRating.entityTag").value(tag))
+                        .andReturn();
+        OpenApiResponseContract.load("/me/ratings")
+                .assertJsonResponse(response.getResponse(), 200, "PersonalRatingPage");
+        mockMvc.perform(
+                        delete(path())
+                                .with(login(BOB))
+                                .with(csrf().asHeader())
+                                .header("If-Match", tag))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(BOB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty());
+    }
+
+    @Test
+    void listingSearchUsesCanonicalAndApprovedAliasWordPrefixesWithinOwnerScope() throws Exception {
+        admin.update(
+                "UPDATE catalogue.game_snapshot SET canonical_title='Élite Dangerous' WHERE game_id=?",
+                game);
+        admin.update(
+                """
+                INSERT INTO catalogue.game_alias(publication_id,game_id,alias,alias_kind,approval_status,source_kind,source_name)
+                SELECT publication_id,game_id,'Space Odyssey','alternative','approved','product_curated','Test'
+                FROM catalogue.game_snapshot WHERE game_id=?
+                """,
+                game);
+        admin.update(
+                """
+                INSERT INTO catalogue.game_alias(publication_id,game_id,alias,alias_kind,approval_status,source_kind,source_name)
+                SELECT publication_id,game_id,'Secret Alias','alternative','pending','product_curated','Test'
+                FROM catalogue.game_snapshot WHERE game_id=?
+                """,
+                game);
+        create(ALICE, 8);
+        for (String query : List.of("elite", "ÉLITE dang", "spa ody")) {
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("q", query))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.page.totalItems").value(1));
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(BOB)).param("q", query))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.page.totalItems").value(0));
+        }
+        for (String query : List.of("lite", "secret", "elite odyssey", "unmatched")) {
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("q", query))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.page.totalItems").value(0));
+        }
+    }
+
+    @Test
+    void listingSortsAndCountsBeforePagingWithGameIdAsTheFinalTieBreaker() throws Exception {
+        create(ALICE, 7);
+        UUID second = addListedGame("Beta", 9);
+        UUID third = addListedGame("Alpha", 7);
+        List<String> ids =
+                java.util.stream.Stream.of(game, second, third)
+                        .map(UUID::toString)
+                        .sorted()
+                        .toList();
+        // Every update timestamp is the fixed clock instant.
+        for (int page = 1; page <= 3; page++) {
+            mockMvc.perform(
+                            get("/api/v1/me/ratings")
+                                    .with(login(ALICE))
+                                    .param("pageSize", "1")
+                                    .param("page", Integer.toString(page)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.page.totalItems").value(3))
+                    .andExpect(jsonPath("$.page.totalPages").value(3))
+                    .andExpect(jsonPath("$.items[0].game.gameId").value(ids.get(page - 1)));
+        }
+        mockMvc.perform(
+                        get("/api/v1/me/ratings")
+                                .with(login(ALICE))
+                                .param("sort", "canonicalTitle")
+                                .param("pageSize", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].game.gameId").value(third.toString()));
+        mockMvc.perform(
+                        get("/api/v1/me/ratings")
+                                .with(login(ALICE))
+                                .param("sort", "ratingValue")
+                                .param("direction", "desc")
+                                .param("pageSize", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].game.gameId").value(second.toString()));
+        // Tie every earlier key, including title and value, across page boundaries.
+        admin.update("UPDATE ratings.game_listing SET normalized_title='same'");
+        admin.update("UPDATE ratings.rating SET value=7");
+        for (String sort : List.of("updatedAt", "canonicalTitle", "ratingValue")) {
+            for (String direction : List.of("asc", "desc")) {
+                mockMvc.perform(
+                                get("/api/v1/me/ratings")
+                                        .with(login(ALICE))
+                                        .param("sort", sort)
+                                        .param("direction", direction)
+                                        .param("pageSize", "1")
+                                        .param("page", "2"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.items[0].game.gameId").value(ids.get(1)));
+            }
+        }
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("page", "2147483647"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty())
+                .andExpect(jsonPath("$.page.totalItems").value(3));
+    }
+
+    @Test
+    void listingRejectsInvalidUnknownAndRepeatedParameters() throws Exception {
+        for (String q : List.of("", " ", "...", "a".repeat(101))) {
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("q", q))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.code").value("SEARCH_QUERY_INVALID"));
+        }
+        for (String name : List.of("sort", "direction")) {
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param(name, ""))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.code").value("SORT_INVALID"));
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param(name, "invalid"))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.code").value("SORT_INVALID"));
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param(name, "asc", "desc"))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.code").value("SORT_INVALID"));
+        }
+        for (String name : List.of("page", "pageSize")) {
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param(name, ""))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.code").value("PAGINATION_INVALID"));
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param(name, "0"))
+                    .andExpect(status().isUnprocessableContent())
+                    .andExpect(jsonPath("$.code").value("PAGINATION_INVALID"));
+            mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param(name, "x"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value("REQUEST_MALFORMED"));
+        }
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("pageSize", "101"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("PAGINATION_INVALID"));
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("userId", "bob"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.code").value("REQUEST_PARAMETER_UNKNOWN"));
+    }
+
+    @Test
+    void listingValidatorSupportsDirectMaintenanceAndRejectsAnOldVersion() throws Exception {
+        create(ALICE, 7);
+        var list = mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE))).andReturn();
+        String tag =
+                JSON.readTree(list.getResponse().getContentAsString())
+                        .path("items")
+                        .get(0)
+                        .path("personalRating")
+                        .path("entityTag")
+                        .stringValue();
+        String next = update(ALICE, 9, tag).getResponse().getHeader("ETag");
+        mockMvc.perform(
+                        delete(path())
+                                .with(login(ALICE))
+                                .with(csrf().asHeader())
+                                .header("If-Match", tag))
+                .andExpect(status().isPreconditionFailed())
+                .andExpect(jsonPath("$.code").value("RATING_WRITE_CONFLICT"));
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)))
+                .andExpect(jsonPath("$.items[0].personalRating.entityTag").value(next))
+                .andExpect(jsonPath("$.items[0].personalRating.value").value(9));
+        mockMvc.perform(
+                        delete(path())
+                                .with(login(ALICE))
+                                .with(csrf().asHeader())
+                                .header("If-Match", next))
+                .andExpect(status().isOk());
+    }
+
+    @Autowired org.springframework.context.ApplicationEventPublisher events;
+    @Autowired org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+    @Test
+    void publicListingRefreshCommitsAndRollsBackWithCataloguePublication() throws Exception {
+        create(ALICE, 7);
+        var tx =
+                new org.springframework.transaction.support.TransactionTemplate(transactionManager);
+        // Use the application's connection so the event sees the exact uncommitted catalogue state.
+        var jdbc = new JdbcTemplate(dataSource);
+        tx.executeWithoutResult(
+                status -> {
+                    jdbc.update(
+                            "UPDATE catalogue.game_snapshot SET canonical_title='Renamed game' WHERE game_id=?",
+                            game);
+                    events.publishEvent(
+                            new com.videogameplatform.catalogue.application.details
+                                    .GameListingChanged(game.toString()));
+                });
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("q", "renamed"))
+                .andExpect(jsonPath("$.items[0].game.canonicalTitle").value("Renamed game"));
+        tx.executeWithoutResult(
+                status -> {
+                    jdbc.update(
+                            "UPDATE catalogue.game_snapshot SET canonical_title='Rolled back game' WHERE game_id=?",
+                            game);
+                    events.publishEvent(
+                            new com.videogameplatform.catalogue.application.details
+                                    .GameListingChanged(game.toString()));
+                    status.setRollbackOnly();
+                });
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("q", "renamed"))
+                .andExpect(jsonPath("$.page.totalItems").value(1));
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)).param("q", "rolled"))
+                .andExpect(jsonPath("$.page.totalItems").value(0));
+    }
+
+    @Autowired javax.sql.DataSource dataSource;
+
+    private UUID addListedGame(String title, int value) throws Exception {
+        UUID original = game;
+        UUID added = UUID.randomUUID();
+        admin.update("INSERT INTO catalogue.game(game_id,created_at) VALUES (?,now())", added);
+        admin.update(
+                """
+                INSERT INTO catalogue.game_snapshot(publication_id,game_id,canonical_title,slug,
+                    cover_reference,cover_source,cover_usage_mode,cover_alternative_text,cover_usage_status)
+                SELECT publication_id,?,?,?,'/assets/covers/fallback.svg','Product','product_owned','Cover unavailable','approved'
+                FROM catalogue.catalogue_publication WHERE is_current
+                """,
+                added,
+                title,
+                "listed-" + added);
+        UUID release = UUID.randomUUID();
+        admin.update(
+                "INSERT INTO catalogue.game_release(release_id,game_id,created_at) VALUES (?,?,now())",
+                release,
+                added);
+        admin.update(
+                """
+                INSERT INTO catalogue.release_snapshot(publication_id,release_id,game_id,platform_id,region_id,
+                    date_precision,exact_date,release_status,source_kind,source_name,source_entity_type,
+                    last_synchronized_at,last_verified_at,verification_level,review_status)
+                SELECT publication_id,?,?,'10000000-0000-4000-8000-000000000001','20000000-0000-4000-8000-000000000002',
+                    'day',date '2026-08-13','released','official_source','Publisher','release',now(),now(),'verified','not_required'
+                FROM catalogue.catalogue_publication WHERE is_current
+                """,
+                release,
+                added);
+        game = added;
+        try {
+            create(ALICE, value);
+        } finally {
+            game = original;
+        }
+        return added;
+    }
+
+    @Autowired
+    com.videogameplatform.ratings.adapter.persistence.JdbcGameListingProjection projection;
+
+    @Test
+    void missingPublicContextIsBackfilledThroughCatalogueBeforeServingLegacyRatings()
+            throws Exception {
+        admin.update(
+                """
+                INSERT INTO ratings.rating(user_id,game_id,value)
+                VALUES (?,?,8)
+                """,
+                UUID.fromString(UserId.fromIssuerAndSubject(ISSUER, ALICE).value()),
+                game);
+        projection.run(new org.springframework.boot.DefaultApplicationArguments());
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page.totalItems").value(1))
+                .andExpect(jsonPath("$.items[0].game.canonicalTitle").value("Rated game"));
+    }
+
+    @Test
+    void collectionDatabaseFailuresReturnTheStablePrivateError() throws Exception {
+        create(ALICE, 7);
+        admin.execute("ALTER TABLE ratings.game_listing RENAME TO game_listing_unavailable");
+        try {
+            var result =
+                    mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)))
+                            .andExpect(status().isInternalServerError())
+                            .andExpect(header().string("Cache-Control", "no-store"))
+                            .andExpect(jsonPath("$.code").value("PERSONAL_RATINGS_READ_FAILED"))
+                            .andReturn();
+            assertThat(result.getResponse().getContentAsString())
+                    .doesNotContain("SELECT", "game_listing", "SQLException");
+        } finally {
+            admin.execute("ALTER TABLE ratings.game_listing_unavailable RENAME TO game_listing");
+        }
+    }
+
     private MvcResult create(String subject, int value) throws Exception {
         return mockMvc.perform(
                         put(path())

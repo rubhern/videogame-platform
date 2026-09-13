@@ -25,6 +25,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties({CatalogueReleaseProperties.class, CatalogueSearchProperties.class})
 class CatalogueModuleConfiguration {
+    @Bean
+    com.videogameplatform.catalogue.application.details.GetGameListingUseCase gameListingUseCase(
+            com.videogameplatform.catalogue.application.details.port.GameListingReadPort read,
+            CatalogueCoverPolicy covers) {
+        return new com.videogameplatform.catalogue.application.details.internal.GameListingService(
+                read, covers);
+    }
 
     @Bean
     ReleaseBrowsePolicy releaseBrowsePolicy(CatalogueReleaseProperties properties) {

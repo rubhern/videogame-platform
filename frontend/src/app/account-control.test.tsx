@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AccountControl } from "./account-control";
+import { MemoryRouter } from "react-router-dom";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -13,7 +14,7 @@ function renderControl() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <AccountControl />
+      <MemoryRouter><AccountControl /></MemoryRouter>
     </QueryClientProvider>,
   );
 }

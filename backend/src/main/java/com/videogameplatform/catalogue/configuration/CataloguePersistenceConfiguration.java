@@ -19,6 +19,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(CatalogueJdbcProperties.class)
 class CataloguePersistenceConfiguration {
+    @Bean
+    com.videogameplatform.catalogue.application.details.port.GameListingReadPort
+            gameListingReadPort(CatalogueReadExecution execution) {
+        return new com.videogameplatform.catalogue.adapter.persistence.details
+                .JdbcGameListingReadAdapter(execution.jdbcOperations());
+    }
 
     @Bean
     CatalogueReadExecution catalogueReadExecution(

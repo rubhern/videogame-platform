@@ -5,6 +5,7 @@ import {
   gameDetailsQueryKey,
 } from "../game-details/game-details-api";
 import { SESSION_QUERY_KEY } from "../session/use-session";
+import { MY_RATINGS_KEY } from "./my-ratings-api";
 import {
   deleteMyRating,
   getMyRating,
@@ -34,9 +35,9 @@ export function usePersonalRating(gameId: string, enabled: boolean) {
   });
 }
 
-export type RatingCommand =
+export type RatingCommand = (
   | { type: "save"; csrfToken: string; value: number }
-  | { type: "delete"; csrfToken: string };
+  | { type: "delete"; csrfToken: string }) & { currentRating?: PersonalRating };
 
 type CommandOutcome =
   | { type: "saved"; rating: PersonalRating }
@@ -65,7 +66,7 @@ export function useRatingCommand(gameId: string) {
     retry: false,
     mutationFn: async (command) => {
       const current =
-        queryClient.getQueryData<PersonalRating | null>(personalKey) ?? null;
+        command.currentRating ?? queryClient.getQueryData<PersonalRating | null>(personalKey) ?? null;
       const context = { gameId, csrfToken: command.csrfToken };
       if (command.type === "delete") {
         if (current === null) {
@@ -87,11 +88,15 @@ export function useRatingCommand(gameId: string) {
       applyStatistics(result.ratingStatistics);
       return { type: "saved", rating: result.personalRating };
     },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: MY_RATINGS_KEY });
+    },
     onError: (error) => {
       // The local view of the personal rating or session is stale: re-read it (a read, never a
       // repeated command) so the user sees the winning state before deciding again.
       if (error.kind === "conflict") {
         void queryClient.invalidateQueries({ queryKey: personalKey });
+        void queryClient.invalidateQueries({ queryKey: MY_RATINGS_KEY });
       }
       if (error.kind === "authentication" || error.kind === "csrf") {
         void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });

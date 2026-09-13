@@ -132,6 +132,17 @@ and local model, so omit them. Adding them requires a separate scoped contract-f
 change with local persistence and provenance. Do not invent companies, genre, marketing
 taglines or background artwork from the reference. List/follow actions remain deferred.
 
+## Personal ratings collection
+
+`Mis puntuaciones` reuses the catalogue shell, title block, cover treatment, tokens
+and native controls. Present cover-led rows with game navigation, a clearly personal
+score and the two rating timestamps. Keep the private search separate from the
+header's public catalogue search. Direct editing expands a labelled native 1–10
+selection with Save/Cancel actions; deletion remains a distinct action. Announce
+outcomes and move focus to the results after maintenance or pagination. A concurrent
+or ambiguous command requires a successful read before another command is enabled.
+Empty ratings, no search matches, an exhausted page and load failure remain distinct.
+
 ## Server-backed states
 
 | State | Required presentation and behaviour |

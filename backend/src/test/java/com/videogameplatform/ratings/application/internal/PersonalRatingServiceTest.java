@@ -124,7 +124,8 @@ class PersonalRatingServiceTest {
 
     private static PersonalRatingService service(
             PersonalRatingStore store, GetGameDetailsUseCase games) {
-        return new PersonalRatingService(store, games, Clock.fixed(NOW, ZoneOffset.ofHours(2)));
+        return new PersonalRatingService(
+                store, games, Clock.fixed(NOW, ZoneOffset.ofHours(2)), gameId -> {});
     }
 
     private static GameDetailsResult failGameRead() {

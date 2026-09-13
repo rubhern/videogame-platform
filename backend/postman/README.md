@@ -23,7 +23,8 @@ Actuator APIs plus a non-secret local environment.
   are covered against PostgreSQL by the API integration tests.
 - [`personal-ratings.postman_collection.json`](personal-ratings.postman_collection.json):
   authenticated current-user read, conditional create/update/delete, strong ETag
-  reuse, duplicate/stale-write rejection, and CSRF rejection. Its bootstrap request
+  reuse from the private collection, scoped search, default ordering, client-owner
+  rejection, duplicate/stale-write rejection, and CSRF rejection. Its bootstrap request
   verifies the browser-created session and stores the CSRF token automatically.
 - [`session.postman_collection.json`](session.postman_collection.json): minimal
   anonymous session state and CSRF-protected logout rejection. The successful OIDC

@@ -91,6 +91,58 @@ test.describe("real Keycloak rating journey", () => {
     await expect(await context.cookies("http://application:8080")).toEqual([]);
   });
 
+
+  test("Mis puntuaciones supports search, direct maintenance and a real concurrent ETag conflict", async ({ page, context }, testInfo) => {
+    await page.goto(gamePath);
+    await page.getByRole("button", { name: "8", exact: true }).click();
+    await page.getByLabel("Username").fill(username ?? "");
+    await page.locator("#password").fill(password ?? "");
+    await page.getByRole("button", { name: "Sign In" }).click();
+    await expect(page.getByRole("button", { name: "8", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await page.getByRole("link", { name: "Mis puntuaciones", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Mis puntuaciones", exact: true })).toBeVisible();
+    await expect(page.getByText("8/10", { exact: true })).toBeVisible();
+
+    for (const width of [1320, 834, 390, 320]) {
+      await page.setViewportSize({ width, height: 950 });
+      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      await page.screenshot({ path: testInfo.outputPath(`my-ratings-${width}.png`), fullPage: true });
+    }
+    const search = page.getByRole("search", { name: "Buscar en mis puntuaciones" });
+    await search.getByRole("searchbox").fill("doesnotexist");
+    await search.getByRole("button").click();
+    await expect(page.getByText("No hay puntuaciones que coincidan con tu búsqueda")).toBeVisible();
+    await page.getByRole("button", { name: "Limpiar búsqueda" }).click();
+    await expect(page.getByText("8/10", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Editar puntuación" }).focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByLabel("Nueva puntuación")).toBeFocused();
+    await page.getByLabel("Nueva puntuación").selectOption("9");
+    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await expect(page.getByText("9/10", { exact: true })).toBeVisible();
+
+    // Another request in the same real authenticated session wins before this page writes.
+    const session = await (await context.request.get("/api/v1/session")).json() as { csrfToken: string };
+    const ratingUrl = "/api/v1/me/ratings/30000000-0000-4000-8000-000000000005";
+    const current = await (await context.request.get(ratingUrl)).json() as { entityTag: string };
+    const winner = await context.request.put(ratingUrl, { data: { value: 6 },
+      headers: { "If-Match": current.entityTag, "X-CSRF-Token": session.csrfToken, "Origin": new URL(page.url()).origin } });
+    expect(winner.status()).toBe(200);
+    await page.getByRole("button", { name: "Eliminar puntuación" }).click();
+    await expect(page.getByRole("alert")).toContainText("cambió en otra sesión");
+    await expect(page.getByText("6/10", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Eliminar puntuación" })).toBeDisabled();
+    await page.getByRole("button", { name: "Actualizar resultados" }).click();
+    await expect(page.getByRole("button", { name: "Eliminar puntuación" })).toBeEnabled();
+    await page.getByRole("button", { name: "Eliminar puntuación" }).click();
+    await expect(page.getByText("Todavía no has puntuado ningún juego")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Resultados de mis puntuaciones" })).toBeFocused();
+    expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })))
+      .toEqual({ local: 0, session: 0 });
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  });
+
   test("a new visitor self-registers through Keycloak and resumes the same game and value", async ({
     page,
   }) => {

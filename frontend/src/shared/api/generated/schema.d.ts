@@ -110,7 +110,12 @@ export interface paths {
         };
         /**
          * Read, search, sort, and page Mis puntuaciones
-         * @description Applies current-user scope before search, sorting, counts, or pagination.
+         * @description Applies authenticated-current-user scope before search, sorting, counts, or
+         *     pagination. Only active game ratings are returned. Search uses the catalogue's
+         *     case- and diacritic-insensitive all-token word-prefix rules for canonical titles
+         *     and approved aliases. Every sort ends with gameId ascending as its unique
+         *     tie-breaker. Each item's entityTag is the current strong rating validator for
+         *     conditional update and delete; it is not a collection cache validator.
          */
         get: operations["listMyRatings"];
         put?: never;

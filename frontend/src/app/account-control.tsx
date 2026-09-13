@@ -1,4 +1,5 @@
 import { useLogout, useSession } from "../features/session/use-session";
+import { NavLink } from "react-router-dom";
 
 /**
  * Header account control.
@@ -23,6 +24,7 @@ export function AccountControl() {
         <span />
       </span>
       <span className="account-label">Mi cuenta</span>
+      <NavLink className="button account-ratings" to="/mis-puntuaciones">Mis puntuaciones</NavLink>
       <button
         type="button"
         className="button account-logout"

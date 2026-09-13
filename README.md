@@ -12,9 +12,9 @@ discovery page, bounded catalogue search over canonical titles and approved alia
 public game details with release evidence, rating eligibility and aggregate statistics,
 a packaged React frontend, a real Keycloak-backed BFF session, transactional
 current-user rating read/write/delete with its accessible inline game-page rating
-experience, and internal operator-triggered IGDB catalogue synchronization.
-`Mis puntuaciones` and remote `dev` deployment remain later slices of the approved
-journey. The reviewed
+experience, the private `Mis puntuaciones` search and maintenance page, and internal
+operator-triggered IGDB catalogue synchronization.
+Remote `dev` deployment remains a later slice of the approved journey. The reviewed
 private OCI Terraform stack and its fail-closed zero-cost plan gate are implemented
 locally, but no remote infrastructure has been provisioned.
 

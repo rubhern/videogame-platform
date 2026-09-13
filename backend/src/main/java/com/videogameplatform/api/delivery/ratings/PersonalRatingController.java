@@ -27,18 +27,21 @@ public class PersonalRatingController implements RatingsApi {
     private final PutPersonalRatingUseCase writes;
     private final DeletePersonalRatingUseCase deletes;
     private final RatingApiMapper mapper;
+    private final com.videogameplatform.ratings.application.ListPersonalRatingsUseCase listing;
 
     PersonalRatingController(
             CurrentUser currentUser,
             GetPersonalRatingUseCase reads,
             PutPersonalRatingUseCase writes,
             DeletePersonalRatingUseCase deletes,
-            RatingApiMapper mapper) {
+            RatingApiMapper mapper,
+            com.videogameplatform.ratings.application.ListPersonalRatingsUseCase listing) {
         this.currentUser = currentUser;
         this.reads = reads;
         this.writes = writes;
         this.deletes = deletes;
         this.mapper = mapper;
+        this.listing = listing;
     }
 
     @Override
@@ -96,8 +99,19 @@ public class PersonalRatingController implements RatingsApi {
     @Override
     public ResponseEntity<PersonalRatingPage> listMyRatings(
             String q, String sort, String direction, Integer page, Integer pageSize) {
-        // UC-008 is owned by #32. Preserve the pre-existing absence of this resource.
-        return ResponseEntity.notFound().build();
+        var result =
+                listing.list(
+                        userId(),
+                        new com.videogameplatform.ratings.application.ListPersonalRatingsUseCase
+                                .Query(
+                                q,
+                                sort,
+                                direction,
+                                page == null ? 1 : page,
+                                pageSize == null ? 20 : pageSize));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(mapper.toResponse(result));
     }
 
     private String userId() {

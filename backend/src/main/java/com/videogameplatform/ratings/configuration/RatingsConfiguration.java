@@ -22,6 +22,31 @@ import org.springframework.transaction.support.TransactionTemplate;
 @EnableConfigurationProperties(RatingJdbcProperties.class)
 class RatingsConfiguration {
     @Bean
+    com.videogameplatform.ratings.adapter.persistence.JdbcGameListingProjection
+            gameListingProjection(
+                    RatingJdbcExecution execution,
+                    com.videogameplatform.catalogue.application.details.GetGameListingUseCase
+                            games) {
+        return new com.videogameplatform.ratings.adapter.persistence.JdbcGameListingProjection(
+                execution.jdbc(), execution.transaction(), games);
+    }
+
+    @Bean
+    com.videogameplatform.ratings.application.ListPersonalRatingsUseCase listPersonalRatings(
+            RatingJdbcExecution execution,
+            PlatformTransactionManager manager,
+            RatingJdbcProperties properties) {
+        var read = new TransactionTemplate(manager);
+        read.setReadOnly(true);
+        read.setIsolationLevel(
+                org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        read.setTimeout(properties.operationTimeoutSeconds());
+        return new com.videogameplatform.ratings.application.internal.PersonalRatingsService(
+                new com.videogameplatform.ratings.adapter.persistence
+                        .JdbcPersonalRatingsReadAdapter(execution.jdbc(), read));
+    }
+
+    @Bean
     RatingJdbcExecution ratingJdbcExecution(
             DataSource dataSource,
             PlatformTransactionManager transactionManager,
@@ -50,8 +75,11 @@ class RatingsConfiguration {
 
     @Bean
     PersonalRatingService personalRatingService(
-            PersonalRatingStore ratings, GetGameDetailsUseCase games, Clock clock) {
-        return new PersonalRatingService(ratings, games, clock);
+            PersonalRatingStore ratings,
+            GetGameDetailsUseCase games,
+            Clock clock,
+            com.videogameplatform.ratings.application.port.GameListingProjection listing) {
+        return new PersonalRatingService(ratings, games, clock, listing);
     }
 
     record RatingJdbcExecution(NamedParameterJdbcTemplate jdbc, TransactionTemplate transaction) {}

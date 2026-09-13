@@ -10,6 +10,32 @@ import org.springframework.stereotype.Component;
 /** Maps provider-independent rating results to the generated HTTP transport. */
 @Component
 final class RatingApiMapper {
+    private final com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper covers;
+
+    RatingApiMapper(com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper covers) {
+        this.covers = covers;
+    }
+
+    com.videogameplatform.api.generated.model.PersonalRatingPage toResponse(
+            com.videogameplatform.ratings.application.PersonalRatingsPage page) {
+        return new com.videogameplatform.api.generated.model.PersonalRatingPage(
+                page.items().stream()
+                        .map(
+                                item ->
+                                        new com.videogameplatform.api.generated.model
+                                                .PersonalRatingItem(
+                                                new com.videogameplatform.api.generated.model
+                                                        .RatedGame(
+                                                        item.gameId(),
+                                                        item.slug(),
+                                                        item.canonicalTitle(),
+                                                        covers.toResponse(item.cover())),
+                                                toResponse(item.rating())))
+                        .toList(),
+                new com.videogameplatform.api.generated.model.PageMetadata(
+                        page.page(), page.pageSize(), page.totalItems(), page.totalPages()));
+    }
+
     PersonalRating toResponse(com.videogameplatform.ratings.application.PersonalRating rating) {
         return new PersonalRating(
                 rating.gameId(),

@@ -1,6 +1,7 @@
 @import "./fonts.css";
 @import "tailwindcss";
 @import "./game-details.css";
+@import "./my-ratings.css";
 
 @theme {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;

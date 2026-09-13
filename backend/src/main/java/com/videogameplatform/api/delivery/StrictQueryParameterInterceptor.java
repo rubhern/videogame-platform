@@ -1,6 +1,7 @@
 package com.videogameplatform.api.delivery;
 
 import com.videogameplatform.api.generated.CatalogueApi;
+import com.videogameplatform.api.generated.RatingsApi;
 import com.videogameplatform.api.generated.ReleasesApi;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,6 +53,13 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         }
         for (QueryParameter parameter : parameters) {
             String[] values = request.getParameterValues(parameter.name());
+            if (values != null
+                    && values[0].isBlank()
+                    && com.videogameplatform.api.generated.RatingsApi.class.isAssignableFrom(
+                            method.getBeanType())) {
+                throw new ApiRequestException(
+                        repeatedParameterCode(parameter), "/query/" + parameter.name());
+            }
             if (values != null && values.length > 1) {
                 ApiRequestException exception =
                         new ApiRequestException(
@@ -74,7 +82,8 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
     private static boolean isClosedQueryOperation(HandlerMethod method) {
         Class<?> beanType = method.getBeanType();
         return ReleasesApi.class.isAssignableFrom(beanType)
-                || CatalogueApi.class.isAssignableFrom(beanType);
+                || CatalogueApi.class.isAssignableFrom(beanType)
+                || RatingsApi.class.isAssignableFrom(beanType);
     }
 
     private static Set<QueryParameter> queryParameters(HandlerMethod method) {
@@ -89,6 +98,7 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         if (parameter.pagination()) {
             return ProblemCode.PAGINATION_INVALID;
         }
+        if (Set.of("sort", "direction").contains(parameter.name())) return ProblemCode.SORT_INVALID;
         return SEARCH_PARAMETER.equals(parameter.name())
                 ? ProblemCode.SEARCH_QUERY_INVALID
                 : ProblemCode.FILTER_INVALID;
