@@ -18,18 +18,20 @@ gates, review, acceptance, and release.
 | `dev` | Persistent private integration, HTTPS, identity, delivery, telemetry, recovery | Non-sensitive learning data; owner tailnet only |
 | `production` | Deferred/prohibited | Undefined |
 
-The `dev` target is one OCI Always Free Ampere A1 VM hosting the non-root application
-container, Keycloak, PostgreSQL, and bounded telemetry. Tailscale provides private
-HTTPS/admin access; it does not replace Keycloak/product authorization. No public
-application, identity, database, telemetry, or SSH ingress is allowed.
+The `dev` target is a single-node private environment hosting the non-root
+application container, Keycloak, PostgreSQL, and bounded telemetry, reached only
+through the owner tailnet. Tailscale provides private HTTPS/admin access; it does not
+replace Keycloak/product authorization. No public application, identity, database,
+telemetry, or SSH ingress is allowed.
 
-Remote infrastructure has not been provisioned. Reviewed Terraform now defines the
-private topology and executable free-resource quotas, but provisioning remains
-blocked until a fresh account/home-region/headroom preflight and owner-reviewed plan
-pass the [OCI Terraform workflow](../../development/oci-terraform.md). If an eligible
-free resource is unavailable, use local `dev` or wait; never silently select paid or
-trial-only resources. Public production, HA, staging, Kubernetes, distributed
-components, automatic broad sync, and paid managed services remain deferred.
+Remote infrastructure has not been provisioned. The previously approved OCI Always
+Free Ampere A1 host was abandoned after eligible Always Free A1 capacity proved
+persistently unavailable, and the resources that a partial provisioning had created
+were torn down. The replacement owner-managed private Linux host foundation is being
+prepared in #124 and is not yet operational; until it is, use local `dev`. Never
+silently select paid or trial-only resources. Public production, HA, staging,
+Kubernetes, distributed components, automatic broad sync, and paid managed services
+remain deferred.
 
 ## Artefact and delivery
 
@@ -57,14 +59,9 @@ because the old one remains healthy. Deployment success is not product acceptanc
 
 Configuration is injected at runtime; `.env.example` files document local names and
 safe defaults. Missing security-critical configuration fails clearly. Remote secrets
-use a protected source such as OCI Vault and are independently rotatable and
-least-privileged. Secret values stay out of Git, images, Terraform state where
-possible, frontend code, URLs, logs, screenshots, and CI artifacts.
-
-OCI Resource Manager is the only remote Terraform state owner. IAM-restricted state
-access and per-stack job serialization protect it and prevent concurrent changes;
-local state and local applies are prohibited. The Terraform stack marks operational
-outputs sensitive and never reads secret payloads or notification endpoints.
+use a protected secret store and are independently rotatable and least-privileged.
+Secret values stay out of Git, images, frontend code, URLs, logs, screenshots, and
+CI artifacts.
 
 ## PostgreSQL, migrations, and recovery
 
@@ -105,8 +102,8 @@ Automatic scheduling remains deferred.
 | Migration failure | Do not activate new application |
 | Readiness/smoke failure | Keep/redeploy prior compatible image or forward-fix |
 | Backup failure | Report recoverability failure; do not claim release success |
-| VM loss/reclamation | Reprovision from IaC, restore durable state, verify journey |
+| Host loss | Rebuild the host from documented steps, restore durable state, verify journey |
 
-Terraform, standard OCI containers, PostgreSQL logical backups, OpenTelemetry, and
-private-ingress abstraction preserve portability. Revisit hosting when free policy,
-capacity, reclamation, resources, Tailscale terms, or release mode changes.
+Standard OCI container images, PostgreSQL logical backups, OpenTelemetry, and
+private-ingress abstraction preserve portability. Revisit hosting when host capacity,
+resources, Tailscale terms, or release mode changes.

@@ -35,7 +35,7 @@ the lock file, Dockerfile, and Compose file.
   compatibility, security, licence, runtime architecture support, and rollback before
   upgrades. Do not copy patch versions into prose.
 - Supported images and application artefacts must work on `linux/amd64` and
-  `linux/arm64` before OCI Ampere provisioning.
+  `linux/arm64`.
 
 ## Deferred by default
 

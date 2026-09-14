@@ -8,7 +8,7 @@ flowchart TD
     GHCR["Publish immutable image to GHCR<br/>commit SHA + content digest"]
     Approval{"Manual owner approval<br/>for private dev"}
     NotDeployed["Not deployed<br/>await approval or close the deployment"]
-    Target["Validate Always Free target<br/>and secret references"]
+    Target["Validate private dev target<br/>and secret references"]
     Recovery["Confirm backup and recovery preconditions"]
     Migration["Run one serialized Flyway migration job"]
     Replace["Replace application container<br/>using the selected digest"]

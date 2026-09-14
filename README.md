@@ -14,9 +14,9 @@ a packaged React frontend, a real Keycloak-backed BFF session, transactional
 current-user rating read/write/delete with its accessible inline game-page rating
 experience, the private `Mis puntuaciones` search and maintenance page, and internal
 operator-triggered IGDB catalogue synchronization.
-Remote `dev` deployment remains a later slice of the approved journey. The reviewed
-private OCI Terraform stack and its fail-closed zero-cost plan gate are implemented
-locally, but no remote infrastructure has been provisioned.
+Remote `dev` deployment remains a later slice of the approved journey. Remote `dev`
+infrastructure is not provisioned: the OCI Always Free path was retired and an
+owner-managed private host foundation is being prepared in #124.
 
 The system is one same-origin React application and Java/Spring modular monolith,
 with PostgreSQL, Flyway, Keycloak, and provider-independent local catalogue data.
@@ -70,7 +70,6 @@ See [local setup](docs/development/local-setup.md), the
 | `docs/research/` | Historical evidence and bounded spikes, not operational instructions |
 | `tools/igdb-poc/` | Isolated provider proof-of-concept tool |
 | `scripts/` | Executable development and validation entry points |
-| `infrastructure/terraform/` | Private OCI Resource Manager stack and hard cost/resource constraints |
 | `AGENTS.md`, `CLAUDE.md` | Instructions for AI coding agents; `CLAUDE.md` imports `AGENTS.md` |
 | `.agents/skills/` | Canonical copy of every agent skill |
 | `.claude/`, `.codex/` | Per-agent configuration; `.claude/skills/` symlinks the canonical skills |
