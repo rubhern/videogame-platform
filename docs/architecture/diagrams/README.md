@@ -5,9 +5,8 @@ code/configuration, and ADRs remain authoritative.
 
 | Tool/source | Ownership |
 |---|---|
-| `structurizr/workspace.dsl` | Canonical shared C4 System Context, Container, and private-`dev` target model |
+| `structurizr/workspace.dsl` | Canonical shared C4 System Context and Container model |
 | `mermaid/*.mmd` | Focused context/dependency/sequence/persistence/delivery views listed below |
-| `diagrams-net/*.drawio` | Polished derived communication view only |
 | `generated/` | Disposable exports; never edit directly |
 
 Do not recreate every view in every tool or introduce a decision only in a drawing.
@@ -24,7 +23,6 @@ Do not recreate every view in every tool or introduce a decision only in a drawi
 | `synchronize-bounded-catalogue-sequence.mmd` | Implemented date-interval synchronization behaviour; use cases/platform |
 | `catalogue-persistence-model.mmd` | Implemented physical catalogue schema; Flyway SQL |
 | `delivery-pipeline.mmd` | Source-to-image/private-`dev` target flow; platform/delivery lifecycle |
-| `private-dev-deployment.drawio` | Polished derived target deployment; Structurizr/platform |
 
 Implementation-backed diagrams must follow the referenced code/config/tests and must
 not claim future rating/synchronization behaviour as implemented evidence.

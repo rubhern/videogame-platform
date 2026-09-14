@@ -66,7 +66,6 @@ required_files=(
   "docs/architecture/diagrams/structurizr/workspace.dsl"
   "docs/architecture/diagrams/structurizr/workspace.json"
   "docs/architecture/diagrams/structurizr/structurizr.properties"
-  "docs/architecture/diagrams/diagrams-net/private-dev-deployment.drawio"
   "docs/architecture/diagrams/mermaid/module-context-map.mmd"
   "docs/architecture/diagrams/mermaid/hexagonal-dependency-rules.mmd"
   "docs/architecture/diagrams/mermaid/authenticate-and-create-rating-sequence.mmd"
@@ -104,7 +103,6 @@ required_files=(
   "scripts/backend-artifact.sh"
   "scripts/validate-browser.sh"
   "scripts/validate-container-image.sh"
-  "scripts/validate-topology-budget.sh"
   "scripts/local-dependencies.sh"
   "scripts/validate-prerequisites.sh"
   "scripts/build-openapi-docs.sh"
@@ -444,7 +442,7 @@ expected_statuses = {
     "docs/decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md": "Accepted",
     "docs/decisions/0003-use-a-same-origin-bff-and-http-json-api.md": "Accepted",
     "docs/decisions/0004-synchronize-and-serve-local-catalogue-data.md": "Accepted",
-    "docs/decisions/0005-host-private-dev-on-oci-always-free.md": "Accepted",
+    "docs/decisions/0005-host-private-dev-on-oci-always-free.md": "Superseded",
     "docs/decisions/0006-use-postgresql-and-versioned-forward-migrations.md": "Accepted",
     "docs/decisions/0007-use-keycloak-as-the-initial-identity-provider.md": "Accepted",
     "docs/decisions/0008-use-github-actions-and-ghcr-for-initial-delivery.md": "Accepted",

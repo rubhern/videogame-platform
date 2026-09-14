@@ -75,11 +75,10 @@ bash scripts/local-dependencies.sh down
 
 On first `up`, the wrapper creates ignored `.env` files with independent random
 credentials and mode `0600`. It never prints secret values. To verify the approved
-image architectures or topology budget:
+image architectures:
 
 ```bash
 bash scripts/local-dependencies.sh verify-images
-bash scripts/validate-topology-budget.sh
 ```
 
 Run the complete application with:
