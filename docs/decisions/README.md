@@ -28,7 +28,8 @@ historical decision.
 - [ADR-0016: Search the bounded catalogue with PostgreSQL text search](0016-search-the-bounded-catalogue-with-postgresql-text-search.md)
 - [ADR-0017: Synchronize relevant catalogue Games and Releases automatically](0017-discover-catalogue-members-automatically-from-igdb.md)
 - [ADR-0018: Maintain a Ratings-owned rebuildable game-listing projection](0018-project-personal-ratings-listing-in-ratings.md)
+- [ADR-0019: Host private dev on an owner-managed Linux host](0019-host-private-dev-on-an-owner-managed-linux-host.md)
 
 ## Superseded
 
-- [ADR-0005: Host private dev on OCI Always Free](0005-host-private-dev-on-oci-always-free.md) — OCI Always Free A1 abandoned and torn down; replacement private-dev host prepared in #124.
+- [ADR-0005: Host private dev on OCI Always Free](0005-host-private-dev-on-oci-always-free.md) — OCI Always Free A1 abandoned and torn down; superseded by ADR-0019.
