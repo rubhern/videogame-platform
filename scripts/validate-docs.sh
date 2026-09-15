@@ -11,7 +11,8 @@ required_files=(
   "backend/.env.example"
   "compose.yaml"
   "docker/keycloak/import/videogame-platform-realm.json"
-  "docker/postgres/init/001-create-local-databases.sh"
+  "docker/keycloak/import/videogame-platform-users-0.json"
+  "docker/postgres/init/001-create-databases.sh"
   ".mvn/wrapper/maven-wrapper.properties"
   "AGENTS.md"
   "README.md"
@@ -285,13 +286,15 @@ except (OSError, ET.ParseError) as error:
     errors.append(f"Maven version validation failed: {error}")
 
 realm_path = root / "docker/keycloak/import/videogame-platform-realm.json"
+local_realm_users_path = root / "docker/keycloak/import/videogame-platform-users-0.json"
 try:
     realm = json.loads(realm_path.read_text(encoding="utf-8"))
+    local_realm_users = json.loads(local_realm_users_path.read_text(encoding="utf-8"))
     clients = [
         client for client in realm.get("clients", [])
         if client.get("clientId") == "videogame-platform-bff"
     ]
-    users = realm.get("users", [])
+    users = local_realm_users.get("users", [])
     if realm.get("realm") != "videogame-platform" or not realm.get("enabled"):
         errors.append("Keycloak realm must define the enabled videogame-platform realm")
     if len(clients) != 1:
@@ -311,8 +314,14 @@ try:
                 errors.append(f"Keycloak BFF client {key} must be {expected!r}")
         if client.get("attributes", {}).get("pkce.code.challenge.method") != "S256":
             errors.append("Keycloak BFF client must require PKCE S256")
+        if client.get("rootUrl") != "${APPLICATION_PUBLIC_ORIGIN}":
+            errors.append("Keycloak BFF client root URL must use APPLICATION_PUBLIC_ORIGIN")
+    if "users" in realm:
+        errors.append("Shared Keycloak realm must not embed environment-specific users")
+    if local_realm_users.get("realm") != "videogame-platform":
+        errors.append("Local Keycloak user import must target videogame-platform")
     if len(users) != 1 or users[0].get("username") != "${LOCAL_TEST_USER_USERNAME}":
-        errors.append("Keycloak realm must define exactly one environment-backed local test user")
+        errors.append("Local Keycloak user import must define exactly one environment-backed test user")
     else:
         credentials = users[0].get("credentials", [])
         if len(credentials) != 1 or credentials[0].get("value") != "${LOCAL_TEST_USER_PASSWORD}":
@@ -413,6 +422,8 @@ expected_backend_variables = {
     "CATALOGUE_SYNC_FALLBACK_COVER_PATH",
     "CATALOGUE_SYNC_FALLBACK_COVER_SOURCE",
     "CATALOGUE_SYNC_UNKNOWN_REGION_CODE",
+    "TELEMETRY_DEPLOYMENT_ENVIRONMENT",
+    "TELEMETRY_SERVICE_VERSION",
     "TELEMETRY_OTLP_TRACES_ENABLED",
     "TELEMETRY_OTLP_TRACES_ENDPOINT",
     "TELEMETRY_OTLP_METRICS_ENABLED",
@@ -515,6 +526,12 @@ if errors:
 PY
 
 while IFS= read -r file; do
+  # A reviewable working tree can legitimately delete or rename a tracked file.
+  # Required canonical files are checked above; mode validation applies to paths
+  # that still exist in the candidate tree.
+  if [[ ! -e "$file" && ! -L "$file" ]]; then
+    continue
+  fi
   if [[ -L "$file" ]]; then
     link_target="$(readlink -f -- "$file" || true)"
     if [[ -z "$link_target" || ! -e "$link_target" ]]; then
@@ -532,7 +549,7 @@ while IFS= read -r file; do
   fi
 
   case "$file" in
-    mvnw|scripts/*.sh|docker/postgres/init/*.sh|docs/architecture/diagrams/scripts/*.sh)
+    mvnw|scripts/*.sh|docker/postgres/init/*.sh|deploy/private-dev/bin/*|docs/architecture/diagrams/scripts/*.sh)
       [[ -x "$file" ]] || {
         printf 'Shell script must be executable: %s\n' "$file" >&2
         exit 1

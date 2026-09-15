@@ -52,6 +52,9 @@ with a dedicated short statement timeout; health details remain hidden.
   input values as metric tags.
 - Propagate W3C trace context. OTLP trace and metric export remains disabled until an
   explicit endpoint is configured.
+- Exported resources carry bounded `deployment.environment.name` and `service.version`
+  attributes from `TELEMETRY_DEPLOYMENT_ENVIRONMENT` and `TELEMETRY_SERVICE_VERSION`;
+  they never derive either value from visitor input.
 - Telemetry failure must not break product requests or readiness.
 
 Never log or export credentials, cookies, CSRF values, authorization codes, OAuth
@@ -60,9 +63,11 @@ credentials, or arbitrary exception text. Error responses expose stable codes an
 correlation identifier, never stack traces or SQL.
 
 The [platform design](../architecture/deployment/mvp-platform-and-delivery.md) owns
-remote telemetry topology, retention, and privacy. Product-specific meters should be
-added only when they answer an operational or product decision and have a bounded
-cardinality review.
+remote telemetry topology, retention, and privacy; the private-dev Compose and
+collector files linked there own executable limits. Its bounded synthetic OTLP check
+owns repository/host receipt validation independent of application deployment.
+Product-specific meters should be added only when they answer an operational or
+product decision and have a bounded cardinality review.
 
 `POST /actuator/cataloguesync` is the internal operator command that starts one
 complete synchronization of the required inclusive `from`/`to` interval; the

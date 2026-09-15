@@ -2,9 +2,38 @@
 
 set -Eeuo pipefail
 
-: "${APPLICATION_DB_PASSWORD:?APPLICATION_DB_PASSWORD is required}"
-: "${APPLICATION_MIGRATION_DB_PASSWORD:?APPLICATION_MIGRATION_DB_PASSWORD is required}"
-: "${KEYCLOAK_DB_PASSWORD:?KEYCLOAK_DB_PASSWORD is required}"
+read_secret() {
+  local variable_name="$1"
+  local file_variable_name="${variable_name}_FILE"
+  local direct_value="${!variable_name:-}"
+  local file_path="${!file_variable_name:-}"
+  local secret_value
+
+  if [[ -n "$direct_value" && -n "$file_path" ]]; then
+    printf 'Set only %s or %s, not both.\n' "$variable_name" "$file_variable_name" >&2
+    exit 1
+  fi
+  if [[ -n "$file_path" ]]; then
+    [[ -r "$file_path" ]] || {
+      printf 'Secret file is not readable: %s\n' "$file_path" >&2
+      exit 1
+    }
+    secret_value="$(<"$file_path")"
+  else
+    secret_value="$direct_value"
+  fi
+  [[ -n "$secret_value" ]] || {
+    printf '%s or %s is required.\n' "$variable_name" "$file_variable_name" >&2
+    exit 1
+  }
+  printf -v "$variable_name" '%s' "$secret_value"
+  export "$variable_name"
+  unset secret_value
+}
+
+read_secret APPLICATION_DB_PASSWORD
+read_secret APPLICATION_MIGRATION_DB_PASSWORD
+read_secret KEYCLOAK_DB_PASSWORD
 
 psql --set=ON_ERROR_STOP=1 \
   --username "$POSTGRES_USER" \

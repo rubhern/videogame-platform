@@ -14,9 +14,11 @@ a packaged React frontend, a real Keycloak-backed BFF session, transactional
 current-user rating read/write/delete with its accessible inline game-page rating
 experience, the private `Mis puntuaciones` search and maintenance page, and internal
 operator-triggered IGDB catalogue synchronization.
-The owner-managed private `dev` host foundation is prepared; application deployment
-remains a later slice. The [platform design](docs/architecture/deployment/mvp-platform-and-delivery.md)
-owns current setup and acceptance boundaries. The superseded OCI infrastructure was removed.
+The owner-managed private `dev` host foundation is prepared, and the repository now
+contains reproducible runtime/secrets/telemetry configuration; applying it to the host
+and application deployment remain separate evidence. The
+[platform design](docs/architecture/deployment/mvp-platform-and-delivery.md) owns
+current setup and acceptance boundaries. The superseded OCI infrastructure was removed.
 
 The system is one same-origin React application and Java/Spring modular monolith,
 with PostgreSQL, Flyway, Keycloak, and provider-independent local catalogue data.
