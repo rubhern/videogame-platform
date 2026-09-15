@@ -74,9 +74,7 @@ class BackendStartupTest {
                         openTelemetryResource.getAttribute(
                                 AttributeKey.stringKey("deployment.environment.name")))
                 .isEqualTo("integration-test");
-        assertThat(
-                        openTelemetryResource.getAttribute(
-                                AttributeKey.stringKey("service.version")))
+        assertThat(openTelemetryResource.getAttribute(AttributeKey.stringKey("service.version")))
                 .isEqualTo("43.0.0-test");
 
         String samplingCorrelationId = "baseline-sampling-check";
