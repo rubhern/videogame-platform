@@ -27,12 +27,13 @@ reservation; addressing and tailnet identifiers stay outside canonical documents
 records the hosting decision; [#124](https://github.com/rubhern/videogame-platform/issues/124)
 owns measured evidence and outstanding host acceptance.
 
-The approved future runtime remains the non-root application container, Keycloak,
-PostgreSQL and bounded telemetry on this host. Private HTTPS and runtime/secrets/
-telemetry setup belong to #43, application deployment to #36, and backup/restore to
-#44; these are not established by the foundation. Tailscale does not replace
-Keycloak/product authorization. No public application, identity, database, telemetry
-or SSH ingress is allowed, and router port forwarding must remain disabled.
+The repository configuration now defines the non-root application boundary,
+Keycloak, PostgreSQL and bounded telemetry for this host. Applying and validating it
+on `vgpdev` remains part of #43; repository configuration is not host evidence.
+Application image selection and deployment remain in #36, and backup/restore remains
+in #44. Tailscale does not replace Keycloak/product authorization. No public
+application, identity, database, telemetry or SSH ingress is allowed, and router port
+forwarding must remain disabled.
 
 The superseded OCI infrastructure and procedures were removed from the active
 repository; Git history and [#42](https://github.com/rubhern/videogame-platform/issues/42)
@@ -83,6 +84,55 @@ and credentials privately.
 
 The following delivery/runtime/recovery policies govern later slices; they do not
 claim those capabilities are configured on the current host.
+
+## Private dev runtime boundary
+
+[`deploy/private-dev`](../../../deploy/private-dev/README.md) is the operator entry
+point and its Compose, realm, collector and validation files own executable mechanics.
+The default stack starts PostgreSQL, Keycloak and the OpenTelemetry Collector. The
+application definition is profile-gated: it reserves the approved runtime boundary,
+but #36 must select an immutable GHCR digest and perform deployment and smoke
+acceptance. It does not run migrations; the serialized migration actor remains a
+deployment concern.
+
+PostgreSQL and the collector publish no host port. The product and Keycloak HTTP
+ports bind only to host loopback, where Tailscale Serve terminates HTTPS on separate
+tailnet-only ports. Database and telemetry networks are Docker-internal; the edge
+network exists only for required outbound access and loopback publication. Keycloak
+management and application Actuator ports stay container-internal. Tailscale Funnel,
+router forwarding and public DNS/ingress remain prohibited; tailnet policy permits
+only the owner.
+
+Real secrets are independent files below an owner-managed protected directory outside
+Git. Compose grants each service only its required files. Entrypoint wrappers read
+them without putting values in Compose environment metadata or command arguments;
+optional IGDB files may remain empty to keep synchronization disabled. Changing a
+file does not rotate an already-created PostgreSQL role or imported Keycloak client:
+rotation must update the owning service state and then replace the file as one
+reviewed operation.
+
+The database/role bootstrap and parameterized Keycloak realm are shared executable
+contracts with local development rather than private-dev copies. Local Compose adds a
+separate synthetic-user import that private dev does not mount. Private dev changes
+only secret transport, public origin and runtime topology around those contracts.
+
+Telemetry is one replaceable, internal-only OpenTelemetry Collector rather than a
+self-hosted dashboard/storage stack. It accepts application OTLP HTTP metrics and
+traces, limits memory and batch size, samples traces at the application boundary and
+emits only basic batch/count diagnostics into size-limited container logs. Application
+resources identify the `dev` environment and immutable application version. The
+collector has no secret and is not a readiness dependency. A durable telemetry
+backend, dashboards, alerting and remote export remain deferred until measured value
+justifies their host cost. A bounded synthetic check submits exactly one fixed
+versioned span and one fixed metric and verifies receipt without exposing their
+contents in basic collector logs. This accepts the telemetry boundary within #43;
+application-produced signals remain later deployment evidence, not a dependency.
+
+Executable and live validation treat IPv4 and IPv6 independently. Container HTTP
+publication is explicit IPv4 loopback only, protected internal ports have no host
+listener in either family, and host acceptance requires separate non-tailnet evidence
+for the public IPv4 address and every global IPv6 address (or recorded evidence that
+no global IPv6 address exists).
 
 ## Artefact and delivery
 

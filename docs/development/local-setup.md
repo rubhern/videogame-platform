@@ -106,7 +106,10 @@ containers, network, and PostgreSQL volume; it does not delete repository files,
 images, `.env` files, unrelated volumes, or remote data.
 
 Keycloak runs over loopback HTTP and uses a non-personal synthetic test account.
-The imported realm enables Keycloak-hosted self-registration, so a new visitor can
+The shared imported realm contains environment-neutral identity/client policy; its
+origins come from `APPLICATION_PUBLIC_ORIGIN`. A separate local-only user import adds
+the synthetic account and is not mounted by private dev. The realm enables
+Keycloak-hosted self-registration, so a new visitor can
 create an account from the Keycloak login page without administrator provisioning;
 the realm import owns this setting, so applying it to an already-provisioned instance
 needs a `reset` and re-import. The same applies to `KEYCLOAK_BFF_CLIENT_SECRET`: the

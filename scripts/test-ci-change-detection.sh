@@ -107,6 +107,11 @@ run_case local-dependencies \
   'documentation,build,backend,migrations,identity,container' \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
+run_case private-dev-runtime \
+  $'deploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\nscripts/validate-private-dev-runtime.sh' \
+  'documentation,build,backend,migrations,identity,container' \
+  'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
 run_case identity \
   'backend/src/main/java/com/videogameplatform/identity/configuration/IdentitySecurityConfiguration.java' \
   'backend,browser,identity,sonar,codeql_java' \

@@ -99,6 +99,7 @@ docker run --detach \
   --env KC_BOOTSTRAP_ADMIN_PASSWORD="$keycloak_admin_password" \
   --env KC_HEALTH_ENABLED=true \
   --env KC_HOSTNAME=http://keycloak:8080 \
+  --env APPLICATION_PUBLIC_ORIGIN=http://application:8080 \
   --env KEYCLOAK_BFF_CLIENT_SECRET="$bff_client_secret" \
   --env LOCAL_TEST_USER_USERNAME="$test_user_username" \
   --env LOCAL_TEST_USER_PASSWORD="$test_user_password" \

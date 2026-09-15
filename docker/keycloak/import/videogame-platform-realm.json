@@ -16,7 +16,7 @@
     {
       "clientId": "videogame-platform-bff",
       "name": "VideoGame Platform BFF",
-      "description": "Confidential local BFF client for the learning MVP.",
+      "description": "Confidential BFF client for the learning MVP.",
       "enabled": true,
       "protocol": "openid-connect",
       "clientAuthenticatorType": "client-secret",
@@ -29,41 +29,21 @@
       "authorizationServicesEnabled": false,
       "frontchannelLogout": true,
       "fullScopeAllowed": false,
-      "rootUrl": "http://localhost:8080",
+      "rootUrl": "${APPLICATION_PUBLIC_ORIGIN}",
       "baseUrl": "/",
       "redirectUris": [
-        "http://localhost:8080/login/oauth2/code/keycloak",
-        "http://application:8080/login/oauth2/code/keycloak"
+        "${APPLICATION_PUBLIC_ORIGIN}/login/oauth2/code/keycloak"
       ],
       "webOrigins": [
-        "http://localhost:8080",
-        "http://application:8080"
+        "${APPLICATION_PUBLIC_ORIGIN}"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:8080/##http://application:8080/",
+        "post.logout.redirect.uris": "${APPLICATION_PUBLIC_ORIGIN}/",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.session.required": "true",
         "backchannel.logout.revoke.offline.tokens": "false"
       }
-    }
-  ],
-  "users": [
-    {
-      "username": "${LOCAL_TEST_USER_USERNAME}",
-      "enabled": true,
-      "firstName": "Local",
-      "lastName": "User",
-      "email": "local-user@localhost.invalid",
-      "emailVerified": true,
-      "requiredActions": [],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "${LOCAL_TEST_USER_PASSWORD}",
-          "temporary": false
-        }
-      ]
     }
   ]
 }

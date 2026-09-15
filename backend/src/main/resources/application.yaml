@@ -125,6 +125,9 @@ management:
     env:
       enabled: false
   opentelemetry:
+    resource-attributes:
+      deployment.environment.name: ${TELEMETRY_DEPLOYMENT_ENVIRONMENT:local}
+      service.version: ${TELEMETRY_SERVICE_VERSION:development}
     tracing:
       export:
         otlp:

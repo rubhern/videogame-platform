@@ -146,6 +146,10 @@ for path in "${changed_paths[@]}"; do
       enable migrations backend
       matched=true
       ;;
+    scripts/validate-private-dev-runtime.sh | deploy/private-dev/*)
+      enable documentation build backend migrations identity container
+      matched=true
+      ;;
     scripts/backend-artifact.sh)
       enable documentation build browser backend identity container
       matched=true

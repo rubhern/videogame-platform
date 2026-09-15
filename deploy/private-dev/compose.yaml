@@ -1,0 +1,243 @@
+name: ${COMPOSE_PROJECT_NAME:-videogame-platform-dev}
+
+x-logging: &bounded-logging
+  driver: local
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+      APPLICATION_DB_PASSWORD_FILE: /run/secrets/application_db_password
+      APPLICATION_MIGRATION_DB_PASSWORD_FILE: /run/secrets/application_migration_db_password
+      KEYCLOAK_DB_PASSWORD_FILE: /run/secrets/keycloak_db_password
+    secrets:
+      - postgres_admin_password
+      - application_db_password
+      - application_migration_db_password
+      - keycloak_db_password
+    group_add:
+      - ${PRIVATE_DEV_SECRETS_GID:?Set PRIVATE_DEV_SECRETS_GID in runtime.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/18/docker
+      # Local and private dev intentionally share the one executable database/role
+      # bootstrap; environment-specific secret transport is handled by *_FILE.
+      - ../../docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          gosu postgres psql --dbname=postgres --tuples-only --no-align
+          --command="SELECT
+          EXISTS (SELECT FROM pg_database WHERE datname = 'videogame_platform')
+          AND EXISTS (SELECT FROM pg_database WHERE datname = 'videogame_keycloak')
+          AND EXISTS (SELECT FROM pg_roles WHERE rolname = 'videogame_app')
+          AND EXISTS (SELECT FROM pg_roles WHERE rolname = 'videogame_app_migrator')
+          AND EXISTS (SELECT FROM pg_roles WHERE rolname = 'videogame_keycloak')"
+          | grep --quiet '^t$'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    logging: *bounded-logging
+
+  keycloak:
+    image: videogame-platform/keycloak-private-dev:26.7.0
+    build:
+      context: ./keycloak
+      dockerfile: Dockerfile
+    entrypoint: ["/opt/videogame-platform/bin/run-keycloak"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/videogame_keycloak
+      KC_DB_USERNAME: videogame_keycloak
+      KC_DB_PASSWORD_FILE: /run/secrets/keycloak_db_password
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:?Set KEYCLOAK_ADMIN_USERNAME in runtime.env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_admin_password
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_HOSTNAME: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}
+      KC_PROXY_HEADERS: xforwarded
+      KC_CACHE: local
+      APPLICATION_PUBLIC_ORIGIN: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}
+      KEYCLOAK_BFF_CLIENT_SECRET_FILE: /run/secrets/keycloak_bff_client_secret
+    secrets:
+      - keycloak_db_password
+      - keycloak_admin_password
+      - keycloak_bff_client_secret
+    group_add:
+      - ${PRIVATE_DEV_SECRETS_GID:?Set PRIVATE_DEV_SECRETS_GID in runtime.env}
+    volumes:
+      - ./bin/run-keycloak:/opt/videogame-platform/bin/run-keycloak:ro
+      # The realm contract is shared with local development. Mounting only this file
+      # deliberately excludes the separate synthetic local-user import.
+      - ../../docker/keycloak/import/videogame-platform-realm.json:/opt/keycloak/data/import/videogame-platform-realm.json:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /opt/keycloak/data/tmp:rw,noexec,nosuid,size=64m
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - edge
+      - data
+    ports:
+      - "127.0.0.1:${KEYCLOAK_LOOPBACK_PORT:-8180}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -ec
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000;
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3;
+          grep -q 'HTTP/1.1 200 OK' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 45s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 1536m
+    cpus: 1.5
+    pids_limit: 384
+    logging: *bounded-logging
+
+  telemetry:
+    image: otel/opentelemetry-collector:0.160.0@sha256:e495787f07dbe432ce763ebaf5bc3d113850e9eee2250ade7a3da6a882d0d69a
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel/collector.yaml:/etc/otelcol/config.yaml:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - telemetry
+    restart: unless-stopped
+    stop_grace_period: 20s
+    mem_limit: 256m
+    cpus: 0.25
+    pids_limit: 128
+    init: true
+    logging: *bounded-logging
+
+  application:
+    profiles: ["application"]
+    image: ${APPLICATION_IMAGE:?Set APPLICATION_IMAGE to an immutable GHCR digest in runtime.env}
+    entrypoint: ["/opt/videogame-platform/bin/run-application"]
+    environment:
+      SPRING_PROFILES_ACTIVE: oidc,structured
+      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      APPLICATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
+      APPLICATION_DB_USERNAME: videogame_app
+      APPLICATION_DB_PASSWORD_FILE: /run/secrets/application_db_password
+      APPLICATION_FLYWAY_ENABLED: "false"
+      MANAGEMENT_SERVER_ADDRESS: 0.0.0.0
+      OIDC_AUTHORIZATION_URI: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}/realms/videogame-platform/protocol/openid-connect/auth
+      OIDC_TOKEN_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs
+      OIDC_USER_INFO_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo
+      KEYCLOAK_BFF_CLIENT_SECRET_FILE: /run/secrets/keycloak_bff_client_secret
+      APPLICATION_SESSION_COOKIE_NAME: __Host-vgp_session
+      APPLICATION_SESSION_COOKIE_SECURE: "true"
+      TELEMETRY_DEPLOYMENT_ENVIRONMENT: dev
+      TELEMETRY_SERVICE_VERSION: ${APPLICATION_VERSION:?Set APPLICATION_VERSION to the selected image version in runtime.env}
+      TELEMETRY_OTLP_TRACES_ENABLED: "true"
+      TELEMETRY_OTLP_TRACES_ENDPOINT: http://telemetry:4318/v1/traces
+      TELEMETRY_OTLP_METRICS_ENABLED: "true"
+      TELEMETRY_OTLP_METRICS_ENDPOINT: http://telemetry:4318/v1/metrics
+      TELEMETRY_OTLP_METRICS_STEP: 60s
+      TELEMETRY_TRACING_SAMPLING_PROBABILITY: "0.1"
+      IGDB_CLIENT_ID_FILE: /run/secrets/igdb_client_id
+      IGDB_CLIENT_SECRET_FILE: /run/secrets/igdb_client_secret
+    secrets:
+      - application_db_password
+      - keycloak_bff_client_secret
+      - igdb_client_id
+      - igdb_client_secret
+    group_add:
+      - ${PRIVATE_DEV_SECRETS_GID:?Set PRIVATE_DEV_SECRETS_GID in runtime.env}
+    volumes:
+      - ./bin/run-application:/opt/videogame-platform/bin/run-application:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - edge
+      - data
+      - telemetry
+    ports:
+      - "127.0.0.1:${APPLICATION_LOOPBACK_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "-T", "3", "http://127.0.0.1:8081/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 45s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 1536m
+    cpus: 1.5
+    pids_limit: 384
+    init: true
+    logging: *bounded-logging
+
+secrets:
+  postgres_admin_password:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/postgres-admin-password
+  application_db_password:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/application-db-password
+  application_migration_db_password:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/application-migration-db-password
+  keycloak_db_password:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/keycloak-db-password
+  keycloak_admin_password:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/keycloak-admin-password
+  keycloak_bff_client_secret:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/keycloak-bff-client-secret
+  igdb_client_id:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/igdb-client-id
+  igdb_client_secret:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/igdb-client-secret
+
+volumes:
+  postgres-data:
+
+networks:
+  edge:
+  data:
+    internal: true
+  telemetry:
+    internal: true
