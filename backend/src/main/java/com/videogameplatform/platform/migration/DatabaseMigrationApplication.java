@@ -1,6 +1,7 @@
 package com.videogameplatform.platform.migration;
 
 import java.io.PrintStream;
+import java.util.Map;
 import org.flywaydb.core.Flyway;
 
 /** One-shot entry point for applying the packaged application's production migrations. */
@@ -11,11 +12,15 @@ public final class DatabaseMigrationApplication {
     private DatabaseMigrationApplication() {}
 
     public static void main(String[] args) {
-        migrate(
-                requiredEnvironment("APPLICATION_MIGRATION_DB_URL"),
-                requiredEnvironment("APPLICATION_MIGRATION_DB_USERNAME"),
-                requiredEnvironment("APPLICATION_MIGRATION_DB_PASSWORD"),
-                System.out);
+        run(System.getenv(), System.out);
+    }
+
+    static String run(Map<String, String> environment, PrintStream output) {
+        return migrate(
+                requiredEnvironment(environment, "APPLICATION_MIGRATION_DB_URL"),
+                requiredEnvironment(environment, "APPLICATION_MIGRATION_DB_USERNAME"),
+                requiredEnvironment(environment, "APPLICATION_MIGRATION_DB_PASSWORD"),
+                output);
     }
 
     static String migrate(String url, String username, String password, PrintStream output) {
@@ -41,8 +46,8 @@ public final class DatabaseMigrationApplication {
         return migrationVersion;
     }
 
-    private static String requiredEnvironment(String name) {
-        String value = System.getenv(name);
+    private static String requiredEnvironment(Map<String, String> environment, String name) {
+        String value = environment.get(name);
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException(
                     "Required migration configuration is missing: " + name);
