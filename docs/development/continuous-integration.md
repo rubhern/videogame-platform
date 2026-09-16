@@ -25,13 +25,17 @@ Secret scanning remains applicable to every pull request.
 | Migrations | `bash scripts/validate-migrations.sh` |
 | Packaged browser | `bash scripts/validate-browser.sh` |
 | Real OIDC/BFF session and Keycloak rating journey | `bash scripts/validate-identity.sh` |
-| Private-dev runtime | `bash scripts/validate-private-dev-runtime.sh --telemetry-smoke` |
+| Private-dev runtime/deployment | `bash scripts/validate-private-dev-runtime.sh --telemetry-smoke` |
 | OCI image | `bash scripts/validate-container-image.sh` |
 | IGDB PoC fixtures | `./mvnw -f tools/igdb-poc/pom.xml clean verify` |
 
 Commands and exact tool/action versions live in package manifests, Maven POMs,
 scripts, Dockerfile, and `.github/workflows/`. CI uses no live IGDB credentials and
-does not provision or deploy remote infrastructure.
+does not provision or deploy remote infrastructure. Private-dev validation uses
+disposable configuration, a fake deployment boundary to prove ordering/lock/failure
+semantics, and an in-memory Keycloak-admin double to prove smoke-account ownership
+rules; only the owner-run host commands can provision the real account or perform a
+real deployment.
 
 Trusted `main` builds validate and publish the same non-root multi-architecture OCI
 index by immutable commit SHA/digest. Pull requests never publish. Image scanning,

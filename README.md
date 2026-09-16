@@ -15,8 +15,9 @@ current-user rating read/write/delete with its accessible inline game-page ratin
 experience, the private `Mis puntuaciones` search and maintenance page, and internal
 operator-triggered IGDB catalogue synchronization.
 The owner-managed private `dev` host foundation is prepared, and the repository now
-contains reproducible runtime/secrets/telemetry configuration; applying it to the host
-and application deployment remain separate evidence. The
+contains reproducible runtime/secrets/telemetry configuration plus an owner-triggered,
+digest-verified migration/deployment/smoke mechanism. Applying it and proving the
+first real application deployment remain separate `vgpdev` evidence. The
 [platform design](docs/architecture/deployment/mvp-platform-and-delivery.md) owns
 current setup and acceptance boundaries. The superseded OCI infrastructure was removed.
 

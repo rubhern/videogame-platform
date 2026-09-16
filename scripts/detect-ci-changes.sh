@@ -146,7 +146,7 @@ for path in "${changed_paths[@]}"; do
       enable migrations backend
       matched=true
       ;;
-    scripts/validate-private-dev-runtime.sh | deploy/private-dev/*)
+    scripts/validate-private-dev-runtime.sh | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-oidc-provisioning.py | deploy/private-dev/*)
       enable documentation build backend migrations identity container
       matched=true
       ;;

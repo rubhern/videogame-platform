@@ -214,6 +214,81 @@ services:
     init: true
     logging: *bounded-logging
 
+  migration:
+    profiles: ["deployment"]
+    image: ${APPLICATION_IMAGE:?The deployment command must supply an immutable application image}
+    entrypoint: ["/opt/videogame-platform/bin/run-migrations"]
+    environment:
+      APPLICATION_MIGRATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
+      APPLICATION_MIGRATION_DB_USERNAME: videogame_app_migrator
+      APPLICATION_MIGRATION_DB_PASSWORD_FILE: /run/secrets/application_migration_db_password
+    secrets:
+      - application_migration_db_password
+    group_add:
+      - ${PRIVATE_DEV_SECRETS_GID:?Set PRIVATE_DEV_SECRETS_GID in runtime.env}
+    volumes:
+      - ./bin/run-migrations:/opt/videogame-platform/bin/run-migrations:ro
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    init: true
+    logging: *bounded-logging
+
+  deployment-smoke:
+    profiles: ["deployment"]
+    image: videogame-platform/private-dev-smoke:1.0.0
+    build:
+      context: ./smoke
+      dockerfile: Dockerfile
+    environment:
+      PRIVATE_DEV_APPLICATION_ORIGIN: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}
+      PRIVATE_DEV_KEYCLOAK_ORIGIN: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}
+      EXPECTED_APPLICATION_VERSION: ${APPLICATION_VERSION:?The deployment command derives the selected image version}
+      EXPECTED_SOURCE_REVISION: ${SOURCE_REVISION:?The deployment command must supply the approved source revision}
+      SMOKE_CORRELATION_ID: ${SMOKE_CORRELATION_ID:?The deployment command must supply a bounded correlation identifier}
+      SMOKE_TRACE_ID: ${SMOKE_TRACE_ID:?The deployment command must supply a W3C trace identifier}
+      OIDC_SMOKE_USERNAME_FILE: /run/secrets/oidc_smoke_username
+      OIDC_SMOKE_PASSWORD_FILE: /run/secrets/oidc_smoke_password
+      XDG_CACHE_HOME: /tmp/cache
+      XDG_CONFIG_HOME: /tmp/config
+    secrets:
+      - oidc_smoke_username
+      - oidc_smoke_password
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    shm_size: 256m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - edge
+    depends_on:
+      application:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    restart: "no"
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    init: true
+    logging: *bounded-logging
+
 secrets:
   postgres_admin_password:
     file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/postgres-admin-password
@@ -231,6 +306,10 @@ secrets:
     file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/igdb-client-id
   igdb_client_secret:
     file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/igdb-client-secret
+  oidc_smoke_username:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/oidc-smoke-username
+  oidc_smoke_password:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/oidc-smoke-password
 
 volumes:
   postgres-data:
