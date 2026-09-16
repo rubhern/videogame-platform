@@ -5,6 +5,7 @@ set -Eeuo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 compose_file="$repository_root/deploy/private-dev/compose.yaml"
 runtime_env=""
+runtime_env_supplied=false
 live=false
 telemetry_smoke=false
 temporary_directory=""
@@ -40,6 +41,7 @@ while (($# > 0)); do
   case "$1" in
     --env-file)
       runtime_env="${2:-}"
+      runtime_env_supplied=true
       shift 2
       ;;
     --live)
@@ -83,7 +85,9 @@ if [[ -z "$runtime_env" ]]; then
     keycloak-admin-password \
     keycloak-bff-client-secret \
     igdb-client-id \
-    igdb-client-secret; do
+    igdb-client-secret \
+    oidc-smoke-username \
+    oidc-smoke-password; do
     printf 'static-validation-%s\n' "$name" >"$secrets_directory/$name"
     chmod 0644 "$secrets_directory/$name"
   done
@@ -97,8 +101,11 @@ PRIVATE_DEV_KEYCLOAK_ORIGIN=https://vgpdev.validation.invalid:8443
 APPLICATION_LOOPBACK_PORT=8080
 KEYCLOAK_LOOPBACK_PORT=8180
 KEYCLOAK_ADMIN_USERNAME=validation-admin
-APPLICATION_IMAGE=ghcr.io/rubhern/videogame-platform/application@sha256:1111111111111111111111111111111111111111111111111111111111111111
+APPLICATION_IMAGE=ghcr.io/rubhern/videogame-platform@sha256:1111111111111111111111111111111111111111111111111111111111111111
 APPLICATION_VERSION=0.0.0-validation
+SOURCE_REVISION=1111111111111111111111111111111111111111
+SMOKE_CORRELATION_ID=deployment-smoke-validation
+SMOKE_TRACE_ID=11111111111111111111111111111111
 EOF
 else
   runtime_env="$(realpath -- "$runtime_env")"
@@ -106,8 +113,8 @@ else
     printf 'Runtime environment file does not exist: %s\n' "$runtime_env" >&2
     exit 1
   }
-  if grep -Eq 'example-tailnet|REPLACE_WITH|sha256:0{64}' "$runtime_env"; then
-    printf 'Runtime environment still contains review placeholders: %s\n' "$runtime_env" >&2
+  if grep -Eq 'example-tailnet' "$runtime_env"; then
+    printf 'Runtime environment still contains example private origins: %s\n' "$runtime_env" >&2
     exit 1
   fi
   temporary_directory="$(mktemp -d)"
@@ -118,6 +125,7 @@ docker compose \
   --env-file "$runtime_env" \
   --file "$compose_file" \
   --profile application \
+  --profile deployment \
   config --format json >"$rendered_config"
 
 python3 - "$rendered_config" <<'PY'
@@ -128,7 +136,14 @@ import sys
 
 config = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 services = config["services"]
-expected_services = {"postgres", "keycloak", "telemetry", "application"}
+expected_services = {
+    "postgres",
+    "keycloak",
+    "telemetry",
+    "application",
+    "migration",
+    "deployment-smoke",
+}
 assert set(services) == expected_services, f"unexpected services: {set(services)}"
 
 expected_secret_access = {
@@ -141,10 +156,13 @@ expected_secret_access = {
     "keycloak": {"keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"},
     "telemetry": set(),
     "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"},
+    "migration": {"application_migration_db_password"},
+    "deployment-smoke": {"oidc_smoke_username", "oidc_smoke_password"},
 }
 
 for service_name, service in services.items():
-    assert service.get("restart") == "unless-stopped", f"{service_name} restart policy"
+    expected_restart = "no" if service_name in {"migration", "deployment-smoke"} else "unless-stopped"
+    assert service.get("restart") == expected_restart, f"{service_name} restart policy"
     assert int(service.get("mem_limit", 0)) > 0, f"{service_name} memory limit"
     assert float(service.get("cpus", 0)) > 0, f"{service_name} CPU limit"
     actual_secrets = {secret["source"] for secret in service.get("secrets") or []}
@@ -160,6 +178,8 @@ for service_name, service in services.items():
         "KEYCLOAK_BFF_CLIENT_SECRET",
         "IGDB_CLIENT_ID",
         "IGDB_CLIENT_SECRET",
+        "OIDC_SMOKE_USERNAME",
+        "OIDC_SMOKE_PASSWORD",
     }
     assert forbidden.isdisjoint(environment), f"{service_name} exposes secret values through Compose environment"
 
@@ -184,6 +204,15 @@ assert services["application"]["environment"]["APPLICATION_SESSION_COOKIE_NAME"]
 assert services["application"]["environment"]["APPLICATION_SESSION_COOKIE_SECURE"] == "true"
 assert services["application"]["environment"]["TELEMETRY_DEPLOYMENT_ENVIRONMENT"] == "dev"
 assert services["application"]["environment"]["TELEMETRY_SERVICE_VERSION"]
+assert services["migration"]["environment"] == {
+    "APPLICATION_MIGRATION_DB_PASSWORD_FILE": "/run/secrets/application_migration_db_password",
+    "APPLICATION_MIGRATION_DB_URL": "jdbc:postgresql://postgres:5432/videogame_platform",
+    "APPLICATION_MIGRATION_DB_USERNAME": "videogame_app_migrator",
+}
+assert services["migration"]["networks"] == {"data": None}
+assert services["deployment-smoke"]["environment"]["EXPECTED_APPLICATION_VERSION"]
+assert services["deployment-smoke"]["environment"]["EXPECTED_SOURCE_REVISION"]
+assert int(services["deployment-smoke"]["shm_size"]) == 256 * 1024 * 1024
 
 keycloak_imports = {
     (volume.get("source"), volume.get("target"))
@@ -195,14 +224,17 @@ realm_source, realm_target = next(iter(keycloak_imports))
 assert realm_source.endswith("/docker/keycloak/import/videogame-platform-realm.json")
 assert realm_target == "/opt/keycloak/data/import/videogame-platform-realm.json"
 
-for service_name in ("keycloak", "telemetry", "application"):
+for service_name in ("keycloak", "telemetry", "application", "migration", "deployment-smoke"):
     assert services[service_name].get("read_only") is True, f"{service_name} root filesystem"
     assert services[service_name].get("cap_drop") == ["ALL"], f"{service_name} capabilities"
 
 for service_name in ("postgres", "telemetry"):
     assert "@sha256:" in services[service_name]["image"], f"{service_name} image is not digest-pinned"
+for service_name in ("application", "migration"):
+    assert "@sha256:" in services[service_name]["image"], f"{service_name} image is not digest-pinned"
+assert services["application"]["image"] == services["migration"]["image"]
 assert services["keycloak"].get("build"), "Keycloak optimized image build is missing"
-assert "@sha256:" in services["application"]["image"]
+assert services["deployment-smoke"].get("build"), "deployment smoke image build is missing"
 
 secret_directories = set()
 for secret_name, definition in config["secrets"].items():
@@ -223,13 +255,24 @@ grep -q 'send_batch_max_size: 1024' "$repository_root/deploy/private-dev/otel/co
 grep -q 'service.version:' "$repository_root/backend/src/main/resources/application.yaml"
 grep -q 'deployment.environment.name:' "$repository_root/backend/src/main/resources/application.yaml"
 bash -n "$repository_root/deploy/private-dev/bin/prepare-secrets"
+bash -n "$repository_root/deploy/private-dev/bin/deploy-private-dev"
 bash -n "$repository_root/deploy/private-dev/bin/run-keycloak"
 sh -n "$repository_root/deploy/private-dev/bin/run-application"
+sh -n "$repository_root/deploy/private-dev/bin/run-migrations"
+python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
+  "$repository_root/deploy/private-dev/bin/provision-oidc-smoke-user"
+node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
+if [[ "$runtime_env_supplied" == false ]]; then
+  node --test "$repository_root/deploy/private-dev/smoke/releases-outcome.test.mjs"
+  bash "$repository_root/scripts/test-private-dev-deployment.sh"
+  python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"
+fi
 python3 -m json.tool "$repository_root/docker/keycloak/import/videogame-platform-realm.json" >/dev/null
 python3 -m json.tool "$repository_root/docker/keycloak/import/videogame-platform-users-0.json" >/dev/null
 [[ ! -e "$repository_root/deploy/private-dev/keycloak/videogame-platform-realm.json" ]]
 bash -n "$repository_root/docker/postgres/init/001-create-databases.sh"
 grep -Eq '^ARG KEYCLOAK_IMAGE=.*@sha256:[0-9a-f]{64}$' "$repository_root/deploy/private-dev/keycloak/Dockerfile"
+grep -Eq '^FROM mcr\.microsoft\.com/playwright@sha256:[0-9a-f]{64}$' "$repository_root/deploy/private-dev/smoke/Dockerfile"
 python3 - "$repository_root/deploy/private-dev/otel/synthetic" <<'PY'
 import json
 import pathlib

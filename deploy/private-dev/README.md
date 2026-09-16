@@ -1,46 +1,57 @@
-# Private dev runtime
+# Private dev runtime and deployment
 
-This directory is the reproducible operator entry point for issue #43. It prepares
-the approved single-host runtime without deploying an application image, running
-migrations, proving backup/restore, or claiming evidence from `vgpdev`.
+This directory is the reviewed operator entry point for the owner-managed private
+`dev` environment. It contains the runtime prepared by #43 and the owner-triggered
+deployment mechanism prepared by #36. Repository validation is not evidence that
+either has run successfully on `vgpdev`.
 
-## Reviewed boundary
+The canonical environment, deployment and failure policy is the
+[platform and delivery design](../../docs/architecture/deployment/mvp-platform-and-delivery.md).
+The files here own the executable details.
 
-- `compose.yaml` starts digest-pinned PostgreSQL, one locally optimized Keycloak image
-  built from a digest-pinned upstream, and one bounded OpenTelemetry Collector. The
-  `application` profile defines the later deployment boundary but does not select or
-  start an image by default.
+## Boundaries
+
+- `compose.yaml` defines digest-pinned PostgreSQL, a locally optimized Keycloak image
+  built from a digest-pinned upstream, bounded OpenTelemetry collection, the
+  digest-selected application, a one-shot migration actor and a one-shot browser
+  smoke runner. Only PostgreSQL, Keycloak and telemetry start without an explicit
+  application/deployment profile or service selection.
 - PostgreSQL and telemetry have no host ports. Keycloak and the application bind only
-  to `127.0.0.1`; Tailscale Serve is the private HTTPS edge. Application and Keycloak
-  management ports remain inside Docker networks.
-- The application and Keycloak use different databases and login roles. The
-  application runtime role cannot perform Flyway migrations; #36 owns the serialized
-  migration/deployment sequence. Both local and private dev mount
-  `docker/postgres/init/001-create-databases.sh`: that shared executable is the single
-  owner of database/role creation, while direct variables versus secret files are
-  environment-specific transports.
-- Local and private dev also share the single parameterized Keycloak realm at
-  `docker/keycloak/import/videogame-platform-realm.json`. The synthetic local test
-  user is a separate import file mounted only by the local Compose topology.
-- Secrets are individual files below a protected `0750` directory outside the checkout;
-  that parent directory is the host access boundary. Files are non-writable `0644` so
-  PostgreSQL can read its explicitly granted Compose mounts after dropping groups. The actual runtime
-  environment file also stays outside Git because it contains the private tailnet
-  name and selected image digest.
-- The collector receives OTLP HTTP metrics/traces only on an internal network. Its
-  memory, batch and Docker-log retention are bounded, and basic export verbosity does
-  not print signal attributes or bodies. `--telemetry-smoke` proves the path with
-  exactly one fixed versioned span and one fixed metric, independently of #36.
+  to IPv4 loopback; Tailscale Serve remains the private HTTPS edge. Management and
+  OTLP ports stay inside Docker networks.
+- The application runtime receives `videogame_app` credentials and cannot migrate.
+  The one-shot migration actor receives only `videogame_app_migrator` credentials,
+  joins only the internal data network and exits before application replacement.
+  Keycloak keeps its separate database and role.
+- `bin/deploy-private-dev` runs only when the owner explicitly invokes it on a host
+  named `vgpdev`. It rejects tags and other mutable references, holds one host lock,
+  and requires both an immutable GHCR digest and the full source revision expected
+  to have produced it. No workflow deploys from `main` automatically.
+- The source-revision tag is used only to verify the supplied digest. The script then
+  pulls and runs the digest, verifies the selected-platform OCI source/version labels,
+  and never derives a candidate on the owner's behalf.
+- The prior application remains untouched until the migration actor succeeds. A
+  migration failure prevents replacement. Candidate readiness and every smoke check
+  are tied to the newly created Compose container; any failure records a failed
+  deployment. Automatic rollback, backup/restore and host-loss recovery remain #44.
+- Deployment evidence is an atomically updated JSON record outside the checkout. It
+  includes timestamps, target/environment, initiator, source revision, immutable
+  image, application version, migration version, candidate container ID, completed
+  smoke checks, phase and outcome. It contains no credentials or personal data.
+- Deployment health never invokes IGDB or requires catalogue synchronization. A
+  published empty release page and the approved `CATALOGUE_NOT_READY` state for a
+  database with no publication both prove the local read/browser boundary; provider
+  image hosts are blocked inside the smoke runner.
 
-## Host application and verification
+## One-time private host preparation
 
-Do not run these commands until the owner approves applying #43 to `vgpdev`. Run them
-from a reviewed checkout on that host and record results in issue #43 rather than in
-evergreen documentation.
+Do not run these commands from a workstation and do not apply them to `vgpdev`
+without the owner's explicit host-change decision. Replace `<operator>` and
+`<checkout>` only after verifying them on the host.
 
-1. Choose an unused system group/GID for runtime-secret readers, create the protected
-   configuration location, and copy the non-secret example. Replace `<operator>` and
-   `<checkout>` with verified values.
+1. Create the protected runtime configuration and secret files. The protected parent
+   directory is the host access boundary; Compose grants containers only the files
+   each actor needs.
 
    ```bash
    sudo groupadd --system --gid 20001 vgp-runtime
@@ -51,36 +62,37 @@ evergreen documentation.
      /etc/videogame-platform/dev/runtime.env
    sudo <checkout>/deploy/private-dev/bin/prepare-secrets \
      /etc/videogame-platform/dev/secrets vgp-runtime
+   sudo install -d -m 0770 -o root -g vgp-runtime \
+     /var/lib/videogame-platform/dev/deployment-evidence
    ```
 
    Start a new login session so group membership applies. Set
-   `PRIVATE_DEV_SECRETS_GID` to `getent group vgp-runtime | cut -d: -f3`; replace both
-   example origins with the exact `vgpdev` MagicDNS name. Leave the application digest
-   placeholder until #36 selects a validated image. Populate the two IGDB files only
-   when approved synchronization is needed; empty files keep it disabled. Never print
-   secret files or paste their values into the environment file.
+   `PRIVATE_DEV_SECRETS_GID` from the real group and replace both example origins with
+   the exact `vgpdev` MagicDNS HTTPS origins. Leave the application/source/version
+   placeholders unchanged: the deployment command overrides them for one invocation.
+   Populate IGDB credentials only for an explicitly initiated catalogue sync. The
+   preparation command creates a fixed non-personal smoke username and random password
+   in `oidc-smoke-username` and `oidc-smoke-password`; neither value is printed or
+   placed in `runtime.env`.
 
-2. Validate the rendered configuration without starting anything. During #43 use a
-   syntactically valid non-zero placeholder application digest/version solely because
-   Compose validates the profile-gated service too; it is not deployment approval.
+2. Validate the reviewed topology without starting or replacing services:
 
    ```bash
    bash scripts/validate-private-dev-runtime.sh \
      --env-file /etc/videogame-platform/dev/runtime.env
    ```
 
-   Independently validate OTLP receipt with a disposable collector and digest-pinned
-   one-shot sender on the internal telemetry network. This publishes no host port,
-   submits one span and one metric containing fixed non-personal resource attributes,
-   verifies basic logs do not expose their names/version, and removes both containers
-   automatically:
+   The application placeholders are accepted only by this static validator. The
+   deployment command will reject them. The independent `--telemetry-smoke` mode
+   starts a disposable collector and one fixed, non-personal OTLP sender; it does not
+   deploy an application:
 
    ```bash
    bash scripts/validate-private-dev-runtime.sh --telemetry-smoke
    ```
 
-3. Pull and start only the #43 dependency/telemetry services. Do not enable the
-   `application` profile and do not run Flyway or seed data.
+3. Start only the runtime dependencies prepared by #43. Do not enable the application
+   or deployment profiles here.
 
    ```bash
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
@@ -89,13 +101,10 @@ evergreen documentation.
      --file deploy/private-dev/compose.yaml build --pull keycloak
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
      --file deploy/private-dev/compose.yaml up --detach postgres keycloak telemetry
-   docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml ps
    ```
 
-4. Confirm the owner-only tailnet ACL before configuring private HTTPS. Keep Funnel
-   disabled. Configure the product route now even though it will return an unavailable
-   upstream response until #36 starts the application.
+4. Keep Tailscale Funnel and router forwarding disabled. Confirm the owner-only
+   tailnet policy before configuring the two private HTTPS routes:
 
    ```bash
    tailscale serve --bg --https=443 http://127.0.0.1:8080
@@ -104,62 +113,100 @@ evergreen documentation.
    tailscale funnel status
    ```
 
-5. From an owner device on the tailnet, inspect the Keycloak discovery document at
-   `https://<vgpdev-magicdns>:8443/realms/videogame-platform/.well-known/openid-configuration`.
-   Its issuer must equal the configured Keycloak origin. Confirm the admin console is
-   reachable only to the owner. Port 443 is not an application acceptance check before
-   #36.
+   Verify the Keycloak discovery issuer through port `8443`, database/role ownership,
+   restart persistence, loopback-only listeners, router IPv4 forwarding/UPnP state
+   and unsolicited public IPv4/IPv6 reachability as described by the platform design
+   and #43 evidence. None of those checks is implied by repository validation.
 
-6. Verify database ownership/isolation and persistent-volume ownership without
-   migrations or application data:
-
-   ```bash
-   docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml exec --user postgres postgres \
-     psql --dbname postgres --command \
-     "SELECT datname, pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname IN ('videogame_platform', 'videogame_keycloak') ORDER BY datname;"
-   docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml exec --user postgres postgres \
-     stat -c '%U:%G %a %n' /var/lib/postgresql/18/docker
-   ```
-
-   Restart the three services and repeat the database query. Then reboot the host once,
-   confirm Docker restores them through `unless-stopped`, and repeat it again. Record
-   container health, volume ownership and any unsupported restart behavior in #43.
-
-7. Capture idle and representative dependency-load resource evidence twice with a
-   recorded observation interval. The live validator is read-only and prints container
-   CPU/memory/PID usage, host memory/load/disk, listeners and Tailscale Serve state:
+5. After Keycloak and its private HTTPS route are healthy, provision the dedicated
+   deployment-smoke account from the protected files:
 
    ```bash
-   bash scripts/validate-private-dev-runtime.sh \
-     --env-file /etc/videogame-platform/dev/runtime.env --live
+   deploy/private-dev/bin/provision-oidc-smoke-user \
+     --env-file /etc/videogame-platform/dev/runtime.env
    ```
 
-   Keep the current 8 GB RAM unless repeated measurements show real pressure. The
-   application reservation is not usage evidence while its profile is stopped.
+   The command is idempotent: it creates the marked, enabled account when absent and
+   otherwise rotates its password to the protected value. It refuses an unmarked
+   existing username, personal profile fields, direct client roles, or group
+   membership. It uses Keycloak's private HTTPS Admin API without putting the admin
+   password, smoke password, or access token in arguments, environment metadata, logs,
+   realm imports, or Git. Private dev continues to exclude the synthetic local-user
+   import used by disposable development tests.
 
-8. Validate exposure separately for IPv4 and IPv6. On the router, confirm no IPv4
-   forwarding/UPnP mapping exists for `443`, `8443`, `8080`, `8180`, `5432`, `4317`,
-   `4318`, `8081` or `9000`, and confirm the IPv6 firewall does not allow unsolicited
-   ingress to them. From a device outside the tailnet, scan the public IPv4 address
-   and every global IPv6 address assigned to `vgpdev`:
+## Owner-triggered deployment
 
-   ```bash
-   nmap -4 -Pn -p 443,8443,8080,8180,5432,4317,4318,8081,9000 <public-ipv4>
-   nmap -6 -Pn -p 443,8443,8080,8180,5432,4317,4318,8081,9000 <global-ipv6>
-   ```
+Choose a trusted `main` source revision and review its successful required checks,
+image publication summary, scan/SBOM evidence and immutable digest. The two selected
+values remain explicit in the command:
 
-   If the host has no global IPv6 address, record `ip -6 address show scope global` as
-   that evidence instead of silently skipping IPv6. The live validator prints and
-   checks IPv4 and IPv6 listeners independently: product and Keycloak HTTP may bind
-   only to IPv4 `127.0.0.1`; PostgreSQL, management and OTLP ports must have neither an
-   IPv4 nor IPv6 host listener.
+```bash
+deploy/private-dev/bin/deploy-private-dev \
+  --env-file /etc/videogame-platform/dev/runtime.env \
+  --image ghcr.io/rubhern/videogame-platform@sha256:<approved-64-hex-digest> \
+  --source-revision <approved-full-40-character-main-sha> \
+  --initiator rubhern
+```
 
-The bounded synthetic check lets #43 accept collector receipt, version propagation at
-the OTLP boundary and safe basic logging without #36. After #36 supplies an immutable
-image digest and version, re-run static validation, start the `application` profile
-through that issue's serialized migration/deployment procedure, and repeat `--live`.
-Real application readiness, secure-cookie OIDC behavior and application-produced
-telemetry remain #36 evidence, not a prerequisite for #43's telemetry-path criterion.
-#44 separately owns backup and restore evidence.
+The command performs this exact sequence under one non-blocking host lock:
+
+1. validate that the target is `vgpdev`, the protected runtime configuration renders,
+   smoke credentials exist, dependencies are running/healthy, and evidence storage is
+   writable;
+2. resolve the explicitly supplied source revision's GHCR tag for verification only,
+   require its published digest to equal the supplied digest, pull by digest, and
+   verify the local image's source, revision and version OCI labels;
+3. build the digest-pinned, no-retry Playwright smoke runner before changing the
+   database or application;
+4. run the selected application image once as `videogame_app_migrator`, apply and
+   validate only packaged production Flyway migrations, record the current migration
+   version, and stop immediately on failure;
+5. force-recreate only the application service with the selected digest, wait for
+   candidate health, and verify the created container uses the inspected local image;
+6. run the complete deployment smoke against that candidate and the private HTTPS
+   boundary, then verify structured correlation/trace evidence and collector receipt;
+7. finalize the JSON evidence record as `success`, or as `failure` with the phase that
+   stopped. A failed outcome is never changed to success because another container or
+   older version happens to answer health checks.
+
+Every normal deployment checks:
+
+- management liveness and readiness;
+- `/actuator/info` application version and full source revision;
+- the management metric catalogue for HTTP, JVM and JDBC diagnostics;
+- `GET /api/v1/releases` returning either a valid local publication page (including
+  zero items) or the approved `CATALOGUE_NOT_READY` response when no publication has
+  ever existed;
+- the corresponding Spanish release, empty, or catalogue-not-ready shell rendering
+  in Chromium, with IGDB hosts blocked;
+- real Keycloak authorization, an opaque `HttpOnly`, `Secure`, `SameSite=Lax` BFF
+  session, absence of browser-stored OAuth material, and CSRF-protected logout;
+- W3C trace/correlation propagation in structured application logs; and
+- trace receipt by the bounded OpenTelemetry collector.
+
+The smoke deliberately does not rate a game, traverse every screen, run or require
+provider synchronization, or claim full MVP acceptance. Catalogue synchronization
+stays a separate owner-triggered operation; the complete journey remains #45.
+
+## First real deployment evidence still required
+
+The first approved execution on `vgpdev` must still establish host facts that cannot
+be proved in this repository:
+
+- the selected revision's current required GitHub checks and publication evidence are
+  accepted by the owner before invoking the command;
+- #43 dependency, private HTTPS, secret, role, resource and no-public-ingress checks
+  remain valid with the application reservation active;
+- the releases API/browser evidence records either a valid local publication (which
+  may be empty) or the approved no-publication state; no catalogue synchronization or
+  IGDB availability is a deployment prerequisite;
+- the dedicated smoke account completes the real private Keycloak flow without any
+  admin role or personal data;
+- the migration/application/container versions and all smoke/telemetry checks appear
+  in the generated evidence record; and
+- representative post-deployment CPU, memory, disk, listener and private-access
+  observations are recorded without calling this a named release or full MVP
+  acceptance.
+
+Do not add rollback, backup/restore or host-loss claims to this procedure. Those
+controls and their evidence remain #44.

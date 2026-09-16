@@ -27,13 +27,13 @@ reservation; addressing and tailnet identifiers stay outside canonical documents
 records the hosting decision; [#124](https://github.com/rubhern/videogame-platform/issues/124)
 owns measured evidence and outstanding host acceptance.
 
-The repository configuration now defines the non-root application boundary,
-Keycloak, PostgreSQL and bounded telemetry for this host. Applying and validating it
-on `vgpdev` remains part of #43; repository configuration is not host evidence.
-Application image selection and deployment remain in #36, and backup/restore remains
-in #44. Tailscale does not replace Keycloak/product authorization. No public
-application, identity, database, telemetry or SSH ingress is allowed, and router port
-forwarding must remain disabled.
+Reviewed repository configuration now defines the non-root application boundary,
+Keycloak, PostgreSQL, bounded telemetry and owner-triggered application deployment
+mechanism prepared by #43 and #36. Applying and validating it on `vgpdev` remains
+environment evidence rather than a repository fact; backup/restore remains #44.
+Tailscale does not replace Keycloak/product authorization. No public application,
+identity, database, telemetry or SSH ingress is allowed, and router port forwarding
+must remain disabled.
 
 The superseded OCI infrastructure and procedures were removed from the active
 repository; Git history and [#42](https://github.com/rubhern/videogame-platform/issues/42)
@@ -90,10 +90,10 @@ claim those capabilities are configured on the current host.
 [`deploy/private-dev`](../../../deploy/private-dev/README.md) is the operator entry
 point and its Compose, realm, collector and validation files own executable mechanics.
 The default stack starts PostgreSQL, Keycloak and the OpenTelemetry Collector. The
-application definition is profile-gated: it reserves the approved runtime boundary,
-but #36 must select an immutable GHCR digest and perform deployment and smoke
-acceptance. It does not run migrations; the serialized migration actor remains a
-deployment concern.
+application definition is profile-gated and receives only runtime database
+credentials. The deployment profile adds a one-shot migration actor and browser smoke
+runner; neither starts with the default dependency stack. Repository configuration
+does not select or deploy an application digest by itself.
 
 PostgreSQL and the collector publish no host port. The product and Keycloak HTTP
 ports bind only to host loopback, where Tailscale Serve terminates HTTPS on separate
@@ -114,7 +114,11 @@ reviewed operation.
 The database/role bootstrap and parameterized Keycloak realm are shared executable
 contracts with local development rather than private-dev copies. Local Compose adds a
 separate synthetic-user import that private dev does not mount. Private dev changes
-only secret transport, public origin and runtime topology around those contracts.
+only secret transport, public origin and runtime topology around those contracts. A
+one-time idempotent private-dev command creates the non-personal deployment-smoke
+account from protected host files through the private HTTPS Admin API; it assigns no
+direct client role or group and never adds that account or its credentials to the
+shared realm import.
 
 Telemetry is one replaceable, internal-only OpenTelemetry Collector rather than a
 self-hosted dashboard/storage stack. It accepts application OTLP HTTP metrics and
@@ -126,7 +130,7 @@ backend, dashboards, alerting and remote export remain deferred until measured v
 justifies their host cost. A bounded synthetic check submits exactly one fixed
 versioned span and one fixed metric and verifies receipt without exposing their
 contents in basic collector logs. This accepts the telemetry boundary within #43;
-application-produced signals remain later deployment evidence, not a dependency.
+application-produced signals remain real deployment evidence, not a repository fact.
 
 Executable and live validation treat IPv4 and IPv6 independently. Container HTTP
 publication is explicit IPv4 loopback only, protected internal ports have no host
@@ -144,17 +148,38 @@ is identified by commit SHA and content digest rather than `latest`.
 GitHub Actions validates pull requests. Trusted `main` builds/scans the same index,
 produces SBOM/provenance evidence, and publishes to GHCR. Pull requests receive no
 provider/deployment secrets and never publish/deploy. Deployment promotes an already
-validated digest through a protected manual `dev` boundary.
+validated digest only when the owner invokes
+`deploy/private-dev/bin/deploy-private-dev`; trusted `main` publication does not
+trigger deployment.
 
 Technical sequence:
 
 ```text
-select digest -> validate private target/secrets/recovery -> serialized migrations
--> replace application -> readiness -> smoke/accessibility -> accept or recover
+owner approves source revision + digest -> validate target/runtime/evidence
+-> verify revision tag digest + OCI labels -> build smoke runner
+-> serialized one-shot Flyway migration -> replace application with exact digest
+-> candidate readiness -> deployment smoke + telemetry evidence -> record outcome
 ```
 
-Concurrent deployments are prohibited. A failed new version is not successful merely
-because the old one remains healthy. Deployment success is not product acceptance.
+One non-blocking host lock prohibits concurrent `dev` deployments. The selected image
+runs migrations with only the migration role before the application service is
+replaced; migration failure prevents activation. Readiness and smoke are bound to the
+new Compose container and any failure records a failed deployment even if another or
+older process remains healthy. The mechanism does not implement automatic rollback,
+backup/restore or host-loss recovery. Deployment success is not product acceptance or
+a named release.
+
+Every normal deployment proves management liveness/readiness, exact build version and
+source revision, bounded diagnostic metrics, the releases API through the rendered
+browser shell, a real Keycloak-backed opaque BFF session and logout, structured W3C
+trace/correlation, and collector trace receipt. The releases proof accepts a valid
+empty publication and the contract's distinct `CATALOGUE_NOT_READY` response when no
+publication exists; the browser smoke blocks IGDB hosts and never initiates catalogue
+synchronization. It does not run the complete MVP journey owned by #45. An external
+JSON evidence record contains the initiator, source revision, immutable digest,
+application and migration versions, candidate identity,
+completed smoke checks, timestamps, phase and outcome without credentials or personal
+data. The private-dev README owns the operator command and first-host evidence steps.
 
 ## Configuration and secrets
 
@@ -162,15 +187,21 @@ Configuration is injected at runtime; `.env.example` files document local names 
 safe defaults. Missing security-critical configuration fails clearly. Private-host
 secrets must use a protected runtime source, remain independently rotatable and
 least-privileged, and stay out of Git, images, frontend code, URLs, logs, screenshots
-and CI artifacts. The concrete source and injection mechanism belong to #43; OCI
-Vault and Terraform state are not current-host requirements.
+and CI artifacts. The application, migration, Keycloak and deployment-smoke actors
+receive only their required files; smoke credentials never enter application
+metadata. The private-dev provisioning command consumes its protected inputs in
+memory, creates only its marked non-personal Keycloak account and refuses direct
+client roles or groups. OCI Vault and Terraform state are not current-host
+requirements.
 
 ## PostgreSQL, migrations, and recovery
 
 One server hosts separate application and Keycloak databases/roles. Business modules
-retain logical table ownership. A dedicated actor runs immutable forward Flyway
-migrations before application replacement. Destructive changes use expand/contract
-and explicit recovery; application rollback is allowed only while schema compatible.
+retain logical table ownership. The selected application image runs once as the
+dedicated Flyway actor, on the internal data network with the migration role, and
+exits before application replacement. The normal application keeps Flyway disabled
+and only the runtime role. Destructive changes use expand/contract and explicit
+recovery; application rollback is allowed only while schema compatible.
 
 Back up irreplaceable ratings, identity mapping/configuration, and product editorial
 outside the host, encrypted and within the zero-cost constraint. Record environment, time,
@@ -202,7 +233,7 @@ Automatic scheduling remains deferred.
 | Cover CDN unavailable         | Use product fallback; keep game visible                                                                      |
 | No valid catalogue            | `CATALOGUE_NOT_READY`; no request-path provider call                                                         |
 | Migration failure             | Do not activate new application                                                                              |
-| Readiness/smoke failure       | Keep/redeploy prior compatible image or forward-fix                                                          |
+| Readiness/smoke failure       | Record deployment failure; recovery/redeploy requires a separate owner decision and #44-compatible procedure |
 | Backup failure                | Report recoverability failure; do not claim release success                                                  |
 | Host loss                     | Rebuild foundation; restore durable state and verify the journey through the recovery procedure owned by #44 |
 

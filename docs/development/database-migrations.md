@@ -39,8 +39,9 @@ bash scripts/validate-migrations.sh
 ```
 
 The gate creates a fresh PostgreSQL database, migrates from zero, checks migration
-naming/checksums, constraints, seed determinism, and runtime privileges. Persistence
-behaviour is tested against PostgreSQL/Testcontainers, not H2.
+naming/checksums, constraints, seed determinism, runtime privileges, and the packaged
+one-shot migration entry point used by private deployment. Persistence behaviour is
+tested against PostgreSQL/Testcontainers, not H2.
 
 For a local migrated application:
 
