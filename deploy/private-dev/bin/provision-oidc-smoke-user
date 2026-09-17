@@ -18,6 +18,13 @@ import urllib.request
 EXPECTED_HOST = "vgpdev"
 REALM = "videogame-platform"
 MARKER_ATTRIBUTE = "vgpDeploymentSmoke"
+MARKER_PROFILE_ATTRIBUTE = {
+    "displayName": "Deployment smoke ownership marker",
+    "multivalued": False,
+    "name": MARKER_ATTRIBUTE,
+    "permissions": {"edit": ["admin"], "view": ["admin"]},
+    "validations": {"length": {"max": 4, "min": 4}},
+}
 
 
 class ProvisioningError(RuntimeError):
@@ -108,6 +115,52 @@ class KeycloakAdmin:
             },
             expected={201},
         )
+
+    def ensure_smoke_marker_profile(self) -> None:
+        profile = self.user_profile()
+        unmanaged_attribute_policy = profile.get("unmanagedAttributePolicy")
+        if unmanaged_attribute_policy not in (None, "DISABLED"):
+            raise ProvisioningError("Realm user profile must keep unmanaged attributes disabled")
+
+        attributes = profile.get("attributes")
+        if not isinstance(attributes, list):
+            raise ProvisioningError("Keycloak returned an invalid realm user profile")
+        marker_attributes = [
+            attribute
+            for attribute in attributes
+            if isinstance(attribute, dict) and attribute.get("name") == MARKER_ATTRIBUTE
+        ]
+        if not marker_attributes:
+            profile.pop("unmanagedAttributePolicy", None)
+            profile["attributes"] = [*attributes, MARKER_PROFILE_ATTRIBUTE]
+            self._request(
+                "PUT",
+                f"/admin/realms/{REALM}/users/profile",
+                body=profile,
+                expected={204},
+            )
+            profile = self.user_profile()
+            attributes = profile.get("attributes")
+            if not isinstance(attributes, list):
+                raise ProvisioningError("Keycloak returned an invalid realm user profile")
+            marker_attributes = [
+                attribute
+                for attribute in attributes
+                if isinstance(attribute, dict) and attribute.get("name") == MARKER_ATTRIBUTE
+            ]
+        if marker_attributes != [MARKER_PROFILE_ATTRIBUTE]:
+            raise ProvisioningError(
+                "Realm user profile does not declare the dedicated deployment smoke marker safely"
+            )
+
+    def user_profile(self) -> dict[str, object]:
+        payload, _ = self._request(
+            "GET", f"/admin/realms/{REALM}/users/profile", expected={200}
+        )
+        profile = json.loads(payload)
+        if not isinstance(profile, dict):
+            raise ProvisioningError("Keycloak returned an invalid realm user profile")
+        return profile
 
     def direct_role_mappings(self, user_id: str) -> dict[str, object]:
         payload, _ = self._request(
@@ -251,6 +304,7 @@ def main() -> int:
 
     admin = KeycloakAdmin(origin)
     admin.authenticate(admin_username, admin_password)
+    admin.ensure_smoke_marker_profile()
     provision_smoke_user(admin, smoke_username, smoke_password)
     print(f"Private-dev OIDC smoke user is provisioned in realm {REALM}; no credentials were printed.")
     return 0

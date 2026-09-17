@@ -131,13 +131,22 @@ dedicated Playwright container.
      --env-file /etc/videogame-platform/dev/runtime.env
    ```
 
-   The command is idempotent: it creates the marked, enabled account when absent and
-   otherwise rotates its password to the protected value. It refuses an unmarked
-   existing username, personal profile fields, direct client roles, or group
-   membership. It uses Keycloak's private HTTPS Admin API without putting the admin
-   password, smoke password, or access token in arguments, environment metadata, logs,
-   realm imports, or Git. Private dev continues to exclude the synthetic local-user
-   import used by disposable development tests.
+   The command is idempotent: it declares the dedicated marker in the realm User
+   Profile when an already-initialized realm lacks it, then creates the marked,
+   enabled account when absent or rotates its protected password. The marker remains
+   managed with unmanaged attributes disabled and is visible/editable only to Keycloak
+   administrators. The command refuses an unmarked existing username, personal profile
+   fields, direct client roles, or group membership. It uses Keycloak's private HTTPS
+   Admin API without putting the admin password, smoke password, or access token in
+   arguments, environment metadata, logs, realm imports, or Git. Private dev continues
+   to exclude the synthetic local-user import used by disposable development tests.
+
+   If a pre-fix attempt left an unmarked `vgp-deployment-smoke` account, do not add the
+   marker to adopt it. Through the private Keycloak Admin Console, first confirm that
+   the exact username is the failed non-personal account and has no personal fields,
+   direct client roles, or groups; then delete that one account and rerun the command.
+   This preserves the refusal rule for any unrelated account that happens to use the
+   protected username.
 
 ## Owner-triggered deployment
 

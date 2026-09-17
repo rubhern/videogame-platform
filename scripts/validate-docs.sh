@@ -26,6 +26,7 @@ required_files=(
   "deploy/private-dev/smoke/releases-outcome.mjs"
   "deploy/private-dev/smoke/releases-outcome.test.mjs"
   "scripts/test-private-dev-oidc-provisioning.py"
+  "scripts/test-private-dev-oidc-provisioning-keycloak.py"
   ".mvn/wrapper/maven-wrapper.properties"
   "AGENTS.md"
   "README.md"
@@ -332,6 +333,36 @@ try:
             errors.append("Keycloak BFF client root URL must use APPLICATION_PUBLIC_ORIGIN")
     if "users" in realm:
         errors.append("Shared Keycloak realm must not embed environment-specific users")
+    profiles = realm.get("components", {}).get("org.keycloak.userprofile.UserProfileProvider", [])
+    if len(profiles) != 1:
+        errors.append("Keycloak realm must define exactly one declarative user profile")
+    else:
+        profile_config = profiles[0].get("config", {}).get("kc.user.profile.config", [])
+        if len(profile_config) != 1 or not isinstance(profile_config[0], str):
+            errors.append("Keycloak realm user profile must define one JSON configuration")
+        else:
+            try:
+                profile = json.loads(profile_config[0])
+                expected_marker = {
+                    "displayName": "Deployment smoke ownership marker",
+                    "multivalued": False,
+                    "name": "vgpDeploymentSmoke",
+                    "permissions": {"edit": ["admin"], "view": ["admin"]},
+                    "validations": {"length": {"max": 4, "min": 4}},
+                }
+                if profile.get("unmanagedAttributePolicy") not in (None, "DISABLED"):
+                    errors.append("Keycloak realm user profile must keep unmanaged attributes disabled")
+                markers = [
+                    attribute
+                    for attribute in profile.get("attributes", [])
+                    if isinstance(attribute, dict) and attribute.get("name") == "vgpDeploymentSmoke"
+                ]
+                if markers != [expected_marker]:
+                    errors.append(
+                        "Keycloak realm must declare the admin-only deployment smoke marker"
+                    )
+            except (TypeError, json.JSONDecodeError):
+                errors.append("Keycloak realm user profile must contain valid JSON")
     if local_realm_users.get("realm") != "videogame-platform":
         errors.append("Local Keycloak user import must target videogame-platform")
     if len(users) != 1 or users[0].get("username") != "${LOCAL_TEST_USER_USERNAME}":
