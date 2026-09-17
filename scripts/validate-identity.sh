@@ -124,6 +124,19 @@ docker run --rm --network "$identity_network" "$playwright_image" \
   exit 1
 }
 
+docker run --rm \
+  --network "$identity_network" \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+  --env KEYCLOAK_TEST_ORIGIN=http://keycloak:8080 \
+  --env KEYCLOAK_TEST_ADMIN_USERNAME=local-admin \
+  --env KEYCLOAK_TEST_ADMIN_PASSWORD="$keycloak_admin_password" \
+  --env KEYCLOAK_TEST_SMOKE_PASSWORD="$test_user_password" \
+  --volume "$repository_root:/work:ro" \
+  --workdir /work \
+  "$playwright_image" \
+  python3 scripts/test-private-dev-oidc-provisioning-keycloak.py
+
 docker run --detach \
   --name "$application_container" \
   --network "$identity_network" \

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import importlib.machinery
 import importlib.util
+import json
 import pathlib
 import sys
 
@@ -54,6 +55,26 @@ class FakeAdmin:
         self.reset = (user_id, password)
 
 
+class FakeProfileAdmin(module.KeycloakAdmin):
+    def __init__(self, profile):
+        super().__init__("https://keycloak.invalid")
+        self.profile = profile
+        self.puts = 0
+
+    def _request(self, method, path, *, body=None, form=None, expected, authenticated=True):
+        assert form is None
+        assert authenticated is True
+        assert path == f"/admin/realms/{module.REALM}/users/profile"
+        if method == "GET":
+            return json.dumps(self.profile).encode("utf-8"), object()
+        assert method == "PUT"
+        assert expected == {204}
+        assert body is not None
+        self.profile = body
+        self.puts += 1
+        return b"", object()
+
+
 def smoke_user(*, marked=True):
     attributes = {module.MARKER_ATTRIBUTE: ["true"]} if marked else {}
     return {
@@ -73,6 +94,24 @@ existing = FakeAdmin([smoke_user()])
 module.provision_smoke_user(existing, "vgp-deployment-smoke", "replacement-password-value")
 assert existing.created is False
 assert existing.reset == ("smoke-user-id", "replacement-password-value")
+
+profile = FakeProfileAdmin({"attributes": [{"name": "username"}]})
+profile.ensure_smoke_marker_profile()
+assert profile.puts == 1
+assert profile.profile["attributes"][-1] == module.MARKER_PROFILE_ATTRIBUTE
+profile.ensure_smoke_marker_profile()
+assert profile.puts == 1
+
+for unsafe_profile in (
+    FakeProfileAdmin({"attributes": [], "unmanagedAttributePolicy": "ENABLED"}),
+    FakeProfileAdmin({"attributes": [{"name": module.MARKER_ATTRIBUTE}]}),
+):
+    try:
+        unsafe_profile.ensure_smoke_marker_profile()
+    except module.ProvisioningError:
+        pass
+    else:
+        raise AssertionError("unsafe marker profile was accepted")
 
 for unsafe in (
     FakeAdmin([smoke_user(marked=False)]),
