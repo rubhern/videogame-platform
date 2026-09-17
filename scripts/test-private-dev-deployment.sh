@@ -4,11 +4,13 @@ set -Eeuo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 deployment_command="$repository_root/deploy/private-dev/bin/deploy-private-dev"
+runtime_validator="$repository_root/scripts/validate-private-dev-runtime.sh"
 temporary_directory="$(mktemp -d)"
 fake_bin="$temporary_directory/bin"
 runtime_env="$temporary_directory/runtime.env"
 secrets_directory="$temporary_directory/secrets"
 command_log="$temporary_directory/docker-commands.log"
+node_invocation_marker="$temporary_directory/node-was-invoked"
 digest="sha256:1111111111111111111111111111111111111111111111111111111111111111"
 source_revision="2222222222222222222222222222222222222222"
 image="ghcr.io/rubhern/videogame-platform@$digest"
@@ -20,8 +22,20 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$fake_bin" "$secrets_directory"
-printf 'smoke-user\n' >"$secrets_directory/oidc-smoke-username"
-printf 'smoke-password\n' >"$secrets_directory/oidc-smoke-password"
+chmod 0750 "$secrets_directory"
+for name in \
+  postgres-admin-password \
+  application-db-password \
+  application-migration-db-password \
+  keycloak-db-password \
+  keycloak-admin-password \
+  keycloak-bff-client-secret \
+  igdb-client-id \
+  igdb-client-secret \
+  oidc-smoke-username \
+  oidc-smoke-password; do
+  printf 'test-%s\n' "$name" >"$secrets_directory/$name"
+done
 cat >"$runtime_env" <<EOF
 PRIVATE_DEV_APPLICATION_ORIGIN=https://vgpdev.validation.invalid
 PRIVATE_DEV_KEYCLOAK_ORIGIN=https://vgpdev.validation.invalid:8443
@@ -34,10 +48,14 @@ EOF
 
 cat >"$fake_bin/bash" <<'EOF'
 #!/bin/bash
-if [[ "${1:-}" == */scripts/validate-private-dev-runtime.sh ]]; then
-  exit 0
-fi
 exec /usr/bin/bash "$@"
+EOF
+
+cat >"$fake_bin/node" <<'EOF'
+#!/bin/bash
+: >"$FAKE_NODE_INVOCATION_MARKER"
+printf 'node: command not found\n' >&2
+exit 127
 EOF
 
 cat >"$fake_bin/docker" <<'EOF'
@@ -86,9 +104,121 @@ fi
 if [[ "$1" == compose ]]; then
   arguments=" $* "
   if [[ "$arguments" == *" config --format json "* ]]; then
-    cat <<JSON
-{"services":{"deployment-smoke":{"environment":{"PRIVATE_DEV_APPLICATION_ORIGIN":"https://vgpdev.validation.invalid","PRIVATE_DEV_KEYCLOAK_ORIGIN":"https://vgpdev.validation.invalid:8443"}}},"secrets":{"oidc_smoke_username":{"file":"$FAKE_SMOKE_USERNAME_FILE"},"oidc_smoke_password":{"file":"$FAKE_SMOKE_PASSWORD_FILE"}}}
-JSON
+    python3 - "$FAKE_REPOSITORY_ROOT" "$FAKE_SECRETS_DIRECTORY" "$FAKE_IMAGE" <<'PY'
+import json
+import pathlib
+import sys
+
+repository = pathlib.Path(sys.argv[1])
+secrets_directory = pathlib.Path(sys.argv[2])
+image = sys.argv[3]
+secret_files = {
+    name.replace("-", "_"): {"file": str(secrets_directory / name)}
+    for name in (
+        "postgres-admin-password",
+        "application-db-password",
+        "application-migration-db-password",
+        "keycloak-db-password",
+        "keycloak-admin-password",
+        "keycloak-bff-client-secret",
+        "igdb-client-id",
+        "igdb-client-secret",
+        "oidc-smoke-username",
+        "oidc-smoke-password",
+    )
+}
+
+def service(restart, secrets=(), environment=None, **extra):
+    return {
+        "restart": restart,
+        "mem_limit": 134217728,
+        "cpus": 0.25,
+        "secrets": [{"source": name} for name in secrets],
+        "environment": environment or {},
+        **extra,
+    }
+
+services = {
+    "postgres": service(
+        "unless-stopped",
+        (
+            "postgres_admin_password",
+            "application_db_password",
+            "application_migration_db_password",
+            "keycloak_db_password",
+        ),
+        image="postgres@sha256:" + "1" * 64,
+    ),
+    "keycloak": service(
+        "unless-stopped",
+        ("keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"),
+        build={"context": str(repository / "deploy/private-dev/keycloak")},
+        ports=[{"host_ip": "127.0.0.1", "published": 8180, "target": 8080}],
+        volumes=[{
+            "source": str(repository / "docker/keycloak/import/videogame-platform-realm.json"),
+            "target": "/opt/keycloak/data/import/videogame-platform-realm.json",
+        }],
+        read_only=True,
+        cap_drop=["ALL"],
+    ),
+    "telemetry": service(
+        "unless-stopped",
+        image="otel/opentelemetry-collector@sha256:" + "2" * 64,
+        read_only=True,
+        cap_drop=["ALL"],
+    ),
+    "application": service(
+        "unless-stopped",
+        ("application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"),
+        {
+            "APPLICATION_FLYWAY_ENABLED": "false",
+            "APPLICATION_SESSION_COOKIE_NAME": "__Host-vgp_session",
+            "APPLICATION_SESSION_COOKIE_SECURE": "true",
+            "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "dev",
+            "TELEMETRY_SERVICE_VERSION": "0.15.0-SNAPSHOT",
+        },
+        image=image,
+        ports=[{"host_ip": "127.0.0.1", "published": 8080, "target": 8080}],
+        read_only=True,
+        cap_drop=["ALL"],
+    ),
+    "migration": service(
+        "no",
+        ("application_migration_db_password",),
+        {
+            "APPLICATION_MIGRATION_DB_PASSWORD_FILE": "/run/secrets/application_migration_db_password",
+            "APPLICATION_MIGRATION_DB_URL": "jdbc:postgresql://postgres:5432/videogame_platform",
+            "APPLICATION_MIGRATION_DB_USERNAME": "videogame_app_migrator",
+        },
+        image=image,
+        networks={"data": None},
+        read_only=True,
+        cap_drop=["ALL"],
+    ),
+    "deployment-smoke": service(
+        "no",
+        ("oidc_smoke_username", "oidc_smoke_password"),
+        {
+            "EXPECTED_APPLICATION_VERSION": "0.15.0-SNAPSHOT",
+            "EXPECTED_SOURCE_REVISION": "2" * 40,
+            "PRIVATE_DEV_APPLICATION_ORIGIN": "https://vgpdev.validation.invalid",
+            "PRIVATE_DEV_KEYCLOAK_ORIGIN": "https://vgpdev.validation.invalid:8443",
+        },
+        build={"context": str(repository / "deploy/private-dev/smoke")},
+        shm_size=256 * 1024 * 1024,
+        read_only=True,
+        cap_drop=["ALL"],
+    ),
+}
+json.dump(
+    {
+        "services": services,
+        "networks": {"data": {"internal": True}, "telemetry": {"internal": True}},
+        "secrets": secret_files,
+    },
+    sys.stdout,
+)
+PY
     exit 0
   fi
   if [[ "$arguments" == *" ps --quiet "* ]]; then
@@ -97,6 +227,17 @@ JSON
     exit 0
   fi
   if [[ "$arguments" == *" build --pull deployment-smoke "* ]]; then
+    exit 0
+  fi
+  if [[ "$arguments" == *" up --detach telemetry "* ||
+        "$arguments" == *" run --rm telemetry-smoke "* ||
+        "$arguments" == *" down --volumes --remove-orphans "* ]]; then
+    exit 0
+  fi
+  if [[ "$arguments" == *" logs --no-color telemetry "* ]]; then
+    printf '%s\n' \
+      '{"otelcol.signal": "traces", "resource spans": 1, "spans": 1}' \
+      '{"otelcol.signal": "metrics", "resource metrics": 1, "metrics": 1, "data points": 1}'
     exit 0
   fi
   if [[ "$arguments" == *" run --rm --no-deps migration "* ]]; then
@@ -132,7 +273,7 @@ printf 'Unexpected fake docker command: %s\n' "$*" >&2
 exit 92
 EOF
 
-chmod +x "$fake_bin/bash" "$fake_bin/docker" "$fake_bin/hostname"
+chmod +x "$fake_bin/bash" "$fake_bin/docker" "$fake_bin/hostname" "$fake_bin/node"
 
 run_deployment() {
   local mode="$1"
@@ -143,8 +284,9 @@ run_deployment() {
   FAKE_DIGEST="$digest" \
   FAKE_DOCKER_COMMAND_LOG="$command_log" \
   FAKE_IMAGE="$image" \
-  FAKE_SMOKE_USERNAME_FILE="$secrets_directory/oidc-smoke-username" \
-  FAKE_SMOKE_PASSWORD_FILE="$secrets_directory/oidc-smoke-password" \
+  FAKE_NODE_INVOCATION_MARKER="$node_invocation_marker" \
+  FAKE_REPOSITORY_ROOT="$repository_root" \
+  FAKE_SECRETS_DIRECTORY="$secrets_directory" \
   FAKE_TELEMETRY_STATE="$evidence_directory/telemetry-state" \
     "$deployment_command" \
       --env-file "$runtime_env" \
@@ -205,8 +347,9 @@ if PATH="$fake_bin:$PATH" \
     FAKE_DIGEST=sha256:3333333333333333333333333333333333333333333333333333333333333333 \
     FAKE_DOCKER_COMMAND_LOG="$command_log" \
     FAKE_IMAGE="$image" \
-    FAKE_SMOKE_USERNAME_FILE="$secrets_directory/oidc-smoke-username" \
-    FAKE_SMOKE_PASSWORD_FILE="$secrets_directory/oidc-smoke-password" \
+    FAKE_NODE_INVOCATION_MARKER="$node_invocation_marker" \
+    FAKE_REPOSITORY_ROOT="$repository_root" \
+    FAKE_SECRETS_DIRECTORY="$secrets_directory" \
     "$deployment_command" \
       --env-file "$runtime_env" \
       --image "$image" \
@@ -266,6 +409,10 @@ success_evidence="$temporary_directory/success-evidence"
 run_deployment success "$success_evidence" >/dev/null
 assert_evidence "$success_evidence" success complete
 assert_lock_released
+[[ ! -e "$node_invocation_marker" ]] || {
+  printf 'Host deployment validation invoked Node.js.\n' >&2
+  exit 1
+}
 python3 - "$success_evidence" <<'PY'
 import json
 import pathlib
@@ -322,5 +469,21 @@ fi
 flock --unlock 8
 exec 8>&-
 assert_lock_released
+
+: >"$command_log"
+rm -f -- "$node_invocation_marker"
+PATH="$fake_bin:$PATH" \
+FAKE_DIGEST="$digest" \
+FAKE_DOCKER_COMMAND_LOG="$command_log" \
+FAKE_IMAGE="$image" \
+FAKE_NODE_INVOCATION_MARKER="$node_invocation_marker" \
+FAKE_REPOSITORY_ROOT="$repository_root" \
+FAKE_SECRETS_DIRECTORY="$secrets_directory" \
+FAKE_TELEMETRY_STATE="$temporary_directory/telemetry-state" \
+  "$runtime_validator" --telemetry-smoke >/dev/null
+[[ ! -e "$node_invocation_marker" ]] || {
+  printf 'Host telemetry smoke invoked Node.js.\n' >&2
+  exit 1
+}
 
 printf 'Private-dev deployment orchestration validation passed.\n'

@@ -49,6 +49,11 @@ Do not run these commands from a workstation and do not apply them to `vgpdev`
 without the owner's explicit host-change decision. Replace `<operator>` and
 `<checkout>` only after verifying them on the host.
 
+The host-side commands require Bash, Python 3, Docker Engine and the Docker Compose
+plugin. Node.js is not a host prerequisite: repository JavaScript checks run in the
+repository/CI validation mode, while deployment smoke JavaScript runs inside the
+dedicated Playwright container.
+
 1. Create the protected runtime configuration and secret files. The protected parent
    directory is the host access boundary; Compose grants containers only the files
    each actor needs.
