@@ -261,8 +261,8 @@ sh -n "$repository_root/deploy/private-dev/bin/run-application"
 sh -n "$repository_root/deploy/private-dev/bin/run-migrations"
 python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
   "$repository_root/deploy/private-dev/bin/provision-oidc-smoke-user"
-node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
-if [[ "$runtime_env_supplied" == false ]]; then
+if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
+  node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
   node --test "$repository_root/deploy/private-dev/smoke/releases-outcome.test.mjs"
   bash "$repository_root/scripts/test-private-dev-deployment.sh"
   python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"
