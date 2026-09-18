@@ -40,8 +40,13 @@ class FakeAdmin:
                 "enabled": True,
                 "id": "smoke-user-id",
                 "username": username,
+                **module.SYNTHETIC_PROFILE,
             }
         )
+
+    def set_synthetic_profile(self, user_id):
+        assert user_id == "smoke-user-id"
+        self.users[0].update(module.SYNTHETIC_PROFILE)
 
     def direct_role_mappings(self, user_id):
         assert user_id == "smoke-user-id"
@@ -75,25 +80,41 @@ class FakeProfileAdmin(module.KeycloakAdmin):
         return b"", object()
 
 
-def smoke_user(*, marked=True):
+def smoke_user(*, marked=True, profile=None):
     attributes = {module.MARKER_ATTRIBUTE: ["true"]} if marked else {}
-    return {
+    user = {
         "attributes": attributes,
         "enabled": True,
         "id": "smoke-user-id",
         "username": "vgp-deployment-smoke",
+        **module.SYNTHETIC_PROFILE,
     }
+    user.update(profile or {})
+    return user
 
 
 created = FakeAdmin()
 module.provision_smoke_user(created, "vgp-deployment-smoke", "correct-horse-battery-staple")
 assert created.created is True
 assert created.reset == ("smoke-user-id", "correct-horse-battery-staple")
+assert (
+    {field: created.users[0][field] for field in module.SYNTHETIC_PROFILE}
+    == module.SYNTHETIC_PROFILE
+)
 
 existing = FakeAdmin([smoke_user()])
 module.provision_smoke_user(existing, "vgp-deployment-smoke", "replacement-password-value")
 assert existing.created is False
 assert existing.reset == ("smoke-user-id", "replacement-password-value")
+
+legacy = FakeAdmin([smoke_user()])
+for field in module.SYNTHETIC_PROFILE:
+    legacy.users[0].pop(field)
+module.provision_smoke_user(legacy, "vgp-deployment-smoke", "replacement-password-value")
+assert (
+    {field: legacy.users[0][field] for field in module.SYNTHETIC_PROFILE}
+    == module.SYNTHETIC_PROFILE
+)
 
 profile = FakeProfileAdmin({"attributes": [{"name": "username"}]})
 profile.ensure_smoke_marker_profile()
@@ -115,6 +136,7 @@ for unsafe_profile in (
 
 for unsafe in (
     FakeAdmin([smoke_user(marked=False)]),
+    FakeAdmin([smoke_user(profile={"email": "someone@example.invalid"})]),
     FakeAdmin([smoke_user()], client_mappings={"realm-management": {}}),
     FakeAdmin([smoke_user()], groups=[{"id": "operators"}]),
 ):

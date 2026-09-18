@@ -78,7 +78,9 @@ dedicated Playwright container.
    Populate IGDB credentials only for an explicitly initiated catalogue sync. The
    preparation command creates a fixed non-personal smoke username and random password
    in `oidc-smoke-username` and `oidc-smoke-password`; neither value is printed or
-   placed in `runtime.env`.
+   placed in `runtime.env`. The account profile uses only the fixed synthetic values
+   `Deployment`, `Smoke`, and `vgp-deployment-smoke@example.invalid` to satisfy the
+   realm's normal required-profile policy.
 
 2. Validate the reviewed topology without starting or replacing services:
 
@@ -135,16 +137,20 @@ dedicated Playwright container.
    Profile when an already-initialized realm lacks it, then creates the marked,
    enabled account when absent or rotates its protected password. The marker remains
    managed with unmanaged attributes disabled and is visible/editable only to Keycloak
-   administrators. The command refuses an unmarked existing username, personal profile
-   fields, direct client roles, or group membership. It uses Keycloak's private HTTPS
-   Admin API without putting the admin password, smoke password, or access token in
-   arguments, environment metadata, logs, realm imports, or Git. Private dev continues
+   administrators. The command refuses an unmarked existing username, any profile
+   other than its fixed synthetic values, direct client roles, or group membership. It
+   upgrades only the earlier marked account whose three profile fields are all absent;
+   a partial or different profile remains rejected. It uses Keycloak's private HTTPS
+   Admin API without putting the admin password, smoke
+   password, or access token in arguments, environment metadata, logs, realm imports,
+   or Git. Private dev continues
    to exclude the synthetic local-user import used by disposable development tests.
 
    If a pre-fix attempt left an unmarked `vgp-deployment-smoke` account, do not add the
    marker to adopt it. Through the private Keycloak Admin Console, first confirm that
-   the exact username is the failed non-personal account and has no personal fields,
-   direct client roles, or groups; then delete that one account and rerun the command.
+   the exact username is the failed non-personal account and has only the fixed
+   synthetic profile values, no direct client roles, and no groups; then delete that
+   one account and rerun the command.
    This preserves the refusal rule for any unrelated account that happens to use the
    protected username.
 
@@ -214,8 +220,8 @@ be proved in this repository:
 - the releases API/browser evidence records either a valid local publication (which
   may be empty) or the approved no-publication state; no catalogue synchronization or
   IGDB availability is a deployment prerequisite;
-- the dedicated smoke account completes the real private Keycloak flow without any
-  admin role or personal data;
+- the dedicated smoke account completes the real private Keycloak flow with only its
+  fixed synthetic profile, no admin role, and no personal data;
 - the migration/application/container versions and all smoke/telemetry checks appear
   in the generated evidence record; and
 - representative post-deployment CPU, memory, disk, listener and private-access

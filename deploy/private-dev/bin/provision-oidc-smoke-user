@@ -25,6 +25,11 @@ MARKER_PROFILE_ATTRIBUTE = {
     "permissions": {"edit": ["admin"], "view": ["admin"]},
     "validations": {"length": {"max": 4, "min": 4}},
 }
+SYNTHETIC_PROFILE = {
+    "email": "vgp-deployment-smoke@example.invalid",
+    "firstName": "Deployment",
+    "lastName": "Smoke",
+}
 
 
 class ProvisioningError(RuntimeError):
@@ -112,8 +117,17 @@ class KeycloakAdmin:
                 "enabled": True,
                 "requiredActions": [],
                 "username": username,
+                **SYNTHETIC_PROFILE,
             },
             expected={201},
+        )
+
+    def set_synthetic_profile(self, user_id: str) -> None:
+        self._request(
+            "PUT",
+            f"/admin/realms/{REALM}/users/{user_id}",
+            body=SYNTHETIC_PROFILE,
+            expected={204},
         )
 
     def ensure_smoke_marker_profile(self) -> None:
@@ -253,8 +267,16 @@ def provision_smoke_user(admin: KeycloakAdmin, username: str, password: str) -> 
         )
     if user.get("enabled") is not True:
         raise ProvisioningError("Dedicated deployment smoke user is disabled")
-    if any(user.get(field) for field in ("email", "firstName", "lastName")):
-        raise ProvisioningError("Dedicated deployment smoke user must contain no personal data")
+    if all(not user.get(field) for field in SYNTHETIC_PROFILE):
+        admin.set_synthetic_profile(user_id)
+        users = admin.find_users(username)
+        if len(users) != 1:
+            raise ProvisioningError("Expected exactly one dedicated deployment smoke user")
+        user = users[0]
+    if {field: user.get(field) for field in SYNTHETIC_PROFILE} != SYNTHETIC_PROFILE:
+        raise ProvisioningError(
+            "Dedicated deployment smoke user must contain only the fixed synthetic profile"
+        )
 
     mappings = admin.direct_role_mappings(user_id)
     if mappings.get("clientMappings"):
