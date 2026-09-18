@@ -22,7 +22,10 @@ Screen and component changes must follow the canonical
 [Frontend design guidelines](../docs/development/frontend-design.md).
 The Contemporary Catalogue foundation is applied to releases and reused by search,
 game details and route fallbacks. `src/shared/ui/` holds the cover and loading patterns already
-shared by those experiences; the guide points to the executable visual tokens.
+shared by those experiences; the guide points to the executable visual tokens, the shared
+elevation and motion values, and the reduced-motion and forced-colour rules that every screen
+must keep. Screens whose composition is not a catalogue grid own their own placeholder shape
+next to the feature they belong to instead of reusing `CatalogueLoading`.
 
 ## Install and verify
 

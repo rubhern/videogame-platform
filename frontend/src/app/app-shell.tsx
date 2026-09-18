@@ -24,6 +24,19 @@ export function AppShell() {
 
   return (
     <div className="app-frame">
+      {/* Light unsharp mask, applied only to the large game-detail cover. The provider CDN
+          has no cover size big enough for that frame, so the artwork is always upscaled
+          there; this restores edge definition without touching the source. The kernel sums
+          to 1, so brightness is preserved. */}
+      <svg aria-hidden="true" className="filter-defs" focusable="false">
+        <filter id="cover-unsharp" x="0" y="0" width="100%" height="100%">
+          <feConvolveMatrix
+            order="3"
+            preserveAlpha="true"
+            kernelMatrix="0 -0.22 0 -0.22 1.88 -0.22 0 -0.22 0"
+          />
+        </filter>
+      </svg>
       <a className="skip-link button button-primary" href="#main-content">
         Saltar al contenido
       </a>

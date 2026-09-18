@@ -30,6 +30,21 @@
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     color-scheme: dark;
+
+    /* Shared elevation and motion values. Kept deliberately small: one resting and
+       one lifted shadow, one easing curve and two durations for the whole product. */
+    --elevation-rest: 0 1px 2px color-mix(in srgb, #000 40%, transparent);
+    --elevation-lift:
+      0 18px 34px -22px color-mix(in srgb, #000 88%, transparent),
+      0 2px 8px -4px color-mix(in srgb, #000 60%, transparent);
+    --ease-out: cubic-bezier(0.22, 0.68, 0.36, 1);
+    --duration-fast: 140ms;
+    --duration-normal: 240ms;
+
+    /* The cover frame matches the ratio the approved provider actually delivers, so
+       `object-fit: cover` has nothing to crop off real artwork. It stays a fixed frame,
+       not a per-image one, so the grid keeps one rhythm whatever a source delivers. */
+    --cover-aspect: 227 / 320;
   }
 
   html {
@@ -53,6 +68,12 @@
     outline-offset: 3px;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    :focus-visible {
+      transition: outline-offset var(--duration-fast) var(--ease-out);
+    }
+  }
+
   button,
   input,
   select {
@@ -74,11 +95,44 @@
 
 @layer components {
   .app-frame {
+    position: relative;
     display: flex;
+    isolation: isolate;
     min-height: 100vh;
     flex-direction: column;
     background: var(--color-canvas);
     color: var(--color-ink);
+  }
+
+  /* Ambient field. Two very low-opacity washes give the charcoal canvas depth, and the
+     generated grain tile keeps the large gradients from banding on dark displays. */
+  .app-frame::before {
+    position: fixed;
+    z-index: -1;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        68rem 34rem at 12% -6%,
+        color-mix(in srgb, var(--color-accent) 13%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(
+        54rem 30rem at 96% 4%,
+        color-mix(in srgb, var(--color-warning) 6%, transparent),
+        transparent 58%
+      );
+    content: "";
+  }
+
+  .app-frame::after {
+    position: fixed;
+    z-index: -1;
+    inset: 0;
+    opacity: 0.035;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    content: "";
   }
 
   .app-frame > main {
@@ -96,7 +150,28 @@
     position: relative;
     z-index: 20;
     border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
-    background: color-mix(in srgb, var(--color-canvas) 94%, transparent);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-accent) 5%, transparent),
+        transparent 62%
+      ),
+      color-mix(in srgb, var(--color-canvas) 94%, transparent);
+  }
+
+  /* Hairline of accent light along the very top of the product. */
+  .site-header::before {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-accent) 55%, transparent) 22%,
+      color-mix(in srgb, var(--color-accent) 22%, transparent) 62%,
+      transparent
+    );
+    content: "";
   }
 
   .header-layout {
@@ -125,7 +200,22 @@
     height: 32px;
     flex: none;
     border-radius: 10px;
-    background: var(--color-accent);
+    background: linear-gradient(150deg, var(--color-accent-hover), #6f86c8);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent),
+      0 6px 18px -8px color-mix(in srgb, var(--color-accent) 85%, transparent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .brand-mark {
+      transition: box-shadow var(--duration-normal) var(--ease-out);
+    }
+  }
+
+  .brand:hover .brand-mark {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 65%, transparent),
+      0 8px 24px -8px color-mix(in srgb, var(--color-accent) 100%, transparent);
   }
 
   .brand-mark::before,
@@ -196,6 +286,14 @@
     white-space: nowrap;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .nav-link {
+      transition:
+        color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out);
+    }
+  }
+
   .nav-link:hover {
     color: var(--color-ink);
     background: var(--color-raised);
@@ -205,6 +303,7 @@
     color: var(--color-canvas);
     background: var(--color-accent);
     font-weight: 600;
+    box-shadow: 0 6px 18px -10px color-mix(in srgb, var(--color-accent) 95%, transparent);
   }
 
   .header-search {
@@ -219,11 +318,38 @@
     border-radius: 999px;
     padding: 11px 16px;
     background: var(--color-raised);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .header-search {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out);
+    }
+  }
+
+  .header-search:hover {
+    border-color: color-mix(in srgb, var(--color-ink) 24%, transparent);
   }
 
   .header-search:focus-within {
     border-color: var(--color-accent);
     background: #1d242c;
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--color-ink) 8%, transparent),
+      0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  }
+
+  .header-search:focus-within .search-icon,
+  .header-search:focus-within .search-icon::after {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent);
+  }
+
+  .header-search:focus-within .search-icon {
+    background-color: transparent;
   }
 
   .header-search input {
@@ -311,6 +437,14 @@
     text-decoration: none;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .account-link {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out);
+    }
+  }
+
   .account-link:hover {
     border-color: var(--color-accent);
     background: #1d242c;
@@ -373,7 +507,11 @@
 
   .catalogue-masthead {
     border-top: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
-    background: var(--color-surface);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-surface) 92%, var(--color-canvas)),
+      var(--color-canvas)
+    );
   }
 
   .catalogue-masthead .page-container,
@@ -430,10 +568,12 @@
     flex: none;
     border-radius: 50%;
     background: var(--color-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 16%, transparent);
     content: "";
   }
 
   .page-title {
+    position: relative;
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
@@ -442,6 +582,25 @@
     line-height: 1.03;
     letter-spacing: -0.012em;
     text-wrap: balance;
+  }
+
+  /* Editorial titles sit on a faint light bloom instead of flat charcoal. */
+  .page-title::before {
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: -10%;
+    width: 70%;
+    max-width: 640px;
+    aspect-ratio: 5 / 2;
+    pointer-events: none;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--color-accent) 14%, transparent),
+      transparent
+    );
+    content: "";
+    transform: translateY(-50%);
   }
 
   .button {
@@ -462,21 +621,39 @@
     text-decoration: none;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .button {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+  }
+
   .button:hover {
     border-color: var(--color-ink);
     color: var(--color-canvas);
     background: var(--color-ink);
+    box-shadow: var(--elevation-lift);
+  }
+
+  .button:active {
+    transform: translateY(1px);
   }
 
   .button-primary {
     border-color: var(--color-accent);
     color: var(--color-canvas);
-    background: var(--color-accent);
+    background: linear-gradient(170deg, var(--color-accent-hover), var(--color-accent));
+    box-shadow: 0 10px 26px -16px color-mix(in srgb, var(--color-accent) 100%, transparent);
   }
 
   .button-primary:hover {
     border-color: var(--color-accent-hover);
     background: var(--color-accent-hover);
+    box-shadow: 0 14px 30px -14px color-mix(in srgb, var(--color-accent) 100%, transparent);
   }
 
   .button-danger {
@@ -485,16 +662,39 @@
     background: var(--color-danger);
   }
 
+  .button-danger:hover {
+    border-color: var(--color-danger);
+    color: var(--color-canvas);
+    background: color-mix(in srgb, var(--color-danger) 80%, #fff);
+  }
+
   .view-action {
     flex: none;
   }
 
+  /* The trailing arrow leans into the direction the action moves you. */
+  .view-action span {
+    display: inline-block;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .view-action span {
+      transition: transform var(--duration-normal) var(--ease-out);
+    }
+
+    .view-action:hover span {
+      transform: translateX(3px);
+    }
+  }
+
+  /* Window and evaluation date read as two quiet metadata chips rather than one run-on
+     line, so the divider never survives alone when they wrap on a narrow screen. */
   .release-window {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 5px 10px;
-    margin: 12px 0 0;
+    gap: 6px 8px;
+    margin: 14px 0 0;
     color: var(--color-subtle);
     font-family: var(--font-mono);
     font-size: 0.75rem;
@@ -502,9 +702,14 @@
     letter-spacing: 0.025em;
   }
 
+  .release-window > span {
+    border: 1px solid color-mix(in srgb, var(--color-ink) 9%, transparent);
+    border-radius: 999px;
+    padding: 4px 11px;
+    background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  }
+
   .release-window-evaluated {
-    border-left: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
-    padding-left: 10px;
     color: var(--color-muted);
   }
 
@@ -514,6 +719,8 @@
     padding-top: 16px;
   }
 
+  /* The rail scrolls rather than wrapping. The edge fade tells the reader that a
+     clipped chip is reachable instead of broken. */
   .filter-rail {
     display: flex;
     align-items: center;
@@ -522,6 +729,9 @@
     padding: 2px 16px 8px;
     overflow-x: auto;
     scrollbar-width: none;
+    /* Keep a focused chip clear of the fade when the browser scrolls it into view. */
+    scroll-padding-inline: 20px 34px;
+    mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 28px), transparent);
   }
 
   .filter-group,
@@ -565,22 +775,42 @@
     white-space: nowrap;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .filter-chip {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out);
+    }
+  }
+
   .filter-chip:hover {
     border-color: var(--color-accent);
     color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-accent) 8%, var(--color-raised));
   }
 
+  /* One selected treatment for every filter group: tinted surface, heavier label and a
+     leading marker, so selection never depends on colour alone. */
   .filter-chip[aria-current="page"] {
-    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
     color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-accent) 18%, var(--color-raised));
+    background: color-mix(in srgb, var(--color-accent) 20%, var(--color-raised));
     font-weight: 600;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 22%, transparent),
+      0 8px 20px -14px color-mix(in srgb, var(--color-accent) 100%, transparent);
   }
 
-  .filter-group:nth-of-type(2) .filter-chip[aria-current="page"] {
-    border-color: var(--color-ink);
-    color: var(--color-canvas);
-    background: var(--color-ink);
+  .filter-chip[aria-current="page"]::before {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    margin-right: 8px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    content: "";
   }
 
   .filter-divider {
@@ -592,12 +822,21 @@
   }
 
   .filter-reset {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
     flex: none;
     margin-left: 8px;
+    padding-inline: 4px;
     color: var(--color-accent);
     font-size: 0.75rem;
     font-weight: 600;
+    white-space: nowrap;
     text-underline-offset: 4px;
+  }
+
+  .filter-reset:hover {
+    color: var(--color-accent-hover);
   }
 
   .filter-chip-skeleton {
@@ -621,18 +860,90 @@
   .catalogue-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 22px 14px;
+    gap: 16px 12px;
     margin: 16px 0 0;
     padding: 0;
     list-style: none;
   }
 
+  /* Short, transform-only entrance so a new result set arrives instead of blinking in.
+     The stagger is capped: later rows share the last step rather than growing. */
+  @media (prefers-reduced-motion: no-preference) {
+    .release-grid > li,
+    .catalogue-grid > li,
+    .my-ratings-list > * {
+      animation: rise-in 340ms var(--ease-out) both;
+    }
+
+    .release-grid > li:nth-child(1),
+    .catalogue-grid > li:nth-child(1),
+    .my-ratings-list > :nth-child(1) {
+      animation-delay: 0ms;
+    }
+    .release-grid > li:nth-child(2),
+    .catalogue-grid > li:nth-child(2),
+    .my-ratings-list > :nth-child(2) {
+      animation-delay: 30ms;
+    }
+    .release-grid > li:nth-child(3),
+    .catalogue-grid > li:nth-child(3),
+    .my-ratings-list > :nth-child(3) {
+      animation-delay: 60ms;
+    }
+    .release-grid > li:nth-child(4),
+    .catalogue-grid > li:nth-child(4),
+    .my-ratings-list > :nth-child(4) {
+      animation-delay: 90ms;
+    }
+    .release-grid > li:nth-child(n + 5),
+    .catalogue-grid > li:nth-child(n + 5),
+    .my-ratings-list > :nth-child(n + 5) {
+      animation-delay: 120ms;
+    }
+  }
+
+  /* Catalogue cards are a real surface: near-invisible at rest so the covers keep the
+     rhythm, clearly elevated on hover or keyboard focus. */
   .catalogue-card {
+    position: relative;
     display: flex;
     min-width: 0;
     height: 100%;
     flex-direction: column;
     gap: 10px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+    border-radius: 16px;
+    padding: 7px 7px 13px;
+    background: linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--color-surface) 96%, var(--color-ink)),
+      color-mix(in srgb, var(--color-canvas) 88%, var(--color-surface))
+    );
+    box-shadow: var(--elevation-rest);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .catalogue-card {
+      transition:
+        border-color var(--duration-normal) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        transform var(--duration-normal) var(--ease-out);
+    }
+  }
+
+  .catalogue-card:hover,
+  .catalogue-card:focus-within {
+    border-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
+    box-shadow:
+      var(--elevation-lift),
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .catalogue-card:hover,
+    .catalogue-card:focus-within {
+      transform: translateY(-3px);
+    }
   }
 
   .release-cover-wrap {
@@ -644,10 +955,57 @@
   }
 
   .cover-link {
+    position: relative;
     display: block;
+    isolation: isolate;
     overflow: hidden;
     border-radius: 12px;
     box-shadow: 0 18px 34px -26px #000;
+  }
+
+  /* Release cards add a top scrim above the vignette so the date badge stays legible
+     over bright artwork. */
+  .release-cover-wrap .cover-link::after {
+    background:
+      linear-gradient(
+          180deg,
+          color-mix(in srgb, #05080b 62%, transparent),
+          transparent 38%
+        )
+        no-repeat,
+      radial-gradient(
+        124% 96% at 50% 44%,
+        transparent 62%,
+        color-mix(in srgb, #05080b 30%, transparent)
+      );
+  }
+
+  /* Provider covers arrive at one fixed CDN size, so on a dense grid or a high-DPI screen
+     they are always upscaled. A faint grain breaks up the smooth interpolation and a
+     vignette gives the frame a printed edge instead of a soft one. Both sit above the
+     image, never over text, and are purely decorative. */
+  .cover-link::before {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    opacity: 0.1;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23g)'/%3E%3C/svg%3E");
+    content: "";
+  }
+
+  .cover-link::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      124% 96% at 50% 44%,
+      transparent 62%,
+      color-mix(in srgb, #05080b 30%, transparent)
+    );
+    content: "";
   }
 
   .cover-static {
@@ -657,23 +1015,32 @@
   .catalogue-cover {
     display: block;
     width: 100%;
-    aspect-ratio: 3 / 4;
+    aspect-ratio: var(--cover-aspect);
     border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
     border-radius: 12px;
     background: var(--color-raised);
     object-fit: cover;
-    transition: transform 180ms ease;
+    /* A small micro-contrast lift restores the bite that upscaling costs. */
+    filter: saturate(1.06) contrast(1.03);
   }
 
-  .catalogue-card:hover .catalogue-cover {
-    transform: translateY(-3px);
+  @media (prefers-reduced-motion: no-preference) {
+    .catalogue-cover {
+      transition: transform 320ms var(--ease-out);
+    }
+
+    .catalogue-card:hover .catalogue-cover,
+    .catalogue-card:focus-within .catalogue-cover {
+      transform: scale(1.045);
+    }
   }
 
   .cover-caption {
-    margin-top: 6px;
+    margin-top: 7px;
     color: var(--color-muted);
     font-size: 0.6875rem;
     line-height: 1.45;
+    letter-spacing: 0.02em;
   }
 
   .text-link {
@@ -686,20 +1053,23 @@
     color: var(--color-accent);
   }
 
+  /* Glass chip over the cover scrim: reads as part of the artwork, not stuck on top. */
   .release-date-badge {
     position: absolute;
     top: 8px;
     left: 8px;
     max-width: calc(100% - 16px);
+    border: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
     border-radius: 999px;
-    padding: 4px 9px;
-    color: var(--color-canvas);
-    background: color-mix(in srgb, var(--color-ink) 94%, transparent);
+    padding: 3px 8px;
+    color: var(--color-ink);
+    background: color-mix(in srgb, #05080b 78%, transparent);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
     font-weight: 600;
     line-height: 1.35;
-    letter-spacing: 0.035em;
+    letter-spacing: 0;
+    backdrop-filter: blur(6px);
   }
 
   .card-body {
@@ -728,14 +1098,19 @@
     color: var(--color-accent);
   }
 
+  /* Card metadata sits on the card surface, so it uses `muted` rather than `subtle`. */
   .card-platform,
   .card-source,
   .card-alias,
   .search-release-context {
     margin: 0;
-    color: var(--color-subtle);
+    color: var(--color-muted);
     font-size: 0.75rem;
     line-height: 1.5;
+  }
+
+  .card-source {
+    color: var(--color-subtle);
   }
 
   .card-alias span,
@@ -753,15 +1128,29 @@
     list-style: none;
   }
 
+  /* Status pills carry a leading marker so the neutral and warning tiers are
+     distinguishable without colour, and stay quiet enough not to outrank the title. */
   .badge {
     display: inline-flex;
     align-items: center;
-    border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+    gap: 5px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
     border-radius: 999px;
-    padding: 3px 7px;
+    padding: 3px 9px;
     color: var(--color-muted);
+    background: color-mix(in srgb, var(--color-ink) 4%, transparent);
     font-size: 0.6875rem;
     line-height: 1.4;
+  }
+
+  .badge::before {
+    width: 5px;
+    height: 5px;
+    flex: none;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.65;
+    content: "";
   }
 
   .badge-warning {
@@ -770,10 +1159,17 @@
     background: color-mix(in srgb, var(--color-warning) 12%, transparent);
   }
 
+  .badge-warning::before {
+    border-radius: 1px;
+    opacity: 1;
+    transform: rotate(45deg);
+  }
+
   .card-action {
     display: inline-flex;
     min-height: 32px;
     align-items: center;
+    gap: 6px;
     align-self: start;
     margin-top: auto;
     color: var(--color-ink);
@@ -782,8 +1178,32 @@
     text-decoration: none;
   }
 
+  .card-action span[aria-hidden] {
+    display: inline-block;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px;
+  }
+
   .card-action:hover {
     color: var(--color-accent);
+  }
+
+  .card-action:hover span[aria-hidden] {
+    border-bottom-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card-action,
+    .card-action span[aria-hidden] {
+      transition:
+        color var(--duration-fast) var(--ease-out),
+        border-color var(--duration-fast) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+
+    .card-action:hover span[aria-hidden] {
+      transform: translateX(2px);
+    }
   }
 
   .search-release-context {
@@ -805,20 +1225,46 @@
     padding-bottom: 24px;
   }
 
+  /* Placeholders reuse the real card surface so the arriving results land in the same
+     shape instead of replacing a different-looking block. */
   .loading-card {
     display: grid;
     gap: 10px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+    border-radius: 16px;
+    padding: 7px 7px 13px;
+    background: linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--color-surface) 96%, var(--color-ink)),
+      color-mix(in srgb, var(--color-canvas) 88%, var(--color-surface))
+    );
   }
 
   .skeleton {
+    position: relative;
+    display: block;
+    overflow: hidden;
     border-radius: 6px;
-    background: linear-gradient(90deg, var(--color-raised), #232c36, var(--color-raised));
-    background-size: 420px 100%;
-    animation: shimmer 1.4s linear infinite;
+    background: color-mix(in srgb, var(--color-raised) 92%, var(--color-ink));
+  }
+
+  .skeleton::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in srgb, var(--color-accent) 12%, transparent) 45%,
+      color-mix(in srgb, var(--color-ink) 7%, transparent) 55%,
+      transparent 80%
+    );
+    content: "";
+    transform: translateX(-100%);
+    animation: shimmer 1.5s var(--ease-out) infinite;
   }
 
   .skeleton-cover {
-    aspect-ratio: 3 / 4;
+    aspect-ratio: var(--cover-aspect);
     border-radius: 12px;
   }
 
@@ -832,18 +1278,56 @@
     height: 10px;
   }
 
+  .skeleton-meta-short {
+    width: 42%;
+  }
+
   .notice {
+    position: relative;
     display: flex;
     align-items: center;
+    overflow: hidden;
     flex-direction: column;
     gap: 13px;
-    margin: 20px 0 40px;
-    border: 1px dashed color-mix(in srgb, var(--color-ink) 18%, transparent);
-    border-radius: 16px;
+    /* A notice is a message, not a region: cap it so it never reads as an empty panel. */
+    max-width: 680px;
+    margin: 24px auto 40px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
+    border-radius: 20px;
     padding: 34px 18px;
     color: var(--color-muted);
-    background: var(--color-surface);
+    background: linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--color-surface) 92%, var(--color-ink)),
+      var(--color-canvas)
+    );
+    box-shadow: var(--elevation-rest);
     text-align: center;
+  }
+
+  /* A single wash keyed to the notice tone, so an empty result never looks like an error. */
+  .notice::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      36rem 14rem at 50% -10%,
+      color-mix(in srgb, var(--notice-tone, var(--color-accent)) 12%, transparent),
+      transparent 70%
+    );
+    content: "";
+  }
+
+  .notice > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .notice {
+      animation: rise-in 300ms var(--ease-out) both;
+    }
   }
 
   .notice h2,
@@ -870,19 +1354,31 @@
     font-size: 0.625rem;
   }
 
+  .notice-empty {
+    --notice-tone: var(--color-muted);
+  }
+
+  /* A page title used as a notice heading centres its bloom with the notice. */
+  .notice .page-title::before {
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
   .notice-info {
-    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+    --notice-tone: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
   }
 
   .notice-warning {
-    border-color: color-mix(in srgb, var(--color-warning) 42%, transparent);
-    background: var(--color-warning-surface);
+    --notice-tone: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 38%, transparent);
+    background: linear-gradient(170deg, var(--color-warning-surface), var(--color-canvas));
   }
 
   .notice-danger {
-    border-style: solid;
-    border-color: color-mix(in srgb, var(--color-danger) 42%, transparent);
-    background: var(--color-danger-surface);
+    --notice-tone: var(--color-danger);
+    border-color: color-mix(in srgb, var(--color-danger) 38%, transparent);
+    background: linear-gradient(170deg, var(--color-danger-surface), var(--color-canvas));
   }
 
   .notice-symbol {
@@ -896,6 +1392,9 @@
     border-radius: 15px;
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--color-ink) 10%, transparent),
+      0 14px 30px -18px color-mix(in srgb, var(--color-accent) 100%, transparent);
     font-family: var(--font-mono);
     font-size: 1.125rem;
     font-weight: 600;
@@ -905,17 +1404,36 @@
     border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
     color: var(--color-warning);
     background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    box-shadow: 0 14px 30px -18px color-mix(in srgb, var(--color-warning) 100%, transparent);
   }
 
   .notice-symbol-danger {
     border-color: color-mix(in srgb, var(--color-danger) 45%, transparent);
     color: var(--color-danger);
     background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+    box-shadow: 0 14px 30px -18px color-mix(in srgb, var(--color-danger) 100%, transparent);
+  }
+
+  /* A support reference is an opaque identifier: mono, and never case-transformed. */
+  .notice .notice-reference {
+    max-width: 100%;
+    margin: 0;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    overflow-wrap: anywhere;
   }
 
   .stale-banner {
-    border-bottom: 1px solid color-mix(in srgb, var(--color-warning) 16%, transparent);
-    background: color-mix(in srgb, var(--color-warning) 3%, var(--color-canvas));
+    border-bottom: 1px solid color-mix(in srgb, var(--color-warning) 20%, transparent);
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-warning) 7%, var(--color-canvas)),
+      color-mix(in srgb, var(--color-warning) 2%, var(--color-canvas))
+    );
   }
 
   .stale-banner .page-container {
@@ -945,8 +1463,16 @@
     flex-wrap: wrap;
     gap: 12px;
     margin-top: 38px;
-    border-top: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
     padding-top: 22px;
+    border-top: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+    /* Hairline of accent light so the end of a result set reads as a deliberate edge. */
+    border-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-accent) 40%, transparent),
+        color-mix(in srgb, var(--color-ink) 10%, transparent) 42%,
+        transparent
+      )
+      1;
   }
 
   .pagination p {
@@ -966,12 +1492,24 @@
   .site-footer {
     margin-top: 20px;
     border-top: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
-    background: var(--color-surface);
+    background: linear-gradient(
+      180deg,
+      var(--color-canvas),
+      color-mix(in srgb, var(--color-surface) 92%, var(--color-canvas))
+    );
   }
 
   .site-footer .page-container {
     padding-block: 22px;
     letter-spacing: 0.15em;
+  }
+
+  /* Holds SVG filter definitions only; it must never take layout or focus. */
+  .filter-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
   }
 
   .skip-link {
@@ -1048,9 +1586,9 @@
 
     .release-grid,
     .catalogue-grid {
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 26px 18px;
-      margin-top: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+      gap: 18px 14px;
+      margin-top: 18px;
     }
 
     .card-title {
@@ -1124,10 +1662,20 @@
       padding-top: 18px;
     }
 
+    /* At desktop the rail has room to wrap, so no control is ever hidden behind a scroll. */
     .filter-rail {
       margin: 0;
       padding: 0 0 8px;
-      overflow-x: auto;
+      flex-wrap: wrap;
+      row-gap: 10px;
+      overflow: visible;
+      mask-image: none;
+    }
+
+    .filter-group,
+    .filter-options {
+      flex-wrap: wrap;
+      row-gap: 10px;
     }
 
     .filter-chip {
@@ -1141,8 +1689,8 @@
 
     .release-grid,
     .catalogue-grid {
-      grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
-      gap: 30px 22px;
+      grid-template-columns: repeat(auto-fill, minmax(192px, 1fr));
+      gap: 22px 18px;
     }
 
     .card-title {
@@ -1150,7 +1698,7 @@
     }
 
     .notice {
-      padding: 52px 32px;
+      padding: 46px 40px;
     }
 
     .notice h2,
@@ -1160,12 +1708,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .catalogue-cover {
-      transition: none;
-    }
-
-    .skeleton {
+    .skeleton::after {
       animation: none;
+      opacity: 0.35;
+      transform: none;
     }
   }
 
@@ -1180,18 +1726,80 @@
     .button,
     .filter-chip,
     .header-search,
-    .account-link {
+    .account-link,
+    .catalogue-card,
+    .loading-card {
       border-color: ButtonText;
+    }
+
+    /* Decorative depth carries no meaning: drop it so system colours stay authoritative. */
+    .app-frame::before,
+    .app-frame::after,
+    .page-title::before,
+    .notice::before,
+    .cover-link::before,
+    .cover-link::after {
+      display: none;
+    }
+
+    /* Never re-map provider artwork colours on top of the system palette. */
+    .catalogue-cover,
+    .game-artwork .catalogue-cover {
+      filter: none;
+    }
+
+    .catalogue-card,
+    .loading-card,
+    .notice,
+    .site-header,
+    .site-footer,
+    .catalogue-masthead,
+    .release-window > span {
+      background: Canvas;
+      box-shadow: none;
+    }
+
+    .release-date-badge {
+      border-color: ButtonText;
+      color: ButtonText;
+      background: Canvas;
+      backdrop-filter: none;
+    }
+
+    .filter-rail {
+      mask-image: none;
     }
   }
 }
 
 @keyframes shimmer {
   from {
-    background-position: -420px 0;
+    transform: translateX(-100%);
   }
 
   to {
-    background-position: 420px 0;
+    transform: translateX(100%);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
