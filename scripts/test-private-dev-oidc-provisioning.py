@@ -68,7 +68,7 @@ class FakeProfileAdmin(module.KeycloakAdmin):
         if method == "GET":
             return json.dumps(self.profile).encode("utf-8"), object()
         assert method == "PUT"
-        assert expected == {204}
+        assert expected == {200, 204}
         assert body is not None
         self.profile = body
         self.puts += 1

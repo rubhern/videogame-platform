@@ -95,12 +95,6 @@ try {
   );
   completedChecks.push("version-metadata");
 
-  const metrics = await jsonResponse(await management.get("/actuator/metrics"), "metrics");
-  for (const name of ["http.server.requests", "jvm.memory.used", "jdbc.connections.active"]) {
-    assert(metrics.names?.includes(name), `required diagnostic metric is absent: ${name}`);
-  }
-  completedChecks.push("diagnostic-metrics");
-
   browser = await chromium.launch();
   const context = await browser.newContext({ baseURL: applicationOrigin });
   const page = await context.newPage();
@@ -135,6 +129,12 @@ try {
       .waitFor({ state: "visible" });
   }
   completedChecks.push("releases-api", "browser-shell");
+
+  const metrics = await jsonResponse(await management.get("/actuator/metrics"), "metrics");
+  for (const name of ["http.server.requests", "jvm.memory.used", "jdbc.connections.active"]) {
+    assert(metrics.names?.includes(name), `required diagnostic metric is absent: ${name}`);
+  }
+  completedChecks.push("diagnostic-metrics");
 
   const tracedRelease = await page.evaluate(
     async ({ expectedCorrelationId, expectedTraceId }) => {

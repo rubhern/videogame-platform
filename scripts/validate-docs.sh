@@ -21,6 +21,7 @@ required_files=(
   "deploy/private-dev/runtime.env.example"
   "deploy/private-dev/smoke/Dockerfile"
   "deploy/private-dev/smoke/deployment-smoke.mjs"
+  "deploy/private-dev/smoke/deployment-smoke-order.test.mjs"
   "deploy/private-dev/smoke/package-lock.json"
   "deploy/private-dev/smoke/package.json"
   "deploy/private-dev/smoke/releases-outcome.mjs"
