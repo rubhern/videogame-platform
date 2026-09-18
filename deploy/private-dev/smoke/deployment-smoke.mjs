@@ -138,7 +138,7 @@ try {
 
   const tracedRelease = await page.evaluate(
     async ({ expectedCorrelationId, expectedTraceId }) => {
-      const response = await fetch("/api/v1/releases?page=1&pageSize=1", {
+      const response = await fetch("/api/v1/releases?view=recent", {
         headers: {
           Accept: "application/json",
           "X-Correlation-ID": expectedCorrelationId,
