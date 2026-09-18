@@ -20,6 +20,7 @@ required_files=(
   "deploy/private-dev/compose.yaml"
   "deploy/private-dev/runtime.env.example"
   "deploy/private-dev/smoke/Dockerfile"
+  "deploy/private-dev/smoke/deployment-smoke-contract.test.mjs"
   "deploy/private-dev/smoke/deployment-smoke.mjs"
   "deploy/private-dev/smoke/deployment-smoke-order.test.mjs"
   "deploy/private-dev/smoke/package-lock.json"

@@ -265,7 +265,8 @@ if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
   node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
   node --test \
     "$repository_root/deploy/private-dev/smoke/releases-outcome.test.mjs" \
-    "$repository_root/deploy/private-dev/smoke/deployment-smoke-order.test.mjs"
+    "$repository_root/deploy/private-dev/smoke/deployment-smoke-order.test.mjs" \
+    "$repository_root/deploy/private-dev/smoke/deployment-smoke-contract.test.mjs"
   bash "$repository_root/scripts/test-private-dev-deployment.sh"
   python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"
 fi
