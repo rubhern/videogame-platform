@@ -49,6 +49,7 @@ postgres_admin_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 keycloak_admin_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 bff_client_secret="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
 test_user_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+test_user_username="local-user"
 smoke_user_username="integration-deployment-smoke"
 
 bash scripts/package-application.sh
