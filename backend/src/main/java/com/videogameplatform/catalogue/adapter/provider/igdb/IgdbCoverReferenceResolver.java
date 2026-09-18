@@ -17,6 +17,7 @@ public final class IgdbCoverReferenceResolver implements ProviderCoverReferenceR
      */
     private static final String COVER_BASE =
             "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/";
+
     private static final Pattern IMAGE_ID = Pattern.compile("[A-Za-z0-9_-]+");
 
     @Override
