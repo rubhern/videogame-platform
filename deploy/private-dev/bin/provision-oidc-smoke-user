@@ -137,7 +137,7 @@ class KeycloakAdmin:
                 "PUT",
                 f"/admin/realms/{REALM}/users/profile",
                 body=profile,
-                expected={204},
+                expected={200, 204},
             )
             profile = self.user_profile()
             attributes = profile.get("attributes")
