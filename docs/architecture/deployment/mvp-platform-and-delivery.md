@@ -97,9 +97,12 @@ does not select or deploy an application digest by itself.
 
 PostgreSQL and the collector publish no host port. The product and Keycloak HTTP
 ports bind only to host loopback, where Tailscale Serve terminates HTTPS on separate
-tailnet-only ports. Database and telemetry networks are Docker-internal; the edge
-network exists only for required outbound access and loopback publication. Keycloak
-management and application Actuator ports stay container-internal. Tailscale Funnel,
+tailnet-only ports. The application's OIDC issuer and browser authorization endpoint
+use Keycloak's external HTTPS hostname; its token, JWK and user-info calls remain on
+the internal Docker Keycloak address. Database and telemetry networks are
+Docker-internal; the edge network exists only for required outbound access and
+loopback publication. Keycloak management and application Actuator ports stay
+container-internal. Tailscale Funnel,
 router forwarding and public DNS/ingress remain prohibited; tailnet policy permits
 only the owner.
 

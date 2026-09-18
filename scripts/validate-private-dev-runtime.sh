@@ -204,6 +204,14 @@ assert services["application"]["environment"]["APPLICATION_SESSION_COOKIE_NAME"]
 assert services["application"]["environment"]["APPLICATION_SESSION_COOKIE_SECURE"] == "true"
 assert services["application"]["environment"]["TELEMETRY_DEPLOYMENT_ENVIRONMENT"] == "dev"
 assert services["application"]["environment"]["TELEMETRY_SERVICE_VERSION"]
+keycloak_origin = services["keycloak"]["environment"]["KC_HOSTNAME"].rstrip("/")
+expected_issuer = f"{keycloak_origin}/realms/videogame-platform"
+application_oidc = services["application"]["environment"]
+assert application_oidc["OIDC_ISSUER_URI"] == expected_issuer, "application issuer must match Keycloak's external hostname"
+assert application_oidc["OIDC_AUTHORIZATION_URI"] == f"{expected_issuer}/protocol/openid-connect/auth"
+assert application_oidc["OIDC_TOKEN_URI"] == "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token"
+assert application_oidc["OIDC_JWK_SET_URI"] == "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs"
+assert application_oidc["OIDC_USER_INFO_URI"] == "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo"
 assert services["migration"]["environment"] == {
     "APPLICATION_MIGRATION_DB_PASSWORD_FILE": "/run/secrets/application_migration_db_password",
     "APPLICATION_MIGRATION_DB_URL": "jdbc:postgresql://postgres:5432/videogame_platform",
