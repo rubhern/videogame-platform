@@ -102,7 +102,7 @@ describe("release list projection", () => {
 
 const providerCover = {
   kind: "provider",
-  url: "https://images.igdb.com/igdb/image/upload/t_cover_big/coexample.webp",
+  url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp",
   alternativeText: "Carátula de Pragmata",
   attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/pragmata" },
 } satisfies components["schemas"]["Cover"];
@@ -175,7 +175,7 @@ describe("releases view model", () => {
   it("preserves provider cover attribution and the product-owned fallback", () => {
     expect(toReleasesViewModel(upcomingPage).items[0]?.cover).toEqual({
       kind: "provider",
-      url: "https://images.igdb.com/igdb/image/upload/t_cover_big/coexample.webp",
+      url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp",
       alternativeText: "Carátula de Pragmata",
       attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/pragmata" },
     });

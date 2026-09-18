@@ -48,7 +48,10 @@ export function MyRatingCard({ item, csrfToken, onChanged }: {
         <div><dt>Puntuado</dt><dd><time dateTime={personalRating.createdAt}>{formatTimestamp(personalRating.createdAt)}</time></dd></div>
         <div><dt>Actualizado</dt><dd><time dateTime={personalRating.updatedAt}>{formatTimestamp(personalRating.updatedAt)}</time></dd></div>
       </dl>
-      <Link className="card-action" to={path}>Ver ficha<span className="sr-only"> de {game.canonicalTitle}</span> →</Link>
+      <Link className="card-action" to={path}>
+        <span className="sr-only">Ver ficha de {game.canonicalTitle}</span>
+        <span aria-hidden="true">Ver ficha →</span>
+      </Link>
       {editing ? <form className="my-rating-edit" onSubmit={(event) => {
         event.preventDefault();
         if (command.isPending || mustRefresh) return;

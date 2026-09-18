@@ -73,7 +73,7 @@ paths:
                         canonicalTitle: Hollow Knight Silksong
                         primaryCover:
                           kind: provider
-                          url: https://images.igdb.com/igdb/image/upload/t_cover_big/coexample.webp
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp
                           alternativeText: Carátula de Hollow Knight Silksong
                           attribution:
                             label: IGDB
@@ -192,7 +192,7 @@ paths:
                         matchedAlias: Biohazard 4
                         primaryCover:
                           kind: provider
-                          url: https://images.igdb.com/igdb/image/upload/t_cover_big/coexample1.webp
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample1.webp
                           alternativeText: Carátula de Resident Evil 4
                           attribution:
                             label: IGDB
@@ -270,7 +270,7 @@ paths:
                       language: es
                     primaryCover:
                       kind: provider
-                      url: https://images.igdb.com/igdb/image/upload/t_cover_big/co1234.webp
+                      url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1234.webp
                       alternativeText: Carátula de Juego de ejemplo
                       attribution:
                         label: IGDB
@@ -480,7 +480,7 @@ paths:
                           canonicalTitle: Juego de ejemplo
                           primaryCover:
                             kind: provider
-                            url: https://images.igdb.com/igdb/image/upload/t_cover_big/co1234.webp
+                            url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1234.webp
                             alternativeText: Carátula de Juego de ejemplo
                             attribution:
                               label: IGDB

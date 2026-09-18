@@ -48,10 +48,24 @@ export is review evidence, never a runtime dependency or an instruction source.
   body text and monospaced labels and operational metadata. Use the locally hosted Instrument
   Serif, IBM Plex Sans and IBM Plex Mono assets with system fallbacks and `font-display: swap`.
   Font licences live under [public/assets/fonts](../../frontend/public/assets/fonts/README.md).
-- Covers carry the catalogue rhythm. Use a 3:4 frame with a 12px radius, a quiet border and a
-  restrained shadow. Place the release date over the upper-left of the cover. Keep full game
-  titles, platform and region, explicit freshness/review status, provenance, cover attribution
-  and the **Ver ficha** action below it. Never truncate contract data to equalize card heights.
+- Covers carry the catalogue rhythm. Use one fixed cover frame with a 12px radius, a quiet
+  border and a restrained shadow. The frame's ratio is the one the approved provider actually
+  delivers, so `object-fit: cover` crops nothing off real artwork, and it stays a single shared
+  frame rather than a per-image one so the grid keeps one rhythm whatever a source delivers.
+  Global styles own the executable value. Place the release date over the upper-left of the cover, on a scrim that
+  keeps it legible over any artwork. Keep full game titles, platform and region, explicit
+  freshness/review status, provenance, cover attribution and the **Ver ficha** action below it.
+  Never truncate contract data to equalize card heights; a long value wraps inside its chip.
+- A catalogue card is a surface, not a loose column of text: a quiet gradient, a hairline
+  border, the resting shadow and equal height across a row. It lifts and scales its cover
+  slightly on hover and keyboard focus.
+- Provider covers arrive at one fixed CDN size, so every frame wider than that size upscales
+  them. Treat that as a permanent condition of [ADR-0001](../decisions/0001-reference-igdb-cover-images.md),
+  not a defect: covers carry a faint grain, a vignette and a small micro-contrast lift so the
+  interpolation reads as texture rather than blur, and the large game-detail frame — the only
+  one no provider cover size can fill — adds a light unsharp mask. These are presentation
+  effects over the delivered image. Never resample, cache or re-encode provider artwork, and
+  never apply them in forced colours.
 - Use rounded pills for navigation, filters, status and actions. Primary controls retain at
   least a 44px target; compact card links may use the smaller established action treatment.
   Hover, keyboard focus and selected state must remain distinct without relying on colour alone.
@@ -59,6 +73,29 @@ export is review evidence, never a runtime dependency or an instruction source.
   status badges, result summaries and filter labels use at least 11 CSS pixels with WCAG AA
   contrast on their actual surface. Prefer `muted` when text sits on `raised`; reserve `subtle`
   for quiet text on `canvas` or `surface` where its contrast remains at least 4.5:1.
+- Identifiers a person may have to repeat — currently the support correlation reference — stay
+  monospaced and keep their exact casing. Never case-transform them for style.
+
+## Depth and motion
+
+Depth and motion belong to the visual language, not to individual screens. Global styles own
+the executable values; these constraints hold wherever they are used:
+
+- The canvas carries one fixed ambient field: low-opacity accent and warm washes plus a
+  generated grain tile that keeps large dark gradients from banding. It never scrolls with the
+  content, never sits above it, and nothing readable depends on it.
+- Elevation has two levels only, a resting hairline and a lifted shadow, with one easing curve
+  and two durations. Do not add a per-component shadow scale.
+- Content surfaces lift on `:hover` **and** `:focus-within`, so depth never depends on a
+  pointer.
+- Motion is short, purposeful and limited to transform and opacity: entrance for arriving
+  content, feedback on press, hover and selection. Declare it inside
+  `@media (prefers-reduced-motion: no-preference)` instead of disabling it afterwards, so
+  reduced motion is the default and nothing animates or transitions there.
+- Composition a browser check measures — the detail cover, title and score panels — uses an
+  opacity-only entrance, never a transform.
+- Forced colours drop every wash, scrim, gradient, shadow, blur and rail mask and return to
+  system colours.
 
 ## Reusable patterns and interaction
 
@@ -68,9 +105,17 @@ export is review evidence, never a runtime dependency or an instruction source.
 - Use `CatalogueCover` for provider covers, provider failure fallback and attribution, and
   `CatalogueLoading` for releases and search loading. Feature cards keep their own metadata;
   do not introduce a universal card API until further reuse exists.
+- Placeholders take the shape of the screen they replace, so arriving content lands in the same
+  frame: the catalogue grid for releases and search, the detail composition for a game page,
+  and maintenance rows for the personal collection. Placeholders themselves stay silent; the
+  screen keeps exactly one live status.
 - Render platform and region choices from `availableFilters` as labelled link lists. Each link
-  preserves URL state and resets pagination. On narrow screens the rail scrolls rather than
-  wrapping into a dense control block. Never hard-code the available choices from the mockup.
+  preserves URL state and resets pagination. Every filter group shares one selected treatment —
+  tinted surface, heavier label and a leading marker — so selection reads the same everywhere
+  and never depends on colour alone. Narrow screens scroll the rail instead of wrapping it into
+  a dense control block, and a clipped rail fades at its edge while keeping a focused chip
+  scrolled clear of that fade; desktop widths wrap instead, so no control is hidden. Never
+  hard-code the available choices from the mockup.
 - Translate established region display names into Spanish only in the presentation projection:
   Europa, Japón, Norteamérica, Mundial and Sin región confirmada. Preserve region identifiers,
   requests and OpenAPI values, and show an unfamiliar API label unchanged.
@@ -85,11 +130,15 @@ export is review evidence, never a runtime dependency or an instruction source.
 
 The owner's September 8, 2026 game-detail reference
 (`ChatGPT Image 8 sept 2026, 08_51_59.png`) is the visual target for this screen.
-It refines the catalogue foundation with a large left-hand 3:4 cover, a prominent
+It refines the catalogue foundation with a large left-hand cover in the shared cover
+frame, a prominent
 sans-serif game title, platform/region pills near the title, a bordered metadata
 and compact-summary panel, and a strong community-score panel immediately below
 the cover. Use existing shell, fonts, colours, focus styles and responsive gutters;
-the detail title uses the existing sans font to match this reference. The owner's
+the detail title uses the existing sans font to match this reference. The hero sits on a
+decorative ambience derived from the cover this page already displays — blurred, heavily
+dimmed and masked so it fades on every edge. It adds no request, no asset and no licence
+surface beyond that cover, and every readable panel below keeps its own opaque background. The owner's
 September 11, 2026 rating references refine only the community and personal-rating
 panels described below; their card-level ratings on release and search results are
 not part of the approved MVP screens until an owner decision schedules that work.
@@ -136,8 +185,10 @@ taglines or background artwork from the reference. List/follow actions remain de
 
 `Mis puntuaciones` reuses the catalogue shell, title block, cover treatment, tokens
 and native controls. Present cover-led rows with game navigation, a clearly personal
-score and the two rating timestamps. Keep the private search separate from the
-header's public catalogue search. Direct editing expands a labelled native 1–10
+score and the two rating timestamps. The personal score carries its own accent badge:
+it is the reason the row exists. The private filters form one control bar rather than
+four loose fields, and stay separate from the header's public catalogue search. Direct
+editing expands a labelled native 1–10
 selection with Save/Cancel actions; deletion remains a distinct action. Announce
 outcomes and move focus to the results after maintenance or pagination. A concurrent
 or ambiguous command requires a successful read before another command is enabled.
@@ -147,13 +198,17 @@ Empty ratings, no search matches, an exhausted page and load failure remain dist
 
 | State | Required presentation and behaviour |
 |---|---|
-| Loading / new selection | One live status plus non-interactive cover-shaped placeholders; never present previous results as the new selection |
+| Loading / new selection | One live status plus non-interactive placeholders shaped like the screen they replace; never present previous results as the new selection |
 | Refreshing | Keep valid current results usable and announce the refresh |
 | Empty | Neutral editorial notice with applicable filter reset or page recovery; never call it a failure |
 | Stale | A slim, low-emphasis amber context strip plus explicit affected-card freshness/review labels; keep results usable |
 | Catalogue not ready | Informational notice, local-catalogue explanation and retry; distinguish it from technical failure |
 | Unsupported filter / invalid input | Warning notice, explanation and applicable correction; preserve labels and invalid semantics |
 | Technical error | Restrained danger notice, safe message, optional support reference and retry |
+
+Every one of these states is a message, not a region: render it as a width-capped panel with a
+tone-keyed symbol and wash, centred in the content column rather than stretched across it. Only
+the tone changes between them.
 
 Use the existing live-region semantics. Do not add announcements to individual skeletons or
 replace a contract state with decorative success content.

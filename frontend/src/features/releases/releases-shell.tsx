@@ -165,7 +165,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
               Reintentar
             </button>
             {state.correlationId === null ? null : (
-              <p className="notice-footnote">Referencia para soporte: {state.correlationId}</p>
+              <p className="notice-reference">Referencia para soporte: {state.correlationId}</p>
             )}
           </div>
         ) : null}
