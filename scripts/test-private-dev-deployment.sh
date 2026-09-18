@@ -106,12 +106,18 @@ if [[ "$1" == compose ]]; then
   if [[ "$arguments" == *" config --format json "* ]]; then
     python3 - "$FAKE_REPOSITORY_ROOT" "$FAKE_SECRETS_DIRECTORY" "$FAKE_IMAGE" <<'PY'
 import json
+import os
 import pathlib
 import sys
 
 repository = pathlib.Path(sys.argv[1])
 secrets_directory = pathlib.Path(sys.argv[2])
 image = sys.argv[3]
+keycloak_origin = os.environ.get("FAKE_PRIVATE_DEV_KEYCLOAK_ORIGIN", "https://vgpdev.validation.invalid:8443")
+issuer_uri = os.environ.get(
+    "FAKE_PRIVATE_DEV_OIDC_ISSUER_URI",
+    f"{keycloak_origin}/realms/videogame-platform",
+)
 secret_files = {
     name.replace("-", "_"): {"file": str(secrets_directory / name)}
     for name in (
@@ -153,6 +159,7 @@ services = {
         "unless-stopped",
         ("keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"),
         build={"context": str(repository / "deploy/private-dev/keycloak")},
+        environment={"KC_HOSTNAME": keycloak_origin},
         ports=[{"host_ip": "127.0.0.1", "published": 8180, "target": 8080}],
         volumes=[{
             "source": str(repository / "docker/keycloak/import/videogame-platform-realm.json"),
@@ -174,6 +181,11 @@ services = {
             "APPLICATION_FLYWAY_ENABLED": "false",
             "APPLICATION_SESSION_COOKIE_NAME": "__Host-vgp_session",
             "APPLICATION_SESSION_COOKIE_SECURE": "true",
+            "OIDC_ISSUER_URI": issuer_uri,
+            "OIDC_AUTHORIZATION_URI": f"{keycloak_origin}/realms/videogame-platform/protocol/openid-connect/auth",
+            "OIDC_TOKEN_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token",
+            "OIDC_JWK_SET_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs",
+            "OIDC_USER_INFO_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo",
             "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "dev",
             "TELEMETRY_SERVICE_VERSION": "0.15.0-SNAPSHOT",
         },
@@ -336,6 +348,16 @@ if PATH="$fake_bin:$PATH" "$deployment_command" \
     --initiator issue-36-test \
     --evidence-directory "$mutable_evidence" >/dev/null 2>&1; then
   printf 'Mutable image reference was accepted.\n' >&2
+  exit 1
+fi
+
+if PATH="$fake_bin:$PATH" \
+    FAKE_PRIVATE_DEV_OIDC_ISSUER_URI=http://keycloak:8080/realms/videogame-platform \
+    FAKE_REPOSITORY_ROOT="$repository_root" \
+    FAKE_SECRETS_DIRECTORY="$secrets_directory" \
+    FAKE_IMAGE="$image" \
+    "$runtime_validator" --env-file "$runtime_env" >/dev/null 2>&1; then
+  printf "Private-dev runtime validation accepted an issuer that differs from Keycloak's external hostname.\n" >&2
   exit 1
 fi
 

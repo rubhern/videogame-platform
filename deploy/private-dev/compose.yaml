@@ -156,6 +156,7 @@ services:
       APPLICATION_DB_PASSWORD_FILE: /run/secrets/application_db_password
       APPLICATION_FLYWAY_ENABLED: "false"
       MANAGEMENT_SERVER_ADDRESS: 0.0.0.0
+      OIDC_ISSUER_URI: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}/realms/videogame-platform
       OIDC_AUTHORIZATION_URI: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}/realms/videogame-platform/protocol/openid-connect/auth
       OIDC_TOKEN_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs
