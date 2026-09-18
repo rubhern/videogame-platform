@@ -116,9 +116,10 @@ contracts with local development rather than private-dev copies. Local Compose a
 separate synthetic-user import that private dev does not mount. Private dev changes
 only secret transport, public origin and runtime topology around those contracts. A
 one-time idempotent private-dev command creates the non-personal deployment-smoke
-account from protected host files through the private HTTPS Admin API; it assigns no
-direct client role or group and never adds that account or its credentials to the
-shared realm import.
+account from protected host files through the private HTTPS Admin API. Its profile is
+the fixed synthetic `Deployment` / `Smoke` / `vgp-deployment-smoke@example.invalid`
+set required by the normal realm policy; it assigns no direct client role or group and
+never adds that account or its credentials to the shared realm import.
 
 Telemetry is one replaceable, internal-only OpenTelemetry Collector rather than a
 self-hosted dashboard/storage stack. It accepts application OTLP HTTP metrics and
@@ -190,9 +191,9 @@ least-privileged, and stay out of Git, images, frontend code, URLs, logs, screen
 and CI artifacts. The application, migration, Keycloak and deployment-smoke actors
 receive only their required files; smoke credentials never enter application
 metadata. The private-dev provisioning command consumes its protected inputs in
-memory, creates only its marked non-personal Keycloak account and refuses direct
-client roles or groups. OCI Vault and Terraform state are not current-host
-requirements.
+memory, creates only its marked Keycloak account with the fixed synthetic profile,
+and refuses any other profile, direct client roles, or groups. OCI Vault and Terraform
+state are not current-host requirements.
 
 ## PostgreSQL, migrations, and recovery
 

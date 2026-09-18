@@ -31,7 +31,7 @@ def required_environment(name: str) -> str:
 origin = required_environment("KEYCLOAK_TEST_ORIGIN")
 admin_username = required_environment("KEYCLOAK_TEST_ADMIN_USERNAME")
 admin_password = required_environment("KEYCLOAK_TEST_ADMIN_PASSWORD")
-smoke_username = "integration-deployment-smoke"
+smoke_username = required_environment("KEYCLOAK_TEST_SMOKE_USERNAME")
 smoke_password = required_environment("KEYCLOAK_TEST_SMOKE_PASSWORD")
 
 admin = module.KeycloakAdmin(origin)
@@ -51,7 +51,7 @@ created_id = created_user.get("id")
 assert isinstance(created_id, str) and created_id
 assert created_user.get("attributes", {}).get(module.MARKER_ATTRIBUTE) == ["true"]
 assert created_user.get("enabled") is True
-assert not any(created_user.get(field) for field in ("email", "firstName", "lastName"))
+assert {field: created_user.get(field) for field in module.SYNTHETIC_PROFILE} == module.SYNTHETIC_PROFILE
 assert not admin.direct_role_mappings(created_id).get("clientMappings")
 assert admin.groups(created_id) == []
 
@@ -60,5 +60,6 @@ reprovisioned = admin.find_users(smoke_username)
 assert len(reprovisioned) == 1
 assert reprovisioned[0].get("id") == created_id
 assert reprovisioned[0].get("attributes", {}).get(module.MARKER_ATTRIBUTE) == ["true"]
+assert {field: reprovisioned[0].get(field) for field in module.SYNTHETIC_PROFILE} == module.SYNTHETIC_PROFILE
 
 print("Real Keycloak deployment smoke-user provisioning validation passed.")
