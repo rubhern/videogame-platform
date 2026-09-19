@@ -30,7 +30,9 @@ owns measured evidence and outstanding host acceptance.
 Reviewed repository configuration now defines the non-root application boundary,
 Keycloak, PostgreSQL, bounded telemetry and owner-triggered application deployment
 mechanism prepared by #43 and #36. Applying and validating it on `vgpdev` remains
-environment evidence rather than a repository fact; backup/restore remains #44.
+environment evidence rather than a repository fact. Backup, restore, rollback and
+host-loss recovery are defined by the private-dev recovery tooling (#44); executing
+them on a real `vgpdev` host remains environment evidence, not a repository fact.
 Tailscale does not replace Keycloak/product authorization. No public application,
 identity, database, telemetry or SSH ingress is allowed, and router port forwarding
 must remain disabled.
@@ -169,9 +171,10 @@ One non-blocking host lock prohibits concurrent `dev` deployments. The selected 
 runs migrations with only the migration role before the application service is
 replaced; migration failure prevents activation. Readiness and smoke are bound to the
 new Compose container and any failure records a failed deployment even if another or
-older process remains healthy. The mechanism does not implement automatic rollback,
-backup/restore or host-loss recovery. Deployment success is not product acceptance or
-a named release.
+older process remains healthy. The deployment mechanism itself does not implement
+automatic rollback, backup/restore or host-loss recovery; those are separate
+owner-triggered controls owned by the private-dev recovery tooling below. Deployment
+success is not product acceptance or a named release.
 
 Every normal deployment proves management liveness/readiness, exact build version and
 source revision, bounded diagnostic metrics, the releases API through the rendered
@@ -213,6 +216,17 @@ PostgreSQL/schema/application version; retain only useful backups; prove isolate
 restore after setup and material changes. Catalogue provider data may be resynced,
 but personal/identity/editorial state is not assumed disposable.
 
+The executable controls live in [`deploy/private-dev`](../../../deploy/private-dev/README.md):
+per-database logical dumps encrypted to the owner's GPG public key so the host holds no
+decryption material, an off-host integrity/retention verifier that needs neither Docker
+nor the private key, an isolated restore into a distinct Compose project, and a
+rollback-versus-forward-fix assessment that never reverts an applied migration. Roles and
+credentials are bootstrapped from the protected secret files at restore and are never
+placed in a backup. Host-loss recovery composes the host-foundation rebuild above with
+restore and the owner-triggered deployment. Executing any of these against a real host is
+environment evidence; repository validation only proves the encryption, integrity,
+retention and decision logic.
+
 ## Health, observability, privacy, and failure
 
 Liveness reports process viability. Readiness proves supported local-data behaviour
@@ -237,9 +251,9 @@ Automatic scheduling remains deferred.
 | Cover CDN unavailable         | Use product fallback; keep game visible                                                                      |
 | No valid catalogue            | `CATALOGUE_NOT_READY`; no request-path provider call                                                         |
 | Migration failure             | Do not activate new application                                                                              |
-| Readiness/smoke failure       | Record deployment failure; recovery/redeploy requires a separate owner decision and #44-compatible procedure |
+| Readiness/smoke failure       | Record deployment failure; recover by the assessed rollback or forward fix, never by reverting an applied migration |
 | Backup failure                | Report recoverability failure; do not claim release success                                                  |
-| Host loss                     | Rebuild foundation; restore durable state and verify the journey through the recovery procedure owned by #44 |
+| Host loss                     | Rebuild the foundation, restore durable state from an encrypted backup, then redeploy and repeat the skeleton smoke |
 
 Standard OCI container images, PostgreSQL logical backups, OpenTelemetry and private
 ingress preserve portability. Hosting reconsideration triggers belong to ADR-0019.

@@ -33,7 +33,8 @@ The files here own the executable details.
 - The prior application remains untouched until the migration actor succeeds. A
   migration failure prevents replacement. Candidate readiness and every smoke check
   are tied to the newly created Compose container; any failure records a failed
-  deployment. Automatic rollback, backup/restore and host-loss recovery remain #44.
+  deployment. Automatic rollback is out of scope; the owner-triggered backup, restore,
+  rollback-assessment and host-loss recovery controls are documented below.
 - Deployment evidence is an atomically updated JSON record outside the checkout. It
   includes timestamps, target/environment, initiator, source revision, immutable
   image, application version, migration version, candidate container ID, completed
@@ -228,5 +229,131 @@ be proved in this repository:
   observations are recorded without calling this a named release or full MVP
   acceptance.
 
-Do not add rollback, backup/restore or host-loss claims to this procedure. Those
-controls and their evidence remain #44.
+This deployment procedure makes no rollback, backup/restore or host-loss claim. Those
+controls are owned by the next section.
+
+## Backup, restore, rollback and host-loss recovery
+
+These are the owner-triggered recovery controls. The
+[platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md) owns
+the policy and the state model; the scripts here own the mechanics. Repository
+validation proves only the encryption, integrity, retention and decision logic through
+`scripts/test-private-dev-backup-recovery.sh`; every step that reads the live database
+or a real host is environment evidence.
+
+### State model
+
+The irreplaceable durable state is the two PostgreSQL databases: `videogame_platform`
+(application state and product-owned curation) and `videogame_keycloak` (identity
+configuration and runtime accounts such as the deployment-smoke user). Both are captured
+as logical `pg_dump` custom-format artifacts. Catalogue/provider data is reconstructable
+by IGDB synchronization and is not treated as durable. Roles and passwords are **not**
+backed up: they are bootstrapped from the protected secret files by
+`docker/postgres/init` when a clean data volume initializes, which is why a backup can be
+restored without ever storing a credential.
+
+### One-time backup key setup
+
+Generate the backup keypair on a trusted machine that is not the host, keep the private
+key and its passphrase offline, and import only the public key on `vgpdev`. The host can
+then encrypt new backups but can never read existing ones, so host compromise does not
+expose backup contents. `<recipient>` is the key's email or fingerprint.
+
+```bash
+# On the offline owner machine (once): create the keypair and export the public key.
+gpg --full-generate-key
+gpg --armor --export <recipient> > vgp-backup-public.asc
+
+# On vgpdev (once): import only the public key into a dedicated keyring.
+install -d -m 0700 /etc/videogame-platform/dev/backup-gnupg
+gpg --homedir /etc/videogame-platform/dev/backup-gnupg --import vgp-backup-public.asc
+```
+
+### Encrypted backup with integrity and retention
+
+Runs on `vgpdev` while the dependency stack is healthy. It dumps both databases,
+encrypts each to the public key, writes a manifest and `SHA256SUMS`, self-verifies, and
+prunes older backups to the retention count. Point `--destination` at an off-host or
+externally mounted location; the artifacts are public-key encrypted, so even an untrusted
+destination cannot read them. Physically copying the destination off the host (for
+example over Tailscale with `rsync`) is the owner action that satisfies "outside the
+host".
+
+```bash
+deploy/private-dev/bin/backup-private-dev \
+  --env-file /etc/videogame-platform/dev/runtime.env \
+  --gnupg-home /etc/videogame-platform/dev/backup-gnupg \
+  --recipient <recipient> \
+  --destination /mnt/vgp-backups \
+  --initiator rubhern \
+  --keep 7
+```
+
+Integrity and retention are re-checkable anywhere, without Docker or the private key:
+
+```bash
+deploy/private-dev/bin/verify-private-dev-backup --backup /mnt/vgp-backups/<backup-id>
+deploy/private-dev/bin/verify-private-dev-backup --backups-root /mnt/vgp-backups --expect-at-least 7
+```
+
+### Isolated restore
+
+Restores a verified backup into a **distinct** Compose project, never the live one. It
+rebuilds a clean database volume (destroying only that isolated project's volumes),
+bootstraps roles from the protected secret files, streams each decrypted dump straight
+into `pg_restore`, and verifies the restored application schema, catalogue tables and
+Keycloak realm/account counts. It requires the private key in `--gnupg-home` and explicit
+destructive confirmation.
+
+```bash
+deploy/private-dev/bin/restore-private-dev \
+  --backup /mnt/vgp-backups/<backup-id> \
+  --env-file /etc/videogame-platform/dev/runtime.env \
+  --gnupg-home /etc/videogame-platform/dev/restore-gnupg \
+  --isolated-project vgp-restore-rehearsal \
+  --confirm-destroy-isolated-target \
+  --evidence-directory /var/lib/videogame-platform/dev/deployment-evidence
+```
+
+To prove the full journey against the restored state, run the deployment command with
+the same `--project-name vgp-restore-rehearsal` and the rehearsal override, then tear the
+isolated project down with `docker compose ... --project-name vgp-restore-rehearsal down
+--volumes`.
+
+### Rollback versus forward fix
+
+Before recovering a bad deployment, decide whether an older application image is still
+schema-compatible. The assessment compares the currently applied Flyway version with the
+rollback candidate's packaged migration version and enforces the invariant that an
+applied migration is never reverted. When the database is ahead of the candidate and the
+intervening migrations are not confirmed expand-only, it recommends a forward fix.
+
+```bash
+deploy/private-dev/bin/assess-recovery-strategy \
+  --env-file /etc/videogame-platform/dev/runtime.env \
+  --target-migration-version <candidate-image-flyway-version> \
+  --target-image ghcr.io/rubhern/videogame-platform@sha256:<digest>
+```
+
+A `ROLLBACK` decision redeploys the older digest with the normal deployment command and
+does not run the older image's migrations. A `FORWARD_FIX` decision means building and
+deploying a new corrected revision instead.
+
+### Host-loss recovery
+
+Recovery does not depend on the original hardware; any compatible Linux host is
+sufficient. The flow composes existing owned steps:
+
+1. Rebuild the host foundation and runtime per the platform design's *Host foundation
+   reconstruction* and the *One-time private host preparation* section above.
+2. Restore the latest verified backup with `restore-private-dev` into the live project by
+   naming it as the isolated project on the fresh host (there is no other stack to
+   protect), or into a rehearsal project first to validate the backup.
+3. Deploy the last-good image digest with `deploy-private-dev` and confirm the skeleton
+   smoke and readiness checks pass.
+4. Record the recovery decision, backup id, image digest, migration version and outcomes
+   from the generated evidence records.
+
+Executing this end to end on a real replacement host is the outstanding owner evidence
+for #44; the repository provides and rehearses every step's mechanics but cannot itself
+prove a physical host rebuild.
