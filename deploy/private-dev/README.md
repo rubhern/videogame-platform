@@ -315,10 +315,13 @@ deploy/private-dev/bin/restore-private-dev \
   --evidence-directory /var/lib/videogame-platform/dev/deployment-evidence
 ```
 
-To prove the full journey against the restored state, run the deployment command with
-the same `--project-name vgp-restore-rehearsal` and the rehearsal override, then tear the
-isolated project down with `docker compose ... --project-name vgp-restore-rehearsal down
---volumes`.
+The isolated restore proves that the encrypted backup can reconstruct the application and Keycloak databases without
+touching the live private-dev stack. It does not run the normal deployment smoke because `deploy-private-dev` is
+deliberately restricted to the real `vgpdev` deployment boundary.
+
+Full readiness and skeleton-smoke recovery evidence is produced later during the host-loss recovery exercise on a
+compatible replacement Linux host. After the isolated restore has been verified, tear the rehearsal project down with
+`docker compose ... --project-name vgp-restore-rehearsal down --volumes`.
 
 ### Rollback versus forward fix
 
