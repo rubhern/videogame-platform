@@ -1,49 +1,36 @@
 # Architecture diagrams
 
-Diagrams communicate approved architecture; owning documents, OpenAPI, Flyway SQL,
-code/configuration, and ADRs remain authoritative.
+Diagrams visualize approved architecture; the owning documents, OpenAPI, Flyway SQL,
+code/configuration, and ADRs remain authoritative ([ADR-0013](../../decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md)).
+Each view answers one question; do not recreate a view in another tool or introduce
+a decision only in a drawing.
 
-| Tool/source | Ownership |
-|---|---|
-| `structurizr/workspace.dsl` | Canonical shared C4 System Context and Container model |
-| `mermaid/*.mmd` | Focused context/dependency/sequence/persistence/delivery views listed below |
-| `generated/` | Disposable exports; never edit directly |
+| Source | Question answered | Owning source |
+|---|---|---|
+| `structurizr/workspace.dsl` | C4 System Context and Container views of the running system | Solution architecture |
+| `mermaid/module-context-map.mmd` | How the business modules and adapters relate, and which contracts cross the boundary | Solution architecture, ADR-0018 |
+| `mermaid/oidc-bff-session-sequence.mmd` | How a browser obtains an opaque BFF session without holding tokens | Identity code, configuration and tests |
+| `mermaid/session-csrf-logout-sequence.mmd` | How a state change is protected by same-origin metadata and CSRF, using logout | OpenAPI, identity code and tests |
+| `mermaid/rating-intent-authentication-sequence.mmd` | How an anonymous rating press becomes an authenticated rating command exactly once | Identity and frontend code, use cases `UC-004`/`UC-005` |
+| `mermaid/synchronize-bounded-catalogue-sequence.mmd` | How one operator call reconciles a date interval page by page, Game by Game | ADR-0017, use case `UC-009` |
+| `mermaid/persistence-ownership.mmd` | Which module owns which tables and how they relate | Flyway SQL |
+| `mermaid/delivery-pipeline.mmd` | How a merged change becomes a validated deployment or a recorded failure | Platform design, private-dev README |
 
-Do not recreate every view in every tool or introduce a decision only in a drawing.
+All views describe implemented behaviour at `v0.1.0`; a view of approved-but-unbuilt
+behaviour must say so in its title.
 
-## Catalogue
+## Edit and render
 
-| View | Question / owner |
-|---|---|
-| `module-context-map.mmd` | Business-module relationships; solution architecture |
-| `hexagonal-dependency-rules.mmd` | Allowed dependency direction; solution architecture |
-| `oidc-bff-session-sequence.mmd` | Implemented browser/BFF/Keycloak login/session flow; identity code/config/tests |
-| `session-csrf-logout-sequence.mmd` | Implemented session/CSRF/logout flow; OpenAPI and identity code/tests |
-| `authenticate-and-create-rating-sequence.mmd` | Approved future rating-return behaviour; application use cases |
-| `synchronize-bounded-catalogue-sequence.mmd` | Implemented date-interval synchronization behaviour; use cases/platform |
-| `catalogue-persistence-model.mmd` | Implemented physical catalogue schema; Flyway SQL |
-| `delivery-pipeline.mmd` | Source-to-image/private-`dev` target flow; platform/delivery lifecycle |
-
-Implementation-backed diagrams must follow the referenced code/config/tests and must
-not claim future rating/synchronization behaviour as implemented evidence.
-
-## Edit and validate
-
-1. Identify the owning source and the single question the diagram answers.
-2. Use Structurizr for shared C4, Mermaid for focused code-based views, and
-   diagrams.net only for deliberate visual layout.
-3. Edit source, use approved terminology, avoid deferred/speculative infrastructure,
-   render, and inspect connectors/text/clipping/contrast.
-4. Update this catalogue when adding, renaming, or removing a view.
-
-Render Mermaid sources with:
+Edit the source, use approved terminology, avoid deferred infrastructure, then render
+and inspect connectors, text, clipping, and contrast. Update the table above when
+adding, renaming, or removing a view.
 
 ```bash
 bash docs/architecture/diagrams/scripts/render-mermaid.sh
 ```
 
-The script owns the pinned renderer and output path. To view Structurizr, mount only
-`docs/architecture/diagrams/structurizr/` in the local Structurizr container; its DSL
-is canonical and `workspace.json` may retain manual layout. Generated exports remain
-ignored unless a real repository consumer requires them and drift validation is
-added in the same change.
+The script owns the pinned renderer and the ignored output path. To view the C4
+model, mount `docs/architecture/diagrams/structurizr/` in the local Structurizr Lite
+container; the DSL is canonical and `workspace.json` only retains manual layout.
+Generated exports stay ignored unless a repository consumer requires them and drift
+validation is added in the same change.

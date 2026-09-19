@@ -7,7 +7,7 @@ flowchart LR
 
     subgraph Product["VideoGame Platform modular monolith"]
         Catalogue["Catalogue and Releases<br/><br/>Games, aliases, platforms, regions,<br/>releases, covers, provenance,<br/>freshness and synchronization"]
-        EligibilityContract["Narrow Catalogue application contract<br/>Rating eligibility evidence"]
+        CatalogueContract["Narrow Catalogue application contracts<br/>rating eligibility evidence · game listing context"]
         Ratings["Ratings<br/><br/>Personal rating lifecycle,<br/>eligibility, aggregate policy<br/>and Mis puntuaciones"]
         ACL["IGDB adapter / Anti-Corruption Layer"]
         IdentityAdapter["Identity adapter<br/>issuer + subject → UserId"]
@@ -17,8 +17,8 @@ flowchart LR
     IGDB -->|Raw provider data| ACL
     ACL -->|Provider-independent catalogue data| Catalogue
 
-    Catalogue -->|Publishes| EligibilityContract
-    Ratings -->|Queries; never reads Catalogue tables| EligibilityContract
+    Catalogue -->|Publishes; emits GameListingChanged in its transaction| CatalogueContract
+    Ratings -->|Queries; never reads Catalogue tables| CatalogueContract
 
     IdP -->|Authenticated issuer + subject| IdentityAdapter
     IdentityAdapter -->|Stable UserId| Ratings
@@ -35,4 +35,4 @@ flowchart LR
     class Catalogue,Ratings domain
     class IGDB,IdP,Telemetry external
     class Observability,IdentityAdapter,ACL adapter
-    class EligibilityContract contract
+    class CatalogueContract contract
