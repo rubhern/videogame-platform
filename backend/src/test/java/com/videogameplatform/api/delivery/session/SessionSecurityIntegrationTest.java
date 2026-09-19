@@ -37,6 +37,7 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
@@ -337,7 +338,7 @@ class SessionSecurityIntegrationTest {
                 .andExpect(jsonPath("$.authenticated").value(false));
     }
 
-    private static org.springframework.test.web.servlet.request.RequestPostProcessor effectiveOrigin(
+    private static RequestPostProcessor effectiveOrigin(
             String scheme, String serverName, int serverPort) {
         return request -> {
             request.setScheme(scheme);
