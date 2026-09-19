@@ -150,7 +150,9 @@ services:
     entrypoint: ["/opt/videogame-platform/bin/run-application"]
     environment:
       SPRING_PROFILES_ACTIVE: oidc,structured
-      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      APPLICATION_PUBLIC_ORIGIN: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}
+      APPLICATION_OIDC_REDIRECT_URI: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}/login/oauth2/code/keycloak
+      APPLICATION_HSTS_ENABLED: "true"
       APPLICATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
       APPLICATION_DB_USERNAME: videogame_app
       APPLICATION_DB_PASSWORD_FILE: /run/secrets/application_db_password

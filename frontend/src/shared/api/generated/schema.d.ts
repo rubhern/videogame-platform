@@ -425,7 +425,7 @@ export interface components {
             ratingStatistics: components["schemas"]["AvailableRatingStatistics"];
         };
         /** @enum {string} */
-        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "RATE_LIMIT_EXCEEDED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED";
+        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -655,18 +655,6 @@ export interface components {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
                 "Cache-Control": components["headers"]["NoStoreCacheControl"];
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
-        };
-        /** @description An edge abuse limit rejected the request. */
-        RateLimitExceeded: {
-            headers: {
-                "X-Correlation-ID": components["headers"]["XCorrelationId"];
-                "Cache-Control": components["headers"]["NoStoreCacheControl"];
-                "Retry-After": components["headers"]["RetryAfter"];
                 [name: string]: unknown;
             };
             content: {
@@ -926,7 +914,6 @@ export interface operations {
             400: components["responses"]["MalformedRequest"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["SearchValidationFailed"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -969,7 +956,6 @@ export interface operations {
             404: components["responses"]["GameNotFound"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseReviewBlocked"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["GameReadFailed"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -995,7 +981,6 @@ export interface operations {
                 };
             };
             406: components["responses"]["NotAcceptable"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -1025,7 +1010,6 @@ export interface operations {
             };
             403: components["responses"]["CsrfValidationFailed"];
             406: components["responses"]["NotAcceptable"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -1069,7 +1053,6 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["PersonalRatingsValidationFailed"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["PersonalRatingsReadFailed"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -1104,7 +1087,6 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             404: components["responses"]["RatingNotFound"];
             406: components["responses"]["NotAcceptable"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -1178,7 +1160,6 @@ export interface operations {
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["RatingValidationFailed"];
             428: components["responses"]["PreconditionRequired"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["RatingWriteFailed"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -1224,7 +1205,6 @@ export interface operations {
             406: components["responses"]["NotAcceptable"];
             412: components["responses"]["RatingWriteConflict"];
             428: components["responses"]["PreconditionRequired"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["RatingWriteFailed"];
         };
     };

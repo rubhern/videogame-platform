@@ -108,6 +108,16 @@ container-internal. Tailscale Funnel,
 router forwarding and public DNS/ingress remain prohibited; tailnet policy permits
 only the owner.
 
+The application does not trust `Forwarded` or `X-Forwarded-*` request headers: a
+direct loopback caller can otherwise forge the scheme or host used by the BFF. The
+private-dev Compose configuration supplies the reviewed public HTTPS callback URI
+directly; local development and test launches retain Spring's `{baseUrl}` expansion.
+It also explicitly enables HSTS only for that private HTTPS
+origin; local loopback HTTP leaves HSTS disabled. The browser edge sends CSP with the
+approved IGDB cover CDN as its sole external resource origin, framing disabled,
+content-type sniffing disabled, and a strict cross-origin referrer policy. CORS stays
+absent because the browser API is same-origin.
+
 Real secrets are independent files below an owner-managed protected directory outside
 Git. Compose grants each service only its required files. Entrypoint wrappers read
 them without putting values in Compose environment metadata or command arguments;
