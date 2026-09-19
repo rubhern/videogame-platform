@@ -37,6 +37,16 @@ function assert(condition, message) {
   }
 }
 
+function describeLogoutFailure(result) {
+  const parts = [`status ${result.status}`];
+  for (const field of ["code", "title", "detail"]) {
+    if (result[field]) {
+      parts.push(`${field}="${result[field]}"`);
+    }
+  }
+  return parts.join(", ");
+}
+
 async function jsonResponse(response, check) {
   assert(response.ok(), `${check} returned HTTP ${response.status()}`);
   return response.json();
@@ -207,15 +217,34 @@ try {
     "OIDC material remained in the application URL",
   );
 
-  const logoutStatus = await page.evaluate(async (csrfToken) => {
+  const logoutResult = await page.evaluate(async (csrfToken) => {
     const response = await fetch("/api/v1/session", {
       method: "POST",
       credentials: "same-origin",
       headers: { "X-CSRF-Token": csrfToken },
     });
-    return response.status;
+    const outcome = { status: response.status };
+    // A 204 carries no body; on any other status surface the bounded RFC 9457
+    // Problem Details so a same-origin/forwarded-header regression is diagnosable
+    // instead of only reporting the unexpected status.
+    if (response.status !== 204 && /application\/problem\+json/i.test(response.headers.get("content-type") ?? "")) {
+      try {
+        const problem = await response.json();
+        for (const field of ["code", "title", "detail"]) {
+          if (typeof problem?.[field] === "string") {
+            outcome[field] = problem[field].slice(0, 200);
+          }
+        }
+      } catch {
+        // A malformed or absent problem body must not mask the status report.
+      }
+    }
+    return outcome;
   }, authenticatedSession.csrfToken);
-  assert(logoutStatus === 204, "CSRF-protected logout did not return HTTP 204");
+  assert(
+    logoutResult.status === 204,
+    `CSRF-protected logout did not return HTTP 204: ${describeLogoutFailure(logoutResult)}`,
+  );
   assert((await sessionState(page)).authenticated === false, "logout did not clear the BFF session");
   completedChecks.push("oidc-bff-session");
 

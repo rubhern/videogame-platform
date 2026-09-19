@@ -108,12 +108,19 @@ container-internal. Tailscale Funnel,
 router forwarding and public DNS/ingress remain prohibited; tailnet policy permits
 only the owner.
 
-The application does not trust `Forwarded` or `X-Forwarded-*` request headers: a
-direct loopback caller can otherwise forge the scheme or host used by the BFF. The
-private-dev Compose configuration supplies the reviewed public HTTPS callback URI
-directly; local development and test launches retain Spring's `{baseUrl}` expansion.
-It also explicitly enables HSTS only for that private HTTPS
-origin; local loopback HTTP leaves HSTS disabled. The browser edge sends CSP with the
+Tailscale Serve terminates the tailnet HTTPS and forwards plaintext HTTP to the
+loopback-published port, overwriting `X-Forwarded-Proto: https` on every request. The
+private-dev Compose configuration therefore sets `server.forward-headers-strategy=NATIVE`,
+which activates Tomcat's `RemoteIpValve`: it honours `X-Forwarded-Proto`/`X-Forwarded-For`
+only when the immediate peer is an internal (loopback/private) address and never the
+browser-facing `Host`, so the effective scheme and port match the external HTTPS origin
+that `SameOriginStateChangeFilter` compares against, without trusting client-supplied
+forwarded headers. The unconditional `FRAMEWORK` strategy is not used, and local
+development terminates no TLS so it processes no forwarded headers. Callback construction
+stays independent of forwarded headers regardless: the Compose configuration supplies the
+reviewed public HTTPS callback URI directly, and local development and test launches retain
+Spring's `{baseUrl}` expansion. The Compose configuration also explicitly enables HSTS only
+for that private HTTPS origin; local loopback HTTP leaves HSTS disabled. The browser edge sends CSP with the
 approved IGDB cover CDN as its sole external resource origin, framing disabled,
 content-type sniffing disabled, and a strict cross-origin referrer policy. CORS stays
 absent because the browser API is same-origin.
