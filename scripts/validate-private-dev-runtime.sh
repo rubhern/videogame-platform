@@ -202,6 +202,10 @@ assert "ports" not in services["telemetry"]
 assert services["application"]["environment"]["APPLICATION_FLYWAY_ENABLED"] == "false"
 assert services["application"]["environment"]["APPLICATION_SESSION_COOKIE_NAME"] == "__Host-vgp_session"
 assert services["application"]["environment"]["APPLICATION_SESSION_COOKIE_SECURE"] == "true"
+assert services["application"]["environment"]["APPLICATION_PUBLIC_ORIGIN"] == "https://vgpdev.validation.invalid"
+assert services["application"]["environment"]["APPLICATION_OIDC_REDIRECT_URI"] == "https://vgpdev.validation.invalid/login/oauth2/code/keycloak"
+assert services["application"]["environment"]["APPLICATION_HSTS_ENABLED"] == "true"
+assert "SERVER_FORWARD_HEADERS_STRATEGY" not in services["application"]["environment"]
 assert services["application"]["environment"]["TELEMETRY_DEPLOYMENT_ENVIRONMENT"] == "dev"
 assert services["application"]["environment"]["TELEMETRY_SERVICE_VERSION"]
 keycloak_origin = services["keycloak"]["environment"]["KC_HOSTNAME"].rstrip("/")

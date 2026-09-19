@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 1.2.3
+  version: 1.2.4
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -229,7 +229,6 @@ paths:
         '400': { $ref: '#/components/responses/MalformedRequest' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/SearchValidationFailed' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -390,7 +389,6 @@ paths:
         '404': { $ref: '#/components/responses/GameNotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/ReleaseReviewBlocked' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/GameReadFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -417,7 +415,6 @@ paths:
                 authenticated:
                   value: { authenticated: true, csrfToken: opaque-csrf-token }
         '406': { $ref: '#/components/responses/NotAcceptable' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
     post:
       tags: [Session]
@@ -438,7 +435,6 @@ paths:
             Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
         '403': { $ref: '#/components/responses/CsrfValidationFailed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /me/ratings:
@@ -500,7 +496,6 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/PersonalRatingsValidationFailed' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/PersonalRatingsReadFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -535,7 +530,6 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '404': { $ref: '#/components/responses/RatingNotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
     put:
       tags: [Ratings]
@@ -616,7 +610,6 @@ paths:
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/RatingValidationFailed' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/RatingWriteFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
     delete:
@@ -654,7 +647,6 @@ paths:
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '412': { $ref: '#/components/responses/RatingWriteConflict' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/RatingWriteFailed' }
 
 components:
@@ -1234,7 +1226,6 @@ components:
         - MEDIA_TYPE_UNSUPPORTED
         - REPRESENTATION_NOT_ACCEPTABLE
         - METHOD_NOT_ALLOWED
-        - RATE_LIMIT_EXCEEDED
         - INTERNAL_ERROR
         - AUTHENTICATION_REQUIRED
         - GAME_NOT_FOUND
@@ -1490,17 +1481,6 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             preconditionRequired: { $ref: '#/components/examples/PreconditionRequired' }
-    RateLimitExceeded:
-      description: An edge abuse limit rejected the request.
-      headers:
-        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
-        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
-        Retry-After: { $ref: '#/components/headers/RetryAfter' }
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
-          examples:
-            rateLimitExceeded: { $ref: '#/components/examples/RateLimitExceeded' }
     CatalogueUnavailable:
       description: No local snapshot is ready or local catalogue data cannot be read; no provider fallback call is made.
       headers:
@@ -1805,16 +1785,6 @@ components:
         instance: urn:videogame-platform:problem-instance:opaque
         code: PRECONDITION_REQUIRED
         category: validation
-        correlationId: correlation-opaque
-    RateLimitExceeded:
-      value:
-        type: urn:videogame-platform:problem:rate-limit-exceeded
-        title: Rate limit exceeded
-        status: 429
-        detail: Wait before retrying this request.
-        instance: urn:videogame-platform:problem-instance:opaque
-        code: RATE_LIMIT_EXCEEDED
-        category: technical
         correlationId: correlation-opaque
     CatalogueNotReady:
       value:

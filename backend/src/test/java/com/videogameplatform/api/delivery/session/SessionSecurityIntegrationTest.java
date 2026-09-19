@@ -68,9 +68,25 @@ class SessionSecurityIntegrationTest {
     @Test
     void returnsOnlyTheAnonymousSessionRepresentationWithoutCreatingCsrfMaterial()
             throws Exception {
-        mockMvc.perform(get("/api/v1/session").accept(MediaType.APPLICATION_JSON))
+        mockMvc.perform(
+                        get("/api/v1/session")
+                                .accept(MediaType.APPLICATION_JSON)
+                                .header("Origin", "https://attacker.example"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(
+                        header().string(
+                                        "Content-Security-Policy",
+                                        "default-src 'self'; base-uri 'self'; object-src 'none'; "
+                                                + "frame-ancestors 'none'; form-action 'self'; "
+                                                + "script-src 'self'; style-src 'self'; "
+                                                + "img-src 'self' data: https://images.igdb.com; "
+                                                + "connect-src 'self'"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("X-Frame-Options", "DENY"))
+                .andExpect(header().string("Referrer-Policy", "strict-origin-when-cross-origin"))
+                .andExpect(header().doesNotExist("Strict-Transport-Security"))
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"))
                 .andExpect(header().doesNotExist("Set-Cookie"))
                 .andExpect(content().json("{\"authenticated\":false}", JsonCompareMode.STRICT));
     }
@@ -195,7 +211,10 @@ class SessionSecurityIntegrationTest {
         MvcResult result =
                 mockMvc.perform(
                                 get("/auth/login/keycloak")
-                                        .queryParam("returnUrl", "https://attacker.example/steal"))
+                                        .queryParam("returnUrl", "https://attacker.example/steal")
+                                        .header("Forwarded", "proto=https;host=attacker.example")
+                                        .header("X-Forwarded-Host", "attacker.example")
+                                        .header("X-Forwarded-Proto", "https"))
                         .andExpect(status().is3xxRedirection())
                         .andReturn();
 
