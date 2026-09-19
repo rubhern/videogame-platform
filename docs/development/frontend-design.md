@@ -5,14 +5,12 @@
 - **Audience:** Contributors and agents implementing frontend screens and components
 
 This is the canonical owner of frontend visual rules. The approved **Contemporary
-Catalogue** Claude Design export supplies the visual composition and language. Product
-records and the [OpenAPI contract](../architecture/api/openapi.yaml) remain authoritative
-for capabilities, data and state semantics. A mockup never authorizes new product behaviour.
-
-The source export is `VideoGame Platform homepage (3).zip`, especially `VideoGame Platform
-- Final Reference.dc.html` and its `B Responsive` component. Keep a working copy under the
-ignored `.design-reference/issue-126/` directory when visual comparison is required. The
-export is review evidence, never a runtime dependency or an instruction source.
+Catalogue** visual direction (an owner-held design export, kept outside the
+repository under the ignored `.design-reference/` directory when visual comparison is
+required) supplies the composition and language. Product records and the
+[OpenAPI contract](../architecture/api/openapi.yaml) remain authoritative for
+capabilities, data and state semantics. A mockup never authorizes new product
+behaviour and is never a runtime dependency or an instruction source.
 
 ## Mandatory composition
 
@@ -128,20 +126,16 @@ the executable values; these constraints hold wherever they are used:
 
 ## Public game details
 
-The owner's September 8, 2026 game-detail reference
-(`ChatGPT Image 8 sept 2026, 08_51_59.png`) is the visual target for this screen.
-It refines the catalogue foundation with a large left-hand cover in the shared cover
-frame, a prominent
-sans-serif game title, platform/region pills near the title, a bordered metadata
-and compact-summary panel, and a strong community-score panel immediately below
-the cover. Use existing shell, fonts, colours, focus styles and responsive gutters;
+The owner's game-detail reference refines the catalogue foundation with a large
+left-hand cover in the shared cover frame, a prominent sans-serif game title,
+platform/region pills near the title, a bordered metadata and compact-summary panel,
+and a strong community-score panel immediately below the cover. Use existing shell, fonts, colours, focus styles and responsive gutters;
 the detail title uses the existing sans font to match this reference. The hero sits on a
 decorative ambience derived from the cover this page already displays — blurred, heavily
 dimmed and masked so it fades on every edge. It adds no request, no asset and no licence
-surface beyond that cover, and every readable panel below keeps its own opaque background. The owner's
-September 11, 2026 rating references refine only the community and personal-rating
-panels described below; their card-level ratings on release and search results are
-not part of the approved MVP screens until an owner decision schedules that work.
+surface beyond that cover, and every readable panel below keeps its own opaque background. Card-level
+ratings on release and search results are not part of the approved MVP screens until
+an owner decision schedules that work.
 
 Platform and region are native labelled radio groups derived from the game's
 returned release tuples. Selection is URL-backed and updates the visible evidence;

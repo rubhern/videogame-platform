@@ -114,11 +114,8 @@ Before invoking it:
    `failure` even though the candidate may still answer.
 
 The command records one JSON file per deployment under
-`/var/lib/videogame-platform/dev/deployment-evidence/` and prints its path. The
-record holds the timestamps, target, initiator, source revision, immutable image,
-application version, migration version, candidate container identifier, completed
-smoke checks, phase and outcome, and no credential or personal data. That file is
-the deployment record; do not summarize it elsewhere except as a link or the
+`/var/lib/videogame-platform/dev/deployment-evidence/` and prints its path. That
+file is the deployment record; do not summarize it elsewhere except as a link or the
 outcome/phase pair in an issue comment.
 
 A deployment is never a named release or product acceptance. The
@@ -238,7 +235,7 @@ redeployment of an older digest as a rollback has **not** been exercised.
 
 ## Host-loss recovery
 
-Owner: [Host foundation reconstruction](../architecture/deployment/mvp-platform-and-delivery.md#host-foundation-reconstruction)
+Owner: [Host foundation](../../deploy/private-dev/README.md#host-foundation)
 and [Host-loss recovery](../../deploy/private-dev/README.md#host-loss-recovery).
 
 The flow composes owned steps: rebuild the host foundation, prepare the runtime and
@@ -256,7 +253,7 @@ limitations, not claims. The original host preparation itself is proven once (#1
 
 **Not exercised.** No credential, client secret, Keycloak admin password, IGDB
 credential or backup key has been rotated on `vgpdev` since creation. The
-[platform design](../architecture/deployment/mvp-platform-and-delivery.md#configuration-and-secrets)
+[platform design](../architecture/deployment/mvp-platform-and-delivery.md#private-dev-runtime-boundary)
 states the constraint (replacing a file does not rotate an already-created PostgreSQL
 role or imported Keycloak client; the owning service state and the file must change
 as one reviewed operation), but there is no proven sequence. Do not improvise one

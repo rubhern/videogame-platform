@@ -69,15 +69,13 @@ owns repository/host receipt validation independent of application deployment.
 Product-specific meters should be added only when they answer an operational or
 product decision and have a bounded cardinality review.
 
-`POST /actuator/cataloguesync` is the internal operator command that starts one
-complete synchronization of the required inclusive `from`/`to` interval; the
-matching `GET` reports its latest recorded result. Paging is internal and does not
-limit the total Games processed. [ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
-owns reconciliation and in-call paging semantics. Synchronization is never
-scheduled and is never reachable from the product API — it is absent from the product
-OpenAPI contract for the same reason — and it inherits the management-port boundary
-below, so no visitor request can trigger a provider call. Without configured IGDB
-credentials the command reports `SYNCHRONIZATION_DISABLED` and changes nothing.
+`POST /actuator/cataloguesync` is the internal operator command for one complete
+synchronization run and `GET` reports the latest result; the
+[backend README](../../backend/README.md#persistence-and-observability) owns
+invocation and the [operations runbook](operations-runbook.md#catalogue-synchronization)
+owns the private-dev procedure. It is never scheduled, is absent from the product
+OpenAPI contract, and inherits the management-port boundary below, so no visitor
+request can trigger a provider call.
 
 Actuator runs on the separate management port with its own security boundary: the
 endpoints are open on that port because it is already private, they hold no
