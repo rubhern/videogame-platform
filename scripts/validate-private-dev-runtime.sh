@@ -264,8 +264,8 @@ require(
 )
 require(application_oidc["APPLICATION_HSTS_ENABLED"] == "true", "HSTS must be enabled for private HTTPS")
 require(
-    "SERVER_FORWARD_HEADERS_STRATEGY" not in application_oidc,
-    "application must not trust client-supplied forwarded headers",
+    application_oidc.get("SERVER_FORWARD_HEADERS_STRATEGY") == "NATIVE",
+    "application must resolve the external HTTPS scheme through Tomcat's peer-restricted RemoteIpValve (SERVER_FORWARD_HEADERS_STRATEGY=NATIVE)",
 )
 require(
     application_oidc["TELEMETRY_DEPLOYMENT_ENVIRONMENT"] == "dev",

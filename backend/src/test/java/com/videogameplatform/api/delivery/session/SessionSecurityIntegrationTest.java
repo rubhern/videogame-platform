@@ -207,6 +207,89 @@ class SessionSecurityIntegrationTest {
     }
 
     @Test
+    void logoutOverTheTrustedHttpsProxyOriginInvalidatesTheSession() throws Exception {
+        // Reproduces the vgpdev topology: Tailscale Serve terminates HTTPS and its
+        // RemoteIpValve-honoured X-Forwarded-Proto has already resolved the effective request to
+        // the external HTTPS origin before SameOriginStateChangeFilter runs.
+        MvcResult sessionResult = authenticatedSession();
+        MockHttpSession session = (MockHttpSession) sessionResult.getRequest().getSession(false);
+        String csrfToken =
+                objectMapper
+                        .readTree(sessionResult.getResponse().getContentAsString())
+                        .path("csrfToken")
+                        .stringValue();
+
+        mockMvc.perform(
+                        post("/api/v1/session")
+                                .session(session)
+                                .header("X-CSRF-Token", csrfToken)
+                                .header("Origin", "https://vgpdev.tailnet.ts.net")
+                                .with(effectiveOrigin("https", "vgpdev.tailnet.ts.net", 443)))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(
+                        header().string(
+                                        "Set-Cookie",
+                                        org.hamcrest.Matchers.containsString("vgp_session=;")));
+
+        assertThat(session.isInvalid()).isTrue();
+    }
+
+    @Test
+    void logoutFromLocalLoopbackHttpKeepsTheExistingSameOriginContract() throws Exception {
+        // Local development terminates no TLS: the effective request stays plaintext loopback and
+        // a matching http Origin must still be accepted with no forwarded-header processing.
+        MvcResult sessionResult = authenticatedSession();
+        MockHttpSession session = (MockHttpSession) sessionResult.getRequest().getSession(false);
+        String csrfToken =
+                objectMapper
+                        .readTree(sessionResult.getResponse().getContentAsString())
+                        .path("csrfToken")
+                        .stringValue();
+
+        mockMvc.perform(
+                        post("/api/v1/session")
+                                .session(session)
+                                .header("X-CSRF-Token", csrfToken)
+                                .header("Origin", "http://localhost:8080")
+                                .with(effectiveOrigin("http", "localhost", 8080)))
+                .andExpect(status().isNoContent());
+
+        assertThat(session.isInvalid()).isTrue();
+    }
+
+    @Test
+    void logoutIgnoresForwardedHeadersThatWereNotResolvedByTheTrustedProxy() throws Exception {
+        // An untrusted caller sends forwarded headers directly. Because the filter never reads
+        // them (only the peer-restricted RemoteIpValve may), the effective request stays plaintext
+        // loopback and the https Origin is treated as cross-origin.
+        MvcResult sessionResult = authenticatedSession();
+        MockHttpSession session = (MockHttpSession) sessionResult.getRequest().getSession(false);
+        String csrfToken =
+                objectMapper
+                        .readTree(sessionResult.getResponse().getContentAsString())
+                        .path("csrfToken")
+                        .stringValue();
+
+        mockMvc.perform(
+                        post("/api/v1/session")
+                                .session(session)
+                                .header("X-CSRF-Token", csrfToken)
+                                .header("Origin", "https://vgpdev.tailnet.ts.net")
+                                .header("X-Forwarded-Proto", "https")
+                                .header("X-Forwarded-Host", "vgpdev.tailnet.ts.net")
+                                .header("X-Forwarded-Port", "443")
+                                .header("Forwarded", "proto=https;host=vgpdev.tailnet.ts.net")
+                                .with(effectiveOrigin("http", "localhost", 8080)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_VALIDATION_FAILED"));
+
+        mockMvc.perform(get("/api/v1/session").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(true));
+    }
+
+    @Test
     void authorizationRequestUsesStateNoncePkceAndOnlyTheAllowlistedCallback() throws Exception {
         MvcResult result =
                 mockMvc.perform(
@@ -252,6 +335,17 @@ class SessionSecurityIntegrationTest {
         mockMvc.perform(get("/api/v1/session").session(session))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.authenticated").value(false));
+    }
+
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor effectiveOrigin(
+            String scheme, String serverName, int serverPort) {
+        return request -> {
+            request.setScheme(scheme);
+            request.setSecure("https".equalsIgnoreCase(scheme));
+            request.setServerName(serverName);
+            request.setServerPort(serverPort);
+            return request;
+        };
     }
 
     private MvcResult authenticatedSession() throws Exception {

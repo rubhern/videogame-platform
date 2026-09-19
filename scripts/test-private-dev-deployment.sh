@@ -194,6 +194,7 @@ services = {
             "APPLICATION_PUBLIC_ORIGIN": application_public_origin,
             "APPLICATION_OIDC_REDIRECT_URI": f"{application_origin}/login/oauth2/code/keycloak",
             "APPLICATION_HSTS_ENABLED": "true",
+            "SERVER_FORWARD_HEADERS_STRATEGY": "NATIVE",
             "OIDC_ISSUER_URI": issuer_uri,
             "OIDC_AUTHORIZATION_URI": f"{keycloak_origin}/realms/videogame-platform/protocol/openid-connect/auth",
             "OIDC_TOKEN_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token",
