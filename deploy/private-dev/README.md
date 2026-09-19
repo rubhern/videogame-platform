@@ -7,7 +7,11 @@ either has run successfully on `vgpdev`.
 
 The canonical environment, deployment and failure policy is the
 [platform and delivery design](../../docs/architecture/deployment/mvp-platform-and-delivery.md).
-The files here own the executable details.
+The files here own the executable details. The
+[operations runbook](../../docs/development/operations-runbook.md) records which of
+these procedures have been executed on `vgpdev`, their evidence boundary, and the
+day-two operations (synchronization on `dev`, incident handling) that this README
+does not cover.
 
 ## Boundaries
 
@@ -357,6 +361,8 @@ sufficient. The flow composes existing owned steps:
 4. Record the recovery decision, backup id, image digest, migration version and outcomes
    from the generated evidence records.
 
-Executing this end to end on a real replacement host is the outstanding owner evidence
-for #44; the repository provides and rehearses every step's mechanics but cannot itself
-prove a physical host rebuild.
+The repository provides and rehearses every step's mechanics but cannot itself prove
+a physical host rebuild. The accepted evidence boundary for #44 (restore and runtime
+proven on a compatible Ubuntu 24.04 environment; physical rebuild, boot-time systemd,
+SSH/Tailscale/Serve and the official smoke not re-run) is recorded in the
+[operations runbook](../../docs/development/operations-runbook.md#host-loss-recovery).
