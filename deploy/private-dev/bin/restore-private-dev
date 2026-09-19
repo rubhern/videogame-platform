@@ -169,7 +169,7 @@ printf '  application schema version: %s\n' "$application_schema_version"
 # in a valid empty publication). Presence of the schema proves editorial state carried.
 "${compose[@]}" exec -T postgres gosu postgres psql \
   --dbname=videogame_platform --tuples-only --no-align \
-  --command="SELECT to_regclass('public.game') IS NOT NULL AND to_regclass('public.game_release') IS NOT NULL" |
+  --command="SELECT to_regclass('catalogue.game') IS NOT NULL AND to_regclass('catalogue.game_release') IS NOT NULL" |
   grep -qx 't' ||
   bc_fail "Restored application database is missing expected catalogue tables."
 printf '  catalogue schema present: yes\n'
