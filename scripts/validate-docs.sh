@@ -67,6 +67,7 @@ required_files=(
   "docs/development/local-setup.md"
   "docs/development/observability.md"
   "docs/development/openapi.md"
+  "docs/development/operations-runbook.md"
   "docs/development/delivery-lifecycle.md"
   "docs/development/work-management.md"
   "docs/development/ai-assistance.md"
