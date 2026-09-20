@@ -46,6 +46,8 @@ test("release filters open from the full trigger and show tinted platform icons"
 });
 
 test("personal rating dropdowns use the same keyboard and visual treatment", async ({ page }) => {
+  test.skip(process.env.PLAYWRIGHT_BASE_URL?.includes("application:"),
+    "This focused interaction test uses mocked ratings data; packaged smoke covers the real authenticated journey separately.");
   await page.setViewportSize({ width: 320, height: 844 });
   await page.route("**/api/v1/**", (route) => {
     const url = route.request().url();
