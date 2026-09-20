@@ -534,9 +534,6 @@
   .rating-remove:disabled {
     opacity: 0.5;
   }
-  .account-logout {
-    min-height: 44px;
-  }
   .game-details-back {
     margin-top: 28px;
   }

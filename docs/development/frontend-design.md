@@ -18,23 +18,36 @@ behaviour and is never a runtime dependency or an instruction source.
   navigation, integrated catalogue search and the server-owned account control. The account
   control appears only for an authenticated session and provides `Mi cuenta` and the MVP
   logout action; anonymous browsing shows no account or general login entry point, because
-  authentication begins at the rating boundary, not the header. Keep the narrow catalogue
-  context strip directly below it. On tablet, navigation occupies a second row; on phone,
-  identity and account lead, search spans the next row, and navigation remains horizontally
-  reachable below it.
+  authentication begins at the rating boundary, not the header. The account control opens
+  `Mis puntuaciones` and the MVP logout action. Keep catalogue search prominent within the
+  header and omit the explanatory context strip. On phones, the compact identity,
+  recent/upcoming navigation and search icon share the first row. The icon opens the
+  existing catalogue search in a keyboard-accessible dialog; the account control
+  may occupy a second row for an authenticated session. On tablet, identity and
+  account lead, search spans the next row, and navigation remains reachable below it.
 - Align header and main content to the shared `page-container`, capped at 1320px with 28px
-  desktop, 24px tablet and 16px phone gutters. Use the editorial title block, filter rail,
-  result summary, cover-led catalogue grid and pagination in that order.
+  desktop, 24px tablet and 16px phone gutters. Both release windows use the same editorial
+  hero, selector row, cover-led catalogue grid and closing bar. The bar places the result
+  total on the left, pager in the middle and window switch on the right; it omits a repeated
+  page position.
 - Keep the current release view as the only `h1`: **Lanzamientos recientes** or **Próximos
-  lanzamientos**. The release window and evaluation date come from the API and sit together
-  immediately below the title as quiet supporting metadata. Never replace them with a
+  lanzamientos**. Show the API-derived release window beside **Ya disponibles** or **En
+  calendario** above an editorial title with a cool metallic gradient fill and a soft
+  bloom; omit the redundant evaluation-date label. Never replace API dates with a
   hard-coded relative period.
+  On phones, keep the kicker and the API-derived period on one row and show both
+  boundaries as day/month/year to fit without changing the desktop wording.
 - Treat 1320px, 834px and 390px as the representative review widths, while supporting reflow
   from 320px. The catalogue uses six compact columns at desktop, about four at tablet and two
   at phone widths. Do not allow page-level horizontal overflow; the filter and navigation
   rails may scroll horizontally on narrow screens.
 - Do not add a featured release, ranking, editorial description, publisher, studio, new
   release window or destination solely because it appears in the reference.
+- Both release windows use a decorative, product-owned cinematic hero image, two selectors
+  for platform and region, and twelve results per default page so six columns form two rows
+  on wide desktop. Its covers fill the column in the standard frame so the artwork leads the
+  card. Below each release cover keep only the full title, which is the game link, the
+  platform and region, and the review notice when the API requires one.
 
 ## Visual language and tokens
 
@@ -46,14 +59,15 @@ behaviour and is never a runtime dependency or an instruction source.
   body text and monospaced labels and operational metadata. Use the locally hosted Instrument
   Serif, IBM Plex Sans and IBM Plex Mono assets with system fallbacks and `font-display: swap`.
   Font licences live under [public/assets/fonts](../../frontend/public/assets/fonts/README.md).
-- Covers carry the catalogue rhythm. Use one fixed cover frame with a 12px radius, a quiet
-  border and a restrained shadow. The frame's ratio is the one the approved provider actually
-  delivers, so `object-fit: cover` crops nothing off real artwork, and it stays a single shared
-  frame rather than a per-image one so the grid keeps one rhythm whatever a source delivers.
+- Covers carry the catalogue rhythm. The standard cover frame has a 12px radius, a quiet
+  border and a restrained shadow. Its ratio is the one the approved provider actually
+  delivers, so `object-fit: cover` crops nothing off real artwork.
   Global styles own the executable value. Place the release date over the upper-left of the cover, on a scrim that
-  keeps it legible over any artwork. Keep full game titles, platform and region, explicit
-  freshness/review status, provenance, cover attribution and the **Ver ficha** action below it.
-  Never truncate contract data to equalize card heights; a long value wraps inside its chip.
+  keeps it legible over any artwork. Release cards show no status, freshness, provenance,
+  cover attribution or **Ver ficha** action: the game page owns those, including the
+  provider attribution and source link that [ADR-0001](../decisions/0001-reference-igdb-cover-images.md)
+  requires. Never truncate contract data to equalize card heights; a long value wraps inside
+  its chip.
 - A catalogue card is a surface, not a loose column of text: a quiet gradient, a hairline
   border, the resting shadow and equal height across a row. It lifts and scales its cover
   slightly on hover and keyboard focus.
@@ -101,26 +115,31 @@ the executable values; these constraints hold wherever they are used:
   existing URL-backed bounded search, exposes a labelled search landmark, supports the `/`
   focus shortcut and reports the OpenAPI query limit before navigation.
 - Use `CatalogueCover` for provider covers, provider failure fallback and attribution, and
-  `CatalogueLoading` for releases and search loading. Feature cards keep their own metadata;
+  `CatalogueLoading` for releases and search loading. Release cards render the cover without
+  its caption; the game page keeps it. Feature cards keep their own metadata;
   do not introduce a universal card API until further reuse exists.
 - Placeholders take the shape of the screen they replace, so arriving content lands in the same
   frame: the catalogue grid for releases and search, the detail composition for a game page,
   and maintenance rows for the personal collection. Placeholders themselves stay silent; the
   screen keeps exactly one live status.
-- Render platform and region choices from `availableFilters` as labelled link lists. Each link
-  preserves URL state and resets pagination. Every filter group shares one selected treatment —
-  tinted surface, heavier label and a leading marker — so selection reads the same everywhere
-  and never depends on colour alone. Narrow screens scroll the rail instead of wrapping it into
-  a dense control block, and a clipped rail fades at its edge while keeping a focused chip
-  scrolled clear of that fade; desktop widths wrap instead, so no control is hidden. Never
-  hard-code the available choices from the mockup.
+- Render platform and region choices from `availableFilters` in labelled select-only
+  comboboxes on one compact row in both release windows. The entire control opens its
+  list, and every option has a decorative icon. Recognized platforms use the owner-provided
+  PlayStation, Nintendo Switch, Windows and Xbox marks tinted with the product accent;
+  unknown platforms retain a generic gamepad. Other application dropdowns share the same
+  control styling and keyboard behaviour. Selections preserve their existing state owner
+  and reset pagination where applicable. On phones, keep both compact selectors on
+  one row; selected values may truncate visually, but the full value remains
+  accessible in the control and list. Controls keep a visible focus indicator.
+  Never hard-code the available choices from the mockup.
 - Translate established region display names into Spanish only in the presentation projection:
   Europa, Japón, Norteamérica, Mundial and Sin región confirmada. Preserve region identifiers,
   requests and OpenAPI values, and show an unfamiliar API label unchanged.
 - Keep native links for navigation and buttons for actions. Use `aria-current` for the active
   route or filter, visible `:focus-visible`, the skip link and explicit focus movement after
-  route and pagination changes. A cover/title may be pointer-accessible, but each card keeps one
-  primary keyboard stop through **Ver ficha**.
+  route and pagination changes. A cover may be pointer-accessible, but each card keeps one
+  primary keyboard stop: the title link on a release card, **Ver ficha** on search and rating
+  cards.
 - Keep reduced-motion and forced-colour support. Do not require hover, animation, a fixed
   desktop width or a sticky header that can obscure focus.
 
@@ -195,7 +214,7 @@ Empty ratings, no search matches, an exhausted page and load failure remain dist
 | Loading / new selection | One live status plus non-interactive placeholders shaped like the screen they replace; never present previous results as the new selection |
 | Refreshing | Keep valid current results usable and announce the refresh |
 | Empty | Neutral editorial notice with applicable filter reset or page recovery; never call it a failure |
-| Stale | A slim, low-emphasis amber context strip plus explicit affected-card freshness/review labels; keep results usable |
+| Stale | Keep results usable without a page-wide warning or a per-card freshness label; the game page states freshness explicitly, and a release that requires review keeps its card notice |
 | Catalogue not ready | Informational notice, local-catalogue explanation and retry; distinguish it from technical failure |
 | Unsupported filter / invalid input | Warning notice, explanation and applicable correction; preserve labels and invalid semantics |
 | Technical error | Restrained danger notice, safe message, optional support reference and retry |

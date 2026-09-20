@@ -146,7 +146,6 @@ describe("releases view model", () => {
 
     expect(model.title).toBe("Próximos lanzamientos");
     expect(model.windowDescription).toBe("Del 13 de agosto de 2026 al 13 de febrero de 2027");
-    expect(model.evaluatedOnDescription).toBe("Ventana evaluada el 13 de agosto de 2026");
     expect(model.items[0]?.date).toBe("Fecha por confirmar");
   });
 
@@ -160,16 +159,17 @@ describe("releases view model", () => {
     expect(model.page).toEqual({ number: 2, size: 12, totalItems: 13, totalPages: 2 });
   });
 
-  it("keeps stale, review and status information explicit", () => {
+  it("keeps stale and review information explicit", () => {
     const model = toReleasesViewModel(upcomingPage);
 
     expect(model.staleItemCount).toBe(1);
     expect(model.items[0]).toMatchObject({
-      status: "Anunciado",
       isStale: true,
-      freshness: "Datos locales desactualizados",
       review: "Información pendiente de revisión",
     });
+    expect(model.items[0]).not.toHaveProperty("status");
+    expect(model.items[0]).not.toHaveProperty("freshness");
+    expect(model.items[0]).not.toHaveProperty("provenance");
   });
 
   it("preserves provider cover attribution and the product-owned fallback", () => {

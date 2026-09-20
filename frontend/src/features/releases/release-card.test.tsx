@@ -13,10 +13,7 @@ const baseItem: ReleaseListItem = {
   date: "Fecha por confirmar",
   platform: "Windows PC",
   region: "Sin región confirmada",
-  status: "Anunciado",
-  provenance: "VideoGame Platform clickable prototype",
   isStale: true,
-  freshness: "Datos locales desactualizados",
   review: "Información pendiente de revisión",
   cover: {
     kind: "provider",
@@ -35,17 +32,15 @@ function renderCard(item: ReleaseListItem = baseItem) {
 }
 
 describe("release card", () => {
-  it("attributes an approved provider cover", () => {
+  it("shows an approved provider cover without the caption the game page owns", () => {
     renderCard();
 
     expect(screen.getByRole("img", { name: "Carátula de The Witcher IV" })).toHaveAttribute(
       "src",
       "https://images.igdb.com/igdb/image/upload/t_cover_big/coexample.webp",
     );
-    expect(screen.getByRole("link", { name: "IGDB" })).toHaveAttribute(
-      "href",
-      "https://www.igdb.com/games/the-witcher-iv",
-    );
+    expect(screen.queryByRole("link", { name: "IGDB" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Carátula:/)).not.toBeInTheDocument();
   });
 
   it("falls back to the product-owned cover when the provider image cannot load", () => {
@@ -57,8 +52,7 @@ describe("release card", () => {
       "src",
       "/assets/covers/fallback.svg",
     );
-    expect(screen.queryByRole("link", { name: "IGDB" })).not.toBeInTheDocument();
-    expect(screen.getByText("Carátula oficial no disponible")).toBeInTheDocument();
+    expect(screen.queryByText("Carátula oficial no disponible")).not.toBeInTheDocument();
   });
 
   it("shows a new approved cover after the previous URL failed", () => {
@@ -79,23 +73,28 @@ describe("release card", () => {
     expect(screen.getByRole("img", { name: "Nueva carátula de The Witcher IV" })).toHaveAttribute(
       "src", replacement.cover.url,
     );
-    expect(screen.getByRole("link", { name: "IGDB" })).toBeInTheDocument();
-    expect(screen.queryByText("Carátula oficial no disponible")).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "Carátula oficial no disponible" })).not.toBeInTheDocument();
   });
 
-  it("keeps date precision, review and freshness explicit next to the game link", () => {
+  it("keeps date precision and the review notice, and links the game from its title", () => {
     renderCard();
 
     expect(screen.getByText("Fecha por confirmar")).toBeInTheDocument();
-    const dataStates = screen.getByRole("list", {
-      name: "Estado de los datos de The Witcher IV",
-    });
-    expect(dataStates).toHaveTextContent("Anunciado");
-    expect(dataStates).toHaveTextContent("Datos locales desactualizados");
-    expect(dataStates).toHaveTextContent("Información pendiente de revisión");
-    expect(screen.getByRole("link", { name: "Ver The Witcher IV" })).toHaveAttribute(
+    expect(
+      screen.getByRole("list", { name: "Estado de los datos de The Witcher IV" }),
+    ).toHaveTextContent("Información pendiente de revisión");
+    expect(screen.queryByText("Datos locales desactualizados")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fuente:/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Ver ficha →")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "The Witcher IV" })).toHaveAttribute(
       "href",
       "/games/game-witcher/the-witcher-iv",
     );
+  });
+
+  it("omits the data-state list when nothing needs review", () => {
+    renderCard({ ...baseItem, review: null });
+
+    expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 });

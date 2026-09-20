@@ -1,5 +1,7 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
+import { AppSelect } from "../../shared/ui/app-select";
+import type { SelectIconName } from "../../shared/ui/select-icon";
 import { hasActiveFilters, releasesSearchPath, type ReleasesSearch } from "./releases-search";
 import type { ReleaseFilterOption } from "./releases-view-model";
 
@@ -9,7 +11,7 @@ type ReleasesFiltersProps = {
   regions: readonly ReleaseFilterOption[];
 };
 
-type FilterGroupProps = {
+type FilterSelectProps = {
   label: string;
   currentId: string | null;
   options: readonly ReleaseFilterOption[];
@@ -17,52 +19,53 @@ type FilterGroupProps = {
   toPath: (id: string | null) => string;
 };
 
-function FilterGroup({ label, currentId, options, allLabel, toPath }: FilterGroupProps) {
+function platformIcon(option: ReleaseFilterOption): SelectIconName {
+  const identity = `${option.id} ${option.name}`.toLocaleLowerCase("es");
+  if (identity.includes("switch") || identity.includes("nintendo")) return "nintendo-switch";
+  if (identity.includes("playstation") || identity.includes("ps5")) return "playstation";
+  if (identity.includes("xbox")) return "xbox";
+  if (identity.includes("windows") || identity.includes("pc")) return "windows";
+  return "platform";
+}
+
+function ReleaseFilterSelect({ label, currentId, options, allLabel, toPath }: FilterSelectProps) {
+  const navigate = useNavigate();
+  const icon = label === "Plataforma" ? "platform" : "region";
   return (
-    <div className="filter-group">
-      <span className="filter-label">{label}</span>
-      <ul aria-label={`Filtrar por ${label.toLocaleLowerCase("es")}`} className="filter-options">
-        <li>
-          <Link
-            aria-current={currentId === null ? "page" : undefined}
-            className="filter-chip"
-            to={toPath(null)}
-          >
-            {allLabel}
-          </Link>
-        </li>
-        {options.map((option) => (
-          <li key={option.id}>
-            <Link
-              aria-current={currentId === option.id ? "page" : undefined}
-              className="filter-chip"
-              to={toPath(option.id)}
-            >
-              {option.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <AppSelect
+      className="release-filter-select"
+      icon={icon}
+      inlineLabel
+      label={`${label}:`}
+      onChange={(value) => { void navigate(toPath(value || null)); }}
+      options={[
+        { value: "", label: allLabel, icon },
+        ...options.map((option) => ({
+          value: option.id,
+          label: option.name,
+          icon: label === "Plataforma" ? platformIcon(option) : icon,
+        })),
+      ]}
+      value={currentId ?? ""}
+    />
   );
 }
 
 export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersProps) {
   return (
-    <section aria-labelledby="release-filters-title" className="release-filters">
+    <section aria-labelledby="release-filters-title" className="release-filters release-filters-selects">
       <h2 className="sr-only" id="release-filters-title">
         Filtros de lanzamientos
       </h2>
-      <div className="filter-rail">
-        <FilterGroup
+      <div className="release-select-row">
+        <ReleaseFilterSelect
           allLabel="Todas"
           currentId={search.platformId}
           label="Plataforma"
           options={platforms}
           toPath={(platformId) => releasesSearchPath(search, { platformId, page: 1 })}
         />
-        <span className="filter-divider" aria-hidden="true" />
-        <FilterGroup
+        <ReleaseFilterSelect
           allLabel="Todas"
           currentId={search.regionId}
           label="Región"

@@ -49,10 +49,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
   const providerRequests = trackProviderRequests(page);
 
   await page.goto("/");
-  await page
-    .getByRole("navigation", { name: "Secciones principales" })
-    .getByRole("link", { name: "Buscar" })
-    .click();
+  await page.getByRole("searchbox", { name: "Buscar en el catálogo" }).press("Enter");
 
   await expect(page.getByRole("heading", { level: 1, name: "Buscar juegos" })).toBeVisible();
 

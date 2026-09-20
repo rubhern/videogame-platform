@@ -52,7 +52,8 @@ describe("Mis puntuaciones", () => {
     const fetchMock = stub(request => Response.json(page(rating, 21, Number(new URL(request.url).searchParams.get("page") ?? 1))));
     renderApp("/mis-puntuaciones");
     await screen.findByText("Élite Dangerous");
-    await userEvent.selectOptions(screen.getByLabelText("Ordenar por"), "canonicalTitle");
+    await userEvent.click(screen.getByRole("combobox", { name: /^Ordenar por/ }));
+    await userEvent.click(screen.getByRole("option", { name: "Título" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([request]) => {
       const url = new URL((request as Request).url);
       return url.searchParams.get("sort") === "canonicalTitle" && url.searchParams.get("direction") === "asc";
@@ -75,8 +76,9 @@ describe("Mis puntuaciones", () => {
     });
     renderApp("/mis-puntuaciones");
     await userEvent.click(await screen.findByRole("button", { name: "Editar puntuación" }));
-    expect(screen.getByLabelText("Nueva puntuación")).toHaveFocus();
-    await userEvent.selectOptions(screen.getByLabelText("Nueva puntuación"), "9");
+    expect(screen.getByRole("combobox", { name: /^Nueva puntuación/ })).toHaveFocus();
+    await userEvent.click(screen.getByRole("combobox", { name: /^Nueva puntuación/ }));
+    await userEvent.click(screen.getByRole("option", { name: "9/10" }));
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
     expect(await screen.findByText("9/10")).toBeVisible();
     const put = fetchMock.mock.calls.map(([request]) => request as Request).find(request => request.method === "PUT");

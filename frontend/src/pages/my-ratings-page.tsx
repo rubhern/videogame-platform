@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { listMyRatings, MY_RATINGS_KEY, MyRatingsError, type MyRatingsPage, type MyRatingsQuery } from "../features/ratings/my-ratings-api";
 import { MyRatingCard } from "../features/ratings/my-rating-card";
 import { useSession } from "../features/session/use-session";
+import { AppSelect } from "../shared/ui/app-select";
 
 /**
  * Row-shaped placeholders for the personal collection.
@@ -86,28 +87,42 @@ export function MyRatingsPage() {
               onChange={(event) => setSearch(event.target.value)} />
           </div>
           <button className="button button-primary" type="submit">Buscar en mis puntuaciones</button>
-          <label>Ordenar por
-            <select value={params.sort ?? "updatedAt"} onChange={(event) => {
-              const sort = event.target.value;
+          <AppSelect
+            className="my-ratings-select"
+            icon="clock"
+            label="Ordenar por"
+            onChange={(sort) => {
               if (sort === "updatedAt" || sort === "canonicalTitle" || sort === "ratingValue")
                 change({ ...params, sort, direction: sort === "updatedAt" ? "desc" : "asc", page: 1 });
-            }}>
-              <option value="updatedAt">Última actualización</option><option value="canonicalTitle">Título</option><option value="ratingValue">Mi nota</option>
-            </select>
-          </label>
-          <label>Dirección
-            <select value={params.direction ?? "desc"} onChange={(event) => {
-              const direction = event.target.value;
+            }}
+            options={[
+              { value: "updatedAt", label: "Última actualización", icon: "clock" },
+              { value: "canonicalTitle", label: "Título", icon: "title" },
+              { value: "ratingValue", label: "Mi nota", icon: "rating" },
+            ]}
+            value={params.sort ?? "updatedAt"}
+          />
+          <AppSelect
+            className="my-ratings-select"
+            icon="descending"
+            label="Dirección"
+            onChange={(direction) => {
               if (direction === "asc" || direction === "desc") change({ ...params, direction, page: 1 });
-            }}>
-              <option value="desc">Descendente</option><option value="asc">Ascendente</option>
-            </select>
-          </label>
-          <label>Por página
-            <select value={params.pageSize} onChange={(event) => change({ ...params, pageSize: Number(event.target.value), page: 1 })}>
-              <option value={20}>20</option><option value={50}>50</option><option value={100}>100</option>
-            </select>
-          </label>
+            }}
+            options={[
+              { value: "desc", label: "Descendente", icon: "descending" },
+              { value: "asc", label: "Ascendente", icon: "ascending" },
+            ]}
+            value={params.direction ?? "desc"}
+          />
+          <AppSelect
+            className="my-ratings-select"
+            icon="page-size"
+            label="Por página"
+            onChange={(pageSize) => change({ ...params, pageSize: Number(pageSize), page: 1 })}
+            options={[20, 50, 100].map((size) => ({ value: String(size), label: String(size) }))}
+            value={String(params.pageSize)}
+          />
         </form>
         {inputError ? <p className="my-ratings-input-error" id="my-ratings-input-error" role="alert">{inputError}</p> : null}
         <h2 className="sr-only" tabIndex={-1} ref={heading}>Resultados de mis puntuaciones</h2>

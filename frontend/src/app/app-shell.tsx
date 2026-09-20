@@ -67,25 +67,11 @@ export function AppShell() {
             >
               Próximos
             </Link>
-            <Link
-              aria-current={location.pathname === "/search" ? "page" : undefined}
-              className="nav-link"
-              to="/search"
-            >
-              Buscar
-            </Link>
           </nav>
 
           <CatalogueSearch key={`${location.pathname}?${location.search}`} />
 
-          <span className="account-divider" aria-hidden="true" />
           <AccountControl />
-        </div>
-        <div className="catalogue-masthead">
-          <div className="page-container">
-            <span>Catálogo de lanzamientos · MVP privado</span>
-            <span>Datos locales · sin consultas al proveedor</span>
-          </div>
         </div>
       </header>
 
@@ -95,8 +81,7 @@ export function AppShell() {
 
       <footer className="site-footer">
         <div className="page-container">
-          <span>VideoGame Platform · MVP</span>
-          <span>Catálogo local de lanzamientos</span>
+          <span>VideoGame Platform</span>
         </div>
       </footer>
     </div>

@@ -77,7 +77,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `GAME-009` | An invalid or unavailable provider cover is never displayed; the fallback is used instead. |
 | `GAME-010` | Provider covers are references; binaries are not product-stored. |
 | `GAME-011` | Provider covers use only the allowlisted documented image host. |
-| `GAME-012` | Provider cover display includes attribution and source path. |
+| `GAME-012` | A provider cover carries attribution and source path, shown on the game page every displayed cover links to. |
 | `GAME-013` | Cover references contain no credential/token/authenticated URL. |
 | `GAME-014` | Cover failure selects fallback without hiding the game. |
 | `GAME-015` | Approval is scoped to usage/release mode and asserts no ownership; it is not a per-image human review. |

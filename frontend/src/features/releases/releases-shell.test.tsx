@@ -12,7 +12,7 @@ const search: ReleasesSearch = {
   platformId: null,
   regionId: null,
   page: 1,
-  pageSize: 6,
+  pageSize: 12,
 };
 
 const pragmata: ReleaseListItem = {
@@ -23,10 +23,7 @@ const pragmata: ReleaseListItem = {
   date: "2.º trimestre de 2026",
   platform: "Windows PC",
   region: "Mundial",
-  status: "Publicado",
-  provenance: "VideoGame Platform clickable prototype",
   isStale: false,
-  freshness: "Datos locales actualizados",
   review: null,
   cover: {
     kind: "fallback",
@@ -40,7 +37,7 @@ function viewModel(overrides: Partial<ReleasesViewModel> = {}): ReleasesViewMode
     view: "recent",
     title: "Lanzamientos recientes",
     windowDescription: "Del 13 de febrero de 2026 al 13 de agosto de 2026",
-    evaluatedOnDescription: "Ventana evaluada el 13 de agosto de 2026",
+    compactWindowDescription: "Del 13/02/2026 al 13/08/2026",
     platforms: [
       { id: "platform-pc", name: "Windows PC" },
       { id: "platform-ps5", name: "PlayStation 5" },
@@ -77,27 +74,35 @@ describe("releases shell", () => {
     expect(screen.queryByRole("list", { name: "Lanzamientos recientes" })).not.toBeInTheDocument();
   });
 
-  it("shows the evaluated window, the result summary and the release detail", () => {
+  it("shows the recent window beside the kicker, without evaluation copy", () => {
     renderShell({ status: "ready", model: viewModel(), isRefreshing: false, isPlaceholderData: false });
 
-    expect(
-      screen.getByText((_, element) => element?.classList.contains("release-window") === true),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "1 lanzamiento · Página 1 de 1",
+    expect(screen.getByText("Del 13 de febrero de 2026 al 13 de agosto de 2026")).toBeInTheDocument();
+    expect(screen.getByText("Del 13/02/2026 al 13/08/2026")).toBeInTheDocument();
+    expect(screen.getByText("Ya disponibles").parentElement).toContainElement(
+      screen.getByText("Del 13 de febrero de 2026 al 13 de agosto de 2026"),
     );
+    expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("1 lanzamiento");
+    expect(screen.queryByText(/Página 1 de 1/)).not.toBeInTheDocument();
 
     const results = within(screen.getByRole("list", { name: "Lanzamientos recientes" }));
     const card = within(results.getAllByRole("listitem")[0] as HTMLElement);
     expect(card.getByRole("heading", { level: 3, name: "Pragmata" })).toBeInTheDocument();
     expect(card.getByText("2.º trimestre de 2026")).toBeInTheDocument();
     expect(card.getByText("Windows PC · Mundial")).toBeInTheDocument();
-    expect(card.getByText("Publicado")).toBeInTheDocument();
+    expect(card.queryByText("Publicado")).not.toBeInTheDocument();
+    expect(card.queryByText(/Fuente:/)).not.toBeInTheDocument();
+    expect(card.queryByText("Ver ficha →")).not.toBeInTheDocument();
+    expect(card.getByRole("link", { name: "Pragmata" })).toHaveAttribute(
+      "href",
+      "/games/game-pragmata/pragmata",
+    );
     expect(card.getByRole("img", { name: "Portada no disponible de Pragmata" })).toHaveAttribute(
       "src",
       "/assets/covers/fallback.svg",
     );
-    expect(card.getByText("Carátula oficial no disponible")).toBeInTheDocument();
+    expect(card.queryByText("Carátula oficial no disponible")).not.toBeInTheDocument();
   });
 
   it("keeps the filters visible with their active values and a clear action", () => {
@@ -112,16 +117,8 @@ describe("releases shell", () => {
       { search: activeSearch },
     );
 
-    const platformFilters = within(screen.getByRole("list", { name: "Filtrar por plataforma" }));
-    const regionFilters = within(screen.getByRole("list", { name: "Filtrar por región" }));
-    expect(platformFilters.getByRole("link", { name: "PlayStation 5" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
-    expect(regionFilters.getByRole("link", { name: "Todas" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(screen.getByRole("combobox", { name: /^Plataforma:/ })).toHaveTextContent("PlayStation 5");
+    expect(screen.getByRole("combobox", { name: /^Región:/ })).toHaveTextContent("Todas");
     expect(
       screen.getByText("Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."),
     ).toBeInTheDocument();
@@ -131,31 +128,63 @@ describe("releases shell", () => {
   it("links to the other release window", () => {
     renderShell({ status: "ready", model: viewModel(), isRefreshing: false, isPlaceholderData: false });
 
-    const windowNav = within(screen.getByRole("navigation", { name: "Ventana de lanzamientos" }));
-    expect(windowNav.getByRole("link", { name: "Ver próximos" })).toHaveAttribute(
+    const windowNav = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
+    expect(within(windowNav).getByRole("link", { name: "Ver próximos" })).toHaveAttribute(
       "href",
       "/?view=upcoming",
     );
+    // The recent view closes with the switch, after the results and the pager.
+    expect(
+      screen.getByRole("list", { name: "Lanzamientos recientes" }).compareDocumentPosition(windowNav) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("keeps the window switch reachable while the recent view is loading", () => {
+    renderShell({ status: "loading" });
+
+    expect(screen.getByRole("link", { name: "Ver próximos" })).toHaveAttribute("href", "/?view=upcoming");
+  });
+
+  it("gives upcoming the same hero, selectors and closing bar", () => {
+    renderShell(
+      { status: "ready", model: viewModel({ view: "upcoming", windowDescription: "Del 13 de agosto de 2026 al 13 de febrero de 2027" }), isRefreshing: false, isPlaceholderData: false },
+      { search: { ...search, view: "upcoming" } },
+    );
+
+    expect(screen.getByRole("heading", { level: 1, name: "Próximos lanzamientos" })).toBeInTheDocument();
+    expect(screen.getByText("En calendario").parentElement).toContainElement(
+      screen.getByText("Del 13 de agosto de 2026 al 13 de febrero de 2027"),
+    );
+    expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /^Plataforma:/ })).toHaveTextContent("Todas");
+    expect(screen.getByRole("combobox", { name: /^Región:/ })).toHaveTextContent("Todas");
+    expect(screen.getByRole("status")).toHaveTextContent("1 lanzamiento");
+    const windowNav = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
+    expect(within(windowNav).getByRole("link", { name: "Ver recientes" })).toHaveAttribute("href", "/");
+    expect(
+      screen.getByRole("list", { name: "Próximos lanzamientos" }).compareDocumentPosition(windowNav) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it("distinguishes stale local data from a technical failure", () => {
     renderShell({
       status: "ready",
       model: viewModel({
-        items: [{ ...pragmata, isStale: true, freshness: "Datos locales desactualizados" }],
+        items: [{ ...pragmata, isStale: true }],
         staleItemCount: 1,
       }),
       isRefreshing: false,
       isPlaceholderData: false,
     });
 
-    expect(
-      screen.getByText(
-        "Algunos lanzamientos usan la última copia local guardada y pueden estar desactualizados.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Datos locales desactualizados")).toBeInTheDocument();
+    expect(screen.queryByText(
+      "Algunos lanzamientos usan la última copia local guardada y pueden estar desactualizados.",
+    )).not.toBeInTheDocument();
+    expect(screen.queryByText("Datos locales desactualizados")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Pragmata" })).toBeInTheDocument();
   });
 
   it("explains an unavailable catalogue and offers a retry", async () => {
@@ -218,7 +247,8 @@ describe("releases shell", () => {
     const pagination = within(
       screen.getByRole("navigation", { name: "Paginación de lanzamientos" }),
     );
-    expect(pagination.getByText("Página 2 de 3")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("15 lanzamientos");
+    expect(screen.queryByText("Página 2 de 3")).not.toBeInTheDocument();
     expect(pagination.getByRole("link", { name: "Página anterior" })).toHaveAttribute(
       "href",
       "/?platformId=platform-ps5",
@@ -289,6 +319,6 @@ describe("releases shell", () => {
     renderShell({ status: "ready", model: viewModel(), isRefreshing: true, isPlaceholderData: false });
 
     expect(screen.getByRole("status")).toHaveTextContent("Actualizando lanzamientos…");
-    expect(screen.getByRole("link", { name: "Ver Pragmata" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Pragmata" })).toBeInTheDocument();
   });
 });
