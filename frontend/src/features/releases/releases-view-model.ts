@@ -1,11 +1,10 @@
-import { formatCalendarDay, formatReleaseDate } from "../../shared/catalogue/release-date";
+import { formatCalendarDay, formatCompactCalendarDay, formatReleaseDate } from "../../shared/catalogue/release-date";
 import { regionLabel } from "../../shared/catalogue/region-label";
 import type { ReleasePage } from "./releases-api";
 import type { ReleaseView } from "./releases-search";
 
 type ReleaseItem = ReleasePage["items"][number];
 type Cover = ReleaseItem["primaryCover"];
-type ReleaseStatus = ReleaseItem["release"]["status"];
 
 export type ReleaseCover =
   | {
@@ -30,10 +29,7 @@ export type ReleaseListItem = {
   date: string;
   platform: string;
   region: string;
-  status: string;
-  provenance: string;
   isStale: boolean;
-  freshness: string;
   review: string | null;
   cover: ReleaseCover;
 };
@@ -44,7 +40,7 @@ export type ReleasesViewModel = {
   view: ReleaseView;
   title: string;
   windowDescription: string;
-  evaluatedOnDescription: string;
+  compactWindowDescription: string;
   platforms: ReleaseFilterOption[];
   regions: ReleaseFilterOption[];
   activePlatformId: string | null;
@@ -52,15 +48,6 @@ export type ReleasesViewModel = {
   items: ReleaseListItem[];
   staleItemCount: number;
   page: { number: number; size: number; totalItems: number; totalPages: number };
-};
-
-const statusLabels: Record<ReleaseStatus, string> = {
-  announced: "Anunciado",
-  scheduled: "Programado",
-  released: "Publicado",
-  delayed: "Retrasado",
-  cancelled: "Cancelado",
-  unknown: "Estado sin confirmar",
 };
 
 const viewTitles: Record<ReleaseView, string> = {
@@ -145,13 +132,7 @@ export function toReleaseListItems(page: ReleasePage): ReleaseListItem[] {
     date: formatReleaseDate(item.release.releaseDate),
     platform: item.release.platform.name,
     region: regionLabel(item.release.region.name),
-    status: statusLabels[item.release.status],
-    provenance: item.release.provenance.sourceName,
     isStale: item.release.freshnessStatus === "stale",
-    freshness:
-      item.release.freshnessStatus === "stale"
-        ? "Datos locales desactualizados"
-        : "Datos locales actualizados",
     review:
       item.release.reviewStatus === "required" ? "Información pendiente de revisión" : null,
     // Owner-provided previews are an opt-in Vite development overlay. The API cover
@@ -169,7 +150,7 @@ export function toReleasesViewModel(page: ReleasePage): ReleasesViewModel {
     windowDescription: `Del ${formatCalendarDay(page.window.from)} al ${formatCalendarDay(
       page.window.to,
     )}`,
-    evaluatedOnDescription: `Ventana evaluada el ${formatCalendarDay(page.evaluatedOn)}`,
+    compactWindowDescription: `Del ${formatCompactCalendarDay(page.window.from)} al ${formatCompactCalendarDay(page.window.to)}`,
     platforms: page.availableFilters.platforms.map((platform) => ({
       id: platform.platformId,
       name: platform.name,

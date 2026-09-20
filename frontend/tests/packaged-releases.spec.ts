@@ -42,7 +42,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     return url.pathname === "/api/v1/releases" && url.searchParams.get("view") === "recent";
   });
 
-  await page.goto("/");
+  await page.goto("/?pageSize=6");
   const releasesResponse = await releasesResponsePromise;
   expect(releasesResponse.status()).toBe(200);
   expect(releasesResponse.request().resourceType()).toBe("fetch");
@@ -67,13 +67,12 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   ]);
 
   await expect(page.getByRole("region", { name: "Lanzamientos recientes" })).toBeVisible();
-  await expect(page.locator(".release-window")).toContainText(
+  await expect(page.locator(".release-period")).toContainText(
     "Del 13 de febrero de 2026 al 13 de agosto de 2026",
   );
-  await expect(page.locator(".release-window")).toContainText(
-    "Ventana evaluada el 13 de agosto de 2026",
-  );
-  await expect(page.locator(".result-count")).toHaveText("8 lanzamientos · Página 1 de 2");
+  await expect(page.getByText("Ventana evaluada el 13 de agosto de 2026")).toHaveCount(0);
+  await expect(page.locator(".result-count")).toHaveText("8 lanzamientos");
+  await expect(page.getByText("Página 1 de 2")).toHaveCount(0);
   await expect(releaseTitles(page)).toHaveText([
     "Pragmata",
     "Pragmata",
@@ -91,12 +90,10 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   });
 
   await test.step("stale local data is shown as usable, not as a failure", async () => {
-    await expect(
-      page.getByText(
-        "Algunos lanzamientos usan la última copia local guardada y pueden estar desactualizados.",
-      ),
-    ).toBeVisible();
-    await expect(page.getByText("Datos locales desactualizados")).toHaveCount(1);
+    await expect(page.getByText(
+      "Algunos lanzamientos usan la última copia local guardada y pueden estar desactualizados.",
+    )).toHaveCount(0);
+    await expect(page.getByText("Datos locales desactualizados")).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
   });
 
@@ -104,6 +101,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     await expect(
       page.getByRole("img", { name: "Carátula oficial no disponible" }),
     ).toBeVisible();
+    await expect(page.locator(".catalogue-card .cover-caption")).toHaveCount(0);
   });
 
   await expectNoAccessibilityViolations(page);
@@ -111,9 +109,9 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   await test.step("pagination reaches the incomplete last page and focuses the results", async () => {
     await page.getByRole("link", { name: "Página siguiente" }).click();
 
-    await expect(page).toHaveURL(/\?page=2$/);
+    await expect(page).toHaveURL(/\?page=2&pageSize=6$/);
     await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
-    await expect(page.locator(".result-count")).toHaveText("8 lanzamientos · Página 2 de 2");
+    await expect(page.locator(".result-count")).toHaveText("8 lanzamientos");
     await expect(releaseTitles(page)).toHaveText([
       "Resident Evil Requiem",
       "Resident Evil Requiem",
@@ -126,28 +124,24 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   });
 
   await test.step("a platform filter narrows the result set and returns to the first page", async () => {
-    await page
-      .getByRole("list", { name: "Filtrar por plataforma" })
-      .getByRole("link", { name: "Windows PC" })
-      .click();
+    await page.getByRole("combobox", { name: /^Plataforma:/ }).click();
+    await page.getByRole("option", { name: "Windows PC" }).click();
 
-    await expect(page).toHaveURL(/\?platformId=[0-9a-f-]+$/);
-    await expect(page.locator(".result-count")).toHaveText("3 lanzamientos · Página 1 de 1");
+    await expect(page).toHaveURL(/\?platformId=[0-9a-f-]+&pageSize=6$/);
+    await expect(page.locator(".result-count")).toHaveText("3 lanzamientos");
     await expect(releaseTitles(page)).toHaveText([
       "Pragmata",
       "Crimson Desert",
       "Resident Evil Requiem",
     ]);
     await expect(
-      page.getByRole("list", { name: "Filtrar por plataforma" }).getByRole("link", { name: "Windows PC" }),
-    ).toHaveAttribute("aria-current", "page");
+      page.getByRole("combobox", { name: /^Plataforma:/ }),
+    ).toContainText("Windows PC");
   });
 
   await test.step("an unmatched filter combination explains the empty result", async () => {
-    await page
-      .getByRole("list", { name: "Filtrar por región" })
-      .getByRole("link", { name: "Europa" })
-      .click();
+    await page.getByRole("combobox", { name: /^Región:/ }).click();
+    await page.getByRole("option", { name: "Europa" }).click();
 
     await expect(
       page.getByText(
@@ -156,22 +150,22 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     ).toBeVisible();
     await expect(releaseTitles(page)).toHaveCount(0);
     await expect(
-      page.getByRole("list", { name: "Filtrar por plataforma" }).getByRole("link", { name: "Windows PC" }),
-    ).toHaveAttribute("aria-current", "page");
+      page.getByRole("combobox", { name: /^Plataforma:/ }),
+    ).toContainText("Windows PC");
     await expectNoAccessibilityViolations(page);
   });
 
   await test.step("filters can be cleared", async () => {
     await page.getByRole("link", { name: "Quitar filtros" }).first().click();
 
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\?pageSize=6$/);
     await expect(releaseTitles(page)).toHaveCount(6);
     await expect(
-      page.getByRole("list", { name: "Filtrar por plataforma" }).getByRole("link", { name: "Todas" }),
-    ).toHaveAttribute("aria-current", "page");
+      page.getByRole("combobox", { name: /^Plataforma:/ }),
+    ).toContainText("Todas");
     await expect(
-      page.getByRole("list", { name: "Filtrar por región" }).getByRole("link", { name: "Todas" }),
-    ).toHaveAttribute("aria-current", "page");
+      page.getByRole("combobox", { name: /^Región:/ }),
+    ).toContainText("Todas");
   });
 
   await test.step("the upcoming window keeps announced and delayed releases separate", async () => {
@@ -180,10 +174,10 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     await expect(
       page.getByRole("heading", { level: 1, name: "Próximos lanzamientos" }),
     ).toBeVisible();
-    await expect(page.locator(".release-window")).toContainText(
+    await expect(page.locator(".release-period")).toContainText(
       "Del 13 de agosto de 2026 al 13 de febrero de 2027",
     );
-    await expect(page.locator(".result-count")).toHaveText("8 lanzamientos · Página 1 de 2");
+    await expect(page.locator(".result-count")).toHaveText("8 lanzamientos");
     await expect(releaseTitles(page)).toHaveText([
       "Marvel's Wolverine",
       "Crimson Desert",
@@ -194,7 +188,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     ]);
     await expect(page.getByText("25 de septiembre de 2026")).toBeVisible();
     await expect(page.getByText("octubre de 2026")).toHaveCount(2);
-    await expect(page.getByText("Retrasado")).toBeVisible();
+    await expect(page.getByText("Retrasado")).toHaveCount(0);
   });
 
   await test.step("an unconfirmed date stays explicit on the last upcoming page", async () => {
@@ -226,7 +220,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
 
   await test.step("the keyboard reaches a game from the focused results", async () => {
     await page.keyboard.press("Tab");
-    const gameLink = page.getByRole("link", { name: "Ver The Witcher IV" }).first();
+    const gameLink = page.locator(".card-title a", { hasText: "The Witcher IV" }).first();
     await expect(gameLink).toBeFocused();
 
     await gameLink.press("Enter");
@@ -257,13 +251,13 @@ test("the packaged releases page stays usable from phone to desktop", async ({ p
   for (const viewport of viewports) {
     await test.step(`${viewport.name} (${viewport.width}px)`, async () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto("/");
+      await page.goto("/?pageSize=6");
 
       await expect(
         page.getByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
       ).toBeVisible();
       await expect(releaseTitles(page)).toHaveCount(6);
-      await expect(page.getByRole("list", { name: "Filtrar por plataforma" })).toBeVisible();
+      await expect(page.getByRole("combobox", { name: /^Plataforma:/ })).toBeVisible();
       await expect(page.getByRole("link", { name: "Página siguiente" })).toBeVisible();
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
       await expectNoAccessibilityViolations(page);

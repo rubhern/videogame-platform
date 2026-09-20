@@ -64,22 +64,22 @@ describe("application routing", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
     ).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: "Ver Pragmata" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Pragmata" })).toBeInTheDocument();
   });
 
-  it("navigates between the release and search sections from the shell", async () => {
+  it("uses the integrated search instead of a duplicate navigation link", async () => {
     const user = userEvent.setup();
     renderApp();
 
     await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" });
     const sections = screen.getByRole("navigation", { name: "Secciones principales" });
-    await user.click(within(sections).getByRole("link", { name: "Buscar" }));
+    expect(within(sections).queryByRole("link", { name: "Buscar" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Catálogo de lanzamientos · MVP privado")).not.toBeInTheDocument();
+    expect(screen.queryByText("Datos locales · sin consultas al proveedor")).not.toBeInTheDocument();
+    await user.type(screen.getByRole("searchbox", { name: "Buscar en el catálogo" }), "Pragmata{Enter}");
 
     expect(await screen.findByRole("heading", { level: 1, name: "Buscar juegos" })).toBeInTheDocument();
-    expect(within(sections).getByRole("link", { name: "Buscar" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(screen.getByRole("main")).toHaveFocus();
   });
 
   it("offers a keyboard-accessible return from an unknown route", async () => {

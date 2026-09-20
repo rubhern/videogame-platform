@@ -36,20 +36,15 @@ function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string
   if (totalPages > 0 && number > totalPages) {
     return `${count} · La página ${number} ya no está disponible`;
   }
-  return `${count} · Página ${number} de ${Math.max(totalPages, 1)}`;
+  return count;
 }
 
 function LoadingFilters() {
   return (
-    <div className="release-filters" aria-hidden="true">
-      <div className="filter-rail">
-        <span className="filter-label">Plataforma</span>
-        {[72, 96, 110].map((width) => (
-          <span className="filter-chip-skeleton" key={width} style={{ width }} />
-        ))}
-        <span className="filter-divider" />
-        <span className="filter-label">Región</span>
-        <span className="filter-chip-skeleton" style={{ width: 88 }} />
+    <div className="release-filters release-filters-selects" aria-hidden="true">
+      <div className="release-select-row">
+        <span className="release-select-skeleton" />
+        <span className="release-select-skeleton" />
       </div>
     </div>
   );
@@ -74,43 +69,35 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
     model.page.totalItems > 0 &&
     model.page.totalPages > 0 &&
     model.page.number > model.page.totalPages;
-  const hasStaleResults =
-    state.status === "ready" && !state.isPlaceholderData && state.model.staleItemCount > 0;
-
   return (
     <section aria-labelledby="releases-title" className="releases-page">
-      {hasStaleResults ? (
-        <div className="stale-banner" role="status">
-          <div className="page-container">
-            <span className="notice-symbol notice-symbol-warning" aria-hidden="true">
-              !
-            </span>
-            <p>Algunos lanzamientos usan la última copia local guardada y pueden estar desactualizados.</p>
-          </div>
-        </div>
-      ) : null}
-
       <div className="page-container releases-section">
         <div className="releases-heading">
           <div>
-            <p className="eyebrow eyebrow-dot">
-              {search.view === "recent" ? "Ya disponibles" : "En calendario"}
-            </p>
+            <div className="releases-kicker-row">
+              <p className="eyebrow eyebrow-dot">
+                {search.view === "recent" ? "Ya disponibles" : "En calendario"}
+              </p>
+              {model !== null && !isTransitioning ? (
+                <p className="release-period">
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+                    <rect x="2.5" y="4.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M6 2.5v4M14 2.5v4M2.5 8.5h15" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                  </svg>
+                  <span className="release-period-full">{model.windowDescription}</span>
+                  <span className="release-period-compact">{model.compactWindowDescription}</span>
+                </p>
+              ) : null}
+            </div>
             <h1 className="page-title" id="releases-title">
               {releaseViewTitle(search.view)}
             </h1>
           </div>
-          <ReleasesViewNav search={search} />
         </div>
 
-        {model === null || isTransitioning ? null : (
-          <p className="release-window">
-            <span>{model.windowDescription}</span>
-            <span className="release-window-evaluated">{model.evaluatedOnDescription}</span>
-          </p>
-        )}
-
-        {model === null ? <LoadingFilters /> : <ReleasesFilters platforms={model.platforms} regions={model.regions} search={search} />}
+        <div className="releases-toolbar">
+          {model === null ? <LoadingFilters /> : <ReleasesFilters platforms={model.platforms} regions={model.regions} search={search} />}
+        </div>
 
         <h2 className="sr-only" ref={resultsHeadingRef} tabIndex={-1}>
           Resultados
@@ -176,10 +163,6 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
 
         {state.status === "ready" && !state.isPlaceholderData ? (
           <>
-            <p className="result-count" role="status">
-              {resultsSummary(state.model, state.isRefreshing)}
-            </p>
-
             {state.model.items.length === 0 ? (
               <div className="notice notice-empty" role="status">
                 <span className="notice-symbol" aria-hidden="true">
@@ -214,10 +197,20 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
                 ))}
               </ul>
             )}
-
-            <ReleasesPagination page={state.model.page} search={search} />
           </>
         ) : null}
+
+        <div className="releases-footer">
+          {state.status === "ready" && !state.isPlaceholderData ? (
+            <>
+              <p className="result-count" role="status">
+                {resultsSummary(state.model, state.isRefreshing)}
+              </p>
+              <ReleasesPagination page={state.model.page} search={search} showPosition={false} />
+            </>
+          ) : null}
+          <ReleasesViewNav search={search} />
+        </div>
       </div>
     </section>
   );

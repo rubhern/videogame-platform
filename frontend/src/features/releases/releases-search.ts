@@ -17,8 +17,8 @@ export type ReleasesSearch = {
   pageSize: number;
 };
 
-/** One full grid of cards: three columns by two rows on the widest supported layout. */
-export const DEFAULT_PAGE_SIZE = 6;
+/** Both release windows show two rows of six on wide desktop. */
+export const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 100;
 const MAX_FILTER_CODE_POINTS = 100;
 
@@ -48,8 +48,9 @@ function readBoundedInteger(value: string | null, fallback: number, maximum: num
 }
 
 export function readReleasesSearch(params: URLSearchParams): ReleasesSearch {
+  const view = readView(params.get("view"));
   return {
-    view: readView(params.get("view")),
+    view,
     platformId: readFilter(params.get("platformId")),
     regionId: readFilter(params.get("regionId")),
     page: readBoundedInteger(params.get("page"), defaultSearch.page, Number.MAX_SAFE_INTEGER),

@@ -24,6 +24,18 @@ describe("releases navigable state", () => {
     });
   });
 
+  it("uses twelve releases for both windows and preserves explicit page sizes", () => {
+    expect(read("view=upcoming").pageSize).toBe(DEFAULT_PAGE_SIZE);
+    expect(releasesSearchPath(read(""), { view: "upcoming", page: 1 })).toBe("/?view=upcoming");
+    expect(releasesSearchPath(read("view=upcoming"), { view: "recent", page: 1 })).toBe("/");
+    expect(releasesSearchPath(read("?pageSize=24"), { view: "upcoming", page: 1 })).toBe(
+      "/?view=upcoming&pageSize=24",
+    );
+    expect(releasesSearchPath(read("?pageSize=6"), { view: "upcoming", page: 1 })).toBe(
+      "/?view=upcoming&pageSize=6",
+    );
+  });
+
   it("restores a shared filtered page", () => {
     expect(read("view=upcoming&platformId=platform-ps5&regionId=region-eu&page=3&pageSize=24")).toEqual(
       {
