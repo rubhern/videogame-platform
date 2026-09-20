@@ -48,7 +48,7 @@ test("release filters open from the full trigger and show tinted platform icons"
 test("personal rating dropdowns use the same keyboard and visual treatment", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
   await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: true, csrfToken: "test-csrf" } }));
-  await page.route("**/api/v1/me/ratings?*", (route) => route.fulfill({ json: {
+  await page.route("**/api/v1/me/ratings**", (route) => route.fulfill({ json: {
     items: [{
       game: {
         gameId: pragmata.gameId,

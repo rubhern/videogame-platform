@@ -220,7 +220,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
 
   await test.step("the keyboard reaches a game from the focused results", async () => {
     await page.keyboard.press("Tab");
-    const gameLink = page.getByRole("link", { name: "The Witcher IV" }).first();
+    const gameLink = page.locator(".card-title a", { hasText: "The Witcher IV" }).first();
     await expect(gameLink).toBeFocused();
 
     await gameLink.press("Enter");
