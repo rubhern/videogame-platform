@@ -47,8 +47,13 @@ test("release filters open from the full trigger and show tinted platform icons"
 
 test("personal rating dropdowns use the same keyboard and visual treatment", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 });
-  await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: true, csrfToken: "test-csrf" } }));
-  await page.route("**/api/v1/me/ratings**", (route) => route.fulfill({ json: {
+  await page.route("**/api/v1/**", (route) => {
+    const url = route.request().url();
+    if (url.includes("/api/v1/session")) {
+      return route.fulfill({ json: { authenticated: true, csrfToken: "test-csrf" } });
+    }
+    if (!url.includes("/api/v1/me/ratings")) return route.continue();
+    return route.fulfill({ json: {
     items: [{
       game: {
         gameId: pragmata.gameId,
@@ -65,7 +70,8 @@ test("personal rating dropdowns use the same keyboard and visual treatment", asy
       },
     }],
     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 },
-  } }));
+    } });
+  });
 
   await page.goto("/mis-puntuaciones");
   const sort = page.getByRole("combobox", { name: /^Ordenar por/ });
