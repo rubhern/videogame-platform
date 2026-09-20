@@ -188,7 +188,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     ]);
     await expect(page.getByText("25 de septiembre de 2026")).toBeVisible();
     await expect(page.getByText("octubre de 2026")).toHaveCount(2);
-    await expect(page.getByText("Retrasado")).toBeVisible();
+    await expect(page.getByText("Retrasado")).toHaveCount(0);
   });
 
   await test.step("an unconfirmed date stays explicit on the last upcoming page", async () => {

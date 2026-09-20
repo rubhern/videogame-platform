@@ -123,7 +123,7 @@ test.describe("real Keycloak rating journey", () => {
     await page.getByRole("combobox", { name: /^Nueva puntuación/ }).click();
     await page.getByRole("option", { name: "9/10" }).click();
     await page.getByRole("button", { name: "Guardar cambios" }).click();
-    await expect(page.getByText("9/10", { exact: true })).toBeVisible();
+    await expect(page.locator(".my-rating-value")).toHaveText("9/10");
 
     // Another request in the same real authenticated session wins before this page writes.
     const session = await (await context.request.get("/api/v1/session")).json() as { csrfToken: string };
