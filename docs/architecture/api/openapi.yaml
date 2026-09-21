@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 1.2.4
+  version: 2.0.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -30,12 +30,15 @@ paths:
     get:
       tags: [Releases]
       operationId: listReleases
-      summary: Browse recent or upcoming releases
+      summary: Browse recent or upcoming releases grouped by game
       description: |
-        Reads a bounded page from the last valid local catalogue publication. The application derives the
+        Reads a bounded page of games from the last valid local catalogue publication. Each
+        game appears once with only the releases that match the requested view and active
+        filters; `page.totalItems` counts games, not releases. The application derives the
         evaluation date and release window in `Europe/Madrid`. Empty, stale,
         review-required, imprecise-date, TBA, and fallback-cover results are valid
-        states. PostgreSQL applies filters, total ordering, count, limit, and offset.
+        states. PostgreSQL groups by game, applies filters, total ordering, count, limit,
+        and offset before any release page reaches the application.
       security: []
       parameters:
         - $ref: '#/components/parameters/ReleaseView'
@@ -46,7 +49,7 @@ paths:
         - $ref: '#/components/parameters/PublicIfNoneMatch'
       responses:
         '200':
-          description: A deterministic page of bounded-catalogue releases, possibly empty.
+          description: A deterministic page of bounded-catalogue games with their matching releases, possibly empty.
           headers:
             X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
             Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
@@ -56,17 +59,19 @@ paths:
               schema: { $ref: '#/components/schemas/ReleasePage' }
               examples:
                 upcoming:
-                  summary: Upcoming release with an imprecise date
+                  summary: One game grouping several matching releases with differing dates
                   value:
                     view: upcoming
                     evaluatedOn: '2026-07-31'
                     window: { from: '2026-07-31', to: '2026-12-31' }
-                    activeFilters: { platformId: platform_ps5, regionId: region_europe }
+                    activeFilters: { platformId: null, regionId: null }
                     availableFilters:
                       platforms:
                         - { platformId: platform_ps5, name: PlayStation 5 }
+                        - { platformId: platform_win, name: Windows PC }
                       regions:
                         - { regionId: region_europe, name: Europe }
+                        - { regionId: region_worldwide, name: Worldwide }
                     items:
                       - gameId: game_silksong
                         slug: hollow-knight-silksong
@@ -78,22 +83,37 @@ paths:
                           attribution:
                             label: IGDB
                             sourceUrl: https://www.igdb.com/games/hollow-knight-silksong
-                        release:
-                          releaseId: release_silksong_ps5_eu
-                          gameId: game_silksong
-                          platform: { platformId: platform_ps5, name: PlayStation 5 }
-                          region: { regionId: region_europe, name: Europe }
-                          releaseDate: { precision: quarter, value: 2026-Q4 }
-                          status: scheduled
-                          provenance:
-                            sourceKind: external_provider
-                            sourceName: IGDB
-                            sourceEntityType: release
-                          providerUpdatedAt: '2026-07-25T08:10:00Z'
-                          lastSyncedAt: '2026-07-30T05:00:00Z'
-                          verificationLevel: provider_only
-                          reviewStatus: not_required
-                          freshnessStatus: fresh
+                        releases:
+                          - releaseId: release_silksong_ps5_eu
+                            gameId: game_silksong
+                            platform: { platformId: platform_ps5, name: PlayStation 5 }
+                            region: { regionId: region_europe, name: Europe }
+                            releaseDate: { precision: day, value: '2026-09-04' }
+                            status: scheduled
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release
+                            providerUpdatedAt: '2026-07-25T08:10:00Z'
+                            lastSyncedAt: '2026-07-30T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
+                          - releaseId: release_silksong_win_ww
+                            gameId: game_silksong
+                            platform: { platformId: platform_win, name: Windows PC }
+                            region: { regionId: region_worldwide, name: Worldwide }
+                            releaseDate: { precision: quarter, value: 2026-Q4 }
+                            status: scheduled
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release
+                            providerUpdatedAt: '2026-07-25T08:10:00Z'
+                            lastSyncedAt: '2026-07-30T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 staleWithFallback:
                   summary: Last valid stale data remains usable with a fallback cover
@@ -116,23 +136,23 @@ paths:
                           url: /assets/covers/fallback.svg
                           alternativeText: Carátula oficial no disponible
                           attribution: null
-                        release:
-                          releaseId: release_example_switch_eu
-                          gameId: game_example
-                          platform: { platformId: platform_switch, name: Nintendo Switch }
-                          region: { regionId: region_europe, name: Europe }
-                          releaseDate: { precision: month, value: 2026-05 }
-                          status: released
-                          provenance:
-                            sourceKind: external_provider
-                            sourceName: IGDB
-                            sourceEntityType: release
-                          providerUpdatedAt: '2026-05-01T09:00:00Z'
-                          lastSyncedAt: '2026-05-02T05:00:00Z'
-                          lastVerifiedAt: '2026-05-02T05:10:00Z'
-                          verificationLevel: verified
-                          reviewStatus: required
-                          freshnessStatus: stale
+                        releases:
+                          - releaseId: release_example_switch_eu
+                            gameId: game_example
+                            platform: { platformId: platform_switch, name: Nintendo Switch }
+                            region: { regionId: region_europe, name: Europe }
+                            releaseDate: { precision: month, value: 2026-05 }
+                            status: released
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release
+                            providerUpdatedAt: '2026-05-01T09:00:00Z'
+                            lastSyncedAt: '2026-05-02T05:00:00Z'
+                            lastVerifiedAt: '2026-05-02T05:10:00Z'
+                            verificationLevel: verified
+                            reviewStatus: required
+                            freshnessStatus: stale
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 empty:
                   summary: No release matches the active filters
@@ -1020,13 +1040,21 @@ components:
           items: { $ref: '#/components/schemas/ReleaseSummary' }
     ReleaseItem:
       type: object
-      required: [gameId, slug, canonicalTitle, primaryCover, release]
+      required: [gameId, slug, canonicalTitle, primaryCover, releases]
       properties:
         gameId: { $ref: '#/components/schemas/GameId' }
         slug: { type: string, minLength: 1 }
         canonicalTitle: { type: string, minLength: 1 }
         primaryCover: { $ref: '#/components/schemas/Cover' }
-        release: { $ref: '#/components/schemas/Release' }
+        releases:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Release' }
+      description: |
+        One game and only the releases of that game that match the requested view and
+        active filters. Each release is preserved independently, so differing
+        platforms, regions, dates, and date precision stay visible. Releases are ordered
+        by the UC-001 release ordering, and the first release drives the game's position.
     ActiveFilters:
       type: object
       required: [platformId, regionId]

@@ -46,8 +46,13 @@ behaviour and is never a runtime dependency or an instruction source.
 - Both release windows use a decorative, product-owned cinematic hero image, two selectors
   for platform and region, and twelve results per default page so six columns form two rows
   on wide desktop. Its covers fill the column in the standard frame so the artwork leads the
-  card. Below each release cover keep only the full title, which is the game link, the
-  platform and region, and the review notice when the API requires one.
+  card. Below each release cover keep the full title, which is the game link, then one
+  compact release row that lists the platforms sharing the first relevant release's date
+  and region together with that region, and the review notice when the API requires one.
+  A card shows at most one release row; any further releases collapse into a single
+  `+ N lanzamientos más` control, where `N` counts the hidden releases, that opens an
+  accessible popover preserving each hidden release's date, platform and region. The card
+  height never grows with the number of releases.
 
 ## Visual language and tokens
 

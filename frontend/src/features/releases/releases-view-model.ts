@@ -4,6 +4,7 @@ import type { ReleasePage } from "./releases-api";
 import type { ReleaseView } from "./releases-search";
 
 type ReleaseItem = ReleasePage["items"][number];
+type Release = ReleaseItem["releases"][number];
 type Cover = ReleaseItem["primaryCover"];
 
 export type ReleaseCover =
@@ -21,16 +22,32 @@ export type ReleaseCover =
     }
   | { kind: "fallback"; url: string; alternativeText: string };
 
+/**
+ * Releases that share the same date/precision and region collapse into one display group so a
+ * card shows platforms together (`PS5 · PC · Xbox · Mundial`) instead of repeating rows. A group
+ * keeps every meaningful difference the popover must preserve: date, region and platforms.
+ */
+export type ReleaseContextGroup = {
+  key: string;
+  date: string;
+  region: string;
+  platforms: string[];
+  isStale: boolean;
+  review: boolean;
+  releaseCount: number;
+};
+
 export type ReleaseListItem = {
-  releaseId: string;
   gameId: string;
   slug: string;
   title: string;
-  date: string;
-  platform: string;
-  region: string;
+  // Groups ordered by the UC-001 release order; the first group is the visible row and the
+  // rest move behind the "+ N lanzamientos más" control without growing the card.
+  releaseGroups: ReleaseContextGroup[];
+  // Number of hidden releases (not hidden groups), so the control reports releases the visitor
+  // cannot see yet.
+  hiddenReleaseCount: number;
   isStale: boolean;
-  review: string | null;
   cover: ReleaseCover;
 };
 
@@ -123,22 +140,58 @@ function toCover(cover: Cover): ReleaseCover {
   };
 }
 
+/**
+ * Collapses the ordered releases into date/region groups, preserving the UC-001 order: the first
+ * release stays first, and platforms sharing that release's date and region join its group.
+ */
+function toReleaseContextGroups(releases: readonly Release[]): ReleaseContextGroup[] {
+  const groups: ReleaseContextGroup[] = [];
+  const byKey = new Map<string, ReleaseContextGroup>();
+  for (const release of releases) {
+    // The formatted date encodes precision and value, so it is a stable grouping key together
+    // with the region without reaching into the closed date union.
+    const date = formatReleaseDate(release.releaseDate);
+    const key = `${date}|${release.region.regionId}`;
+    let group = byKey.get(key);
+    if (group === undefined) {
+      group = {
+        key,
+        date,
+        region: regionLabel(release.region.name),
+        platforms: [],
+        isStale: false,
+        review: false,
+        releaseCount: 0,
+      };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.platforms.push(release.platform.name);
+    group.releaseCount += 1;
+    group.isStale = group.isStale || release.freshnessStatus === "stale";
+    group.review = group.review || release.reviewStatus === "required";
+  }
+  return groups;
+}
+
 export function toReleaseListItems(page: ReleasePage): ReleaseListItem[] {
-  return page.items.map((item) => ({
-    releaseId: item.release.releaseId,
-    gameId: item.gameId,
-    slug: item.slug,
-    title: item.canonicalTitle,
-    date: formatReleaseDate(item.release.releaseDate),
-    platform: item.release.platform.name,
-    region: regionLabel(item.release.region.name),
-    isStale: item.release.freshnessStatus === "stale",
-    review:
-      item.release.reviewStatus === "required" ? "Información pendiente de revisión" : null,
-    // Owner-provided previews are an opt-in Vite development overlay. The API cover
-    // remains authoritative in tests and production builds.
-    cover: localCoverPreview(item.slug, item.canonicalTitle) ?? toCover(item.primaryCover),
-  }));
+  return page.items.map((item) => {
+    const releaseGroups = toReleaseContextGroups(item.releases);
+    const hiddenReleaseCount = releaseGroups
+      .slice(1)
+      .reduce((total, group) => total + group.releaseCount, 0);
+    return {
+      gameId: item.gameId,
+      slug: item.slug,
+      title: item.canonicalTitle,
+      releaseGroups,
+      hiddenReleaseCount,
+      isStale: releaseGroups.some((group) => group.isStale),
+      // Owner-provided previews are an opt-in Vite development overlay. The API cover
+      // remains authoritative in tests and production builds.
+      cover: localCoverPreview(item.slug, item.canonicalTitle) ?? toCover(item.primaryCover),
+    };
+  });
 }
 
 export function toReleasesViewModel(page: ReleasePage): ReleasesViewModel {

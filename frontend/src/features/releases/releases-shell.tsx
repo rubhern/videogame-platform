@@ -32,7 +32,7 @@ function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string
     return "Actualizando lanzamientos…";
   }
   const { totalItems, number, totalPages } = model.page;
-  const count = totalItems === 1 ? "1 lanzamiento" : `${totalItems} lanzamientos`;
+  const count = totalItems === 1 ? "1 juego" : `${totalItems} juegos`;
   if (totalPages > 0 && number > totalPages) {
     return `${count} · La página ${number} ya no está disponible`;
   }
@@ -191,7 +191,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
             ) : (
               <ul aria-label={releaseViewTitle(state.model.view)} className="release-grid">
                 {state.model.items.map((item) => (
-                  <li className="min-w-0" key={item.releaseId}>
+                  <li className="min-w-0" key={item.gameId}>
                     <ReleaseCard item={item} />
                   </li>
                 ))}

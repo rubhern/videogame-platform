@@ -16,15 +16,22 @@ const search: ReleasesSearch = {
 };
 
 const pragmata: ReleaseListItem = {
-  releaseId: "release-pragmata-pc-worldwide",
   gameId: "game-pragmata",
   slug: "pragmata",
   title: "Pragmata",
-  date: "2.º trimestre de 2026",
-  platform: "Windows PC",
-  region: "Mundial",
+  releaseGroups: [
+    {
+      key: "quarter|2026-Q2|worldwide",
+      date: "2.º trimestre de 2026",
+      region: "Mundial",
+      platforms: ["Windows PC"],
+      isStale: false,
+      review: false,
+      releaseCount: 1,
+    },
+  ],
+  hiddenReleaseCount: 0,
   isStale: false,
-  review: null,
   cover: {
     kind: "fallback",
     url: "/assets/covers/fallback.svg",
@@ -83,14 +90,16 @@ describe("releases shell", () => {
       screen.getByText("Del 13 de febrero de 2026 al 13 de agosto de 2026"),
     );
     expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("1 lanzamiento");
+    expect(screen.getByRole("status")).toHaveTextContent("1 juego");
     expect(screen.queryByText(/Página 1 de 1/)).not.toBeInTheDocument();
 
     const results = within(screen.getByRole("list", { name: "Lanzamientos recientes" }));
     const card = within(results.getAllByRole("listitem")[0] as HTMLElement);
     expect(card.getByRole("heading", { level: 3, name: "Pragmata" })).toBeInTheDocument();
-    expect(card.getByText("2.º trimestre de 2026")).toBeInTheDocument();
+    // The compact visible row shows the first release's date, its grouped platforms and region.
     expect(card.getByText("Windows PC · Mundial")).toBeInTheDocument();
+    expect(card.getByText("2.º trimestre de 2026")).toBeInTheDocument();
+    expect(card.queryByRole("button", { name: /lanzamientos más/ })).not.toBeInTheDocument();
     expect(card.queryByText("Publicado")).not.toBeInTheDocument();
     expect(card.queryByText(/Fuente:/)).not.toBeInTheDocument();
     expect(card.queryByText("Ver ficha →")).not.toBeInTheDocument();
@@ -159,7 +168,7 @@ describe("releases shell", () => {
     expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /^Plataforma:/ })).toHaveTextContent("Todas");
     expect(screen.getByRole("combobox", { name: /^Región:/ })).toHaveTextContent("Todas");
-    expect(screen.getByRole("status")).toHaveTextContent("1 lanzamiento");
+    expect(screen.getByRole("status")).toHaveTextContent("1 juego");
     const windowNav = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
     expect(within(windowNav).getByRole("link", { name: "Ver recientes" })).toHaveAttribute("href", "/");
     expect(
@@ -247,7 +256,7 @@ describe("releases shell", () => {
     const pagination = within(
       screen.getByRole("navigation", { name: "Paginación de lanzamientos" }),
     );
-    expect(screen.getByRole("status")).toHaveTextContent("15 lanzamientos");
+    expect(screen.getByRole("status")).toHaveTextContent("15 juegos");
     expect(screen.queryByText("Página 2 de 3")).not.toBeInTheDocument();
     expect(pagination.getByRole("link", { name: "Página anterior" })).toHaveAttribute(
       "href",
@@ -274,7 +283,7 @@ describe("releases shell", () => {
     );
 
     expect(
-      screen.getByText("2 lanzamientos · La página 99 ya no está disponible"),
+      screen.getByText("2 juegos · La página 99 ya no está disponible"),
     ).toBeInTheDocument();
     expect(
       screen.getByText("La página solicitada ya no está disponible para estos resultados."),

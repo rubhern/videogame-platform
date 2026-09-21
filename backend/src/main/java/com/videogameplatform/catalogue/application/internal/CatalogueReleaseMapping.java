@@ -1,7 +1,7 @@
 package com.videogameplatform.catalogue.application.internal;
 
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
-import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Item;
+import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.domain.EffectiveReleaseStatusPolicy;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
@@ -15,33 +15,33 @@ public final class CatalogueReleaseMapping {
     private CatalogueReleaseMapping() {}
 
     public static BrowseReleasesResult.Release map(
-            Item item,
+            ReleaseRow row,
             Instant evaluatedAt,
             LocalDate evaluatedOn,
             CatalogueFreshnessPolicy freshnessPolicy) {
         ReleaseStatus effectiveStatus =
                 EffectiveReleaseStatusPolicy.effectiveStatus(
-                        item.status(), item.releaseDate(), evaluatedOn);
+                        row.status(), row.releaseDate(), evaluatedOn);
         BrowseReleasesResult.Taxonomy platform =
-                new BrowseReleasesResult.Taxonomy(item.platform().id(), item.platform().name());
+                new BrowseReleasesResult.Taxonomy(row.platform().id(), row.platform().name());
         BrowseReleasesResult.Taxonomy region =
-                new BrowseReleasesResult.Taxonomy(item.region().id(), item.region().name());
+                new BrowseReleasesResult.Taxonomy(row.region().id(), row.region().name());
         return new BrowseReleasesResult.Release(
-                item.releaseId(),
-                item.gameId(),
+                row.releaseId(),
+                row.gameId(),
                 platform,
                 region,
-                CatalogueReadMapping.toReleaseDate(item.releaseDate()),
+                CatalogueReadMapping.toReleaseDate(row.releaseDate()),
                 CatalogueReadMapping.toStatus(effectiveStatus),
                 new BrowseReleasesResult.Provenance(
-                        toSource(item.sourceKind()), item.sourceName(), item.sourceEntityType()),
-                item.providerUpdatedAt(),
-                item.lastSyncedAt(),
-                item.lastVerifiedAt(),
-                toVerification(item.verificationLevel()),
-                toReview(item.reviewStatus()),
+                        toSource(row.sourceKind()), row.sourceName(), row.sourceEntityType()),
+                row.providerUpdatedAt(),
+                row.lastSyncedAt(),
+                row.lastVerifiedAt(),
+                toVerification(row.verificationLevel()),
+                toReview(row.reviewStatus()),
                 CatalogueReadMapping.toFreshness(
-                        freshnessPolicy.status(item.lastSyncedAt(), evaluatedAt)));
+                        freshnessPolicy.status(row.lastSyncedAt(), evaluatedAt)));
     }
 
     private static BrowseReleasesResult.Source toSource(SourceKind source) {

@@ -32,7 +32,7 @@ public record BrowseReleasesResult(
             String slug,
             String canonicalTitle,
             CatalogueCover primaryCover,
-            Release release) {}
+            List<Release> releases) {}
 
     public record Release(
             String releaseId,

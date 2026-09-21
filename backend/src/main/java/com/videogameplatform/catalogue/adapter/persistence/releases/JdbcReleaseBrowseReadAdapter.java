@@ -1,18 +1,10 @@
 package com.videogameplatform.catalogue.adapter.persistence.releases;
 
-import com.videogameplatform.catalogue.adapter.persistence.CatalogueCoverReferenceRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
-import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
+import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase.View;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
-import com.videogameplatform.catalogue.domain.ReleaseStatus;
-import com.videogameplatform.catalogue.domain.ReviewStatus;
-import com.videogameplatform.catalogue.domain.SourceKind;
-import com.videogameplatform.catalogue.domain.VerificationLevel;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,40 +31,17 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             SELECT region_id::text, display_name
             FROM catalogue.region
             """;
-    private static final String COUNT_SELECT = "SELECT count(*) FROM catalogue.release_snapshot rs";
-    private static final String PAGE_PREFIX =
+    // Grouping happens in PostgreSQL before pagination: filtered_release holds the releases that
+    // match the view and active filters, count and page operate over distinct games, and the
+    // releases of a paged game are re-joined and bounded so request memory stays
+    // O(pageSize x releaseGroupLimit). Java never fetches releases and groups them afterwards.
+    private static final String COUNT_SELECT =
+            "SELECT count(DISTINCT rs.game_id) FROM catalogue.release_snapshot rs";
+    private static final String FILTERED_RELEASE_PREFIX =
             "WITH filtered_release AS MATERIALIZED ("
                     + "SELECT * FROM catalogue.release_snapshot rs";
-    private static final String PAGE_SELECT =
+    private static final String GAME_SNAPSHOT_LATERAL =
             """
-            SELECT rs.release_id::text,
-                   rs.game_id::text,
-                   gs.slug,
-                   gs.canonical_title,
-                   gs.cover_reference,
-                   gs.cover_source,
-                   gs.cover_usage_mode,
-                   gs.cover_alternative_text,
-                   gs.cover_source_url,
-                   p.platform_id::text AS platform_id,
-                   p.display_name AS platform_name,
-                   r.region_id::text AS region_id,
-                   r.display_name AS region_name,
-                   rs.date_precision,
-                   rs.exact_date,
-                   rs.release_year,
-                   rs.release_month,
-                   rs.release_quarter,
-                   rs.release_status,
-                   rs.source_kind,
-                   rs.source_name,
-                   rs.source_entity_type,
-                   rs.provider_updated_at,
-                   rs.last_synchronized_at,
-                   rs.last_verified_at,
-                   rs.verification_level,
-                   rs.review_status
-            FROM filtered_release rs
             JOIN LATERAL (
                 SELECT snapshot.slug,
                        snapshot.canonical_title,
@@ -82,12 +51,10 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                        snapshot.cover_alternative_text,
                        snapshot.cover_source_url
                 FROM catalogue.game_snapshot snapshot
-                WHERE snapshot.publication_id = rs.publication_id
-                  AND snapshot.game_id = rs.game_id
+                WHERE snapshot.publication_id = fr.publication_id
+                  AND snapshot.game_id = fr.game_id
                 LIMIT 1
             ) gs ON true
-            JOIN catalogue.platform p ON p.platform_id = rs.platform_id
-            JOIN catalogue.region r ON r.region_id = rs.region_id
             """;
     private static final String PUBLICATION_PREDICATE =
             "rs.publication_id = CAST(:publicationId AS uuid)";
@@ -131,27 +98,6 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                     + ") OR (rs.release_status <> 'released' AND rs.date_precision = 'unknown'))";
     private static final String PLATFORM_PREDICATE = "rs.platform_id = CAST(:platformId AS uuid)";
     private static final String REGION_PREDICATE = "rs.region_id = CAST(:regionId AS uuid)";
-    private static final String RECENT_ORDER =
-            " ORDER BY rs.period_end DESC NULLS LAST,"
-                    + " lower(gs.canonical_title), rs.game_id, rs.release_id";
-    // Upcoming lists the most precise dates first: exact day, then month, quarter, year, and
-    // finally
-    // TBA (unknown). Within a precision the soonest period comes first, ending in the unique
-    // release
-    // identifier for a deterministic total ordering.
-    private static final String UPCOMING_PRECISION_ORDER =
-            "CASE rs.date_precision"
-                    + " WHEN 'day' THEN 1"
-                    + " WHEN 'month' THEN 2"
-                    + " WHEN 'quarter' THEN 3"
-                    + " WHEN 'year' THEN 4"
-                    + " ELSE 5 END";
-    private static final String UPCOMING_ORDER =
-            " ORDER BY "
-                    + UPCOMING_PRECISION_ORDER
-                    + ", rs.period_start ASC NULLS LAST,"
-                    + " lower(gs.canonical_title), rs.game_id, rs.release_id";
-    private static final String PAGE_SUFFIX = " LIMIT :pageSize OFFSET :offset";
 
     private final NamedParameterJdbcOperations jdbcOperations;
     private final TransactionOperations readTransaction;
@@ -210,7 +156,10 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
         Map<String, Object> pageParameters = new LinkedHashMap<>(query.parameters());
         pageParameters.put("pageSize", criteria.pagination().pageSize());
         pageParameters.put("offset", criteria.pagination().offset());
-        List<Item> items = jdbcOperations.query(query.sql().page(), pageParameters, this::mapItem);
+        pageParameters.put("releaseGroupLimit", criteria.releaseGroupLimit());
+        List<Item> items =
+                jdbcOperations.query(
+                        query.sql().page(), pageParameters, ReleaseGroupPageMapper::map);
 
         return Optional.of(
                 new Result(
@@ -236,55 +185,117 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             case RECENT ->
                     builder.where(RECENT_PREDICATE)
                             .bind("windowFrom", criteria.window().from())
-                            .bind("windowTo", criteria.window().to())
-                            .orderBy(RECENT_ORDER);
+                            .bind("windowTo", criteria.window().to());
             case UPCOMING ->
                     builder.where(
                                     criteria.includeUnknownUpcomingDates()
                                             ? UPCOMING_OR_UNKNOWN_PREDICATE
                                             : UPCOMING_PREDICATE)
                             .bind("windowFrom", criteria.window().from())
-                            .bind("windowTo", criteria.window().to())
-                            .orderBy(UPCOMING_ORDER);
+                            .bind("windowTo", criteria.window().to());
         }
 
         return builder.whereIfPresent(PLATFORM_PREDICATE, "platformId", criteria.platformId())
                 .whereIfPresent(REGION_PREDICATE, "regionId", criteria.regionId())
-                .build();
+                .build(criteria.view());
     }
 
-    private Item mapItem(ResultSet resultSet, int rowNumber) throws SQLException {
-        try {
-            return new Item(
-                    resultSet.getString("release_id"),
-                    resultSet.getString("game_id"),
-                    resultSet.getString("slug"),
-                    resultSet.getString("canonical_title"),
-                    CatalogueCoverReferenceRowMapper.map(resultSet),
-                    new Taxonomy(
-                            resultSet.getString("platform_id"),
-                            resultSet.getString("platform_name")),
-                    new Taxonomy(
-                            resultSet.getString("region_id"), resultSet.getString("region_name")),
-                    ReleaseDateRowMapper.map(resultSet),
-                    ReleaseStatus.fromValue(resultSet.getString("release_status")),
-                    SourceKind.fromValue(resultSet.getString("source_kind")),
-                    resultSet.getString("source_name"),
-                    resultSet.getString("source_entity_type"),
-                    instant(resultSet, "provider_updated_at"),
-                    instant(resultSet, "last_synchronized_at"),
-                    instant(resultSet, "last_verified_at"),
-                    VerificationLevel.fromValue(resultSet.getString("verification_level")),
-                    ReviewStatus.fromValue(resultSet.getString("review_status")));
-        } catch (IllegalArgumentException | NullPointerException exception) {
-            throw new CatalogueDataInvalidException(exception);
-        }
+    // A game's precise date, exact day first through TBA (unknown) last, drives the upcoming order.
+    private static String precisionRank(String alias) {
+        return "CASE "
+                + alias
+                + ".date_precision WHEN 'day' THEN 1 WHEN 'month' THEN 2"
+                + " WHEN 'quarter' THEN 3 WHEN 'year' THEN 4 ELSE 5 END";
     }
 
-    private static java.time.Instant instant(ResultSet resultSet, String column)
-            throws SQLException {
-        OffsetDateTime value = resultSet.getObject(column, OffsetDateTime.class);
-        return value == null ? null : value.toInstant();
+    /** Ordering of the releases inside one game; ends in the unique release id. */
+    private static String releaseOrder(View view, String alias) {
+        return switch (view) {
+            case RECENT -> alias + ".period_end DESC NULLS LAST, " + alias + ".release_id";
+            case UPCOMING ->
+                    precisionRank(alias)
+                            + ", "
+                            + alias
+                            + ".period_start ASC NULLS LAST, "
+                            + alias
+                            + ".release_id";
+        };
+    }
+
+    /** Ordering of the games by their first relevant release; ends in the unique game id. */
+    private static String gameOrder(View view, String alias) {
+        return switch (view) {
+            case RECENT ->
+                    alias
+                            + ".period_end DESC NULLS LAST, lower("
+                            + alias
+                            + ".canonical_title), "
+                            + alias
+                            + ".game_id";
+            case UPCOMING ->
+                    precisionRank(alias)
+                            + ", "
+                            + alias
+                            + ".period_start ASC NULLS LAST, lower("
+                            + alias
+                            + ".canonical_title), "
+                            + alias
+                            + ".game_id";
+        };
+    }
+
+    private static String pageSql(View view, String where) {
+        return FILTERED_RELEASE_PREFIX
+                + where
+                + "),\n"
+                + "game_top AS (\n"
+                + "    SELECT DISTINCT ON (fr.game_id)\n"
+                + "        fr.game_id, fr.period_end, fr.period_start, fr.date_precision,\n"
+                + "        gs.slug, gs.canonical_title, gs.cover_reference, gs.cover_source,\n"
+                + "        gs.cover_usage_mode, gs.cover_alternative_text, gs.cover_source_url\n"
+                + "    FROM filtered_release fr\n"
+                + GAME_SNAPSHOT_LATERAL
+                + "    ORDER BY fr.game_id, "
+                + releaseOrder(view, "fr")
+                + "\n),\n"
+                + "game_page AS (\n"
+                + "    SELECT * FROM game_top gt\n"
+                + "    ORDER BY "
+                + gameOrder(view, "gt")
+                + "\n    LIMIT :pageSize OFFSET :offset\n)\n"
+                + "SELECT gp.game_id::text AS game_id,\n"
+                + "       gp.slug AS slug,\n"
+                + "       gp.canonical_title AS canonical_title,\n"
+                + "       gp.cover_reference, gp.cover_source, gp.cover_usage_mode,\n"
+                + "       gp.cover_alternative_text, gp.cover_source_url,\n"
+                + "       rel.release_id::text AS release_id,\n"
+                + "       rel.platform_id::text AS platform_id, rel.platform_name AS platform_name,\n"
+                + "       rel.region_id::text AS region_id, rel.region_name AS region_name,\n"
+                + "       rel.date_precision, rel.exact_date, rel.release_year, rel.release_month,\n"
+                + "       rel.release_quarter, rel.release_status, rel.source_kind, rel.source_name,\n"
+                + "       rel.source_entity_type, rel.provider_updated_at, rel.last_synchronized_at,\n"
+                + "       rel.last_verified_at, rel.verification_level, rel.review_status\n"
+                + "FROM game_page gp\n"
+                + "JOIN LATERAL (\n"
+                + "    SELECT fr.release_id, fr.platform_id, fr.region_id,\n"
+                + "           p.display_name AS platform_name, r.display_name AS region_name,\n"
+                + "           fr.date_precision, fr.exact_date, fr.release_year, fr.release_month,\n"
+                + "           fr.release_quarter, fr.release_status, fr.source_kind, fr.source_name,\n"
+                + "           fr.source_entity_type, fr.provider_updated_at, fr.last_synchronized_at,\n"
+                + "           fr.last_verified_at, fr.verification_level, fr.review_status,\n"
+                + "           fr.period_end, fr.period_start\n"
+                + "    FROM filtered_release fr\n"
+                + "    JOIN catalogue.platform p ON p.platform_id = fr.platform_id\n"
+                + "    JOIN catalogue.region r ON r.region_id = fr.region_id\n"
+                + "    WHERE fr.game_id = gp.game_id\n"
+                + "    ORDER BY "
+                + releaseOrder(view, "fr")
+                + "\n    LIMIT :releaseGroupLimit\n"
+                + ") rel ON true\n"
+                + "ORDER BY "
+                + gameOrder(view, "gp")
+                + ", "
+                + releaseOrder(view, "rel");
     }
 
     private record Query(Sql sql, Map<String, Object> parameters) {}
@@ -296,7 +307,6 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
 
         private final List<String> predicates = new ArrayList<>();
         private final Map<String, Object> parameters = new LinkedHashMap<>();
-        private String orderBy;
 
         private CandidateQueryBuilder where(String predicate) {
             predicates.add(predicate);
@@ -315,20 +325,12 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             return value == null ? this : where(predicate).bind(parameterName, value);
         }
 
-        private CandidateQueryBuilder orderBy(String order) {
-            orderBy = order;
-            return this;
-        }
-
-        private Query build() {
-            if (predicates.isEmpty() || orderBy == null) {
+        private Query build(View view) {
+            if (predicates.isEmpty()) {
                 throw new IllegalStateException("Release browse query is incomplete");
             }
             String where = " WHERE " + String.join(" AND ", predicates);
-            Sql sql =
-                    new Sql(
-                            COUNT_SELECT + where,
-                            PAGE_PREFIX + where + ") " + PAGE_SELECT + orderBy + PAGE_SUFFIX);
+            Sql sql = new Sql(COUNT_SELECT + where, pageSql(view, where));
             return new Query(sql, Map.copyOf(parameters));
         }
     }

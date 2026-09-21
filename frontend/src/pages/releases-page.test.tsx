@@ -18,23 +18,25 @@ const pragmata: ReleasePage["items"][number] = {
     alternativeText: "Portada no disponible de Pragmata",
     attribution: null,
   },
-  release: {
-    releaseId: "40000000-0000-4000-8000-000000000006",
-    gameId: "30000000-0000-4000-8000-000000000006",
-    platform: { platformId: "windows-pc", name: "Windows PC" },
-    region: { regionId: "worldwide", name: "Worldwide" },
-    releaseDate: { precision: "quarter", value: "2026-Q2" },
-    status: "released",
-    provenance: {
-      sourceKind: "product_curated",
-      sourceName: "VideoGame Platform clickable prototype",
-      sourceEntityType: "prototype_release",
+  releases: [
+    {
+      releaseId: "40000000-0000-4000-8000-000000000006",
+      gameId: "30000000-0000-4000-8000-000000000006",
+      platform: { platformId: "windows-pc", name: "Windows PC" },
+      region: { regionId: "worldwide", name: "Worldwide" },
+      releaseDate: { precision: "quarter", value: "2026-Q2" },
+      status: "released",
+      provenance: {
+        sourceKind: "product_curated",
+        sourceName: "VideoGame Platform clickable prototype",
+        sourceEntityType: "prototype_release",
+      },
+      lastSyncedAt: "2026-08-09T10:00:00Z",
+      verificationLevel: "provider_only",
+      reviewStatus: "not_required",
+      freshnessStatus: "fresh",
     },
-    lastSyncedAt: "2026-08-09T10:00:00Z",
-    verificationLevel: "provider_only",
-    reviewStatus: "not_required",
-    freshnessStatus: "fresh",
-  },
+  ],
 };
 
 function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {

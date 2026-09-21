@@ -65,13 +65,13 @@ public final class ReleaseApiMapper {
     }
 
     private ReleaseItem toItem(BrowseReleasesResult.Item item) {
-        Release release = toRelease(item.release());
+        List<Release> releases = item.releases().stream().map(this::toRelease).toList();
         return new ReleaseItem(
                 item.gameId(),
                 item.slug(),
                 item.canonicalTitle(),
                 coverMapper.toResponse(item.primaryCover()),
-                release);
+                releases);
     }
 
     public Release toRelease(BrowseReleasesResult.Release source) {

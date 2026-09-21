@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
     "name": "VideoGame Platform Backend - Catalogue Releases",
-    "description": "Executable examples for the OpenAPI 1.2.3 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI 2.0.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game. Each item is one game with its matching releases, and pagination counts games. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -33,9 +33,14 @@
               "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
               "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
               "    body.items.forEach(function (item) {",
-              "        pm.expect(item.release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"lastSyncedAt\", \"verificationLevel\", \"reviewStatus\", \"freshnessStatus\");",
-              "        pm.expect([\"day\", \"month\", \"quarter\", \"year\", \"unknown\"]).to.include(item.release.releaseDate.precision);",
-              "        pm.expect([\"fresh\", \"stale\"]).to.include(item.release.freshnessStatus);",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releases\");",
+              "        pm.expect(item.releases).to.be.an(\"array\").and.not.empty;",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"lastSyncedAt\", \"verificationLevel\", \"reviewStatus\", \"freshnessStatus\");",
+              "            pm.expect(release.gameId).to.eql(item.gameId);",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\", \"unknown\"]).to.include(release.releaseDate.precision);",
+              "            pm.expect([\"fresh\", \"stale\"]).to.include(release.freshnessStatus);",
+              "        });",
               "    });",
               "});",
               "",
