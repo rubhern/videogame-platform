@@ -5,10 +5,19 @@ public interface BrowseReleasesUseCase {
 
     BrowseReleasesResult browse(Query query);
 
-    record Query(View view, String platformId, String regionId, int pageNumber, int pageSize) {
+    record Query(
+            View view,
+            int weeks,
+            String platformId,
+            String regionId,
+            int pageNumber,
+            int pageSize) {
         public Query {
             if (view == null) {
                 throw new IllegalArgumentException("Release view is required");
+            }
+            if (weeks != 1 && weeks != 2 && weeks != 4) {
+                throw new IllegalArgumentException("Release window must be 1, 2, or 4 weeks");
             }
             if (pageNumber < 1) {
                 throw new IllegalArgumentException("Page number must be one-based");

@@ -27,17 +27,24 @@ for (const width of [320, 390, 834, 1320]) {
     await page.route("**/api/v1/releases?*", async (route) => {
       const query = new URL(route.request().url()).searchParams;
       await route.fulfill({ json: releasePage({
+        window: query.get("weeks") === "4"
+          ? { from: "2026-07-17", to: "2026-08-13" }
+          : { from: "2026-08-07", to: "2026-08-13" },
         items: [pragmata, {
           ...pragmata,
+          gameId: "30000000-0000-4000-8000-000000000007",
           slug: "long-title",
           canonicalTitle: "Una aventura extraordinariamente larga: más allá del horizonte",
-          releases: [{ ...pragmataRelease, releaseId: "40000000-0000-4000-8000-000000000007", freshnessStatus: "stale", reviewStatus: "required", releaseDate: { precision: "unknown", value: null } }],
+          releases: [{ ...pragmataRelease, gameId: "30000000-0000-4000-8000-000000000007", releaseId: "40000000-0000-4000-8000-000000000007", freshnessStatus: "stale", reviewStatus: "required", releaseDate: { precision: "unknown", value: null } }],
         }],
         page: { number: Number(query.get("page") ?? 1), size: 6, totalItems: 8, totalPages: 2 },
       }) });
     });
     await page.goto("/?pageSize=6");
     await expect(page.getByRole("link", { name: "Pragmata", exact: true })).toBeVisible();
+    await expect(page.locator(".releases-heading")).toHaveCSS("border-bottom-width", "0px");
+    await expect(page.locator(".releases-footer")).toHaveCSS("border-top-width", "0px");
+    await expect(page.locator(".result-count")).toHaveText("8 juegos · Página 1 de 2");
     await expectAccessibleLayout(page);
     await expectComfortableCatalogueMetadata(page);
     await expect(page.locator(".stale-banner")).toHaveCount(0);
@@ -62,6 +69,18 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page).toHaveURL(/platformId=windows-pc/);
     await expect(page).not.toHaveURL(/page=2/);
     await page.getByRole("link", { name: "Quitar filtros" }).click();
+    await expectAccessibleLayout(page);
+    const weeks = page.getByRole("combobox", { name: /^Periodo:/ });
+    await weeks.focus();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/weeks=4/);
+    await expect(page).not.toHaveURL(/page=2/);
+    await expect(weeks).toContainText("4 semanas");
+    await expect(page.locator(".release-period")).toContainText(
+      "Del 17 de julio de 2026 al 13 de agosto de 2026",
+    );
     await expectAccessibleLayout(page);
     if (width < 620) {
       const logo = await page.getByRole("link", { name: "VideoGame Platform · Inicio" }).boundingBox();

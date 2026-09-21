@@ -5,6 +5,7 @@ import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
 import { ReleaseCard } from "./release-card";
 import { ReleasesFilters } from "./releases-filters";
 import { ReleasesPagination } from "./releases-pagination";
+import { ReleasesWeeks } from "./releases-weeks";
 import { hasActiveFilters, releasesSearchPath, type ReleasesSearch } from "./releases-search";
 import { releaseViewTitle, type ReleasesViewModel } from "./releases-view-model";
 import { ReleasesViewNav } from "./releases-view-nav";
@@ -36,7 +37,7 @@ function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string
   if (totalPages > 0 && number > totalPages) {
     return `${count} · La página ${number} ya no está disponible`;
   }
-  return count;
+  return totalPages > 0 ? `${count} · Página ${number} de ${totalPages}` : count;
 }
 
 function LoadingFilters() {
@@ -96,6 +97,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
         </div>
 
         <div className="releases-toolbar">
+          <ReleasesWeeks search={search} />
           {model === null ? <LoadingFilters /> : <ReleasesFilters platforms={model.platforms} regions={model.regions} search={search} />}
         </div>
 

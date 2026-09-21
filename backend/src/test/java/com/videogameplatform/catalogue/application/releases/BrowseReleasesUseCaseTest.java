@@ -50,8 +50,39 @@ class BrowseReleasesUseCaseTest {
         assertThat(query.pageSize()).isEqualTo(pageSize);
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1, 3, 5, 52})
+    void rejectsUnsupportedWeekHorizons(int weeks) {
+        assertThatIllegalArgumentException()
+                .isThrownBy(
+                        () ->
+                                new BrowseReleasesUseCase.Query(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        weeks,
+                                        null,
+                                        null,
+                                        1,
+                                        20))
+                .withMessage("Release window must be 1, 2, or 4 weeks");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 4})
+    void acceptsFixedWeekHorizons(int weeks) {
+        assertThat(
+                        new BrowseReleasesUseCase.Query(
+                                        BrowseReleasesUseCase.View.UPCOMING,
+                                        weeks,
+                                        null,
+                                        null,
+                                        1,
+                                        20)
+                                .weeks())
+                .isEqualTo(weeks);
+    }
+
     private static BrowseReleasesUseCase.Query query(
             BrowseReleasesUseCase.View view, int pageNumber, int pageSize) {
-        return new BrowseReleasesUseCase.Query(view, null, null, pageNumber, pageSize);
+        return new BrowseReleasesUseCase.Query(view, 1, null, null, pageNumber, pageSize);
     }
 }

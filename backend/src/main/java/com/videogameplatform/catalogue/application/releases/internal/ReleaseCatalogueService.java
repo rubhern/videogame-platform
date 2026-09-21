@@ -43,7 +43,7 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
     public BrowseReleasesResult browse(Query query) {
         Instant evaluatedAt = clock.instant();
         LocalDate evaluatedOn = LocalDate.ofInstant(evaluatedAt, clock.getZone());
-        BrowseReleasesResult.Window window = window(query.view(), evaluatedOn);
+        BrowseReleasesResult.Window window = window(query.view(), query.weeks(), evaluatedOn);
         long offset = Math.multiplyExact((long) query.pageNumber() - 1, query.pageSize());
 
         Result result =
@@ -79,16 +79,13 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));
     }
 
-    private BrowseReleasesResult.Window window(View view, LocalDate evaluatedOn) {
+    private BrowseReleasesResult.Window window(View view, int weeks, LocalDate evaluatedOn) {
         return switch (view) {
             case RECENT ->
                     new BrowseReleasesResult.Window(
-                            evaluatedOn.minusMonths(browsePolicy.recentWindowMonths()),
-                            evaluatedOn);
+                            evaluatedOn.minusDays(weeks * 7L - 1), evaluatedOn);
             case UPCOMING ->
-                    new BrowseReleasesResult.Window(
-                            evaluatedOn,
-                            evaluatedOn.plusMonths(browsePolicy.upcomingWindowMonths()));
+                    new BrowseReleasesResult.Window(evaluatedOn, evaluatedOn.plusWeeks(weeks));
         };
     }
 

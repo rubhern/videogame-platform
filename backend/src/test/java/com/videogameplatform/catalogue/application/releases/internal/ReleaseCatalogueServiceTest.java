@@ -71,7 +71,7 @@ class ReleaseCatalogueServiceTest {
                         .browse(query(BrowseReleasesUseCase.View.UPCOMING, 3, 20));
 
         assertThat(captured.get().window().from()).isEqualTo("2026-08-13");
-        assertThat(captured.get().window().to()).isEqualTo("2027-02-13");
+        assertThat(captured.get().window().to()).isEqualTo("2026-08-20");
         assertThat(captured.get().pagination().offset()).isEqualTo(40);
         assertThat(captured.get().pagination().pageSize()).isEqualTo(20);
         assertThat(captured.get().includeUnknownUpcomingDates()).isTrue();
@@ -80,6 +80,29 @@ class ReleaseCatalogueServiceTest {
         assertThat(page.page().totalItems()).isEqualTo(10_000);
         assertThat(page.page().totalPages()).isEqualTo(500);
         assertThat(instantReads).hasValue(1);
+    }
+
+    @Test
+    void derivesBothFourWeekRangesFromOneTrustedMadridDate() {
+        AtomicReference<ReleaseBrowseReadPort.Criteria> captured = new AtomicReference<>();
+        ReleaseBrowseReadPort port =
+                criteria -> {
+                    captured.set(criteria);
+                    return Optional.of(result(List.of(), 0));
+                };
+        var service = service(port);
+
+        service.browse(
+                new BrowseReleasesUseCase.Query(
+                        BrowseReleasesUseCase.View.RECENT, 4, null, null, 1, 20));
+        assertThat(captured.get().window().from()).isEqualTo("2026-07-17");
+        assertThat(captured.get().window().to()).isEqualTo("2026-08-13");
+
+        service.browse(
+                new BrowseReleasesUseCase.Query(
+                        BrowseReleasesUseCase.View.UPCOMING, 4, null, null, 1, 20));
+        assertThat(captured.get().window().from()).isEqualTo("2026-08-13");
+        assertThat(captured.get().window().to()).isEqualTo("2026-09-10");
     }
 
     @Test
@@ -132,6 +155,7 @@ class ReleaseCatalogueServiceTest {
                                         .browse(
                                                 new BrowseReleasesUseCase.Query(
                                                         BrowseReleasesUseCase.View.RECENT,
+                                                        1,
                                                         "unsupported",
                                                         null,
                                                         1,
@@ -151,7 +175,7 @@ class ReleaseCatalogueServiceTest {
                 new CatalogueCoverPolicy(providerCoverReferenceResolver()),
                 clock,
                 new ReleaseBrowsePolicy(
-                        6, 6, 25, ReleaseBrowsePolicy.UnknownUpcomingDatePolicy.INCLUDE_AS_TBA),
+                        25, ReleaseBrowsePolicy.UnknownUpcomingDatePolicy.INCLUDE_AS_TBA),
                 new CatalogueFreshnessPolicy(Duration.ofDays(7)));
     }
 
@@ -165,7 +189,7 @@ class ReleaseCatalogueServiceTest {
 
     private static BrowseReleasesUseCase.Query query(
             BrowseReleasesUseCase.View view, int page, int pageSize) {
-        return new BrowseReleasesUseCase.Query(view, null, null, page, pageSize);
+        return new BrowseReleasesUseCase.Query(view, 1, null, null, page, pageSize);
     }
 
     private static ReleaseBrowseReadPort.Result result(

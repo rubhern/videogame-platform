@@ -9,6 +9,7 @@ import type { ReleaseListItem, ReleasesViewModel } from "./releases-view-model";
 
 const search: ReleasesSearch = {
   view: "recent",
+  weeks: 1,
   platformId: null,
   regionId: null,
   page: 1,
@@ -90,8 +91,7 @@ describe("releases shell", () => {
       screen.getByText("Del 13 de febrero de 2026 al 13 de agosto de 2026"),
     );
     expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("1 juego");
-    expect(screen.queryByText(/Página 1 de 1/)).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("1 juego · Página 1 de 1");
 
     const results = within(screen.getByRole("list", { name: "Lanzamientos recientes" }));
     const card = within(results.getAllByRole("listitem")[0] as HTMLElement);
@@ -131,7 +131,7 @@ describe("releases shell", () => {
     expect(
       screen.getByText("Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Quitar filtros" })[0]).toHaveAttribute("href", "/");
+    expect(screen.getAllByRole("link", { name: "Quitar filtros" })[0]).toHaveAttribute("href", "/?weeks=1");
   });
 
   it("links to the other release window", () => {
@@ -140,7 +140,7 @@ describe("releases shell", () => {
     const windowNav = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
     expect(within(windowNav).getByRole("link", { name: "Ver próximos" })).toHaveAttribute(
       "href",
-      "/?view=upcoming",
+      "/?view=upcoming&weeks=1",
     );
     // The recent view closes with the switch, after the results and the pager.
     expect(
@@ -152,7 +152,7 @@ describe("releases shell", () => {
   it("keeps the window switch reachable while the recent view is loading", () => {
     renderShell({ status: "loading" });
 
-    expect(screen.getByRole("link", { name: "Ver próximos" })).toHaveAttribute("href", "/?view=upcoming");
+    expect(screen.getByRole("link", { name: "Ver próximos" })).toHaveAttribute("href", "/?view=upcoming&weeks=1");
   });
 
   it("gives upcoming the same hero, selectors and closing bar", () => {
@@ -168,9 +168,9 @@ describe("releases shell", () => {
     expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /^Plataforma:/ })).toHaveTextContent("Todas");
     expect(screen.getByRole("combobox", { name: /^Región:/ })).toHaveTextContent("Todas");
-    expect(screen.getByRole("status")).toHaveTextContent("1 juego");
+    expect(screen.getByRole("status")).toHaveTextContent("1 juego · Página 1 de 1");
     const windowNav = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
-    expect(within(windowNav).getByRole("link", { name: "Ver recientes" })).toHaveAttribute("href", "/");
+    expect(within(windowNav).getByRole("link", { name: "Ver recientes" })).toHaveAttribute("href", "/?weeks=1");
     expect(
       screen.getByRole("list", { name: "Próximos lanzamientos" }).compareDocumentPosition(windowNav) &
         Node.DOCUMENT_POSITION_FOLLOWING,
@@ -220,7 +220,7 @@ describe("releases shell", () => {
 
     const alert = within(screen.getByRole("alert"));
     expect(alert.getByRole("heading", { name: "Filtro no admitido" })).toBeInTheDocument();
-    expect(alert.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/");
+    expect(alert.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/?weeks=1");
   });
 
   it("reports a generic failure with its support reference", () => {
@@ -236,6 +236,9 @@ describe("releases shell", () => {
     ).toBeInTheDocument();
     expect(alert.getByText("Referencia para soporte: correlation-1")).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Lanzamientos recientes" })).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /^Periodo:/ })).toHaveTextContent("1 semana");
+    expect(screen.queryByText("Del 13 de febrero de 2026 al 13 de agosto de 2026"))
+      .not.toBeInTheDocument();
   });
 
   it("paginates with keyboard-reachable links that preserve the active filters", () => {
@@ -256,15 +259,15 @@ describe("releases shell", () => {
     const pagination = within(
       screen.getByRole("navigation", { name: "Paginación de lanzamientos" }),
     );
-    expect(screen.getByRole("status")).toHaveTextContent("15 juegos");
-    expect(screen.queryByText("Página 2 de 3")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("15 juegos · Página 2 de 3");
+    expect(pagination.queryByText("Página 2 de 3")).not.toBeInTheDocument();
     expect(pagination.getByRole("link", { name: "Página anterior" })).toHaveAttribute(
       "href",
-      "/?platformId=platform-ps5",
+      "/?weeks=1&platformId=platform-ps5",
     );
     expect(pagination.getByRole("link", { name: "Página siguiente" })).toHaveAttribute(
       "href",
-      "/?platformId=platform-ps5&page=3",
+      "/?weeks=1&platformId=platform-ps5&page=3",
     );
   });
 
@@ -295,7 +298,7 @@ describe("releases shell", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ir a la última página" })).toHaveAttribute(
       "href",
-      "/?page=2",
+      "/?weeks=1&page=2",
     );
   });
 

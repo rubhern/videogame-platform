@@ -259,6 +259,47 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         }
     }
 
+    @Test
+    void countsAndPagesGamesAfterApplyingTheWeeklyWindowInPostgreSql() {
+        String first = "50000000-0000-4000-8000-000000000030";
+        String second = "50000000-0000-4000-8000-000000000031";
+        for (String id : List.of(first, second)) {
+            jdbcTemplate.update(
+                    "INSERT INTO catalogue.game_release (release_id, game_id, created_at) VALUES (?::uuid, '30000000-0000-4000-8000-000000000001', now())",
+                    id);
+            jdbcTemplate.update(
+                    "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) VALUES ('00000000-0000-4000-8000-000000000001', ?::uuid, '30000000-0000-4000-8000-000000000001', ?::uuid, '20000000-0000-4000-8000-000000000002', 'day', ?::date, 'announced', 'product_curated', 'weekly test', 'release', now(), 'verified', 'not_required')",
+                    id,
+                    id.equals(first) ? PLATFORM_PLAYSTATION_5 : PLATFORM_XBOX_SERIES,
+                    id.equals(first) ? "2026-08-10" : "2026-08-12");
+        }
+        try {
+            var criteria =
+                    new ReleaseBrowseReadPort.Criteria(
+                            BrowseReleasesUseCase.View.RECENT,
+                            new ReleaseBrowseReadPort.Window(
+                                    LocalDate.of(2026, 8, 7), LocalDate.of(2026, 8, 13)),
+                            null,
+                            null,
+                            new ReleaseBrowseReadPort.Pagination(1, 1, 0),
+                            true,
+                            25);
+            var result = adapter.findPublishedReleases(criteria).orElseThrow();
+            assertThat(result.totalItems()).isEqualTo(1);
+            assertThat(result.items()).singleElement();
+            assertThat(result.items().getFirst().releases())
+                    .extracting(ReleaseRow::releaseId)
+                    .containsExactly(second, first);
+        } finally {
+            for (String id : List.of(first, second)) {
+                jdbcTemplate.update(
+                        "DELETE FROM catalogue.release_snapshot WHERE release_id = ?::uuid", id);
+                jdbcTemplate.update(
+                        "DELETE FROM catalogue.game_release WHERE release_id = ?::uuid", id);
+            }
+        }
+    }
+
     private static List<ReleaseRow> flatten(ReleaseBrowseReadPort.Result result) {
         return result.items().stream().flatMap(item -> item.releases().stream()).toList();
     }

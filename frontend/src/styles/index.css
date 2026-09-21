@@ -625,8 +625,7 @@
 
   .releases-page .releases-heading {
     min-height: 140px;
-    padding-bottom: 24px;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+    padding-bottom: 12px;
   }
 
   .releases-page .eyebrow {
@@ -726,8 +725,8 @@
     background: var(--color-raised);
   }
 
-  /* Both release windows close with one bar: total on the left, pager in the middle and the
-     other window on the right. It owns the accent hairline the standalone pager draws. */
+  /* Both release windows close with one bar: total and page on the left, pager in the
+     middle and the other window on the right. */
   .releases-footer {
     display: flex;
     align-items: center;
@@ -735,15 +734,6 @@
     flex-wrap: wrap;
     gap: 12px 20px;
     margin-top: 38px;
-    padding-top: 22px;
-    border-top: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
-    border-image: linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--color-accent) 40%, transparent),
-        color-mix(in srgb, var(--color-ink) 10%, transparent) 42%,
-        transparent
-      )
-      1;
   }
 
   .releases-footer .result-count {

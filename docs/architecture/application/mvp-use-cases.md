@@ -26,6 +26,16 @@ releases grouped under one game are explicitly bounded, so request memory is
 `O(pageSize x releaseGroupLimit)` plus bounded taxonomy; persistent
 filtering/counting/pagination/grouping never occurs over a complete Java snapshot.
 
+Visitors select a fixed 1, 2, or 4 week horizon for either view; both default to one
+week. The application evaluates the inclusive recent range from `today - (7 × weeks - 1)`
+through today and the upcoming range from today through `today + 7 × weeks` in
+`Europe/Madrid`. The upcoming predicate still excludes exact-day releases that have
+already occurred today while preserving #177's partially known periods and TBA
+classification. Changing the horizon resets the page; the URL carries the selection,
+and the returned evaluated range is shown to the visitor. The range is recalculated on
+each request, so a shared URL describes a moving horizon rather than a fixed historical
+interval.
+
 `UC-002` normalizes the query and the searchable catalogue text with one rule, so
 matching is case- and diacritic-insensitive without ever rewriting a display title.
 Only an approved alias is searchable. Ordering ends in unique `gameId` after match

@@ -37,8 +37,6 @@ class CatalogueSynchronizationConfigurationTest {
                             CatalogueSynchronizationConfiguration.class, TestDependencies.class)
                     .withPropertyValues(
                             "catalogue.synchronization.provider-page-size=500",
-                            "catalogue.releases.recent-window-months=6",
-                            "catalogue.releases.upcoming-window-months=6",
                             "catalogue.releases.release-group-limit=25",
                             "catalogue.releases.freshness-threshold=P7D",
                             "catalogue.synchronization.max-releases-per-game=25",

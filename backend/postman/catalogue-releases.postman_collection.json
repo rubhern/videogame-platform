@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
     "name": "VideoGame Platform Backend - Catalogue Releases",
-    "description": "Executable examples for the OpenAPI 2.0.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game. Each item is one game with its matching releases, and pagination counts games. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI 2.1.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game. Each item is one game with its matching releases, and pagination counts games. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -28,6 +28,7 @@
               "    const body = pm.response.json();",
               "    pm.expect(body.view).to.eql(\"recent\");",
               "    pm.expect(body).to.have.all.keys(\"view\", \"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect((Date.parse(body.window.to) - Date.parse(body.window.from)) / 86400000).to.eql(6);",
               "    pm.expect(body.page.number).to.eql(1);",
               "    pm.expect(body.page.size).to.eql(20);",
               "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
@@ -175,6 +176,7 @@
               "pm.test(\"Active filters are echoed without changing available taxonomies\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(body.view).to.eql(\"upcoming\");",
+              "    pm.expect((Date.parse(body.window.to) - Date.parse(body.window.from)) / 86400000).to.eql(14);",
               "    pm.expect(body.activeFilters.platformId).to.eql(\"10000000-0000-4000-8000-000000000004\");",
               "    pm.expect(body.activeFilters.regionId).to.eql(\"20000000-0000-4000-8000-000000000001\");",
               "    pm.expect(body.availableFilters.platforms).to.be.an(\"array\").and.not.empty;",
@@ -196,7 +198,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&platformId=10000000-0000-4000-8000-000000000004&regionId=20000000-0000-4000-8000-000000000001",
+          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&platformId=10000000-0000-4000-8000-000000000004&regionId=20000000-0000-4000-8000-000000000001&weeks=2",
           "host": [
             "{{baseUrl}}"
           ],
@@ -217,6 +219,10 @@
             {
               "key": "regionId",
               "value": "20000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "weeks",
+              "value": "2"
             }
           ]
         },
@@ -332,6 +338,63 @@
             {
               "key": "pageSize",
               "value": "101"
+            }
+          ]
+        },
+        "description": "Demonstrates one-based bounded pagination validation."
+      },
+      "response": []
+    },
+    {
+      "name": "Unsupported week horizon",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/weeks\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&weeks=3",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "weeks",
+              "value": "3"
             }
           ]
         },
