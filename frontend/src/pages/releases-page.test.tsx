@@ -160,12 +160,12 @@ describe("releases page", () => {
     const query = requestedQueries(fetchMock).at(-1);
     expect(query?.get("platformId")).toBe("playstation-5");
     expect(query?.get("page")).toBe("1");
-    expect(router.state.location.search).toBe("?platformId=playstation-5");
+    expect(router.state.location.search).toBe("?weeks=1&platformId=playstation-5");
 
     await user.click(screen.getByRole("combobox", { name: /^Región:/ }));
     await user.click(screen.getByRole("option", { name: "Mundial" }));
     await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(2));
-    expect(router.state.location.search).toBe("?platformId=playstation-5&regionId=worldwide");
+    expect(router.state.location.search).toBe("?weeks=1&platformId=playstation-5&regionId=worldwide");
   });
 
   it("switches to the upcoming window through navigation", async () => {
@@ -191,6 +191,29 @@ describe("releases page", () => {
       expect(requestedQueries(fetchMock).at(-1)?.get("view")).toBe("upcoming"),
     );
     expect(requestedQueries(fetchMock).at(-1)?.get("pageSize")).toBe("12");
+  });
+
+  it("changes the week horizon by keyboard, preserves filters, and resets pagination", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases((request) =>
+      Response.json(
+        releasePage({
+          window: new URL(request.url).searchParams.get("weeks") === "4"
+            ? { from: "2026-08-13", to: "2026-09-10" }
+            : { from: "2026-08-13", to: "2026-08-20" },
+        }),
+        { status: 200 },
+      ),
+    );
+    const { router } = renderApp("/?view=upcoming&platformId=playstation-5&page=3");
+    const selector = await screen.findByRole("combobox", { name: /^Periodo:/ });
+    selector.focus();
+    await user.keyboard("{ArrowDown}{End}{Enter}");
+
+    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("weeks")).toBe("4"));
+    expect(requestedQueries(fetchMock).at(-1)?.get("page")).toBe("1");
+    expect(router.state.location.search).toBe("?view=upcoming&weeks=4&platformId=playstation-5");
+    expect(await screen.findByText(/13 de agosto de 2026 al 10 de septiembre de 2026/)).toBeInTheDocument();
   });
 
   it("keeps filters visible without presenting previous results as the new window", async () => {
@@ -258,7 +281,7 @@ describe("releases page", () => {
     renderApp("/?platformId=platform-removed");
 
     expect(await screen.findByRole("heading", { name: "Filtro no admitido" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/?weeks=1");
   });
 
   it("retries a technical failure on request", async () => {

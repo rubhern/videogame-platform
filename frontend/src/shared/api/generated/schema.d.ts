@@ -16,7 +16,7 @@ export interface paths {
          * @description Reads a bounded page of games from the last valid local catalogue publication. Each
          *     game appears once with only the releases that match the requested view and active
          *     filters; `page.totalItems` counts games, not releases. The application derives the
-         *     evaluation date and release window in `Europe/Madrid`. Empty, stale,
+         *     evaluation date and the selected bounded week window in `Europe/Madrid`. Empty, stale,
          *     review-required, imprecise-date, TBA, and fallback-cover results are valid
          *     states. PostgreSQL groups by game, applies filters, total ordering, count, limit,
          *     and offset before any release page reaches the application.
@@ -735,6 +735,11 @@ export interface components {
         GameIdPath: components["schemas"]["GameId"];
         /** @example upcoming */
         ReleaseView: components["schemas"]["ReleaseView"];
+        /**
+         * @description Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
+         * @example 2
+         */
+        ReleaseWeeks: 1 | 2 | 4;
         /** @example platform_ps5 */
         PlatformIdQuery: components["schemas"]["PlatformId"];
         /** @example region_europe */
@@ -834,6 +839,11 @@ export interface operations {
             query: {
                 /** @example upcoming */
                 view: components["parameters"]["ReleaseView"];
+                /**
+                 * @description Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
+                 * @example 2
+                 */
+                weeks?: components["parameters"]["ReleaseWeeks"];
                 /** @example platform_ps5 */
                 platformId?: components["parameters"]["PlatformIdQuery"];
                 /** @example region_europe */

@@ -137,6 +137,9 @@ the executable values; these constraints hold wherever they are used:
   one row; selected values may truncate visually, but the full value remains
   accessible in the control and list. Controls keep a visible focus indicator.
   Never hard-code the available choices from the mockup.
+- Release results show the game total followed by the current page position (for example,
+  `99 juegos · Página 1 de 9`). Use spacing between the heading and filters, and between
+  results and footer controls, without separator rules.
 - Translate established region display names into Spanish only in the presentation projection:
   Europa, Japón, Norteamérica, Mundial and Sin región confirmada. Preserve region identifiers,
   requests and OpenAPI values, and show an unfamiliar API label unchanged.

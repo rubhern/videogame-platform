@@ -36,10 +36,7 @@ class CatalogueModuleConfiguration {
     @Bean
     ReleaseBrowsePolicy releaseBrowsePolicy(CatalogueReleaseProperties properties) {
         return new ReleaseBrowsePolicy(
-                properties.recentWindowMonths(),
-                properties.upcomingWindowMonths(),
-                properties.releaseGroupLimit(),
-                UnknownUpcomingDatePolicy.INCLUDE_AS_TBA);
+                properties.releaseGroupLimit(), UnknownUpcomingDatePolicy.INCLUDE_AS_TBA);
     }
 
     @Bean

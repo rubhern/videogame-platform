@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 2.0.0
+  version: 2.1.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -35,13 +35,14 @@ paths:
         Reads a bounded page of games from the last valid local catalogue publication. Each
         game appears once with only the releases that match the requested view and active
         filters; `page.totalItems` counts games, not releases. The application derives the
-        evaluation date and release window in `Europe/Madrid`. Empty, stale,
+        evaluation date and the selected bounded week window in `Europe/Madrid`. Empty, stale,
         review-required, imprecise-date, TBA, and fallback-cover results are valid
         states. PostgreSQL groups by game, applies filters, total ordering, count, limit,
         and offset before any release page reaches the application.
       security: []
       parameters:
         - $ref: '#/components/parameters/ReleaseView'
+        - $ref: '#/components/parameters/ReleaseWeeks'
         - $ref: '#/components/parameters/PlatformIdQuery'
         - $ref: '#/components/parameters/RegionIdQuery'
         - $ref: '#/components/parameters/Page'
@@ -63,7 +64,7 @@ paths:
                   value:
                     view: upcoming
                     evaluatedOn: '2026-07-31'
-                    window: { from: '2026-07-31', to: '2026-12-31' }
+                    window: { from: '2026-07-31', to: '2026-08-07' }
                     activeFilters: { platformId: null, regionId: null }
                     availableFilters:
                       platforms:
@@ -88,7 +89,7 @@ paths:
                             gameId: game_silksong
                             platform: { platformId: platform_ps5, name: PlayStation 5 }
                             region: { regionId: region_europe, name: Europe }
-                            releaseDate: { precision: day, value: '2026-09-04' }
+                            releaseDate: { precision: day, value: '2026-08-04' }
                             status: scheduled
                             provenance:
                               sourceKind: external_provider
@@ -103,7 +104,7 @@ paths:
                             gameId: game_silksong
                             platform: { platformId: platform_win, name: Windows PC }
                             region: { regionId: region_worldwide, name: Worldwide }
-                            releaseDate: { precision: quarter, value: 2026-Q4 }
+                            releaseDate: { precision: month, value: 2026-08 }
                             status: scheduled
                             provenance:
                               sourceKind: external_provider
@@ -120,7 +121,7 @@ paths:
                   value:
                     view: recent
                     evaluatedOn: '2026-07-31'
-                    window: { from: '2026-01-01', to: '2026-07-31' }
+                    window: { from: '2026-07-25', to: '2026-07-31' }
                     activeFilters: { platformId: null, regionId: null }
                     availableFilters:
                       platforms:
@@ -141,7 +142,7 @@ paths:
                             gameId: game_example
                             platform: { platformId: platform_switch, name: Nintendo Switch }
                             region: { regionId: region_europe, name: Europe }
-                            releaseDate: { precision: month, value: 2026-05 }
+                            releaseDate: { precision: day, value: '2026-07-28' }
                             status: released
                             provenance:
                               sourceKind: external_provider
@@ -159,7 +160,7 @@ paths:
                   value:
                     view: upcoming
                     evaluatedOn: '2026-07-31'
-                    window: { from: '2026-07-31', to: '2026-12-31' }
+                    window: { from: '2026-07-31', to: '2026-08-07' }
                     activeFilters: { platformId: platform_ps5, regionId: region_europe }
                     availableFilters:
                       platforms:
@@ -695,6 +696,13 @@ components:
       required: true
       schema: { $ref: '#/components/schemas/ReleaseView' }
       example: upcoming
+    ReleaseWeeks:
+      name: weeks
+      in: query
+      required: false
+      description: Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
+      schema: { type: integer, enum: [1, 2, 4], default: 1 }
+      example: 2
     PlatformIdQuery:
       name: platformId
       in: query

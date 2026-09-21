@@ -1,6 +1,7 @@
 import type { ReleasesQuery } from "./releases-api";
 
 export type ReleaseView = ReleasesQuery["view"];
+export type ReleaseWeeks = NonNullable<ReleasesQuery["weeks"]>;
 
 /**
  * Navigable release-discovery state.
@@ -11,6 +12,7 @@ export type ReleaseView = ReleasesQuery["view"];
  */
 export type ReleasesSearch = {
   view: ReleaseView;
+  weeks: ReleaseWeeks;
   platformId: string | null;
   regionId: string | null;
   page: number;
@@ -24,6 +26,7 @@ const MAX_FILTER_CODE_POINTS = 100;
 
 const defaultSearch: ReleasesSearch = {
   view: "recent",
+  weeks: 1,
   platformId: null,
   regionId: null,
   page: 1,
@@ -32,6 +35,10 @@ const defaultSearch: ReleasesSearch = {
 
 function readView(value: string | null): ReleaseView {
   return value === "upcoming" || value === "recent" ? value : defaultSearch.view;
+}
+
+function readWeeks(value: string | null): ReleaseWeeks {
+  return value === "2" ? 2 : value === "4" ? 4 : 1;
 }
 
 function readFilter(value: string | null): string | null {
@@ -51,6 +58,7 @@ export function readReleasesSearch(params: URLSearchParams): ReleasesSearch {
   const view = readView(params.get("view"));
   return {
     view,
+    weeks: readWeeks(params.get("weeks")),
     platformId: readFilter(params.get("platformId")),
     regionId: readFilter(params.get("regionId")),
     page: readBoundedInteger(params.get("page"), defaultSearch.page, Number.MAX_SAFE_INTEGER),
@@ -64,6 +72,7 @@ export function writeReleasesSearch(search: ReleasesSearch): URLSearchParams {
   if (search.view !== defaultSearch.view) {
     params.set("view", search.view);
   }
+  params.set("weeks", String(search.weeks));
   if (search.platformId !== null) {
     params.set("platformId", search.platformId);
   }
@@ -89,6 +98,7 @@ export function releasesSearchPath(search: ReleasesSearch, change: Partial<Relea
 export function toReleasesQuery(search: ReleasesSearch): ReleasesQuery {
   return {
     view: search.view,
+    weeks: search.weeks,
     ...(search.platformId === null ? {} : { platformId: search.platformId }),
     ...(search.regionId === null ? {} : { regionId: search.regionId }),
     page: search.page,

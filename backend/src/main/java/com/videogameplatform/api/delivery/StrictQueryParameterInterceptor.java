@@ -113,7 +113,9 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         return new QueryParameter(
                 name,
                 parameter.hasParameterAnnotation(Min.class),
-                acceptedValues(parameter.getParameterType()));
+                "weeks".equals(name)
+                        ? Set.of("1", "2", "4")
+                        : acceptedValues(parameter.getParameterType()));
     }
 
     private static Set<String> acceptedValues(Class<?> parameterType) {

@@ -38,6 +38,7 @@ public class ReleaseController implements ReleasesApi {
     @Override
     public ResponseEntity<ReleasePage> listReleases(
             ReleaseView view,
+            Integer weeks,
             String platformId,
             String regionId,
             Integer page,
@@ -46,7 +47,12 @@ public class ReleaseController implements ReleasesApi {
         BrowseReleasesResult result =
                 useCase.browse(
                         new BrowseReleasesUseCase.Query(
-                                toApplicationView(view), platformId, regionId, page, pageSize));
+                                toApplicationView(view),
+                                weeks,
+                                platformId,
+                                regionId,
+                                page,
+                                pageSize));
         ReleasePage body = mapper.toResponse(result);
         String entityTag = conditionalRequests.strongEntityTag(body);
 

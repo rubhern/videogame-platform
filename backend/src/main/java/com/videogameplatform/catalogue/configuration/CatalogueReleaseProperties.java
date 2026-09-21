@@ -11,10 +11,7 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties("catalogue.releases")
 record CatalogueReleaseProperties(
-        @Min(1) @Max(60) int recentWindowMonths,
-        @Min(1) @Max(60) int upcomingWindowMonths,
-        @Min(1) @Max(50) int releaseGroupLimit,
-        @NotNull Duration freshnessThreshold) {
+        @Min(1) @Max(50) int releaseGroupLimit, @NotNull Duration freshnessThreshold) {
 
     CatalogueReleaseProperties {
         if (freshnessThreshold != null

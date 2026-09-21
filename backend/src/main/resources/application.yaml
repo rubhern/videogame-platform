@@ -47,8 +47,6 @@ catalogue:
   jdbc:
     read-timeout: ${CATALOGUE_JDBC_READ_TIMEOUT:5s}
   releases:
-    recent-window-months: ${CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS:6}
-    upcoming-window-months: ${CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS:6}
     # Bounds the releases grouped under one game so request memory stays O(pageSize x limit);
     # the synchronization cap keeps a game at most this many releases in total.
     release-group-limit: ${CATALOGUE_RELEASES_RELEASE_GROUP_LIMIT:25}
