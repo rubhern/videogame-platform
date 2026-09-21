@@ -32,7 +32,7 @@ class ReleaseReconciliationPolicyTest {
                 UUID.randomUUID(),
                 new ReleaseIdentity(GAME, PC, REGION),
                 DATE,
-                ReleaseStatus.SCHEDULED,
+                ReleaseStatus.ANNOUNCED,
                 verification == VerificationLevel.VERIFIED ? NOW : null,
                 verification,
                 ReviewStatus.NOT_REQUIRED);
@@ -46,7 +46,6 @@ class ReleaseReconciliationPolicyTest {
                 old,
                 Map.of("pc", PC, "ps", PS),
                 Map.of("worldwide", REGION),
-                LocalDate.parse("2026-09-08"),
                 NOW,
                 NOW,
                 "IGDB");

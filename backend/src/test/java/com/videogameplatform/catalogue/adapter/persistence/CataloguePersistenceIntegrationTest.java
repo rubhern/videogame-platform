@@ -43,7 +43,7 @@ class CataloguePersistenceIntegrationTest {
         var migrationResult = flyway.migrate();
         flyway.validate();
 
-        assertThat(migrationResult.migrationsExecuted).isEqualTo(14);
+        assertThat(migrationResult.migrationsExecuted).isEqualTo(15);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -61,7 +61,7 @@ class CataloguePersistenceIntegrationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(14);
+                    .isEqualTo(15);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
                     .isEqualTo(12);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.release_snapshot"))
@@ -322,7 +322,7 @@ class CataloguePersistenceIntegrationTest {
                 + REGION_ID
                 + "', "
                 + dateValues
-                + ", 'scheduled', 'product_curated', 'constraint test', 'test_release', now(), 'verified', 'not_required')";
+                + ", 'announced', 'product_curated', 'constraint test', 'test_release', now(), 'verified', 'not_required')";
     }
 
     private static void assertSqlState(String sql, String expectedSqlState) {

@@ -166,8 +166,8 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         "Crimson Desert",
                         "Crimson Desert",
                         "Subnautica 2",
-                        "Fable",
                         "Subnautica 2",
+                        "Fable",
                         "The Witcher IV");
     }
 
@@ -199,6 +199,59 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                     firstRelease,
                     secondRelease);
         }
+    }
+
+    @Test
+    void crossesFromUpcomingToRecentAsTheEvaluationDateAdvancesWithoutMutatingData() {
+        // One provider release with no negative signal and a fixed known date. Nothing about the
+        // row changes; only the trusted evaluation date (the window bounds) moves.
+        String releaseId = "50000000-0000-4000-8000-000000000020";
+        LocalDate date = LocalDate.of(2026, 6, 15);
+        jdbcTemplate.update(
+                "INSERT INTO catalogue.game_release (release_id, game_id, created_at) VALUES (?::uuid, '30000000-0000-4000-8000-000000000001', now())",
+                releaseId);
+        jdbcTemplate.update(
+                "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) VALUES ('00000000-0000-4000-8000-000000000001', ?::uuid, '30000000-0000-4000-8000-000000000001', ?::uuid, '20000000-0000-4000-8000-000000000002', 'day', ?, 'announced', 'product_curated', 'boundary test', 'release', now(), 'verified', 'not_required')",
+                releaseId,
+                PLATFORM_PLAYSTATION_5,
+                java.sql.Date.valueOf(date));
+        try {
+            LocalDate dayBefore = date.minusDays(1);
+            assertThat(releaseIds(BrowseReleasesUseCase.View.UPCOMING, dayBefore))
+                    .contains(releaseId);
+            assertThat(releaseIds(BrowseReleasesUseCase.View.RECENT, dayBefore))
+                    .doesNotContain(releaseId);
+
+            LocalDate dayAfter = date.plusDays(1);
+            assertThat(releaseIds(BrowseReleasesUseCase.View.RECENT, dayAfter)).contains(releaseId);
+            assertThat(releaseIds(BrowseReleasesUseCase.View.UPCOMING, dayAfter))
+                    .doesNotContain(releaseId);
+        } finally {
+            jdbcTemplate.update(
+                    "DELETE FROM catalogue.release_snapshot WHERE release_id = ?::uuid", releaseId);
+            jdbcTemplate.update(
+                    "DELETE FROM catalogue.game_release WHERE release_id = ?::uuid", releaseId);
+        }
+    }
+
+    private static List<String> releaseIds(BrowseReleasesUseCase.View view, LocalDate evaluatedOn) {
+        LocalDate from =
+                view == BrowseReleasesUseCase.View.RECENT
+                        ? evaluatedOn.minusMonths(6)
+                        : evaluatedOn;
+        LocalDate to =
+                view == BrowseReleasesUseCase.View.RECENT ? evaluatedOn : evaluatedOn.plusMonths(6);
+        var criteria =
+                new ReleaseBrowseReadPort.Criteria(
+                        view,
+                        new ReleaseBrowseReadPort.Window(from, to),
+                        null,
+                        null,
+                        new ReleaseBrowseReadPort.Pagination(1, 100, 0),
+                        true);
+        return adapter.findPublishedReleases(criteria).orElseThrow().items().stream()
+                .map(ReleaseBrowseReadPort.Item::releaseId)
+                .toList();
     }
 
     @Test
@@ -345,8 +398,8 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                                 "Crimson Desert",
                                 "Crimson Desert",
                                 "Subnautica 2",
-                                "Fable",
                                 "Subnautica 2",
+                                "Fable",
                                 "The Witcher IV",
                                 "The Witcher IV")),
                 Arguments.of(
@@ -385,7 +438,7 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                 "INSERT INTO catalogue.game_release (release_id, game_id, created_at) VALUES (?::uuid, '30000000-0000-4000-8000-000000000001', now())",
                 releaseId);
         jdbcTemplate.update(
-                "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) VALUES ('00000000-0000-4000-8000-000000000001', ?::uuid, '30000000-0000-4000-8000-000000000001', ?::uuid, '20000000-0000-4000-8000-000000000002', 'day', DATE '2026-08-14', 'scheduled', 'product_curated', 'tie test', 'release', now(), 'verified', 'not_required')",
+                "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) VALUES ('00000000-0000-4000-8000-000000000001', ?::uuid, '30000000-0000-4000-8000-000000000001', ?::uuid, '20000000-0000-4000-8000-000000000002', 'day', DATE '2026-08-14', 'announced', 'product_curated', 'tie test', 'release', now(), 'verified', 'not_required')",
                 releaseId,
                 platformId);
     }
