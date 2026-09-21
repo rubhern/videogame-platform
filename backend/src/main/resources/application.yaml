@@ -49,6 +49,9 @@ catalogue:
   releases:
     recent-window-months: ${CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS:6}
     upcoming-window-months: ${CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS:6}
+    # Bounds the releases grouped under one game so request memory stays O(pageSize x limit);
+    # the synchronization cap keeps a game at most this many releases in total.
+    release-group-limit: ${CATALOGUE_RELEASES_RELEASE_GROUP_LIMIT:25}
     freshness-threshold: ${CATALOGUE_RELEASES_FRESHNESS_THRESHOLD:P7D}
   search:
     release-context-limit: ${CATALOGUE_SEARCH_RELEASE_CONTEXT_LIMIT:3}

@@ -12,11 +12,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Browse recent or upcoming releases
-         * @description Reads a bounded page from the last valid local catalogue publication. The application derives the
+         * Browse recent or upcoming releases grouped by game
+         * @description Reads a bounded page of games from the last valid local catalogue publication. Each
+         *     game appears once with only the releases that match the requested view and active
+         *     filters; `page.totalItems` counts games, not releases. The application derives the
          *     evaluation date and release window in `Europe/Madrid`. Empty, stale,
          *     review-required, imprecise-date, TBA, and fallback-cover results are valid
-         *     states. PostgreSQL applies filters, total ordering, count, limit, and offset.
+         *     states. PostgreSQL groups by game, applies filters, total ordering, count, limit,
+         *     and offset before any release page reaches the application.
          */
         get: operations["listReleases"];
         put?: never;
@@ -304,12 +307,18 @@ export interface components {
             primaryCover: components["schemas"]["Cover"];
             releaseContext: components["schemas"]["ReleaseSummary"][];
         };
+        /**
+         * @description One game and only the releases of that game that match the requested view and
+         *     active filters. Each release is preserved independently, so differing
+         *     platforms, regions, dates, and date precision stay visible. Releases are ordered
+         *     by the UC-001 release ordering, and the first release drives the game's position.
+         */
         ReleaseItem: {
             gameId: components["schemas"]["GameId"];
             slug: string;
             canonicalTitle: string;
             primaryCover: components["schemas"]["Cover"];
-            release: components["schemas"]["Release"];
+            releases: components["schemas"]["Release"][];
         };
         ActiveFilters: {
             platformId: components["schemas"]["PlatformId"] | null;
@@ -849,7 +858,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A deterministic page of bounded-catalogue releases, possibly empty. */
+            /** @description A deterministic page of bounded-catalogue games with their matching releases, possibly empty. */
             200: {
                 headers: {
                     "X-Correlation-ID": components["headers"]["XCorrelationId"];

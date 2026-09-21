@@ -1064,10 +1064,6 @@
     }
   }
 
-  .release-cover-wrap {
-    position: relative;
-  }
-
   .cover-figure {
     margin: 0;
   }
@@ -1079,23 +1075,6 @@
     overflow: hidden;
     border-radius: 12px;
     box-shadow: 0 18px 34px -26px #000;
-  }
-
-  /* Release cards add a top scrim above the vignette so the date badge stays legible
-     over bright artwork. */
-  .release-cover-wrap .cover-link::after {
-    background:
-      linear-gradient(
-          180deg,
-          color-mix(in srgb, #05080b 62%, transparent),
-          transparent 38%
-        )
-        no-repeat,
-      radial-gradient(
-        124% 96% at 50% 44%,
-        transparent 62%,
-        color-mix(in srgb, #05080b 30%, transparent)
-      );
   }
 
   /* Provider covers arrive at one fixed CDN size, so on a dense grid or a high-DPI screen
@@ -1169,25 +1148,6 @@
 
   .text-link:hover {
     color: var(--color-accent);
-  }
-
-  /* Glass chip over the cover scrim: reads as part of the artwork, not stuck on top. */
-  .release-date-badge {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    max-width: calc(100% - 16px);
-    border: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
-    border-radius: 999px;
-    padding: 3px 8px;
-    color: var(--color-ink);
-    background: color-mix(in srgb, #05080b 78%, transparent);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    line-height: 1.35;
-    letter-spacing: 0;
-    backdrop-filter: blur(6px);
   }
 
   .card-body {
@@ -1332,6 +1292,89 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 5px;
+  }
+
+  /* The single visible release row: date first, then the grouped platforms and region. It uses
+     the compact card-metadata scale so the date never outsizes the platforms. */
+  .card-release {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 6px;
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  /* The overflow control keeps the card compact: it never adds a release row, and its popover is
+     an overlay so the card height never grows with the release count. */
+  .release-overflow {
+    position: relative;
+    /* Spans the card-body width so the absolutely-positioned popover can cap at 100% and never
+       spill past the card, even on the right column of a narrow two-column phone grid. */
+    align-self: stretch;
+    margin-top: auto;
+  }
+
+  /* An open popover overlaps the cards below it. Grid items honour z-index, so lift the whole
+     grid cell that owns the open popover above later rows; raising the inner card is not enough
+     because the next row's grid item paints after it. */
+  .release-grid > li:has(.release-overflow-popover) {
+    position: relative;
+    z-index: 20;
+  }
+
+  .release-overflow-toggle {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+    border-radius: 999px;
+    padding: 3px 9px;
+    color: var(--color-muted);
+    background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .release-overflow-toggle:hover {
+    color: var(--color-accent);
+  }
+
+  .release-overflow-popover {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    width: max-content;
+    max-width: 100%;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+    border-radius: 12px;
+    padding: 8px;
+    background: var(--color-raised);
+    box-shadow: var(--elevation-rest);
+  }
+
+  .release-overflow-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .release-overflow-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.45;
   }
 
   .catalogue-loading {
@@ -2036,13 +2079,6 @@
       color: CanvasText;
       background: none;
       filter: none;
-    }
-
-    .release-date-badge {
-      border-color: ButtonText;
-      color: ButtonText;
-      background: Canvas;
-      backdrop-filter: none;
     }
 
     .mobile-search-dialog::backdrop {

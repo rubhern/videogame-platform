@@ -147,13 +147,11 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                                 rs.getString("summary_source_entity_type")));
     }
 
-    private static ReleaseBrowseReadPort.Item release(ResultSet rs, int row) throws SQLException {
-        return new ReleaseBrowseReadPort.Item(
+    private static ReleaseBrowseReadPort.ReleaseRow release(ResultSet rs, int row)
+            throws SQLException {
+        return new ReleaseBrowseReadPort.ReleaseRow(
                 rs.getString("release_id"),
                 rs.getString("game_id"),
-                rs.getString("slug"),
-                rs.getString("canonical_title"),
-                CatalogueCoverReferenceRowMapper.map(rs),
                 new ReleaseBrowseReadPort.Taxonomy(
                         rs.getString("platform_code"), rs.getString("platform_name")),
                 new ReleaseBrowseReadPort.Taxonomy(

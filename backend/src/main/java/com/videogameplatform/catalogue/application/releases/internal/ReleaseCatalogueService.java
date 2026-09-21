@@ -9,6 +9,7 @@ import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCas
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Item;
+import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Result;
 import java.time.Clock;
 import java.time.Instant;
@@ -55,7 +56,8 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                                         query.regionId(),
                                         new ReleaseBrowseReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
-                                        browsePolicy.includesUnknownUpcomingDates()))
+                                        browsePolicy.includesUnknownUpcomingDates(),
+                                        browsePolicy.releaseGroupLimit()))
                         .orElseThrow(CatalogueNotReadyException::new);
 
         validateTaxonomy(query, result);
@@ -126,13 +128,18 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
 
     private BrowseReleasesResult.Item toItem(
             Item item, Instant evaluatedAt, LocalDate evaluatedOn) {
-        BrowseReleasesResult.Release release =
-                CatalogueReleaseMapping.map(item, evaluatedAt, evaluatedOn, freshnessPolicy);
+        List<BrowseReleasesResult.Release> releases =
+                item.releases().stream()
+                        .map(
+                                (ReleaseRow row) ->
+                                        CatalogueReleaseMapping.map(
+                                                row, evaluatedAt, evaluatedOn, freshnessPolicy))
+                        .toList();
         return new BrowseReleasesResult.Item(
                 item.gameId(),
                 item.slug(),
                 item.canonicalTitle(),
                 coverPolicy.resolve(item.cover()),
-                release);
+                releases);
     }
 }

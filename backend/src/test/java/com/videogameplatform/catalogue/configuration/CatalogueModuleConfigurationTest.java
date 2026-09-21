@@ -36,6 +36,7 @@ class CatalogueModuleConfigurationTest {
                     .withPropertyValues(
                             "catalogue.releases.recent-window-months=4",
                             "catalogue.releases.upcoming-window-months=8",
+                            "catalogue.releases.release-group-limit=12",
                             "catalogue.releases.freshness-threshold=P14D",
                             "catalogue.search.release-context-limit=2");
 
@@ -51,6 +52,7 @@ class CatalogueModuleConfigurationTest {
                                     new ReleaseBrowsePolicy(
                                             4,
                                             8,
+                                            12,
                                             ReleaseBrowsePolicy.UnknownUpcomingDatePolicy
                                                     .INCLUDE_AS_TBA));
                     assertThat(context.getBean(CatalogueFreshnessPolicy.class))
@@ -76,9 +78,9 @@ class CatalogueModuleConfigurationTest {
 
     @Test
     void rejectsUnsafeFreshnessBoundsBeforeStartupCompletes() {
-        assertThatThrownBy(() -> new CatalogueReleaseProperties(6, 6, Duration.ZERO))
+        assertThatThrownBy(() -> new CatalogueReleaseProperties(6, 6, 25, Duration.ZERO))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new CatalogueReleaseProperties(6, 6, Duration.ofDays(366)))
+        assertThatThrownBy(() -> new CatalogueReleaseProperties(6, 6, 25, Duration.ofDays(366)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 

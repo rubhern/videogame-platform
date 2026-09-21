@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
-import { pragmata, releasePage } from "./fixtures/releases";
+import { pragmata, pragmataRelease, releasePage } from "./fixtures/releases";
 
 async function expectAccessibleLayout(page: Page) {
   await page.evaluate(() => document.fonts.ready);
@@ -31,7 +31,7 @@ for (const width of [320, 390, 834, 1320]) {
           ...pragmata,
           slug: "long-title",
           canonicalTitle: "Una aventura extraordinariamente larga: más allá del horizonte",
-          release: { ...pragmata.release, releaseId: "40000000-0000-4000-8000-000000000007", freshnessStatus: "stale", reviewStatus: "required", releaseDate: { precision: "unknown", value: null } },
+          releases: [{ ...pragmataRelease, releaseId: "40000000-0000-4000-8000-000000000007", freshnessStatus: "stale", reviewStatus: "required", releaseDate: { precision: "unknown", value: null } }],
         }],
         page: { number: Number(query.get("page") ?? 1), size: 6, totalItems: 8, totalPages: 2 },
       }) });
@@ -103,10 +103,12 @@ test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
         ...pragmata,
         gameId: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
         canonicalTitle: `Juego ${index + 1}`,
-        release: {
-          ...pragmata.release,
-          releaseId: `40000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
-        },
+        releases: [
+          {
+            ...pragmataRelease,
+            releaseId: `40000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+          },
+        ],
       })),
       page: { number: 1, size: 12, totalItems: 12, totalPages: 1 },
     }) });
@@ -144,11 +146,13 @@ test("upcoming keeps its compact layout and keyboard filters on a phone", async 
       window: { from: "2026-08-13", to: "2027-02-13" },
       items: [{
         ...pragmata,
-        release: {
-          ...pragmata.release,
-          releaseDate: { precision: "day", value: "2026-09-25" },
-          status: "announced",
-        },
+        releases: [
+          {
+            ...pragmataRelease,
+            releaseDate: { precision: "day", value: "2026-09-25" },
+            status: "announced",
+          },
+        ],
       }],
     }) });
   });

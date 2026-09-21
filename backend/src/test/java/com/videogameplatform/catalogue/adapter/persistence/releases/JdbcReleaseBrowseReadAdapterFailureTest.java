@@ -89,6 +89,7 @@ class JdbcReleaseBrowseReadAdapterFailureTest {
                 null,
                 null,
                 new ReleaseBrowseReadPort.Pagination(1, 20, 0),
-                true);
+                true,
+                25);
     }
 }

@@ -8,16 +8,23 @@
 
 | ID       | Operation                           | Actor                 | Required behaviour                                                                                                                                                                                   |
 |----------|-------------------------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status) and filters, counts, uniquely orders, and pages the local publication; cancelled is excluded from both views and delayed from recent; TBA upcoming sorts last; stale/empty/fallback are valid states |
+| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status), then groups the matching releases by game so a result is one game with only its view-and-filter-matching releases, and counts, uniquely orders, and pages games; cancelled is excluded from both views and delayed from recent; TBA upcoming sorts last; stale/empty/fallback are valid states |
 | `UC-002` | Search bounded catalogue            | Visitor               | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider                       |
 | `UC-003` | View game details                   | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page                                   |
 | `UC-009` | Synchronize catalogue from provider | Operator              | Synchronize every provider Game in an operator-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
 
-`UC-001` upcoming orders by date precision first (exact day, then month, quarter,
-year, and finally TBA/unknown), then by effective period, canonical title and `gameId`;
-recent orders by effective period, canonical title and `gameId`. Both end in the unique
-`releaseId` tie-breaker. Request memory is `O(pageSize)` plus bounded taxonomy;
-persistent filtering/counting/pagination never occurs over a complete Java snapshot.
+`UC-001` results are grouped by game before pagination: a game appears once and carries
+only the releases matching the requested view and active filters, each release preserved
+independently so differing platforms, regions, dates and date precision stay visible.
+Upcoming orders releases by date precision first (exact day, then month, quarter, year,
+and finally TBA/unknown), then by effective period, canonical title and `gameId`; recent
+orders by effective period, canonical title and `gameId`; both end in the unique
+`releaseId` tie-breaker. A game is positioned by its first matching release under that
+order, with `gameId` as the final deterministic tie-breaker, and its releases keep the
+same order. Counting and pagination are over games, so `totalItems` counts games. The
+releases grouped under one game are explicitly bounded, so request memory is
+`O(pageSize x releaseGroupLimit)` plus bounded taxonomy; persistent
+filtering/counting/pagination/grouping never occurs over a complete Java snapshot.
 
 `UC-002` normalizes the query and the searchable catalogue text with one rule, so
 matching is case- and diacritic-insensitive without ever rewriting a display title.

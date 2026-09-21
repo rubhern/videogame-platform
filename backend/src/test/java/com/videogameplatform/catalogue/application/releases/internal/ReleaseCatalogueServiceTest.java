@@ -75,6 +75,7 @@ class ReleaseCatalogueServiceTest {
         assertThat(captured.get().pagination().offset()).isEqualTo(40);
         assertThat(captured.get().pagination().pageSize()).isEqualTo(20);
         assertThat(captured.get().includeUnknownUpcomingDates()).isTrue();
+        assertThat(captured.get().releaseGroupLimit()).isEqualTo(25);
         assertThat(page.items()).hasSize(1);
         assertThat(page.page().totalItems()).isEqualTo(10_000);
         assertThat(page.page().totalPages()).isEqualTo(500);
@@ -100,9 +101,9 @@ class ReleaseCatalogueServiceTest {
                                 new CatalogueCover.Attribution(
                                         "Test provider",
                                         URI.create("https://www.igdb.com/games/example"))));
-        assertThat(page.items().getFirst().release().status())
+        assertThat(page.items().getFirst().releases().getFirst().status())
                 .isEqualTo(CatalogueReleaseStatus.SCHEDULED);
-        assertThat(page.items().getFirst().release().freshnessStatus())
+        assertThat(page.items().getFirst().releases().getFirst().freshnessStatus())
                 .isEqualTo(CatalogueFreshness.FRESH);
     }
 
@@ -150,7 +151,7 @@ class ReleaseCatalogueServiceTest {
                 new CatalogueCoverPolicy(providerCoverReferenceResolver()),
                 clock,
                 new ReleaseBrowsePolicy(
-                        6, 6, ReleaseBrowsePolicy.UnknownUpcomingDatePolicy.INCLUDE_AS_TBA),
+                        6, 6, 25, ReleaseBrowsePolicy.UnknownUpcomingDatePolicy.INCLUDE_AS_TBA),
                 new CatalogueFreshnessPolicy(Duration.ofDays(7)));
     }
 
@@ -182,22 +183,25 @@ class ReleaseCatalogueServiceTest {
     private static ReleaseBrowseReadPort.Item release(
             String releaseId, CatalogueCoverReference cover) {
         return new ReleaseBrowseReadPort.Item(
-                releaseId,
                 "game-1",
                 "game-1",
                 "Game One",
                 cover,
-                PLATFORM,
-                REGION,
-                new ReleaseDate.YearOnly(Year.of(2027)),
-                ReleaseStatus.SCHEDULED,
-                SourceKind.PRODUCT_CURATED,
-                "Test",
-                "release",
-                null,
-                NOW,
-                null,
-                VerificationLevel.PROVIDER_ONLY,
-                ReviewStatus.NOT_REQUIRED);
+                List.of(
+                        new ReleaseBrowseReadPort.ReleaseRow(
+                                releaseId,
+                                "game-1",
+                                PLATFORM,
+                                REGION,
+                                new ReleaseDate.YearOnly(Year.of(2027)),
+                                ReleaseStatus.SCHEDULED,
+                                SourceKind.PRODUCT_CURATED,
+                                "Test",
+                                "release",
+                                null,
+                                NOW,
+                                null,
+                                VerificationLevel.PROVIDER_ONLY,
+                                ReviewStatus.NOT_REQUIRED)));
     }
 }

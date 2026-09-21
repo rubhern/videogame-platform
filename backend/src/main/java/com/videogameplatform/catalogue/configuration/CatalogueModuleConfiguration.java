@@ -38,6 +38,7 @@ class CatalogueModuleConfiguration {
         return new ReleaseBrowsePolicy(
                 properties.recentWindowMonths(),
                 properties.upcomingWindowMonths(),
+                properties.releaseGroupLimit(),
                 UnknownUpcomingDatePolicy.INCLUDE_AS_TBA);
     }
 

@@ -98,7 +98,8 @@ class ReleaseBrowseScalabilityIT {
                 null,
                 null,
                 new ReleaseBrowseReadPort.Pagination(1, 20, 0),
-                true);
+                true,
+                25);
     }
 
     private static ReleaseBrowseReadPort.Criteria upcomingCriteria() {
@@ -109,7 +110,8 @@ class ReleaseBrowseScalabilityIT {
                 null,
                 null,
                 new ReleaseBrowseReadPort.Pagination(1, 20, 0),
-                true);
+                true,
+                25);
     }
 
     private static TransactionTemplate readTransaction(DataSource dataSource) {
@@ -198,8 +200,20 @@ class ReleaseBrowseScalabilityIT {
                 + " && daterange(DATE '2026-02-13', DATE '2026-08-13', '[]')";
     }
 
+    // Count and paging are over games, mirroring the grouped adapter query.
+    private static final String RECENT_RELEASE_ORDER = "period_end DESC NULLS LAST, release_id";
+    private static final String RECENT_GAME_ORDER =
+            "period_end DESC NULLS LAST, lower(canonical_title), game_id";
+    private static final String UPCOMING_PRECISION =
+            "CASE date_precision WHEN 'day' THEN 1 WHEN 'month' THEN 2 WHEN 'quarter' THEN 3"
+                    + " WHEN 'year' THEN 4 ELSE 5 END";
+    private static final String UPCOMING_RELEASE_ORDER =
+            UPCOMING_PRECISION + ", period_start ASC NULLS LAST, release_id";
+    private static final String UPCOMING_GAME_ORDER =
+            UPCOMING_PRECISION + ", period_start ASC NULLS LAST, lower(canonical_title), game_id";
+
     private static String countSql() {
-        return "SELECT count(*) FROM catalogue.release_snapshot rs"
+        return "SELECT count(DISTINCT rs.game_id) FROM catalogue.release_snapshot rs"
                 + " WHERE rs.publication_id = '"
                 + PUBLICATION_ID
                 + "'::uuid AND "
@@ -207,39 +221,53 @@ class ReleaseBrowseScalabilityIT {
     }
 
     private static String pageSql() {
-        return "WITH filtered_release AS MATERIALIZED ("
-                + "SELECT * FROM catalogue.release_snapshot rs"
-                + " WHERE rs.publication_id = '"
-                + PUBLICATION_ID
-                + "'::uuid AND "
-                + recentPredicate()
-                + ")"
-                + " SELECT rs.release_id FROM filtered_release rs"
-                + " JOIN LATERAL (SELECT snapshot.canonical_title"
-                + " FROM catalogue.game_snapshot snapshot"
-                + " WHERE snapshot.publication_id = rs.publication_id AND snapshot.game_id = rs.game_id"
-                + " LIMIT 1) gs ON true"
-                + " ORDER BY rs.period_end DESC NULLS LAST, lower(gs.canonical_title), rs.game_id, rs.release_id"
-                + " LIMIT 20 OFFSET 0";
+        return groupedPageSql(
+                "rs.publication_id = '" + PUBLICATION_ID + "'::uuid AND " + recentPredicate(),
+                RECENT_RELEASE_ORDER,
+                RECENT_GAME_ORDER);
     }
 
     private static String upcomingCountSql() {
-        return "SELECT count(*) FROM catalogue.release_snapshot rs" + upcomingWhere();
+        return "SELECT count(DISTINCT rs.game_id) FROM catalogue.release_snapshot rs"
+                + upcomingWhere();
     }
 
     private static String upcomingPageSql() {
+        return groupedPageSql(
+                upcomingWhere().replaceFirst("^ WHERE ", ""),
+                UPCOMING_RELEASE_ORDER,
+                UPCOMING_GAME_ORDER);
+    }
+
+    private static String groupedPageSql(String where, String releaseOrder, String gameOrder) {
         return "WITH filtered_release AS MATERIALIZED ("
-                + "SELECT * FROM catalogue.release_snapshot rs"
-                + upcomingWhere()
-                + ") SELECT rs.release_id FROM filtered_release rs"
-                + " JOIN LATERAL (SELECT snapshot.canonical_title"
-                + " FROM catalogue.game_snapshot snapshot"
-                + " WHERE snapshot.publication_id = rs.publication_id AND snapshot.game_id = rs.game_id"
-                + " LIMIT 1) gs ON true"
-                + " ORDER BY CASE rs.date_precision WHEN 'day' THEN 1 WHEN 'month' THEN 2"
-                + " WHEN 'quarter' THEN 3 WHEN 'year' THEN 4 ELSE 5 END,"
-                + " rs.period_start ASC NULLS LAST, lower(gs.canonical_title), rs.game_id, rs.release_id"
-                + " LIMIT 20 OFFSET 0";
+                + "SELECT * FROM catalogue.release_snapshot rs WHERE "
+                + where
+                + "), game_top AS (SELECT DISTINCT ON (fr.game_id) fr.game_id, fr.period_end,"
+                + " fr.period_start, fr.date_precision, gs.canonical_title FROM filtered_release fr"
+                + " JOIN LATERAL (SELECT snapshot.canonical_title FROM catalogue.game_snapshot snapshot"
+                + " WHERE snapshot.publication_id = fr.publication_id AND snapshot.game_id = fr.game_id"
+                + " LIMIT 1) gs ON true ORDER BY fr.game_id, "
+                + prefix("fr", releaseOrder)
+                + "), game_page AS (SELECT * FROM game_top gt ORDER BY "
+                + prefix("gt", gameOrder)
+                + " LIMIT 20 OFFSET 0)"
+                + " SELECT gp.game_id, rel.release_id FROM game_page gp JOIN LATERAL ("
+                + "SELECT fr.release_id, fr.period_end, fr.period_start, fr.date_precision"
+                + " FROM filtered_release fr WHERE fr.game_id = gp.game_id ORDER BY "
+                + prefix("fr", releaseOrder)
+                + " LIMIT 25) rel ON true"
+                + " ORDER BY "
+                + prefix("gp", gameOrder)
+                + ", "
+                + prefix("rel", releaseOrder);
+    }
+
+    /** Qualifies the bare column references of an order fragment with a table alias. */
+    private static String prefix(String alias, String order) {
+        return order.replaceAll(
+                "(?<![\\w.])(period_end|period_start|release_id|game_id|canonical_title|date_precision)",
+                alias + ".$1");
     }
 
     // Mirrors JdbcReleaseBrowseReadAdapter's UPCOMING (with unknown) predicate: a known date that
