@@ -183,8 +183,8 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
       "Crimson Desert",
       "Crimson Desert",
       "Subnautica 2",
-      "Fable",
       "Subnautica 2",
+      "Fable",
     ]);
     await expect(page.getByText("25 de septiembre de 2026")).toBeVisible();
     await expect(page.getByText("octubre de 2026")).toHaveCount(2);
