@@ -148,7 +148,9 @@ assert(
   "SPA browser route did not return the entry point",
 );
 
-const releases = await request("/api/v1/releases?view=recent&page=1&pageSize=1");
+// The deterministic seed has no recent release in the one-week default window;
+// use an explicit supported window that exercises the packaged API with data.
+const releases = await request("/api/v1/releases?view=recent&weeks=4&page=1&pageSize=1");
 assert(releases.response.ok, "release API failed");
 assert(releases.response.headers.get("content-type")?.includes("application/json"), "release API is not JSON");
 assert(JSON.parse(releases.body).items?.length === 1, "release API payload is invalid or empty");
