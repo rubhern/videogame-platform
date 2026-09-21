@@ -90,11 +90,14 @@ class ReleaseApiIntegrationTest {
         assertThat(residentEvil.path("canonicalTitle").stringValue())
                 .isEqualTo("Resident Evil Requiem");
         JsonNode lastReleaseDate =
-                residentEvil.path("releases").get(residentEvil.path("releases").size() - 1)
+                residentEvil
+                        .path("releases")
+                        .get(residentEvil.path("releases").size() - 1)
                         .path("releaseDate");
         assertThat(lastReleaseDate.path("precision").stringValue()).isEqualTo("day");
         assertThat(lastReleaseDate.path("value").stringValue()).isEqualTo("2026-02-27");
-        assertThat(pragmataReleases.get(0).path("freshnessStatus").stringValue()).isEqualTo("stale");
+        assertThat(pragmataReleases.get(0).path("freshnessStatus").stringValue())
+                .isEqualTo("stale");
         assertThat(pragmata.path("primaryCover").path("kind").stringValue()).isEqualTo("fallback");
         assertThat(pragmata.path("primaryCover").path("attribution").isNull()).isTrue();
         // Crimson Desert carries an approved provider image reference without an

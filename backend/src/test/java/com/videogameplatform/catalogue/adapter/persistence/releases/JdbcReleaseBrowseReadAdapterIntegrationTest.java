@@ -99,11 +99,14 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         Item pragmata = firstPage.items().getFirst();
         assertThat(pragmata.canonicalTitle()).isEqualTo("Pragmata");
         // The one game keeps both of its recent releases, preserved and distinct.
-        assertThat(pragmata.releases()).extracting(ReleaseRow::releaseId)
+        assertThat(pragmata.releases())
+                .extracting(ReleaseRow::releaseId)
                 .containsExactly(
                         "40000000-0000-4000-8000-000000000006",
                         "40000000-0000-4000-8000-00000000000a");
-        assertThat(pragmata.releases().stream().map(row -> row.platform().id() + "/" + row.region().id()))
+        assertThat(
+                        pragmata.releases().stream()
+                                .map(row -> row.platform().id() + "/" + row.region().id()))
                 .containsExactly(
                         PLATFORM_WINDOWS_PC + "/" + REGION_WORLDWIDE,
                         PLATFORM_PLAYSTATION_5 + "/" + REGION_EUROPE);
@@ -112,7 +115,10 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         assertThat(secondPage.items().getFirst().canonicalTitle()).isEqualTo("Crimson Desert");
         assertThat(secondPage.items().getFirst().gameId()).isNotEqualTo(pragmata.gameId());
         assertThat(flatten(firstPage))
-                .allSatisfy(row -> assertThat(row.releaseDate()).isNotInstanceOf(ReleaseDate.Unknown.class));
+                .allSatisfy(
+                        row ->
+                                assertThat(row.releaseDate())
+                                        .isNotInstanceOf(ReleaseDate.Unknown.class));
     }
 
     @Test
@@ -127,7 +133,10 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         assertThat(flat.getFirst().releaseDate()).isInstanceOf(ReleaseDate.Day.class);
         assertThat(flat.getLast().releaseDate()).isInstanceOf(ReleaseDate.Unknown.class);
         assertThat(flat.subList(0, 7))
-                .allSatisfy(row -> assertThat(row.releaseDate()).isNotInstanceOf(ReleaseDate.Unknown.class));
+                .allSatisfy(
+                        row ->
+                                assertThat(row.releaseDate())
+                                        .isNotInstanceOf(ReleaseDate.Unknown.class));
         // The unknown-date release belongs to the last game, ordered last inside its own group.
         assertThat(result.items().getLast().canonicalTitle()).isEqualTo("The Witcher IV");
     }
@@ -202,7 +211,8 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                                                     .equals("30000000-0000-4000-8000-000000000001"))
                             .findFirst()
                             .orElseThrow();
-            List<String> ids = deathStranding.releases().stream().map(ReleaseRow::releaseId).toList();
+            List<String> ids =
+                    deathStranding.releases().stream().map(ReleaseRow::releaseId).toList();
             assertThat(ids.indexOf(secondRelease)).isEqualTo(ids.indexOf(firstRelease) + 1);
         } finally {
             jdbcTemplate.update(

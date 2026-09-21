@@ -247,21 +247,27 @@ class ReleaseBrowseScalabilityIT {
                 + " fr.period_start, fr.date_precision, gs.canonical_title FROM filtered_release fr"
                 + " JOIN LATERAL (SELECT snapshot.canonical_title FROM catalogue.game_snapshot snapshot"
                 + " WHERE snapshot.publication_id = fr.publication_id AND snapshot.game_id = fr.game_id"
-                + " LIMIT 1) gs ON true ORDER BY fr.game_id, " + prefix("fr", releaseOrder)
-                + "), game_page AS (SELECT * FROM game_top gt ORDER BY " + prefix("gt", gameOrder)
+                + " LIMIT 1) gs ON true ORDER BY fr.game_id, "
+                + prefix("fr", releaseOrder)
+                + "), game_page AS (SELECT * FROM game_top gt ORDER BY "
+                + prefix("gt", gameOrder)
                 + " LIMIT 20 OFFSET 0)"
                 + " SELECT gp.game_id, rel.release_id FROM game_page gp JOIN LATERAL ("
                 + "SELECT fr.release_id, fr.period_end, fr.period_start, fr.date_precision"
                 + " FROM filtered_release fr WHERE fr.game_id = gp.game_id ORDER BY "
-                + prefix("fr", releaseOrder) + " LIMIT 25) rel ON true"
-                + " ORDER BY " + prefix("gp", gameOrder) + ", " + prefix("rel", releaseOrder);
+                + prefix("fr", releaseOrder)
+                + " LIMIT 25) rel ON true"
+                + " ORDER BY "
+                + prefix("gp", gameOrder)
+                + ", "
+                + prefix("rel", releaseOrder);
     }
 
     /** Qualifies the bare column references of an order fragment with a table alias. */
     private static String prefix(String alias, String order) {
         return order.replaceAll(
-                        "(?<![\\w.])(period_end|period_start|release_id|game_id|canonical_title|date_precision)",
-                        alias + ".$1");
+                "(?<![\\w.])(period_end|period_start|release_id|game_id|canonical_title|date_precision)",
+                alias + ".$1");
     }
 
     // Mirrors JdbcReleaseBrowseReadAdapter's UPCOMING (with unknown) predicate: a known date that

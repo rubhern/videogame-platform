@@ -46,7 +46,9 @@ final class ReleaseGroupPageMapper {
                 }
                 item.releases.add(releaseRow(resultSet, gameId));
             }
-        } catch (IllegalArgumentException | IllegalStateException | NullPointerException exception) {
+        } catch (IllegalArgumentException
+                | IllegalStateException
+                | NullPointerException exception) {
             throw new CatalogueDataInvalidException(exception);
         }
         return items.values().stream().map(MutableItem::toItem).toList();
@@ -85,10 +87,7 @@ final class ReleaseGroupPageMapper {
         private final List<ReleaseRow> releases = new ArrayList<>();
 
         private MutableItem(
-                String gameId,
-                String slug,
-                String canonicalTitle,
-                CatalogueCoverReference cover) {
+                String gameId, String slug, String canonicalTitle, CatalogueCoverReference cover) {
             this.gameId = gameId;
             this.slug = slug;
             this.canonicalTitle = canonicalTitle;
