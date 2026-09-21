@@ -58,6 +58,7 @@ class StrictQueryParameterInterceptorTest {
                     ReleaseController.class.getMethod(
                             "listReleases",
                             ReleaseView.class,
+                            Integer.class,
                             String.class,
                             String.class,
                             Integer.class,
