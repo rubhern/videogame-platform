@@ -91,25 +91,65 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             """;
     private static final String PUBLICATION_PREDICATE =
             "rs.publication_id = CAST(:publicationId AS uuid)";
-    private static final String RELEASED_PREDICATE = "rs.release_status = 'released'";
-    private static final String UPCOMING_STATUS_PREDICATE =
-            "rs.release_status NOT IN ('released', 'cancelled')";
-    private static final String KNOWN_PERIOD_OVERLAP_PREDICATE =
+    // Temporal classification is derived from the effective release period and the trusted
+    // evaluation date (window bounds), never from a persisted 'released'/'scheduled' status that a
+    // synchronization happened to write. Provider evidence only excludes: cancelled and delayed
+    // never prove a recent release; cancelled is also excluded from upcoming, while a delayed
+    // release with a valid future period stays relevant there.
+    private static final String OCCURRED_BY_WINDOW_TO =
+            "(rs.date_precision = 'day' AND rs.exact_date <= CAST(:windowTo AS date))"
+                    + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
+                    + " AND rs.period_end < CAST(:windowTo AS date))";
+    private static final String OCCURRED_BY_WINDOW_FROM =
+            "(rs.date_precision = 'day' AND rs.exact_date <= CAST(:windowFrom AS date))"
+                    + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
+                    + " AND rs.period_end < CAST(:windowFrom AS date))";
+    private static final String KNOWN_PERIOD_OVERLAP =
             "rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
                     + " AND daterange(rs.period_start, rs.period_end, '[]')"
                     + " && daterange(CAST(:windowFrom AS date), CAST(:windowTo AS date), '[]')";
-    private static final String PERIOD_OVERLAP_OR_UNKNOWN_PREDICATE =
-            "((rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
-                    + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                    + " && daterange(CAST(:windowFrom AS date), CAST(:windowTo AS date), '[]'))"
-                    + " OR rs.date_precision = 'unknown')";
+    // Recent: a known date that has occurred, excluding cancelled and delayed. An unknown date has
+    // no period, so it can never be recent regardless of any explicit released evidence.
+    private static final String RECENT_PREDICATE =
+            "rs.release_status NOT IN ('cancelled', 'delayed')"
+                    + " AND ("
+                    + OCCURRED_BY_WINDOW_TO
+                    + ")"
+                    + " AND "
+                    + KNOWN_PERIOD_OVERLAP;
+    // Upcoming (known date): a period that has not yet occurred, excluding cancelled. A delayed
+    // release with a valid future period stays relevant; date governs, so an explicit released mark
+    // does not exclude an unmet known date.
+    private static final String UPCOMING_KNOWN_PREDICATE =
+            "NOT (" + OCCURRED_BY_WINDOW_FROM + ")" + " AND " + KNOWN_PERIOD_OVERLAP;
+    private static final String UPCOMING_PREDICATE =
+            "rs.release_status <> 'cancelled' AND (" + UPCOMING_KNOWN_PREDICATE + ")";
+    // TBA: an unknown date that is neither cancelled nor explicitly released.
+    private static final String UPCOMING_OR_UNKNOWN_PREDICATE =
+            "rs.release_status <> 'cancelled' AND (("
+                    + UPCOMING_KNOWN_PREDICATE
+                    + ") OR (rs.release_status <> 'released' AND rs.date_precision = 'unknown'))";
     private static final String PLATFORM_PREDICATE = "rs.platform_id = CAST(:platformId AS uuid)";
     private static final String REGION_PREDICATE = "rs.region_id = CAST(:regionId AS uuid)";
     private static final String RECENT_ORDER =
             " ORDER BY rs.period_end DESC NULLS LAST,"
                     + " lower(gs.canonical_title), rs.game_id, rs.release_id";
+    // Upcoming lists the most precise dates first: exact day, then month, quarter, year, and
+    // finally
+    // TBA (unknown). Within a precision the soonest period comes first, ending in the unique
+    // release
+    // identifier for a deterministic total ordering.
+    private static final String UPCOMING_PRECISION_ORDER =
+            "CASE rs.date_precision"
+                    + " WHEN 'day' THEN 1"
+                    + " WHEN 'month' THEN 2"
+                    + " WHEN 'quarter' THEN 3"
+                    + " WHEN 'year' THEN 4"
+                    + " ELSE 5 END";
     private static final String UPCOMING_ORDER =
-            " ORDER BY rs.period_start ASC NULLS LAST,"
+            " ORDER BY "
+                    + UPCOMING_PRECISION_ORDER
+                    + ", rs.period_start ASC NULLS LAST,"
                     + " lower(gs.canonical_title), rs.game_id, rs.release_id";
     private static final String PAGE_SUFFIX = " LIMIT :pageSize OFFSET :offset";
 
@@ -194,17 +234,15 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
 
         switch (criteria.view()) {
             case RECENT ->
-                    builder.where(RELEASED_PREDICATE)
-                            .where(KNOWN_PERIOD_OVERLAP_PREDICATE)
+                    builder.where(RECENT_PREDICATE)
                             .bind("windowFrom", criteria.window().from())
                             .bind("windowTo", criteria.window().to())
                             .orderBy(RECENT_ORDER);
             case UPCOMING ->
-                    builder.where(UPCOMING_STATUS_PREDICATE)
-                            .where(
+                    builder.where(
                                     criteria.includeUnknownUpcomingDates()
-                                            ? PERIOD_OVERLAP_OR_UNKNOWN_PREDICATE
-                                            : KNOWN_PERIOD_OVERLAP_PREDICATE)
+                                            ? UPCOMING_OR_UNKNOWN_PREDICATE
+                                            : UPCOMING_PREDICATE)
                             .bind("windowFrom", criteria.window().from())
                             .bind("windowTo", criteria.window().to())
                             .orderBy(UPCOMING_ORDER);

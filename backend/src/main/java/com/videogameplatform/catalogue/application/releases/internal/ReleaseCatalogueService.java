@@ -70,7 +70,9 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                 window,
                 new BrowseReleasesResult.ActiveFilters(query.platformId(), query.regionId()),
                 availableFilters(result),
-                result.items().stream().map(item -> toItem(item, evaluatedAt)).toList(),
+                result.items().stream()
+                        .map(item -> toItem(item, evaluatedAt, evaluatedOn))
+                        .toList(),
                 new BrowseReleasesResult.PageMetadata(
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));
     }
@@ -122,9 +124,10 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
         return new BrowseReleasesResult.AvailableFilters(platforms, regions);
     }
 
-    private BrowseReleasesResult.Item toItem(Item item, Instant evaluatedAt) {
+    private BrowseReleasesResult.Item toItem(
+            Item item, Instant evaluatedAt, LocalDate evaluatedOn) {
         BrowseReleasesResult.Release release =
-                CatalogueReleaseMapping.map(item, evaluatedAt, freshnessPolicy);
+                CatalogueReleaseMapping.map(item, evaluatedAt, evaluatedOn, freshnessPolicy);
         return new BrowseReleasesResult.Item(
                 item.gameId(),
                 item.slug(),

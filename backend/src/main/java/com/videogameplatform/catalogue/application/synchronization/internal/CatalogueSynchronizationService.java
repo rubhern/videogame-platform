@@ -26,7 +26,6 @@ import com.videogameplatform.catalogue.application.synchronization.port.Synchron
 import com.videogameplatform.catalogue.domain.CatalogueSlug;
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -238,7 +237,6 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                             previous,
                             context.platformIdsByCode(),
                             context.regionIdsByCode(),
-                            LocalDate.now(clock),
                             synchronizedAt,
                             work.providerUpdatedAt(),
                             provider.providerName());

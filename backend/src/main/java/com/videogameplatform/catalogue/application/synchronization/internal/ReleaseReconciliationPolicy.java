@@ -10,7 +10,6 @@ import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -25,7 +24,6 @@ public final class ReleaseReconciliationPolicy {
             PublishedRelease previous,
             Map<String, UUID> platforms,
             Map<String, UUID> regions,
-            LocalDate today,
             Instant synchronizedAt,
             Instant updatedAt,
             String source) {
@@ -35,8 +33,7 @@ public final class ReleaseReconciliationPolicy {
             throw new IllegalArgumentException("Unsupported release mapping");
         }
         ReleaseIdentity identity = new ReleaseIdentity(gameId, platform, region);
-        ReleaseStatus status =
-                ReleaseStatusPolicy.derive(providerRelease.signal(), providerRelease.date(), today);
+        ReleaseStatus status = ReleaseStatusPolicy.persistedStatus(providerRelease.signal());
         boolean unchanged =
                 previous != null
                         && identity.equals(previous.identity())

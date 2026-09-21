@@ -72,8 +72,8 @@ class ReleaseBrowseScalabilityIT {
         assertThat(result.totalItems()).isEqualTo(expectedMatches);
         assertThat(expectedMatches).isBetween(1L, rows - 1L);
         assertThat(result.items()).hasSize(20);
-        assertUsesIndex(countPlan, "ix_release_browse_recent_period");
-        assertUsesIndex(pagePlan, "ix_release_browse_recent_period");
+        assertUsesIndex(countPlan, "ix_release_browse_period");
+        assertUsesIndex(pagePlan, "ix_release_browse_period");
         assertDoesNotSequentiallyScan(pagePlan, "release_snapshot", "game_snapshot");
 
         ReleaseBrowseReadPort.Result upcoming =
@@ -84,9 +84,9 @@ class ReleaseBrowseScalabilityIT {
 
         assertThat(upcoming.items()).hasSize(20);
         assertThat(upcoming.totalItems()).isEqualTo(expectedUpcomingMatches);
-        assertUsesIndex(upcomingCountPlan, "ix_release_browse_upcoming_period");
-        assertUsesIndex(upcomingCountPlan, "ix_release_browse_upcoming_unknown");
-        assertUsesIndex(upcomingPagePlan, "ix_release_browse_upcoming_period");
+        assertUsesIndex(upcomingCountPlan, "ix_release_browse_period");
+        assertUsesIndex(upcomingCountPlan, "ix_release_browse_unknown");
+        assertUsesIndex(upcomingPagePlan, "ix_release_browse_period");
         assertDoesNotSequentiallyScan(upcomingPagePlan, "release_snapshot", "game_snapshot");
     }
 
@@ -141,7 +141,7 @@ class ReleaseBrowseScalabilityIT {
                 "INSERT INTO catalogue.game_release (release_id, game_id, created_at) SELECT md5('release-' || n)::uuid, md5('game-' || n)::uuid, now() FROM generate_series(1, ?) n",
                 rows);
         jdbc.update(
-                "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) SELECT ?::uuid, md5('release-' || n)::uuid, md5('game-' || n)::uuid, '91000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000001', CASE WHEN n % 100 = 1 THEN 'unknown' ELSE 'day' END, CASE WHEN n % 100 = 1 THEN NULL ELSE DATE '2010-01-01' + (n % 7305) END, CASE WHEN n % 2 = 0 THEN 'released' ELSE 'scheduled' END, 'product_curated', 'scale fixture', 'release', now(), 'verified', 'not_required' FROM generate_series(1, ?) n",
+                "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) SELECT ?::uuid, md5('release-' || n)::uuid, md5('game-' || n)::uuid, '91000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000001', CASE WHEN n % 100 = 1 THEN 'unknown' ELSE 'day' END, CASE WHEN n % 100 = 1 THEN NULL ELSE DATE '2010-01-01' + (n % 7305) END, CASE WHEN n % 2 = 0 THEN 'released' ELSE 'announced' END, 'product_curated', 'scale fixture', 'release', now(), 'verified', 'not_required' FROM generate_series(1, ?) n",
                 PUBLICATION_ID, rows);
         jdbc.execute("ANALYZE catalogue.game_snapshot");
         jdbc.execute("ANALYZE catalogue.release_snapshot");
@@ -185,14 +185,25 @@ class ReleaseBrowseScalabilityIT {
         plan.path("Plans").forEach(child -> collectPlanNodes(child, result));
     }
 
+    // Mirrors JdbcReleaseBrowseReadAdapter's RECENT predicate: a known date that has occurred by
+    // the
+    // window's upper bound, excluding cancelled and delayed, overlapping the recent window.
+    private static String recentPredicate() {
+        return "rs.release_status NOT IN ('cancelled', 'delayed')"
+                + " AND ((rs.date_precision = 'day' AND rs.exact_date <= DATE '2026-08-13')"
+                + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
+                + " AND rs.period_end < DATE '2026-08-13'))"
+                + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
+                + " AND daterange(rs.period_start, rs.period_end, '[]')"
+                + " && daterange(DATE '2026-02-13', DATE '2026-08-13', '[]')";
+    }
+
     private static String countSql() {
         return "SELECT count(*) FROM catalogue.release_snapshot rs"
                 + " WHERE rs.publication_id = '"
                 + PUBLICATION_ID
-                + "'::uuid AND rs.release_status = 'released'"
-                + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
-                + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                + " && daterange(DATE '2026-02-13', DATE '2026-08-13', '[]')";
+                + "'::uuid AND "
+                + recentPredicate();
     }
 
     private static String pageSql() {
@@ -200,10 +211,9 @@ class ReleaseBrowseScalabilityIT {
                 + "SELECT * FROM catalogue.release_snapshot rs"
                 + " WHERE rs.publication_id = '"
                 + PUBLICATION_ID
-                + "'::uuid AND rs.release_status = 'released'"
-                + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
-                + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                + " && daterange(DATE '2026-02-13', DATE '2026-08-13', '[]'))"
+                + "'::uuid AND "
+                + recentPredicate()
+                + ")"
                 + " SELECT rs.release_id FROM filtered_release rs"
                 + " JOIN LATERAL (SELECT snapshot.canonical_title"
                 + " FROM catalogue.game_snapshot snapshot"
@@ -226,17 +236,25 @@ class ReleaseBrowseScalabilityIT {
                 + " FROM catalogue.game_snapshot snapshot"
                 + " WHERE snapshot.publication_id = rs.publication_id AND snapshot.game_id = rs.game_id"
                 + " LIMIT 1) gs ON true"
-                + " ORDER BY rs.period_start ASC NULLS LAST, lower(gs.canonical_title), rs.game_id, rs.release_id"
+                + " ORDER BY CASE rs.date_precision WHEN 'day' THEN 1 WHEN 'month' THEN 2"
+                + " WHEN 'quarter' THEN 3 WHEN 'year' THEN 4 ELSE 5 END,"
+                + " rs.period_start ASC NULLS LAST, lower(gs.canonical_title), rs.game_id, rs.release_id"
                 + " LIMIT 20 OFFSET 0";
     }
 
+    // Mirrors JdbcReleaseBrowseReadAdapter's UPCOMING (with unknown) predicate: a known date that
+    // has not yet occurred, excluding cancelled; or a TBA unknown date that is not explicitly
+    // released. Delayed releases with a valid future period stay relevant.
     private static String upcomingWhere() {
         return " WHERE rs.publication_id = '"
                 + PUBLICATION_ID
-                + "'::uuid AND rs.release_status NOT IN ('released', 'cancelled')"
-                + " AND ((rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
+                + "'::uuid AND rs.release_status <> 'cancelled'"
+                + " AND ((NOT ((rs.date_precision = 'day' AND rs.exact_date <= DATE '2026-08-13')"
+                + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
+                + " AND rs.period_end < DATE '2026-08-13'))"
+                + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
                 + " AND daterange(rs.period_start, rs.period_end, '[]')"
                 + " && daterange(DATE '2026-08-13', DATE '2027-02-13', '[]'))"
-                + " OR rs.date_precision = 'unknown')";
+                + " OR (rs.release_status <> 'released' AND rs.date_precision = 'unknown'))";
     }
 }

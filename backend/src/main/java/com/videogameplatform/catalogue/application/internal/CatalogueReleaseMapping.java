@@ -2,17 +2,26 @@ package com.videogameplatform.catalogue.application.internal;
 
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Item;
+import com.videogameplatform.catalogue.domain.EffectiveReleaseStatusPolicy;
+import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
 import java.time.Instant;
+import java.time.LocalDate;
 
 /** Shared full release evidence mapping for public catalogue reads. */
 public final class CatalogueReleaseMapping {
     private CatalogueReleaseMapping() {}
 
     public static BrowseReleasesResult.Release map(
-            Item item, Instant evaluatedAt, CatalogueFreshnessPolicy freshnessPolicy) {
+            Item item,
+            Instant evaluatedAt,
+            LocalDate evaluatedOn,
+            CatalogueFreshnessPolicy freshnessPolicy) {
+        ReleaseStatus effectiveStatus =
+                EffectiveReleaseStatusPolicy.effectiveStatus(
+                        item.status(), item.releaseDate(), evaluatedOn);
         BrowseReleasesResult.Taxonomy platform =
                 new BrowseReleasesResult.Taxonomy(item.platform().id(), item.platform().name());
         BrowseReleasesResult.Taxonomy region =
@@ -23,7 +32,7 @@ public final class CatalogueReleaseMapping {
                 platform,
                 region,
                 CatalogueReadMapping.toReleaseDate(item.releaseDate()),
-                CatalogueReadMapping.toStatus(item.status()),
+                CatalogueReadMapping.toStatus(effectiveStatus),
                 new BrowseReleasesResult.Provenance(
                         toSource(item.sourceKind()), item.sourceName(), item.sourceEntityType()),
                 item.providerUpdatedAt(),
