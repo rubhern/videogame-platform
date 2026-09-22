@@ -10,6 +10,8 @@ import com.videogameplatform.catalogue.application.synchronization.internal.Cove
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderCover;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWork;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWorkBatch;
@@ -239,22 +241,10 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 "100",
                 work(
                         "100",
-                        new ProviderRelease(
-                                "10", "windows-pc", "worldwide", date, ProviderReleaseSignal.NONE),
-                        new ProviderRelease(
-                                "11", "playstation-5", "europe", date, ProviderReleaseSignal.NONE),
-                        new ProviderRelease(
-                                "12",
-                                "playstation-5",
-                                "north-america",
-                                date,
-                                ProviderReleaseSignal.NONE),
-                        new ProviderRelease(
-                                "13",
-                                "xbox-series",
-                                "worldwide",
-                                date,
-                                ProviderReleaseSignal.NONE)));
+                        pr("10", "6", "8", date),
+                        pr("11", "167", "1", date),
+                        pr("12", "167", "2", date),
+                        pr("13", "169", "8", date)));
 
         var result = service.synchronize(WINDOW);
 
@@ -265,31 +255,71 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
     }
 
     @Test
+    void acquiresUnknownTaxonomyByReferenceAndReusesItWithStableIdentity() {
+        var date = new ReleaseDate.Day(LocalDate.parse("2026-05-01"));
+        provider.rows = List.of(new Row(10, "100"), new Row(11, "100"));
+        provider.works.put(
+                "100",
+                work(
+                        "100",
+                        pr("10", "167", "8", date),
+                        acquired("11", "9999", "New Handheld", "new-handheld", "7777", "Nova", date)));
+
+        assertThat(service.synchronize(WINDOW).outcome()).isEqualTo(SynchronizationOutcome.SUCCEEDED);
+
+        // A known provider reference reuses the backfilled seed identity instead of duplicating it.
+        assertThat(platformIdFor("167"))
+                .isEqualTo(UUID.fromString("10000000-0000-4000-8000-000000000001"));
+        // An unknown reference creates the product taxonomy and its reference as accepted state.
+        UUID acquiredPlatform = platformIdFor("9999");
+        UUID acquiredRegion = regionIdFor("7777");
+        assertThat(acquiredPlatform).isNotNull();
+        assertThat(acquiredRegion).isNotNull();
+        int platforms = count("platform");
+        int regions = count("region");
+
+        // A second run reuses the reference: no duplicate product taxonomy.
+        service.synchronize(WINDOW);
+        assertThat(platformIdFor("9999")).isEqualTo(acquiredPlatform);
+        assertThat(regionIdFor("7777")).isEqualTo(acquiredRegion);
+        assertThat(count("platform")).isEqualTo(platforms);
+        assertThat(count("region")).isEqualTo(regions);
+
+        // A provider slug/name change never changes or merges product identity.
+        provider.works.put(
+                "100",
+                work(
+                        "100",
+                        pr("10", "167", "8", date),
+                        acquired(
+                                "11",
+                                "9999",
+                                "New Handheld Pro",
+                                "new-handheld-pro",
+                                "7777",
+                                "Nova Renamed",
+                                date)));
+        service.synchronize(WINDOW);
+        assertThat(platformIdFor("9999")).isEqualTo(acquiredPlatform);
+        assertThat(regionIdFor("7777")).isEqualTo(acquiredRegion);
+        assertThat(count("platform")).isEqualTo(platforms);
+        assertThat(count("region")).isEqualTo(regions);
+    }
+
+    @Test
     void changedReleaseTupleKeepsIdentityAndDistinctReferencesAreNotMerged() {
         provider.rows = List.of(new Row(10, "100"));
         provider.works.put("100", work("100", release("10", "2026-10-01")));
         service.synchronize(WINDOW);
         UUID id = store.loadGame("100", 25).orElseThrow().releases().get("10").releaseId();
         var date = new ReleaseDate.Day(LocalDate.parse("2026-10-01"));
-        var changed =
-                new ProviderRelease(
-                        "10", "playstation-5", "worldwide", date, ProviderReleaseSignal.NONE);
+        var changed = pr("10", "167", "8", date);
         provider.works.put("100", work("100", changed));
         service.synchronize(WINDOW);
         assertThat(store.loadGame("100", 25).orElseThrow().releases().get("10").releaseId())
                 .isEqualTo(id);
 
-        provider.works.put(
-                "100",
-                work(
-                        "100",
-                        changed,
-                        new ProviderRelease(
-                                "11",
-                                "playstation-5",
-                                "worldwide",
-                                date,
-                                ProviderReleaseSignal.NONE)));
+        provider.works.put("100", work("100", changed, pr("11", "167", "8", date)));
         assertThat(service.synchronize(WINDOW).outcome()).isEqualTo(SynchronizationOutcome.FAILED);
         assertThat(count("release_external_reference")).isEqualTo(1);
     }
@@ -315,17 +345,67 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         return jdbc.queryForObject("SELECT count(*) FROM catalogue." + table, Integer.class);
     }
 
+    private UUID platformIdFor(String providerId) {
+        return jdbc
+                .query(
+                        "SELECT platform_id FROM catalogue.platform_external_reference"
+                                + " WHERE provider='IGDB' AND provider_id=?",
+                        (rs, n) -> rs.getObject(1, UUID.class),
+                        providerId)
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+    private UUID regionIdFor(String providerId) {
+        return jdbc
+                .query(
+                        "SELECT region_id FROM catalogue.region_external_reference"
+                                + " WHERE provider='IGDB' AND provider_id=?",
+                        (rs, n) -> rs.getObject(1, UUID.class),
+                        providerId)
+                .stream()
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static ProviderRelease acquired(
+            String id,
+            String platformRef,
+            String platformName,
+            String platformSlug,
+            String regionRef,
+            String regionName,
+            ReleaseDate date) {
+        return new ProviderRelease(
+                id,
+                new ProviderPlatform(platformRef, platformName, platformSlug),
+                Optional.of(new ProviderRegion(regionRef, regionName)),
+                date,
+                ProviderReleaseSignal.NONE);
+    }
+
     private String version() {
         return jdbc.queryForObject(
                 "SELECT catalogue_version FROM catalogue.catalogue_publication", String.class);
     }
 
     private static ProviderRelease release(String id, String date) {
+        return pr("6", id, date);
+    }
+
+    private static ProviderRelease pr(String platformRef, String id, String date) {
+        return pr(id, platformRef, "8", new ReleaseDate.Day(LocalDate.parse(date)));
+    }
+
+    /** Provider taxonomy references; the store resolves them to product identity by reference. */
+    private static ProviderRelease pr(
+            String id, String platformRef, String regionRef, ReleaseDate date) {
         return new ProviderRelease(
                 id,
-                "windows-pc",
-                "worldwide",
-                new ReleaseDate.Day(LocalDate.parse(date)),
+                new ProviderPlatform(platformRef, "Platform " + platformRef, "platform-" + platformRef),
+                Optional.of(new ProviderRegion(regionRef, "Region " + regionRef)),
+                date,
                 ProviderReleaseSignal.NONE);
     }
 

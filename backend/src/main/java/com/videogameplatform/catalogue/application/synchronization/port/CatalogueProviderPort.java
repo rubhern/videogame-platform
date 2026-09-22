@@ -9,10 +9,11 @@ import java.util.Optional;
 /**
  * Outbound port for the approved external catalogue provider.
  *
- * <p>Everything crossing this port is already product vocabulary: platform and region codes the
- * local taxonomy owns, closed date variants, a closed work-type vocabulary, and an opaque provider
- * reference. Provider transport models, provider taxonomy names and raw payloads stay inside the
- * adapter (EXT-001, EXT-002).
+ * <p>Everything crossing this port is already product vocabulary: typed provider taxonomy
+ * references with descriptive names, closed date variants, a closed work-type vocabulary, and an
+ * opaque provider reference. Provider transport models and raw payloads stay inside the adapter
+ * (EXT-001, EXT-002). The product taxonomy identity these references resolve to is owned by the
+ * store, which reuses a known reference or creates the product entity as part of the accepted state.
  */
 public interface CatalogueProviderPort {
 
@@ -69,18 +70,49 @@ public interface CatalogueProviderPort {
     /**
      * A normalized commercial Release.
      *
-     * <p>Platform and region are local taxonomy codes, never provider labels. Subscription or
-     * promotional availability is not a release and never reaches this record (REL-006).
+     * <p>Platform and region are typed provider taxonomy references the store resolves to product
+     * identity, never provider labels used as identity. An absent region resolves to the product
+     * 'unknown' sentinel rather than being guessed. Subscription or promotional availability is not
+     * a release and never reaches this record (REL-006).
      */
     record ProviderRelease(
             String providerId,
-            String platformCode,
-            String regionCode,
+            ProviderPlatform platform,
+            Optional<ProviderRegion> region,
             ReleaseDate date,
             ProviderReleaseSignal signal) {
         public ProviderRelease {
             if (providerId == null || providerId.isBlank()) {
                 throw new IllegalArgumentException("A release requires an external identity");
+            }
+            if (platform == null) {
+                throw new IllegalArgumentException("A release requires a platform reference");
+            }
+            region = region == null ? Optional.empty() : region;
+        }
+    }
+
+    /**
+     * A typed provider platform reference. {@code providerId} is the stable identity; {@code name}
+     * and {@code slug} are descriptive metadata that may seed a product display name or code but
+     * never establish identity.
+     */
+    record ProviderPlatform(String providerId, String name, String slug) {
+        public ProviderPlatform {
+            if (providerId == null || providerId.isBlank()) {
+                throw new IllegalArgumentException("A platform reference requires an external identity");
+            }
+        }
+    }
+
+    /**
+     * A typed provider release-region reference. {@code providerId} is the stable identity;
+     * {@code name} is descriptive metadata only.
+     */
+    record ProviderRegion(String providerId, String name) {
+        public ProviderRegion {
+            if (providerId == null || providerId.isBlank()) {
+                throw new IllegalArgumentException("A region reference requires an external identity");
             }
         }
     }

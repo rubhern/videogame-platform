@@ -60,7 +60,7 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                 throw new ApiRequestException(
                         repeatedParameterCode(parameter), "/query/" + parameter.name());
             }
-            if (values != null && values.length > 1) {
+            if (values != null && values.length > 1 && !parameter.multiValued()) {
                 ApiRequestException exception =
                         new ApiRequestException(
                                 repeatedParameterCode(parameter), "/query/" + parameter.name());
@@ -110,9 +110,14 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
             return null;
         }
         String name = annotation.name().isBlank() ? annotation.value() : annotation.name();
+        // A collection-typed parameter (an OpenAPI array such as platformIds/regionIds) legitimately
+        // repeats; scalar parameters stay single-valued and reject repetition.
+        boolean multiValued =
+                java.util.Collection.class.isAssignableFrom(parameter.getParameterType());
         return new QueryParameter(
                 name,
                 parameter.hasParameterAnnotation(Min.class),
+                multiValued,
                 "weeks".equals(name)
                         ? Set.of("1", "2", "4")
                         : acceptedValues(parameter.getParameterType()));
@@ -127,5 +132,6 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private record QueryParameter(String name, boolean pagination, Set<String> acceptedValues) {}
+    private record QueryParameter(
+            String name, boolean pagination, boolean multiValued, Set<String> acceptedValues) {}
 }

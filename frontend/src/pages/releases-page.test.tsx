@@ -44,7 +44,7 @@ function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
     view: "recent",
     evaluatedOn: "2026-08-13",
     window: { from: "2026-02-13", to: "2026-08-13" },
-    activeFilters: { platformId: null, regionId: null },
+    activeFilters: { platformIds: [], regionIds: [] },
     availableFilters: {
       platforms: [
         { platformId: "playstation-5", name: "PlayStation 5" },
@@ -123,14 +123,14 @@ describe("releases page", () => {
     expect(query?.get("view")).toBe("recent");
     expect(query?.get("page")).toBe("1");
     expect(query?.get("pageSize")).toBe("12");
-    expect(query?.has("platformId")).toBe(false);
+    expect(query?.has("platformIds")).toBe(false);
   });
 
-  it("restores a shared filtered and paginated URL", async () => {
+  it("restores a shared multi-select filtered and paginated URL", async () => {
     const fetchMock = stubReleases(() =>
       Response.json(
         releasePage({
-          activeFilters: { platformId: "playstation-5", regionId: null },
+          activeFilters: { platformIds: ["playstation-5"], regionIds: [] },
           items: [],
           page: { number: 2, size: 6, totalItems: 0, totalPages: 0 },
         }),
@@ -138,34 +138,62 @@ describe("releases page", () => {
       ),
     );
 
-    renderApp("/?platformId=playstation-5&page=2");
+    renderApp("/?platformIds=playstation-5&page=2");
 
-    expect(
-      await screen.findByRole("combobox", { name: /^Plataforma:/ }),
-    ).toHaveTextContent("PlayStation 5");
+    // The closed Platform selector summarises the restored selection without opening.
+    expect(await screen.findByRole("combobox", { name: /Plataforma/ })).toHaveTextContent(
+      "PlayStation 5",
+    );
     const query = requestedQueries(fetchMock)[0];
-    expect(query?.get("platformId")).toBe("playstation-5");
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
     expect(query?.get("page")).toBe("2");
   });
 
-  it("applies a platform filter and returns to the first page", async () => {
+  it("returns to the first page when a filter is applied", async () => {
     const user = userEvent.setup();
     const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
 
     const { router } = renderApp("/?page=3");
-    await user.click(await screen.findByRole("combobox", { name: /^Plataforma:/ }));
+    await user.click(await screen.findByRole("combobox", { name: /Plataforma/ }));
     await user.click(screen.getByRole("option", { name: "PlayStation 5" }));
 
     await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(1));
     const query = requestedQueries(fetchMock).at(-1);
-    expect(query?.get("platformId")).toBe("playstation-5");
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
     expect(query?.get("page")).toBe("1");
-    expect(router.state.location.search).toBe("?weeks=1&platformId=playstation-5");
+    expect(router.state.location.search).toBe("?weeks=1&platformIds=playstation-5");
+  });
 
-    await user.click(screen.getByRole("combobox", { name: /^Región:/ }));
-    await user.click(screen.getByRole("option", { name: "Mundial" }));
+  it("combines several platforms with OR and adds a region with AND from one open popover", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
+
+    const { router } = renderApp("/");
+    await user.click(await screen.findByRole("combobox", { name: /Plataforma/ }));
+    await user.click(screen.getByRole("option", { name: "PlayStation 5" }));
+
+    await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(1));
+    let query = requestedQueries(fetchMock).at(-1);
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
+    expect(router.state.location.search).toBe("?weeks=1&platformIds=playstation-5");
+
+    // The popover stays open, so a second value is added with OR without reopening.
+    expect(screen.getByRole("listbox", { name: "Plataforma" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "Windows PC" }));
     await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(2));
-    expect(router.state.location.search).toBe("?weeks=1&platformId=playstation-5&regionId=worldwide");
+    query = requestedQueries(fetchMock).at(-1);
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5", "windows-pc"]);
+    expect(router.state.location.search).toBe(
+      "?weeks=1&platformIds=playstation-5&platformIds=windows-pc",
+    );
+
+    // A second dimension combines with AND.
+    await user.click(await screen.findByRole("combobox", { name: /Región/ }));
+    await user.click(screen.getByRole("option", { name: "Mundial" }));
+    await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(3));
+    expect(router.state.location.search).toBe(
+      "?weeks=1&platformIds=playstation-5&platformIds=windows-pc&regionIds=worldwide",
+    );
   });
 
   it("switches to the upcoming window through navigation", async () => {
@@ -180,7 +208,7 @@ describe("releases page", () => {
     );
 
     renderApp();
-    await screen.findByRole("combobox", { name: /^Plataforma:/ });
+    await screen.findByRole("combobox", { name: /Plataforma/ });
 
     await user.click(screen.getByRole("link", { name: "Próximos" }));
 
@@ -205,14 +233,14 @@ describe("releases page", () => {
         { status: 200 },
       ),
     );
-    const { router } = renderApp("/?view=upcoming&platformId=playstation-5&page=3");
+    const { router } = renderApp("/?view=upcoming&platformIds=playstation-5&page=3");
     const selector = await screen.findByRole("combobox", { name: /^Periodo:/ });
     selector.focus();
     await user.keyboard("{ArrowDown}{End}{Enter}");
 
     await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("weeks")).toBe("4"));
     expect(requestedQueries(fetchMock).at(-1)?.get("page")).toBe("1");
-    expect(router.state.location.search).toBe("?view=upcoming&weeks=4&platformId=playstation-5");
+    expect(router.state.location.search).toBe("?view=upcoming&weeks=4&platformIds=playstation-5");
     expect(await screen.findByText(/13 de agosto de 2026 al 10 de septiembre de 2026/)).toBeInTheDocument();
   });
 
@@ -234,7 +262,7 @@ describe("releases page", () => {
     await user.click(screen.getByRole("link", { name: "Próximos" }));
 
     expect(screen.getByRole("heading", { level: 1, name: "Próximos lanzamientos" })).toBeVisible();
-    expect(screen.getByRole("combobox", { name: /^Plataforma:/ })).toBeVisible();
+    expect(screen.getByRole("combobox", { name: /Plataforma/ })).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Cargando lanzamientos para la nueva selección",
     );
@@ -278,7 +306,7 @@ describe("releases page", () => {
       }),
     );
 
-    renderApp("/?platformId=platform-removed");
+    renderApp("/?platformIds=platform-removed");
 
     expect(await screen.findByRole("heading", { name: "Filtro no admitido" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/?weeks=1");

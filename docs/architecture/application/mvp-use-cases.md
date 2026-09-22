@@ -36,6 +36,18 @@ and the returned evaluated range is shown to the visitor. The range is recalcula
 each request, so a shared URL describes a moving horizon rather than a fixed historical
 interval.
 
+Platform and region filters are multi-select facets: values within one dimension combine
+with `OR` and the two dimensions combine with `AND`. No value selected for a dimension
+means it is unfiltered (`Todas`), which is distinct from selecting the concrete
+`Worldwide` region. `availableFilters` is contextual and faceted, computed in PostgreSQL:
+platform options reflect the current window and the active region selection (never
+narrowed by the active platform set), region options reflect the current window and the
+active platform selection (never narrowed by the active region set), and a currently
+selected valid value always stays representable. A future or historical platform or
+region therefore does not appear in an unrelated current window merely because it exists.
+The wire shape of these parameters and the response lives in
+[`openapi.yaml`](../api/openapi.yaml).
+
 `UC-002` normalizes the query and the searchable catalogue text with one rule, so
 matching is case- and diacritic-insensitive without ever rewriting a display title.
 Only an approved alias is searchable. Ordering ends in unique `gameId` after match
@@ -46,6 +58,11 @@ is explicitly bounded, so request memory is `O(pageSize x releaseContextLimit)`.
 `UC-009` reconciles all relevant new and known Games in the requested date interval through one operation.
 [ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
 owns Game selection, import policy, stable Release identity and per-Game atomicity.
+It also acquires the platform and region taxonomy that accepted releases use, resolving
+each provider entity through a typed external reference and creating the product entity
+when the reference is unknown, per
+[ADR-0020](../../decisions/0020-acquire-platform-and-region-taxonomy-from-releases.md);
+provider identifiers never become product identity and names are never used to merge.
 A partial run preserves successful Games and the failed
 Game's last valid state. Provider DTOs and transport details remain in the adapter;
 no public request invokes it.

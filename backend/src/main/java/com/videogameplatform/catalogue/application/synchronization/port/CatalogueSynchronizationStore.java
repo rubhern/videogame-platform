@@ -2,6 +2,8 @@ package com.videogameplatform.catalogue.application.synchronization.port;
 
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
@@ -24,8 +26,6 @@ public interface CatalogueSynchronizationStore {
 
     void heartbeat(UUID runId);
 
-    CatalogueContext loadContext();
-
     Optional<GameState> loadGame(String providerId, int maxReleases);
 
     WriteResult saveGame(UUID runId, GameWrite write);
@@ -33,9 +33,6 @@ public interface CatalogueSynchronizationStore {
     void completeRun(CatalogueSynchronizationReport report, int retainedRuns);
 
     Optional<CatalogueSynchronizationReport> lastRun();
-
-    record CatalogueContext(
-            Map<String, UUID> platformIdsByCode, Map<String, UUID> regionIdsByCode) {}
 
     record GameState(
             UUID gameId,
@@ -63,16 +60,22 @@ public interface CatalogueSynchronizationStore {
             int updatedReleases,
             int unchangedReleases) {}
 
+    /**
+     * A previously published release, matched by its provider release reference. Platform and region
+     * are exposed as their provider references so reconciliation compares stable provider identity;
+     * {@code regionProviderId} is null for the product 'unknown' sentinel, and either reference is
+     * null for a legacy taxonomy row that predates provider references.
+     */
     record PublishedRelease(
             UUID releaseId,
-            ReleaseIdentity identity,
+            UUID gameId,
+            String platformProviderId,
+            String regionProviderId,
             ReleaseDate date,
             ReleaseStatus status,
             Instant lastVerifiedAt,
             VerificationLevel verificationLevel,
             ReviewStatus reviewStatus) {}
-
-    record ReleaseIdentity(UUID gameId, UUID platformId, UUID regionId) {}
 
     sealed interface CoverSelection {
 
@@ -85,9 +88,15 @@ public interface CatalogueSynchronizationStore {
                 implements CoverSelection {}
     }
 
-    /** Validated state; identity is supplied separately by ReleaseWrite's external reference. */
+    /**
+     * Validated release state. The release identity is supplied by ReleaseWrite's external
+     * reference; the game identity by GameWrite. Platform and region are typed provider references
+     * the store resolves to product taxonomy, reusing a known reference or creating the product
+     * entity as part of this write. An absent region resolves to the product 'unknown' sentinel.
+     */
     record PlannedRelease(
-            ReleaseIdentity identity,
+            ProviderPlatform platform,
+            Optional<ProviderRegion> region,
             ReleaseDate date,
             ReleaseStatus status,
             SourceKind sourceKind,

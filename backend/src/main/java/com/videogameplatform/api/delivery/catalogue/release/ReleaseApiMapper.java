@@ -54,7 +54,8 @@ public final class ReleaseApiMapper {
                 result.evaluatedOn(),
                 new ReleaseWindow(result.window().from(), result.window().to()),
                 new ActiveFilters(
-                        result.activeFilters().platformId(), result.activeFilters().regionId()),
+                        new java.util.LinkedHashSet<>(result.activeFilters().platformIds()),
+                        new java.util.LinkedHashSet<>(result.activeFilters().regionIds())),
                 new AvailableFilters(platforms, regions),
                 items,
                 new PageMetadata(

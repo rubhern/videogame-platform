@@ -60,8 +60,8 @@ export type ReleasesViewModel = {
   compactWindowDescription: string;
   platforms: ReleaseFilterOption[];
   regions: ReleaseFilterOption[];
-  activePlatformId: string | null;
-  activeRegionId: string | null;
+  activePlatformIds: string[];
+  activeRegionIds: string[];
   items: ReleaseListItem[];
   staleItemCount: number;
   page: { number: number; size: number; totalItems: number; totalPages: number };
@@ -212,8 +212,8 @@ export function toReleasesViewModel(page: ReleasePage): ReleasesViewModel {
       id: region.regionId,
       name: regionLabel(region.name),
     })),
-    activePlatformId: page.activeFilters.platformId,
-    activeRegionId: page.activeFilters.regionId,
+    activePlatformIds: page.activeFilters.platformIds,
+    activeRegionIds: page.activeFilters.regionIds,
     items,
     staleItemCount: items.filter((item) => item.isStale).length,
     page: page.page,

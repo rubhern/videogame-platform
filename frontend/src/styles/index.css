@@ -725,6 +725,21 @@
     background: var(--color-raised);
   }
 
+  /* Two compact multi-select dropdowns sit side by side, their reset link aligned to the triggers.
+     Several selected values inside one dimension combine with OR, and the two dimensions combine
+     with AND. No selection means the dimension is unfiltered (Todas), distinct from the concrete
+     Worldwide region. */
+  .release-facet-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 20px;
+  }
+
+  .release-facet-row .filter-reset {
+    margin-bottom: 3px;
+  }
+
   /* Both release windows close with one bar: total and page on the left, pager in the
      middle and the other window on the right. */
   .releases-footer {

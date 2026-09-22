@@ -15,6 +15,6 @@ public record IgdbReleaseDatePayload(
         Integer m,
         Integer d,
         IgdbNamedValuePayload dateFormat,
-        IgdbNamedValuePayload releaseRegion,
+        IgdbReleaseRegionPayload releaseRegion,
         IgdbNamedValuePayload status,
         IgdbPlatformPayload platform) {}

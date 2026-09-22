@@ -9,7 +9,7 @@ const releasesResponse = {
   view: "recent",
   evaluatedOn: "2026-08-13",
   window: { from: "2026-02-13", to: "2026-08-13" },
-  activeFilters: { platformId: null, regionId: null },
+  activeFilters: { platformIds: [], regionIds: [] },
   availableFilters: { platforms: [], regions: [] },
   items: [
     {

@@ -46,21 +46,26 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
         BrowseReleasesResult.Window window = window(query.view(), query.weeks(), evaluatedOn);
         long offset = Math.multiplyExact((long) query.pageNumber() - 1, query.pageSize());
 
+        // Deterministic normalization for multi-select filters: trim, drop blanks, de-duplicate and
+        // sort, so repeated values collapse and the applied filter is stable and reproducible.
+        List<String> platformIds = normalize(query.platformIds());
+        List<String> regionIds = normalize(query.regionIds());
+
         Result result =
                 readPort.findPublishedReleases(
                                 new ReleaseBrowseReadPort.Criteria(
                                         query.view(),
                                         new ReleaseBrowseReadPort.Window(
                                                 window.from(), window.to()),
-                                        query.platformId(),
-                                        query.regionId(),
+                                        platformIds,
+                                        regionIds,
                                         new ReleaseBrowseReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
                                         browsePolicy.includesUnknownUpcomingDates(),
                                         browsePolicy.releaseGroupLimit()))
                         .orElseThrow(CatalogueNotReadyException::new);
 
-        validateTaxonomy(query, result);
+        validateTaxonomy(platformIds, regionIds, result);
         long totalPages =
                 result.totalItems() / query.pageSize()
                         + (result.totalItems() % query.pageSize() == 0 ? 0 : 1);
@@ -70,13 +75,23 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                 query.view(),
                 evaluatedOn,
                 window,
-                new BrowseReleasesResult.ActiveFilters(query.platformId(), query.regionId()),
+                new BrowseReleasesResult.ActiveFilters(platformIds, regionIds),
                 availableFilters(result),
                 result.items().stream()
                         .map(item -> toItem(item, evaluatedAt, evaluatedOn))
                         .toList(),
                 new BrowseReleasesResult.PageMetadata(
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));
+    }
+
+    private static List<String> normalize(List<String> values) {
+        return values.stream()
+                .filter(value -> value != null)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .distinct()
+                .sorted()
+                .toList();
     }
 
     private BrowseReleasesResult.Window window(View view, int weeks, LocalDate evaluatedOn) {
@@ -89,16 +104,23 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
         };
     }
 
-    private static void validateTaxonomy(Query query, Result result) {
-        if (query.platformId() != null
-                && result.platforms().stream()
-                        .noneMatch(platform -> platform.id().equals(query.platformId()))) {
+    private static void validateTaxonomy(
+            List<String> platformIds, List<String> regionIds, Result result) {
+        // A selected value is valid only if it is a real taxonomy id, which the read port keeps
+        // representable in the returned facets. Any unknown id fails the whole request.
+        if (!platformIds.stream()
+                .allMatch(
+                        requested ->
+                                result.platforms().stream()
+                                        .anyMatch(platform -> platform.id().equals(requested)))) {
             throw new ReleaseQueryValidationException(
                     ReleaseQueryValidationException.Code.PLATFORM_NOT_SUPPORTED);
         }
-        if (query.regionId() != null
-                && result.regions().stream()
-                        .noneMatch(region -> region.id().equals(query.regionId()))) {
+        if (!regionIds.stream()
+                .allMatch(
+                        requested ->
+                                result.regions().stream()
+                                        .anyMatch(region -> region.id().equals(requested)))) {
             throw new ReleaseQueryValidationException(
                     ReleaseQueryValidationException.Code.REGION_NOT_SUPPORTED);
         }

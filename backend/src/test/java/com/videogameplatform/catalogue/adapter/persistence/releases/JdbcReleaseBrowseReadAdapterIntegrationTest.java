@@ -161,6 +161,85 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
     }
 
     @Test
+    void combinesMultipleValuesWithinADimensionUsingOr() {
+        var byPlatform =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(PLATFORM_PLAYSTATION_5, PLATFORM_XBOX_SERIES),
+                                        List.of()))
+                        .orElseThrow();
+        assertThat(titles(byPlatform))
+                .containsExactly("Pragmata", "Subnautica 2", "Resident Evil Requiem");
+
+        var byRegion =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(),
+                                        List.of(REGION_WORLDWIDE, REGION_JAPAN)))
+                        .orElseThrow();
+        assertThat(titles(byRegion))
+                .containsExactly(
+                        "Pragmata",
+                        "Crimson Desert",
+                        "Metroid Prime 4: Beyond",
+                        "Resident Evil Requiem");
+    }
+
+    @Test
+    void distinguishesUnfilteredTodasFromTheConcreteWorldwideRegion() {
+        var todas =
+                adapter.findPublishedReleases(
+                                multi(BrowseReleasesUseCase.View.RECENT, List.of(), List.of()))
+                        .orElseThrow();
+        assertThat(todas.totalItems()).isEqualTo(5);
+
+        var worldwide =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(),
+                                        List.of(REGION_WORLDWIDE)))
+                        .orElseThrow();
+        assertThat(titles(worldwide))
+                .containsExactly("Pragmata", "Crimson Desert", "Resident Evil Requiem");
+    }
+
+    @Test
+    void availablePlatformFacetIsNotNarrowedByItsOwnSelection() {
+        var result =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(PLATFORM_PLAYSTATION_5),
+                                        List.of()))
+                        .orElseThrow();
+        // The platform facet reflects the window, never the active platform set, so an unselected
+        // platform present in the window stays available to add.
+        assertThat(result.platforms())
+                .extracting(ReleaseBrowseReadPort.Taxonomy::id)
+                .contains(PLATFORM_PLAYSTATION_5, PLATFORM_XBOX_SERIES);
+    }
+
+    @Test
+    void keepsASelectedValidRegionRepresentableEvenWithoutAReleaseInContext() {
+        // Japan has no PlayStation 5 recent release, but a selected valid region must remain
+        // representable so the visitor can remove it.
+        var result =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(PLATFORM_PLAYSTATION_5),
+                                        List.of(REGION_JAPAN)))
+                        .orElseThrow();
+        assertThat(result.items()).isEmpty();
+        assertThat(result.regions())
+                .extracting(ReleaseBrowseReadPort.Taxonomy::id)
+                .contains(REGION_JAPAN);
+    }
+
+    @Test
     void excludesUnknownUpcomingDatesFromEveryGameWhenPolicyRequiresKnownDates() {
         var result =
                 adapter.findPublishedReleases(
@@ -304,6 +383,30 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         return result.items().stream().flatMap(item -> item.releases().stream()).toList();
     }
 
+    private static List<String> titles(ReleaseBrowseReadPort.Result result) {
+        return result.items().stream().map(Item::canonicalTitle).toList();
+    }
+
+    private static ReleaseBrowseReadPort.Criteria multi(
+            BrowseReleasesUseCase.View view, List<String> platformIds, List<String> regionIds) {
+        LocalDate from =
+                view == BrowseReleasesUseCase.View.RECENT
+                        ? LocalDate.of(2026, 2, 13)
+                        : LocalDate.of(2026, 8, 13);
+        LocalDate to =
+                view == BrowseReleasesUseCase.View.RECENT
+                        ? LocalDate.of(2026, 8, 13)
+                        : LocalDate.of(2027, 2, 13);
+        return new ReleaseBrowseReadPort.Criteria(
+                view,
+                new ReleaseBrowseReadPort.Window(from, to),
+                platformIds,
+                regionIds,
+                new ReleaseBrowseReadPort.Pagination(1, 20, 0),
+                true,
+                25);
+    }
+
     private static List<String> releaseIds(BrowseReleasesUseCase.View view, LocalDate evaluatedOn) {
         LocalDate from =
                 view == BrowseReleasesUseCase.View.RECENT
@@ -410,8 +513,8 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         return new ReleaseBrowseReadPort.Criteria(
                 view,
                 new ReleaseBrowseReadPort.Window(from, to),
-                platformId,
-                regionId,
+                platformId == null ? List.of() : List.of(platformId),
+                regionId == null ? List.of() : List.of(regionId),
                 new ReleaseBrowseReadPort.Pagination(page, pageSize, (long) (page - 1) * pageSize),
                 includeUnknownUpcomingDates,
                 25);

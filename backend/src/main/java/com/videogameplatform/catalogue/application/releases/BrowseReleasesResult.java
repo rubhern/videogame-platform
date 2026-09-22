@@ -21,7 +21,13 @@ public record BrowseReleasesResult(
 
     public record Window(LocalDate from, LocalDate to) {}
 
-    public record ActiveFilters(String platformId, String regionId) {}
+    public record ActiveFilters(List<String> platformIds, List<String> regionIds) {
+
+        public ActiveFilters {
+            platformIds = List.copyOf(platformIds);
+            regionIds = List.copyOf(regionIds);
+        }
+    }
 
     public record AvailableFilters(List<Taxonomy> platforms, List<Taxonomy> regions) {}
 

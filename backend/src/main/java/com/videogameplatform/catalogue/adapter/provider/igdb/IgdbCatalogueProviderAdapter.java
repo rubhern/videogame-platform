@@ -173,8 +173,7 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
         List<ProviderMappingFailure> failures = new ArrayList<>();
         String gameStatus = game.gameStatus() == null ? "" : game.gameStatus().value();
         for (IgdbReleaseDatePayload releaseDate : releaseDates) {
-            IgdbReleaseMapper.Mapped mapped =
-                    IgdbReleaseMapper.map(releaseDate, gameStatus, settings);
+            IgdbReleaseMapper.Mapped mapped = IgdbReleaseMapper.map(releaseDate, gameStatus);
             mapped.release().ifPresent(releases::add);
             mapped.failure().ifPresent(failures::add);
         }

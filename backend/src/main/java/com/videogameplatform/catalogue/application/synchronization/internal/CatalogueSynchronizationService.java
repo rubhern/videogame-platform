@@ -11,7 +11,6 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWorkBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ReleasePage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
-import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.CatalogueContext;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.CoverSelection;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameState;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameWrite;
@@ -81,7 +80,6 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         UUID runId = acquired.orElseThrow();
         long afterGameId = 0;
         try {
-            CatalogueContext context = store.loadContext();
             while (true) {
                 final ReleasePage page;
                 try {
@@ -99,7 +97,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                     break;
                 }
                 for (String providerId : page.gameIds()) {
-                    synchronizeGame(runId, providerId, context, started, counts);
+                    synchronizeGame(runId, providerId, started, counts);
                 }
                 store.heartbeat(runId);
                 afterGameId = page.nextGameId();
@@ -144,11 +142,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
     }
 
     private void synchronizeGame(
-            UUID runId,
-            String providerId,
-            CatalogueContext context,
-            Instant started,
-            Counts counts) {
+            UUID runId, String providerId, Instant started, Counts counts) {
         try {
             ProviderWorkBatch workBatch = provider.fetchWorks(List.of(providerId));
             counts.statistics = counts.statistics.plus(workBatch.statistics());
@@ -157,7 +151,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                 counts.failed++;
                 return;
             }
-            reconcile(runId, workBatch.works().getFirst(), context, started, counts);
+            reconcile(runId, workBatch.works().getFirst(), started, counts);
         } catch (ProviderRequestException failure) {
             counts.statistics = counts.statistics.plus(failure.statistics());
             counts.failed++;
@@ -180,11 +174,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
     }
 
     private void reconcile(
-            UUID runId,
-            ProviderWork work,
-            CatalogueContext context,
-            Instant synchronizedAt,
-            Counts counts) {
+            UUID runId, ProviderWork work, Instant synchronizedAt, Counts counts) {
         Optional<GameState> existing =
                 store.loadGame(work.providerId(), policy.maxReleasesPerGame());
         if (existing.isEmpty() && !GameImportPolicy.evaluate(work).accepted()) {
@@ -232,11 +222,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                             .orElse(null);
             Optional<PlannedRelease> release =
                     ReleaseReconciliationPolicy.reconcile(
-                            gameId,
                             providerRelease,
                             previous,
-                            context.platformIdsByCode(),
-                            context.regionIdsByCode(),
                             synchronizedAt,
                             work.providerUpdatedAt(),
                             provider.providerName());
