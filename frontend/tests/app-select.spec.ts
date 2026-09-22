@@ -40,7 +40,7 @@ test("release filters open from the full trigger and show tinted platform icons"
   }
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await list.getByRole("option", { name: "Windows PC" }).click();
-  await expect(page).toHaveURL(/platformIds=10000000-0000-4000-8000-000000000003/);
+  await expect(page).toHaveURL(/platformIds=windows-pc/);
   await expect(trigger).toContainText("Windows PC");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 });
