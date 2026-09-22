@@ -38,7 +38,7 @@ export function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
     view: "recent",
     evaluatedOn: "2026-08-13",
     window: { from: "2026-02-13", to: "2026-08-13" },
-    activeFilters: { platformId: null, regionId: null },
+    activeFilters: { platformIds: [], regionIds: [] },
     availableFilters: {
       platforms: [
         { platformId: "playstation-5", name: "PlayStation 5" },

@@ -66,7 +66,7 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page.getByRole("link", { name: "Página siguiente" })).toHaveCount(0);
     await page.getByRole("combobox", { name: /^Plataforma:/ }).click();
     await page.getByRole("option", { name: "Windows PC" }).click();
-    await expect(page).toHaveURL(/platformId=windows-pc/);
+    await expect(page).toHaveURL(/platformIds=10000000-0000-4000-8000-000000000003/);
     await expect(page).not.toHaveURL(/page=2/);
     await page.getByRole("link", { name: "Quitar filtros" }).click();
     await expectAccessibleLayout(page);
@@ -152,7 +152,7 @@ test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/platformId=playstation-5/);
+  await expect(page).toHaveURL(/platformIds=10000000-0000-4000-8000-000000000001/);
   await expect(page.getByRole("combobox", { name: /^Plataforma:/ })).toContainText("PlayStation 5");
 });
 }
@@ -222,7 +222,7 @@ for (const state of ["loading", "empty", "not-ready", "error"] as const) {
         category: "dependency", correlationId: "visual-check-reference",
       } });
     });
-    await page.goto("/?platformId=windows-pc");
+  await page.goto("/?platformIds=10000000-0000-4000-8000-000000000003");
     if (state === "loading") {
       await expect(page.getByRole("status")).toHaveText("Cargando lanzamientos…");
       await expect(page.getByRole("article")).toHaveCount(0);

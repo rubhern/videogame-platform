@@ -5,7 +5,6 @@ import com.videogameplatform.catalogue.application.CatalogueDataInvalidException
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase.View;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
-import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Taxonomy;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -93,6 +92,8 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
     private static final String PLATFORM_PREDICATE =
             "rs.platform_id = ANY(CAST(:platformIds AS uuid[]))";
     private static final String REGION_PREDICATE = "rs.region_id = ANY(CAST(:regionIds AS uuid[]))";
+    private static final String PLATFORM_ID_COLUMN = "platform_id";
+    private static final String REGION_ID_COLUMN = "region_id";
 
     private final NamedParameterJdbcOperations jdbcOperations;
     private final TransactionOperations readTransaction;
@@ -141,8 +142,8 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
         List<Taxonomy> platforms =
                 facet(
                         "platform",
-                        "platform_id",
-                        "region_id",
+                        PLATFORM_ID_COLUMN,
+                        REGION_ID_COLUMN,
                         publication.id(),
                         view,
                         validRegionIds,
@@ -150,8 +151,8 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
         List<Taxonomy> regions =
                 facet(
                         "region",
-                        "region_id",
-                        "platform_id",
+                        REGION_ID_COLUMN,
+                        PLATFORM_ID_COLUMN,
                         publication.id(),
                         view,
                         validPlatformIds,

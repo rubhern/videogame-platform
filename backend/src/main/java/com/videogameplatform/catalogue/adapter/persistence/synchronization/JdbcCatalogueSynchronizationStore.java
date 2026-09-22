@@ -482,7 +482,8 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                 value.trim()
                         .toLowerCase(Locale.ROOT)
                         .replaceAll("[^a-z0-9]+", "-")
-                        .replaceAll("^-+|-+$", "");
+                        .replaceAll("^-+", "")
+                        .replaceAll("-+$", "");
         return slug;
     }
 

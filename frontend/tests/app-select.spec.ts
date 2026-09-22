@@ -8,10 +8,10 @@ test("release filters open from the full trigger and show tinted platform icons"
   await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage({
     availableFilters: {
       platforms: [
-        { platformId: "nintendo-switch-2", name: "Nintendo Switch 2" },
-        { platformId: "playstation-5", name: "PlayStation 5" },
-        { platformId: "windows-pc", name: "Windows PC" },
-        { platformId: "xbox-series", name: "Xbox Series X|S" },
+        { platformId: "10000000-0000-4000-8000-000000000002", name: "Nintendo Switch 2" },
+        { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" },
+        { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" },
+        { platformId: "10000000-0000-4000-8000-000000000004", name: "Xbox Series X|S" },
       ],
       regions: [{ regionId: "worldwide", name: "Worldwide" }],
     },
@@ -40,7 +40,7 @@ test("release filters open from the full trigger and show tinted platform icons"
   }
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await list.getByRole("option", { name: "Windows PC" }).click();
-  await expect(page).toHaveURL(/platformId=windows-pc/);
+  await expect(page).toHaveURL(/platformIds=10000000-0000-4000-8000-000000000003/);
   await expect(trigger).toContainText("Windows PC");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 });

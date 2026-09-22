@@ -88,7 +88,7 @@ public interface CatalogueProviderPort {
             if (platform == null) {
                 throw new IllegalArgumentException("A release requires a platform reference");
             }
-            region = region == null ? Optional.empty() : region;
+            region = java.util.Objects.requireNonNull(region, "region");
         }
     }
 
