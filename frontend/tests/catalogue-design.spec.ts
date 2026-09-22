@@ -191,7 +191,7 @@ test("upcoming keeps its compact layout and keyboard filters on a phone", async 
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/regionId=worldwide/);
+  await expect(page).toHaveURL(/regionIds=worldwide/);
   await expect(page.getByRole("combobox", { name: /^Región:/ })).toContainText("Mundial");
 });
 

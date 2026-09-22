@@ -5,7 +5,7 @@ import { pragmata, releasePage } from "./fixtures/releases";
 
 test("release filters open from the full trigger and show tinted platform icons", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage({
+  await page.route("**/api/v1/releases**", (route) => route.fulfill({ json: releasePage({
     availableFilters: {
       platforms: [
         { platformId: "10000000-0000-4000-8000-000000000002", name: "Nintendo Switch 2" },
