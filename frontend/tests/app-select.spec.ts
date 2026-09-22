@@ -4,6 +4,10 @@ import { expect, test } from "@playwright/test";
 import { pragmata, releasePage } from "./fixtures/releases";
 
 test("release filters open from the full trigger and show tinted platform icons", async ({ page }) => {
+  test.skip(
+    process.env.PLAYWRIGHT_BASE_URL?.includes("application:"),
+    "This focused interaction test uses mocked release facets; packaged smoke covers the real catalogue journey.",
+  );
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/v1/releases**", (route) => route.fulfill({ json: releasePage({
     availableFilters: {
