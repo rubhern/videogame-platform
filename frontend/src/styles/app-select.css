@@ -108,6 +108,51 @@
     -webkit-mask-image: url("/assets/platforms/nintendo-switch.png");
   }
 
+  .app-select-icon-nintendo-switch-2 {
+    mask-image: url("/assets/platforms/nintendo-switch-2.png");
+    -webkit-mask-image: url("/assets/platforms/nintendo-switch-2.png");
+  }
+
+  .app-select-icon-android {
+    mask-image: url("/assets/platforms/android.png");
+    -webkit-mask-image: url("/assets/platforms/android.png");
+  }
+
+  .app-select-icon-ios {
+    mask-image: url("/assets/platforms/ios.png");
+    -webkit-mask-image: url("/assets/platforms/ios.png");
+  }
+
+  .app-select-icon-linux {
+    mask-image: url("/assets/platforms/linux.png");
+    -webkit-mask-image: url("/assets/platforms/linux.png");
+  }
+
+  .app-select-icon-macos {
+    mask-image: url("/assets/platforms/macos.png");
+    -webkit-mask-image: url("/assets/platforms/macos.png");
+  }
+
+  .app-select-icon-meta-quest {
+    mask-image: url("/assets/platforms/meta-quest.png");
+    -webkit-mask-image: url("/assets/platforms/meta-quest.png");
+  }
+
+  .app-select-icon-playstation-4 {
+    mask-image: url("/assets/platforms/playstation-4.png");
+    -webkit-mask-image: url("/assets/platforms/playstation-4.png");
+  }
+
+  .app-select-icon-playstation-5 {
+    mask-image: url("/assets/platforms/playstation-5.png");
+    -webkit-mask-image: url("/assets/platforms/playstation-5.png");
+  }
+
+  .app-select-icon-playstation-vr2 {
+    mask-image: url("/assets/platforms/playstation-vr2.png");
+    -webkit-mask-image: url("/assets/platforms/playstation-vr2.png");
+  }
+
   .app-select-icon-windows {
     mask-image: url("/assets/platforms/windows.png");
     -webkit-mask-image: url("/assets/platforms/windows.png");
@@ -116,6 +161,42 @@
   .app-select-icon-xbox {
     mask-image: url("/assets/platforms/xbox.png");
     -webkit-mask-image: url("/assets/platforms/xbox.png");
+  }
+
+  .app-select-icon-xbox-one {
+    mask-image: url("/assets/platforms/xbox-one.png");
+    -webkit-mask-image: url("/assets/platforms/xbox-one.png");
+  }
+
+  .app-select-icon-xbox-series-x-s {
+    mask-image: url("/assets/platforms/xbox-series-x-s.png");
+    -webkit-mask-image: url("/assets/platforms/xbox-series-x-s.png");
+  }
+
+  .app-select-icon-playstation-4,
+  .app-select-icon-playstation-5,
+  .app-select-icon-xbox-series-x-s {
+    transform: scale(1.35);
+  }
+
+  .app-select-icon-steamvr {
+    mask-image: url("/assets/platforms/steamvr.png");
+    -webkit-mask-image: url("/assets/platforms/steamvr.png");
+  }
+
+  .app-select-icon-japan {
+    mask-image: url("/assets/regions/japan.png");
+    -webkit-mask-image: url("/assets/regions/japan.png");
+  }
+
+  .app-select-icon-europe {
+    mask-image: url("/assets/regions/europe.png");
+    -webkit-mask-image: url("/assets/regions/europe.png");
+  }
+
+  .app-select-icon-north-america {
+    mask-image: url("/assets/regions/north-america.png");
+    -webkit-mask-image: url("/assets/regions/north-america.png");
   }
 
   .app-select-options {
@@ -176,6 +257,71 @@
     font-size: 0.875rem;
   }
 
+  /* Multi-select popover: options carry an explicit checkbox indicator, an icon and a label, and
+     toggling one keeps the popover open. Selection is exposed to assistive technology through the
+     listbox's aria-multiselectable and each option's aria-selected. */
+  .app-multiselect-options {
+    padding: 6px;
+  }
+
+  .app-multiselect-option {
+    display: flex;
+    width: 100%;
+    min-height: 40px;
+    align-items: center;
+    gap: 10px;
+    border-radius: 9px;
+    padding: 8px 10px;
+    color: var(--color-ink);
+    background: transparent;
+    font-size: 0.8125rem;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .app-multiselect-text {
+    min-width: 0;
+    flex: 1;
+    overflow-wrap: anywhere;
+  }
+
+  .app-multiselect-option:hover,
+  .app-multiselect-option[data-active="true"] {
+    background: color-mix(in srgb, var(--color-accent) 16%, var(--color-raised));
+  }
+
+  .app-multiselect-option[aria-selected="true"] {
+    color: var(--color-accent-hover);
+    font-weight: 600;
+  }
+
+  .app-multiselect-check {
+    position: relative;
+    flex: none;
+    width: 17px;
+    height: 17px;
+    border: 1.5px solid color-mix(in srgb, var(--color-ink) 34%, transparent);
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+  }
+
+  .app-multiselect-check[data-checked="true"] {
+    border-color: var(--color-accent);
+    background: var(--color-accent);
+  }
+
+  .app-multiselect-check[data-checked="true"]::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 2px;
+    width: 4px;
+    height: 8px;
+    border-right: 2px solid var(--color-surface);
+    border-bottom: 2px solid var(--color-surface);
+    transform: rotate(45deg);
+  }
+
   .release-filter-select {
     width: 235px;
     max-width: 100%;
@@ -232,7 +378,8 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .app-select-trigger,
-    .app-select-option {
+    .app-select-option,
+    .app-multiselect-option {
       transition:
         border-color var(--duration-fast) var(--ease-out),
         background-color var(--duration-fast) var(--ease-out);
@@ -249,10 +396,21 @@
     }
 
     .app-select-option[data-active="true"],
-    .app-select-option[aria-selected="true"] {
+    .app-select-option[aria-selected="true"],
+    .app-multiselect-option[data-active="true"],
+    .app-multiselect-option[aria-selected="true"] {
       outline: 1px solid Highlight;
       color: Highlight;
       background: Canvas;
+    }
+
+    .app-multiselect-check {
+      border-color: CanvasText;
+    }
+
+    .app-multiselect-check[data-checked="true"] {
+      background: Highlight;
+      border-color: Highlight;
     }
 
     .app-select-icon,

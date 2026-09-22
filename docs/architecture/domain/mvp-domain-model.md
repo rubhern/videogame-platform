@@ -68,6 +68,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `CAT-004` | Importing a work creates its identity, external reference, snapshot, releases, and cover as one accepted state. |
 | `CAT-005` | Import is idempotent: one provider reference resolves to at most one game, on any retry. |
 | `CAT-006` | A provider work type the product does not model is deferred, not imported and not a failure. |
+| `CAT-007` | Platform and region taxonomy is acquired from accepted releases: a provider entity is resolved through a typed external reference, reusing the known product entity or creating it as accepted state, never merged by name/slug ([ADR-0020](../../decisions/0020-acquire-platform-and-region-taxonomy-from-releases.md)). |
 | `GAME-001` | Every game uses a provider-independent `GameId`. |
 | `GAME-002` | Canonical title is non-blank. |
 | `GAME-003` | Slug is navigation, not identity. |

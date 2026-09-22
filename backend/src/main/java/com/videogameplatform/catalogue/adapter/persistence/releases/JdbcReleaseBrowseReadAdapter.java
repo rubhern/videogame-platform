@@ -18,19 +18,9 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.support.TransactionOperations;
 
-/** PostgreSQL read adapter that returns only the requested release page. */
+/** PostgreSQL read adapter that returns only the requested release page and contextual facets. */
 public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
 
-    private static final String PLATFORM_SQL =
-            """
-            SELECT platform_id::text, display_name
-            FROM catalogue.platform
-            """;
-    private static final String REGION_SQL =
-            """
-            SELECT region_id::text, display_name
-            FROM catalogue.region
-            """;
     // Grouping happens in PostgreSQL before pagination: filtered_release holds the releases that
     // match the view and active filters, count and page operate over distinct games, and the
     // releases of a paged game are re-joined and bounded so request memory stays
@@ -96,8 +86,14 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             "rs.release_status <> 'cancelled' AND (("
                     + UPCOMING_KNOWN_PREDICATE
                     + ") OR (rs.release_status <> 'released' AND rs.date_precision = 'unknown'))";
-    private static final String PLATFORM_PREDICATE = "rs.platform_id = CAST(:platformId AS uuid)";
-    private static final String REGION_PREDICATE = "rs.region_id = CAST(:regionId AS uuid)";
+    // Multiple selected values inside one dimension combine with OR (ANY over the selected array);
+    // the two dimensions combine with AND by appearing as separate predicates. The selected ids are
+    // validated to exist before they reach the array cast, so the cast only ever sees real uuids.
+    private static final String PLATFORM_PREDICATE =
+            "rs.platform_id = ANY(CAST(:platformIds AS uuid[]))";
+    private static final String REGION_PREDICATE = "rs.region_id = ANY(CAST(:regionIds AS uuid[]))";
+    private static final String PLATFORM_ID_COLUMN = "platform_id";
+    private static final String REGION_ID_COLUMN = "region_id";
 
     private final NamedParameterJdbcOperations jdbcOperations;
     private final TransactionOperations readTransaction;
@@ -129,27 +125,49 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             return Optional.empty();
         }
         CurrentPublicationReader.Publication publication = currentPublication.orElseThrow();
+
+        List<String> requestedPlatformIds = criteria.platformIds();
+        List<String> requestedRegionIds = criteria.regionIds();
+        // Only ids that exist in the product taxonomy are safe to cast to uuid[] and are eligible
+        // to
+        // keep a selected value representable; an unknown id makes the whole request invalid (422).
+        List<String> validPlatformIds = existing(requestedPlatformIds, "platform", "platform_id");
+        List<String> validRegionIds = existing(requestedRegionIds, "region", "region_id");
+
+        ViewPredicate view = viewPredicate(criteria);
+        // Faceted availability: each dimension reflects the current window and the other
+        // dimension's
+        // active selection, is never narrowed by its own selection, and always keeps a selected
+        // valid value representable.
         List<Taxonomy> platforms =
-                jdbcOperations.query(
-                        PLATFORM_SQL,
-                        Map.of(),
-                        (resultSet, rowNumber) ->
-                                new Taxonomy(
-                                        resultSet.getString("platform_id"),
-                                        resultSet.getString("display_name")));
+                facet(
+                        "platform",
+                        PLATFORM_ID_COLUMN,
+                        REGION_ID_COLUMN,
+                        publication.id(),
+                        view,
+                        validRegionIds,
+                        validPlatformIds);
         List<Taxonomy> regions =
-                jdbcOperations.query(
-                        REGION_SQL,
-                        Map.of(),
-                        (resultSet, rowNumber) ->
-                                new Taxonomy(
-                                        resultSet.getString("region_id"),
-                                        resultSet.getString("display_name")));
-        if (!supports(criteria.platformId(), platforms)
-                || !supports(criteria.regionId(), regions)) {
+                facet(
+                        "region",
+                        REGION_ID_COLUMN,
+                        PLATFORM_ID_COLUMN,
+                        publication.id(),
+                        view,
+                        validPlatformIds,
+                        validRegionIds);
+
+        boolean allValid =
+                validPlatformIds.size() == requestedPlatformIds.size()
+                        && validRegionIds.size() == requestedRegionIds.size();
+        if (!allValid) {
+            // An unknown selected id degrades to an empty page; the application maps it to 422 by
+            // finding the requested id absent from the returned facets.
             return Optional.of(new Result(publication.version(), platforms, regions, List.of(), 0));
         }
-        Query query = query(publication.id(), criteria);
+
+        Query query = query(publication.id(), criteria, view, validPlatformIds, validRegionIds);
         Long totalItems =
                 jdbcOperations.queryForObject(query.sql().count(), query.parameters(), Long.class);
 
@@ -170,34 +188,120 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                         totalItems == null ? 0 : totalItems));
     }
 
-    private static boolean supports(String requestedId, List<Taxonomy> taxonomy) {
-        return requestedId == null
-                || taxonomy.stream().anyMatch(value -> value.id().equals(requestedId));
+    /** The subset of the requested ids that exist in the product taxonomy, compared as text. */
+    private List<String> existing(List<String> ids, String table, String idColumn) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbcOperations.query(
+                "SELECT "
+                        + idColumn
+                        + "::text FROM catalogue."
+                        + table
+                        + " WHERE "
+                        + idColumn
+                        + "::text IN (:ids)",
+                Map.of("ids", ids),
+                (resultSet, rowNumber) -> resultSet.getString(1));
     }
 
-    private static Query query(String publicationId, Criteria criteria) {
+    /**
+     * One dimension's contextual options: every taxonomy value that either is a currently selected
+     * valid value or appears in a release matching the current window and the other dimension's
+     * active selection.
+     */
+    private List<Taxonomy> facet(
+            String table,
+            String dimensionColumn,
+            String otherDimensionColumn,
+            String publicationId,
+            ViewPredicate view,
+            List<String> otherDimensionIds,
+            List<String> ownSelectedIds) {
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("publicationId", publicationId);
+        parameters.putAll(view.parameters());
+
+        StringBuilder contextual =
+                new StringBuilder(
+                        "t."
+                                + dimensionColumn
+                                + " IN (SELECT rs."
+                                + dimensionColumn
+                                + " FROM catalogue.release_snapshot rs WHERE "
+                                + PUBLICATION_PREDICATE
+                                + " AND ("
+                                + view.predicate()
+                                + ")");
+        if (!otherDimensionIds.isEmpty()) {
+            contextual
+                    .append(" AND rs.")
+                    .append(otherDimensionColumn)
+                    .append(" = ANY(CAST(:otherIds AS uuid[]))");
+            parameters.put("otherIds", arrayLiteral(otherDimensionIds));
+        }
+        contextual.append(")");
+
+        List<String> branches = new ArrayList<>();
+        if (!ownSelectedIds.isEmpty()) {
+            branches.add("t." + dimensionColumn + " = ANY(CAST(:ownSelected AS uuid[]))");
+            parameters.put("ownSelected", arrayLiteral(ownSelectedIds));
+        }
+        branches.add(contextual.toString());
+
+        String sql =
+                "SELECT t."
+                        + dimensionColumn
+                        + "::text AS id, t.display_name AS name FROM catalogue."
+                        + table
+                        + " t WHERE "
+                        + String.join(" OR ", branches);
+        return jdbcOperations.query(
+                sql,
+                parameters,
+                (resultSet, rowNumber) ->
+                        new Taxonomy(resultSet.getString("id"), resultSet.getString("name")));
+    }
+
+    private static ViewPredicate viewPredicate(Criteria criteria) {
+        String predicate =
+                switch (criteria.view()) {
+                    case RECENT -> RECENT_PREDICATE;
+                    case UPCOMING ->
+                            criteria.includeUnknownUpcomingDates()
+                                    ? UPCOMING_OR_UNKNOWN_PREDICATE
+                                    : UPCOMING_PREDICATE;
+                };
+        Map<String, Object> parameters = new LinkedHashMap<>();
+        parameters.put("windowFrom", criteria.window().from());
+        parameters.put("windowTo", criteria.window().to());
+        return new ViewPredicate(predicate, parameters);
+    }
+
+    /** Comma-separated PostgreSQL array literal of validated uuids: safe because they are real ids. */
+    private static String arrayLiteral(List<String> uuids) {
+        return "{" + String.join(",", uuids) + "}";
+    }
+
+    private static Query query(
+            String publicationId,
+            Criteria criteria,
+            ViewPredicate view,
+            List<String> platformIds,
+            List<String> regionIds) {
         CandidateQueryBuilder builder =
                 new CandidateQueryBuilder()
                         .where(PUBLICATION_PREDICATE)
-                        .bind("publicationId", publicationId);
-
-        switch (criteria.view()) {
-            case RECENT ->
-                    builder.where(RECENT_PREDICATE)
-                            .bind("windowFrom", criteria.window().from())
-                            .bind("windowTo", criteria.window().to());
-            case UPCOMING ->
-                    builder.where(
-                                    criteria.includeUnknownUpcomingDates()
-                                            ? UPCOMING_OR_UNKNOWN_PREDICATE
-                                            : UPCOMING_PREDICATE)
-                            .bind("windowFrom", criteria.window().from())
-                            .bind("windowTo", criteria.window().to());
+                        .bind("publicationId", publicationId)
+                        .where(view.predicate());
+        view.parameters().forEach(builder::bind);
+        if (!platformIds.isEmpty()) {
+            builder.where(PLATFORM_PREDICATE).bind("platformIds", arrayLiteral(platformIds));
         }
-
-        return builder.whereIfPresent(PLATFORM_PREDICATE, "platformId", criteria.platformId())
-                .whereIfPresent(REGION_PREDICATE, "regionId", criteria.regionId())
-                .build(criteria.view());
+        if (!regionIds.isEmpty()) {
+            builder.where(REGION_PREDICATE).bind("regionIds", arrayLiteral(regionIds));
+        }
+        return builder.build(criteria.view());
     }
 
     // A game's precise date, exact day first through TBA (unknown) last, drives the upcoming order.
@@ -298,6 +402,8 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 + releaseOrder(view, "rel");
     }
 
+    private record ViewPredicate(String predicate, Map<String, Object> parameters) {}
+
     private record Query(Sql sql, Map<String, Object> parameters) {}
 
     private record Sql(String count, String page) {}
@@ -318,11 +424,6 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 throw new IllegalStateException("Duplicate release browse SQL parameter: " + name);
             }
             return this;
-        }
-
-        private CandidateQueryBuilder whereIfPresent(
-                String predicate, String parameterName, Object value) {
-            return value == null ? this : where(predicate).bind(parameterName, value);
         }
 
         private Query build(View view) {

@@ -135,7 +135,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
             <p>{state.message}</p>
             <Link
               className="button button-primary"
-              to={releasesSearchPath(search, { platformId: null, regionId: null, page: 1 })}
+              to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
             >
               Quitar filtros
             </Link>
@@ -184,7 +184,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
                 {hasActiveFilters(search) && state.model.page.totalItems === 0 ? (
                   <Link
                     className="button button-primary"
-                    to={releasesSearchPath(search, { platformId: null, regionId: null, page: 1 })}
+                    to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
                   >
                     Quitar filtros
                   </Link>

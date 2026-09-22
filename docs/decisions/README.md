@@ -29,6 +29,7 @@ historical decision.
 - [ADR-0017: Synchronize relevant catalogue Games and Releases automatically](0017-discover-catalogue-members-automatically-from-igdb.md)
 - [ADR-0018: Maintain a Ratings-owned rebuildable game-listing projection](0018-project-personal-ratings-listing-in-ratings.md)
 - [ADR-0019: Host private dev on an owner-managed Linux host](0019-host-private-dev-on-an-owner-managed-linux-host.md)
+- [ADR-0020: Acquire platform and region taxonomy from accepted releases](0020-acquire-platform-and-region-taxonomy-from-releases.md)
 
 ## Superseded
 

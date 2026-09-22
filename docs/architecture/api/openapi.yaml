@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 2.1.0
+  version: 3.0.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -34,17 +34,23 @@ paths:
       description: |
         Reads a bounded page of games from the last valid local catalogue publication. Each
         game appears once with only the releases that match the requested view and active
-        filters; `page.totalItems` counts games, not releases. The application derives the
-        evaluation date and the selected bounded week window in `Europe/Madrid`. Empty, stale,
-        review-required, imprecise-date, TBA, and fallback-cover results are valid
-        states. PostgreSQL groups by game, applies filters, total ordering, count, limit,
-        and offset before any release page reaches the application.
+        filters; `page.totalItems` counts games, not releases. Platform and region filters are
+        multi-select: values within one dimension combine with OR and the two dimensions combine
+        with AND. `availableFilters` is contextual and faceted: platform options reflect the
+        current view/window and the active region selection (never restricted by the active
+        platform set), region options reflect the current view/window and the active platform
+        selection (never restricted by the active region set), and a currently selected valid
+        value always stays representable. The application derives the evaluation date and the
+        selected bounded week window in `Europe/Madrid`. Empty, stale, review-required,
+        imprecise-date, TBA, and fallback-cover results are valid states. PostgreSQL groups by
+        game, applies filters, distinct facet discovery, total ordering, count, limit, and offset
+        before any release page reaches the application.
       security: []
       parameters:
         - $ref: '#/components/parameters/ReleaseView'
         - $ref: '#/components/parameters/ReleaseWeeks'
-        - $ref: '#/components/parameters/PlatformIdQuery'
-        - $ref: '#/components/parameters/RegionIdQuery'
+        - $ref: '#/components/parameters/PlatformIdsQuery'
+        - $ref: '#/components/parameters/RegionIdsQuery'
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - $ref: '#/components/parameters/PublicIfNoneMatch'
@@ -65,7 +71,7 @@ paths:
                     view: upcoming
                     evaluatedOn: '2026-07-31'
                     window: { from: '2026-07-31', to: '2026-08-07' }
-                    activeFilters: { platformId: null, regionId: null }
+                    activeFilters: { platformIds: [], regionIds: [] }
                     availableFilters:
                       platforms:
                         - { platformId: platform_ps5, name: PlayStation 5 }
@@ -122,7 +128,7 @@ paths:
                     view: recent
                     evaluatedOn: '2026-07-31'
                     window: { from: '2026-07-25', to: '2026-07-31' }
-                    activeFilters: { platformId: null, regionId: null }
+                    activeFilters: { platformIds: [], regionIds: [] }
                     availableFilters:
                       platforms:
                         - { platformId: platform_switch, name: Nintendo Switch }
@@ -161,7 +167,7 @@ paths:
                     view: upcoming
                     evaluatedOn: '2026-07-31'
                     window: { from: '2026-07-31', to: '2026-08-07' }
-                    activeFilters: { platformId: platform_ps5, regionId: region_europe }
+                    activeFilters: { platformIds: [platform_ps5], regionIds: [region_europe] }
                     availableFilters:
                       platforms:
                         - { platformId: platform_ps5, name: PlayStation 5 }
@@ -703,18 +709,37 @@ components:
       description: Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
       schema: { type: integer, enum: [1, 2, 4], default: 1 }
       example: 2
-    PlatformIdQuery:
-      name: platformId
+    PlatformIdsQuery:
+      name: platformIds
       in: query
       required: false
-      schema: { $ref: '#/components/schemas/PlatformId' }
-      example: platform_ps5
-    RegionIdQuery:
-      name: regionId
+      description: |
+        Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
+        dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
+        no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/PlatformId' }
+      example: [platform_ps5, platform_switch]
+    RegionIdsQuery:
+      name: regionIds
       in: query
       required: false
-      schema: { $ref: '#/components/schemas/RegionId' }
-      example: region_europe
+      description: |
+        Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
+        combine with OR; the platform and region dimensions combine with AND. Omit it for no region
+        filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
+        and de-duplicated; an unknown value yields 422.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/RegionId' }
+      example: [region_europe, region_worldwide]
     Page:
       name: page
       in: query
@@ -1065,16 +1090,20 @@ components:
         by the UC-001 release ordering, and the first release drives the game's position.
     ActiveFilters:
       type: object
-      required: [platformId, regionId]
+      required: [platformIds, regionIds]
+      description: |
+        The normalized, de-duplicated filter values applied to this response. An empty array means
+        no filter for that dimension (`Todas`), which is distinct from selecting a concrete region
+        such as `Worldwide`.
       properties:
-        platformId:
-          oneOf:
-            - $ref: '#/components/schemas/PlatformId'
-            - { type: 'null' }
-        regionId:
-          oneOf:
-            - $ref: '#/components/schemas/RegionId'
-            - { type: 'null' }
+        platformIds:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/PlatformId' }
+        regionIds:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/RegionId' }
     AvailableFilters:
       type: object
       required: [platforms, regions]

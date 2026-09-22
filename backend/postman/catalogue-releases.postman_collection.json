@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
     "name": "VideoGame Platform Backend - Catalogue Releases",
-    "description": "Executable examples for the OpenAPI 2.1.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game. Each item is one game with its matching releases, and pagination counts games. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI 3.0.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game. Each item is one game with its matching releases, and pagination counts games. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -173,12 +173,12 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test(\"Active filters are echoed without changing available taxonomies\", function () {",
+              "pm.test(\"Multi-select filters combine OR within a dimension and AND across dimensions\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(body.view).to.eql(\"upcoming\");",
               "    pm.expect((Date.parse(body.window.to) - Date.parse(body.window.from)) / 86400000).to.eql(14);",
-              "    pm.expect(body.activeFilters.platformId).to.eql(\"10000000-0000-4000-8000-000000000004\");",
-              "    pm.expect(body.activeFilters.regionId).to.eql(\"20000000-0000-4000-8000-000000000001\");",
+              "    pm.expect(body.activeFilters.platformIds).to.include.members([\"10000000-0000-4000-8000-000000000004\", \"10000000-0000-4000-8000-000000000001\"]);",
+              "    pm.expect(body.activeFilters.regionIds).to.include.members([\"20000000-0000-4000-8000-000000000001\"]);",
               "    pm.expect(body.availableFilters.platforms).to.be.an(\"array\").and.not.empty;",
               "    pm.expect(body.availableFilters.regions).to.be.an(\"array\").and.not.empty;",
               "});"
@@ -198,7 +198,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&platformId=10000000-0000-4000-8000-000000000004&regionId=20000000-0000-4000-8000-000000000001&weeks=2",
+          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&platformIds=10000000-0000-4000-8000-000000000004&platformIds=10000000-0000-4000-8000-000000000001&regionIds=20000000-0000-4000-8000-000000000001&weeks=2",
           "host": [
             "{{baseUrl}}"
           ],
@@ -213,11 +213,15 @@
               "value": "upcoming"
             },
             {
-              "key": "platformId",
+              "key": "platformIds",
               "value": "10000000-0000-4000-8000-000000000004"
             },
             {
-              "key": "regionId",
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "regionIds",
               "value": "20000000-0000-4000-8000-000000000001"
             },
             {
@@ -226,7 +230,7 @@
             }
           ]
         },
-        "description": "Uses stable product-owned IDs from the deterministic local seed, never provider IDs."
+        "description": "Multi-select faceted filter: two platforms (OR) intersected (AND) with the concrete Worldwide region. Uses stable product-owned IDs from the deterministic local seed, never provider IDs. Worldwide is a real region, distinct from omitting the dimension (Todas)."
       },
       "response": []
     },
@@ -264,7 +268,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&platformId=unsupported-platform",
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&platformIds=unsupported-platform",
           "host": [
             "{{baseUrl}}"
           ],
@@ -279,12 +283,12 @@
               "value": "recent"
             },
             {
-              "key": "platformId",
+              "key": "platformIds",
               "value": "unsupported-platform"
             }
           ]
         },
-        "description": "Demonstrates the stable product validation error for an identifier outside the local taxonomy."
+        "description": "Demonstrates the stable product validation error when any selected value is outside the local taxonomy."
       },
       "response": []
     },

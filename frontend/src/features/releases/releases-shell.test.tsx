@@ -10,8 +10,8 @@ import type { ReleaseListItem, ReleasesViewModel } from "./releases-view-model";
 const search: ReleasesSearch = {
   view: "recent",
   weeks: 1,
-  platformId: null,
-  regionId: null,
+  platformIds: [],
+  regionIds: [],
   page: 1,
   pageSize: 12,
 };
@@ -51,8 +51,8 @@ function viewModel(overrides: Partial<ReleasesViewModel> = {}): ReleasesViewMode
       { id: "platform-ps5", name: "PlayStation 5" },
     ],
     regions: [{ id: "region-worldwide", name: "Mundial" }],
-    activePlatformId: null,
-    activeRegionId: null,
+    activePlatformIds: [],
+    activeRegionIds: [],
     items: [pragmata],
     staleItemCount: 0,
     page: { number: 1, size: 6, totalItems: 1, totalPages: 1 },
@@ -114,20 +114,35 @@ describe("releases shell", () => {
     expect(card.queryByText("Carátula oficial no disponible")).not.toBeInTheDocument();
   });
 
-  it("keeps the filters visible with their active values and a clear action", () => {
-    const activeSearch: ReleasesSearch = { ...search, platformId: "platform-ps5" };
+  it("keeps a selected filter checked and representable with a clear action", async () => {
+    const user = userEvent.setup();
+    const activeSearch: ReleasesSearch = { ...search, platformIds: ["platform-ps5"] };
     renderShell(
       {
         status: "ready",
-        model: viewModel({ activePlatformId: "platform-ps5", items: [], staleItemCount: 0 }),
+        model: viewModel({ activePlatformIds: ["platform-ps5"], items: [], staleItemCount: 0 }),
         isRefreshing: false,
         isPlaceholderData: false,
       },
       { search: activeSearch },
     );
 
-    expect(screen.getByRole("combobox", { name: /^Plataforma:/ })).toHaveTextContent("PlayStation 5");
-    expect(screen.getByRole("combobox", { name: /^Región:/ })).toHaveTextContent("Todas");
+    // The closed selector summarises the selection; Región stays unfiltered ("Todas").
+    const platform = screen.getByRole("combobox", { name: /Plataforma/ });
+    expect(platform).toHaveTextContent("PlayStation 5");
+    expect(screen.getByRole("combobox", { name: /Región/ })).toHaveTextContent("Todas");
+
+    // Opened, the selected value is exposed as selected and remains representable to unselect.
+    await user.click(platform);
+    expect(screen.getByRole("option", { name: "PlayStation 5" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: "Windows PC" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+
     expect(
       screen.getByText("Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."),
     ).toBeInTheDocument();
@@ -166,8 +181,8 @@ describe("releases shell", () => {
       screen.getByText("Del 13 de agosto de 2026 al 13 de febrero de 2027"),
     );
     expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /^Plataforma:/ })).toHaveTextContent("Todas");
-    expect(screen.getByRole("combobox", { name: /^Región:/ })).toHaveTextContent("Todas");
+    expect(screen.getByRole("combobox", { name: /Plataforma/ })).toHaveTextContent("Todas");
+    expect(screen.getByRole("combobox", { name: /Región/ })).toHaveTextContent("Todas");
     expect(screen.getByRole("status")).toHaveTextContent("1 juego · Página 1 de 1");
     const windowNav = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
     expect(within(windowNav).getByRole("link", { name: "Ver recientes" })).toHaveAttribute("href", "/?weeks=1");
@@ -215,7 +230,7 @@ describe("releases shell", () => {
         status: "unsupported-filters",
         message: "La plataforma solicitada no existe en el catálogo local.",
       },
-      { search: { ...search, platformId: "platform-unknown" } },
+      { search: { ...search, platformIds: ["platform-unknown"] } },
     );
 
     const alert = within(screen.getByRole("alert"));
@@ -242,12 +257,12 @@ describe("releases shell", () => {
   });
 
   it("paginates with keyboard-reachable links that preserve the active filters", () => {
-    const paginatedSearch: ReleasesSearch = { ...search, page: 2, platformId: "platform-ps5" };
+    const paginatedSearch: ReleasesSearch = { ...search, page: 2, platformIds: ["platform-ps5"] };
     renderShell(
       {
         status: "ready",
         model: viewModel({
-          activePlatformId: "platform-ps5",
+          activePlatformIds: ["platform-ps5"],
           page: { number: 2, size: 6, totalItems: 15, totalPages: 3 },
         }),
         isRefreshing: false,
@@ -263,11 +278,11 @@ describe("releases shell", () => {
     expect(pagination.queryByText("Página 2 de 3")).not.toBeInTheDocument();
     expect(pagination.getByRole("link", { name: "Página anterior" })).toHaveAttribute(
       "href",
-      "/?weeks=1&platformId=platform-ps5",
+      "/?weeks=1&platformIds=platform-ps5",
     );
     expect(pagination.getByRole("link", { name: "Página siguiente" })).toHaveAttribute(
       "href",
-      "/?weeks=1&platformId=platform-ps5&page=3",
+      "/?weeks=1&platformIds=platform-ps5&page=3",
     );
   });
 

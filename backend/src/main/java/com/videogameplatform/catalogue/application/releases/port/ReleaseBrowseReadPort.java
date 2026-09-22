@@ -20,13 +20,15 @@ public interface ReleaseBrowseReadPort {
     record Criteria(
             BrowseReleasesUseCase.View view,
             Window window,
-            String platformId,
-            String regionId,
+            List<String> platformIds,
+            List<String> regionIds,
             Pagination pagination,
             boolean includeUnknownUpcomingDates,
             int releaseGroupLimit) {
 
         public Criteria {
+            platformIds = platformIds == null ? List.of() : List.copyOf(platformIds);
+            regionIds = regionIds == null ? List.of() : List.copyOf(regionIds);
             if (releaseGroupLimit < 1) {
                 throw new IllegalArgumentException(
                         "Release group must be bounded to at least 1 release per game");

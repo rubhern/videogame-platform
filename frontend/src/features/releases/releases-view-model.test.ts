@@ -43,7 +43,7 @@ function page(
     view: "recent",
     evaluatedOn: "2026-08-13",
     window: { from: "2026-02-13", to: "2026-08-13" },
-    activeFilters: { platformId: null, regionId: null },
+    activeFilters: { platformIds: [], regionIds: [] },
     availableFilters: { platforms: [], regions: [] },
     items: [
       {
@@ -167,7 +167,7 @@ const upcomingPage = page(
   {
     view: "upcoming",
     window: { from: "2026-08-13", to: "2027-02-13" },
-    activeFilters: { platformId: "windows-pc", regionId: null },
+    activeFilters: { platformIds: ["windows-pc"], regionIds: [] },
     availableFilters: {
       platforms: [{ platformId: "windows-pc", name: "Windows PC" }],
       regions: [{ regionId: "unknown", name: "Unknown" }],
@@ -211,8 +211,8 @@ describe("releases view model", () => {
 
     expect(model.platforms).toEqual([{ id: "windows-pc", name: "Windows PC" }]);
     expect(model.regions).toEqual([{ id: "unknown", name: "Sin región confirmada" }]);
-    expect(model.activePlatformId).toBe("windows-pc");
-    expect(model.activeRegionId).toBeNull();
+    expect(model.activePlatformIds).toEqual(["windows-pc"]);
+    expect(model.activeRegionIds).toEqual([]);
     expect(model.page).toEqual({ number: 2, size: 12, totalItems: 13, totalPages: 2 });
   });
 

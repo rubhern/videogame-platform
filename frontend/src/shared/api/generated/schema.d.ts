@@ -15,11 +15,17 @@ export interface paths {
          * Browse recent or upcoming releases grouped by game
          * @description Reads a bounded page of games from the last valid local catalogue publication. Each
          *     game appears once with only the releases that match the requested view and active
-         *     filters; `page.totalItems` counts games, not releases. The application derives the
-         *     evaluation date and the selected bounded week window in `Europe/Madrid`. Empty, stale,
-         *     review-required, imprecise-date, TBA, and fallback-cover results are valid
-         *     states. PostgreSQL groups by game, applies filters, total ordering, count, limit,
-         *     and offset before any release page reaches the application.
+         *     filters; `page.totalItems` counts games, not releases. Platform and region filters are
+         *     multi-select: values within one dimension combine with OR and the two dimensions combine
+         *     with AND. `availableFilters` is contextual and faceted: platform options reflect the
+         *     current view/window and the active region selection (never restricted by the active
+         *     platform set), region options reflect the current view/window and the active platform
+         *     selection (never restricted by the active region set), and a currently selected valid
+         *     value always stays representable. The application derives the evaluation date and the
+         *     selected bounded week window in `Europe/Madrid`. Empty, stale, review-required,
+         *     imprecise-date, TBA, and fallback-cover results are valid states. PostgreSQL groups by
+         *     game, applies filters, distinct facet discovery, total ordering, count, limit, and offset
+         *     before any release page reaches the application.
          */
         get: operations["listReleases"];
         put?: never;
@@ -320,9 +326,14 @@ export interface components {
             primaryCover: components["schemas"]["Cover"];
             releases: components["schemas"]["Release"][];
         };
+        /**
+         * @description The normalized, de-duplicated filter values applied to this response. An empty array means
+         *     no filter for that dimension (`Todas`), which is distinct from selecting a concrete region
+         *     such as `Worldwide`.
+         */
         ActiveFilters: {
-            platformId: components["schemas"]["PlatformId"] | null;
-            regionId: components["schemas"]["RegionId"] | null;
+            platformIds: components["schemas"]["PlatformId"][];
+            regionIds: components["schemas"]["RegionId"][];
         };
         AvailableFilters: {
             platforms: components["schemas"]["Platform"][];
@@ -740,10 +751,27 @@ export interface components {
          * @example 2
          */
         ReleaseWeeks: 1 | 2 | 4;
-        /** @example platform_ps5 */
-        PlatformIdQuery: components["schemas"]["PlatformId"];
-        /** @example region_europe */
-        RegionIdQuery: components["schemas"]["RegionId"];
+        /**
+         * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
+         *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
+         *     no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
+         * @example [
+         *       "platform_ps5",
+         *       "platform_switch"
+         *     ]
+         */
+        PlatformIdsQuery: components["schemas"]["PlatformId"][];
+        /**
+         * @description Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
+         *     combine with OR; the platform and region dimensions combine with AND. Omit it for no region
+         *     filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
+         *     and de-duplicated; an unknown value yields 422.
+         * @example [
+         *       "region_europe",
+         *       "region_worldwide"
+         *     ]
+         */
+        RegionIdsQuery: components["schemas"]["RegionId"][];
         /**
          * @description One-based page; a page beyond the last returns an empty page.
          * @example 1
@@ -844,10 +872,27 @@ export interface operations {
                  * @example 2
                  */
                 weeks?: components["parameters"]["ReleaseWeeks"];
-                /** @example platform_ps5 */
-                platformId?: components["parameters"]["PlatformIdQuery"];
-                /** @example region_europe */
-                regionId?: components["parameters"]["RegionIdQuery"];
+                /**
+                 * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
+                 *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
+                 *     no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "platform_ps5",
+                 *       "platform_switch"
+                 *     ]
+                 */
+                platformIds?: components["parameters"]["PlatformIdsQuery"];
+                /**
+                 * @description Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
+                 *     combine with OR; the platform and region dimensions combine with AND. Omit it for no region
+                 *     filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
+                 *     and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "region_europe",
+                 *       "region_worldwide"
+                 *     ]
+                 */
+                regionIds?: components["parameters"]["RegionIdsQuery"];
                 /**
                  * @description One-based page; a page beyond the last returns an empty page.
                  * @example 1

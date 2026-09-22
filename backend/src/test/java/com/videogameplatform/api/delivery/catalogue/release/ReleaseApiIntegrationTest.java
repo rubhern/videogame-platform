@@ -42,6 +42,7 @@ class ReleaseApiIntegrationTest {
     private static final String DATABASE_NAME =
             PostgreSqlTestDatabase.isolatedDatabaseName("release_api");
     private static final String PLATFORM_PS5 = "10000000-0000-4000-8000-000000000001";
+    private static final String PLATFORM_WINDOWS_PC = "10000000-0000-4000-8000-000000000003";
     private static final String REGION_JAPAN = "20000000-0000-4000-8000-000000000005";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final OpenApiResponseContract OPENAPI =
@@ -146,19 +147,35 @@ class ReleaseApiIntegrationTest {
         JsonNode empty =
                 json(
                         get(
-                                "/api/v1/releases?view=upcoming&platformId="
+                                "/api/v1/releases?view=upcoming&platformIds="
                                         + PLATFORM_PS5
-                                        + "&regionId="
+                                        + "&regionIds="
                                         + REGION_JAPAN));
         assertThat(empty.path("items")).isEmpty();
         assertThat(empty.path("page").path("totalItems").asLong()).isZero();
         assertThat(empty.path("page").path("totalPages").asInt()).isZero();
-        assertThat(empty.path("activeFilters").path("platformId").stringValue())
-                .isEqualTo(PLATFORM_PS5);
-        assertThat(empty.path("activeFilters").path("regionId").stringValue())
-                .isEqualTo(REGION_JAPAN);
-        assertThat(empty.path("availableFilters").path("platforms")).hasSize(4);
-        assertThat(empty.path("availableFilters").path("regions")).hasSize(5);
+        assertThat(textValues(empty.path("activeFilters").path("platformIds")))
+                .containsExactly(PLATFORM_PS5);
+        assertThat(textValues(empty.path("activeFilters").path("regionIds")))
+                .containsExactly(REGION_JAPAN);
+        // Available filters are contextual, but a selected valid value stays representable so the
+        // visitor can remove it.
+        assertThat(ids(empty.path("availableFilters").path("platforms"), "platformId"))
+                .contains(PLATFORM_PS5);
+        assertThat(ids(empty.path("availableFilters").path("regions"), "regionId"))
+                .contains(REGION_JAPAN);
+
+        // Multi-select accepts several repeated values in one dimension (OR); the strict-query
+        // convention no longer rejects the repetition, and the response echoes both.
+        JsonNode multi =
+                json(
+                        get(
+                                "/api/v1/releases?view=recent&platformIds="
+                                        + PLATFORM_PS5
+                                        + "&platformIds="
+                                        + PLATFORM_WINDOWS_PC));
+        assertThat(textValues(multi.path("activeFilters").path("platformIds")))
+                .containsExactlyInAnyOrder(PLATFORM_PS5, PLATFORM_WINDOWS_PC);
 
         JsonNode beyond = json(get("/api/v1/releases?view=recent&page=99&pageSize=1"));
         assertThat(beyond.path("items")).isEmpty();
@@ -187,7 +204,7 @@ class ReleaseApiIntegrationTest {
                 422,
                 "REQUEST_PARAMETER_UNKNOWN");
         assertProblem(
-                get("/api/v1/releases?view=recent&platformId=not-supported"),
+                get("/api/v1/releases?view=recent&platformIds=not-supported"),
                 422,
                 "PLATFORM_NOT_SUPPORTED");
 
@@ -232,6 +249,12 @@ class ReleaseApiIntegrationTest {
     private static List<String> textValues(JsonNode values) {
         List<String> result = new ArrayList<>();
         values.forEach(value -> result.add(value.stringValue()));
+        return result;
+    }
+
+    private static List<String> ids(JsonNode array, String key) {
+        List<String> result = new ArrayList<>();
+        array.forEach(node -> result.add(node.path(key).stringValue()));
         return result;
     }
 

@@ -156,8 +156,8 @@ class ReleaseCatalogueServiceTest {
                                                 new BrowseReleasesUseCase.Query(
                                                         BrowseReleasesUseCase.View.RECENT,
                                                         1,
-                                                        "unsupported",
-                                                        null,
+                                                        List.of("unsupported"),
+                                                        List.of(),
                                                         1,
                                                         20)))
                 .isInstanceOf(ReleaseQueryValidationException.class)

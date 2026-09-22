@@ -226,14 +226,6 @@ class ReleaseApiFailureIntegrationTest {
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(header().exists(CORRELATION_HEADER));
 
-        mockMvc.perform(
-                        get("/api/v1/releases")
-                                .queryParam("view", "recent")
-                                .queryParam("platformId", "ps5", "windows")
-                                .header(HttpHeaders.ACCEPT, "application/json"))
-                .andExpect(status().isUnprocessableContent())
-                .andExpect(header().exists(CORRELATION_HEADER));
-
         assertThat(appender.list).isEmpty();
     }
 
@@ -250,7 +242,7 @@ class ReleaseApiFailureIntegrationTest {
                 mockMvc.perform(
                                 get("/api/v1/releases")
                                         .queryParam("view", "recent")
-                                        .queryParam("regionId", "not-supported")
+                                        .queryParam("regionIds", "not-supported")
                                         .header(HttpHeaders.ACCEPT, "application/json"))
                         .andExpect(status().isUnprocessableContent())
                         .andExpect(header().exists(CORRELATION_HEADER))
@@ -260,7 +252,7 @@ class ReleaseApiFailureIntegrationTest {
         OPENAPI.assertJsonResponse(result.getResponse(), 422, "Problem");
         assertThat(body.path("code").stringValue()).isEqualTo("REGION_NOT_SUPPORTED");
         assertThat(body.path("violations").get(0).path("pointer").stringValue())
-                .isEqualTo("/query/regionId");
+                .isEqualTo("/query/regionIds");
         assertThat(appender.list).isEmpty();
     }
 
