@@ -99,8 +99,8 @@
   }
 
   .app-select-icon-playstation {
-    mask-image: url("/assets/platforms/playstation.png");
-    -webkit-mask-image: url("/assets/platforms/playstation.png");
+    mask-image: url("/assets/platforms/playstation-5.png");
+    -webkit-mask-image: url("/assets/platforms/playstation-5.png");
   }
 
   .app-select-icon-nintendo-switch {
@@ -159,8 +159,8 @@
   }
 
   .app-select-icon-xbox {
-    mask-image: url("/assets/platforms/xbox.png");
-    -webkit-mask-image: url("/assets/platforms/xbox.png");
+    mask-image: url("/assets/platforms/xbox-series-x-s.png");
+    -webkit-mask-image: url("/assets/platforms/xbox-series-x-s.png");
   }
 
   .app-select-icon-xbox-one {

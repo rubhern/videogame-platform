@@ -736,6 +736,20 @@
     gap: 12px 20px;
   }
 
+  @media (max-width: 619px) {
+    .release-facet-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: end;
+      gap: 8px;
+    }
+
+    .release-facet-row .filter-reset {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
+
   .release-facet-row .filter-reset {
     margin-bottom: 3px;
   }

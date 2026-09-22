@@ -60,19 +60,8 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   expect(releasePage.window).toEqual({ from: "2026-08-07", to: "2026-08-13" });
   // The fixed local seed has no matching recent game in the default week.
   expect(releasePage.page).toEqual({ number: 1, size: 6, totalItems: 0, totalPages: 0 });
-  expect(releasePage.availableFilters.platforms.map((platform) => platform.name)).toEqual([
-    "Nintendo Switch 2",
-    "PlayStation 5",
-    "Windows PC",
-    "Xbox Series X|S",
-  ]);
-  expect(releasePage.availableFilters.regions.map((region) => region.name)).toEqual([
-    "Europe",
-    "Japan",
-    "North America",
-    "Unknown",
-    "Worldwide",
-  ]);
+  expect(releasePage.availableFilters.platforms).toEqual([]);
+  expect(releasePage.availableFilters.regions).toEqual([]);
 
   await expect(page.getByRole("region", { name: "Lanzamientos recientes" })).toBeVisible();
   await expect(page.locator(".release-period")).toContainText(

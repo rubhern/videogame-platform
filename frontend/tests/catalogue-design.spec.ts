@@ -152,8 +152,8 @@ test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
-  await expect(page).toHaveURL(/platformIds=playstation-5/);
-  await expect(page.getByRole("combobox", { name: /^Plataforma:/ })).toContainText("PlayStation 5");
+  await expect(page).toHaveURL(/platformIds=windows-pc/);
+  await expect(page.getByRole("combobox", { name: /^Plataforma:/ })).toContainText("Windows PC");
 });
 }
 

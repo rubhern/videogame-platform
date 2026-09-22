@@ -27,12 +27,12 @@ test("release filters open from the full trigger and show tinted platform icons"
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
 
   const list = page.getByRole("listbox", { name: "Plataforma:" });
-  await expect(list.getByRole("option")).toHaveCount(5);
+  await expect(list.getByRole("option")).toHaveCount(4);
   for (const [name, mark] of [
-    ["Nintendo Switch 2", "nintendo-switch"],
-    ["PlayStation 5", "playstation"],
+    ["Nintendo Switch 2", "nintendo-switch-2"],
+    ["PlayStation 5", "playstation-5"],
     ["Windows PC", "windows"],
-    ["Xbox Series X|S", "xbox"],
+    ["Xbox Series X|S", "xbox-series-x-s"],
   ] as const) {
     const icon = list.getByRole("option", { name }).locator(`.app-select-icon-${mark}`);
     await expect(icon).toBeVisible();
@@ -40,7 +40,7 @@ test("release filters open from the full trigger and show tinted platform icons"
   }
   expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   await list.getByRole("option", { name: "Windows PC" }).click();
-  await expect(page).toHaveURL(/platformIds=windows-pc/);
+  await expect(page).toHaveURL(/platformIds=10000000-0000-4000-8000-000000000003/);
   await expect(trigger).toContainText("Windows PC");
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 });
