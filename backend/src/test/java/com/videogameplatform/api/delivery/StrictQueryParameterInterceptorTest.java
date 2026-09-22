@@ -53,7 +53,8 @@ class StrictQueryParameterInterceptorTest {
 
     @Test
     void allowsRepeatedValuesForMultiSelectArrayParameters() {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/routed-prefix/releases");
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("GET", "/routed-prefix/releases");
         request.addParameter("view", "recent");
         request.addParameter("platformIds", "platform-a", "platform-b");
         request.addParameter("regionIds", "region-a", "region-b");
@@ -67,7 +68,8 @@ class StrictQueryParameterInterceptorTest {
 
     @Test
     void stillRejectsRepeatedScalarParameters() {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/routed-prefix/releases");
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("GET", "/routed-prefix/releases");
         request.addParameter("view", "recent", "upcoming");
 
         assertThatThrownBy(

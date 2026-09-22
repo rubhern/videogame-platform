@@ -85,7 +85,8 @@ final class IgdbReleaseMapper {
             // it never guesses a region, and the sentinel carries no provider reference.
             return Optional.empty();
         }
-        return Optional.of(new ProviderRegion(Long.toString(region.id()), trimmed(region.region())));
+        return Optional.of(
+                new ProviderRegion(Long.toString(region.id()), trimmed(region.region())));
     }
 
     private static ProviderReleaseSignal signal(IgdbReleaseDatePayload payload, String gameStatus) {

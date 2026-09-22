@@ -92,8 +92,7 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
     // validated to exist before they reach the array cast, so the cast only ever sees real uuids.
     private static final String PLATFORM_PREDICATE =
             "rs.platform_id = ANY(CAST(:platformIds AS uuid[]))";
-    private static final String REGION_PREDICATE =
-            "rs.region_id = ANY(CAST(:regionIds AS uuid[]))";
+    private static final String REGION_PREDICATE = "rs.region_id = ANY(CAST(:regionIds AS uuid[]))";
 
     private final NamedParameterJdbcOperations jdbcOperations;
     private final TransactionOperations readTransaction;
@@ -128,13 +127,15 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
 
         List<String> requestedPlatformIds = criteria.platformIds();
         List<String> requestedRegionIds = criteria.regionIds();
-        // Only ids that exist in the product taxonomy are safe to cast to uuid[] and are eligible to
+        // Only ids that exist in the product taxonomy are safe to cast to uuid[] and are eligible
+        // to
         // keep a selected value representable; an unknown id makes the whole request invalid (422).
         List<String> validPlatformIds = existing(requestedPlatformIds, "platform", "platform_id");
         List<String> validRegionIds = existing(requestedRegionIds, "region", "region_id");
 
         ViewPredicate view = viewPredicate(criteria);
-        // Faceted availability: each dimension reflects the current window and the other dimension's
+        // Faceted availability: each dimension reflects the current window and the other
+        // dimension's
         // active selection, is never narrowed by its own selection, and always keeps a selected
         // valid value representable.
         List<Taxonomy> platforms =

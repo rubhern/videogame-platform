@@ -263,9 +263,17 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 work(
                         "100",
                         pr("10", "167", "8", date),
-                        acquired("11", "9999", "New Handheld", "new-handheld", "7777", "Nova", date)));
+                        acquired(
+                                "11",
+                                "9999",
+                                "New Handheld",
+                                "new-handheld",
+                                "7777",
+                                "Nova",
+                                date)));
 
-        assertThat(service.synchronize(WINDOW).outcome()).isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(service.synchronize(WINDOW).outcome())
+                .isEqualTo(SynchronizationOutcome.SUCCEEDED);
 
         // A known provider reference reuses the backfilled seed identity instead of duplicating it.
         assertThat(platformIdFor("167"))
@@ -403,7 +411,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
             String id, String platformRef, String regionRef, ReleaseDate date) {
         return new ProviderRelease(
                 id,
-                new ProviderPlatform(platformRef, "Platform " + platformRef, "platform-" + platformRef),
+                new ProviderPlatform(
+                        platformRef, "Platform " + platformRef, "platform-" + platformRef),
                 Optional.of(new ProviderRegion(regionRef, "Region " + regionRef)),
                 date,
                 ProviderReleaseSignal.NONE);

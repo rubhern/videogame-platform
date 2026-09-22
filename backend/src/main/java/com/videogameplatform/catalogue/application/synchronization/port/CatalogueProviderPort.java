@@ -100,7 +100,8 @@ public interface CatalogueProviderPort {
     record ProviderPlatform(String providerId, String name, String slug) {
         public ProviderPlatform {
             if (providerId == null || providerId.isBlank()) {
-                throw new IllegalArgumentException("A platform reference requires an external identity");
+                throw new IllegalArgumentException(
+                        "A platform reference requires an external identity");
             }
         }
     }
@@ -112,7 +113,8 @@ public interface CatalogueProviderPort {
     record ProviderRegion(String providerId, String name) {
         public ProviderRegion {
             if (providerId == null || providerId.isBlank()) {
-                throw new IllegalArgumentException("A region reference requires an external identity");
+                throw new IllegalArgumentException(
+                        "A region reference requires an external identity");
             }
         }
     }

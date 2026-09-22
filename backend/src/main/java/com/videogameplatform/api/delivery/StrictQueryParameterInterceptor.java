@@ -110,7 +110,8 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
             return null;
         }
         String name = annotation.name().isBlank() ? annotation.value() : annotation.name();
-        // A collection-typed parameter (an OpenAPI array such as platformIds/regionIds) legitimately
+        // A collection-typed parameter (an OpenAPI array such as platformIds/regionIds)
+        // legitimately
         // repeats; scalar parameters stay single-valued and reject repetition.
         boolean multiValued =
                 java.util.Collection.class.isAssignableFrom(parameter.getParameterType());

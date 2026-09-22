@@ -141,8 +141,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         }
     }
 
-    private void synchronizeGame(
-            UUID runId, String providerId, Instant started, Counts counts) {
+    private void synchronizeGame(UUID runId, String providerId, Instant started, Counts counts) {
         try {
             ProviderWorkBatch workBatch = provider.fetchWorks(List.of(providerId));
             counts.statistics = counts.statistics.plus(workBatch.statistics());
@@ -173,8 +172,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         return counts.created + counts.updated + counts.unchanged + counts.deferred;
     }
 
-    private void reconcile(
-            UUID runId, ProviderWork work, Instant synchronizedAt, Counts counts) {
+    private void reconcile(UUID runId, ProviderWork work, Instant synchronizedAt, Counts counts) {
         Optional<GameState> existing =
                 store.loadGame(work.providerId(), policy.maxReleasesPerGame());
         if (existing.isEmpty() && !GameImportPolicy.evaluate(work).accepted()) {

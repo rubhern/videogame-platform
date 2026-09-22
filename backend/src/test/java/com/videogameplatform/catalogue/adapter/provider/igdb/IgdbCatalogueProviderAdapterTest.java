@@ -140,8 +140,10 @@ class IgdbCatalogueProviderAdapterTest {
     @Test
     void keepsDistinctProviderPlatformsAsDistinctReferencesWithoutMerging() {
         // A legacy PC platform (DOS, provider 13) and modern Windows (provider 6) are distinct
-        // provider entities. The adapter never merges them by name or slug: each release carries its
-        // own provider platform reference, and neither is dropped (#178 supersedes the old allowlist).
+        // provider entities. The adapter never merges them by name or slug: each release carries
+        // its
+        // own provider platform reference, and neither is dropped (#178 supersedes the old
+        // allowlist).
         ProviderWork work = fetchWorkFixture("game-response.json");
 
         assertThat(work.releases())
@@ -171,7 +173,8 @@ class IgdbCatalogueProviderAdapterTest {
     void isolatesUnmappableRecordsInsteadOfPublishingThem() {
         ProviderWork work = fetchWorkFixture("game-response.json");
 
-        // Every platform with a provider id is acquirable now; only a missing platform reference and
+        // Every platform with a provider id is acquirable now; only a missing platform reference
+        // and
         // an unreadable date remain mapping failures.
         assertThat(work.releases()).hasSize(9);
         assertThat(work.mappingFailures())

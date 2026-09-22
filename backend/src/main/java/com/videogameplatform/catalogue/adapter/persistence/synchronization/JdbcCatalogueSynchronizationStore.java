@@ -436,8 +436,10 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
         if (!codeExists(table, base)) {
             return base;
         }
-        // A readable slug can collide with an unrelated product entity; disambiguate deterministically
-        // with the provider reference, which is unique per provider. Identity never depends on this.
+        // A readable slug can collide with an unrelated product entity; disambiguate
+        // deterministically
+        // with the provider reference, which is unique per provider. Identity never depends on
+        // this.
         String disambiguated = base + "-" + slugify(providerReference(reference));
         return codeExists(table, disambiguated)
                 ? kind + "-" + slugify(providerReference(reference))
@@ -453,8 +455,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
         return count != null && count > 0;
     }
 
-    private static String displayName(
-            String name, String slug, String kind, Object reference) {
+    private static String displayName(String name, String slug, String kind, Object reference) {
         if (name != null && !name.isBlank()) {
             return name.trim();
         }

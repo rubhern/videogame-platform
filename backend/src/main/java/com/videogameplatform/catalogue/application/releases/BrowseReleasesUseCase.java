@@ -16,7 +16,8 @@ public interface BrowseReleasesUseCase {
             if (view == null) {
                 throw new IllegalArgumentException("Release view is required");
             }
-            platformIds = platformIds == null ? java.util.List.of() : java.util.List.copyOf(platformIds);
+            platformIds =
+                    platformIds == null ? java.util.List.of() : java.util.List.copyOf(platformIds);
             regionIds = regionIds == null ? java.util.List.of() : java.util.List.copyOf(regionIds);
             if (weeks != 1 && weeks != 2 && weeks != 4) {
                 throw new IllegalArgumentException("Release window must be 1, 2, or 4 weeks");
