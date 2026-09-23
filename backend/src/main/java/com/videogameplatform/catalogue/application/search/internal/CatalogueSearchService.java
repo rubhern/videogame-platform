@@ -55,7 +55,8 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
                                         searchText.tokens(),
                                         new GameSearchReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
-                                        searchPolicy.releaseContextLimit()))
+                                        searchPolicy.releaseContextLimit(),
+                                        CatalogueSearchPolicy.SUMMARY_PLATFORM_LIMIT))
                         .orElseThrow(CatalogueNotReadyException::new);
 
         long totalPages =
@@ -122,6 +123,21 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
                 item.canonicalTitle(),
                 item.matchedAlias(),
                 coverPolicy.resolve(item.cover()),
-                releaseContext);
+                releaseContext,
+                toReleaseSummary(item.releaseSummary()));
+    }
+
+    private static SearchCatalogueResult.ReleaseSummary toReleaseSummary(
+            GameSearchReadPort.ReleaseSummary summary) {
+        return new SearchCatalogueResult.ReleaseSummary(
+                summary.platforms().stream()
+                        .map(
+                                platform ->
+                                        new SearchCatalogueResult.Taxonomy(
+                                                platform.id(), platform.name()))
+                        .toList(),
+                summary.totalPlatforms(),
+                summary.earliestKnownYear(),
+                summary.latestKnownYear());
     }
 }

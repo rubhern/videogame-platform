@@ -29,6 +29,12 @@ const resultPage = {
           freshnessStatus: "fresh",
         },
       ],
+      releaseSummary: {
+        platforms: [{ platformId: "platform-ps5", name: "PlayStation 5" }],
+        totalPlatforms: 1,
+        earliestKnownYear: 2027,
+        latestKnownYear: 2027,
+      },
     },
   ],
   page: { number: 1, size: 6, totalItems: 1, totalPages: 1 },

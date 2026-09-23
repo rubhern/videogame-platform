@@ -54,6 +54,10 @@ Only an approved alias is searchable. Ordering ends in unique `gameId` after mat
 rank and normalized canonical title; a game matched through several aliases stays one
 result and separate games matching one query stay separate. Release context per result
 is explicitly bounded, so request memory is `O(pageSize x releaseContextLimit)`.
+Post-MVP (#187, implemented): each result also carries a compact release summary that
+PostgreSQL aggregates from the game's complete stored release set, only for the returned
+page, so it adds `O(pageSize)` memory and never changes matching, ranking, counting or
+paging.
 
 Post-MVP (#156, implemented): the header search offers typeahead suggestions through
 the same `UC-002` read, with no separate endpoint or matching rule. From 2 trimmed

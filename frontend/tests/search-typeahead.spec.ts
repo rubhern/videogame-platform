@@ -34,6 +34,15 @@ function suggestion(gameId: string, slug: string, title: string): GameSearchPage
         freshnessStatus: "fresh",
       },
     ],
+    releaseSummary: {
+      platforms: [
+        { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" },
+        { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" },
+      ],
+      totalPlatforms: 2,
+      earliestKnownYear: 2024,
+      latestKnownYear: 2026,
+    },
   };
 }
 

@@ -21,7 +21,8 @@ public interface GameSearchReadPort {
             String normalizedQuery,
             List<String> tokens,
             Pagination pagination,
-            int releaseContextLimit) {
+            int releaseContextLimit,
+            int summaryPlatformLimit) {
 
         public Criteria {
             if (normalizedQuery == null || normalizedQuery.isEmpty()) {
@@ -32,6 +33,10 @@ public interface GameSearchReadPort {
             }
             if (releaseContextLimit < 1) {
                 throw new IllegalArgumentException("Release context must be bounded to at least 1");
+            }
+            if (summaryPlatformLimit < 1) {
+                throw new IllegalArgumentException(
+                        "Summary platforms must be bounded to at least 1");
             }
             tokens = List.copyOf(tokens);
         }
@@ -49,7 +54,8 @@ public interface GameSearchReadPort {
             String canonicalTitle,
             String matchedAlias,
             CatalogueCoverReference cover,
-            List<ReleaseContext> releaseContext) {}
+            List<ReleaseContext> releaseContext,
+            ReleaseSummary releaseSummary) {}
 
     record ReleaseContext(
             Taxonomy platform,
@@ -57,4 +63,30 @@ public interface GameSearchReadPort {
             ReleaseDate releaseDate,
             ReleaseStatus status,
             Instant lastSyncedAt) {}
+
+    /**
+     * Aggregate over every stored release of one game, independent of the bounded context.
+     * {@code platforms} is the bounded, ordered head of the {@code totalPlatforms} distinct
+     * platforms. The known years are both absent when every release date is unknown.
+     */
+    record ReleaseSummary(
+            List<Taxonomy> platforms,
+            int totalPlatforms,
+            Integer earliestKnownYear,
+            Integer latestKnownYear) {
+
+        public ReleaseSummary {
+            platforms = List.copyOf(platforms);
+            if (platforms.size() > totalPlatforms) {
+                throw new IllegalArgumentException(
+                        "Summary platforms cannot exceed the distinct platform count");
+            }
+            if ((earliestKnownYear == null) != (latestKnownYear == null)) {
+                throw new IllegalArgumentException("Known years must be both present or absent");
+            }
+            if (earliestKnownYear != null && earliestKnownYear > latestKnownYear) {
+                throw new IllegalArgumentException("Earliest known year follows the latest");
+            }
+        }
+    }
 }

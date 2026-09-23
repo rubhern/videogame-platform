@@ -93,6 +93,19 @@ class GameSearchApiIntegrationTest {
     }
 
     @Test
+    void exposesTheCompactReleaseSummaryOfTheCompleteStoredReleaseSet() throws Exception {
+        HttpResponse<String> response = search("crimson desert");
+        OPENAPI.assertJsonResponse(response, 200, "GameSearchPage");
+
+        JsonNode summary = json(response).path("items").get(0).path("releaseSummary");
+        assertThat(textValues(summary.path("platforms"), "name"))
+                .containsExactly("PlayStation 5", "Windows PC", "Xbox Series X|S");
+        assertThat(summary.path("totalPlatforms").asInt()).isEqualTo(3);
+        assertThat(summary.path("earliestKnownYear").asInt()).isEqualTo(2026);
+        assertThat(summary.path("latestKnownYear").asInt()).isEqualTo(2026);
+    }
+
+    @Test
     void matchesAnApprovedAliasAndReportsTheMatchContext() throws Exception {
         JsonNode body = json(search("the witcher 4"));
 

@@ -1,6 +1,7 @@
 package com.videogameplatform.api.delivery.catalogue.search;
 
 import com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper;
+import com.videogameplatform.api.generated.model.CompactReleaseSummary;
 import com.videogameplatform.api.generated.model.DayReleaseDate;
 import com.videogameplatform.api.generated.model.GameSearchPage;
 import com.videogameplatform.api.generated.model.GameSummary;
@@ -17,7 +18,9 @@ import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueResult;
 import java.time.LocalDate;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /** Maps provider-independent UC-002 results to the generated HTTP contract. */
@@ -48,10 +51,22 @@ final class GameSearchApiMapper {
                         item.slug(),
                         item.canonicalTitle(),
                         coverMapper.toResponse(item.primaryCover()),
-                        item.releaseContext().stream()
-                                .map(GameSearchApiMapper::toContext)
-                                .toList());
+                        item.releaseContext().stream().map(GameSearchApiMapper::toContext).toList(),
+                        toReleaseSummary(item.releaseSummary()));
         summary.setMatchedAlias(item.matchedAlias());
+        return summary;
+    }
+
+    private static CompactReleaseSummary toReleaseSummary(
+            SearchCatalogueResult.ReleaseSummary source) {
+        CompactReleaseSummary summary =
+                new CompactReleaseSummary(
+                        source.platforms().stream()
+                                .map(platform -> new Platform(platform.id(), platform.name()))
+                                .collect(Collectors.toCollection(LinkedHashSet::new)),
+                        source.totalPlatforms());
+        summary.setEarliestKnownYear(source.earliestKnownYear());
+        summary.setLatestKnownYear(source.latestKnownYear());
         return summary;
     }
 
