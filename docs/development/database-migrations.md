@@ -1,8 +1,8 @@
 # Database migrations
 
 Flyway SQL in `backend/src/main/resources/db/migration/` is the executable
-application-schema authority. The physical
-[catalogue diagram](../architecture/diagrams/mermaid/catalogue-persistence-model.mmd)
+application-schema authority. The
+[persistence ownership diagram](../architecture/diagrams/mermaid/persistence-ownership.mmd)
 is explanatory and must follow the SQL, not replace it.
 
 ## Policy
@@ -30,8 +30,9 @@ bash scripts/validate-migrations.sh
 ```
 
 The gate creates a fresh PostgreSQL database, migrates from zero, checks migration
-naming/checksums, constraints, seed determinism, and runtime privileges. Persistence
-behaviour is tested against PostgreSQL/Testcontainers, not H2.
+naming/checksums, constraints, seed determinism, runtime privileges, and the packaged
+one-shot migration entry point used by private deployment. Persistence behaviour is
+tested against PostgreSQL/Testcontainers, not H2.
 
 For a local migrated application:
 

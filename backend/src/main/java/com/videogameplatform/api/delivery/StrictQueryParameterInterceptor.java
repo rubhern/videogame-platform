@@ -1,5 +1,7 @@
 package com.videogameplatform.api.delivery;
 
+import com.videogameplatform.api.generated.CatalogueApi;
+import com.videogameplatform.api.generated.RatingsApi;
 import com.videogameplatform.api.generated.ReleasesApi;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,12 +22,15 @@ import org.springframework.web.servlet.HandlerInterceptor;
  */
 @Component
 final class StrictQueryParameterInterceptor implements HandlerInterceptor {
+
+    private static final String SEARCH_PARAMETER = "q";
+
     @Override
     public boolean preHandle(
             HttpServletRequest request, HttpServletResponse response, Object handler) {
         if (!HttpMethod.GET.matches(request.getMethod())
                 || !(handler instanceof HandlerMethod method)
-                || !ReleasesApi.class.isAssignableFrom(method.getBeanType())) {
+                || !isClosedQueryOperation(method)) {
             return true;
         }
         Set<QueryParameter> parameters = queryParameters(method);
@@ -48,13 +53,17 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         }
         for (QueryParameter parameter : parameters) {
             String[] values = request.getParameterValues(parameter.name());
-            if (values != null && values.length > 1) {
-                ProblemCode code =
-                        parameter.pagination()
-                                ? ProblemCode.PAGINATION_INVALID
-                                : ProblemCode.FILTER_INVALID;
+            if (values != null
+                    && values[0].isBlank()
+                    && com.videogameplatform.api.generated.RatingsApi.class.isAssignableFrom(
+                            method.getBeanType())) {
+                throw new ApiRequestException(
+                        repeatedParameterCode(parameter), "/query/" + parameter.name());
+            }
+            if (values != null && values.length > 1 && !parameter.multiValued()) {
                 ApiRequestException exception =
-                        new ApiRequestException(code, "/query/" + parameter.name());
+                        new ApiRequestException(
+                                repeatedParameterCode(parameter), "/query/" + parameter.name());
                 throw exception;
             }
             if (values != null
@@ -69,11 +78,30 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         return true;
     }
 
+    /** The public catalogue reads declare a closed query; other operations are unaffected. */
+    private static boolean isClosedQueryOperation(HandlerMethod method) {
+        Class<?> beanType = method.getBeanType();
+        return ReleasesApi.class.isAssignableFrom(beanType)
+                || CatalogueApi.class.isAssignableFrom(beanType)
+                || RatingsApi.class.isAssignableFrom(beanType);
+    }
+
     private static Set<QueryParameter> queryParameters(HandlerMethod method) {
         return Arrays.stream(method.getMethodParameters())
                 .map(StrictQueryParameterInterceptor::queryParameter)
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** A repeated value is reported against the parameter it actually belongs to. */
+    private static ProblemCode repeatedParameterCode(QueryParameter parameter) {
+        if (parameter.pagination()) {
+            return ProblemCode.PAGINATION_INVALID;
+        }
+        if (Set.of("sort", "direction").contains(parameter.name())) return ProblemCode.SORT_INVALID;
+        return SEARCH_PARAMETER.equals(parameter.name())
+                ? ProblemCode.SEARCH_QUERY_INVALID
+                : ProblemCode.FILTER_INVALID;
     }
 
     private static QueryParameter queryParameter(MethodParameter parameter) {
@@ -82,10 +110,18 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
             return null;
         }
         String name = annotation.name().isBlank() ? annotation.value() : annotation.name();
+        // A collection-typed parameter (an OpenAPI array such as platformIds/regionIds)
+        // legitimately
+        // repeats; scalar parameters stay single-valued and reject repetition.
+        boolean multiValued =
+                java.util.Collection.class.isAssignableFrom(parameter.getParameterType());
         return new QueryParameter(
                 name,
                 parameter.hasParameterAnnotation(Min.class),
-                acceptedValues(parameter.getParameterType()));
+                multiValued,
+                "weeks".equals(name)
+                        ? Set.of("1", "2", "4")
+                        : acceptedValues(parameter.getParameterType()));
     }
 
     private static Set<String> acceptedValues(Class<?> parameterType) {
@@ -97,5 +133,6 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private record QueryParameter(String name, boolean pagination, Set<String> acceptedValues) {}
+    private record QueryParameter(
+            String name, boolean pagination, boolean multiValued, Set<String> acceptedValues) {}
 }

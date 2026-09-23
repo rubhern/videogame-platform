@@ -11,7 +11,24 @@ required_files=(
   "backend/.env.example"
   "compose.yaml"
   "docker/keycloak/import/videogame-platform-realm.json"
-  "docker/postgres/init/001-create-local-databases.sh"
+  "docker/keycloak/import/videogame-platform-users-0.json"
+  "docker/postgres/init/001-create-databases.sh"
+  "deploy/private-dev/README.md"
+  "deploy/private-dev/bin/deploy-private-dev"
+  "deploy/private-dev/bin/provision-oidc-smoke-user"
+  "deploy/private-dev/bin/run-migrations"
+  "deploy/private-dev/compose.yaml"
+  "deploy/private-dev/runtime.env.example"
+  "deploy/private-dev/smoke/Dockerfile"
+  "deploy/private-dev/smoke/deployment-smoke-contract.test.mjs"
+  "deploy/private-dev/smoke/deployment-smoke.mjs"
+  "deploy/private-dev/smoke/deployment-smoke-order.test.mjs"
+  "deploy/private-dev/smoke/package-lock.json"
+  "deploy/private-dev/smoke/package.json"
+  "deploy/private-dev/smoke/releases-outcome.mjs"
+  "deploy/private-dev/smoke/releases-outcome.test.mjs"
+  "scripts/test-private-dev-oidc-provisioning.py"
+  "scripts/test-private-dev-oidc-provisioning-keycloak.py"
   ".mvn/wrapper/maven-wrapper.properties"
   "AGENTS.md"
   "README.md"
@@ -19,6 +36,9 @@ required_files=(
   "backend/postman/README.md"
   "backend/postman/actuator.postman_collection.json"
   "backend/postman/catalogue-releases.postman_collection.json"
+  "backend/postman/catalogue-search.postman_collection.json"
+  "backend/postman/game-details.postman_collection.json"
+  "backend/postman/personal-ratings.postman_collection.json"
   "backend/postman/session.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
@@ -27,10 +47,8 @@ required_files=(
   "frontend/tsconfig.app.json"
   "frontend/tsconfig.node.json"
   "docs/product/product-brief.md"
-  "docs/product/clickable-prototype.md"
   "docs/product/mvp-story-map.md"
-  "docs/product/assumptions.md"
-  "docs/product/open-questions.md"
+  "docs/product/assumptions-and-decisions.md"
   "docs/product/glossary.md"
   "docs/research/README.md"
   "docs/research/competitor-journey-comparison-metacritic.md"
@@ -38,19 +56,17 @@ required_files=(
   "docs/research/igdb-poc-results.md"
   "docs/research/igdb-poc-sample.csv"
   "docs/research/simulated-round-synthesis.md"
-  "docs/reference/README.md"
   "docs/reference/video-game-platform-vision.pdf"
   "docs/README.md"
-  "docs/development/README.md"
   "docs/development/continuous-integration.md"
   "docs/development/database-migrations.md"
   "docs/development/local-setup.md"
   "docs/development/observability.md"
   "docs/development/openapi.md"
+  "docs/development/operations-runbook.md"
   "docs/development/delivery-lifecycle.md"
   "docs/development/work-management.md"
   "docs/development/ai-assistance.md"
-  "docs/architecture/README.md"
   "docs/architecture/domain/mvp-domain-model.md"
   "docs/architecture/application/mvp-use-cases.md"
   "docs/architecture/mvp-solution-architecture.md"
@@ -63,12 +79,12 @@ required_files=(
   "docs/architecture/diagrams/structurizr/workspace.dsl"
   "docs/architecture/diagrams/structurizr/workspace.json"
   "docs/architecture/diagrams/structurizr/structurizr.properties"
-  "docs/architecture/diagrams/diagrams-net/private-dev-deployment.drawio"
   "docs/architecture/diagrams/mermaid/module-context-map.mmd"
-  "docs/architecture/diagrams/mermaid/hexagonal-dependency-rules.mmd"
-  "docs/architecture/diagrams/mermaid/authenticate-and-create-rating-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/oidc-bff-session-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/session-csrf-logout-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/rating-intent-authentication-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/persistence-ownership.mmd"
   "docs/architecture/diagrams/mermaid/synchronize-bounded-catalogue-sequence.mmd"
-  "docs/architecture/diagrams/mermaid/catalogue-persistence-model.mmd"
   "docs/architecture/diagrams/mermaid/delivery-pipeline.mmd"
   "docs/architecture/diagrams/scripts/render-mermaid.sh"
   "docs/decisions/0001-reference-igdb-cover-images.md"
@@ -86,6 +102,7 @@ required_files=(
   "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md"
   "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md"
   "docs/decisions/0015-query-published-release-pages-with-postgresql.md"
+  "docs/decisions/0016-search-the-bounded-catalogue-with-postgresql-text-search.md"
   "docs/decisions/README.md"
   "package.json"
   "package-lock.json"
@@ -96,14 +113,15 @@ required_files=(
   "scripts/validate-actions.sh"
   "scripts/detect-ci-changes.sh"
   "scripts/test-ci-change-detection.sh"
+  "scripts/test-private-dev-deployment.sh"
   "scripts/verify-ci-results.sh"
   "scripts/backend-artifact.sh"
   "scripts/validate-browser.sh"
   "scripts/validate-container-image.sh"
-  "scripts/validate-topology-budget.sh"
   "scripts/local-dependencies.sh"
   "scripts/validate-prerequisites.sh"
   "scripts/build-openapi-docs.sh"
+  "scripts/analyze-catalogue-search.sh"
   "tools/openapi-validation/syntax.redocly.yaml"
   "tools/openapi-validation/schemas.redocly.yaml"
   "tools/openapi-validation/examples.redocly.yaml"
@@ -137,7 +155,9 @@ required_files=(
   "backend/src/main/resources/db/migration/V20260809_120000__create_catalogue_schema.sql"
   "backend/src/main/resources/db/migration/V20260813_120000__add_game_external_references.sql"
   "backend/src/main/resources/db/migration/V20260818_120000__constrain_release_date_year_range.sql"
+  "backend/src/main/resources/db/migration/V20260831_120000__support_bounded_catalogue_search.sql"
   "backend/src/main/resources/db/dev-seed/V20260809_130000__seed_bounded_prototype_catalogue.sql"
+  "backend/src/main/resources/db/dev-seed/V20260831_130000__seed_prototype_catalogue_aliases.sql"
 )
 
 for file in "${required_files[@]}"; do
@@ -236,6 +256,10 @@ for skill_name, tracking in tracked_skills.items():
 json_documents = (
     "backend/postman/actuator.postman_collection.json",
     "backend/postman/catalogue-releases.postman_collection.json",
+    "backend/postman/catalogue-search.postman_collection.json",
+    "backend/postman/game-details.postman_collection.json",
+    "backend/postman/personal-ratings.postman_collection.json",
+    "backend/postman/session.postman_collection.json",
     "backend/postman/local.postman_environment.json",
     "docker/keycloak/import/videogame-platform-realm.json",
 )
@@ -276,13 +300,15 @@ except (OSError, ET.ParseError) as error:
     errors.append(f"Maven version validation failed: {error}")
 
 realm_path = root / "docker/keycloak/import/videogame-platform-realm.json"
+local_realm_users_path = root / "docker/keycloak/import/videogame-platform-users-0.json"
 try:
     realm = json.loads(realm_path.read_text(encoding="utf-8"))
+    local_realm_users = json.loads(local_realm_users_path.read_text(encoding="utf-8"))
     clients = [
         client for client in realm.get("clients", [])
         if client.get("clientId") == "videogame-platform-bff"
     ]
-    users = realm.get("users", [])
+    users = local_realm_users.get("users", [])
     if realm.get("realm") != "videogame-platform" or not realm.get("enabled"):
         errors.append("Keycloak realm must define the enabled videogame-platform realm")
     if len(clients) != 1:
@@ -302,8 +328,44 @@ try:
                 errors.append(f"Keycloak BFF client {key} must be {expected!r}")
         if client.get("attributes", {}).get("pkce.code.challenge.method") != "S256":
             errors.append("Keycloak BFF client must require PKCE S256")
+        if client.get("rootUrl") != "${APPLICATION_PUBLIC_ORIGIN}":
+            errors.append("Keycloak BFF client root URL must use APPLICATION_PUBLIC_ORIGIN")
+    if "users" in realm:
+        errors.append("Shared Keycloak realm must not embed environment-specific users")
+    profiles = realm.get("components", {}).get("org.keycloak.userprofile.UserProfileProvider", [])
+    if len(profiles) != 1:
+        errors.append("Keycloak realm must define exactly one declarative user profile")
+    else:
+        profile_config = profiles[0].get("config", {}).get("kc.user.profile.config", [])
+        if len(profile_config) != 1 or not isinstance(profile_config[0], str):
+            errors.append("Keycloak realm user profile must define one JSON configuration")
+        else:
+            try:
+                profile = json.loads(profile_config[0])
+                expected_marker = {
+                    "displayName": "Deployment smoke ownership marker",
+                    "multivalued": False,
+                    "name": "vgpDeploymentSmoke",
+                    "permissions": {"edit": ["admin"], "view": ["admin"]},
+                    "validations": {"length": {"max": 4, "min": 4}},
+                }
+                if profile.get("unmanagedAttributePolicy") not in (None, "DISABLED"):
+                    errors.append("Keycloak realm user profile must keep unmanaged attributes disabled")
+                markers = [
+                    attribute
+                    for attribute in profile.get("attributes", [])
+                    if isinstance(attribute, dict) and attribute.get("name") == "vgpDeploymentSmoke"
+                ]
+                if markers != [expected_marker]:
+                    errors.append(
+                        "Keycloak realm must declare the admin-only deployment smoke marker"
+                    )
+            except (TypeError, json.JSONDecodeError):
+                errors.append("Keycloak realm user profile must contain valid JSON")
+    if local_realm_users.get("realm") != "videogame-platform":
+        errors.append("Local Keycloak user import must target videogame-platform")
     if len(users) != 1 or users[0].get("username") != "${LOCAL_TEST_USER_USERNAME}":
-        errors.append("Keycloak realm must define exactly one environment-backed local test user")
+        errors.append("Local Keycloak user import must define exactly one environment-backed test user")
     else:
         credentials = users[0].get("credentials", [])
         if len(credentials) != 1 or credentials[0].get("value") != "${LOCAL_TEST_USER_PASSWORD}":
@@ -348,11 +410,6 @@ expected_infrastructure_variables = {
     "POSTGRES_ADMIN_PASSWORD",
     "APPLICATION_DB_PASSWORD",
     "APPLICATION_MIGRATION_DB_PASSWORD",
-    "APPLICATION_DB_CONNECTION_TIMEOUT",
-    "APPLICATION_DB_VALIDATION_TIMEOUT",
-    "APPLICATION_DB_MAXIMUM_POOL_SIZE",
-    "APPLICATION_CATALOGUE_READINESS_TIMEOUT",
-    "CATALOGUE_JDBC_READ_TIMEOUT",
     "KEYCLOAK_DB_PASSWORD",
     "KEYCLOAK_HTTP_PORT",
     "KEYCLOAK_MANAGEMENT_PORT",
@@ -387,10 +444,28 @@ expected_backend_variables = {
     "APPLICATION_SESSION_COOKIE_NAME",
     "APPLICATION_SESSION_COOKIE_SECURE",
     "CATALOGUE_JDBC_READ_TIMEOUT",
-    "CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS",
-    "CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS",
     "CATALOGUE_RELEASES_FRESHNESS_THRESHOLD",
     "CATALOGUE_RELEASES_CACHE_CONTROL",
+    "CATALOGUE_SEARCH_RELEASE_CONTEXT_LIMIT",
+    "CATALOGUE_SEARCH_CACHE_CONTROL",
+    "RATINGS_JDBC_OPERATION_TIMEOUT",
+    "IGDB_CLIENT_ID",
+    "IGDB_CLIENT_SECRET",
+    "IGDB_TOKEN_URI",
+    "IGDB_API_BASE_URI",
+    "IGDB_REQUEST_TIMEOUT",
+    "IGDB_REQUESTS_PER_SECOND",
+    "IGDB_MAX_RETRIES",
+    "IGDB_RETRY_BACKOFF",
+    "CATALOGUE_SYNC_PROVIDER_PAGE_SIZE",
+    "CATALOGUE_SYNC_MAX_RELEASES_PER_GAME",
+    "CATALOGUE_SYNC_RETAINED_RUNS",
+    "CATALOGUE_SYNC_ABANDON_RUN_AFTER",
+    "CATALOGUE_SYNC_FALLBACK_COVER_PATH",
+    "CATALOGUE_SYNC_FALLBACK_COVER_SOURCE",
+    "CATALOGUE_SYNC_UNKNOWN_REGION_CODE",
+    "TELEMETRY_DEPLOYMENT_ENVIRONMENT",
+    "TELEMETRY_SERVICE_VERSION",
     "TELEMETRY_OTLP_TRACES_ENABLED",
     "TELEMETRY_OTLP_TRACES_ENDPOINT",
     "TELEMETRY_OTLP_METRICS_ENABLED",
@@ -420,7 +495,8 @@ expected_statuses = {
     "docs/decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md": "Accepted",
     "docs/decisions/0003-use-a-same-origin-bff-and-http-json-api.md": "Accepted",
     "docs/decisions/0004-synchronize-and-serve-local-catalogue-data.md": "Accepted",
-    "docs/decisions/0005-host-private-dev-on-oci-always-free.md": "Accepted",
+    "docs/decisions/0005-host-private-dev-on-oci-always-free.md": "Superseded",
+    "docs/decisions/0019-host-private-dev-on-an-owner-managed-linux-host.md": "Accepted",
     "docs/decisions/0006-use-postgresql-and-versioned-forward-migrations.md": "Accepted",
     "docs/decisions/0007-use-keycloak-as-the-initial-identity-provider.md": "Accepted",
     "docs/decisions/0008-use-github-actions-and-ghcr-for-initial-delivery.md": "Accepted",
@@ -431,6 +507,7 @@ expected_statuses = {
     "docs/decisions/0013-use-model-backed-and-purpose-specific-architecture-diagrams.md": "Accepted",
     "docs/decisions/0014-generate-backend-http-contracts-from-openapi.md": "Accepted",
     "docs/decisions/0015-query-published-release-pages-with-postgresql.md": "Accepted",
+    "docs/decisions/0016-search-the-bounded-catalogue-with-postgresql-text-search.md": "Accepted",
 }
 
 for relative, status in expected_statuses.items():
@@ -491,6 +568,12 @@ if errors:
 PY
 
 while IFS= read -r file; do
+  # A reviewable working tree can legitimately delete or rename a tracked file.
+  # Required canonical files are checked above; mode validation applies to paths
+  # that still exist in the candidate tree.
+  if [[ ! -e "$file" && ! -L "$file" ]]; then
+    continue
+  fi
   if [[ -L "$file" ]]; then
     link_target="$(readlink -f -- "$file" || true)"
     if [[ -z "$link_target" || ! -e "$link_target" ]]; then
@@ -508,7 +591,7 @@ while IFS= read -r file; do
   fi
 
   case "$file" in
-    mvnw|scripts/*.sh|docker/postgres/init/*.sh|docs/architecture/diagrams/scripts/*.sh)
+    mvnw|scripts/*.sh|docker/postgres/init/*.sh|deploy/private-dev/bin/*|docs/architecture/diagrams/scripts/*.sh)
       [[ -x "$file" ]] || {
         printf 'Shell script must be executable: %s\n' "$file" >&2
         exit 1

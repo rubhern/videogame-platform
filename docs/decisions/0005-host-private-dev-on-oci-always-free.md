@@ -1,9 +1,16 @@
 # ADR-0005: Host private dev on OCI Always Free
 
-- **Status:** Accepted
+- **Status:** Superseded
 - **Date:** 2026-08-03
 - **Owner:** Ruben Hernandez
 - **Scope:** Private, non-commercial learning MVP
+
+> **Superseded (2026-09-13):** eligible Always Free Ampere A1 capacity proved
+> persistently unavailable (`OUT_OF_HOST_CAPACITY`), so this path was abandoned and
+> the resources a partial provisioning had created were torn down. The replacement
+> owner-managed private Linux host decision is recorded in
+> [ADR-0019](0019-host-private-dev-on-an-owner-managed-linux-host.md). The historical
+> decision below is preserved unchanged for context.
 
 ## Context
 

@@ -37,6 +37,19 @@ Exact images, health checks, ports, resources, and wiring are authoritative in
 [`compose.yaml`](../../compose.yaml). `.env.example` and `backend/.env.example` own
 configuration names and safe placeholders.
 
+### Configuration sources
+
+Root `.env` holds only Compose/infrastructure wiring and the generated shared secrets
+(database and Keycloak passwords, the BFF client secret, ports, hostnames, the local
+test user). `backend/.env` holds the backend application configuration and is the
+single source for both `./mvnw -pl backend spring-boot:run` (`source backend/.env`)
+and the Compose `application` service (`env_file`). Compose adds explicit
+`environment` values only where the container genuinely differs from host execution
+(container addresses, internal OIDC endpoints, management bind address, the `oidc`
+profile, packaged Flyway execution); `environment` overrides `env_file`, so a
+container-specific value always wins. The packaged application publishes its
+management port only on host loopback (`127.0.0.1:8081`).
+
 ## Start, verify, and stop
 
 ```bash
@@ -48,11 +61,10 @@ bash scripts/local-dependencies.sh down
 
 On first `up`, the wrapper creates ignored `.env` files with independent random
 credentials and mode `0600`. It never prints secret values. To verify the approved
-image architectures or topology budget:
+image architectures:
 
 ```bash
 bash scripts/local-dependencies.sh verify-images
-bash scripts/validate-topology-budget.sh
 ```
 
 Run the complete application with:
@@ -80,5 +92,16 @@ containers, network, and PostgreSQL volume; it does not delete repository files,
 images, `.env` files, unrelated volumes, or remote data.
 
 Keycloak runs over loopback HTTP and uses a non-personal synthetic test account.
-Remote environments require private HTTPS, separate secrets, backups, and the
-platform controls; local settings are not production defaults.
+The shared imported realm contains environment-neutral identity/client policy; its
+origins come from `APPLICATION_PUBLIC_ORIGIN`. A separate local-only user import adds
+the synthetic account and is not mounted by private dev. The realm enables
+Keycloak-hosted self-registration, so a new visitor can
+create an account from the Keycloak login page without administrator provisioning;
+the realm import owns this setting, so applying it to an already-provisioned instance
+needs a `reset` and re-import. The same applies to `KEYCLOAK_BFF_CLIENT_SECRET`: the
+realm keeps the secret it was imported with, so a regenerated `.env` (for example a
+fresh worktree sharing the same Compose project) makes every login return to the game
+as "not completed" until the stored secret and `.env` agree again; `verify` reports
+this mismatch explicitly. Remote environments require private HTTPS, separate
+secrets, backups, and the platform controls; local settings are not production
+defaults.

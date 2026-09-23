@@ -10,10 +10,10 @@ Preserve uncertainty and make the next decision easier.
 
 ## Read order
 
-1. Read `docs/reference/README.md` and the source PDF when fidelity to the
-   original vision matters.
+1. Read the source PDF in `docs/reference/` when fidelity to the original vision
+   matters.
 2. Read `docs/product/product-brief.md`.
-3. Read `docs/product/assumptions.md`, `open-questions.md`, and `glossary.md`.
+3. Read `docs/product/assumptions-and-decisions.md` and `glossary.md`.
 4. Read `docs/product/mvp-story-map.md` only when journey, release-cut, or scope
    alignment is part of the review.
 5. Read `AGENTS.md` for current phase constraints.

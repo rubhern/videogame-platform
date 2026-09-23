@@ -52,7 +52,7 @@ class HexagonalArchitectureTest {
                     .resideInAnyPackage("..adapter..", "..api.delivery..")
                     .should()
                     .dependOnClassesThat()
-                    .resideInAPackage("..application.internal..");
+                    .resideInAnyPackage("..application.internal..", "..application..internal..");
 
     @ArchTest
     static final ArchRule DOMAIN_DOES_NOT_USE_BOUNDARY_MODELS =
