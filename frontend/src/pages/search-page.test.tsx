@@ -106,7 +106,7 @@ describe("catalogue search page", () => {
     const { router } = renderApp("/search");
 
     await user.type(
-      await screen.findByRole("searchbox", { name: "Buscar en el catálogo" }),
+      await screen.findByRole("combobox", { name: "Buscar en el catálogo" }),
       "the witcher 4",
     );
     await user.click(screen.getByRole("button", { name: "Buscar" }));
@@ -210,7 +210,7 @@ describe("catalogue search page", () => {
     renderApp("/search");
 
     await user.type(
-      await screen.findByRole("searchbox", { name: "Buscar en el catálogo" }),
+      await screen.findByRole("combobox", { name: "Buscar en el catálogo" }),
       "the witcher 4",
     );
     await user.click(screen.getByRole("button", { name: "Buscar" }));

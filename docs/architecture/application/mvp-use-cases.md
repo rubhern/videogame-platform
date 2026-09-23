@@ -55,6 +55,15 @@ rank and normalized canonical title; a game matched through several aliases stay
 result and separate games matching one query stay separate. Release context per result
 is explicitly bounded, so request memory is `O(pageSize x releaseContextLimit)`.
 
+Post-MVP (#156, implemented): the header search offers typeahead suggestions through
+the same `UC-002` read, with no separate endpoint or matching rule. From 2 trimmed
+code points and 250 ms after the latest keystroke, it requests the first page of five;
+a superseded request is cancelled and can never render. Each suggestion projects only
+the returned cover, title, explaining alias, platforms and release-context year (one
+year, an inclusive range, or `Por confirmar`). Choosing one opens the game;
+`Enter` without an active suggestion keeps the existing full search. The threshold
+gates suggestions only and does not change what an explicit search accepts.
+
 `UC-009` reconciles all relevant new and known Games in the requested date interval through one operation.
 [ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
 owns Game selection, import policy, stable Release identity and per-Game atomicity.

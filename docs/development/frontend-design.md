@@ -119,6 +119,18 @@ the executable values; these constraints hold wherever they are used:
 - Use the shell's `CatalogueSearch` as the single catalogue search entry. It preserves the
   existing URL-backed bounded search, exposes a labelled search landmark, supports the `/`
   focus shortcut and reports the OpenAPI query limit before navigation.
+- The search's typeahead popup (#156) follows the owner's approved search-popup reference:
+  a glass panel anchored under the search at its width, a `Resultados (N)` header with the
+  `Enter` hint, compact rows (landscape cover crop, title, then platform icons, a divider,
+  any alias and the year), the accent-bordered active row with its `↵` badge, and a
+  separated **Ver todos los resultados** footer. It is a combobox whose focus stays in the
+  input. From tablet width the rows use the larger page scale and the desktop search column
+  grows to 680px, so the search and its popup share that width; platform icons are separated
+  by a dot, with none after the last. Loading keeps the previous row count as placeholders; empty and failure states are
+  compact messages that never block the full search. On phones it spans the search
+  dialog's row, wraps metadata instead of clipping it and drops the keyboard hints. Wide
+  platform wordmarks keep their ratio at the row height. Genres, companies and scores in
+  the reference are not part of the contract and stay omitted.
 - Use `CatalogueCover` for provider covers, provider failure fallback and attribution, and
   `CatalogueLoading` for releases and search loading. Release cards render the cover without
   its caption; the game page keeps it. Feature cards keep their own metadata;

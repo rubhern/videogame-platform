@@ -25,8 +25,9 @@ export class GameSearchApiError extends Error {
 export async function searchGames(
   query: GameSearchQuery,
   client: ProductApiClient = productApiClient,
+  signal?: AbortSignal,
 ) {
-  const { data, error, response } = await client.GET("/games", { params: { query } })
+  const { data, error, response } = await client.GET("/games", { params: { query }, signal: signal ?? null })
     .catch(() => {
       // Network and response-decoding failures have no usable HTTP Problem.
       throw new GameSearchApiError(null, "GAME_SEARCH_REQUEST_FAILED", null);

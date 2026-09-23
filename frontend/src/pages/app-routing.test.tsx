@@ -78,7 +78,7 @@ describe("application routing", () => {
     expect(within(sections).queryByRole("link", { name: "Buscar" })).not.toBeInTheDocument();
     expect(screen.queryByText("Catálogo de lanzamientos · MVP privado")).not.toBeInTheDocument();
     expect(screen.queryByText("Datos locales · sin consultas al proveedor")).not.toBeInTheDocument();
-    await user.type(screen.getByRole("searchbox", { name: "Buscar en el catálogo" }), "Pragmata{Enter}");
+    await user.type(screen.getByRole("combobox", { name: "Buscar en el catálogo" }), "Pragmata{Enter}");
 
     expect(await screen.findByRole("heading", { level: 1, name: "Buscar juegos" })).toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveFocus();
@@ -103,7 +103,7 @@ describe("application routing", () => {
   it("focuses the integrated catalogue search with its keyboard shortcut", async () => {
     const user = userEvent.setup();
     renderApp();
-    const search = screen.getByRole("searchbox", { name: "Buscar en el catálogo" });
+    const search = screen.getByRole("combobox", { name: "Buscar en el catálogo" });
 
     await user.keyboard("/");
 

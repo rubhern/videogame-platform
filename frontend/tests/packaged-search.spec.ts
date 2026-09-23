@@ -34,12 +34,14 @@ async function horizontalOverflow(page: Page) {
 }
 
 async function search(page: Page, query: string) {
-  const responsePromise = page.waitForResponse(
-    (response) => new URL(response.url()).pathname === "/api/v1/games",
-  );
-  const searchbox = page.getByRole("searchbox", { name: "Buscar en el catálogo" });
-  await searchbox.fill(query);
-  await searchbox.press("Enter");
+  // Typeahead suggestions reuse the endpoint with a five-item page; wait for the full search.
+  const responsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === "/api/v1/games" && url.searchParams.get("pageSize") !== "5";
+  });
+  const catalogueSearch = page.getByRole("combobox", { name: "Buscar en el catálogo" });
+  await catalogueSearch.fill(query);
+  await catalogueSearch.press("Enter");
   return responsePromise;
 }
 
@@ -49,7 +51,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
   const providerRequests = trackProviderRequests(page);
 
   await page.goto("/");
-  await page.getByRole("searchbox", { name: "Buscar en el catálogo" }).press("Enter");
+  await page.getByRole("combobox", { name: "Buscar en el catálogo" }).press("Enter");
 
   await expect(page.getByRole("heading", { level: 1, name: "Buscar juegos" })).toBeVisible();
 
@@ -157,14 +159,14 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await page.goto("/search?q=the+witcher+4");
 
     await expect(resultTitles(page)).toHaveText(["The Witcher IV"]);
-    await expect(page.getByRole("searchbox", { name: "Buscar en el catálogo" })).toHaveValue(
+    await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toHaveValue(
       "the witcher 4",
     );
   });
 
   await test.step("the search is keyboard operable end to end", async () => {
     await page.goto("/search");
-    await page.getByRole("searchbox", { name: "Buscar en el catálogo" }).focus();
+    await page.getByRole("combobox", { name: "Buscar en el catálogo" }).focus();
     await page.keyboard.type("pragmata");
     await page.keyboard.press("Enter");
 
