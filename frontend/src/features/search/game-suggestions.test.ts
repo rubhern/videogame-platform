@@ -22,6 +22,22 @@ function release(platformId: string, name: string, releaseDate: ReleaseDate): Re
   };
 }
 
+type Platform = components["schemas"]["Platform"];
+type CompactReleaseSummary = components["schemas"]["CompactReleaseSummary"];
+
+const ps5 = { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" };
+const pc = { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" };
+const xbox = { platformId: "10000000-0000-4000-8000-000000000004", name: "Xbox Series X|S" };
+const day = { precision: "day", value: "2026-01-01" } as const;
+
+function summary(
+  platforms: Platform[],
+  totalPlatforms: number,
+  years: Pick<CompactReleaseSummary, "earliestKnownYear" | "latestKnownYear"> = {},
+): CompactReleaseSummary {
+  return { platforms, totalPlatforms, ...years };
+}
+
 function game(overrides: Partial<GameSummary> = {}): GameSummary {
   return {
     gameId: "game-1",
@@ -58,31 +74,31 @@ describe("typeahead eligibility", () => {
 });
 
 describe("suggestion year", () => {
-  it("shows the single known year whatever the date precision", () => {
-    expect(
-      suggestionYear([
-        release("p1", "PlayStation 5", { precision: "day", value: "2026-03-18" }),
-        release("p2", "Windows PC", { precision: "quarter", value: "2026-Q2" }),
-        release("p3", "Xbox Series X|S", { precision: "month", value: "2026-11" }),
-      ]),
-    ).toBe("2026");
+  it("shows the single known year", () => {
+    expect(suggestionYear(summary([], 0, { earliestKnownYear: 2026, latestKnownYear: 2026 }))).toBe("2026");
   });
 
-  it("shows an inclusive range across several known years and ignores unknown dates", () => {
-    expect(
-      suggestionYear([
-        release("p1", "PlayStation 5", { precision: "year", value: "2026" }),
-        release("p2", "Windows PC", { precision: "unknown", value: null }),
-        release("p3", "Xbox Series X|S", { precision: "day", value: "2024-02-01" }),
-      ]),
-    ).toBe("2024–2026");
+  it("shows an inclusive range across several known years", () => {
+    expect(suggestionYear(summary([], 0, { earliestKnownYear: 2024, latestKnownYear: 2026 }))).toBe(
+      "2024–2026",
+    );
   });
 
   it("shows Por confirmar without any known year", () => {
-    expect(suggestionYear([])).toBe("Por confirmar");
-    expect(
-      suggestionYear([release("p1", "PlayStation 5", { precision: "unknown", value: null })]),
-    ).toBe("Por confirmar");
+    expect(suggestionYear(summary([], 0))).toBe("Por confirmar");
+  });
+
+  it("never falls back to the bounded release context for the year", () => {
+    const [suggestion] = toGameSuggestions(
+      page([
+        game({
+          releaseContext: [release(ps5.platformId, ps5.name, { precision: "day", value: "2025-05-01" })],
+          releaseSummary: summary([ps5], 1),
+        }),
+      ]),
+    ).suggestions;
+
+    expect(suggestion?.year).toBe("Por confirmar");
   });
 });
 
@@ -96,30 +112,55 @@ describe("suggestion projection", () => {
     expect(result.totalItems).toBe(23);
   });
 
-  it("shows three distinct platforms and folds the rest into the overflow", () => {
-    const day = { precision: "day", value: "2026-01-01" } as const;
+  it("shows the summary's first three platforms and the exact +N from the distinct total", () => {
     const [suggestion] = toGameSuggestions(
       page([
         game({
+          // The bounded sample is filled by duplicate releases on one platform and must be ignored.
           releaseContext: [
-            release("10000000-0000-4000-8000-000000000003", "Windows PC", day),
-            release("10000000-0000-4000-8000-000000000001", "PlayStation 5", day),
-            release("10000000-0000-4000-8000-000000000003", "Windows PC", day),
-            release("10000000-0000-4000-8000-000000000004", "Xbox Series X|S", day),
-            release("platform-switch", "Nintendo Switch", day),
-            release("platform-new", "Some Future Console", day),
+            release(pc.platformId, pc.name, day),
+            release(pc.platformId, pc.name, day),
+            release(pc.platformId, pc.name, day),
           ],
+          releaseSummary: summary([ps5, pc, xbox], 7),
         }),
       ]),
     ).suggestions;
 
     expect(suggestion?.platforms.map(({ name, icon }) => [name, icon])).toEqual([
-      ["Windows PC", "windows"],
       ["PlayStation 5", "playstation-5"],
+      ["Windows PC", "windows"],
       ["Xbox Series X|S", "xbox-series-x-s"],
     ]);
-    expect(suggestion?.hiddenPlatforms.map(({ name, icon }) => [name, icon])).toEqual([
-      ["Nintendo Switch", "nintendo-switch"],
+    expect(suggestion?.hiddenPlatformCount).toBe(4);
+    expect(suggestion && suggestionAccessibleName(suggestion)).toBe(
+      "Eclipse of Aether · PlayStation 5, Windows PC, Xbox Series X|S · 4 plataformas más · Por confirmar",
+    );
+  });
+
+  it("shows one icon per distinct platform when several releases share it", () => {
+    const [suggestion] = toGameSuggestions(
+      page([
+        game({
+          releaseContext: [
+            release(ps5.platformId, ps5.name, day),
+            release(ps5.platformId, ps5.name, { precision: "year", value: "2027" }),
+          ],
+          releaseSummary: summary([ps5], 1, { earliestKnownYear: 2026, latestKnownYear: 2027 }),
+        }),
+      ]),
+    ).suggestions;
+
+    expect(suggestion?.platforms.map(({ id }) => id)).toEqual([ps5.platformId]);
+    expect(suggestion?.hiddenPlatformCount).toBe(0);
+    expect(suggestion?.year).toBe("2026–2027");
+  });
+
+  it("keeps the accessible icon fallback for a platform without a known mark", () => {
+    const future = { platformId: "platform-new", name: "Some Future Console" };
+    const [suggestion] = toGameSuggestions(page([game({ releaseSummary: summary([future], 1) })])).suggestions;
+
+    expect(suggestion?.platforms.map(({ name, icon }) => [name, icon])).toEqual([
       ["Some Future Console", "platform"],
     ]);
   });
@@ -141,12 +182,7 @@ describe("suggestion projection", () => {
       page([
         game({
           matchedAlias: "Aether",
-          releaseContext: [
-            release("10000000-0000-4000-8000-000000000001", "PlayStation 5", {
-              precision: "year",
-              value: "2026",
-            }),
-          ],
+          releaseSummary: summary([ps5], 1, { earliestKnownYear: 2026, latestKnownYear: 2026 }),
         }),
       ]),
     ).suggestions;

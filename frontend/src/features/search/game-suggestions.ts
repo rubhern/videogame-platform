@@ -29,44 +29,36 @@ export type GameSuggestion = {
   alias: string | null;
   cover: GameSearchCover;
   platforms: GameSuggestionPlatform[];
-  hiddenPlatforms: GameSuggestionPlatform[];
+  /** Exact number of further distinct platforms, folded into the compact `+N`. */
+  hiddenPlatformCount: number;
   year: string;
 };
 
 export type GameSuggestions = { suggestions: GameSuggestion[]; totalItems: number };
 
 type GameSummary = GameSearchPage["items"][number];
-
-/** Every release-date precision except `unknown` starts with its four-digit year. */
-function releaseYear(context: GameSummary["releaseContext"][number]): number | null {
-  const value = "value" in context.releaseDate ? context.releaseDate.value : null;
-  const match = value === null ? null : /^(\d{4})/.exec(value);
-  return match === null ? null : Number(match[1]);
-}
+type CompactReleaseSummary = GameSummary["releaseSummary"];
 
 /** One known year, an inclusive range across several, or `Por confirmar` without any. */
-export function suggestionYear(releaseContext: GameSummary["releaseContext"]): string {
-  const years = releaseContext.map(releaseYear).filter((year) => year !== null);
-  if (years.length === 0) {
+export function suggestionYear({ earliestKnownYear, latestKnownYear }: CompactReleaseSummary): string {
+  if (earliestKnownYear === undefined || latestKnownYear === undefined) {
     return "Por confirmar";
   }
-  const first = Math.min(...years);
-  const last = Math.max(...years);
-  return first === last ? String(first) : `${first}–${last}`;
+  return earliestKnownYear === latestKnownYear
+    ? String(earliestKnownYear)
+    : `${earliestKnownYear}–${latestKnownYear}`;
 }
 
-function distinctPlatforms(releaseContext: GameSummary["releaseContext"]): GameSuggestionPlatform[] {
-  const platforms = new Map<string, GameSuggestionPlatform>();
-  for (const { platform } of releaseContext) {
-    if (!platforms.has(platform.platformId)) {
-      platforms.set(platform.platformId, {
-        id: platform.platformId,
-        name: platform.name,
-        icon: platformIcon(platform.platformId, platform.name),
-      });
-    }
-  }
-  return [...platforms.values()];
+/**
+ * Platforms come from the compact summary over every stored release (#187), never from the
+ * bounded `releaseContext` sample, which cannot tell the complete set or the exact `+N`.
+ */
+function visiblePlatforms({ platforms }: CompactReleaseSummary): GameSuggestionPlatform[] {
+  return platforms.slice(0, VISIBLE_SUGGESTION_PLATFORMS).map(({ platformId, name }) => ({
+    id: platformId,
+    name,
+    icon: platformIcon(platformId, name),
+  }));
 }
 
 /** An alias only explains the match when it is not merely the canonical title again. */
@@ -80,29 +72,35 @@ function explainingAlias(item: GameSummary): string | null {
 export function toGameSuggestions(page: GameSearchPage): GameSuggestions {
   return {
     suggestions: page.items.slice(0, SUGGESTION_LIMIT).map((item) => {
-      const platforms = distinctPlatforms(item.releaseContext);
+      const platforms = visiblePlatforms(item.releaseSummary);
       return {
         gameId: item.gameId,
         title: item.canonicalTitle,
         path: `/games/${item.gameId}/${item.slug}`,
         alias: explainingAlias(item),
         cover: toCover(item.primaryCover),
-        platforms: platforms.slice(0, VISIBLE_SUGGESTION_PLATFORMS),
-        hiddenPlatforms: platforms.slice(VISIBLE_SUGGESTION_PLATFORMS),
-        year: suggestionYear(item.releaseContext),
+        platforms,
+        hiddenPlatformCount: Math.max(item.releaseSummary.totalPlatforms - platforms.length, 0),
+        year: suggestionYear(item.releaseSummary),
       };
     }),
     totalItems: page.page.totalItems,
   };
 }
 
+/** Only the count of the platforms behind `+N` is known, never their names. */
+export function hiddenPlatformsLabel(count: number): string {
+  return count === 1 ? "1 plataforma más" : `${count} plataformas más`;
+}
+
 /** The option's accessible name never depends on the decorative platform icons. */
 export function suggestionAccessibleName(suggestion: GameSuggestion): string {
-  const platforms = [...suggestion.platforms, ...suggestion.hiddenPlatforms].map(({ name }) => name);
+  const platforms = suggestion.platforms.map(({ name }) => name).join(", ");
   return [
     suggestion.title,
     suggestion.alias === null ? null : `también conocido como ${suggestion.alias}`,
-    platforms.length === 0 ? null : platforms.join(", "),
+    platforms === "" ? null : platforms,
+    suggestion.hiddenPlatformCount === 0 ? null : hiddenPlatformsLabel(suggestion.hiddenPlatformCount),
     suggestion.year,
   ]
     .filter((part) => part !== null)

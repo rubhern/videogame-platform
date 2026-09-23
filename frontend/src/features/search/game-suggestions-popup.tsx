@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { SelectIcon } from "../../shared/ui/select-icon";
 import {
+  hiddenPlatformsLabel,
   suggestionAccessibleName,
   type GameSuggestion,
   type GameSuggestions,
@@ -57,7 +58,7 @@ function SuggestionCover({ url }: { url: string }) {
 }
 
 function SuggestionMeta({ suggestion }: { suggestion: GameSuggestion }) {
-  const { platforms, hiddenPlatforms } = suggestion;
+  const { platforms, hiddenPlatformCount } = suggestion;
   return (
     <span className="search-suggestion-meta">
       {platforms.length === 0 ? null : (
@@ -68,12 +69,9 @@ function SuggestionMeta({ suggestion }: { suggestion: GameSuggestion }) {
                 <SelectIcon name={platform.icon} />
               </span>
             ))}
-            {hiddenPlatforms.length === 0 ? null : (
-              <span
-                className="search-suggestion-platform-more"
-                title={hiddenPlatforms.map(({ name }) => name).join(", ")}
-              >
-                +{hiddenPlatforms.length}
+            {hiddenPlatformCount === 0 ? null : (
+              <span className="search-suggestion-platform-more" title={hiddenPlatformsLabel(hiddenPlatformCount)}>
+                +{hiddenPlatformCount}
               </span>
             )}
           </span>

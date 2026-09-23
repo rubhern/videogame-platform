@@ -155,6 +155,37 @@ describe("catalogue search typeahead", () => {
     expect(screen.getByRole("button", { name: "Ver todos los resultados para «aether»" })).toBeVisible();
   });
 
+  it("renders the compact release summary's platforms, exact +N and year range", async () => {
+    stubCatalogue(() =>
+      Response.json(
+        page([
+          game("Eclipse of Aether", 0, {
+            releaseSummary: {
+              platforms: [
+                { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" },
+                { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" },
+                { platformId: "10000000-0000-4000-8000-000000000004", name: "Xbox Series X|S" },
+              ],
+              totalPlatforms: 6,
+              earliestKnownYear: 2024,
+              latestKnownYear: 2026,
+            },
+          }),
+        ]),
+      ),
+    );
+    const user = userEvent.setup();
+    renderApp("/search");
+
+    await user.type(searchInput(), "aether");
+
+    const option = await screen.findByRole("option", {
+      name: "Eclipse of Aether · PlayStation 5, Windows PC, Xbox Series X|S · 3 plataformas más · 2024–2026",
+    });
+    expect(within(option).getByText("+3")).toHaveAttribute("title", "3 plataformas más");
+    expect(within(option).getByText("2024–2026")).toBeVisible();
+  });
+
   it("explains an alias match in the row and its accessible name", async () => {
     stubCatalogue(() => Response.json(fivePage));
     const user = userEvent.setup();
