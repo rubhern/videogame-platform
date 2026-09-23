@@ -7,6 +7,9 @@
 - **Supersedes in part:** [ADR-0004](0004-synchronize-and-serve-local-catalogue-data.md)
   (membership, cover approval and global publication replacement) and the curation
   clause of the [provider spike](../research/game-data-providers-spike.md)
+- **Superseded in part:** [ADR-0020](0020-acquire-platform-and-region-taxonomy-from-releases.md)
+  (platform and region taxonomy is now acquired from accepted releases through typed
+  provider references, not installed by migration)
 
 ## Context
 
@@ -52,6 +55,9 @@ starts the interval again and relies on stable-reference idempotence.
 The normal migration installs the existing approved platform/region taxonomy.
 Acquisition does not require demonstration Games or synthetic provider IDs from
 the optional development seed. Existing taxonomy identities are preserved.
+([ADR-0020](0020-acquire-platform-and-region-taxonomy-from-releases.md) supersedes
+this clause: taxonomy is now acquired from accepted releases through typed provider
+references; the seeded identities are preserved and their references backfilled.)
 
 Provider Game IDs are deduplicated before resolving product identity. An unknown
 typed IGDB Game reference creates a random internal `GameId`, Game, external

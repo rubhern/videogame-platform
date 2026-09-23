@@ -4,18 +4,6 @@ package com.videogameplatform.catalogue.adapter.persistence.synchronization;
 final class CatalogueSynchronizationSql {
     private CatalogueSynchronizationSql() {}
 
-    static final String PLATFORM_CODES =
-            """
-            SELECT code, platform_id::text AS taxonomy_id
-            FROM catalogue.platform
-            """;
-
-    static final String REGION_CODES =
-            """
-            SELECT code, region_id::text AS taxonomy_id
-            FROM catalogue.region
-            """;
-
     static final String INSERT_GAME =
             """
             INSERT INTO catalogue.game (game_id, created_at)

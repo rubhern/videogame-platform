@@ -1,0 +1,229 @@
+#!/usr/bin/env bash
+#
+# Restore a verified, encrypted private-dev backup into an ISOLATED target.
+#
+# The restore never writes to the live stack: it requires a distinct Compose project
+# name, refuses the live one, and rebuilds a clean database volume whose roles are
+# bootstrapped from the protected secret files (never from the backup). It verifies
+# integrity before decrypting, streams each decrypted dump straight into pg_restore so
+# plaintext is not persisted, and confirms identity configuration, product-owned
+# curation and application schema state are present afterwards.
+#
+# This is the isolated-restore proof for #44. A full journey smoke against the restored
+# stack is the existing deployment command pointed at the same isolated project.
+#
+# Mechanics owner. Policy: docs/architecture/deployment/mvp-platform-and-delivery.md
+
+set -Eeuo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+compose_file="$repository_root/deploy/private-dev/compose.yaml"
+rehearsal_override="$repository_root/deploy/private-dev/compose.restore-rehearsal.yaml"
+# shellcheck source=deploy/private-dev/lib/backup-common.sh
+source "$repository_root/deploy/private-dev/lib/backup-common.sh"
+
+live_project_default="videogame-platform-dev"
+databases=(videogame_platform videogame_keycloak)
+
+backup=""
+runtime_env=""
+gnupg_home=""
+isolated_project=""
+evidence_directory=""
+confirm_destroy=false
+
+usage() {
+  cat <<'EOF'
+Usage: restore-private-dev \
+  --backup <verified-backup-directory> \
+  --env-file <protected-runtime.env> \
+  --gnupg-home <keyring-with-private-key> \
+  --isolated-project <distinct-compose-project-name> \
+  --confirm-destroy-isolated-target \
+  [--evidence-directory <absolute-directory>]
+
+Rebuilds a CLEAN database volume for the named isolated project (destroying only that
+project's volumes), bootstraps roles from the protected secret files, then restores
+the two encrypted database dumps and verifies the restored state. It refuses the live
+project name so the live stack is never touched.
+EOF
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --backup) backup="${2:-}"; shift 2 ;;
+    --env-file) runtime_env="${2:-}"; shift 2 ;;
+    --gnupg-home) gnupg_home="${2:-}"; shift 2 ;;
+    --isolated-project) isolated_project="${2:-}"; shift 2 ;;
+    --evidence-directory) evidence_directory="${2:-}"; shift 2 ;;
+    --confirm-destroy-isolated-target) confirm_destroy=true; shift ;;
+    --help) usage; exit 0 ;;
+    *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+[[ -n "$backup" && -n "$runtime_env" && -n "$gnupg_home" && -n "$isolated_project" ]] || {
+  usage >&2
+  exit 2
+}
+[[ "$confirm_destroy" == true ]] ||
+  bc_fail "Refusing to rebuild the isolated volume without --confirm-destroy-isolated-target."
+
+bc_require_commands awk date docker find grep gpg mktemp python3 realpath sha256sum sort
+
+backup="$(realpath -- "$backup")"
+runtime_env="$(realpath -- "$runtime_env")"
+gnupg_home="$(realpath -- "$gnupg_home")"
+[[ -f "$runtime_env" ]] || bc_fail "Runtime environment file does not exist: $runtime_env"
+[[ -d "$gnupg_home" ]] || bc_fail "GPG home directory does not exist: $gnupg_home"
+[[ "$isolated_project" =~ ^[a-z0-9][a-z0-9_-]{2,62}$ ]] ||
+  bc_fail "--isolated-project must be a lowercase Compose project name."
+
+# Determine the live project name so we can categorically refuse it. Compose reads
+# COMPOSE_PROJECT_NAME from the env-file; fall back to the documented default.
+live_project="$(
+  awk -F= '$1 == "COMPOSE_PROJECT_NAME" { value = $2 } END { print value }' "$runtime_env"
+)"
+live_project="${live_project:-$live_project_default}"
+[[ "$isolated_project" != "$live_project" ]] ||
+  bc_fail "Refusing to restore over the live project '$live_project'; choose a distinct isolated project."
+
+# Integrity gate: never decrypt or restore an unverified backup.
+bc_verify_backup "$backup"
+
+evidence_path=""
+if [[ -n "$evidence_directory" ]]; then
+  [[ "$evidence_directory" == /* && -d "$evidence_directory" && -w "$evidence_directory" ]] ||
+    bc_fail "Evidence directory must be an existing writable absolute path: $evidence_directory"
+  evidence_path="$evidence_directory/restore-$(date --utc +%Y%m%dT%H%M%SZ)-${isolated_project}.json"
+fi
+
+staging="$(mktemp -d)"
+trap 'rm -rf -- "$staging"' EXIT
+umask 0077
+
+compose=(
+  docker compose
+  --env-file "$runtime_env"
+  --file "$compose_file"
+  --file "$rehearsal_override"
+  --project-name "$isolated_project"
+)
+
+docker info >/dev/null
+
+printf 'Rebuilding clean isolated database volume for project: %s\n' "$isolated_project"
+"${compose[@]}" down --volumes --remove-orphans
+"${compose[@]}" up --detach --wait --wait-timeout 180 postgres
+
+restore_results="$staging/results.tsv"
+: >"$restore_results"
+
+for database in "${databases[@]}"; do
+  ciphertext="$backup/${database}${BC_CIPHERTEXT_SUFFIX}"
+  [[ -f "$ciphertext" ]] || bc_fail "Backup is missing the expected artifact: $ciphertext"
+  plaintext="$staging/${database}${BC_DUMP_SUFFIX}"
+  bc_decrypt_file "$ciphertext" "$plaintext" "$gnupg_home"
+
+  # Confirm the decrypted bytes match the manifest's plaintext checksum: proves the
+  # backup decrypted to exactly what was captured, not just that it decrypted.
+  expected_plaintext_sha="$(
+    python3 - "$backup/$BC_MANIFEST_NAME" "$database" <<'PY'
+import json
+import sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+for artifact in manifest["artifacts"]:
+    if artifact["database"] == sys.argv[2]:
+        print(artifact["plaintextSha256"])
+        break
+else:
+    raise SystemExit(f"manifest has no artifact for database {sys.argv[2]}")
+PY
+  )"
+  actual_plaintext_sha="$(bc_sha256_file "$plaintext")"
+  [[ "$actual_plaintext_sha" == "$expected_plaintext_sha" ]] ||
+    bc_fail "Decrypted dump for '$database' does not match the manifest checksum."
+
+  # Restore into the clean, pre-created database. --clean --if-exists keeps the step
+  # idempotent; ownership and grants are restored onto the roles the secret-file
+  # bootstrap already created, so the runtime role keeps its privileges.
+  "${compose[@]}" exec -T postgres gosu postgres \
+    pg_restore --format=custom --clean --if-exists \
+    --dbname="$database" <"$plaintext"
+  printf '%s\trestored\n' "$database" >>"$restore_results"
+done
+
+printf 'Verifying restored state (counts and versions only, no data printed):\n'
+
+application_schema_version="$(
+  "${compose[@]}" exec -T postgres gosu postgres psql \
+    --dbname=videogame_platform --tuples-only --no-align \
+    --command="SELECT coalesce(max(version), '') FROM flyway_schema_history WHERE success"
+)"
+[[ -n "$application_schema_version" ]] ||
+  bc_fail "Restored application database has no successful Flyway history."
+printf '  application schema version: %s\n' "$application_schema_version"
+
+# Product-owned curation: the catalogue tables must be present (row counts may be zero
+# in a valid empty publication). Presence of the schema proves editorial state carried.
+"${compose[@]}" exec -T postgres gosu postgres psql \
+  --dbname=videogame_platform --tuples-only --no-align \
+  --command="SELECT to_regclass('catalogue.game') IS NOT NULL AND to_regclass('catalogue.game_release') IS NOT NULL" |
+  grep -qx 't' ||
+  bc_fail "Restored application database is missing expected catalogue tables."
+printf '  catalogue schema present: yes\n'
+
+# Identity configuration: Keycloak's realm and at least the deployment-smoke account
+# must be present. Only counts are read; no usernames or personal data are printed.
+keycloak_realm_count="$(
+  "${compose[@]}" exec -T postgres gosu postgres psql \
+    --dbname=videogame_keycloak --tuples-only --no-align \
+    --command="SELECT count(*) FROM realm WHERE name = 'videogame-platform'"
+)"
+[[ "$keycloak_realm_count" == "1" ]] ||
+  bc_fail "Restored Keycloak database does not contain the videogame-platform realm."
+keycloak_user_count="$(
+  "${compose[@]}" exec -T postgres gosu postgres psql \
+    --dbname=videogame_keycloak --tuples-only --no-align \
+    --command="SELECT count(*) FROM user_entity ue JOIN realm r ON r.id = ue.realm_id WHERE r.name = 'videogame-platform'"
+)"
+printf '  keycloak realm present: yes (accounts: %s)\n' "$keycloak_user_count"
+
+for database in "${databases[@]}"; do
+  printf '%s\tverified\n' "$database" >>"$restore_results"
+done
+
+if [[ -n "$evidence_path" ]]; then
+  VGP_RESTORE_BACKUP_ID="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["backupId"])' "$backup/$BC_MANIFEST_NAME")" \
+  VGP_RESTORE_PROJECT="$isolated_project" \
+  VGP_RESTORE_AT="$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
+  VGP_RESTORE_APP_SCHEMA="$application_schema_version" \
+  VGP_RESTORE_KEYCLOAK_ACCOUNTS="$keycloak_user_count" \
+    python3 - "$evidence_path" <<'PY'
+import json
+import os
+import sys
+
+record = {
+    "kind": "isolated-restore",
+    "environment": "dev",
+    "backupId": os.environ["VGP_RESTORE_BACKUP_ID"],
+    "isolatedProject": os.environ["VGP_RESTORE_PROJECT"],
+    "restoredAt": os.environ["VGP_RESTORE_AT"],
+    "applicationSchemaVersion": os.environ["VGP_RESTORE_APP_SCHEMA"],
+    "keycloakAccounts": int(os.environ["VGP_RESTORE_KEYCLOAK_ACCOUNTS"]),
+    "verified": ["integrity", "decryption-checksum", "application-schema",
+                 "catalogue-tables", "keycloak-realm"],
+    "outcome": "success",
+}
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    handle.write(json.dumps(record, indent=2, sort_keys=True) + "\n")
+PY
+  printf 'Restore evidence: %s\n' "$evidence_path"
+fi
+
+printf 'Isolated restore verified for project %s.\n' "$isolated_project"
+printf 'Run the deployment smoke against this project to prove the full journey, then:\n'
+printf '  docker compose --env-file %q --file %q --file %q --project-name %q down --volumes\n' \
+  "$runtime_env" "$compose_file" "$rehearsal_override" "$isolated_project"

@@ -1,8 +1,8 @@
 # Database migrations
 
 Flyway SQL in `backend/src/main/resources/db/migration/` is the executable
-application-schema authority. The physical
-[catalogue diagram](../architecture/diagrams/mermaid/catalogue-persistence-model.mmd)
+application-schema authority. The
+[persistence ownership diagram](../architecture/diagrams/mermaid/persistence-ownership.mmd)
 is explanatory and must follow the SQL, not replace it.
 
 ## Policy
@@ -23,15 +23,6 @@ is explanatory and must follow the SQL, not replace it.
 Development seed SQL belongs under `db/dev-seed/`, must be deterministic and
 idempotent for disposable use, and is excluded from production-image packaging.
 
-The owner explicitly authorized revising the unpublished synchronization migration
-during issue #33 in its existing worktree. This exception does not authorize editing
-released migrations or resetting persistent data. A local database that already
-applied an earlier #33 draft requires a reviewed, data-preserving conversion before
-running the new code; Flyway checksum repair alone does not convert its schema.
-Earlier Release records without stable external identities must not be linked by
-guessing from mutable date/platform/region values. Fresh isolated databases are the
-validation environment for the revised migration.
-
 ## Validate
 
 ```bash
@@ -39,8 +30,9 @@ bash scripts/validate-migrations.sh
 ```
 
 The gate creates a fresh PostgreSQL database, migrates from zero, checks migration
-naming/checksums, constraints, seed determinism, and runtime privileges. Persistence
-behaviour is tested against PostgreSQL/Testcontainers, not H2.
+naming/checksums, constraints, seed determinism, runtime privileges, and the packaged
+one-shot migration entry point used by private deployment. Persistence behaviour is
+tested against PostgreSQL/Testcontainers, not H2.
 
 For a local migrated application:
 

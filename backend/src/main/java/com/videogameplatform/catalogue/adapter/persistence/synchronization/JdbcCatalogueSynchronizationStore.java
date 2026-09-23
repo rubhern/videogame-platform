@@ -4,6 +4,8 @@ import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
@@ -115,23 +117,6 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
     }
 
     @Override
-    public CatalogueContext loadContext() {
-        return new CatalogueContext(
-                taxonomy(CatalogueSynchronizationSql.PLATFORM_CODES),
-                taxonomy(CatalogueSynchronizationSql.REGION_CODES));
-    }
-
-    private Map<String, UUID> taxonomy(String sql) {
-        Map<String, UUID> values = new LinkedHashMap<>();
-        jdbc.query(
-                sql,
-                Map.of(),
-                (org.springframework.jdbc.core.RowCallbackHandler)
-                        rs -> values.put(rs.getString(1), UUID.fromString(rs.getString(2))));
-        return Map.copyOf(values);
-    }
-
-    @Override
     public Optional<GameState> loadGame(String providerId, int maxReleases) {
         return transaction.execute(
                 status -> {
@@ -171,8 +156,16 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                     var rows =
                             jdbc.query(
                                     """
-                    SELECT s.*, r.provider_id FROM catalogue.release_snapshot s
-                    JOIN catalogue.release_external_reference r ON r.release_id=s.release_id AND r.game_id=s.game_id
+                    SELECT s.*, r.provider_id AS release_provider_id,
+                           pxr.provider_id AS platform_provider_id,
+                           rxr.provider_id AS region_provider_id
+                    FROM catalogue.release_snapshot s
+                    JOIN catalogue.release_external_reference r
+                      ON r.release_id=s.release_id AND r.game_id=s.game_id
+                    LEFT JOIN catalogue.platform_external_reference pxr
+                      ON pxr.platform_id=s.platform_id AND pxr.provider=:provider
+                    LEFT JOIN catalogue.region_external_reference rxr
+                      ON rxr.region_id=s.region_id AND rxr.provider=:provider
                     WHERE s.game_id=:game AND r.provider=:provider ORDER BY s.release_id LIMIT :limit
                     """,
                                     Map.of(
@@ -184,17 +177,12 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                             maxReleases + 1),
                                     (rs, row) ->
                                             Map.entry(
-                                                    rs.getString("provider_id"),
+                                                    rs.getString("release_provider_id"),
                                                     new PublishedRelease(
                                                             rs.getObject("release_id", UUID.class),
-                                                            new ReleaseIdentity(
-                                                                    g.gameId(),
-                                                                    rs.getObject(
-                                                                            "platform_id",
-                                                                            UUID.class),
-                                                                    rs.getObject(
-                                                                            "region_id",
-                                                                            UUID.class)),
+                                                            g.gameId(),
+                                                            rs.getString("platform_provider_id"),
+                                                            rs.getString("region_provider_id"),
                                                             ReleaseDateRowMapper.map(rs),
                                                             ReleaseStatus.fromValue(
                                                                     rs.getString("release_status")),
@@ -322,10 +310,18 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                 "game",
                                 w.gameId()));
             }
+            UUID platformId = resolvePlatform(value.release().platform());
+            UUID regionId = resolveRegion(value.release().region());
             int changed =
                     jdbc.update(
                             CatalogueSynchronizationSql.INSERT_RELEASE_SNAPSHOT,
-                            snapshotParameters(publication, value.release(), releaseId));
+                            snapshotParameters(
+                                    publication,
+                                    value.release(),
+                                    releaseId,
+                                    w.gameId(),
+                                    platformId,
+                                    regionId));
             if (creating) {
                 created++;
             } else if (changed > 0) {
@@ -354,6 +350,141 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
         }
         listingChanged.accept(w.gameId().toString());
         return new WriteResult(w.creating(), !w.creating() && changed, created, updated, unchanged);
+    }
+
+    /** Product-only sentinel for a release whose provider states no region; it has no reference. */
+    private static final String UNKNOWN_REGION_CODE = "unknown";
+
+    /**
+     * Resolves a provider platform to product identity, reusing the known reference or creating the
+     * product platform and its reference as part of this accepted write. Identity is the provider
+     * reference; the slug and name only seed a readable code and display name, never identity.
+     */
+    private UUID resolvePlatform(ProviderPlatform platform) {
+        List<UUID> existing =
+                jdbc.query(
+                        "SELECT platform_id FROM catalogue.platform_external_reference"
+                                + " WHERE provider=:provider AND provider_id=:id",
+                        Map.of("provider", provider, "id", platform.providerId()),
+                        (rs, row) -> rs.getObject(1, UUID.class));
+        if (!existing.isEmpty()) {
+            return existing.getFirst();
+        }
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO catalogue.platform(platform_id, code, display_name)"
+                        + " VALUES(CAST(:id AS uuid), :code, :name)",
+                Map.of(
+                        "id",
+                        id.toString(),
+                        "code",
+                        uniqueCode("catalogue.platform", "platform", platform.slug(), platform),
+                        "name",
+                        displayName(platform.name(), platform.slug(), "platform", platform)));
+        jdbc.update(
+                "INSERT INTO catalogue.platform_external_reference(provider, provider_id, platform_id)"
+                        + " VALUES(:provider, :pid, CAST(:id AS uuid))",
+                Map.of("provider", provider, "pid", platform.providerId(), "id", id.toString()));
+        return id;
+    }
+
+    /**
+     * Resolves a provider release region to product identity. An absent region maps to the product
+     * 'unknown' sentinel; a present one reuses or creates the product region and its reference.
+     */
+    private UUID resolveRegion(Optional<ProviderRegion> region) {
+        if (region.isEmpty()) {
+            return jdbc.query(
+                            "SELECT region_id FROM catalogue.region WHERE code=:code",
+                            Map.of("code", UNKNOWN_REGION_CODE),
+                            (rs, row) -> rs.getObject(1, UUID.class))
+                    .getFirst();
+        }
+        ProviderRegion value = region.orElseThrow();
+        List<UUID> existing =
+                jdbc.query(
+                        "SELECT region_id FROM catalogue.region_external_reference"
+                                + " WHERE provider=:provider AND provider_id=:id",
+                        Map.of("provider", provider, "id", value.providerId()),
+                        (rs, row) -> rs.getObject(1, UUID.class));
+        if (!existing.isEmpty()) {
+            return existing.getFirst();
+        }
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO catalogue.region(region_id, code, display_name)"
+                        + " VALUES(CAST(:id AS uuid), :code, :name)",
+                Map.of(
+                        "id",
+                        id.toString(),
+                        "code",
+                        uniqueCode("catalogue.region", "region", value.name(), value),
+                        "name",
+                        displayName(value.name(), null, "region", value)));
+        jdbc.update(
+                "INSERT INTO catalogue.region_external_reference(provider, provider_id, region_id)"
+                        + " VALUES(:provider, :pid, CAST(:id AS uuid))",
+                Map.of("provider", provider, "pid", value.providerId(), "id", id.toString()));
+        return id;
+    }
+
+    private String uniqueCode(String table, String kind, String descriptor, Object reference) {
+        String base = slugify(descriptor);
+        if (base.isEmpty()) {
+            base = kind + "-" + providerReference(reference);
+        }
+        if (!codeExists(table, base)) {
+            return base;
+        }
+        // A readable slug can collide with an unrelated product entity; disambiguate
+        // deterministically
+        // with the provider reference, which is unique per provider. Identity never depends on
+        // this.
+        String disambiguated = base + "-" + slugify(providerReference(reference));
+        return codeExists(table, disambiguated)
+                ? kind + "-" + slugify(providerReference(reference))
+                : disambiguated;
+    }
+
+    private boolean codeExists(String table, String code) {
+        Integer count =
+                jdbc.queryForObject(
+                        "SELECT count(*) FROM " + table + " WHERE code=:code",
+                        Map.of("code", code),
+                        Integer.class);
+        return count != null && count > 0;
+    }
+
+    private static String displayName(String name, String slug, String kind, Object reference) {
+        if (name != null && !name.isBlank()) {
+            return name.trim();
+        }
+        if (slug != null && !slug.isBlank()) {
+            return slug.trim();
+        }
+        return kind + " " + providerReference(reference);
+    }
+
+    private static String providerReference(Object reference) {
+        return switch (reference) {
+            case ProviderPlatform platform -> platform.providerId();
+            case ProviderRegion region -> region.providerId();
+            default -> "";
+        };
+    }
+
+    /** Normalizes descriptive text into a valid taxonomy code; identity is the provider reference. */
+    private static String slugify(String value) {
+        if (value == null) {
+            return "";
+        }
+        String slug =
+                value.trim()
+                        .toLowerCase(Locale.ROOT)
+                        .replaceAll("[^a-z0-9]+", "-")
+                        .replaceAll("^-+", "")
+                        .replaceAll("-+$", "");
+        return slug;
     }
 
     @Override
@@ -443,14 +574,19 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
     }
 
     private static SqlParameterSource snapshotParameters(
-            String publicationId, PlannedRelease release, UUID releaseId) {
+            String publicationId,
+            PlannedRelease release,
+            UUID releaseId,
+            UUID gameId,
+            UUID platformId,
+            UUID regionId) {
         ReleaseDate date = release.date();
         return new MapSqlParameterSource()
                 .addValue("publicationId", publicationId)
                 .addValue("releaseId", releaseId.toString())
-                .addValue("gameId", release.identity().gameId().toString())
-                .addValue("platformId", release.identity().platformId().toString())
-                .addValue("regionId", release.identity().regionId().toString())
+                .addValue("gameId", gameId.toString())
+                .addValue("platformId", platformId.toString())
+                .addValue("regionId", regionId.toString())
                 .addValue("datePrecision", date.precision().value())
                 .addValue("exactDate", date instanceof ReleaseDate.Day day ? day.date() : null)
                 .addValue("releaseYear", releaseYear(date))

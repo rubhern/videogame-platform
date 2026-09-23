@@ -12,7 +12,9 @@ spring:
             client-secret: ${KEYCLOAK_BFF_CLIENT_SECRET}
             client-authentication-method: client_secret_basic
             authorization-grant-type: authorization_code
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            # Tailscale Serve is the private HTTPS terminator. Keep callback construction
+            # independent of client-supplied Forwarded/X-Forwarded headers.
+            redirect-uri: "${APPLICATION_OIDC_REDIRECT_URI:{baseUrl}/login/oauth2/code/{registrationId}}"
             scope: openid
         provider:
           keycloak:

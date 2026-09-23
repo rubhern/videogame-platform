@@ -4,7 +4,26 @@ import { Link } from "react-router-dom";
 import { listMyRatings, MY_RATINGS_KEY, MyRatingsError, type MyRatingsPage, type MyRatingsQuery } from "../features/ratings/my-ratings-api";
 import { MyRatingCard } from "../features/ratings/my-rating-card";
 import { useSession } from "../features/session/use-session";
-import { CatalogueLoading } from "../shared/ui/catalogue-loading";
+import { AppSelect } from "../shared/ui/app-select";
+
+/**
+ * Row-shaped placeholders for the personal collection.
+ *
+ * <p>They mirror the real maintenance rows rather than the catalogue grid, and stay
+ * silent: the page already owns the single live status above them.
+ */
+function MyRatingsLoading() {
+  return <div aria-hidden="true" className="my-ratings-list">
+    {[0, 1, 2].map(index => <div className="my-rating-card" key={index}>
+      <span className="skeleton my-rating-skeleton-cover" />
+      <div className="my-rating-body">
+        <span className="skeleton skeleton-title" />
+        <span className="skeleton my-rating-skeleton-score" />
+        <span className="skeleton skeleton-meta" />
+      </div>
+    </div>)}
+  </div>;
+}
 
 export function MyRatingsPage() {
   const session = useSession();
@@ -38,13 +57,16 @@ export function MyRatingsPage() {
     <p className="eyebrow eyebrow-dot">Tu colección de notas</p>
     <h1 className="page-title" id="my-ratings-title">Mis puntuaciones</h1>
     <p className="search-intro">Consulta y mantén tus puntuaciones de juegos.</p>
-    {session.isPending ? <p role="status">Comprobando sesión…</p>
-      : session.isError ? <div className="notice notice-error" role="alert">
-        <p>No se pudo comprobar tu sesión.</p><button className="button" onClick={() => { void session.refetch(); }}>Reintentar</button>
+    {session.isPending ? <p className="result-count" role="status">Comprobando sesión…</p>
+      : session.isError ? <div className="notice notice-danger" role="alert">
+        <span className="notice-symbol notice-symbol-danger" aria-hidden="true">×</span>
+        <p className="notice-kicker">Sesión</p>
+        <p>No se pudo comprobar tu sesión.</p><button className="button button-danger" onClick={() => { void session.refetch(); }}>Reintentar</button>
       </div> : csrfToken === null || query.error?.code === "AUTHENTICATION_REQUIRED" ? <div className="notice notice-empty" role="status">
+        <span className="notice-symbol" aria-hidden="true">◷</span>
         <h2>Necesitas una sesión activa</h2>
         <p>Inicia sesión al puntuar desde la ficha de un juego para consultar tus notas.</p>
-        <Link className="button" to="/search">Buscar un juego</Link>
+        <Link className="button button-primary" to="/search">Buscar un juego</Link>
       </div> : <>
         <form className="my-ratings-filters" role="search" aria-label="Buscar en mis puntuaciones"
           onSubmit={(event) => {
@@ -65,46 +87,64 @@ export function MyRatingsPage() {
               onChange={(event) => setSearch(event.target.value)} />
           </div>
           <button className="button button-primary" type="submit">Buscar en mis puntuaciones</button>
-          <label>Ordenar por
-            <select value={params.sort ?? "updatedAt"} onChange={(event) => {
-              const sort = event.target.value;
+          <AppSelect
+            className="my-ratings-select"
+            icon="clock"
+            label="Ordenar por"
+            onChange={(sort) => {
               if (sort === "updatedAt" || sort === "canonicalTitle" || sort === "ratingValue")
                 change({ ...params, sort, direction: sort === "updatedAt" ? "desc" : "asc", page: 1 });
-            }}>
-              <option value="updatedAt">Última actualización</option><option value="canonicalTitle">Título</option><option value="ratingValue">Mi nota</option>
-            </select>
-          </label>
-          <label>Dirección
-            <select value={params.direction ?? "desc"} onChange={(event) => {
-              const direction = event.target.value;
+            }}
+            options={[
+              { value: "updatedAt", label: "Última actualización", icon: "clock" },
+              { value: "canonicalTitle", label: "Título", icon: "title" },
+              { value: "ratingValue", label: "Mi nota", icon: "rating" },
+            ]}
+            value={params.sort ?? "updatedAt"}
+          />
+          <AppSelect
+            className="my-ratings-select"
+            icon="descending"
+            label="Dirección"
+            onChange={(direction) => {
               if (direction === "asc" || direction === "desc") change({ ...params, direction, page: 1 });
-            }}>
-              <option value="desc">Descendente</option><option value="asc">Ascendente</option>
-            </select>
-          </label>
-          <label>Por página
-            <select value={params.pageSize} onChange={(event) => change({ ...params, pageSize: Number(event.target.value), page: 1 })}>
-              <option value={20}>20</option><option value={50}>50</option><option value={100}>100</option>
-            </select>
-          </label>
+            }}
+            options={[
+              { value: "desc", label: "Descendente", icon: "descending" },
+              { value: "asc", label: "Ascendente", icon: "ascending" },
+            ]}
+            value={params.direction ?? "desc"}
+          />
+          <AppSelect
+            className="my-ratings-select"
+            icon="page-size"
+            label="Por página"
+            onChange={(pageSize) => change({ ...params, pageSize: Number(pageSize), page: 1 })}
+            options={[20, 50, 100].map((size) => ({ value: String(size), label: String(size) }))}
+            value={String(params.pageSize)}
+          />
         </form>
-        {inputError ? <p id="my-ratings-input-error" role="alert">{inputError}</p> : null}
+        {inputError ? <p className="my-ratings-input-error" id="my-ratings-input-error" role="alert">{inputError}</p> : null}
         <h2 className="sr-only" tabIndex={-1} ref={heading}>Resultados de mis puntuaciones</h2>
-        <p role="status" className="results-summary">{message || (query.isFetching ? "Actualizando puntuaciones…" :
+        <p role="status" className="result-count">{message || (query.isFetching ? "Actualizando puntuaciones…" :
           data ? `${data.page.totalItems} puntuaciones · Página ${data.page.number} de ${Math.max(data.page.totalPages, 1)}` : "")}</p>
-        {query.isError ? <div className="notice notice-error" role="alert">
+        {query.isError ? <div className="notice notice-danger" role="alert">
+          <span className="notice-symbol notice-symbol-danger" aria-hidden="true">×</span>
+          <p className="notice-kicker">Error de carga</p>
           <p>No se pudieron cargar tus puntuaciones. Inténtalo de nuevo.</p>
-          <button className="button" onClick={refresh}>Reintentar carga</button>
+          <button className="button button-danger" onClick={refresh}>Reintentar carga</button>
         </div> : null}
-        {query.isPending ? <CatalogueLoading message="Cargando tus puntuaciones…" />
+        {query.isPending ? <MyRatingsLoading />
           : data ? <>
             {data.items.length === 0 ? <div className="notice notice-empty" role="status">
+              <span className="notice-symbol" aria-hidden="true">⌕</span>
+              <p className="notice-kicker">Sin resultados</p>
               <h3>{data.page.totalItems > 0 ? "Esta página ya no tiene resultados" :
                 params.q ? "No hay puntuaciones que coincidan con tu búsqueda" : "Todavía no has puntuado ningún juego"}</h3>
-              {params.q ? <button className="button" onClick={() => {
+              {params.q ? <button className="button button-primary" onClick={() => {
                 setSearch(""); const next = { ...params, page: 1 }; delete next.q; change(next);
               }}>Limpiar búsqueda</button>
-                : <Link className="button" to="/search">Explorar el catálogo</Link>}
+                : <Link className="button button-primary" to="/search">Explorar el catálogo</Link>}
             </div> : <div className="my-ratings-list">
               {data.items.map(item => <MyRatingCard key={`${item.game.gameId}:${revision}`} item={item} csrfToken={csrfToken} onChanged={changed} />)}
             </div>}

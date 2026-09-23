@@ -2,6 +2,24 @@ import type { components } from "../../src/shared/api/generated/schema";
 
 type ReleasePage = components["schemas"]["ReleasePage"];
 
+export const pragmataRelease: components["schemas"]["Release"] = {
+  releaseId: "40000000-0000-4000-8000-000000000006",
+  gameId: "30000000-0000-4000-8000-000000000006",
+  platform: { platformId: "windows-pc", name: "Windows PC" },
+  region: { regionId: "worldwide", name: "Worldwide" },
+  releaseDate: { precision: "quarter", value: "2026-Q2" },
+  status: "released",
+  provenance: {
+    sourceKind: "product_curated",
+    sourceName: "VideoGame Platform clickable prototype",
+    sourceEntityType: "prototype_release",
+  },
+  lastSyncedAt: "2026-08-09T10:00:00Z",
+  verificationLevel: "provider_only",
+  reviewStatus: "not_required",
+  freshnessStatus: "fresh",
+};
+
 export const pragmata: ReleasePage["items"][number] = {
   gameId: "30000000-0000-4000-8000-000000000006",
   slug: "pragmata",
@@ -12,23 +30,7 @@ export const pragmata: ReleasePage["items"][number] = {
     alternativeText: "Portada no disponible de Pragmata",
     attribution: null,
   },
-  release: {
-    releaseId: "40000000-0000-4000-8000-000000000006",
-    gameId: "30000000-0000-4000-8000-000000000006",
-    platform: { platformId: "windows-pc", name: "Windows PC" },
-    region: { regionId: "worldwide", name: "Worldwide" },
-    releaseDate: { precision: "quarter", value: "2026-Q2" },
-    status: "released",
-    provenance: {
-      sourceKind: "product_curated",
-      sourceName: "VideoGame Platform clickable prototype",
-      sourceEntityType: "prototype_release",
-    },
-    lastSyncedAt: "2026-08-09T10:00:00Z",
-    verificationLevel: "provider_only",
-    reviewStatus: "not_required",
-    freshnessStatus: "fresh",
-  },
+  releases: [pragmataRelease],
 };
 
 export function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
@@ -36,7 +38,7 @@ export function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
     view: "recent",
     evaluatedOn: "2026-08-13",
     window: { from: "2026-02-13", to: "2026-08-13" },
-    activeFilters: { platformId: null, regionId: null },
+    activeFilters: { platformIds: [], regionIds: [] },
     availableFilters: {
       platforms: [
         { platformId: "playstation-5", name: "PlayStation 5" },

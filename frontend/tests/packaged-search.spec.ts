@@ -34,12 +34,14 @@ async function horizontalOverflow(page: Page) {
 }
 
 async function search(page: Page, query: string) {
-  const responsePromise = page.waitForResponse(
-    (response) => new URL(response.url()).pathname === "/api/v1/games",
-  );
-  const searchbox = page.getByRole("searchbox", { name: "Buscar en el catálogo" });
-  await searchbox.fill(query);
-  await searchbox.press("Enter");
+  // Typeahead suggestions reuse the endpoint with a five-item page; wait for the full search.
+  const responsePromise = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === "/api/v1/games" && url.searchParams.get("pageSize") !== "5";
+  });
+  const catalogueSearch = page.getByRole("combobox", { name: "Buscar en el catálogo" });
+  await catalogueSearch.fill(query);
+  await catalogueSearch.press("Enter");
   return responsePromise;
 }
 
@@ -49,10 +51,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
   const providerRequests = trackProviderRequests(page);
 
   await page.goto("/");
-  await page
-    .getByRole("navigation", { name: "Secciones principales" })
-    .getByRole("link", { name: "Buscar" })
-    .click();
+  await page.getByRole("combobox", { name: "Buscar en el catálogo" }).press("Enter");
 
   await expect(page.getByRole("heading", { level: 1, name: "Buscar juegos" })).toBeVisible();
 
@@ -65,7 +64,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await expect(page.getByRole("list", { name: "Resultados de la búsqueda" })).toHaveCount(0);
   });
 
-  await test.step("an exact canonical title returns its game with release context", async () => {
+  await test.step("an exact canonical title returns its game with a compact summary", async () => {
     const response = await search(page, "Resident Evil Requiem");
     expect(response.status()).toBe(200);
     expect(response.request().resourceType()).toBe("fetch");
@@ -78,9 +77,14 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await expect(page.getByRole("status")).toHaveText(
       "1 juego del catálogo local · Página 1 de 1",
     );
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Resultados para «Resident Evil Requiem»" }),
+    ).toBeVisible();
     await expect(resultTitles(page)).toHaveText(["Resident Evil Requiem"]);
-    await expect(page.getByText("PlayStation 5 · Europa")).toBeVisible();
-    await expect(page.getByText("27 de febrero de 2026")).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Plataformas de Resident Evil Requiem" }).getByRole("listitem"),
+    ).toHaveText(["PlayStation 5", "Windows PC"]);
+    await expect(page.getByText("Lanzamiento: 2026")).toBeVisible();
   });
 
   await expectNoAccessibilityViolations(page);
@@ -95,7 +99,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await search(page, "the witcher 4");
 
     await expect(resultTitles(page)).toHaveText(["The Witcher IV"]);
-    await expect(page.getByText("Coincide con el título alternativo The Witcher 4")).toBeVisible();
+    await expect(page.getByText("Coincidencia: The Witcher 4")).toBeVisible();
   });
 
   await test.step("a partial query matches on a word prefix", async () => {
@@ -160,20 +164,20 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await page.goto("/search?q=the+witcher+4");
 
     await expect(resultTitles(page)).toHaveText(["The Witcher IV"]);
-    await expect(page.getByRole("searchbox", { name: "Buscar en el catálogo" })).toHaveValue(
+    await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toHaveValue(
       "the witcher 4",
     );
   });
 
   await test.step("the search is keyboard operable end to end", async () => {
     await page.goto("/search");
-    await page.getByRole("searchbox", { name: "Buscar en el catálogo" }).focus();
+    await page.getByRole("combobox", { name: "Buscar en el catálogo" }).focus();
     await page.keyboard.type("pragmata");
     await page.keyboard.press("Enter");
 
     await expect(resultTitles(page)).toHaveText(["Pragmata"]);
     await page.keyboard.press("Tab");
-    await expect(page.getByRole("link", { name: "Ver Pragmata" })).toBeFocused();
+    await expect(page.getByRole("link", { name: "Pragmata", exact: true })).toBeFocused();
   });
 
   await test.step("the search page works at phone, tablet and desktop sizes", async () => {

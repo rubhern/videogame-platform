@@ -11,9 +11,14 @@ type CatalogueCoverProps = {
     | { kind: "fallback" }
   );
   to?: string;
+  /**
+   * Catalogue cards omit the caption so the cover keeps the space; the game detail
+   * page owns the visible attribution and source link required by ADR-0001.
+   */
+  caption?: boolean;
 };
 
-export function CatalogueCover({ cover, to }: CatalogueCoverProps) {
+export function CatalogueCover({ cover, to, caption = true }: CatalogueCoverProps) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const hasImageAttribution = cover.kind !== "fallback";
   const failed = hasImageAttribution && failedUrl === cover.url;
@@ -44,18 +49,20 @@ export function CatalogueCover({ cover, to }: CatalogueCoverProps) {
           {image}
         </Link>
       )}
-      <figcaption className="cover-caption">
-        {attribution === null ? (
-          "Carátula oficial no disponible"
-        ) : (
-          <>
-            Carátula:{" "}
-            <a className="text-link" href={attribution.sourceUrl} rel="noreferrer">
-              {attribution.label}
-            </a>
-          </>
-        )}
-      </figcaption>
+      {caption ? (
+        <figcaption className="cover-caption">
+          {attribution === null ? (
+            "Carátula oficial no disponible"
+          ) : (
+            <>
+              Carátula:{" "}
+              <a className="text-link" href={attribution.sourceUrl} rel="noreferrer">
+                {attribution.label}
+              </a>
+            </>
+          )}
+        </figcaption>
+      ) : null}
     </figure>
   );
 }

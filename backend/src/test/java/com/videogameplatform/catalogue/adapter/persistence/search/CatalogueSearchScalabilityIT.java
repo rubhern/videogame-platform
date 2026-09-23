@@ -84,6 +84,13 @@ class CatalogueSearchScalabilityIT {
                 .doesNotHaveDuplicates();
         assertThat(result.items())
                 .allSatisfy(item -> assertThat(item.releaseContext()).hasSizeLessThanOrEqualTo(3));
+        // The complete release summary aggregates in PostgreSQL: one bounded row per game.
+        assertThat(result.items())
+                .allSatisfy(
+                        item -> {
+                            assertThat(item.releaseSummary().totalPlatforms()).isEqualTo(1);
+                            assertThat(item.releaseSummary().platforms()).hasSize(1);
+                        });
         assertThat(pagePlan.path("Plan").path("Actual Rows").asLong()).isEqualTo(60);
         // Small tables may legitimately cost less to scan. Prove indexed access at the
         // representative scale without forcing the planner or gating on machine latency.
@@ -98,7 +105,11 @@ class CatalogueSearchScalabilityIT {
     private static GameSearchReadPort.Criteria criteria() {
         CatalogueSearchText text = CatalogueSearchText.of("omega");
         return new GameSearchReadPort.Criteria(
-                text.normalized(), text.tokens(), new GameSearchReadPort.Pagination(1, 20, 0), 3);
+                text.normalized(),
+                text.tokens(),
+                new GameSearchReadPort.Pagination(1, 20, 0),
+                3,
+                3);
     }
 
     private static TransactionTemplate readTransaction(DataSource dataSource) {

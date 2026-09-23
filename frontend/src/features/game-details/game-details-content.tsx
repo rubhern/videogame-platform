@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import {
@@ -169,6 +170,13 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
 
   return (
     <div className="game-detail-layout">
+      {/* Decorative ambience built from the cover already shown on this page: no extra
+          request, no new asset, and nothing readable depends on it. */}
+      <div
+        aria-hidden="true"
+        className="game-hero-ambience"
+        style={{ "--hero-art": `url(${JSON.stringify(game.primaryCover.url)})` } as CSSProperties}
+      />
       <header className="game-detail-heading">
         <p className="eyebrow eyebrow-dot">Ficha del catálogo</p>
         <h1 className="game-detail-title">{game.canonicalTitle}</h1>

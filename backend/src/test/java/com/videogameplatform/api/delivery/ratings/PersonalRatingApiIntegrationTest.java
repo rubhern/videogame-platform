@@ -204,7 +204,7 @@ class PersonalRatingApiIntegrationTest {
     @Test
     void createAndUpdateReevaluateEligibilityButDeleteDoesNot() throws Exception {
         admin.update(
-                "UPDATE catalogue.release_snapshot SET release_status = 'scheduled' WHERE game_id = ?",
+                "UPDATE catalogue.release_snapshot SET exact_date = date '2026-08-14' WHERE game_id = ?",
                 game);
         mockMvc.perform(
                         put(path())
@@ -218,11 +218,11 @@ class PersonalRatingApiIntegrationTest {
                 .andExpect(jsonPath("$.eligibilityReason").value("RELEASE_NOT_OCCURRED"));
 
         admin.update(
-                "UPDATE catalogue.release_snapshot SET release_status = 'released' WHERE game_id = ?",
+                "UPDATE catalogue.release_snapshot SET exact_date = date '2026-08-13' WHERE game_id = ?",
                 game);
         String tag = create(ALICE, 7).getResponse().getHeader(HttpHeaders.ETAG);
         admin.update(
-                "UPDATE catalogue.release_snapshot SET release_status = 'scheduled' WHERE game_id = ?",
+                "UPDATE catalogue.release_snapshot SET exact_date = date '2026-08-14' WHERE game_id = ?",
                 game);
 
         MvcResult deleted =

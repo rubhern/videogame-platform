@@ -2,14 +2,14 @@ package com.videogameplatform.catalogue.adapter.provider.igdb;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.Map;
 
 /**
  * Everything the IGDB adapter needs, already validated by configuration.
  *
- * <p>The taxonomy maps are product-owned: IGDB's platform and region vocabularies never become the
- * product contract (EXT-002), and an entry missing from the allowlist is a reported mapping
- * failure rather than a silent merge into a nearby product platform (REL-005).
+ * <p>Platform and release-region taxonomy is not configured here: provider platforms and regions
+ * cross the port as typed references keyed by their provider entity ID, and the store resolves them
+ * to product identity, reusing a known reference or creating a new product entity. The adapter
+ * never maps provider slugs or names to a fixed product allowlist (EXT-002, REL-005).
  */
 public record IgdbApiSettings(
         String clientId,
@@ -20,10 +20,7 @@ public record IgdbApiSettings(
         double requestsPerSecond,
         int maxRetries,
         Duration retryBackoff,
-        int maxReleasesPerGame,
-        Map<String, String> platformCodes,
-        Map<String, String> regionCodes,
-        String unknownRegionCode) {
+        int maxReleasesPerGame) {
 
     /** The approved local request rate; the accepted provider evidence never exceeded it. */
     public static final double MAX_REQUESTS_PER_SECOND = 3.0d;
@@ -58,8 +55,6 @@ public record IgdbApiSettings(
             throw new IllegalArgumentException(
                     "The IGDB release fan-out per game must be between 1 and 200");
         }
-        platformCodes = Map.copyOf(platformCodes);
-        regionCodes = Map.copyOf(regionCodes);
     }
 
     /** Credentials stay in backend secret configuration; without them no provider call happens. */

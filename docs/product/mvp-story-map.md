@@ -32,10 +32,9 @@ architecture source.
 - The complete slice includes relevant tests, security, observability, and operational
   evidence.
 
-The accepted synthetic round reached 4/5 unaided and the focused regression resolved
-the blocking rating-state inconsistency. This closes the internal journey gate but
-does not validate demand or real-user behaviour. See the
-[prototype](clickable-prototype.md) and [synthesis](../research/simulated-round-synthesis.md).
+The journey gate evidence and its limits are recorded in the
+[synthesis](../research/simulated-round-synthesis.md); it does not validate demand or
+real-user behaviour.
 
 Anything outside the [Product Brief](product-brief.md) MVP boundary remains deferred,
 even if it appeared in the original vision or synthetic feedback.

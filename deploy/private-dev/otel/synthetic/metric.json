@@ -1,0 +1,29 @@
+{
+  "resourceMetrics": [
+    {
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "issue-43-synthetic"}},
+          {"key": "service.version", "value": {"stringValue": "43.0.0-synthetic"}},
+          {"key": "deployment.environment.name", "value": {"stringValue": "validation"}}
+        ]
+      },
+      "scopeMetrics": [
+        {
+          "scope": {"name": "issue-43-validator", "version": "1"},
+          "metrics": [
+            {
+              "name": "issue43.synthetic.receipt",
+              "unit": "1",
+              "gauge": {
+                "dataPoints": [
+                  {"timeUnixNano": "1789405200001000000", "asInt": "1"}
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

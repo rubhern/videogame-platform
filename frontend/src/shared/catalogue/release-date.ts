@@ -41,6 +41,14 @@ export function formatCalendarDay(value: string): string {
     : `${Number(match[3])} de ${month} de ${match[1]}`;
 }
 
+/** Compact presentation of an API-provided calendar day for narrow release headers. */
+export function formatCompactCalendarDay(value: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return match === null || monthName(match[2] ?? "") === null
+    ? "Fecha no disponible"
+    : `${match[3]}/${match[2]}/${match[1]}`;
+}
+
 /**
  * Spanish apocopates `primero` and `tercero` before a masculine singular noun, so
  * the first and third quarters abbreviate as `1.er` and `3.er` rather than `.º`.

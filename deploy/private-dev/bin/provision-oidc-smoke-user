@@ -1,0 +1,340 @@
+#!/usr/bin/env python3
+
+"""Provision the non-personal private-dev deployment smoke account in Keycloak."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import pathlib
+import re
+import shlex
+import socket
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+EXPECTED_HOST = "vgpdev"
+REALM = "videogame-platform"
+MARKER_ATTRIBUTE = "vgpDeploymentSmoke"
+MARKER_PROFILE_ATTRIBUTE = {
+    "displayName": "Deployment smoke ownership marker",
+    "multivalued": False,
+    "name": MARKER_ATTRIBUTE,
+    "permissions": {"edit": ["admin"], "view": ["admin"]},
+    "validations": {"length": {"max": 4, "min": 4}},
+}
+SYNTHETIC_PROFILE = {
+    "email": "vgp-deployment-smoke@example.invalid",
+    "firstName": "Deployment",
+    "lastName": "Smoke",
+}
+
+
+class ProvisioningError(RuntimeError):
+    """A safe operator-facing provisioning failure."""
+
+
+def parse_runtime_environment(path: pathlib.Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line_number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            raise ProvisioningError(f"Invalid runtime environment line {line_number}")
+        key, raw_value = line.split("=", 1)
+        key = key.strip()
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]*", key):
+            raise ProvisioningError(f"Invalid runtime environment key on line {line_number}")
+        parsed = shlex.split(raw_value, comments=False, posix=True)
+        if len(parsed) != 1:
+            raise ProvisioningError(f"Invalid runtime environment value for {key}")
+        values[key] = parsed[0]
+    return values
+
+
+def required(values: dict[str, str], name: str) -> str:
+    value = values.get(name, "")
+    if not value:
+        raise ProvisioningError(f"Runtime environment is missing {name}")
+    return value
+
+
+def read_secret(directory: pathlib.Path, name: str) -> str:
+    path = directory / name
+    if not path.is_file():
+        raise ProvisioningError(f"Required protected input is absent: {path}")
+    value = path.read_text(encoding="utf-8").rstrip("\r\n")
+    if not value or "\n" in value or "\r" in value:
+        raise ProvisioningError(f"Required protected input is empty or malformed: {path}")
+    return value
+
+
+class KeycloakAdmin:
+    def __init__(self, origin: str) -> None:
+        self.origin = origin.rstrip("/")
+        self.access_token = ""
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+    def authenticate(self, username: str, password: str) -> None:
+        payload, _ = self._request(
+            "POST",
+            "/realms/master/protocol/openid-connect/token",
+            form={
+                "client_id": "admin-cli",
+                "grant_type": "password",
+                "username": username,
+                "password": password,
+            },
+            expected={200},
+            authenticated=False,
+        )
+        token = json.loads(payload).get("access_token")
+        if not isinstance(token, str) or not token:
+            raise ProvisioningError("Keycloak admin authentication omitted an access token")
+        self.access_token = token
+
+    def find_users(self, username: str) -> list[dict[str, object]]:
+        query = urllib.parse.urlencode(
+            {"briefRepresentation": "false", "exact": "true", "username": username}
+        )
+        payload, _ = self._request(
+            "GET", f"/admin/realms/{REALM}/users?{query}", expected={200}
+        )
+        users = json.loads(payload)
+        if not isinstance(users, list):
+            raise ProvisioningError("Keycloak returned an invalid user search response")
+        return users
+
+    def create_user(self, username: str) -> None:
+        self._request(
+            "POST",
+            f"/admin/realms/{REALM}/users",
+            body={
+                "attributes": {MARKER_ATTRIBUTE: ["true"]},
+                "enabled": True,
+                "requiredActions": [],
+                "username": username,
+                **SYNTHETIC_PROFILE,
+            },
+            expected={201},
+        )
+
+    def set_synthetic_profile(self, user_id: str) -> None:
+        self._request(
+            "PUT",
+            f"/admin/realms/{REALM}/users/{user_id}",
+            body=SYNTHETIC_PROFILE,
+            expected={204},
+        )
+
+    def ensure_smoke_marker_profile(self) -> None:
+        profile = self.user_profile()
+        unmanaged_attribute_policy = profile.get("unmanagedAttributePolicy")
+        if unmanaged_attribute_policy not in (None, "DISABLED"):
+            raise ProvisioningError("Realm user profile must keep unmanaged attributes disabled")
+
+        attributes = profile.get("attributes")
+        if not isinstance(attributes, list):
+            raise ProvisioningError("Keycloak returned an invalid realm user profile")
+        marker_attributes = [
+            attribute
+            for attribute in attributes
+            if isinstance(attribute, dict) and attribute.get("name") == MARKER_ATTRIBUTE
+        ]
+        if not marker_attributes:
+            profile.pop("unmanagedAttributePolicy", None)
+            profile["attributes"] = [*attributes, MARKER_PROFILE_ATTRIBUTE]
+            self._request(
+                "PUT",
+                f"/admin/realms/{REALM}/users/profile",
+                body=profile,
+                expected={200, 204},
+            )
+            profile = self.user_profile()
+            attributes = profile.get("attributes")
+            if not isinstance(attributes, list):
+                raise ProvisioningError("Keycloak returned an invalid realm user profile")
+            marker_attributes = [
+                attribute
+                for attribute in attributes
+                if isinstance(attribute, dict) and attribute.get("name") == MARKER_ATTRIBUTE
+            ]
+        if marker_attributes != [MARKER_PROFILE_ATTRIBUTE]:
+            raise ProvisioningError(
+                "Realm user profile does not declare the dedicated deployment smoke marker safely"
+            )
+
+    def user_profile(self) -> dict[str, object]:
+        payload, _ = self._request(
+            "GET", f"/admin/realms/{REALM}/users/profile", expected={200}
+        )
+        profile = json.loads(payload)
+        if not isinstance(profile, dict):
+            raise ProvisioningError("Keycloak returned an invalid realm user profile")
+        return profile
+
+    def direct_role_mappings(self, user_id: str) -> dict[str, object]:
+        payload, _ = self._request(
+            "GET", f"/admin/realms/{REALM}/users/{user_id}/role-mappings", expected={200}
+        )
+        mappings = json.loads(payload)
+        if not isinstance(mappings, dict):
+            raise ProvisioningError("Keycloak returned invalid role mappings")
+        return mappings
+
+    def groups(self, user_id: str) -> list[dict[str, object]]:
+        payload, _ = self._request(
+            "GET", f"/admin/realms/{REALM}/users/{user_id}/groups", expected={200}
+        )
+        groups = json.loads(payload)
+        if not isinstance(groups, list):
+            raise ProvisioningError("Keycloak returned invalid group mappings")
+        return groups
+
+    def reset_password(self, user_id: str, password: str) -> None:
+        self._request(
+            "PUT",
+            f"/admin/realms/{REALM}/users/{user_id}/reset-password",
+            body={"temporary": False, "type": "password", "value": password},
+            expected={204},
+        )
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: dict[str, object] | None = None,
+        form: dict[str, str] | None = None,
+        expected: set[int],
+        authenticated: bool = True,
+    ) -> tuple[bytes, object]:
+        headers = {"Accept": "application/json"}
+        data = None
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+            data = json.dumps(body).encode("utf-8")
+        elif form is not None:
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+            data = urllib.parse.urlencode(form).encode("utf-8")
+        if authenticated:
+            if not self.access_token:
+                raise ProvisioningError("Keycloak admin client is not authenticated")
+            headers["Authorization"] = f"Bearer {self.access_token}"
+
+        request = urllib.request.Request(
+            f"{self.origin}{path}", data=data, headers=headers, method=method
+        )
+        try:
+            with self.opener.open(request, timeout=20) as response:
+                status = response.status
+                payload = response.read()
+                response_headers = response.headers
+        except urllib.error.HTTPError as error:
+            raise ProvisioningError(
+                f"Keycloak rejected {method} {path.split('?', 1)[0]} with HTTP {error.code}"
+            ) from None
+        except urllib.error.URLError as error:
+            raise ProvisioningError(
+                f"Keycloak request failed for {method} {path.split('?', 1)[0]}: {error.reason}"
+            ) from None
+        if status not in expected:
+            raise ProvisioningError(
+                f"Keycloak returned unexpected HTTP {status} for {method} {path.split('?', 1)[0]}"
+            )
+        return payload, response_headers
+
+
+def provision_smoke_user(admin: KeycloakAdmin, username: str, password: str) -> None:
+    users = admin.find_users(username)
+    if not users:
+        admin.create_user(username)
+        users = admin.find_users(username)
+    if len(users) != 1:
+        raise ProvisioningError("Expected exactly one dedicated deployment smoke user")
+
+    user = users[0]
+    user_id = user.get("id")
+    attributes = user.get("attributes") or {}
+    if not isinstance(user_id, str) or not user_id:
+        raise ProvisioningError("Dedicated deployment smoke user has no stable identifier")
+    if not isinstance(attributes, dict) or attributes.get(MARKER_ATTRIBUTE) != ["true"]:
+        raise ProvisioningError(
+            "Refusing an existing account that was not created for deployment smoke"
+        )
+    if user.get("enabled") is not True:
+        raise ProvisioningError("Dedicated deployment smoke user is disabled")
+    if all(not user.get(field) for field in SYNTHETIC_PROFILE):
+        admin.set_synthetic_profile(user_id)
+        users = admin.find_users(username)
+        if len(users) != 1:
+            raise ProvisioningError("Expected exactly one dedicated deployment smoke user")
+        user = users[0]
+    if {field: user.get(field) for field in SYNTHETIC_PROFILE} != SYNTHETIC_PROFILE:
+        raise ProvisioningError(
+            "Dedicated deployment smoke user must contain only the fixed synthetic profile"
+        )
+
+    mappings = admin.direct_role_mappings(user_id)
+    if mappings.get("clientMappings"):
+        raise ProvisioningError("Dedicated deployment smoke user must have no direct client roles")
+    if admin.groups(user_id):
+        raise ProvisioningError("Dedicated deployment smoke user must belong to no groups")
+
+    admin.reset_password(user_id, password)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Provision the protected private-dev deployment smoke account."
+    )
+    parser.add_argument("--env-file", required=True, type=pathlib.Path)
+    arguments = parser.parse_args()
+
+    if socket.gethostname().split(".", 1)[0] != EXPECTED_HOST:
+        raise ProvisioningError(f"Refusing OIDC provisioning outside {EXPECTED_HOST}")
+    runtime_env = arguments.env_file.resolve(strict=True)
+    values = parse_runtime_environment(runtime_env)
+    origin = required(values, "PRIVATE_DEV_KEYCLOAK_ORIGIN")
+    parsed_origin = urllib.parse.urlparse(origin)
+    if (
+        parsed_origin.scheme != "https"
+        or not parsed_origin.hostname
+        or not parsed_origin.hostname.startswith("vgpdev.")
+        or parsed_origin.port != 8443
+        or parsed_origin.path not in ("", "/")
+        or parsed_origin.params
+        or parsed_origin.query
+        or parsed_origin.fragment
+    ):
+        raise ProvisioningError("PRIVATE_DEV_KEYCLOAK_ORIGIN is not the approved private HTTPS origin")
+
+    secrets_directory = pathlib.Path(required(values, "PRIVATE_DEV_SECRETS_DIR"))
+    if not secrets_directory.is_absolute() or not secrets_directory.is_dir():
+        raise ProvisioningError("PRIVATE_DEV_SECRETS_DIR must be an existing absolute directory")
+    admin_username = required(values, "KEYCLOAK_ADMIN_USERNAME")
+    admin_password = read_secret(secrets_directory, "keycloak-admin-password")
+    smoke_username = read_secret(secrets_directory, "oidc-smoke-username")
+    smoke_password = read_secret(secrets_directory, "oidc-smoke-password")
+    if not re.fullmatch(r"[A-Za-z0-9._@-]{1,100}", smoke_username):
+        raise ProvisioningError("Protected OIDC smoke username has an invalid shape")
+    if len(smoke_password) < 16:
+        raise ProvisioningError("Protected OIDC smoke password must contain at least 16 characters")
+
+    admin = KeycloakAdmin(origin)
+    admin.authenticate(admin_username, admin_password)
+    admin.ensure_smoke_marker_profile()
+    provision_smoke_user(admin, smoke_username, smoke_password)
+    print(f"Private-dev OIDC smoke user is provisioned in realm {REALM}; no credentials were printed.")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, ProvisioningError, ValueError) as error:
+        print(f"OIDC smoke user provisioning failed: {error}", file=sys.stderr)
+        raise SystemExit(1) from None

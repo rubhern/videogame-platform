@@ -1,31 +1,37 @@
 import type { ReleasesQuery } from "./releases-api";
 
 export type ReleaseView = ReleasesQuery["view"];
+export type ReleaseWeeks = NonNullable<ReleasesQuery["weeks"]>;
 
 /**
  * Navigable release-discovery state.
  *
  * It lives in the URL so a filtered page stays shareable and survives browser
- * navigation. Values outside the contract shape fall back to the default instead of
+ * navigation. Platform and region are multi-select: several values inside one dimension
+ * combine with OR and the two dimensions combine with AND. An empty array means no filter
+ * for that dimension (`Todas`), which is distinct from selecting a concrete region such as
+ * `Worldwide`. Values outside the contract shape fall back to the default instead of
  * reaching the API; well-formed unknown filter identifiers remain server-validated.
  */
 export type ReleasesSearch = {
   view: ReleaseView;
-  platformId: string | null;
-  regionId: string | null;
+  weeks: ReleaseWeeks;
+  platformIds: string[];
+  regionIds: string[];
   page: number;
   pageSize: number;
 };
 
-/** One full grid of cards: three columns by two rows on the widest supported layout. */
-export const DEFAULT_PAGE_SIZE = 6;
+/** Both release windows show two rows of six on wide desktop. */
+export const DEFAULT_PAGE_SIZE = 12;
 const MAX_PAGE_SIZE = 100;
 const MAX_FILTER_CODE_POINTS = 100;
 
 const defaultSearch: ReleasesSearch = {
   view: "recent",
-  platformId: null,
-  regionId: null,
+  weeks: 1,
+  platformIds: [],
+  regionIds: [],
   page: 1,
   pageSize: DEFAULT_PAGE_SIZE,
 };
@@ -34,9 +40,23 @@ function readView(value: string | null): ReleaseView {
   return value === "upcoming" || value === "recent" ? value : defaultSearch.view;
 }
 
-function readFilter(value: string | null): string | null {
-  const trimmed = value?.trim() ?? "";
-  return trimmed === "" || Array.from(trimmed).length > MAX_FILTER_CODE_POINTS ? null : trimmed;
+function readWeeks(value: string | null): ReleaseWeeks {
+  return value === "2" ? 2 : value === "4" ? 4 : 1;
+}
+
+/** Trims, drops blank and over-long values and de-duplicates while keeping first-seen order. */
+function readFilters(values: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const raw of values) {
+    const trimmed = raw.trim();
+    if (trimmed === "" || Array.from(trimmed).length > MAX_FILTER_CODE_POINTS || seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    result.push(trimmed);
+  }
+  return result;
 }
 
 function readBoundedInteger(value: string | null, fallback: number, maximum: number): number {
@@ -48,10 +68,12 @@ function readBoundedInteger(value: string | null, fallback: number, maximum: num
 }
 
 export function readReleasesSearch(params: URLSearchParams): ReleasesSearch {
+  const view = readView(params.get("view"));
   return {
-    view: readView(params.get("view")),
-    platformId: readFilter(params.get("platformId")),
-    regionId: readFilter(params.get("regionId")),
+    view,
+    weeks: readWeeks(params.get("weeks")),
+    platformIds: readFilters(params.getAll("platformIds")),
+    regionIds: readFilters(params.getAll("regionIds")),
     page: readBoundedInteger(params.get("page"), defaultSearch.page, Number.MAX_SAFE_INTEGER),
     pageSize: readBoundedInteger(params.get("pageSize"), DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE),
   };
@@ -63,11 +85,12 @@ export function writeReleasesSearch(search: ReleasesSearch): URLSearchParams {
   if (search.view !== defaultSearch.view) {
     params.set("view", search.view);
   }
-  if (search.platformId !== null) {
-    params.set("platformId", search.platformId);
+  params.set("weeks", String(search.weeks));
+  for (const platformId of search.platformIds) {
+    params.append("platformIds", platformId);
   }
-  if (search.regionId !== null) {
-    params.set("regionId", search.regionId);
+  for (const regionId of search.regionIds) {
+    params.append("regionIds", regionId);
   }
   if (search.page !== defaultSearch.page) {
     params.set("page", String(search.page));
@@ -85,16 +108,24 @@ export function releasesSearchPath(search: ReleasesSearch, change: Partial<Relea
   return query === "" ? "/" : `/?${query}`;
 }
 
+/** Adds or removes one value from a dimension, preserving order, for a multi-select toggle. */
+export function toggleFilterValue(current: readonly string[], value: string): string[] {
+  return current.includes(value)
+    ? current.filter((existing) => existing !== value)
+    : [...current, value];
+}
+
 export function toReleasesQuery(search: ReleasesSearch): ReleasesQuery {
   return {
     view: search.view,
-    ...(search.platformId === null ? {} : { platformId: search.platformId }),
-    ...(search.regionId === null ? {} : { regionId: search.regionId }),
+    weeks: search.weeks,
+    ...(search.platformIds.length === 0 ? {} : { platformIds: search.platformIds }),
+    ...(search.regionIds.length === 0 ? {} : { regionIds: search.regionIds }),
     page: search.page,
     pageSize: search.pageSize,
   };
 }
 
 export function hasActiveFilters(search: ReleasesSearch): boolean {
-  return search.platformId !== null || search.regionId !== null;
+  return search.platformIds.length > 0 || search.regionIds.length > 0;
 }

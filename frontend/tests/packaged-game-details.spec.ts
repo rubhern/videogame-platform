@@ -14,7 +14,7 @@ test("public game details follow a real search result through the packaged API a
       external.push(request.url());
   });
   await page.goto("/search?q=resident+evil");
-  const link = page.getByRole("link", { name: "Ver Resident Evil Requiem" });
+  const link = page.getByRole("link", { name: "Resident Evil Requiem", exact: true });
   await expect(link).toBeVisible();
   await link.focus();
   await page.keyboard.press("Enter");
@@ -34,7 +34,7 @@ test("public game details follow a real search result through the packaged API a
   );
   await page.goBack();
   await expect(
-    page.getByRole("link", { name: "Ver Resident Evil Requiem" }),
+    page.getByRole("link", { name: "Resident Evil Requiem", exact: true }),
   ).toBeVisible();
   expect(external).toEqual([]);
 });
