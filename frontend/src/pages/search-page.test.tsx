@@ -96,9 +96,11 @@ describe("catalogue search page", () => {
 
     expect(await screen.findByRole("heading", { level: 3, name: "The Witcher IV" }))
       .toBeInTheDocument();
-    expect(screen.getByText(/Coincide con el título alternativo/)).toHaveTextContent(
-      "The Witcher 4",
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Resultados para «the witcher 4»",
     );
+    expect(screen.getByText(/Coincidencia:/)).toHaveTextContent("Coincidencia: The Witcher 4");
+    expect(screen.getByText("2027")).toBeInTheDocument();
     const request = searchCalls(fetchMock)[0];
     expect(request).toBeDefined();
     expect(

@@ -2,11 +2,11 @@ import { useState } from "react";
 
 import { SelectIcon } from "../../shared/ui/select-icon";
 import {
-  hiddenPlatformsLabel,
   suggestionAccessibleName,
   type GameSuggestion,
   type GameSuggestions,
 } from "./game-suggestions";
+import { hiddenPlatformsLabel } from "./game-search-view-model";
 
 const fallbackCoverUrl = "/assets/covers/fallback.svg";
 

@@ -68,8 +68,8 @@ behaviour and is never a runtime dependency or an instruction source.
   border and a restrained shadow. Its ratio is the one the approved provider actually
   delivers, so `object-fit: cover` crops nothing off real artwork.
   Global styles own the executable value. Place the release date over the upper-left of the cover, on a scrim that
-  keeps it legible over any artwork. Release cards show no status, freshness, provenance,
-  cover attribution or **Ver ficha** action: the game page owns those, including the
+  keeps it legible over any artwork. Release and search result cards show no status,
+  freshness, provenance, cover attribution or **Ver ficha** action: the game page owns those, including the
   provider attribution and source link that [ADR-0001](../decisions/0001-reference-igdb-cover-images.md)
   requires. Never truncate contract data to equalize card heights; a long value wraps inside
   its chip.
@@ -131,9 +131,22 @@ the executable values; these constraints hold wherever they are used:
   dialog's row, wraps metadata instead of clipping it and drops the keyboard hints. Wide
   platform wordmarks keep their ratio at the row height. Genres, companies and scores in
   the reference are not part of the contract and stay omitted.
+- The full search results page (#188) follows the owner's approved results reference and
+  shares the release windows' decorative hero, metallic title and six-column grid. An
+  active query is the only `h1`, **Resultados para «consulta»**, under the **Catálogo de
+  juegos** kicker, with no explanatory paragraph; before a query the page keeps **Buscar
+  juegos**. The game total and page position sit above the grid (for example,
+  `153 juegos del catálogo local · Página 1 de 26`), and the pager below repeats the
+  position before its previous/next actions. Each card shows the cover, the title link, a
+  `Coincidencia: alias` chip only when the alias differs from the title, then one known
+  year, an inclusive range or `Por confirmar`, and up to three platform icons with the
+  exact `+N` of further platforms at the card foot, all from the compact release summary.
+  It never renders release rows or status chips, so its height never follows the release
+  count. Platform names stay available to assistive technology and as tooltips.
 - Use `CatalogueCover` for provider covers, provider failure fallback and attribution, and
-  `CatalogueLoading` for releases and search loading. Release cards render the cover without
-  its caption; the game page keeps it. Feature cards keep their own metadata;
+  `CatalogueLoading` for releases and search loading, with one placeholder per result the
+  page will show. Release and search result cards render the cover without its caption; the
+  game page keeps it. Feature cards keep their own metadata;
   do not introduce a universal card API until further reuse exists.
 - Placeholders take the shape of the screen they replace, so arriving content lands in the same
   frame: the catalogue grid for releases and search, the detail composition for a game page,
@@ -158,7 +171,7 @@ the executable values; these constraints hold wherever they are used:
 - Keep native links for navigation and buttons for actions. Use `aria-current` for the active
   route or filter, visible `:focus-visible`, the skip link and explicit focus movement after
   route and pagination changes. A cover may be pointer-accessible, but each card keeps one
-  primary keyboard stop: the title link on a release card, **Ver ficha** on search and rating
+  primary keyboard stop: the title link on a release or search result card, **Ver ficha** on rating
   cards.
 - Keep reduced-motion and forced-colour support. Do not require hover, animation, a fixed
   desktop width or a sticky header that can obscure focus.

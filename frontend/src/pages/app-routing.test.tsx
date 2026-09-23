@@ -80,7 +80,9 @@ describe("application routing", () => {
     expect(screen.queryByText("Datos locales · sin consultas al proveedor")).not.toBeInTheDocument();
     await user.type(screen.getByRole("combobox", { name: "Buscar en el catálogo" }), "Pragmata{Enter}");
 
-    expect(await screen.findByRole("heading", { level: 1, name: "Buscar juegos" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Resultados para «Pragmata»" }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveFocus();
   });
 

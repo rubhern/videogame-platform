@@ -4,9 +4,9 @@ import type { components } from "../../shared/api/generated/schema";
 import {
   isSuggestionTerm,
   suggestionAccessibleName,
-  suggestionYear,
   toGameSuggestions,
 } from "./game-suggestions";
+import { releaseYearLabel } from "./game-search-view-model";
 
 type GameSummary = components["schemas"]["GameSummary"];
 type ReleaseSummary = components["schemas"]["ReleaseSummary"];
@@ -73,19 +73,19 @@ describe("typeahead eligibility", () => {
   });
 });
 
-describe("suggestion year", () => {
+describe("release year label", () => {
   it("shows the single known year", () => {
-    expect(suggestionYear(summary([], 0, { earliestKnownYear: 2026, latestKnownYear: 2026 }))).toBe("2026");
+    expect(releaseYearLabel(summary([], 0, { earliestKnownYear: 2026, latestKnownYear: 2026 }))).toBe("2026");
   });
 
   it("shows an inclusive range across several known years", () => {
-    expect(suggestionYear(summary([], 0, { earliestKnownYear: 2024, latestKnownYear: 2026 }))).toBe(
+    expect(releaseYearLabel(summary([], 0, { earliestKnownYear: 2024, latestKnownYear: 2026 }))).toBe(
       "2024–2026",
     );
   });
 
   it("shows Por confirmar without any known year", () => {
-    expect(suggestionYear(summary([], 0))).toBe("Por confirmar");
+    expect(releaseYearLabel(summary([], 0))).toBe("Por confirmar");
   });
 
   it("never falls back to the bounded release context for the year", () => {
