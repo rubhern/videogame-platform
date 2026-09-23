@@ -3,6 +3,7 @@
 @import "./game-details.css";
 @import "./my-ratings.css";
 @import "./app-select.css";
+@import "./search-suggestions.css";
 
 @theme {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
@@ -1743,7 +1744,7 @@
 
     .header-layout {
       display: grid;
-      grid-template-columns: auto auto minmax(240px, 520px) minmax(0, 1fr) auto;
+      grid-template-columns: auto auto minmax(240px, 680px) minmax(0, 1fr) auto;
       gap: 22px;
     }
 

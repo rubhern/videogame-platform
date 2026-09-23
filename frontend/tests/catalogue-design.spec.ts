@@ -92,17 +92,17 @@ for (const width of [320, 390, 834, 1320]) {
       expect(upcoming?.y).toBe(search?.y);
       await page.getByRole("button", { name: "Buscar juegos" }).click();
       await expect(page.getByRole("dialog", { name: "Buscar juegos" })).toBeVisible();
-      await expect(page.getByRole("searchbox", { name: "Buscar en el catálogo" })).toBeFocused();
+      await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toBeFocused();
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog", { name: "Buscar juegos" })).not.toBeVisible();
       await expect(page.getByRole("button", { name: "Buscar juegos" })).toBeFocused();
       await page.keyboard.press("/");
-      await expect(page.getByRole("searchbox", { name: "Buscar en el catálogo" })).toBeFocused();
+      await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toBeFocused();
     }
-    const catalogueSearch = page.getByRole("searchbox", { name: "Buscar en el catálogo" });
+    const catalogueSearch = page.getByRole("combobox", { name: "Buscar en el catálogo" });
     await catalogueSearch.fill("Pragmata");
     await catalogueSearch.press("Enter");
-    if (width >= 620) await expect(page.getByRole("searchbox")).toBeVisible();
+    if (width >= 620) await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toBeVisible();
     await expectAccessibleLayout(page);
   });
 }
@@ -204,7 +204,7 @@ test("phone search closes cleanly when the layout widens", async ({ page }) => {
 
   await page.setViewportSize({ width: 834, height: 844 });
   await expect(page.getByRole("dialog", { name: "Buscar juegos" })).not.toBeVisible();
-  await expect(page.getByRole("searchbox", { name: "Buscar en el catálogo" })).toBeFocused();
+  await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toBeFocused();
 });
 
 for (const state of ["loading", "empty", "not-ready", "error"] as const) {
