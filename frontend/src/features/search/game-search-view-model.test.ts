@@ -35,6 +35,12 @@ function summary(overrides: Partial<GameSummary> = {}): GameSummary {
     matchedAlias: "Biohazard Requiem",
     primaryCover: providerCover,
     releaseContext: [...releaseContext],
+    releaseSummary: {
+      platforms: [{ platformId: "platform-ps5", name: "PlayStation 5" }],
+      totalPlatforms: 1,
+      earliestKnownYear: 2026,
+      latestKnownYear: 2026,
+    },
     ...overrides,
   };
 }
@@ -86,6 +92,7 @@ describe("catalogue search view model", () => {
       canonicalTitle: "Pragmata",
       primaryCover: providerCover,
       releaseContext: [],
+      releaseSummary: { platforms: [], totalPlatforms: 0 },
     };
 
     expect(onlyResult(toGameSearchViewModel(page([withoutAlias]))).matchedAlias).toBeNull();

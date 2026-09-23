@@ -28,6 +28,12 @@ function game(title: string, index: number, overrides: Partial<GameSummary> = {}
         freshnessStatus: "fresh",
       },
     ],
+    releaseSummary: {
+      platforms: [{ platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" }],
+      totalPlatforms: 1,
+      earliestKnownYear: 2026,
+      latestKnownYear: 2026,
+    },
     ...overrides,
   };
 }

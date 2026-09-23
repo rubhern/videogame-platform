@@ -48,6 +48,8 @@ export interface paths {
          * @description Searches canonical titles and approved aliases after trimming. Matching is
          *     case- and diacritic-insensitive, requires every token, and is non-fuzzy.
          *     It never calls a provider. Zero and multiple matches are valid outcomes.
+         *     Each result carries a bounded `releaseContext` sample and a separate
+         *     `releaseSummary` computed from every locally stored release of that game.
          */
         get: operations["searchGames"];
         put?: never;
@@ -305,13 +307,38 @@ export interface components {
             provenance: components["schemas"]["Provenance"];
         };
         GameSummaryText: components["schemas"]["EditorialSummary"] | components["schemas"]["SourcedSummary"];
+        /**
+         * @description Compact aggregate over every locally stored release of one game, independent of
+         *     the bounded `releaseContext` sample. `platforms` holds at most three distinct
+         *     platforms ordered by case-insensitive display name, then `platformId`;
+         *     `totalPlatforms` counts every distinct platform, so a consumer can render an
+         *     exact `+N` as `totalPlatforms` minus the returned platforms. The known years are
+         *     the calendar years represented by day, month, quarter, or year precision across
+         *     all releases, whatever their status. Both are omitted when every release date is
+         *     unknown; a year is never invented.
+         */
+        CompactReleaseSummary: {
+            platforms: components["schemas"]["Platform"][];
+            /** Format: int32 */
+            totalPlatforms: number;
+            /** Format: int32 */
+            earliestKnownYear?: number;
+            /** Format: int32 */
+            latestKnownYear?: number;
+        };
         GameSummary: {
             gameId: components["schemas"]["GameId"];
             slug: string;
             canonicalTitle: string;
             matchedAlias?: string;
             primaryCover: components["schemas"]["Cover"];
+            /**
+             * @description Bounded representative sample of the game's releases, ordered by release
+             *     period then `releaseId`. It is never the complete release set; use
+             *     `releaseSummary` for complete platform and year context.
+             */
             releaseContext: components["schemas"]["ReleaseSummary"][];
+            releaseSummary: components["schemas"]["CompactReleaseSummary"];
         };
         /**
          * @description One game and only the releases of that game that match the requested view and

@@ -34,6 +34,7 @@ function game(overrides: Partial<GameSummary> = {}): GameSummary {
       attribution: null,
     },
     releaseContext: [],
+    releaseSummary: { platforms: [], totalPlatforms: 0 },
     ...overrides,
   };
 }

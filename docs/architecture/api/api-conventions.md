@@ -41,7 +41,10 @@ usefully expressed once in the contract.
   before prefix before plain all-token, then order by normalized canonical title and
   finally by the unique `gameId`. `matchedAlias` appears only when an approved alias
   justified the match. Release context in a search result is explicitly bounded per
-  game and is never the game's complete release set.
+  game and is never the game's complete release set. The separate `releaseSummary`
+  aggregates every stored release of the game: at most three distinct platforms, the
+  exact distinct-platform count, and the earliest and latest known years, never invented
+  from an unknown date.
 
 Personal rating `PUT` uses `If-None-Match: *` to create and strong `If-Match` to
 update. `DELETE` requires strong `If-Match`. Missing/contradictory preconditions

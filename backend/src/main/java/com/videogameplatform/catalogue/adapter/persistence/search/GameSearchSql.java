@@ -52,6 +52,11 @@ final class GameSearchSql {
      * The bounded release context is joined only after {@code LIMIT}/{@code OFFSET}, so at most
      * {@code pageSize * releaseContextLimit} rows ever reach Java. The order is total: match
      * rank, normalized title, then the unique {@code game_id} of a one-row-per-game result.
+     *
+     * <p>The compact release summary is also computed only for the page's games. Each summary
+     * lateral aggregates the complete stored release set of one game to exactly one row, so it
+     * can neither multiply nor drop result games; only its bounded platform head and scalars
+     * reach Java, repeated on each context row of that game.
      */
     static final String PAGE =
             CANDIDATE_CTE
@@ -94,6 +99,11 @@ final class GameSearchSql {
                            page.cover_usage_mode,
                            page.cover_alternative_text,
                            page.cover_source_url,
+                           summary.total_platforms,
+                           summary.earliest_known_year,
+                           summary.latest_known_year,
+                           summary_head.platform_ids AS summary_platform_ids,
+                           summary_head.platform_names AS summary_platform_names,
                            context.platform_id::text AS platform_id,
                            context.platform_name,
                            context.region_id::text AS region_id,
@@ -106,6 +116,37 @@ final class GameSearchSql {
                            context.release_status,
                            context.last_synchronized_at
                     FROM page
+                    CROSS JOIN LATERAL (
+                        SELECT count(DISTINCT rs.platform_id)::integer AS total_platforms,
+                               extract(YEAR FROM min(rs.period_start))::integer
+                                   AS earliest_known_year,
+                               extract(YEAR FROM max(rs.period_start))::integer
+                                   AS latest_known_year
+                        FROM catalogue.release_snapshot rs
+                        WHERE rs.publication_id = CAST(:publicationId AS uuid)
+                          AND rs.game_id = page.game_id
+                    ) summary
+                    CROSS JOIN LATERAL (
+                        SELECT array_agg(head.platform_id::text
+                                         ORDER BY head.sort_name, head.platform_id)
+                                   AS platform_ids,
+                               array_agg(head.display_name
+                                         ORDER BY head.sort_name, head.platform_id)
+                                   AS platform_names
+                        FROM (
+                            SELECT p.platform_id,
+                                   p.display_name,
+                                   lower(p.display_name) AS sort_name
+                            FROM catalogue.platform p
+                            WHERE p.platform_id IN (
+                                SELECT rs.platform_id
+                                FROM catalogue.release_snapshot rs
+                                WHERE rs.publication_id = CAST(:publicationId AS uuid)
+                                  AND rs.game_id = page.game_id)
+                            ORDER BY lower(p.display_name), p.platform_id
+                            LIMIT :summaryPlatformLimit
+                        ) head
+                    ) summary_head
                     LEFT JOIN LATERAL (
                         SELECT p.platform_id,
                                p.display_name AS platform_name,
@@ -158,7 +199,8 @@ final class GameSearchSql {
                 "searchQuery", searchQuery(criteria.tokens()),
                 "pageSize", criteria.pagination().pageSize(),
                 "offset", criteria.pagination().offset(),
-                "releaseContextLimit", criteria.releaseContextLimit());
+                "releaseContextLimit", criteria.releaseContextLimit(),
+                "summaryPlatformLimit", criteria.summaryPlatformLimit());
     }
 
     /**
