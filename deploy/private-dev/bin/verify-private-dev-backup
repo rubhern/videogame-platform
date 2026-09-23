@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+#
+# Repeatable integrity and retention check for private-dev backups.
+#
+# It needs neither Docker nor the GPG private key: it recomputes the SHA-256 manifest
+# over the encrypted artifacts and confirms the manifest matches what is present. Run
+# it on the backup store itself to prove a backup is still restorable-in-principle and
+# that the expected number of good copies is retained.
+#
+# Mechanics owner. Policy: docs/architecture/deployment/mvp-platform-and-delivery.md
+
+set -Eeuo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+# shellcheck source=deploy/private-dev/lib/backup-common.sh
+source "$repository_root/deploy/private-dev/lib/backup-common.sh"
+
+backup=""
+backups_root=""
+expected_kept=""
+
+usage() {
+  cat <<'EOF'
+Usage:
+  verify-private-dev-backup --backup <backup-directory>
+  verify-private-dev-backup --backups-root <root> [--expect-at-least <n>]
+
+--backup verifies a single backup directory. --backups-root verifies every backup
+under a root and reports how many pass; --expect-at-least fails when fewer verifiable
+backups are retained than required. No decryption is performed and no secrets are read.
+EOF
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --backup) backup="${2:-}"; shift 2 ;;
+    --backups-root) backups_root="${2:-}"; shift 2 ;;
+    --expect-at-least) expected_kept="${2:-}"; shift 2 ;;
+    --help) usage; exit 0 ;;
+    *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+bc_require_commands awk find python3 sha256sum sort
+
+if [[ -n "$backup" && -z "$backups_root" ]]; then
+  bc_verify_backup "$backup"
+  printf 'ok %s\n' "$backup"
+  exit 0
+fi
+
+if [[ -n "$backups_root" && -z "$backup" ]]; then
+  [[ -d "$backups_root" ]] || bc_fail "Backups root does not exist: $backups_root"
+  verified=0
+  failed=0
+  while IFS= read -r entry; do
+    [[ -f "$entry/$BC_CHECKSUMS_NAME" ]] || continue
+    if bc_verify_backup "$entry" >/dev/null 2>&1; then
+      printf 'ok %s\n' "$entry"
+      verified=$((verified + 1))
+    else
+      printf 'FAILED %s\n' "$entry" >&2
+      failed=$((failed + 1))
+    fi
+  done < <(find "$backups_root" -mindepth 1 -maxdepth 1 -type d | sort)
+  printf 'verified=%s failed=%s\n' "$verified" "$failed"
+  if [[ -n "$expected_kept" ]]; then
+    [[ "$expected_kept" =~ ^[0-9]+$ ]] || bc_fail "--expect-at-least must be a non-negative integer."
+    ((verified >= expected_kept)) ||
+      bc_fail "Only $verified verifiable backups retained; expected at least $expected_kept."
+  fi
+  ((failed == 0)) || bc_fail "One or more backups failed integrity verification."
+  exit 0
+fi
+
+usage >&2
+exit 2

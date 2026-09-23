@@ -1,23 +1,25 @@
 package com.videogameplatform.api.delivery;
 
-final class ApiRequestException extends RuntimeException {
+import com.videogameplatform.api.generated.model.ProblemCode;
+
+public final class ApiRequestException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
-    private final String code;
+    private final ProblemCode code;
     private final String pointer;
 
-    ApiRequestException(String code, String pointer) {
-        super(code);
+    public ApiRequestException(ProblemCode code, String pointer) {
+        super(code.getValue());
         this.code = code;
         this.pointer = pointer;
     }
 
-    String code() {
+    public ProblemCode code() {
         return code;
     }
 
-    String pointer() {
+    public String pointer() {
         return pointer;
     }
 }

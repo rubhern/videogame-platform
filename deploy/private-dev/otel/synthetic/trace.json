@@ -1,0 +1,29 @@
+{
+  "resourceSpans": [
+    {
+      "resource": {
+        "attributes": [
+          {"key": "service.name", "value": {"stringValue": "issue-43-synthetic"}},
+          {"key": "service.version", "value": {"stringValue": "43.0.0-synthetic"}},
+          {"key": "deployment.environment.name", "value": {"stringValue": "validation"}}
+        ]
+      },
+      "scopeSpans": [
+        {
+          "scope": {"name": "issue-43-validator", "version": "1"},
+          "spans": [
+            {
+              "traceId": "0123456789abcdef0123456789abcdef",
+              "spanId": "0123456789abcdef",
+              "name": "bounded-otlp-receipt",
+              "kind": 1,
+              "startTimeUnixNano": "1789405200000000000",
+              "endTimeUnixNano": "1789405200001000000",
+              "status": {"code": 1}
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

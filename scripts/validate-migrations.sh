@@ -10,4 +10,6 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-./mvnw -pl backend -Dtest=CataloguePersistenceIntegrationTest test
+./mvnw -pl backend \
+  -Dtest=CataloguePersistenceIntegrationTest,DatabaseMigrationApplicationTest \
+  test

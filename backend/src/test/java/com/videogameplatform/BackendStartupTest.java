@@ -3,6 +3,8 @@ package com.videogameplatform;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.sdk.resources.Resource;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -16,6 +18,7 @@ import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
+import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -23,7 +26,13 @@ import org.springframework.test.context.DynamicPropertySource;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+            "management.server.port=0",
+            "TELEMETRY_DEPLOYMENT_ENVIRONMENT=integration-test",
+            "TELEMETRY_SERVICE_VERSION=43.0.0-test"
+        })
 @ActiveProfiles("structured")
 @ExtendWith(OutputCaptureExtension.class)
 class BackendStartupTest {
@@ -34,7 +43,11 @@ class BackendStartupTest {
 
     @LocalServerPort private int port;
 
+    @LocalManagementPort private int managementPort;
+
     @Autowired private BuildProperties buildProperties;
+
+    @Autowired private Resource openTelemetryResource;
 
     @Value("${management.tracing.sampling.probability}")
     private double tracingSamplingProbability;
@@ -57,14 +70,24 @@ class BackendStartupTest {
             throws IOException, InterruptedException {
         assertThat(Runtime.version().feature()).isEqualTo(25);
         assertThat(tracingSamplingProbability).isEqualTo(1.0);
+        assertThat(
+                        openTelemetryResource.getAttribute(
+                                AttributeKey.stringKey("deployment.environment.name")))
+                .isEqualTo("integration-test");
+        assertThat(openTelemetryResource.getAttribute(AttributeKey.stringKey("service.version")))
+                .isEqualTo("43.0.0-test");
 
         String samplingCorrelationId = "baseline-sampling-check";
-        var aggregateHealth = get("/actuator/health", samplingCorrelationId);
-        var liveness = get("/actuator/health/liveness");
-        var readiness = get("/actuator/health/readiness");
-        var info = get("/actuator/info");
-        var metricNames = get("/actuator/metrics");
-        var httpMetrics = get("/actuator/metrics/http.server.requests");
+        var sampledProductRequest = get("/api/v1/session", samplingCorrelationId);
+        var aggregateHealth = managementGet("/actuator/health");
+        var liveness = managementGet("/actuator/health/liveness");
+        var readiness = managementGet("/actuator/health/readiness");
+        var info = managementGet("/actuator/info");
+        var metricNames = managementGet("/actuator/metrics");
+        var httpMetrics = managementGet("/actuator/metrics/http.server.requests");
+
+        assertThat(sampledProductRequest.statusCode()).isEqualTo(200);
+        assertThat(get("/actuator/metrics").statusCode()).isEqualTo(404);
 
         assertThat(aggregateHealth.statusCode()).isEqualTo(200);
         assertThat(aggregateHealth.body())
@@ -81,7 +104,7 @@ class BackendStartupTest {
         assertThat(sourceRevision).matches("[A-Za-z0-9._-]{1,64}");
         assertThat(info.statusCode()).isEqualTo(200);
         assertThat(info.body())
-                .contains("\"version\":\"0.7.0-SNAPSHOT\"")
+                .contains("\"version\":\"" + buildProperties.getVersion() + "\"")
                 .contains("\"sourceRevision\":\"" + sourceRevision + "\"")
                 .doesNotContain("password", "token", "jdbc:");
 
@@ -107,7 +130,7 @@ class BackendStartupTest {
         String privatePath = "/missing/private-user-123?token=query-secret";
         var request =
                 HttpRequest.newBuilder()
-                        .uri(URI.create(baseUrl() + privatePath))
+                        .uri(URI.create(applicationUrl() + privatePath))
                         .header("Authorization", "Bearer telemetry-secret")
                         .header("Cookie", "SESSION=private-cookie")
                         .header("traceparent", TRACEPARENT)
@@ -134,14 +157,15 @@ class BackendStartupTest {
                 .doesNotContain(
                         "private-user-123", "query-secret", "telemetry-secret", "private-cookie");
 
-        var httpMetrics = get("/actuator/metrics/http.server.requests");
+        var httpMetrics = managementGet("/actuator/metrics/http.server.requests");
         assertThat(httpMetrics.body())
                 .contains("\"tag\":\"uri\"", "\"/**\"", "CLIENT_ERROR")
                 .doesNotContain("private-user-123", correlationId, TRACE_ID);
     }
 
     private HttpResponse<String> get(String path) throws IOException, InterruptedException {
-        var request = HttpRequest.newBuilder().uri(URI.create(baseUrl() + path)).GET().build();
+        var request =
+                HttpRequest.newBuilder().uri(URI.create(applicationUrl() + path)).GET().build();
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
@@ -149,10 +173,17 @@ class BackendStartupTest {
             throws IOException, InterruptedException {
         var request =
                 HttpRequest.newBuilder()
-                        .uri(URI.create(baseUrl() + path))
+                        .uri(URI.create(applicationUrl() + path))
                         .header("X-Correlation-ID", correlationId)
                         .GET()
                         .build();
+        return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> managementGet(String path)
+            throws IOException, InterruptedException {
+        var request =
+                HttpRequest.newBuilder().uri(URI.create(managementUrl() + path)).GET().build();
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
@@ -171,7 +202,11 @@ class BackendStartupTest {
         return OBJECT_MAPPER.readTree(logLine);
     }
 
-    private String baseUrl() {
+    private String applicationUrl() {
         return "http://localhost:%d".formatted(port);
+    }
+
+    private String managementUrl() {
+        return "http://localhost:%d".formatted(managementPort);
     }
 }

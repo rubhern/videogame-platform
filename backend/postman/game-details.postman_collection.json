@@ -1,0 +1,149 @@
+{
+  "info": {
+    "name": "VideoGame Platform Backend - Game Details",
+    "description": "Executable UC-003 examples for the existing reviewed OpenAPI contract. Use the disposable development seed before any rating contributions are inserted. No provider credentials or calls are needed.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "gameEtag",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Public released game and empty aggregate",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/games/30000000-0000-4000-8000-000000000005"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const game = pm.response.json();",
+              "pm.test(\"Coherent public context\", () => { pm.expect(game).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"aliases\", \"summary\", \"primaryCover\", \"releases\", \"ratingEligibility\", \"ratingStatistics\"); pm.expect(game).not.to.have.property(\"personalRating\"); });",
+              "pm.test(\"Complete release evidence\", () => game.releases.forEach(r => pm.expect(r).to.include.all.keys(\"releaseId\", \"gameId\", \"platform\", \"region\", \"releaseDate\", \"status\", \"provenance\", \"lastSyncedAt\", \"verificationLevel\", \"reviewStatus\", \"freshnessStatus\")));",
+              "pm.test(\"Empty aggregate is not unavailable or a numeric mean\", () => { pm.expect(game.ratingStatistics.status).to.eql(\"available\"); pm.expect(game.ratingStatistics.count).to.eql(0); pm.expect(game.ratingStatistics.mean).to.eql(null); pm.expect(Object.keys(game.ratingStatistics.distribution)).to.have.lengthOf(10); Object.values(game.ratingStatistics.distribution).forEach(n => pm.expect(n).to.eql(0)); });",
+              "pm.test(\"Application-derived date and public headers\", () => { pm.expect(game.ratingEligibility.evaluatedOn).to.match(/^\\d{4}-\\d{2}-\\d{2}$/); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"public, max-age=0, must-revalidate\"); pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).not.to.be.empty; });",
+              "pm.collectionVariables.set(\"gameEtag\", pm.response.headers.get(\"ETag\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conditional public game",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "W/{{gameEtag}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/games/30000000-0000-4000-8000-000000000005"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 304\", () => pm.response.to.have.status(304));",
+              "pm.test(\"No body\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Uncertain release context",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/games/30000000-0000-4000-8000-000000000008"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Unknown precision remains explicit\", () => pm.expect(pm.response.json().releases.some(r => r.releaseDate.precision === \"unknown\" && r.releaseDate.value === null)).to.eql(true));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Missing game",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/games/unknown-product-id"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Stable correlated Problem\", () => { const body = pm.response.json(); pm.expect(body.code).to.eql(\"GAME_NOT_FOUND\"); pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Untrusted evaluation date",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/games/30000000-0000-4000-8000-000000000005?evaluatedOn=2099-01-01"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Stable correlated Problem\", () => { const body = pm.response.json(); pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\"); pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\")); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

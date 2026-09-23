@@ -28,5 +28,7 @@
 !/docs/architecture/api/
 !/docs/architecture/api/openapi.yaml
 
+!/scripts/backend-artifact.sh
+
 !/package.json
 !/package-lock.json

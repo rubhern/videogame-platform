@@ -4,6 +4,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.UUID;
+import org.springframework.test.context.DynamicPropertyRegistry;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 public final class PostgreSqlTestDatabase {
@@ -60,6 +62,27 @@ public final class PostgreSqlTestDatabase {
         return MIGRATOR_PASSWORD;
     }
 
+    public static String isolatedDatabaseName(String prefix) {
+        return prefix + "_" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+    }
+
+    public static void configureSpringDatabase(
+            DynamicPropertyRegistry registry, String databaseName, boolean includeDevelopmentSeed) {
+        createDatabaseUnchecked(databaseName);
+        registry.add("spring.datasource.url", () -> runtimeUrl(databaseName));
+        registry.add("spring.datasource.username", PostgreSqlTestDatabase::runtimeUsername);
+        registry.add("spring.datasource.password", PostgreSqlTestDatabase::runtimePassword);
+        registry.add("spring.flyway.enabled", () -> true);
+        registry.add("spring.flyway.url", () -> adminUrl(databaseName));
+        registry.add("spring.flyway.user", PostgreSqlTestDatabase::migratorUsername);
+        registry.add("spring.flyway.password", PostgreSqlTestDatabase::migratorPassword);
+        if (includeDevelopmentSeed) {
+            registry.add(
+                    "spring.flyway.locations",
+                    () -> "classpath:db/migration,classpath:db/dev-seed");
+        }
+    }
+
     public static void createDatabase(String databaseName) throws SQLException {
         if (!databaseName.matches("[a-z][a-z0-9_]*")) {
             throw new IllegalArgumentException("Unsafe test database name: " + databaseName);
@@ -68,6 +91,15 @@ public final class PostgreSqlTestDatabase {
         try (Connection connection = adminConnection("backend_startup");
                 Statement statement = connection.createStatement()) {
             statement.execute("CREATE DATABASE " + databaseName + " OWNER " + MIGRATOR_USERNAME);
+        }
+    }
+
+    private static void createDatabaseUnchecked(String databaseName) {
+        try {
+            createDatabase(databaseName);
+        } catch (SQLException exception) {
+            throw new IllegalStateException(
+                    "Cannot create isolated PostgreSQL test database " + databaseName, exception);
         }
     }
 
