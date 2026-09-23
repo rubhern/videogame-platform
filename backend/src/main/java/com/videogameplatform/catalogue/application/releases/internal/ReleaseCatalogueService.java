@@ -3,16 +3,14 @@ package com.videogameplatform.catalogue.application.releases.internal;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
-import com.videogameplatform.catalogue.application.internal.CatalogueReadMapping;
+import com.videogameplatform.catalogue.application.internal.CatalogueReleaseMapping;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Item;
+import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Result;
-import com.videogameplatform.catalogue.domain.ReviewStatus;
-import com.videogameplatform.catalogue.domain.SourceKind;
-import com.videogameplatform.catalogue.domain.VerificationLevel;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -45,8 +43,13 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
     public BrowseReleasesResult browse(Query query) {
         Instant evaluatedAt = clock.instant();
         LocalDate evaluatedOn = LocalDate.ofInstant(evaluatedAt, clock.getZone());
-        BrowseReleasesResult.Window window = window(query.view(), evaluatedOn);
+        BrowseReleasesResult.Window window = window(query.view(), query.weeks(), evaluatedOn);
         long offset = Math.multiplyExact((long) query.pageNumber() - 1, query.pageSize());
+
+        // Deterministic normalization for multi-select filters: trim, drop blanks, de-duplicate and
+        // sort, so repeated values collapse and the applied filter is stable and reproducible.
+        List<String> platformIds = normalize(query.platformIds());
+        List<String> regionIds = normalize(query.regionIds());
 
         Result result =
                 readPort.findPublishedReleases(
@@ -54,14 +57,15 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                                         query.view(),
                                         new ReleaseBrowseReadPort.Window(
                                                 window.from(), window.to()),
-                                        query.platformId(),
-                                        query.regionId(),
+                                        platformIds,
+                                        regionIds,
                                         new ReleaseBrowseReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
-                                        browsePolicy.includesUnknownUpcomingDates()))
+                                        browsePolicy.includesUnknownUpcomingDates(),
+                                        browsePolicy.releaseGroupLimit()))
                         .orElseThrow(CatalogueNotReadyException::new);
 
-        validateTaxonomy(query, result);
+        validateTaxonomy(platformIds, regionIds, result);
         long totalPages =
                 result.totalItems() / query.pageSize()
                         + (result.totalItems() % query.pageSize() == 0 ? 0 : 1);
@@ -71,36 +75,52 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                 query.view(),
                 evaluatedOn,
                 window,
-                new BrowseReleasesResult.ActiveFilters(query.platformId(), query.regionId()),
+                new BrowseReleasesResult.ActiveFilters(platformIds, regionIds),
                 availableFilters(result),
-                result.items().stream().map(item -> toItem(item, evaluatedAt)).toList(),
+                result.items().stream()
+                        .map(item -> toItem(item, evaluatedAt, evaluatedOn))
+                        .toList(),
                 new BrowseReleasesResult.PageMetadata(
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));
     }
 
-    private BrowseReleasesResult.Window window(View view, LocalDate evaluatedOn) {
+    private static List<String> normalize(List<String> values) {
+        return values.stream()
+                .filter(value -> value != null)
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .distinct()
+                .sorted()
+                .toList();
+    }
+
+    private BrowseReleasesResult.Window window(View view, int weeks, LocalDate evaluatedOn) {
         return switch (view) {
             case RECENT ->
                     new BrowseReleasesResult.Window(
-                            evaluatedOn.minusMonths(browsePolicy.recentWindowMonths()),
-                            evaluatedOn);
+                            evaluatedOn.minusDays(weeks * 7L - 1), evaluatedOn);
             case UPCOMING ->
-                    new BrowseReleasesResult.Window(
-                            evaluatedOn,
-                            evaluatedOn.plusMonths(browsePolicy.upcomingWindowMonths()));
+                    new BrowseReleasesResult.Window(evaluatedOn, evaluatedOn.plusWeeks(weeks));
         };
     }
 
-    private static void validateTaxonomy(Query query, Result result) {
-        if (query.platformId() != null
-                && result.platforms().stream()
-                        .noneMatch(platform -> platform.id().equals(query.platformId()))) {
+    private static void validateTaxonomy(
+            List<String> platformIds, List<String> regionIds, Result result) {
+        // A selected value is valid only if it is a real taxonomy id, which the read port keeps
+        // representable in the returned facets. Any unknown id fails the whole request.
+        if (!platformIds.stream()
+                .allMatch(
+                        requested ->
+                                result.platforms().stream()
+                                        .anyMatch(platform -> platform.id().equals(requested)))) {
             throw new ReleaseQueryValidationException(
                     ReleaseQueryValidationException.Code.PLATFORM_NOT_SUPPORTED);
         }
-        if (query.regionId() != null
-                && result.regions().stream()
-                        .noneMatch(region -> region.id().equals(query.regionId()))) {
+        if (!regionIds.stream()
+                .allMatch(
+                        requested ->
+                                result.regions().stream()
+                                        .anyMatch(region -> region.id().equals(requested)))) {
             throw new ReleaseQueryValidationException(
                     ReleaseQueryValidationException.Code.REGION_NOT_SUPPORTED);
         }
@@ -125,57 +145,20 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
         return new BrowseReleasesResult.AvailableFilters(platforms, regions);
     }
 
-    private BrowseReleasesResult.Item toItem(Item item, Instant evaluatedAt) {
-        BrowseReleasesResult.Taxonomy platform =
-                new BrowseReleasesResult.Taxonomy(item.platform().id(), item.platform().name());
-        BrowseReleasesResult.Taxonomy region =
-                new BrowseReleasesResult.Taxonomy(item.region().id(), item.region().name());
-        BrowseReleasesResult.Release release =
-                new BrowseReleasesResult.Release(
-                        item.releaseId(),
-                        item.gameId(),
-                        platform,
-                        region,
-                        CatalogueReadMapping.toReleaseDate(item.releaseDate()),
-                        CatalogueReadMapping.toStatus(item.status()),
-                        new BrowseReleasesResult.Provenance(
-                                toSource(item.sourceKind()),
-                                item.sourceName(),
-                                item.sourceEntityType()),
-                        item.providerUpdatedAt(),
-                        item.lastSyncedAt(),
-                        item.lastVerifiedAt(),
-                        toVerification(item.verificationLevel()),
-                        toReview(item.reviewStatus()),
-                        CatalogueReadMapping.toFreshness(
-                                freshnessPolicy.status(item.lastSyncedAt(), evaluatedAt)));
+    private BrowseReleasesResult.Item toItem(
+            Item item, Instant evaluatedAt, LocalDate evaluatedOn) {
+        List<BrowseReleasesResult.Release> releases =
+                item.releases().stream()
+                        .map(
+                                (ReleaseRow row) ->
+                                        CatalogueReleaseMapping.map(
+                                                row, evaluatedAt, evaluatedOn, freshnessPolicy))
+                        .toList();
         return new BrowseReleasesResult.Item(
                 item.gameId(),
                 item.slug(),
                 item.canonicalTitle(),
                 coverPolicy.resolve(item.cover()),
-                release);
-    }
-
-    private static BrowseReleasesResult.Source toSource(SourceKind source) {
-        return switch (source) {
-            case EXTERNAL_PROVIDER -> BrowseReleasesResult.Source.EXTERNAL_PROVIDER;
-            case PRODUCT_CURATED -> BrowseReleasesResult.Source.PRODUCT_CURATED;
-            case OFFICIAL_SOURCE -> BrowseReleasesResult.Source.OFFICIAL_SOURCE;
-        };
-    }
-
-    private static BrowseReleasesResult.Verification toVerification(VerificationLevel source) {
-        return switch (source) {
-            case PROVIDER_ONLY -> BrowseReleasesResult.Verification.PROVIDER_ONLY;
-            case VERIFIED -> BrowseReleasesResult.Verification.VERIFIED;
-        };
-    }
-
-    private static BrowseReleasesResult.Review toReview(ReviewStatus source) {
-        return switch (source) {
-            case NOT_REQUIRED -> BrowseReleasesResult.Review.NOT_REQUIRED;
-            case REQUIRED -> BrowseReleasesResult.Review.REQUIRED;
-        };
+                releases);
     }
 }

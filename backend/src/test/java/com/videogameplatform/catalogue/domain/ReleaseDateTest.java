@@ -42,6 +42,29 @@ class ReleaseDateTest {
     }
 
     @Test
+    void derivesOccurrenceFromPrecisionAndTheTrustedEvaluationDate() {
+        // Exact day counts on the day itself.
+        ReleaseDate day = new ReleaseDate.Day(LocalDate.of(2026, 9, 20));
+        assertThat(day.hasOccurredBy(LocalDate.of(2026, 9, 19))).isFalse();
+        assertThat(day.hasOccurredBy(LocalDate.of(2026, 9, 20))).isTrue();
+        assertThat(day.hasOccurredBy(LocalDate.of(2026, 9, 21))).isTrue();
+
+        // Month, quarter and year count only once the whole period has ended.
+        ReleaseDate month = new ReleaseDate.Month(YearMonth.of(2026, 9));
+        assertThat(month.hasOccurredBy(LocalDate.of(2026, 9, 30))).isFalse();
+        assertThat(month.hasOccurredBy(LocalDate.of(2026, 10, 1))).isTrue();
+        ReleaseDate quarter = new ReleaseDate.Quarter(2026, 3);
+        assertThat(quarter.hasOccurredBy(LocalDate.of(2026, 9, 30))).isFalse();
+        assertThat(quarter.hasOccurredBy(LocalDate.of(2026, 10, 1))).isTrue();
+        ReleaseDate year = new ReleaseDate.YearOnly(Year.of(2026));
+        assertThat(year.hasOccurredBy(LocalDate.of(2026, 12, 31))).isFalse();
+        assertThat(year.hasOccurredBy(LocalDate.of(2027, 1, 1))).isTrue();
+
+        // An unknown date can never be decided by time alone.
+        assertThat(new ReleaseDate.Unknown().hasOccurredBy(LocalDate.of(2999, 1, 1))).isFalse();
+    }
+
+    @Test
     void rejectsYearsThatCannotBeRepresentedByTheApiOrPersistenceContract() {
         assertThatThrownBy(() -> new ReleaseDate.Day(LocalDate.of(10_000, 1, 1)))
                 .isInstanceOf(IllegalArgumentException.class);

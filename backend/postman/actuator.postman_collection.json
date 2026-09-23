@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b4809a0d-07fe-4eb3-b232-491bb0759df3",
     "name": "VideoGame Platform Backend - Actuator",
-    "description": "Read-only operational checks for every Spring Boot Actuator endpoint exposed by the backend walking skeleton. Select the VideoGame Platform - Local environment before running the collection.",
+    "description": "Read-only operational checks for the Spring Boot Actuator endpoints exposed by the backend, plus the internal catalogue-synchronization operator command exercised in its safe credential-free form. Select the VideoGame Platform - Local environment before running the collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -23,7 +23,7 @@
                   "pm.test(\"Response exposes only the expected resource links\", function () {",
                   "    const body = pm.response.json();",
                   "    pm.expect(body).to.have.property(\"_links\");",
-                  "    pm.expect(body._links).to.have.all.keys(\"self\", \"health\", \"health-path\", \"info\", \"metrics\", \"metrics-requiredMetricName\");",
+                  "    pm.expect(body._links).to.have.all.keys(\"self\", \"health\", \"health-path\", \"info\", \"metrics\", \"metrics-requiredMetricName\", \"cataloguesync\");",
                   "});"
                 ],
                 "type": "text/javascript",
@@ -379,6 +379,138 @@
               ]
             },
             "description": "Returns HTTP request measurements and bounded route-template tag values."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Catalogue synchronization",
+      "description": "Synchronize every IGDB Game represented in an inclusive operator-selected release-date interval. Paging is internal and imposes no total Game limit. No provider credentials are used in this automated collection.",
+      "item": [
+        {
+          "name": "Last synchronization run",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Reports the last run without provider detail\", function () {",
+                  "    const body = pm.response.json();",
+                  "    // Either no run has happened yet, or a bounded run report is returned.",
+                  "    if (body.status === \"never_run\") {",
+                  "        pm.expect(Object.keys(body)).to.eql([\"status\"]);",
+                  "    } else {",
+                  "        pm.expect(body).to.have.property(\"outcome\");",
+                  "        pm.expect(body).to.have.property(\"outcomeCode\");",
+                  "    }",
+                  "    pm.expect(body).not.to.have.property(\"clientSecret\");",
+                  "    pm.expect(body).not.to.have.property(\"provider\");",
+                  "    pm.expect(body).not.to.have.property(\"providerId\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{managementBaseUrl}}/actuator/cataloguesync",
+              "host": [
+                "{{managementBaseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "cataloguesync"
+              ]
+            },
+            "description": "Reports the most recent recorded synchronization run, or never_run, with bounded counts and stable codes only."
+          },
+          "response": []
+        },
+        {
+          "name": "Synchronize date interval (disabled without credentials)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"One complete date-window operation without a mode or Game limit\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).not.to.have.property(\"mode\");",
+                  "    pm.expect(body).not.to.have.property(\"checkpoint\");",
+                  "    pm.expect(body.counters).not.to.have.property(\"candidateGames\");",
+                  "});",
+                  "",
+                  "pm.test(\"Disabled without provider credentials; nothing is synchronized\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.outcome).to.eql(\"SKIPPED\");",
+                  "    pm.expect(body.outcomeCode).to.eql(\"SYNCHRONIZATION_DISABLED\");",
+                  "});",
+                  "",
+                  "pm.test(\"Response never carries a credential or provider identity\", function () {",
+                  "    const raw = pm.response.text();",
+                  "    pm.expect(raw).to.not.include(\"clientSecret\");",
+                  "    pm.expect(raw).to.not.include(\"igdb.com\");",
+                  "});",
+                  "",
+                  "pm.test(\"Request has dates and no batch size\", function () {",
+                  "    const request = JSON.parse(pm.request.body.raw);",
+                  "    pm.expect(request).to.eql({from: \"2026-01-01\", to: \"2026-12-31\"});",
+                  "    pm.expect(request).not.to.have.property(\"batchSize\");",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"from\":\"2026-01-01\",\"to\":\"2026-12-31\"}"
+            },
+            "url": {
+              "raw": "{{managementBaseUrl}}/actuator/cataloguesync",
+              "host": [
+                "{{managementBaseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "cataloguesync"
+              ]
+            },
+            "description": "Synchronize the complete inclusive date interval; without configured credentials no state changes."
           },
           "response": []
         }

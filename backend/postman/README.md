@@ -1,69 +1,71 @@
 # Backend Postman assets
 
-This directory contains executable Postman examples for the implemented product and
-Actuator APIs plus a non-secret local environment.
+Executable Postman examples for the implemented product and Actuator APIs plus a
+non-secret local environment. The collections document implemented behaviour; the
+reviewed [`openapi.yaml`](../../docs/architecture/api/openapi.yaml) remains the
+product contract, and backend integration tests remain authoritative for PostgreSQL
+behaviour, W3C propagation, and negative sensitive-data assertions. Whenever a
+backend API changes, update its tracked requests and assertions in the same change.
 
 ## Files
 
-- [`actuator.postman_collection.json`](actuator.postman_collection.json): discovery,
-  aggregate health, liveness, readiness, build info, and metric requests with
-  automated tests.
-- [`catalogue-releases.postman_collection.json`](catalogue-releases.postman_collection.json):
-  recent/upcoming release discovery, product filters, public headers, weak-validator
-  conditional reads, `int64` page totals, strict query parameters, pagination, and
-  stable validation errors with automated tests.
-- [`catalogue-search.postman_collection.json`](catalogue-search.postman_collection.json):
-  bounded catalogue search by canonical title and approved alias, diacritic-insensitive
-  and partial matching, ambiguous and zero-result outcomes, deterministic pagination,
-  public headers, weak-validator conditional reads, and stable validation errors with
-  automated tests.
-- [`session.postman_collection.json`](session.postman_collection.json): minimal
-  anonymous session state and CSRF-protected logout rejection. The successful OIDC
-  flow is intentionally covered by the real-browser identity gate instead of
-  scripting credentials in Postman.
-- [`local.postman_environment.json`](local.postman_environment.json): local product
-  `baseUrl` (`http://localhost:8080`) and loopback-only `managementBaseUrl`
-  (`http://localhost:8081`).
+| Collection | Covers |
+|---|---|
+| `catalogue-releases` | Recent/upcoming discovery, filters, public headers, weak-validator conditional reads, strict query parameters, pagination, stable validation errors |
+| `catalogue-search` | Canonical-title and approved-alias matching, diacritic-insensitive prefix matching, ambiguous and zero-result outcomes, deterministic pagination, conditional reads |
+| `game-details` | Public details, release evidence, empty statistics, conditional requests, missing games, strict query rejection |
+| `personal-ratings` | Authenticated read, conditional create/update/delete, strong ETag reuse from the private collection, scoped search and ordering, duplicate/stale-write and CSRF rejection |
+| `session` | Anonymous session state and CSRF-protected logout rejection; the successful OIDC flow is covered by the real-browser identity gate instead |
+| `actuator` | Discovery, health groups, build info, metrics, and the `cataloguesync` operator command asserting the credential-free `SYNCHRONIZATION_DISABLED` outcome |
+
+`local.postman_environment.json` holds the product `baseUrl` (`http://localhost:8080`)
+and loopback-only `managementBaseUrl` (`http://localhost:8081`). To target another
+instance change those values while keeping the management address on its private
+boundary. Never add tokens, passwords, cookies, client secrets, or machine-specific
+values to these tracked files.
 
 ## Import and run
 
-1. Start the backend from the repository root. The catalogue collections expect a
-   fresh disposable local database initialized with the deterministic seed:
+1. Start the backend with the deterministic seed on a fresh disposable database
+   (the seed locations must be present when Flyway first migrates it; do not reset an
+   existing database unless its data is disposable):
 
    ```bash
    bash scripts/local-dependencies.sh up
    set -a
    source backend/.env
    set +a
+   SPRING_PROFILES_ACTIVE=oidc \
    APPLICATION_FLYWAY_ENABLED=true \
    SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed \
    ./mvnw -pl backend spring-boot:run
    ```
 
-2. In Postman, select **Import** and import the environment and all four collections.
-3. Select the **VideoGame Platform - Local** environment.
-4. Run **VideoGame Platform Backend - Catalogue Releases**, **VideoGame Platform
-   Backend - Catalogue Search** and **VideoGame Platform Backend - Actuator**, then run
-   **VideoGame Platform Backend - BFF Session** while signed out.
+2. Import the environment and the collections, select the
+   **VideoGame Platform - Local** environment, and run the catalogue, game-details,
+   actuator, and (while signed out) session collections.
 
-The release collection verifies the reviewed release-page shape, active and available
-filters, correlation/cache/ETag headers, `304` weak-validator handling,
-date/freshness states, stable Problem Details codes, and equality between each error
-body correlation ID and its response header. The search collection verifies the
-game-search-page shape, canonical-title and approved-alias matching, the reported match
-context, ambiguous and zero-result outcomes, deterministic pagination, the absence of
-any provider identifier, and the same header and Problem Details rules. The operational
-collection verifies HTTP `200`, discovery links, `UP`
-for health and probes, generated build/source metadata, meter names, and bounded HTTP
-route tags. Backend integration tests remain authoritative for PostgreSQL behaviour,
-W3C propagation, structured correlation, and negative sensitive-data assertions.
+## Authenticated personal-rating run
 
-To target another instance, change the environment's product and management base
-URLs while keeping the management address on its approved private boundary. Do not
-add tokens, passwords, cookies, client secrets, or machine-specific values to these
-tracked files. Create a private Postman environment for future authenticated APIs.
+The BFF is a confidential OIDC client: `/auth/login/keycloak` is browser navigation,
+not a JSON credential endpoint, and Postman's OAuth helper is intentionally unused
+because it would make Postman a token-holding client outside the approved boundary.
+Never add a `POST /login`, passwords, tokens or session cookies to a tracked file.
 
-The collections document implemented behaviour; the reviewed
-[`docs/architecture/api/openapi.yaml`](../../docs/architecture/api/openapi.yaml)
-remains authoritative for the product contract. Whenever a backend API changes, its
-tracked Postman requests and assertions must be updated in the same change.
+1. Enable cookie synchronization between the browser and Postman with Postman
+   Interceptor (**Tools → Cookies → Sync Cookies → Interceptor**, domain
+   `http://localhost`); see Postman's
+   [cookie-sync instructions](https://learning.postman.com/docs/use/capturing-request-data/syncing-cookies/).
+2. In that browser open `http://localhost:8080/auth/login/keycloak` and sign in with
+   the local test account generated in the ignored root `.env`, or register a local
+   account on the Keycloak page.
+3. Confirm Postman's cookie manager holds `vgp_session` for `localhost`. Without
+   Interceptor, copy that one opaque cookie from the browser's developer tools
+   ([manual cookie management](https://learning.postman.com/docs/use/send-requests/response-data/cookies/)).
+4. Run **Personal Ratings** as a collection in its defined order. Its first request
+   calls `GET /api/v1/session`, requires `authenticated: true`, stores `csrfToken` and
+   clears old ETag variables; a missing session fails with an actionable message.
+5. The remaining requests create, read, reject a duplicate create, update, reject a
+   stale update, prove CSRF rejection and delete the rating, leaving the seed game
+   ready for another run. If an earlier run stopped after creation, read and delete
+   the rating with its current `ETag` before expecting the create step to return `201`.

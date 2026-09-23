@@ -6,6 +6,8 @@ import com.videogameplatform.api.generated.model.ReleasePage;
 import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
+import java.util.List;
+import java.util.Set;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,15 +40,21 @@ public class ReleaseController implements ReleasesApi {
     @Override
     public ResponseEntity<ReleasePage> listReleases(
             ReleaseView view,
-            String platformId,
-            String regionId,
+            Integer weeks,
+            Set<String> platformIds,
+            Set<String> regionIds,
             Integer page,
             Integer pageSize,
             String ifNoneMatch) {
         BrowseReleasesResult result =
                 useCase.browse(
                         new BrowseReleasesUseCase.Query(
-                                toApplicationView(view), platformId, regionId, page, pageSize));
+                                toApplicationView(view),
+                                weeks,
+                                toList(platformIds),
+                                toList(regionIds),
+                                page,
+                                pageSize));
         ReleasePage body = mapper.toResponse(result);
         String entityTag = conditionalRequests.strongEntityTag(body);
 
@@ -59,6 +67,10 @@ public class ReleaseController implements ReleasesApi {
 
         metrics.recordResult(view.getValue(), body.getItems().size());
         return ResponseEntity.ok().headers(headers).body(body);
+    }
+
+    private static List<String> toList(Set<String> values) {
+        return values == null ? List.of() : List.copyOf(values);
     }
 
     private static BrowseReleasesUseCase.View toApplicationView(ReleaseView view) {

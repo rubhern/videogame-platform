@@ -1,0 +1,202 @@
+[
+  {
+    "id": 1,
+    "date": 1759356000,
+    "y": 2025,
+    "m": 10,
+    "d": 2,
+    "date_format": {
+      "format": "YYYYMMMMDD"
+    },
+    "release_region": {
+      "id": 1,
+      "region": "europe"
+    },
+    "platform": {
+      "id": 167,
+      "slug": "ps5",
+      "name": "PlayStation 5"
+    },
+    "game": 116530
+  },
+  {
+    "id": 2,
+    "date": 1759356000,
+    "date_format": {
+      "format": "YYYYMMMMDD"
+    },
+    "release_region": {
+      "id": 8,
+      "region": "worldwide"
+    },
+    "platform": {
+      "id": 6,
+      "slug": "win",
+      "name": "PC (Microsoft Windows)"
+    },
+    "game": 116530
+  },
+  {
+    "id": 3,
+    "date": 1790726400,
+    "y": 2026,
+    "m": 9,
+    "d": 30,
+    "date_format": {
+      "format": "YYYYMMMMDD"
+    },
+    "status": {
+      "name": "Cancelled"
+    },
+    "release_region": {
+      "id": 8,
+      "region": "worldwide"
+    },
+    "platform": {
+      "id": 169,
+      "slug": "series-x-s",
+      "name": "Xbox Series X|S"
+    },
+    "game": 116530
+  },
+  {
+    "id": 4,
+    "date": 1796083200,
+    "y": 2026,
+    "m": 12,
+    "d": 1,
+    "date_format": {
+      "format": "YYYYMMMMDD"
+    },
+    "status": {
+      "name": "Delayed"
+    },
+    "release_region": {
+      "id": 1,
+      "region": "europe"
+    },
+    "platform": {
+      "id": 508,
+      "slug": "switch-2",
+      "name": "Nintendo Switch 2"
+    },
+    "game": 116530
+  },
+  {
+    "id": 5,
+    "date": 1759356000,
+    "y": 2025,
+    "m": 10,
+    "d": 2,
+    "date_format": {
+      "format": "YYYYMMMMDD"
+    },
+    "release_region": {
+      "id": 8,
+      "region": "worldwide"
+    },
+    "platform": {
+      "id": 13,
+      "slug": "dos",
+      "name": "DOS"
+    },
+    "game": 116530
+  },
+  {
+    "id": 6,
+    "date": 1759356000,
+    "y": 2025,
+    "m": 10,
+    "d": 2,
+    "date_format": {
+      "format": "YYYYMMMMDD"
+    },
+    "release_region": {
+      "id": 5,
+      "region": "japan"
+    },
+    "platform": {
+      "id": 167,
+      "slug": "ps5",
+      "name": "PlayStation 5"
+    },
+    "game": 116530
+  },
+  {
+    "id": 7,
+    "date": 1806537600,
+    "y": 2027,
+    "date_format": {
+      "format": "YYYYQ2"
+    },
+    "release_region": {
+      "id": 8,
+      "region": "worldwide"
+    },
+    "platform": {
+      "id": 167,
+      "slug": "ps5",
+      "name": "PlayStation 5"
+    },
+    "game": 116530
+  },
+  {
+    "id": 8,
+    "date_format": {
+      "format": "TBD"
+    },
+    "release_region": {
+      "id": 1,
+      "region": "europe"
+    },
+    "platform": {
+      "id": 6,
+      "slug": "win",
+      "name": "PC (Microsoft Windows)"
+    },
+    "game": 116530
+  },
+  {
+    "id": 9,
+    "date": 1759356000,
+    "date_format": {
+      "format": "YYYYMMMMDD"
+    },
+    "release_region": {
+      "id": 1,
+      "region": "europe"
+    },
+    "game": 116530
+  },
+  {
+    "id": 10,
+    "date_format": {
+      "format": "YYYYMMMMDD"
+    },
+    "release_region": {
+      "id": 1,
+      "region": "europe"
+    },
+    "platform": {
+      "id": 167,
+      "slug": "ps5",
+      "name": "PlayStation 5"
+    },
+    "game": 116530
+  },
+  {
+    "id": 11,
+    "date": 1772323200,
+    "y": 2026,
+    "m": 3,
+    "date_format": {
+      "format": "YYYYMMMM"
+    },
+    "platform": {
+      "id": 169,
+      "slug": "series-x-s",
+      "name": "Xbox Series X|S"
+    },
+    "game": 116530
+  }
+]

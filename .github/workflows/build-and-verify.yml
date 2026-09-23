@@ -31,7 +31,6 @@ jobs:
       identity: ${{ steps.changes.outputs.identity }}
       provider_fixtures: ${{ steps.changes.outputs.provider_fixtures }}
       container: ${{ steps.changes.outputs.container }}
-      infrastructure: ${{ steps.changes.outputs.infrastructure }}
       build: ${{ steps.changes.outputs.build }}
       ci: ${{ steps.changes.outputs.ci }}
       sonar: ${{ steps.changes.outputs.sonar }}
@@ -151,29 +150,6 @@ jobs:
       - name: Run frontend verification
         run: npm run frontend:verify
 
-  terraform:
-    name: Terraform format, validation and OCI policy tests
-    if: ${{ needs.detect-changes.outputs.infrastructure == 'true' }}
-    needs: detect-changes
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Set up the Resource Manager-compatible Terraform CLI
-        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
-        with:
-          terraform_version: 1.5.7
-          terraform_wrapper: false
-
-      - name: Validate Terraform without credentials, planning, or applying
-        run: bash scripts/validate-terraform.sh
-
   browser-smoke:
     name: Packaged application Chromium smoke and accessibility check
     if: ${{ needs.detect-changes.outputs.browser == 'true' }}
@@ -277,6 +253,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Validate private-dev topology and bounded synthetic OTLP receipt
+        run: |
+          bash scripts/validate-private-dev-runtime.sh
+          bash scripts/validate-private-dev-runtime.sh --telemetry-smoke
+
       - name: Set up pinned ARM64 emulation
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
         with:
@@ -291,10 +272,8 @@ jobs:
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
           cache-binary: false
 
-      - name: Verify dependency platforms and the OCI resource budget
-        run: |
-          bash scripts/local-dependencies.sh verify-images
-          bash scripts/validate-topology-budget.sh
+      - name: Verify dependency platforms
+        run: bash scripts/local-dependencies.sh verify-images
 
       - name: Build, inspect, run and scan both application platforms
         env:
@@ -484,7 +463,6 @@ jobs:
       - backend
       - migrations
       - provider-fixtures
-      - terraform
       - sonarcloud
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -515,8 +493,6 @@ jobs:
           MIGRATIONS: ${{ needs.migrations.result }}
           PROVIDER_EXPECTED: ${{ needs.detect-changes.outputs.provider_fixtures }}
           PROVIDER_FIXTURES: ${{ needs.provider-fixtures.result }}
-          TERRAFORM_EXPECTED: ${{ needs.detect-changes.outputs.infrastructure }}
-          TERRAFORM: ${{ needs.terraform.result }}
           SONAR_EXPECTED: ${{ needs.detect-changes.outputs.sonar }}
           SONARCLOUD: ${{ needs.sonarcloud.result }}
         run: |
@@ -530,7 +506,6 @@ jobs:
             backend "$BACKEND_EXPECTED" "$BACKEND" \
             migrations "$MIGRATIONS_EXPECTED" "$MIGRATIONS" \
             provider-fixtures "$PROVIDER_EXPECTED" "$PROVIDER_FIXTURES" \
-            terraform "$TERRAFORM_EXPECTED" "$TERRAFORM" \
             sonarcloud "$SONAR_EXPECTED" "$SONARCLOUD"
 
   publish-container-image:

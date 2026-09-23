@@ -24,12 +24,14 @@ INSERT INTO catalogue.platform (platform_id, code, display_name) VALUES
     ('10000000-0000-4000-8000-000000000001', 'playstation-5', 'PlayStation 5'),
     ('10000000-0000-4000-8000-000000000002', 'nintendo-switch-2', 'Nintendo Switch 2'),
     ('10000000-0000-4000-8000-000000000003', 'windows-pc', 'Windows PC'),
-    ('10000000-0000-4000-8000-000000000004', 'xbox-series', 'Xbox Series X|S');
+    ('10000000-0000-4000-8000-000000000004', 'xbox-series', 'Xbox Series X|S')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO catalogue.region (region_id, code, display_name) VALUES
     ('20000000-0000-4000-8000-000000000001', 'worldwide', 'Worldwide'),
     ('20000000-0000-4000-8000-000000000002', 'europe', 'Europe'),
-    ('20000000-0000-4000-8000-000000000003', 'unknown', 'Unknown');
+    ('20000000-0000-4000-8000-000000000003', 'unknown', 'Unknown')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO catalogue.game (game_id, created_at) VALUES
     ('30000000-0000-4000-8000-000000000001', '2026-08-09 10:00:00+00'),

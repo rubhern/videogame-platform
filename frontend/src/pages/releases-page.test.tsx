@@ -18,23 +18,25 @@ const pragmata: ReleasePage["items"][number] = {
     alternativeText: "Portada no disponible de Pragmata",
     attribution: null,
   },
-  release: {
-    releaseId: "40000000-0000-4000-8000-000000000006",
-    gameId: "30000000-0000-4000-8000-000000000006",
-    platform: { platformId: "windows-pc", name: "Windows PC" },
-    region: { regionId: "worldwide", name: "Worldwide" },
-    releaseDate: { precision: "quarter", value: "2026-Q2" },
-    status: "released",
-    provenance: {
-      sourceKind: "product_curated",
-      sourceName: "VideoGame Platform clickable prototype",
-      sourceEntityType: "prototype_release",
+  releases: [
+    {
+      releaseId: "40000000-0000-4000-8000-000000000006",
+      gameId: "30000000-0000-4000-8000-000000000006",
+      platform: { platformId: "windows-pc", name: "Windows PC" },
+      region: { regionId: "worldwide", name: "Worldwide" },
+      releaseDate: { precision: "quarter", value: "2026-Q2" },
+      status: "released",
+      provenance: {
+        sourceKind: "product_curated",
+        sourceName: "VideoGame Platform clickable prototype",
+        sourceEntityType: "prototype_release",
+      },
+      lastSyncedAt: "2026-08-09T10:00:00Z",
+      verificationLevel: "provider_only",
+      reviewStatus: "not_required",
+      freshnessStatus: "fresh",
     },
-    lastSyncedAt: "2026-08-09T10:00:00Z",
-    verificationLevel: "provider_only",
-    reviewStatus: "not_required",
-    freshnessStatus: "fresh",
-  },
+  ],
 };
 
 function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
@@ -42,7 +44,7 @@ function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
     view: "recent",
     evaluatedOn: "2026-08-13",
     window: { from: "2026-02-13", to: "2026-08-13" },
-    activeFilters: { platformId: null, regionId: null },
+    activeFilters: { platformIds: [], regionIds: [] },
     availableFilters: {
       platforms: [
         { platformId: "playstation-5", name: "PlayStation 5" },
@@ -72,15 +74,31 @@ function problem(status: number, code: Problem["code"]): Problem {
 function stubReleases(
   respond: (request: Request) => Response | Promise<Response>,
 ): ReturnType<typeof vi.fn<typeof fetch>> {
-  const fetchMock = vi
-    .fn<typeof fetch>()
-    .mockImplementation(async (input) => respond(input as Request));
+  const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input) => {
+    const request = input as Request;
+    // The header reads BFF session state on every page; keep tests scoped to the catalogue.
+    if (request.url.includes("/api/v1/session")) {
+      return Response.json({ authenticated: false });
+    }
+    if (request.url.includes("/auth/rating-intent")) {
+      return new Response(null, { status: 404 });
+    }
+    return respond(request);
+  });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
 
+function releaseCalls(
+  fetchMock: ReturnType<typeof vi.fn<typeof fetch>>,
+): Request[] {
+  return fetchMock.mock.calls
+    .map((call) => call[0] as Request)
+    .filter((request) => new URL(request.url).pathname === "/api/v1/releases");
+}
+
 function requestedQueries(fetchMock: ReturnType<typeof vi.fn<typeof fetch>>): URLSearchParams[] {
-  return fetchMock.mock.calls.map((call) => new URL((call[0] as Request).url).searchParams);
+  return releaseCalls(fetchMock).map((request) => new URL(request.url).searchParams);
 }
 
 afterEach(() => {
@@ -88,7 +106,7 @@ afterEach(() => {
 });
 
 describe("releases page", () => {
-  it("requests the recent first page and renders the evaluated window", async () => {
+  it("requests twelve recent releases and renders the window above the title", async () => {
     const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
 
     renderApp();
@@ -97,23 +115,22 @@ describe("releases page", () => {
       await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText(
-        "Del 13 de febrero de 2026 al 13 de agosto de 2026. Ventana evaluada el 13 de agosto de 2026.",
-      ),
+      await screen.findByText("Del 13 de febrero de 2026 al 13 de agosto de 2026"),
     ).toBeInTheDocument();
+    expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
 
     const query = requestedQueries(fetchMock)[0];
     expect(query?.get("view")).toBe("recent");
     expect(query?.get("page")).toBe("1");
-    expect(query?.get("pageSize")).toBe("6");
-    expect(query?.has("platformId")).toBe(false);
+    expect(query?.get("pageSize")).toBe("12");
+    expect(query?.has("platformIds")).toBe(false);
   });
 
-  it("restores a shared filtered and paginated URL", async () => {
+  it("restores a shared multi-select filtered and paginated URL", async () => {
     const fetchMock = stubReleases(() =>
       Response.json(
         releasePage({
-          activeFilters: { platformId: "playstation-5", regionId: null },
+          activeFilters: { platformIds: ["playstation-5"], regionIds: [] },
           items: [],
           page: { number: 2, size: 6, totalItems: 0, totalPages: 0 },
         }),
@@ -121,28 +138,62 @@ describe("releases page", () => {
       ),
     );
 
-    renderApp("/?platformId=playstation-5&page=2");
+    renderApp("/?platformIds=playstation-5&page=2");
 
-    expect(await screen.findByLabelText("Plataforma")).toHaveValue("playstation-5");
+    // The closed Platform selector summarises the restored selection without opening.
+    expect(await screen.findByRole("combobox", { name: /Plataforma/ })).toHaveTextContent(
+      "PlayStation 5",
+    );
     const query = requestedQueries(fetchMock)[0];
-    expect(query?.get("platformId")).toBe("playstation-5");
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
     expect(query?.get("page")).toBe("2");
   });
 
-  it("applies a platform filter and returns to the first page", async () => {
+  it("returns to the first page when a filter is applied", async () => {
     const user = userEvent.setup();
     const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
 
     const { router } = renderApp("/?page=3");
-    await screen.findByLabelText("Plataforma");
+    await user.click(await screen.findByRole("combobox", { name: /Plataforma/ }));
+    await user.click(screen.getByRole("option", { name: "PlayStation 5" }));
 
-    await user.selectOptions(screen.getByLabelText("Plataforma"), "playstation-5");
-
-    await waitFor(() => expect(fetchMock.mock.calls.length).toBeGreaterThan(1));
+    await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(1));
     const query = requestedQueries(fetchMock).at(-1);
-    expect(query?.get("platformId")).toBe("playstation-5");
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
     expect(query?.get("page")).toBe("1");
-    expect(router.state.location.search).toBe("?platformId=playstation-5");
+    expect(router.state.location.search).toBe("?weeks=1&platformIds=playstation-5");
+  });
+
+  it("combines several platforms with OR and adds a region with AND from one open popover", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
+
+    const { router } = renderApp("/");
+    await user.click(await screen.findByRole("combobox", { name: /Plataforma/ }));
+    await user.click(screen.getByRole("option", { name: "PlayStation 5" }));
+
+    await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(1));
+    let query = requestedQueries(fetchMock).at(-1);
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
+    expect(router.state.location.search).toBe("?weeks=1&platformIds=playstation-5");
+
+    // The popover stays open, so a second value is added with OR without reopening.
+    expect(screen.getByRole("listbox", { name: "Plataforma" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "Windows PC" }));
+    await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(2));
+    query = requestedQueries(fetchMock).at(-1);
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5", "windows-pc"]);
+    expect(router.state.location.search).toBe(
+      "?weeks=1&platformIds=playstation-5&platformIds=windows-pc",
+    );
+
+    // A second dimension combines with AND.
+    await user.click(await screen.findByRole("combobox", { name: /Región/ }));
+    await user.click(screen.getByRole("option", { name: "Mundial" }));
+    await waitFor(() => expect(releaseCalls(fetchMock).length).toBeGreaterThan(3));
+    expect(router.state.location.search).toBe(
+      "?weeks=1&platformIds=playstation-5&platformIds=windows-pc&regionIds=worldwide",
+    );
   });
 
   it("switches to the upcoming window through navigation", async () => {
@@ -157,7 +208,7 @@ describe("releases page", () => {
     );
 
     renderApp();
-    await screen.findByLabelText("Plataforma");
+    await screen.findByRole("combobox", { name: /Plataforma/ });
 
     await user.click(screen.getByRole("link", { name: "Próximos" }));
 
@@ -167,6 +218,30 @@ describe("releases page", () => {
     await waitFor(() =>
       expect(requestedQueries(fetchMock).at(-1)?.get("view")).toBe("upcoming"),
     );
+    expect(requestedQueries(fetchMock).at(-1)?.get("pageSize")).toBe("12");
+  });
+
+  it("changes the week horizon by keyboard, preserves filters, and resets pagination", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases((request) =>
+      Response.json(
+        releasePage({
+          window: new URL(request.url).searchParams.get("weeks") === "4"
+            ? { from: "2026-08-13", to: "2026-09-10" }
+            : { from: "2026-08-13", to: "2026-08-20" },
+        }),
+        { status: 200 },
+      ),
+    );
+    const { router } = renderApp("/?view=upcoming&platformIds=playstation-5&page=3");
+    const selector = await screen.findByRole("combobox", { name: /^Periodo:/ });
+    selector.focus();
+    await user.keyboard("{ArrowDown}{End}{Enter}");
+
+    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("weeks")).toBe("4"));
+    expect(requestedQueries(fetchMock).at(-1)?.get("page")).toBe("1");
+    expect(router.state.location.search).toBe("?view=upcoming&weeks=4&platformIds=playstation-5");
+    expect(await screen.findByText(/13 de agosto de 2026 al 10 de septiembre de 2026/)).toBeInTheDocument();
   });
 
   it("keeps filters visible without presenting previous results as the new window", async () => {
@@ -182,20 +257,18 @@ describe("releases page", () => {
     );
 
     renderApp();
-    await screen.findByRole("link", { name: "Ver Pragmata" });
+    await screen.findByRole("link", { name: "Pragmata" });
 
     await user.click(screen.getByRole("link", { name: "Próximos" }));
 
     expect(screen.getByRole("heading", { level: 1, name: "Próximos lanzamientos" })).toBeVisible();
-    expect(screen.getByLabelText("Plataforma")).toBeVisible();
+    expect(screen.getByRole("combobox", { name: /Plataforma/ })).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent(
       "Cargando lanzamientos para la nueva selección",
     );
-    expect(screen.queryByRole("link", { name: "Ver Pragmata" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Pragmata" })).not.toBeInTheDocument();
     expect(
-      screen.queryByText(
-        "Del 13 de febrero de 2026 al 13 de agosto de 2026. Ventana evaluada el 13 de agosto de 2026.",
-      ),
+      screen.queryByText("Del 13 de agosto de 2026 al 13 de febrero de 2027"),
     ).not.toBeInTheDocument();
 
     resolveUpcoming?.(
@@ -206,9 +279,7 @@ describe("releases page", () => {
     );
 
     expect(
-      await screen.findByText(
-        "Del 13 de agosto de 2026 al 13 de febrero de 2027. Ventana evaluada el 13 de agosto de 2026.",
-      ),
+      await screen.findByText("Del 13 de agosto de 2026 al 13 de febrero de 2027"),
     ).toBeInTheDocument();
   });
 
@@ -235,10 +306,10 @@ describe("releases page", () => {
       }),
     );
 
-    renderApp("/?platformId=platform-removed");
+    renderApp("/?platformIds=platform-removed");
 
     expect(await screen.findByRole("heading", { name: "Filtro no admitido" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/?weeks=1");
   });
 
   it("retries a technical failure on request", async () => {
@@ -263,7 +334,7 @@ describe("releases page", () => {
 
     await user.click(screen.getByRole("button", { name: "Reintentar" }));
 
-    expect(await screen.findByRole("link", { name: "Ver Pragmata" })).toBeInTheDocument();
-    expect(fetchMock.mock.calls.length).toBe(2);
+    expect(await screen.findByRole("link", { name: "Pragmata" })).toBeInTheDocument();
+    expect(releaseCalls(fetchMock)).toHaveLength(2);
   });
 });

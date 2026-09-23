@@ -1,11 +1,15 @@
 # VideoGame Platform frontend
 
 The frontend is a client-rendered React/TypeScript SPA for the approved same-origin
-BFF/API. It currently renders the complete `UC-001` release-discovery page — recent
-and upcoming windows, platform and region filters, pagination, covers, and the
-loading, empty, stale, catalogue-not-ready and failure states — the `UC-002`
-bounded-catalogue search page, and a placeholder game route. Game details, ratings,
-`Mis puntuaciones`, and provider synchronization UI remain later slices.
+BFF/API. It implements the complete MVP journey: `UC-001` release discovery,
+`UC-002` bounded catalogue search, `UC-003` public game details, the `UC-004`
+same-origin authentication boundary (an authenticated-only header account control
+with CSRF-protected logout; authentication starts only from the rating control), the
+`UC-005`–`UC-007` inline personal rating on the game page, and `UC-008`
+`/mis-puntuaciones`. Behaviour is specified by the
+[use cases](../docs/architecture/application/mvp-use-cases.md) and the
+[frontend design guidelines](../docs/development/frontend-design.md); this README
+owns only how to build, run, and organise it.
 
 ## Install and verify
 
@@ -31,9 +35,8 @@ npm run frontend:dev
 
 Vite serves `http://localhost:5173` and proxies `/api`, `/auth`, and `/actuator` to
 the backend. Those paths remain server-owned and must not become client routes.
-
-Production assets are written to ignored `frontend/dist/`. Build the deployable
-same-origin JAR with `bash scripts/package-application.sh`; validate the real packaged
+Production assets are written to ignored `frontend/dist/`; build the deployable
+same-origin JAR with `bash scripts/package-application.sh` and validate the packaged
 browser path with `bash scripts/validate-browser.sh`.
 
 ## Structure and ownership
@@ -45,6 +48,7 @@ browser path with `bash scripts/validate-browser.sh`.
 | `src/pages/` | Route-level composition |
 | `src/shared/api/` | Generated contract and product-facing transport boundary |
 | `src/shared/catalogue/` | Catalogue presentation shared by release browsing and search |
+| `src/shared/ui/` | UI patterns with demonstrated cross-feature reuse |
 | `src/styles/` | Global Tailwind entry and shared visual foundations |
 | `src/test/` | Shared component-test setup |
 | `tests/` | Packaged browser journeys |
@@ -54,25 +58,27 @@ state store, or generic abstraction without demonstrated reuse or ownership valu
 
 ## API, routing, and state
 
-[`docs/architecture/api/openapi.yaml`](../docs/architecture/api/openapi.yaml) is the
-wire contract. `openapi-typescript` generates
-`src/shared/api/generated/schema.d.ts`; never edit it. `openapi-fetch` remains behind
-product-facing API functions and hooks so generated transport types do not spread
-through components. Follow the [OpenAPI workflow](../docs/development/openapi.md).
+[`openapi.yaml`](../docs/architecture/api/openapi.yaml) is the wire contract.
+`openapi-typescript` generates `src/shared/api/generated/schema.d.ts`; never edit it.
+`openapi-fetch` stays behind product-facing API functions and hooks so generated
+transport types do not spread through components. Follow the
+[OpenAPI workflow](../docs/development/openapi.md).
 
-React Router owns browser navigation. TanStack Query owns server state, caching,
-loading, and invalidation. Component state owns transient local interaction state;
-URL parameters own navigable/shareable state when safe. The release page keeps
-`view`, `platformId`, `regionId`, `page`, and `pageSize` in the query string so a
-filtered result stays shareable. Values outside the contract shape fall back to a
-safe default before reaching the API; well-formed but unknown platform and region
-identifiers reach the API and produce the explicit unsupported-filter state. OAuth
-tokens and personal responses must not be stored in browser storage. Same-origin
+React Router owns navigation. TanStack Query owns server state, caching, loading, and
+invalidation. Component state owns transient interaction state; URL parameters own
+navigable/shareable state when safe (release view and filters, search query and
+page, the selected platform/region on a game page). Values outside the contract shape
+fall back to a safe default before reaching the API. Personal filters live only in
+component state and personal query data is discarded when the page unmounts. OAuth
+tokens and personal responses are never stored in browser storage; same-origin
 requests preserve the BFF cookie and CSRF contract.
 
-The search page restores query and pagination from the URL, hides old placeholder
-results during a new request, and maps transport failures to a retryable state.
-Only failures carrying a correlation ID display a support reference.
+Game links use `/games/{gameId}/{slug}`; the slug is descriptive and the internal ID
+alone drives the API read. Personal rating mutations never retry: a conflict re-reads
+the personal rating, an authentication or CSRF rejection re-reads the session, and an
+ambiguous transport failure keeps the last valid state and offers an explicit re-read.
+An anonymous rating press starts authentication through the BFF `/auth/rating-intent`
+routes; the single-use recovered value is persisted once on return.
 
 ## Accessibility and testing
 

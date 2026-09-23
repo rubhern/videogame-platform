@@ -3,14 +3,6 @@
 .env.*
 !.env.example
 *.token
-**/terraform.tfvars
-**/*.auto.tfvars
-**/*.tfplan
-**/*.tfplan.json
-**/*.tfstate
-**/*.tfstate.*
-**/.terraform/
-infrastructure/terraform/evidence/
 .idea/
 __pycache__/
 node_modules/
@@ -34,3 +26,7 @@ tools/igdb-poc/target/
 # Claude Code local state
 .claude/worktrees/
 .claude/settings.local.json
+.design-reference/
+
+# Owner-provided artwork used only for local visual review
+frontend/public/local-preview/

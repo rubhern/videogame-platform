@@ -9,36 +9,20 @@ import type { GameSearchResult, GameSearchViewModel } from "./game-search-view-m
 
 const params: GameSearchParams = { query: "resident evil", page: 1, pageSize: 6 };
 
-const staleContext = {
-  key: "platform-ps5-region-europe-0",
-  platform: "PlayStation 5",
-  region: "Europe",
-  date: "27 de febrero de 2026",
-  status: "Publicado",
-  isStale: true,
-};
-
 const requiem: GameSearchResult = {
   gameId: "game-resident-evil-requiem",
   slug: "resident-evil-requiem",
   title: "Resident Evil Requiem",
   matchedAlias: null,
   cover: {
-    kind: "fallback",
-    url: "/assets/covers/fallback.svg",
-    alternativeText: "Portada no disponible de Resident Evil Requiem",
+    kind: "provider",
+    url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1.webp",
+    alternativeText: "Carátula de Resident Evil Requiem",
+    attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/resident-evil-requiem" },
   },
-  releaseContext: [
-    {
-      key: "platform-ps5-region-europe-0",
-      platform: "PlayStation 5",
-      region: "Europe",
-      date: "27 de febrero de 2026",
-      status: "Publicado",
-      isStale: false,
-    },
-  ],
-  hasStaleContext: false,
+  platforms: [{ id: "platform-ps5", name: "PlayStation 5", icon: "playstation-5" }],
+  hiddenPlatformCount: 0,
+  year: "2026",
 };
 
 function viewModel(overrides: Partial<GameSearchViewModel> = {}): GameSearchViewModel {
@@ -63,20 +47,12 @@ function renderShell(
 }
 
 describe("catalogue search shell", () => {
-  it("offers an accessible search landmark with a labelled query field", () => {
-    renderShell({ status: "prompt" }, { params: { query: "", page: 1, pageSize: 6 } });
-
-    const form = screen.getByRole("search");
-    expect(within(form).getByRole("searchbox", { name: "Buscar en el catálogo" })).toBeInTheDocument();
-    expect(within(form).getByRole("button", { name: "Buscar" })).toBeInTheDocument();
-  });
-
   it("invites a first search instead of showing an empty result", () => {
     renderShell({ status: "prompt" }, { params: { query: "", page: 1, pageSize: 6 } });
 
     expect(
       screen.getByText(
-        "Escribe un título o un título alternativo aprobado para buscar en el catálogo.",
+        "Escribe un título o un título alternativo aprobado en el buscador de la cabecera.",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Resultados de la búsqueda" })).not.toBeInTheDocument();
@@ -88,7 +64,29 @@ describe("catalogue search shell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Buscando en el catálogo…");
   });
 
-  it("renders a matching game with its bounded release context", () => {
+  it("makes the query the page context without the old explanatory copy", () => {
+    renderShell({
+      status: "ready",
+      model: viewModel(),
+      isRefreshing: false,
+      isPlaceholderData: false,
+    });
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Resultados para «resident evil»",
+    );
+    expect(screen.getByText("Catálogo de juegos")).toBeInTheDocument();
+    expect(screen.queryByText(/Solo se muestran/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No se consulta ningún proveedor/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the generic heading until there is a query to present", () => {
+    renderShell({ status: "prompt" }, { params: { query: "", page: 1, pageSize: 6 } });
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Buscar juegos");
+  });
+
+  it("renders a matching game as a compact card that opens its detail", () => {
     renderShell({
       status: "ready",
       model: viewModel(),
@@ -100,27 +98,62 @@ describe("catalogue search shell", () => {
       "1 juego del catálogo local · Página 1 de 1",
     );
     const results = screen.getByRole("list", { name: "Resultados de la búsqueda" });
-    expect(within(results).getByRole("heading", { level: 3, name: "Resident Evil Requiem" }))
-      .toBeInTheDocument();
-    expect(
-      within(results).getByRole("link", { name: "Ver Resident Evil Requiem" }),
-    ).toHaveAttribute("href", "/games/resident-evil-requiem");
-    expect(within(results).getByText("PlayStation 5 · Europe")).toBeInTheDocument();
+    const heading = within(results).getByRole("heading", { level: 3, name: "Resident Evil Requiem" });
+    expect(within(heading).getByRole("link", { name: "Resident Evil Requiem" })).toHaveAttribute(
+      "href",
+      "/games/game-resident-evil-requiem/resident-evil-requiem",
+    );
+    expect(within(results).getByText("2026")).toBeInTheDocument();
+    const platforms = within(results).getByRole("list", {
+      name: "Plataformas de Resident Evil Requiem",
+    });
+    expect(within(platforms).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      "PlayStation 5",
+    ]);
+    // The game page every cover links to owns the attribution (ADR-0001, GAME-012).
+    expect(within(results).queryByRole("link", { name: "IGDB" })).not.toBeInTheDocument();
+    expect(within(results).queryByRole("link", { name: /Ver ficha/ })).not.toBeInTheDocument();
   });
 
-  it("explains which approved alias produced the match", () => {
+  it("folds platforms beyond three into an exact, named overflow", () => {
     renderShell({
       status: "ready",
       model: viewModel({
-        results: [{ ...requiem, matchedAlias: "Biohazard Requiem" }],
+        results: [
+          {
+            ...requiem,
+            platforms: [
+              { id: "p1", name: "PlayStation 5", icon: "playstation-5" },
+              { id: "p2", name: "Windows PC", icon: "windows" },
+              { id: "p3", name: "Xbox Series X|S", icon: "xbox-series-x-s" },
+            ],
+            hiddenPlatformCount: 2,
+          },
+        ],
       }),
       isRefreshing: false,
       isPlaceholderData: false,
     });
 
-    expect(screen.getByText(/Coincide con el título alternativo/)).toHaveTextContent(
-      "Biohazard Requiem",
-    );
+    const platforms = screen.getByRole("list", { name: "Plataformas de Resident Evil Requiem" });
+    const items = within(platforms).getAllByRole("listitem");
+    expect(items).toHaveLength(4);
+    expect(items[3]).toHaveTextContent("+2");
+    expect(items[3]).toHaveTextContent("2 plataformas más");
+  });
+
+  it("states an unknown release year instead of inventing one", () => {
+    renderShell({
+      status: "ready",
+      model: viewModel({
+        results: [{ ...requiem, platforms: [], hiddenPlatformCount: 0, year: "Por confirmar" }],
+      }),
+      isRefreshing: false,
+      isPlaceholderData: false,
+    });
+
+    expect(screen.getByText("Por confirmar")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: /Plataformas de/ })).not.toBeInTheDocument();
   });
 
   it("keeps several matching games as separate results", () => {
@@ -161,23 +194,6 @@ describe("catalogue search shell", () => {
       "elden ring",
     );
     expect(screen.getByRole("status")).toHaveTextContent("0 juegos del catálogo local");
-  });
-
-  it("marks a stale release context without hiding the result", () => {
-    renderShell({
-      status: "ready",
-      model: viewModel({
-        results: [
-          { ...requiem, hasStaleContext: true, releaseContext: [staleContext] },
-        ],
-      }),
-      isRefreshing: false,
-      isPlaceholderData: false,
-    });
-
-    expect(screen.getByText("Datos locales desactualizados")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Resident Evil Requiem" }))
-      .toBeInTheDocument();
   });
 
   it("distinguishes an invalid query from a technical failure", () => {
@@ -224,6 +240,7 @@ describe("catalogue search shell", () => {
     );
 
     const pagination = screen.getByRole("navigation", { name: "Paginación de resultados" });
+    expect(within(pagination).getByText("Página 2 de 4")).toBeInTheDocument();
     expect(within(pagination).getByRole("link", { name: "Página anterior" })).toHaveAttribute(
       "href",
       "/search?q=resident+evil",
@@ -256,15 +273,4 @@ describe("catalogue search shell", () => {
     );
   });
 
-  it("warns before submitting a query longer than the contract accepts", async () => {
-    const user = userEvent.setup();
-    renderShell({ status: "prompt" }, { params: { query: "", page: 1, pageSize: 6 } });
-
-    const field = screen.getByRole("searchbox", { name: "Buscar en el catálogo" });
-    await user.click(field);
-    await user.paste("a".repeat(101));
-
-    expect(field).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByText("Usa como máximo 100 caracteres.")).toBeInTheDocument();
-  });
 });

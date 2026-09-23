@@ -17,6 +17,8 @@ application_container=""
 inspection_container=""
 amd64_tag="videogame-platform:image-validation-${run_id}-amd64"
 arm64_tag="videogame-platform:image-validation-${run_id}-arm64"
+migration_secret_directory="$(mktemp -d)"
+migration_secret_file="$migration_secret_directory/application-migration-db-password"
 
 cleanup() {
   if [[ -n "$inspection_container" ]]; then
@@ -29,6 +31,7 @@ cleanup() {
   docker network rm "$network" >/dev/null 2>&1 || true
   docker volume rm "$trivy_cache" >/dev/null 2>&1 || true
   docker image rm "$amd64_tag" "$arm64_tag" >/dev/null 2>&1 || true
+  rm -rf -- "$migration_secret_directory"
   rm -f -- \
     "$evidence_directory/application-amd64.jar" \
     "$evidence_directory/application-arm64.jar"
@@ -145,7 +148,9 @@ assert(
   "SPA browser route did not return the entry point",
 );
 
-const releases = await request("/api/v1/releases?view=recent&page=1&pageSize=1");
+// The deterministic seed has an upcoming release in the supported four-week window;
+// use it to exercise the packaged API with data.
+const releases = await request("/api/v1/releases?view=upcoming&weeks=4&page=1&pageSize=1");
 assert(releases.response.ok, "release API failed");
 assert(releases.response.headers.get("content-type")?.includes("application/json"), "release API is not JSON");
 assert(JSON.parse(releases.body).items?.length === 1, "release API payload is invalid or empty");
@@ -188,6 +193,33 @@ seed_catalogue_for_runtime_evidence() {
   done < <(find "$repository_root/backend/src/main/resources/db/dev-seed" -name 'V*.sql' | sort)
 }
 
+run_packaged_migrations() {
+  local architecture="$1"
+  local tag="$2"
+  local migration_output
+  local migration_version
+
+  migration_output="$(docker run --rm \
+    --platform "linux/$architecture" \
+    --network "$network" \
+    --read-only \
+    --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+    --cap-drop ALL \
+    --security-opt no-new-privileges \
+    --entrypoint /opt/videogame-platform/bin/run-migrations \
+    --env APPLICATION_MIGRATION_DB_URL=jdbc:postgresql://postgres:5432/videogame_platform \
+    --env APPLICATION_MIGRATION_DB_USERNAME=videogame_app_migrator \
+    --env APPLICATION_MIGRATION_DB_PASSWORD_FILE=/run/secrets/application_migration_db_password \
+    --volume "$repository_root/deploy/private-dev/bin/run-migrations:/opt/videogame-platform/bin/run-migrations:ro" \
+    --volume "$migration_secret_file:/run/secrets/application_migration_db_password:ro" \
+    "$tag")"
+  printf '%s\n' "$migration_output" >&2
+  migration_version="$(sed -n 's/.*VGP_MIGRATION_VERSION=//p' <<<"$migration_output" | tail -n 1)"
+  [[ "$migration_version" =~ ^[0-9]+(\.[0-9]+)*$ ]] ||
+    fail "$tag migration actor did not report its current Flyway version."
+  printf '%s' "$migration_version"
+}
+
 verify_runtime_image() {
   local architecture="$1"
   local tag="$2"
@@ -198,6 +230,7 @@ verify_runtime_image() {
   local source_label
   local revision_label
   local version_label
+  local migration_version
   local application_jar="$evidence_directory/application-${architecture}.jar"
 
   inspected_architecture="$(docker image inspect --format '{{.Architecture}}' "$tag")"
@@ -249,6 +282,12 @@ PY
     fail "$tag contains source, credentials, dependency workspace, or test material."
   fi
 
+  migration_version="$(run_packaged_migrations "$architecture" "$tag")"
+
+  if [[ "$architecture" == "amd64" ]]; then
+    seed_catalogue_for_runtime_evidence
+  fi
+
   application_container="videogame-platform-image-application-${run_id}-${architecture}"
   docker run --detach \
     --name "$application_container" \
@@ -262,10 +301,7 @@ PY
     --env APPLICATION_DB_URL=jdbc:postgresql://postgres:5432/videogame_platform \
     --env APPLICATION_DB_USERNAME=videogame_app \
     --env APPLICATION_DB_PASSWORD="$application_password" \
-    --env APPLICATION_FLYWAY_ENABLED=true \
-    --env APPLICATION_MIGRATION_DB_URL=jdbc:postgresql://postgres:5432/videogame_platform \
-    --env APPLICATION_MIGRATION_DB_USERNAME=videogame_app_migrator \
-    --env APPLICATION_MIGRATION_DB_PASSWORD="$migration_password" \
+    --env APPLICATION_FLYWAY_ENABLED=false \
     --env MANAGEMENT_SERVER_ADDRESS=0.0.0.0 \
     "$tag" >/dev/null
 
@@ -282,10 +318,6 @@ PY
     sleep 1
   done
 
-  if [[ "$architecture" == "amd64" ]]; then
-    seed_catalogue_for_runtime_evidence
-  fi
-
   verify_http_boundary "$architecture"
 
   actual_uid="$(docker exec "$application_container" id -u)"
@@ -298,6 +330,7 @@ PY
     printf 'version=%s\n' "$version_label"
     printf 'revision=%s\n' "$revision_label"
     printf 'source=%s\n' "$source_label"
+    printf 'migration_version=%s\n' "$migration_version"
     printf 'liveness=UP\nreadiness=UP\nfrontend=served\napi=server-owned\nbff=server-owned\n'
     printf 'read_only_root=true\ncapabilities=dropped\nno_new_privileges=true\n'
   } >"$runtime_evidence"
@@ -433,6 +466,8 @@ application_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 migration_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 keycloak_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 postgres_admin_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+printf '%s\n' "$migration_password" >"$migration_secret_file"
+chmod 0644 "$migration_secret_file"
 
 docker network create --internal "$network" >/dev/null
 docker volume create "$trivy_cache" >/dev/null

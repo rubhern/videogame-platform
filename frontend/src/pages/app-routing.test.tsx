@@ -9,7 +9,7 @@ const releasesResponse = {
   view: "recent",
   evaluatedOn: "2026-08-13",
   window: { from: "2026-02-13", to: "2026-08-13" },
-  activeFilters: { platformId: null, regionId: null },
+  activeFilters: { platformIds: [], regionIds: [] },
   availableFilters: { platforms: [], regions: [] },
   items: [
     {
@@ -22,23 +22,25 @@ const releasesResponse = {
         alternativeText: "Portada no disponible de Pragmata",
         attribution: null,
       },
-      release: {
-        releaseId: "40000000-0000-4000-8000-000000000006",
-        gameId: "30000000-0000-4000-8000-000000000006",
-        platform: { platformId: "windows-pc", name: "Windows PC" },
-        region: { regionId: "worldwide", name: "Worldwide" },
-        releaseDate: { precision: "quarter", value: "2026-Q2" },
-        status: "released",
-        provenance: {
-          sourceKind: "product_curated",
-          sourceName: "VideoGame Platform clickable prototype",
-          sourceEntityType: "prototype_release",
+      releases: [
+        {
+          releaseId: "40000000-0000-4000-8000-000000000006",
+          gameId: "30000000-0000-4000-8000-000000000006",
+          platform: { platformId: "windows-pc", name: "Windows PC" },
+          region: { regionId: "worldwide", name: "Worldwide" },
+          releaseDate: { precision: "quarter", value: "2026-Q2" },
+          status: "released",
+          provenance: {
+            sourceKind: "product_curated",
+            sourceName: "VideoGame Platform clickable prototype",
+            sourceEntityType: "prototype_release",
+          },
+          lastSyncedAt: "2026-08-09T10:00:00Z",
+          verificationLevel: "provider_only",
+          reviewStatus: "not_required",
+          freshnessStatus: "stale",
         },
-        lastSyncedAt: "2026-08-09T10:00:00Z",
-        verificationLevel: "provider_only",
-        reviewStatus: "not_required",
-        freshnessStatus: "stale",
-      },
+      ],
     },
   ],
   page: { number: 1, size: 6, totalItems: 1, totalPages: 1 },
@@ -64,22 +66,24 @@ describe("application routing", () => {
     expect(
       await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
     ).toBeInTheDocument();
-    expect(await screen.findByRole("link", { name: "Ver Pragmata" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: "Pragmata" })).toBeInTheDocument();
   });
 
-  it("navigates between the release and search sections from the shell", async () => {
+  it("uses the integrated search instead of a duplicate navigation link", async () => {
     const user = userEvent.setup();
     renderApp();
 
     await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" });
     const sections = screen.getByRole("navigation", { name: "Secciones principales" });
-    await user.click(within(sections).getByRole("link", { name: "Buscar" }));
+    expect(within(sections).queryByRole("link", { name: "Buscar" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Catálogo de lanzamientos · MVP privado")).not.toBeInTheDocument();
+    expect(screen.queryByText("Datos locales · sin consultas al proveedor")).not.toBeInTheDocument();
+    await user.type(screen.getByRole("combobox", { name: "Buscar en el catálogo" }), "Pragmata{Enter}");
 
-    expect(await screen.findByRole("heading", { level: 1, name: "Buscar juegos" })).toBeInTheDocument();
-    expect(within(sections).getByRole("link", { name: "Buscar" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "Resultados para «Pragmata»" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("main")).toHaveFocus();
   });
 
   it("offers a keyboard-accessible return from an unknown route", async () => {
@@ -96,5 +100,18 @@ describe("application routing", () => {
 
     await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" });
     expect(screen.getByRole("main")).toHaveFocus();
+  });
+
+  it("focuses the integrated catalogue search with its keyboard shortcut", async () => {
+    const user = userEvent.setup();
+    renderApp();
+    const search = screen.getByRole("combobox", { name: "Buscar en el catálogo" });
+
+    await user.keyboard("/");
+
+    expect(search).toHaveFocus();
+    await user.paste("a".repeat(101));
+    expect(search).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("Usa como máximo 100 caracteres.");
   });
 });

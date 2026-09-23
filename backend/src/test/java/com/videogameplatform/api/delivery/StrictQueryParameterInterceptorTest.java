@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.videogameplatform.api.delivery.catalogue.release.ReleaseController;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ReleaseView;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -50,6 +51,39 @@ class StrictQueryParameterInterceptorTest {
                                         .isEqualTo(ProblemCode.REQUEST_PARAMETER_UNKNOWN));
     }
 
+    @Test
+    void allowsRepeatedValuesForMultiSelectArrayParameters() {
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("GET", "/routed-prefix/releases");
+        request.addParameter("view", "recent");
+        request.addParameter("platformIds", "platform-a", "platform-b");
+        request.addParameter("regionIds", "region-a", "region-b");
+
+        assertThatCode(
+                        () ->
+                                interceptor.preHandle(
+                                        request, new MockHttpServletResponse(), releaseHandler))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void stillRejectsRepeatedScalarParameters() {
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("GET", "/routed-prefix/releases");
+        request.addParameter("view", "recent", "upcoming");
+
+        assertThatThrownBy(
+                        () ->
+                                interceptor.preHandle(
+                                        request, new MockHttpServletResponse(), releaseHandler))
+                .isInstanceOf(ApiRequestException.class)
+                .satisfies(
+                        exception ->
+                                org.assertj.core.api.Assertions.assertThat(
+                                                ((ApiRequestException) exception).code())
+                                        .isEqualTo(ProblemCode.FILTER_INVALID));
+    }
+
     private static HandlerMethod releaseHandler() {
         try {
             ReleaseController controller = new ReleaseController(null, null, null, null, null);
@@ -58,8 +92,9 @@ class StrictQueryParameterInterceptorTest {
                     ReleaseController.class.getMethod(
                             "listReleases",
                             ReleaseView.class,
-                            String.class,
-                            String.class,
+                            Integer.class,
+                            Set.class,
+                            Set.class,
                             Integer.class,
                             Integer.class,
                             String.class));

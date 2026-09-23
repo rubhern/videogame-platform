@@ -15,7 +15,6 @@ historical decision.
 - [ADR-0002: Use a modular monolith and relational data boundary](0002-use-a-modular-monolith-and-relational-data-boundary.md)
 - [ADR-0003: Use a same-origin BFF and HTTP/JSON API](0003-use-a-same-origin-bff-and-http-json-api.md)
 - [ADR-0004: Synchronize and serve local catalogue data](0004-synchronize-and-serve-local-catalogue-data.md)
-- [ADR-0005: Host private dev on OCI Always Free](0005-host-private-dev-on-oci-always-free.md)
 - [ADR-0006: Use PostgreSQL and versioned forward migrations](0006-use-postgresql-and-versioned-forward-migrations.md)
 - [ADR-0007: Use Keycloak as the initial identity provider](0007-use-keycloak-as-the-initial-identity-provider.md)
 - [ADR-0008: Use GitHub Actions and GHCR for initial delivery](0008-use-github-actions-and-ghcr-for-initial-delivery.md)
@@ -27,3 +26,11 @@ historical decision.
 - [ADR-0014: Generate backend HTTP contracts from OpenAPI](0014-generate-backend-http-contracts-from-openapi.md)
 - [ADR-0015: Query published release pages with a bounded PostgreSQL read model](0015-query-published-release-pages-with-postgresql.md)
 - [ADR-0016: Search the bounded catalogue with PostgreSQL text search](0016-search-the-bounded-catalogue-with-postgresql-text-search.md)
+- [ADR-0017: Synchronize relevant catalogue Games and Releases automatically](0017-discover-catalogue-members-automatically-from-igdb.md)
+- [ADR-0018: Maintain a Ratings-owned rebuildable game-listing projection](0018-project-personal-ratings-listing-in-ratings.md)
+- [ADR-0019: Host private dev on an owner-managed Linux host](0019-host-private-dev-on-an-owner-managed-linux-host.md)
+- [ADR-0020: Acquire platform and region taxonomy from accepted releases](0020-acquire-platform-and-region-taxonomy-from-releases.md)
+
+## Superseded
+
+- [ADR-0005: Host private dev on OCI Always Free](0005-host-private-dev-on-oci-always-free.md) — OCI Always Free A1 abandoned and torn down; superseded by ADR-0019.

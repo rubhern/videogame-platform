@@ -10,10 +10,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.videogameplatform.identity.adapter.session.RatingReturnContextStore;
+import com.videogameplatform.identity.configuration.AuthenticationProblemEntryPoint;
 import com.videogameplatform.identity.configuration.CsrfProblemAccessDeniedHandler;
 import com.videogameplatform.identity.configuration.IdentitySecurityConfiguration;
+import com.videogameplatform.identity.configuration.RatingIntentAuthenticationFailureHandler;
+import com.videogameplatform.identity.configuration.RatingResumeAuthenticationSuccessHandler;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +37,7 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.test.json.JsonCompareMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
@@ -39,7 +46,10 @@ import tools.jackson.databind.ObjectMapper;
 @WebMvcTest(SessionController.class)
 @Import({
     IdentitySecurityConfiguration.class,
+    AuthenticationProblemEntryPoint.class,
     CsrfProblemAccessDeniedHandler.class,
+    RatingResumeAuthenticationSuccessHandler.class,
+    RatingIntentAuthenticationFailureHandler.class,
     SessionSecurityIntegrationTest.ClientRegistrationConfiguration.class
 })
 class SessionSecurityIntegrationTest {
@@ -59,9 +69,25 @@ class SessionSecurityIntegrationTest {
     @Test
     void returnsOnlyTheAnonymousSessionRepresentationWithoutCreatingCsrfMaterial()
             throws Exception {
-        mockMvc.perform(get("/api/v1/session").accept(MediaType.APPLICATION_JSON))
+        mockMvc.perform(
+                        get("/api/v1/session")
+                                .accept(MediaType.APPLICATION_JSON)
+                                .header("Origin", "https://attacker.example"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(
+                        header().string(
+                                        "Content-Security-Policy",
+                                        "default-src 'self'; base-uri 'self'; object-src 'none'; "
+                                                + "frame-ancestors 'none'; form-action 'self'; "
+                                                + "script-src 'self'; style-src 'self'; "
+                                                + "img-src 'self' data: https://images.igdb.com; "
+                                                + "connect-src 'self'"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+                .andExpect(header().string("X-Frame-Options", "DENY"))
+                .andExpect(header().string("Referrer-Policy", "strict-origin-when-cross-origin"))
+                .andExpect(header().doesNotExist("Strict-Transport-Security"))
+                .andExpect(header().doesNotExist("Access-Control-Allow-Origin"))
                 .andExpect(header().doesNotExist("Set-Cookie"))
                 .andExpect(content().json("{\"authenticated\":false}", JsonCompareMode.STRICT));
     }
@@ -182,11 +208,97 @@ class SessionSecurityIntegrationTest {
     }
 
     @Test
+    void logoutOverTheTrustedHttpsProxyOriginInvalidatesTheSession() throws Exception {
+        // Reproduces the vgpdev topology: Tailscale Serve terminates HTTPS and its
+        // RemoteIpValve-honoured X-Forwarded-Proto has already resolved the effective request to
+        // the external HTTPS origin before SameOriginStateChangeFilter runs.
+        MvcResult sessionResult = authenticatedSession();
+        MockHttpSession session = (MockHttpSession) sessionResult.getRequest().getSession(false);
+        String csrfToken =
+                objectMapper
+                        .readTree(sessionResult.getResponse().getContentAsString())
+                        .path("csrfToken")
+                        .stringValue();
+
+        mockMvc.perform(
+                        post("/api/v1/session")
+                                .session(session)
+                                .header("X-CSRF-Token", csrfToken)
+                                .header("Origin", "https://vgpdev.tailnet.ts.net")
+                                .with(effectiveOrigin("https", "vgpdev.tailnet.ts.net", 443)))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(
+                        header().string(
+                                        "Set-Cookie",
+                                        org.hamcrest.Matchers.containsString("vgp_session=;")));
+
+        assertThat(session.isInvalid()).isTrue();
+    }
+
+    @Test
+    void logoutFromLocalLoopbackHttpKeepsTheExistingSameOriginContract() throws Exception {
+        // Local development terminates no TLS: the effective request stays plaintext loopback and
+        // a matching http Origin must still be accepted with no forwarded-header processing.
+        MvcResult sessionResult = authenticatedSession();
+        MockHttpSession session = (MockHttpSession) sessionResult.getRequest().getSession(false);
+        String csrfToken =
+                objectMapper
+                        .readTree(sessionResult.getResponse().getContentAsString())
+                        .path("csrfToken")
+                        .stringValue();
+
+        mockMvc.perform(
+                        post("/api/v1/session")
+                                .session(session)
+                                .header("X-CSRF-Token", csrfToken)
+                                .header("Origin", "http://localhost:8080")
+                                .with(effectiveOrigin("http", "localhost", 8080)))
+                .andExpect(status().isNoContent());
+
+        assertThat(session.isInvalid()).isTrue();
+    }
+
+    @Test
+    void logoutIgnoresForwardedHeadersThatWereNotResolvedByTheTrustedProxy() throws Exception {
+        // An untrusted caller sends forwarded headers directly. Because the filter never reads
+        // them (only the peer-restricted RemoteIpValve may), the effective request stays plaintext
+        // loopback and the https Origin is treated as cross-origin.
+        MvcResult sessionResult = authenticatedSession();
+        MockHttpSession session = (MockHttpSession) sessionResult.getRequest().getSession(false);
+        String csrfToken =
+                objectMapper
+                        .readTree(sessionResult.getResponse().getContentAsString())
+                        .path("csrfToken")
+                        .stringValue();
+
+        mockMvc.perform(
+                        post("/api/v1/session")
+                                .session(session)
+                                .header("X-CSRF-Token", csrfToken)
+                                .header("Origin", "https://vgpdev.tailnet.ts.net")
+                                .header("X-Forwarded-Proto", "https")
+                                .header("X-Forwarded-Host", "vgpdev.tailnet.ts.net")
+                                .header("X-Forwarded-Port", "443")
+                                .header("Forwarded", "proto=https;host=vgpdev.tailnet.ts.net")
+                                .with(effectiveOrigin("http", "localhost", 8080)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("CSRF_VALIDATION_FAILED"));
+
+        mockMvc.perform(get("/api/v1/session").session(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(true));
+    }
+
+    @Test
     void authorizationRequestUsesStateNoncePkceAndOnlyTheAllowlistedCallback() throws Exception {
         MvcResult result =
                 mockMvc.perform(
                                 get("/auth/login/keycloak")
-                                        .queryParam("returnUrl", "https://attacker.example/steal"))
+                                        .queryParam("returnUrl", "https://attacker.example/steal")
+                                        .header("Forwarded", "proto=https;host=attacker.example")
+                                        .header("X-Forwarded-Host", "attacker.example")
+                                        .header("X-Forwarded-Proto", "https"))
                         .andExpect(status().is3xxRedirection())
                         .andReturn();
 
@@ -226,6 +338,17 @@ class SessionSecurityIntegrationTest {
                 .andExpect(jsonPath("$.authenticated").value(false));
     }
 
+    private static RequestPostProcessor effectiveOrigin(
+            String scheme, String serverName, int serverPort) {
+        return request -> {
+            request.setScheme(scheme);
+            request.setSecure("https".equalsIgnoreCase(scheme));
+            request.setServerName(serverName);
+            request.setServerPort(serverPort);
+            return request;
+        };
+    }
+
     private MvcResult authenticatedSession() throws Exception {
         return mockMvc.perform(
                         get("/api/v1/session")
@@ -259,6 +382,17 @@ class SessionSecurityIntegrationTest {
         @Bean
         ClientRegistrationRepository clientRegistrationRepository() {
             return new InMemoryClientRegistrationRepository(clientRegistration());
+        }
+
+        @Bean
+        RatingReturnContextStore ratingReturnContextStore(
+                jakarta.servlet.http.HttpServletRequest request, Clock clock) {
+            return new RatingReturnContextStore(request, clock, Duration.ofMinutes(10));
+        }
+
+        @Bean
+        Clock clock() {
+            return Clock.systemUTC();
         }
 
         @Bean

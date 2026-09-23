@@ -12,7 +12,7 @@ type GameSummary = GameSearchPage["items"][number];
 
 const providerCover = {
   kind: "provider",
-  url: "https://images.igdb.com/igdb/image/upload/t_cover_big/co1.webp",
+  url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1.webp",
   alternativeText: "Carátula de Resident Evil Requiem",
   attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/resident-evil-requiem" },
 } as const;
@@ -35,6 +35,12 @@ function summary(overrides: Partial<GameSummary> = {}): GameSummary {
     matchedAlias: "Biohazard Requiem",
     primaryCover: providerCover,
     releaseContext: [...releaseContext],
+    releaseSummary: {
+      platforms: [{ platformId: "platform-ps5", name: "PlayStation 5" }],
+      totalPlatforms: 1,
+      earliestKnownYear: 2026,
+      latestKnownYear: 2026,
+    },
     ...overrides,
   };
 }
@@ -54,8 +60,12 @@ function onlyResult(model: GameSearchViewModel): GameSearchResult {
   return result;
 }
 
+const ps5 = { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" };
+const pc = { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" };
+const xbox = { platformId: "10000000-0000-4000-8000-000000000004", name: "Xbox Series X|S" };
+
 describe("catalogue search view model", () => {
-  it("presents the match context, cover and bounded release context", () => {
+  it("presents the match context, cover and compact release summary", () => {
     const result = onlyResult(toGameSearchViewModel(page([summary()])));
 
     expect(result.title).toEqual("Resident Evil Requiem");
@@ -66,17 +76,11 @@ describe("catalogue search view model", () => {
       alternativeText: providerCover.alternativeText,
       attribution: { label: "IGDB", sourceUrl: providerCover.attribution.sourceUrl },
     });
-    expect(result.releaseContext).toEqual([
-      {
-        key: "platform-ps5-region-europe-0",
-        platform: "PlayStation 5",
-        region: "Europe",
-        date: "27 de febrero de 2026",
-        status: "Publicado",
-        isStale: true,
-      },
+    expect(result.platforms).toEqual([
+      { id: "platform-ps5", name: "PlayStation 5", icon: "playstation-5" },
     ]);
-    expect(result.hasStaleContext).toBe(true);
+    expect(result.hiddenPlatformCount).toBe(0);
+    expect(result.year).toBe("2026");
   });
 
   it("reports no match context when only the canonical title matched", () => {
@@ -86,9 +90,18 @@ describe("catalogue search view model", () => {
       canonicalTitle: "Pragmata",
       primaryCover: providerCover,
       releaseContext: [],
+      releaseSummary: { platforms: [], totalPlatforms: 0 },
     };
 
     expect(onlyResult(toGameSearchViewModel(page([withoutAlias]))).matchedAlias).toBeNull();
+  });
+
+  it("hides an alias that only repeats the canonical title", () => {
+    const result = onlyResult(
+      toGameSearchViewModel(page([summary({ matchedAlias: "resident evil requiem" })])),
+    );
+
+    expect(result.matchedAlias).toBeNull();
   });
 
   it("treats the product-owned cover as the fallback variant", () => {
@@ -114,24 +127,41 @@ describe("catalogue search view model", () => {
     });
   });
 
-  it("keeps a game without release context usable instead of inventing one", () => {
-    const result = onlyResult(toGameSearchViewModel(page([summary({ releaseContext: [] })])));
-
-    expect(result.releaseContext).toEqual([]);
-    expect(result.hasStaleContext).toBe(false);
-  });
-
-  it("gives every bounded release-context row a stable identity", () => {
+  it("folds every further distinct platform into an exact overflow count", () => {
     const result = onlyResult(
       toGameSearchViewModel(
-        page([summary({ releaseContext: [...releaseContext, ...releaseContext] })]),
+        page([
+          summary({
+            releaseSummary: {
+              platforms: [ps5, pc, xbox],
+              totalPlatforms: 5,
+              earliestKnownYear: 2024,
+              latestKnownYear: 2026,
+            },
+          }),
+        ]),
       ),
     );
 
-    expect(result.releaseContext.map((context) => context.key)).toEqual([
-      "platform-ps5-region-europe-0",
-      "platform-ps5-region-europe-1",
+    expect(result.platforms.map(({ name }) => name)).toEqual([
+      "PlayStation 5",
+      "Windows PC",
+      "Xbox Series X|S",
     ]);
+    expect(result.hiddenPlatformCount).toBe(2);
+    expect(result.year).toBe("2024–2026");
+  });
+
+  it("never derives platforms or years from the bounded release sample", () => {
+    const result = onlyResult(
+      toGameSearchViewModel(
+        page([summary({ releaseSummary: { platforms: [], totalPlatforms: 0 } })]),
+      ),
+    );
+
+    expect(result.platforms).toEqual([]);
+    expect(result.hiddenPlatformCount).toBe(0);
+    expect(result.year).toBe("Por confirmar");
   });
 
   it("carries an empty result page through unchanged", () => {

@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
+import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
+import com.videogameplatform.catalogue.application.details.port.GameListingReadPort;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
@@ -32,8 +34,7 @@ class CatalogueModuleConfigurationTest {
                     .withUserConfiguration(
                             CatalogueModuleConfiguration.class, TestDependencies.class)
                     .withPropertyValues(
-                            "catalogue.releases.recent-window-months=4",
-                            "catalogue.releases.upcoming-window-months=8",
+                            "catalogue.releases.release-group-limit=12",
                             "catalogue.releases.freshness-threshold=P14D",
                             "catalogue.search.release-context-limit=2");
 
@@ -47,8 +48,7 @@ class CatalogueModuleConfigurationTest {
                     assertThat(context.getBean(ReleaseBrowsePolicy.class))
                             .isEqualTo(
                                     new ReleaseBrowsePolicy(
-                                            4,
-                                            8,
+                                            12,
                                             ReleaseBrowsePolicy.UnknownUpcomingDatePolicy
                                                     .INCLUDE_AS_TBA));
                     assertThat(context.getBean(CatalogueFreshnessPolicy.class))
@@ -74,16 +74,16 @@ class CatalogueModuleConfigurationTest {
 
     @Test
     void rejectsUnsafeFreshnessBoundsBeforeStartupCompletes() {
-        assertThatThrownBy(() -> new CatalogueReleaseProperties(6, 6, Duration.ZERO))
+        assertThatThrownBy(() -> new CatalogueReleaseProperties(25, Duration.ZERO))
                 .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new CatalogueReleaseProperties(6, 6, Duration.ofDays(366)))
+        assertThatThrownBy(() -> new CatalogueReleaseProperties(25, Duration.ofDays(366)))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void rejectsInvalidBoundConfigurationBeforeStartupCompletes() {
         contextRunner
-                .withPropertyValues("catalogue.releases.recent-window-months=0")
+                .withPropertyValues("catalogue.releases.release-group-limit=0")
                 .run(context -> assertThat(context).hasFailed());
     }
 
@@ -98,6 +98,16 @@ class CatalogueModuleConfigurationTest {
         @Bean
         GameSearchReadPort gameSearchReadPort() {
             return criteria -> Optional.empty();
+        }
+
+        @Bean
+        GameDetailsReadPort gameDetailsReadPort() {
+            return id -> Optional.empty();
+        }
+
+        @Bean
+        GameListingReadPort gameListingReadPort() {
+            return id -> Optional.empty();
         }
 
         @Bean

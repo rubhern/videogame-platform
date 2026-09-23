@@ -30,8 +30,9 @@ usefully expressed once in the contract.
   identifier (`releaseId` for release rows; `gameId` for one-row-per-game results).
 - Page/offset remains approved until measured deep-offset/count cost justifies a
   compatibility decision for keyset/cursor semantics.
-- Release windows/evaluation date use application time in `Europe/Madrid`; clients do
-  not supply them. Day/month/quarter/year/unknown remain a closed representation.
+- Release windows/evaluation date use application time in `Europe/Madrid`; clients
+  select only the bounded week horizon, never the evaluation date or raw dates.
+  Day/month/quarter/year/unknown remain a closed representation.
 - Catalogue search is trimmed, non-blank, bounded to 100 Unicode code points,
   case/diacritic-insensitive, all-token, non-fuzzy, and searches only canonical title
   plus approved aliases. A token matches a word prefix, never an infix. A query whose
@@ -40,7 +41,10 @@ usefully expressed once in the contract.
   before prefix before plain all-token, then order by normalized canonical title and
   finally by the unique `gameId`. `matchedAlias` appears only when an approved alias
   justified the match. Release context in a search result is explicitly bounded per
-  game and is never the game's complete release set.
+  game and is never the game's complete release set. The separate `releaseSummary`
+  aggregates every stored release of the game: at most three distinct platforms, the
+  exact distinct-platform count, and the earliest and latest known years, never invented
+  from an unknown date.
 
 Personal rating `PUT` uses `If-None-Match: *` to create and strong `If-Match` to
 update. `DELETE` requires strong `If-Match`. Missing/contradictory preconditions
@@ -62,10 +66,11 @@ conflict/precondition `409/412/428`; semantic validation/business rejection `422
 unexpected internal failure `500`; unavailable/not-ready local catalogue `503`.
 OpenAPI owns the exact code-to-status mapping.
 
-`GET /releases` does not declare `429`: the private MVP currently has no application
-or edge rate limiter responsible for that response. Adding an abuse limit later must
-identify its owner and update the operation contract and executable HTTP evidence
-together.
+No browser-facing operation declares `429`: the private MVP currently has no
+application or edge rate limiter responsible for that response. The bounded,
+process-local IGDB synchronization limiter is provider-facing and never becomes a
+browser response. Adding an abuse limit later must identify its owner and update the
+operation contract and executable HTTP evidence together.
 
 ## Session, CSRF, and privacy
 

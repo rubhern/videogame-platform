@@ -26,4 +26,11 @@ class FrontendRouteController {
         Objects.requireNonNull(slug, "slug");
         return frontendEntryPoint();
     }
+
+    @GetMapping("/games/{gameId:[a-z0-9-]+}/{slug:[a-z0-9]+(?:-[a-z0-9]+)*}")
+    String gameDetailsFrontendEntryPoint(@PathVariable String gameId, @PathVariable String slug) {
+        Objects.requireNonNull(gameId, "gameId");
+        Objects.requireNonNull(slug, "slug");
+        return frontendEntryPoint();
+    }
 }

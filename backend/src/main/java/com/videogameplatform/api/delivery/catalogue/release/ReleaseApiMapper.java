@@ -31,7 +31,7 @@ import org.springframework.stereotype.Component;
 
 /** Maps provider-independent UC-001 results to the generated HTTP contract. */
 @Component
-final class ReleaseApiMapper {
+public final class ReleaseApiMapper {
 
     private final CatalogueCoverMapper coverMapper;
 
@@ -54,7 +54,8 @@ final class ReleaseApiMapper {
                 result.evaluatedOn(),
                 new ReleaseWindow(result.window().from(), result.window().to()),
                 new ActiveFilters(
-                        result.activeFilters().platformId(), result.activeFilters().regionId()),
+                        new java.util.LinkedHashSet<>(result.activeFilters().platformIds()),
+                        new java.util.LinkedHashSet<>(result.activeFilters().regionIds())),
                 new AvailableFilters(platforms, regions),
                 items,
                 new PageMetadata(
@@ -65,7 +66,16 @@ final class ReleaseApiMapper {
     }
 
     private ReleaseItem toItem(BrowseReleasesResult.Item item) {
-        BrowseReleasesResult.Release source = item.release();
+        List<Release> releases = item.releases().stream().map(this::toRelease).toList();
+        return new ReleaseItem(
+                item.gameId(),
+                item.slug(),
+                item.canonicalTitle(),
+                coverMapper.toResponse(item.primaryCover()),
+                releases);
+    }
+
+    public Release toRelease(BrowseReleasesResult.Release source) {
         Release release =
                 new Release(
                         source.releaseId(),
@@ -84,12 +94,7 @@ final class ReleaseApiMapper {
                         toFreshnessStatus(source.freshnessStatus()));
         release.setProviderUpdatedAt(toOffsetDateTime(source.providerUpdatedAt()));
         release.setLastVerifiedAt(toOffsetDateTime(source.lastVerifiedAt()));
-        return new ReleaseItem(
-                item.gameId(),
-                item.slug(),
-                item.canonicalTitle(),
-                coverMapper.toResponse(item.primaryCover()),
-                release);
+        return release;
     }
 
     private static com.videogameplatform.api.generated.model.ReleaseDate toReleaseDate(

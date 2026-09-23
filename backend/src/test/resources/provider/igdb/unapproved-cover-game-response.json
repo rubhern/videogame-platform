@@ -1,0 +1,18 @@
+[
+  {
+    "id": 116530,
+    "name": "Fixture game with an unusable cover",
+    "url": "https://example.invalid/games/fixture",
+    "updated_at": 1751000000,
+    "cover": {
+      "image_id": "co with spaces"
+    },
+    "game_status": {
+      "status": "Released"
+    },
+    "created_at": 1600000100,
+    "game_type": {
+      "type": "main_game"
+    }
+  }
+]

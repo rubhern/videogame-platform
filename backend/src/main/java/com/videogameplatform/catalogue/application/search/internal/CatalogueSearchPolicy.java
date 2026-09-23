@@ -6,6 +6,12 @@ public record CatalogueSearchPolicy(int releaseContextLimit) {
     /** Fixed product bound matching OpenAPI CatalogueQuery; never runtime-tunable. */
     public static final int MAXIMUM_QUERY_CODE_POINTS = 100;
 
+    /**
+     * Fixed product bound matching OpenAPI CompactReleaseSummary.platforms; never
+     * runtime-tunable, and independent of the release-context limit.
+     */
+    public static final int SUMMARY_PLATFORM_LIMIT = 3;
+
     public CatalogueSearchPolicy {
         if (releaseContextLimit < 1 || releaseContextLimit > 10) {
             throw new IllegalArgumentException(

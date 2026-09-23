@@ -84,9 +84,10 @@ row, so the publication costs more storage and slightly more write work during
 synchronization. Curation gains a real obligation: an alias is only searchable once
 approved.
 
-Because the alias table is publication-scoped, aliases are republished with their
-publication exactly like game snapshots, and retained publications accumulate
-searchable rows.
+Historical storage assumption: aliases were republished with whole-catalogue
+snapshots. [ADR-0017](0017-discover-catalogue-members-automatically-from-igdb.md)
+replaces that mechanism with current state and singleton revision metadata; aliases
+remain attached to the same Game state without copying on synchronization.
 
 ## Evidence and reconsideration triggers
 
@@ -111,8 +112,8 @@ vector-only index cost about 35 and read 4, because the publication is not selec
 The publication is therefore filtered after the index scan, and PostgreSQL is free to
 ignore an index that would not help.
 
-Revisit publication retention when the accumulated searchable rows make the
-post-index publication recheck material; ranking weights or `ts_rank` when result
+Revisit current-state indexing when measured catalogue growth makes the
+post-index recheck material; ranking weights or `ts_rank` when result
 ordering is measured to be unhelpful rather than merely simple; a trigram or fuzzy
 index only if the product approves fuzzy matching; and a separate search store only
 for a measured PostgreSQL limitation.

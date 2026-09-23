@@ -74,7 +74,7 @@ and content tracking for these skills.
 
 | Name | Purpose | Use when |
 |---|---|---|
-| `terraform-style-guide` | HashiCorp Terraform organization, naming, formatting, security, and review guidance. | Writing or reviewing Terraform while preserving the approved OCI, zero-cost, state, secret, and provisioning gates. |
+| `terraform-style-guide` | HashiCorp Terraform organization, naming, formatting, security, and review guidance. | Writing or reviewing Terraform if infrastructure-as-code is reintroduced; the repository defines no Terraform after the OCI path was retired (#124). |
 | `terraform-test` | Terraform test files, plan/apply modes, assertions, mocks, and CI test patterns. | Adding or troubleshooting `.tftest.hcl`; prefer plan or mock evidence unless an approved test explicitly requires resources. |
 | `dockerfile-optimise` | Docker build caching, multi-stage images, minimal runtimes, and container hardening guidance. | Changing or reviewing a Dockerfile or image build; this skill is experimental upstream, and the repository's multi-architecture, non-root, immutable-image contract remains authoritative. |
 | `github-actions-templates` | Generic GitHub Actions test, build, security, matrix, and deployment patterns. | Changing workflows after applying the repository's selective pull-request gates, complete trusted-`main` integration, least privilege, GHCR, and protected deployment rules. |

@@ -1,57 +1,89 @@
 import { useEffect, useRef } from "react";
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
-const sections = [
-  { to: "/", label: "Lanzamientos" },
-  { to: "/search", label: "Buscar" },
-] as const;
-
-const sectionLinkClass =
-  "inline-flex min-h-11 items-center text-sm font-semibold text-slate-200 hover:text-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200 aria-[current=page]:text-cyan-200";
+import { readReleasesSearch, releasesSearchPath } from "../features/releases/releases-search";
+import { AccountControl } from "./account-control";
+import { CatalogueSearch } from "./catalogue-search";
 
 export function AppShell() {
   const mainContentRef = useRef<HTMLElement>(null);
-  const { pathname } = useLocation();
-  const previousPathname = useRef(pathname);
+  const location = useLocation();
+  const previousPathname = useRef(location.pathname);
+  const releaseSearch = readReleasesSearch(new URLSearchParams(location.search));
 
   useEffect(() => {
-    if (previousPathname.current === pathname) {
+    if (previousPathname.current === location.pathname) {
       return;
     }
 
-    previousPathname.current = pathname;
+    previousPathname.current = location.pathname;
     mainContentRef.current?.focus();
-  }, [pathname]);
+  }, [location.pathname]);
+
+  const onReleases = location.pathname === "/";
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="border-b border-slate-800 bg-slate-950/95">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-3 px-5 py-4 sm:px-8">
-          <span className="text-sm font-semibold tracking-wide text-cyan-300">
-            VideoGame Platform
-          </span>
-          <nav aria-label="Secciones principales">
-            <ul className="flex flex-wrap gap-x-5 gap-y-2">
-              {sections.map(({ to, label }) => (
-                <li key={to}>
-                  <NavLink
-                    className={({ isActive }) =>
-                      isActive ? `${sectionLinkClass} text-cyan-200` : sectionLinkClass
-                    }
-                    end
-                    to={to}
-                  >
-                    {label}
-                  </NavLink>
-                </li>
-              ))}
-            </ul>
+    <div className="app-frame">
+      {/* Light unsharp mask, applied only to the large game-detail cover. The provider CDN
+          has no cover size big enough for that frame, so the artwork is always upscaled
+          there; this restores edge definition without touching the source. The kernel sums
+          to 1, so brightness is preserved. */}
+      <svg aria-hidden="true" className="filter-defs" focusable="false">
+        <filter id="cover-unsharp" x="0" y="0" width="100%" height="100%">
+          <feConvolveMatrix
+            order="3"
+            preserveAlpha="true"
+            kernelMatrix="0 -0.22 0 -0.22 1.88 -0.22 0 -0.22 0"
+          />
+        </filter>
+      </svg>
+      <a className="skip-link button button-primary" href="#main-content">
+        Saltar al contenido
+      </a>
+      <header className="site-header">
+        <div className="header-layout page-container">
+          <Link className="brand" to="/" aria-label="VideoGame Platform · Inicio">
+            <span className="brand-mark" aria-hidden="true">
+              <span />
+            </span>
+            <span className="brand-name">
+              <span>VideoGame</span>
+              <span>Platform</span>
+            </span>
+          </Link>
+
+          <nav aria-label="Secciones principales" className="primary-nav">
+            <Link
+              aria-current={onReleases && releaseSearch.view === "recent" ? "page" : undefined}
+              className="nav-link"
+              to={releasesSearchPath(releaseSearch, { view: "recent", page: 1 })}
+            >
+              Recientes
+            </Link>
+            <Link
+              aria-current={onReleases && releaseSearch.view === "upcoming" ? "page" : undefined}
+              className="nav-link"
+              to={releasesSearchPath(releaseSearch, { view: "upcoming", page: 1 })}
+            >
+              Próximos
+            </Link>
           </nav>
+
+          <CatalogueSearch key={`${location.pathname}?${location.search}`} />
+
+          <AccountControl />
         </div>
       </header>
-      <main ref={mainContentRef} tabIndex={-1}>
+
+      <main id="main-content" ref={mainContentRef} tabIndex={-1}>
         <Outlet />
       </main>
+
+      <footer className="site-footer">
+        <div className="page-container">
+          <span>VideoGame Platform</span>
+        </div>
+      </footer>
     </div>
   );
 }
