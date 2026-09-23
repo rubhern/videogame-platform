@@ -41,12 +41,14 @@ class JdbcGameSearchReadAdapterIntegrationTest {
                 .locations("classpath:db/migration", "classpath:db/dev-seed")
                 .load()
                 .migrate();
-        seedRankingCases(
+        JdbcTemplate admin =
                 new JdbcTemplate(
                         new DriverManagerDataSource(
                                 PostgreSqlTestDatabase.adminUrl(DATABASE_NAME),
                                 PostgreSqlTestDatabase.adminUsername(),
-                                PostgreSqlTestDatabase.adminPassword())));
+                                PostgreSqlTestDatabase.adminPassword()));
+        seedRankingCases(admin);
+        seedReleaseSummaryCases(admin);
         DataSource runtimeDataSource =
                 new DriverManagerDataSource(
                         PostgreSqlTestDatabase.runtimeUrl(DATABASE_NAME),
@@ -282,6 +284,204 @@ class JdbcGameSearchReadAdapterIntegrationTest {
                                 .CatalogueCoverReference.Unavailable.class);
     }
 
+    @Test
+    void summarizesEveryDistinctPlatformEvenWhenDuplicateEarlyReleasesFillTheContext() {
+        var spread = searchOne("quokka spread", 3);
+
+        assertThat(spread.releaseContext())
+                .hasSize(3)
+                .extracting(context -> context.platform().name())
+                .containsOnly("PlayStation 5");
+        assertThat(spread.releaseSummary().totalPlatforms()).isEqualTo(5);
+        assertThat(spread.releaseSummary().platforms())
+                .extracting(GameSearchReadPort.Taxonomy::name)
+                .containsExactly("Nintendo Switch 2", "PlayStation 5", "Sega Saturn");
+    }
+
+    @Test
+    void computesTheSummaryIndependentlyOfTheReleaseContextLimit() {
+        assertThat(searchOne("quokka spread", 1).releaseSummary())
+                .isEqualTo(searchOne("quokka spread", 10).releaseSummary());
+    }
+
+    @Test
+    void spansTheKnownYearsOfEveryPrecisionAndStatusWithoutUnknownDates() {
+        var summary = searchOne("quokka spread", 3).releaseSummary();
+
+        assertThat(summary.earliestKnownYear()).isEqualTo(2019);
+        assertThat(summary.latestKnownYear()).isEqualTo(2024);
+    }
+
+    @Test
+    void reportsOneKnownYearAsBothEarliestAndLatest() {
+        var summary = searchOne("quokka single", 3).releaseSummary();
+
+        assertThat(summary.platforms())
+                .extracting(GameSearchReadPort.Taxonomy::name)
+                .containsExactly("PlayStation 5", "Windows PC");
+        assertThat(summary.totalPlatforms()).isEqualTo(2);
+        assertThat(summary.earliestKnownYear()).isEqualTo(2026);
+        assertThat(summary.latestKnownYear()).isEqualTo(2026);
+    }
+
+    @Test
+    void neverInventsAYearWhenEveryReleaseDateIsUnknown() {
+        var summary = searchOne("quokka unknown", 3).releaseSummary();
+
+        assertThat(summary.platforms())
+                .extracting(GameSearchReadPort.Taxonomy::name)
+                .containsExactly("Xbox Series X|S");
+        assertThat(summary.totalPlatforms()).isEqualTo(1);
+        assertThat(summary.earliestKnownYear()).isNull();
+        assertThat(summary.latestKnownYear()).isNull();
+    }
+
+    @Test
+    void summarizesAGameWithoutStoredReleasesAsEmpty() {
+        var summary = searchOne("quokka empty", 3).releaseSummary();
+
+        assertThat(summary.platforms()).isEmpty();
+        assertThat(summary.totalPlatforms()).isZero();
+        assertThat(summary.earliestKnownYear()).isNull();
+    }
+
+    @Test
+    void leavesRankingCountAndPaginationUnchangedByTheSummary() {
+        var everything = search("quokka", 1, 20);
+
+        assertThat(everything.totalItems()).isEqualTo(4);
+        assertThat(everything.items())
+                .extracting(GameSearchReadPort.Item::canonicalTitle)
+                .containsExactly(
+                        "Quokka Empty", "Quokka Single", "Quokka Spread", "Quokka Unknown");
+        for (int page = 1; page <= 4; page++) {
+            var single = search("quokka", page, 1);
+            assertThat(single.totalItems()).isEqualTo(4);
+            assertThat(single.items()).singleElement().isEqualTo(everything.items().get(page - 1));
+        }
+    }
+
+    private static GameSearchReadPort.Item searchOne(String text, int releaseContextLimit) {
+        var result = search(text, 1, 20, releaseContextLimit);
+        assertThat(result.totalItems()).isEqualTo(1);
+        return result.items().getFirst();
+    }
+
+    private static String summaryGameId(int number) {
+        return "95000000-0000-4000-8000-%012d".formatted(number);
+    }
+
+    private static final String PS5 = "10000000-0000-4000-8000-000000000001";
+    private static final String SWITCH_2 = "10000000-0000-4000-8000-000000000002";
+    private static final String WINDOWS = "10000000-0000-4000-8000-000000000003";
+    private static final String XBOX = "10000000-0000-4000-8000-000000000004";
+    private static final String SATURN = "97000000-0000-4000-8000-000000000001";
+    private static final String WORLDWIDE = "20000000-0000-4000-8000-000000000001";
+    private static final String EUROPE = "20000000-0000-4000-8000-000000000002";
+    private static final String UNKNOWN_REGION = "20000000-0000-4000-8000-000000000003";
+
+    /**
+     * Quokka Spread fills a context of three with early PlayStation 5 releases while four more
+     * platforms, a cancelled latest year and an unknown date lie beyond it.
+     */
+    private static void seedReleaseSummaryCases(JdbcTemplate admin) {
+        String publicationId =
+                admin.queryForObject(
+                        "SELECT publication_id::text FROM catalogue.catalogue_publication WHERE is_current",
+                        String.class);
+        admin.update(
+                "INSERT INTO catalogue.platform (platform_id, code, display_name)"
+                        + " VALUES (?::uuid, 'summary-fixture-saturn', 'Sega Saturn')",
+                SATURN);
+        List<String> titles =
+                List.of("Quokka Spread", "Quokka Single", "Quokka Unknown", "Quokka Empty");
+        for (int i = 1; i <= titles.size(); i++) {
+            admin.update(
+                    "INSERT INTO catalogue.game (game_id, created_at) VALUES (?::uuid, now())",
+                    summaryGameId(i));
+            admin.update(
+                    """
+                    INSERT INTO catalogue.game_snapshot
+                        (publication_id, game_id, canonical_title, slug, cover_reference, cover_source,
+                         cover_usage_mode, cover_alternative_text, cover_usage_status)
+                    VALUES (?::uuid, ?::uuid, ?, ?, '/assets/covers/fallback.svg', 'VideoGame Platform',
+                            'product_owned', 'Summary fixture', 'approved')
+                    """,
+                    publicationId,
+                    summaryGameId(i),
+                    titles.get(i - 1),
+                    "summary-fixture-" + i);
+        }
+        List<Object[]> releases =
+                List.of(
+                        new Object[] {
+                            1, PS5, EUROPE, "day", "2019-03-01", null, null, null, "announced"
+                        },
+                        new Object[] {1, PS5, WORLDWIDE, "month", null, 2019, 5, null, "announced"},
+                        new Object[] {
+                            1, PS5, UNKNOWN_REGION, "quarter", null, 2020, null, 1, "announced"
+                        },
+                        new Object[] {
+                            1, WINDOWS, WORLDWIDE, "year", null, 2021, null, null, "announced"
+                        },
+                        new Object[] {
+                            1, XBOX, EUROPE, "day", "2022-11-10", null, null, null, "delayed"
+                        },
+                        new Object[] {
+                            1, SWITCH_2, WORLDWIDE, "unknown", null, null, null, null, "announced"
+                        },
+                        new Object[] {
+                            1, SATURN, EUROPE, "year", null, 2024, null, null, "cancelled"
+                        },
+                        new Object[] {
+                            2, PS5, EUROPE, "day", "2026-01-15", null, null, null, "announced"
+                        },
+                        new Object[] {
+                            2, WINDOWS, WORLDWIDE, "quarter", null, 2026, null, 4, "announced"
+                        },
+                        new Object[] {
+                            2, WINDOWS, EUROPE, "month", null, 2026, 7, null, "announced"
+                        },
+                        new Object[] {
+                            3, XBOX, EUROPE, "unknown", null, null, null, null, "announced"
+                        },
+                        new Object[] {
+                            3, XBOX, WORLDWIDE, "unknown", null, null, null, null, "announced"
+                        });
+        for (int i = 0; i < releases.size(); i++) {
+            Object[] release = releases.get(i);
+            String releaseId = "96000000-0000-4000-8000-%012d".formatted(i + 1);
+            String gameId = summaryGameId((Integer) release[0]);
+            admin.update(
+                    "INSERT INTO catalogue.game_release (release_id, game_id, created_at)"
+                            + " VALUES (?::uuid, ?::uuid, now())",
+                    releaseId,
+                    gameId);
+            admin.update(
+                    """
+                    INSERT INTO catalogue.release_snapshot
+                        (publication_id, release_id, game_id, platform_id, region_id, date_precision,
+                         exact_date, release_year, release_month, release_quarter, release_status,
+                         source_kind, source_name, source_entity_type, last_synchronized_at,
+                         verification_level, review_status)
+                    VALUES (?::uuid, ?::uuid, ?::uuid, ?::uuid, ?::uuid, ?, ?::date, ?, ?, ?, ?,
+                            'product_curated', 'Summary fixture', 'fixture_release', now(),
+                            'provider_only', 'not_required')
+                    """,
+                    publicationId,
+                    releaseId,
+                    gameId,
+                    release[1],
+                    release[2],
+                    release[3],
+                    release[4],
+                    release[5],
+                    release[6],
+                    release[7],
+                    release[8]);
+        }
+    }
+
     private static GameSearchReadPort.Result search(String text, int page, int pageSize) {
         return search(text, page, pageSize, 3);
     }
@@ -295,7 +495,8 @@ class JdbcGameSearchReadAdapterIntegrationTest {
                                 searchText.tokens(),
                                 new GameSearchReadPort.Pagination(
                                         page, pageSize, (long) (page - 1) * pageSize),
-                                releaseContextLimit))
+                                releaseContextLimit,
+                                3))
                 .orElseThrow();
     }
 

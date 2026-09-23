@@ -5,9 +5,15 @@ import { releasesSearchPath, type ReleasesSearch } from "./releases-search";
 type ReleasesPaginationProps = {
   search: ReleasesSearch;
   page: { number: number; totalPages: number };
+  /** Off when the surrounding bar already states the result total. */
+  showPosition?: boolean;
 };
 
-export function ReleasesPagination({ search, page }: ReleasesPaginationProps) {
+export function ReleasesPagination({
+  search,
+  page,
+  showPosition = true,
+}: ReleasesPaginationProps) {
   const isBeyondLastPage = page.totalPages > 0 && page.number > page.totalPages;
   const hasPrevious = page.number > 1;
   const hasNext = page.number < page.totalPages;
@@ -39,9 +45,11 @@ export function ReleasesPagination({ search, page }: ReleasesPaginationProps) {
           Página anterior
         </Link>
       ) : null}
-      <p className="text-sm text-muted">
-        Página {page.number} de {Math.max(page.totalPages, 1)}
-      </p>
+      {showPosition ? (
+        <p className="text-sm text-muted">
+          Página {page.number} de {Math.max(page.totalPages, 1)}
+        </p>
+      ) : null}
       {hasNext ? (
         <Link className="button" to={releasesSearchPath(search, { page: page.number + 1 })}>
           Página siguiente

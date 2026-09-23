@@ -1,6 +1,9 @@
 package com.videogameplatform.catalogue.adapter.provider.igdb;
 
 import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbReleaseDatePayload;
+import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbReleaseRegionPayload;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderMappingFailure;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderReleaseSignal;
@@ -27,9 +30,9 @@ import java.util.regex.Pattern;
  *   <li><b>Time zones.</b> The authored calendar fields win over the Unix timestamp, which is only
  *       interpreted at UTC. Neither the host default zone nor the product presentation zone may
  *       move a release into another day.
- *   <li><b>Platform identity.</b> Only an allowlisted provider platform becomes a product platform.
- *       Generic PC never absorbs DOS, Linux or Mac, because that would merge distinct commercial
- *       releases (REL-005).
+ *   <li><b>Taxonomy identity.</b> The provider platform and release region cross the port as typed
+ *       references keyed by their provider entity ID. Mutable slugs and names are descriptive only;
+ *       the store owns product taxonomy identity and never merges references by name (REL-005).
  * </ul>
  */
 final class IgdbReleaseMapper {
@@ -48,21 +51,20 @@ final class IgdbReleaseMapper {
         }
     }
 
-    static Mapped map(IgdbReleaseDatePayload payload, String gameStatus, IgdbApiSettings settings) {
+    static Mapped map(IgdbReleaseDatePayload payload, String gameStatus) {
         if (payload == null
                 || payload.id() == null
                 || payload.id() <= 0
-                || payload.platform() == null) {
+                || payload.platform() == null
+                || payload.platform().id() == null
+                || payload.platform().id() <= 0) {
             return Mapped.failed(ProviderMappingFailure.RECORD_UNREADABLE);
         }
-        String platformCode = platformCode(payload, settings);
-        if (platformCode == null) {
-            return Mapped.failed(ProviderMappingFailure.PLATFORM_NOT_SUPPORTED);
-        }
-        String regionCode = regionCode(payload, settings);
-        if (regionCode == null) {
-            return Mapped.failed(ProviderMappingFailure.REGION_NOT_SUPPORTED);
-        }
+        ProviderPlatform platform =
+                new ProviderPlatform(
+                        Long.toString(payload.platform().id()),
+                        trimmed(payload.platform().name()),
+                        normalize(payload.platform().slug()));
         Optional<ReleaseDate> date = releaseDate(payload);
         if (date.isEmpty()) {
             return Mapped.failed(ProviderMappingFailure.RELEASE_DATE_INVALID);
@@ -70,26 +72,21 @@ final class IgdbReleaseMapper {
         return Mapped.of(
                 new ProviderRelease(
                         Long.toString(payload.id()),
-                        platformCode,
-                        regionCode,
+                        platform,
+                        region(payload),
                         date.orElseThrow(),
                         signal(payload, gameStatus)));
     }
 
-    private static String platformCode(IgdbReleaseDatePayload payload, IgdbApiSettings settings) {
-        String slug = normalize(payload.platform().slug());
-        String code = settings.platformCodes().get(slug);
-        return code != null
-                ? code
-                : settings.platformCodes().get(normalize(payload.platform().name()));
-    }
-
-    private static String regionCode(IgdbReleaseDatePayload payload, IgdbApiSettings settings) {
-        if (payload.releaseRegion() == null || payload.releaseRegion().value().isBlank()) {
-            // REL-002: a release states one region or an explicit unknown; it never guesses one.
-            return settings.unknownRegionCode();
+    private static Optional<ProviderRegion> region(IgdbReleaseDatePayload payload) {
+        IgdbReleaseRegionPayload region = payload.releaseRegion();
+        if (region == null || region.id() == null || region.id() <= 0) {
+            // REL-002: a release states one region or resolves to the product 'unknown' sentinel;
+            // it never guesses a region, and the sentinel carries no provider reference.
+            return Optional.empty();
         }
-        return settings.regionCodes().get(normalize(payload.releaseRegion().value()));
+        return Optional.of(
+                new ProviderRegion(Long.toString(region.id()), trimmed(region.region())));
     }
 
     private static ProviderReleaseSignal signal(IgdbReleaseDatePayload payload, String gameStatus) {
@@ -203,6 +200,10 @@ final class IgdbReleaseMapper {
 
     private static String normalize(String value) {
         return value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String trimmed(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private static Optional<ReleaseDate> safely(Supplier<ReleaseDate> supplier) {

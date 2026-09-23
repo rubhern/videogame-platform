@@ -25,7 +25,8 @@ public record SearchCatalogueResult(
             String canonicalTitle,
             String matchedAlias,
             CatalogueCover primaryCover,
-            List<ReleaseContext> releaseContext) {}
+            List<ReleaseContext> releaseContext,
+            ReleaseSummary releaseSummary) {}
 
     /** Concise, explicitly bounded release context; never the game's complete release set. */
     public record ReleaseContext(
@@ -34,6 +35,17 @@ public record SearchCatalogueResult(
             CatalogueReleaseDate releaseDate,
             CatalogueReleaseStatus status,
             CatalogueFreshness freshnessStatus) {}
+
+    /**
+     * Compact aggregate over the game's complete stored release set: a bounded head of the
+     * ordered distinct platforms, the exact distinct-platform count, and the earliest and
+     * latest known release years, which are both {@code null} when no date is known.
+     */
+    public record ReleaseSummary(
+            List<Taxonomy> platforms,
+            int totalPlatforms,
+            Integer earliestKnownYear,
+            Integer latestKnownYear) {}
 
     public record Taxonomy(String id, String name) {}
 

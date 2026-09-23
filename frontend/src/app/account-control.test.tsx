@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AccountControl } from "./account-control";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -14,7 +14,12 @@ function renderControl() {
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter><AccountControl /></MemoryRouter>
+      <MemoryRouter>
+        <Routes>
+          <Route path="/" element={<AccountControl />} />
+          <Route path="/mis-puntuaciones" element={<h1>Mis puntuaciones</h1>} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -54,10 +59,20 @@ describe("header account control", () => {
 
     renderControl();
 
-    expect(await screen.findByText("Mi cuenta")).toBeVisible();
-    await userEvent.click(
-      screen.getByRole("button", { name: "Cerrar sesión" }),
-    );
+    const user = userEvent.setup();
+    const trigger = await screen.findByRole("button", { name: "Mi cuenta" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "Mis puntuaciones" })).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Mis puntuaciones" })).toBeVisible();
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("button", { name: "Cerrar sesión" }));
 
     const logoutRequest = fetchMock.mock.calls
       .map((call) => call[0])
@@ -71,5 +86,16 @@ describe("header account control", () => {
     await waitFor(() =>
       expect(screen.queryByText("Mi cuenta")).not.toBeInTheDocument(),
     );
+  });
+
+  it("navigates to personal ratings from the dropdown", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ authenticated: true, csrfToken: "opaque-token" })));
+    const user = userEvent.setup();
+    renderControl();
+
+    await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
+    await user.click(screen.getByRole("link", { name: "Mis puntuaciones" }));
+
+    expect(screen.getByRole("heading", { name: "Mis puntuaciones" })).toBeVisible();
   });
 });

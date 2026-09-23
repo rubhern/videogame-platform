@@ -32,6 +32,7 @@ public final class GameDetailsService implements GetGameDetailsUseCase {
     @Override
     public GameDetailsResult get(String gameId) {
         var now = clock.instant();
+        var evaluatedOn = LocalDate.ofInstant(now, ZoneId.of("Europe/Madrid"));
         var game = readPort.find(gameId).orElseThrow(GameNotFoundException::new);
         return new GameDetailsResult(
                 game.gameId(),
@@ -41,8 +42,8 @@ public final class GameDetailsService implements GetGameDetailsUseCase {
                 game.summary(),
                 covers.resolve(game.cover()),
                 game.releases().stream()
-                        .map(r -> CatalogueReleaseMapping.map(r, now, freshness))
+                        .map(r -> CatalogueReleaseMapping.map(r, now, evaluatedOn, freshness))
                         .toList(),
-                LocalDate.ofInstant(now, ZoneId.of("Europe/Madrid")));
+                evaluatedOn);
     }
 }

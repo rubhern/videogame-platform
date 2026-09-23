@@ -1,45 +1,39 @@
 package com.videogameplatform.catalogue.application.synchronization.internal;
 
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.PlannedRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.PublishedRelease;
-import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ReleaseIdentity;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 
 /** Reconciles one Release matched by external reference, never by mutable tuple or order. */
 public final class ReleaseReconciliationPolicy {
     private ReleaseReconciliationPolicy() {}
 
     public static Optional<PlannedRelease> reconcile(
-            UUID gameId,
             ProviderRelease providerRelease,
             PublishedRelease previous,
-            Map<String, UUID> platforms,
-            Map<String, UUID> regions,
-            LocalDate today,
             Instant synchronizedAt,
             Instant updatedAt,
             String source) {
-        UUID platform = platforms.get(providerRelease.platformCode());
-        UUID region = regions.get(providerRelease.regionCode());
-        if (platform == null || region == null) {
-            throw new IllegalArgumentException("Unsupported release mapping");
-        }
-        ReleaseIdentity identity = new ReleaseIdentity(gameId, platform, region);
-        ReleaseStatus status =
-                ReleaseStatusPolicy.derive(providerRelease.signal(), providerRelease.date(), today);
+        ReleaseStatus status = ReleaseStatusPolicy.persistedStatus(providerRelease.signal());
+        // Platform and region are compared by their stable provider reference, not by product UUID:
+        // a mutable provider slug or name change never counts as a taxonomy change, and the store
+        // resolves both references to the same product identity across runs.
+        String platformProviderId = providerRelease.platform().providerId();
+        String regionProviderId =
+                providerRelease.region().map(ProviderRegion::providerId).orElse(null);
         boolean unchanged =
                 previous != null
-                        && identity.equals(previous.identity())
+                        && platformProviderId.equals(previous.platformProviderId())
+                        && Objects.equals(regionProviderId, previous.regionProviderId())
                         && providerRelease.date().equals(previous.date())
                         && status == previous.status();
         if (previous != null
@@ -50,7 +44,8 @@ public final class ReleaseReconciliationPolicy {
         }
         return Optional.of(
                 new PlannedRelease(
-                        identity,
+                        providerRelease.platform(),
+                        providerRelease.region(),
                         providerRelease.date(),
                         status,
                         SourceKind.EXTERNAL_PROVIDER,

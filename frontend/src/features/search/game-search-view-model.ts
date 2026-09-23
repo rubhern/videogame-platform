@@ -53,7 +53,7 @@ const statusLabels: Record<ReleaseStatus, string> = {
  * The reviewed contract distinguishes both cover variants by their attribution: a
  * provider cover always carries one and the product-owned fallback never does.
  */
-function toCover(cover: Cover): GameSearchCover {
+export function toCover(cover: Cover): GameSearchCover {
   const attribution = "attribution" in cover ? cover.attribution : null;
 
   if (attribution === null) {

@@ -52,6 +52,9 @@ with a dedicated short statement timeout; health details remain hidden.
   input values as metric tags.
 - Propagate W3C trace context. OTLP trace and metric export remains disabled until an
   explicit endpoint is configured.
+- Exported resources carry bounded `deployment.environment.name` and `service.version`
+  attributes from `TELEMETRY_DEPLOYMENT_ENVIRONMENT` and `TELEMETRY_SERVICE_VERSION`;
+  they never derive either value from visitor input.
 - Telemetry failure must not break product requests or readiness.
 
 Never log or export credentials, cookies, CSRF values, authorization codes, OAuth
@@ -60,19 +63,19 @@ credentials, or arbitrary exception text. Error responses expose stable codes an
 correlation identifier, never stack traces or SQL.
 
 The [platform design](../architecture/deployment/mvp-platform-and-delivery.md) owns
-remote telemetry topology, retention, and privacy. Product-specific meters should be
-added only when they answer an operational or product decision and have a bounded
-cardinality review.
+remote telemetry topology, retention, and privacy; the private-dev Compose and
+collector files linked there own executable limits. Its bounded synthetic OTLP check
+owns repository/host receipt validation independent of application deployment.
+Product-specific meters should be added only when they answer an operational or
+product decision and have a bounded cardinality review.
 
-`POST /actuator/cataloguesync` is the internal operator command that starts one
-complete synchronization of the required inclusive `from`/`to` interval; the
-matching `GET` reports its latest recorded result. Paging is internal and does not
-limit the total Games processed. [ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
-owns reconciliation and in-call paging semantics. Synchronization is never
-scheduled and is never reachable from the product API — it is absent from the product
-OpenAPI contract for the same reason — and it inherits the management-port boundary
-below, so no visitor request can trigger a provider call. Without configured IGDB
-credentials the command reports `SYNCHRONIZATION_DISABLED` and changes nothing.
+`POST /actuator/cataloguesync` is the internal operator command for one complete
+synchronization run and `GET` reports the latest result; the
+[backend README](../../backend/README.md#persistence-and-observability) owns
+invocation and the [operations runbook](operations-runbook.md#catalogue-synchronization)
+owns the private-dev procedure. It is never scheduled, is absent from the product
+OpenAPI contract, and inherits the management-port boundary below, so no visitor
+request can trigger a provider call.
 
 Actuator runs on the separate management port with its own security boundary: the
 endpoints are open on that port because it is already private, they hold no

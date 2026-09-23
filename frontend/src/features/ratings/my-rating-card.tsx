@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
+import { AppSelect } from "../../shared/ui/app-select";
 import type { MyRatingItem } from "./my-ratings-api";
 import { useRatingCommand } from "./use-personal-rating";
 import type { RatingCommandError } from "./personal-rating-api";
@@ -48,7 +49,10 @@ export function MyRatingCard({ item, csrfToken, onChanged }: {
         <div><dt>Puntuado</dt><dd><time dateTime={personalRating.createdAt}>{formatTimestamp(personalRating.createdAt)}</time></dd></div>
         <div><dt>Actualizado</dt><dd><time dateTime={personalRating.updatedAt}>{formatTimestamp(personalRating.updatedAt)}</time></dd></div>
       </dl>
-      <Link className="card-action" to={path}>Ver ficha<span className="sr-only"> de {game.canonicalTitle}</span> →</Link>
+      <Link className="card-action" to={path}>
+        <span className="sr-only">Ver ficha de {game.canonicalTitle}</span>
+        <span aria-hidden="true">Ver ficha →</span>
+      </Link>
       {editing ? <form className="my-rating-edit" onSubmit={(event) => {
         event.preventDefault();
         if (command.isPending || mustRefresh) return;
@@ -58,13 +62,18 @@ export function MyRatingCard({ item, csrfToken, onChanged }: {
           onError: setFailure,
         });
       }}>
-        <label htmlFor={`${id}-value`}>Nueva puntuación</label>
-        <select id={`${id}-value`} autoFocus value={selected}
+        <AppSelect
+          autoFocus
+          className="my-rating-score-select"
           disabled={command.isPending || mustRefresh}
-          onChange={(event) => setSelected(Number(event.target.value))}>
-          {Array.from({ length: 10 }, (_, index) => index + 1).map(value =>
-            <option key={value} value={value}>{value}/10</option>)}
-        </select>
+          icon="rating"
+          label="Nueva puntuación"
+          onChange={(value) => setSelected(Number(value))}
+          options={Array.from({ length: 10 }, (_, index) => ({
+            value: String(index + 1), label: `${index + 1}/10`,
+          }))}
+          value={String(selected)}
+        />
         <button className="button button-primary" disabled={command.isPending || mustRefresh}>Guardar cambios</button>
         <button className="button" type="button" disabled={command.isPending} onClick={finishEditing}>Cancelar</button>
       </form> : null}

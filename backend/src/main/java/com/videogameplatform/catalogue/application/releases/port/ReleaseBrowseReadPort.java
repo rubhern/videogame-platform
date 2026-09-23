@@ -20,10 +20,21 @@ public interface ReleaseBrowseReadPort {
     record Criteria(
             BrowseReleasesUseCase.View view,
             Window window,
-            String platformId,
-            String regionId,
+            List<String> platformIds,
+            List<String> regionIds,
             Pagination pagination,
-            boolean includeUnknownUpcomingDates) {}
+            boolean includeUnknownUpcomingDates,
+            int releaseGroupLimit) {
+
+        public Criteria {
+            platformIds = platformIds == null ? List.of() : List.copyOf(platformIds);
+            regionIds = regionIds == null ? List.of() : List.copyOf(regionIds);
+            if (releaseGroupLimit < 1) {
+                throw new IllegalArgumentException(
+                        "Release group must be bounded to at least 1 release per game");
+            }
+        }
+    }
 
     record Window(LocalDate from, LocalDate to) {}
 
@@ -38,12 +49,18 @@ public interface ReleaseBrowseReadPort {
 
     record Taxonomy(String id, String name) {}
 
+    /** One game with the bounded, view-and-filter-matching releases grouped underneath it. */
     record Item(
-            String releaseId,
             String gameId,
             String slug,
             String canonicalTitle,
             CatalogueCoverReference cover,
+            List<ReleaseRow> releases) {}
+
+    /** One preserved release; grouping never merges or rewrites its identity or fields. */
+    record ReleaseRow(
+            String releaseId,
+            String gameId,
             Taxonomy platform,
             Taxonomy region,
             ReleaseDate releaseDate,

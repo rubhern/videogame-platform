@@ -243,7 +243,7 @@ public class ApiExceptionHandler {
                             "Platform is not supported",
                             "Select a platform from the normalized available filters.",
                             ErrorCategory.VALIDATION,
-                            "/query/platformId",
+                            "/query/platformIds",
                             "Use a supported platform identifier.");
             case REGION_NOT_SUPPORTED ->
                     problem(
@@ -253,7 +253,7 @@ public class ApiExceptionHandler {
                             "Region is not supported",
                             "Select a region from the normalized available filters.",
                             ErrorCategory.VALIDATION,
-                            "/query/regionId",
+                            "/query/regionIds",
                             "Use a supported region identifier.");
         };
     }

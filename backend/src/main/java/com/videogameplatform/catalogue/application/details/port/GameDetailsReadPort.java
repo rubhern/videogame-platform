@@ -20,5 +20,5 @@ public interface GameDetailsReadPort {
             List<String> aliases,
             GameDetailsResult.Summary summary,
             CatalogueCoverReference cover,
-            List<ReleaseBrowseReadPort.Item> releases) {}
+            List<ReleaseBrowseReadPort.ReleaseRow> releases) {}
 }

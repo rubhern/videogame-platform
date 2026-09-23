@@ -7,7 +7,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
 import java.time.Duration;
-import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -32,7 +31,7 @@ record CatalogueSynchronizationProperties(
     /** The product-owned cover a game falls back to when no valid provider cover exists. */
     record Cover(@NotBlank String fallbackAssetPath, @NotBlank String fallbackSourceName) {}
 
-    /** IGDB access, its approved local bounds, and the product-owned provider taxonomy mapping. */
+    /** IGDB access and its approved local bounds; provider taxonomy is resolved by reference. */
     record Provider(
             String clientId,
             String clientSecret,
@@ -41,8 +40,5 @@ record CatalogueSynchronizationProperties(
             @NotNull Duration requestTimeout,
             double requestsPerSecond,
             @Min(0) @Max(5) int maxRetries,
-            @NotNull Duration retryBackoff,
-            @NotNull Map<String, String> platformCodes,
-            @NotNull Map<String, String> regionCodes,
-            @NotBlank String unknownRegionCode) {}
+            @NotNull Duration retryBackoff) {}
 }

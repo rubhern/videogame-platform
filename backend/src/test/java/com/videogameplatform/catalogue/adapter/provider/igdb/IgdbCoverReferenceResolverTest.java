@@ -18,7 +18,7 @@ class IgdbCoverReferenceResolverTest {
         assertThat(resolved.url())
                 .isEqualTo(
                         URI.create(
-                                "https://images.igdb.com/igdb/image/upload/t_cover_big/co-safe_1.webp"));
+                                "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co-safe_1.webp"));
         assertThat(resolved.attributionLabel()).isEqualTo("IGDB");
         assertThat(resolved.attributionUrl())
                 .isEqualTo(URI.create("https://www.igdb.com/games/example"));

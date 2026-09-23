@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "2705ffc0-42ac-5cc7-bdc7-a81c8d9b337a",
     "name": "VideoGame Platform Backend - Catalogue Search",
-    "description": "Executable examples for the OpenAPI 1.2.3 GET /api/v1/games contract implemented through the Maven-generated CatalogueApi interface and a bounded PostgreSQL search query. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI 3.1.0 GET /api/v1/games contract implemented through the Maven-generated CatalogueApi interface and a bounded PostgreSQL search query. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -32,8 +32,10 @@
               "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(1);",
               "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(1);",
               "    body.items.forEach(function (item) {",
-              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releaseContext\");",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releaseContext\", \"releaseSummary\");",
               "        pm.expect([\"provider\", \"fallback\"]).to.include(item.primaryCover.kind);",
+              "        pm.expect(item.releaseSummary.platforms.length).to.be.at.most(3);",
+              "        pm.expect(item.releaseSummary.platforms.length).to.be.at.most(item.releaseSummary.totalPlatforms);",
               "        item.releaseContext.forEach(function (context) {",
               "            pm.expect(context).to.include.all.keys(\"platform\", \"region\", \"releaseDate\", \"status\", \"freshnessStatus\");",
               "            pm.expect([\"day\", \"month\", \"quarter\", \"year\", \"unknown\"]).to.include(context.releaseDate.precision);",
@@ -228,6 +230,69 @@
           ]
         },
         "description": "The complete query `The Witcher 4` cannot match canonical `The Witcher IV` because the final token differs; the approved alias supplies the match."
+      },
+      "response": []
+    },
+    {
+      "name": "Compact release summary covers every stored release",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"The summary aggregates every stored release, not the bounded context\", function () {",
+              "    const summary = pm.response.json().items[0].releaseSummary;",
+              "    const names = summary.platforms.map(function (platform) { return platform.name; });",
+              "    pm.expect(names).to.eql([\"PlayStation 5\", \"Windows PC\", \"Xbox Series X|S\"]);",
+              "    pm.expect(summary.totalPlatforms).to.eql(3);",
+              "    pm.expect(summary.earliestKnownYear).to.eql(2026);",
+              "    pm.expect(summary.latestKnownYear).to.eql(2026);",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/games?q=crimson%20desert&page=1&pageSize=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "games"
+          ],
+          "query": [
+            {
+              "key": "q",
+              "value": "crimson desert"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "`releaseSummary` lists at most three distinct platforms ordered by display name, the exact distinct-platform count, and the earliest and latest known release years across every locally stored release, independently of the bounded `releaseContext`."
       },
       "response": []
     },

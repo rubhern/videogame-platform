@@ -9,8 +9,15 @@ import java.util.regex.Pattern;
 public final class IgdbCoverReferenceResolver implements ProviderCoverReferenceResolver {
 
     private static final String PROVIDER = "IGDB";
+
+    /**
+     * Allowlisted IGDB size token. {@code t_cover_big} is delivered at 227x320, which every
+     * catalogue frame upscales on a high-DPI screen; the documented retina variant doubles it
+     * without leaving the approved host, size and extension vocabulary of ADR-0001.
+     */
     private static final String COVER_BASE =
-            "https://images.igdb.com/igdb/image/upload/t_cover_big/";
+            "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/";
+
     private static final Pattern IMAGE_ID = Pattern.compile("[A-Za-z0-9_-]+");
 
     @Override

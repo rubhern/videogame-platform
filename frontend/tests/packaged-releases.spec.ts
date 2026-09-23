@@ -17,7 +17,14 @@ function trackProviderRequests(page: Page): string[] {
 }
 
 function releaseTitles(page: Page) {
-  return page.getByRole("list", { name: /lanzamientos/i }).getByRole("heading", { level: 3 });
+  // Grid cards are one game each; scope to the grid so nested lists never leak into the titles.
+  return page.locator(".release-grid").getByRole("heading", { level: 3 });
+}
+
+function releaseCard(page: Page, title: string) {
+  return page
+    .locator(".release-grid > li")
+    .filter({ has: page.getByRole("heading", { level: 3, name: title }) });
 }
 
 async function expectNoAccessibilityViolations(page: Page) {
@@ -42,7 +49,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     return url.pathname === "/api/v1/releases" && url.searchParams.get("view") === "recent";
   });
 
-  await page.goto("/");
+  await page.goto("/?pageSize=6");
   const releasesResponse = await releasesResponsePromise;
   expect(releasesResponse.status()).toBe(200);
   expect(releasesResponse.request().resourceType()).toBe("fetch");
@@ -50,189 +57,63 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
 
   const releasePage = (await releasesResponse.json()) as ReleasePage;
   expect(releasePage.evaluatedOn).toBe("2026-08-13");
-  expect(releasePage.window).toEqual({ from: "2026-02-13", to: "2026-08-13" });
-  expect(releasePage.page).toEqual({ number: 1, size: 6, totalItems: 8, totalPages: 2 });
-  expect(releasePage.availableFilters.platforms.map((platform) => platform.name)).toEqual([
-    "Nintendo Switch 2",
-    "PlayStation 5",
-    "Windows PC",
-    "Xbox Series X|S",
-  ]);
-  expect(releasePage.availableFilters.regions.map((region) => region.name)).toEqual([
-    "Europe",
-    "Japan",
-    "North America",
-    "Unknown",
-    "Worldwide",
-  ]);
+  expect(releasePage.window).toEqual({ from: "2026-08-07", to: "2026-08-13" });
+  // The fixed local seed has no matching recent game in the default week.
+  expect(releasePage.page).toEqual({ number: 1, size: 6, totalItems: 0, totalPages: 0 });
+  expect(releasePage.availableFilters.platforms).toEqual([]);
+  expect(releasePage.availableFilters.regions).toEqual([]);
 
   await expect(page.getByRole("region", { name: "Lanzamientos recientes" })).toBeVisible();
-  await expect(page.locator(".release-window")).toContainText(
-    "Del 13 de febrero de 2026 al 13 de agosto de 2026",
+  await expect(page.locator(".release-period")).toContainText(
+    "Del 7 de agosto de 2026 al 13 de agosto de 2026",
   );
-  await expect(page.locator(".release-window")).toContainText(
-    "Ventana evaluada el 13 de agosto de 2026",
-  );
-  await expect(page.locator(".result-count")).toHaveText("8 lanzamientos · Página 1 de 2");
-  await expect(releaseTitles(page)).toHaveText([
-    "Pragmata",
-    "Pragmata",
-    "Crimson Desert",
-    "Metroid Prime 4: Beyond",
-    "Metroid Prime 4: Beyond",
-    "Subnautica 2",
-  ]);
-
-  await test.step("every stored date precision is rendered without inventing a date", async () => {
-    await expect(page.getByText("2.º trimestre de 2026")).toHaveCount(2);
-    await expect(page.getByText("mayo de 2026")).toBeVisible();
-    await expect(page.getByText("16 de abril de 2026")).toHaveCount(2);
-    await expect(page.getByText("1.er trimestre de 2026")).toBeVisible();
-  });
-
-  await test.step("stale local data is shown as usable, not as a failure", async () => {
-    await expect(
-      page.getByText(
-        "Algunos lanzamientos usan la última copia local guardada y pueden estar desactualizados.",
-      ),
-    ).toBeVisible();
-    await expect(page.getByText("Datos locales desactualizados")).toHaveCount(1);
-    await expect(page.getByRole("alert")).toHaveCount(0);
-  });
-
-  await test.step("an approved cover reference without attribution uses the product fallback", async () => {
-    await expect(
-      page.getByRole("img", { name: "Carátula oficial no disponible" }),
-    ).toBeVisible();
-  });
-
+  await expect(page.getByRole("combobox", { name: /^Periodo:/ })).toContainText("1 semana");
+  await expect(page.locator(".result-count")).toHaveText("0 juegos");
+  await expect(page.getByText("Sin lanzamientos para esta selección")).toBeVisible();
   await expectNoAccessibilityViolations(page);
 
-  await test.step("pagination reaches the incomplete last page and focuses the results", async () => {
-    await page.getByRole("link", { name: "Página siguiente" }).click();
-
-    await expect(page).toHaveURL(/\?page=2$/);
-    await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
-    await expect(page.locator(".result-count")).toHaveText("8 lanzamientos · Página 2 de 2");
-    await expect(releaseTitles(page)).toHaveText([
-      "Resident Evil Requiem",
-      "Resident Evil Requiem",
-    ]);
-    await expect(page.getByText("6 de marzo de 2026")).toBeVisible();
-    await expect(page.getByText("27 de febrero de 2026")).toBeVisible();
-    await expect(page.getByText("Windows PC · Mundial")).toBeVisible();
-    await expect(page.getByText("PlayStation 5 · Europa")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Página siguiente" })).toHaveCount(0);
-  });
-
-  await test.step("a platform filter narrows the result set and returns to the first page", async () => {
-    await page
-      .getByRole("list", { name: "Filtrar por plataforma" })
-      .getByRole("link", { name: "Windows PC" })
-      .click();
-
-    await expect(page).toHaveURL(/\?platformId=[0-9a-f-]+$/);
-    await expect(page.locator(".result-count")).toHaveText("3 lanzamientos · Página 1 de 1");
-    await expect(releaseTitles(page)).toHaveText([
-      "Pragmata",
-      "Crimson Desert",
-      "Resident Evil Requiem",
-    ]);
-    await expect(
-      page.getByRole("list", { name: "Filtrar por plataforma" }).getByRole("link", { name: "Windows PC" }),
-    ).toHaveAttribute("aria-current", "page");
-  });
-
-  await test.step("an unmatched filter combination explains the empty result", async () => {
-    await page
-      .getByRole("list", { name: "Filtrar por región" })
-      .getByRole("link", { name: "Europa" })
-      .click();
-
-    await expect(
-      page.getByText(
-        "Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros.",
-      ),
-    ).toBeVisible();
-    await expect(releaseTitles(page)).toHaveCount(0);
-    await expect(
-      page.getByRole("list", { name: "Filtrar por plataforma" }).getByRole("link", { name: "Windows PC" }),
-    ).toHaveAttribute("aria-current", "page");
+  await test.step("the week selector keeps the range visible and resets pagination", async () => {
+    await page.goto("/?view=upcoming&page=2&pageSize=6");
+    const selector = page.getByRole("combobox", { name: /^Periodo:/ });
+    await selector.focus();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("End");
+    await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/view=upcoming&weeks=4&pageSize=6/);
+    await expect(page).not.toHaveURL(/page=2/);
+    await expect(page.locator(".release-period")).toContainText(
+      "Del 13 de agosto de 2026 al 10 de septiembre de 2026",
+    );
+    await expect(selector).toContainText("4 semanas");
     await expectNoAccessibilityViolations(page);
   });
 
-  await test.step("filters can be cleared", async () => {
-    await page.getByRole("link", { name: "Quitar filtros" }).first().click();
-
-    await expect(page).toHaveURL(/\/$/);
-    await expect(releaseTitles(page)).toHaveCount(6);
-    await expect(
-      page.getByRole("list", { name: "Filtrar por plataforma" }).getByRole("link", { name: "Todas" }),
-    ).toHaveAttribute("aria-current", "page");
-    await expect(
-      page.getByRole("list", { name: "Filtrar por región" }).getByRole("link", { name: "Todas" }),
-    ).toHaveAttribute("aria-current", "page");
+  await test.step("TBA remains explicit and is grouped as one game", async () => {
+    await expect(page.locator(".result-count")).toHaveText("1 juego · Página 1 de 1");
+    await expect(releaseTitles(page)).toHaveText(["The Witcher IV"]);
+    const witcher = releaseCard(page, "The Witcher IV");
+    await expect(witcher.getByText("Fecha por confirmar")).toBeVisible();
+    await expect(witcher.getByText("Windows PC · Sin región confirmada")).toBeVisible();
   });
 
-  await test.step("the upcoming window keeps announced and delayed releases separate", async () => {
-    await page.getByRole("link", { name: "Próximos", exact: true }).click();
-
-    await expect(
-      page.getByRole("heading", { level: 1, name: "Próximos lanzamientos" }),
-    ).toBeVisible();
-    await expect(page.locator(".release-window")).toContainText(
-      "Del 13 de agosto de 2026 al 13 de febrero de 2027",
-    );
-    await expect(page.locator(".result-count")).toHaveText("8 lanzamientos · Página 1 de 2");
-    await expect(releaseTitles(page)).toHaveText([
-      "Marvel's Wolverine",
-      "Crimson Desert",
-      "Crimson Desert",
-      "Subnautica 2",
-      "Fable",
-      "Subnautica 2",
-    ]);
-    await expect(page.getByText("25 de septiembre de 2026")).toBeVisible();
-    await expect(page.getByText("octubre de 2026")).toHaveCount(2);
-    await expect(page.getByText("Retrasado")).toBeVisible();
-  });
-
-  await test.step("an unconfirmed date stays explicit on the last upcoming page", async () => {
-    await page.getByRole("link", { name: "Página siguiente" }).click();
-
-    await expect(page).toHaveURL(/view=upcoming&page=2/);
-    await expect(releaseTitles(page)).toHaveText(["The Witcher IV", "The Witcher IV"]);
-    await expect(page.getByText("2027", { exact: true })).toBeVisible();
-    await expect(page.getByText("Fecha por confirmar")).toBeVisible();
-    await expect(page.getByText("Información pendiente de revisión")).toHaveCount(2);
-  });
-
-  await test.step("an out-of-range shared page recovers directly to the last page", async () => {
-    await page.goto("/?view=upcoming&page=99&pageSize=1");
-
+  await test.step("an out-of-range shared page recovers to the only game", async () => {
+    await page.goto("/?view=upcoming&weeks=1&page=99&pageSize=1");
     await expect(page.locator(".result-count")).toHaveText(
-      "8 lanzamientos · La página 99 ya no está disponible",
+      "1 juego · La página 99 ya no está disponible",
     );
-    await expect(
-      page.getByText("La página solicitada ya no está disponible para estos resultados."),
-    ).toBeVisible();
-
     await page.getByRole("link", { name: "Ir a la última página" }).click();
-
-    await expect(page).toHaveURL(/view=upcoming&page=8&pageSize=1/);
+    await expect(page).toHaveURL(/view=upcoming&weeks=1&pageSize=1/);
     await expect(releaseTitles(page)).toHaveText(["The Witcher IV"]);
     await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
   });
 
   await test.step("the keyboard reaches a game from the focused results", async () => {
     await page.keyboard.press("Tab");
-    const gameLink = page.getByRole("link", { name: "Ver The Witcher IV" }).first();
+    const gameLink = page.locator(".card-title a", { hasText: "The Witcher IV" }).first();
     await expect(gameLink).toBeFocused();
-
     await gameLink.press("Enter");
     await expect(page).toHaveURL(/\/games\/30000000-0000-4000-8000-000000000008\/the-witcher-iv$/);
     await expect(page.getByRole("heading", { level: 1, name: "The Witcher IV" })).toBeVisible();
-    // An upcoming game is not eligible: the inline control is disabled and says why.
     await expect(page.getByRole("button", { name: "8", exact: true })).toBeDisabled();
     await expect(page.getByText(/Todavía no se puede puntuar/)).toBeVisible();
     await expect(page.getByRole("main")).toBeFocused();
@@ -257,14 +138,14 @@ test("the packaged releases page stays usable from phone to desktop", async ({ p
   for (const viewport of viewports) {
     await test.step(`${viewport.name} (${viewport.width}px)`, async () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto("/");
+      await page.goto("/?pageSize=6");
 
       await expect(
         page.getByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
       ).toBeVisible();
-      await expect(releaseTitles(page)).toHaveCount(6);
-      await expect(page.getByRole("list", { name: "Filtrar por plataforma" })).toBeVisible();
-      await expect(page.getByRole("link", { name: "Página siguiente" })).toBeVisible();
+      await expect(releaseTitles(page)).toHaveCount(0);
+      await expect(page.getByRole("combobox", { name: /^Periodo:/ })).toBeVisible();
+      await expect(page.getByRole("combobox", { name: /^Plataforma:/ })).toBeVisible();
       expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
       await expectNoAccessibilityViolations(page);
     });

@@ -169,7 +169,15 @@ class CatalogueSearchServiceTest {
                                         REGION,
                                         new ReleaseDate.Day(LocalDate.parse("2026-03-18")),
                                         ReleaseStatus.RELEASED,
-                                        NOW.minus(Duration.ofDays(30)))));
+                                        NOW.minus(Duration.ofDays(30)))),
+                        new GameSearchReadPort.ReleaseSummary(
+                                List.of(
+                                        PLATFORM,
+                                        new GameSearchReadPort.Taxonomy(
+                                                "platform-2", "Windows PC")),
+                                4,
+                                2025,
+                                2026));
 
         SearchCatalogueResult.Item result =
                 service(
@@ -201,6 +209,50 @@ class CatalogueSearchServiceTest {
                                         CatalogueReleaseDate.Precision.DAY, "2026-03-18"),
                                 CatalogueReleaseStatus.RELEASED,
                                 CatalogueFreshness.STALE));
+        assertThat(result.releaseSummary())
+                .isEqualTo(
+                        new SearchCatalogueResult.ReleaseSummary(
+                                List.of(
+                                        new SearchCatalogueResult.Taxonomy(
+                                                "platform-1", "PlayStation 5"),
+                                        new SearchCatalogueResult.Taxonomy(
+                                                "platform-2", "Windows PC")),
+                                4,
+                                2025,
+                                2026));
+    }
+
+    @Test
+    void requestsTheFixedSummaryPlatformBoundIndependentlyOfTheReleaseContextLimit() {
+        List<GameSearchReadPort.Criteria> requested = new java.util.ArrayList<>();
+        service(
+                        criteria -> {
+                            requested.add(criteria);
+                            return Optional.of(new GameSearchReadPort.Result("v1", List.of(), 0));
+                        })
+                .search(new SearchCatalogueUseCase.Query("evil", 1, 20));
+
+        assertThat(requested)
+                .singleElement()
+                .satisfies(
+                        criteria -> {
+                            assertThat(criteria.releaseContextLimit()).isEqualTo(3);
+                            assertThat(criteria.summaryPlatformLimit())
+                                    .isEqualTo(CatalogueSearchPolicy.SUMMARY_PLATFORM_LIMIT);
+                        });
+    }
+
+    @Test
+    void rejectsAnIncoherentReleaseSummaryFromTheStore() {
+        assertThatThrownBy(
+                        () ->
+                                new GameSearchReadPort.ReleaseSummary(
+                                        List.of(PLATFORM), 0, null, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new GameSearchReadPort.ReleaseSummary(List.of(), 0, 2026, null))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new GameSearchReadPort.ReleaseSummary(List.of(), 1, 2026, 2025))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -213,7 +265,8 @@ class CatalogueSearchServiceTest {
                         null,
                         new CatalogueCoverReference.Product(
                                 "/assets/covers/fallback.svg", "Sin portada"),
-                        List.of());
+                        List.of(),
+                        EMPTY_SUMMARY);
 
         SearchCatalogueResult.Item result =
                 service(
@@ -260,8 +313,12 @@ class CatalogueSearchServiceTest {
                 canonicalTitle,
                 null,
                 new CatalogueCoverReference.Unavailable(),
-                List.of());
+                List.of(),
+                EMPTY_SUMMARY);
     }
+
+    private static final GameSearchReadPort.ReleaseSummary EMPTY_SUMMARY =
+            new GameSearchReadPort.ReleaseSummary(List.of(), 0, null, null);
 
     private static CatalogueSearchService service(GameSearchReadPort port) {
         return new CatalogueSearchService(

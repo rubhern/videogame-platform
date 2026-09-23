@@ -7,6 +7,8 @@ import com.videogameplatform.catalogue.application.CatalogueDataInvalidException
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
+import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Item;
+import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.sql.Connection;
@@ -79,7 +81,7 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
     }
 
     @Test
-    void filtersCountsOrdersAndPagesInPostgreSql() {
+    void groupsReleasesByGameCountsGamesAndPagesOverGamesInPostgreSql() {
         var firstPage =
                 adapter.findPublishedReleases(criteria(BrowseReleasesUseCase.View.RECENT, 1, 1))
                         .orElseThrow();
@@ -88,60 +90,157 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         .orElseThrow();
 
         assertThat(firstPage.publicationVersion()).isEqualTo("prototype-catalogue-v1");
-        assertThat(firstPage.totalItems()).isEqualTo(8);
+        // Five games match the recent window even though eight releases do; count and paging are
+        // over games.
+        assertThat(firstPage.totalItems()).isEqualTo(5);
         assertThat(firstPage.items()).singleElement();
         assertThat(secondPage.items()).singleElement();
-        // Both pages hold the same game with the same effective quarter, so only the
-        // unique releaseId keeps the two rows apart across the page boundary.
-        assertThat(firstPage.items().getFirst().canonicalTitle()).isEqualTo("Pragmata");
-        assertThat(secondPage.items().getFirst().canonicalTitle()).isEqualTo("Pragmata");
-        assertThat(firstPage.items().getFirst().gameId())
-                .isEqualTo(secondPage.items().getFirst().gameId());
-        assertThat(firstPage.items().getFirst().releaseId())
-                .isEqualTo("40000000-0000-4000-8000-000000000006");
-        assertThat(secondPage.items().getFirst().releaseId())
-                .isEqualTo("40000000-0000-4000-8000-00000000000a");
-        assertThat(firstPage.items())
+
+        Item pragmata = firstPage.items().getFirst();
+        assertThat(pragmata.canonicalTitle()).isEqualTo("Pragmata");
+        // The one game keeps both of its recent releases, preserved and distinct.
+        assertThat(pragmata.releases())
+                .extracting(ReleaseRow::releaseId)
+                .containsExactly(
+                        "40000000-0000-4000-8000-000000000006",
+                        "40000000-0000-4000-8000-00000000000a");
+        assertThat(
+                        pragmata.releases().stream()
+                                .map(row -> row.platform().id() + "/" + row.region().id()))
+                .containsExactly(
+                        PLATFORM_WINDOWS_PC + "/" + REGION_WORLDWIDE,
+                        PLATFORM_PLAYSTATION_5 + "/" + REGION_EUROPE);
+
+        // The next game is a different one; no game repeats across pages.
+        assertThat(secondPage.items().getFirst().canonicalTitle()).isEqualTo("Crimson Desert");
+        assertThat(secondPage.items().getFirst().gameId()).isNotEqualTo(pragmata.gameId());
+        assertThat(flatten(firstPage))
                 .allSatisfy(
-                        item ->
-                                assertThat(item.releaseDate())
+                        row ->
+                                assertThat(row.releaseDate())
                                         .isNotInstanceOf(ReleaseDate.Unknown.class));
     }
 
     @Test
-    void keepsUnknownUpcomingDatesExplicitAndLast() {
+    void keepsUnknownUpcomingDatesExplicitAndLastWithinTheLastGame() {
         var result =
                 adapter.findPublishedReleases(criteria(BrowseReleasesUseCase.View.UPCOMING, 1, 20))
                         .orElseThrow();
 
-        assertThat(result.items()).hasSize(8);
-        assertThat(result.items().getFirst().releaseDate()).isInstanceOf(ReleaseDate.Day.class);
-        assertThat(result.items().getLast().releaseDate()).isInstanceOf(ReleaseDate.Unknown.class);
-        assertThat(result.items().subList(0, 7))
+        assertThat(result.items()).hasSize(5);
+        List<ReleaseRow> flat = flatten(result);
+        assertThat(flat).hasSize(8);
+        assertThat(flat.getFirst().releaseDate()).isInstanceOf(ReleaseDate.Day.class);
+        assertThat(flat.getLast().releaseDate()).isInstanceOf(ReleaseDate.Unknown.class);
+        assertThat(flat.subList(0, 7))
                 .allSatisfy(
-                        item ->
-                                assertThat(item.releaseDate())
+                        row ->
+                                assertThat(row.releaseDate())
                                         .isNotInstanceOf(ReleaseDate.Unknown.class));
+        // The unknown-date release belongs to the last game, ordered last inside its own group.
+        assertThat(result.items().getLast().canonicalTitle()).isEqualTo("The Witcher IV");
     }
 
     @ParameterizedTest(name = "{0} with platform={1} and region={2}")
     @MethodSource("filterCombinations")
-    void composesOptionalFiltersWithoutChangingCountOrOrder(
+    void composesOptionalFiltersOverGamesWithoutChangingCountOrOrder(
             BrowseReleasesUseCase.View view,
             String platformId,
             String regionId,
-            List<String> expectedTitles) {
+            List<String> expectedGameTitles) {
         var result =
                 adapter.findPublishedReleases(criteria(view, 1, 20, platformId, regionId, true))
                         .orElseThrow();
 
-        assertThat(result.totalItems()).isEqualTo(expectedTitles.size());
-        assertThat(result.items().stream().map(ReleaseBrowseReadPort.Item::canonicalTitle).toList())
-                .isEqualTo(expectedTitles);
+        assertThat(result.totalItems()).isEqualTo(expectedGameTitles.size());
+        assertThat(result.items().stream().map(Item::canonicalTitle).toList())
+                .isEqualTo(expectedGameTitles);
+        // A game never appears twice on the page.
+        assertThat(result.items().stream().map(Item::gameId).distinct().count())
+                .isEqualTo(result.items().size());
     }
 
     @Test
-    void excludesUnknownUpcomingDatesWhenPolicyRequiresKnownDates() {
+    void combinesMultipleValuesWithinADimensionUsingOr() {
+        var byPlatform =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(PLATFORM_PLAYSTATION_5, PLATFORM_XBOX_SERIES),
+                                        List.of()))
+                        .orElseThrow();
+        assertThat(titles(byPlatform))
+                .containsExactly("Pragmata", "Subnautica 2", "Resident Evil Requiem");
+
+        var byRegion =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(),
+                                        List.of(REGION_WORLDWIDE, REGION_JAPAN)))
+                        .orElseThrow();
+        assertThat(titles(byRegion))
+                .containsExactly(
+                        "Pragmata",
+                        "Crimson Desert",
+                        "Metroid Prime 4: Beyond",
+                        "Resident Evil Requiem");
+    }
+
+    @Test
+    void distinguishesUnfilteredTodasFromTheConcreteWorldwideRegion() {
+        var todas =
+                adapter.findPublishedReleases(
+                                multi(BrowseReleasesUseCase.View.RECENT, List.of(), List.of()))
+                        .orElseThrow();
+        assertThat(todas.totalItems()).isEqualTo(5);
+
+        var worldwide =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(),
+                                        List.of(REGION_WORLDWIDE)))
+                        .orElseThrow();
+        assertThat(titles(worldwide))
+                .containsExactly("Pragmata", "Crimson Desert", "Resident Evil Requiem");
+    }
+
+    @Test
+    void availablePlatformFacetIsNotNarrowedByItsOwnSelection() {
+        var result =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(PLATFORM_PLAYSTATION_5),
+                                        List.of()))
+                        .orElseThrow();
+        // The platform facet reflects the window, never the active platform set, so an unselected
+        // platform present in the window stays available to add.
+        assertThat(result.platforms())
+                .extracting(ReleaseBrowseReadPort.Taxonomy::id)
+                .contains(PLATFORM_PLAYSTATION_5, PLATFORM_XBOX_SERIES);
+    }
+
+    @Test
+    void keepsASelectedValidRegionRepresentableEvenWithoutAReleaseInContext() {
+        // Japan has no PlayStation 5 recent release, but a selected valid region must remain
+        // representable so the visitor can remove it.
+        var result =
+                adapter.findPublishedReleases(
+                                multi(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        List.of(PLATFORM_PLAYSTATION_5),
+                                        List.of(REGION_JAPAN)))
+                        .orElseThrow();
+        assertThat(result.items()).isEmpty();
+        assertThat(result.regions())
+                .extracting(ReleaseBrowseReadPort.Taxonomy::id)
+                .contains(REGION_JAPAN);
+    }
+
+    @Test
+    void excludesUnknownUpcomingDatesFromEveryGameWhenPolicyRequiresKnownDates() {
         var result =
                 adapter.findPublishedReleases(
                                 criteria(
@@ -153,42 +252,47 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                                         false))
                         .orElseThrow();
 
-        assertThat(result.totalItems()).isEqualTo(7);
-        assertThat(result.items())
+        assertThat(result.totalItems()).isEqualTo(5);
+        assertThat(flatten(result))
+                .hasSize(7)
                 .allSatisfy(
-                        item ->
-                                assertThat(item.releaseDate())
+                        row ->
+                                assertThat(row.releaseDate())
                                         .isNotInstanceOf(ReleaseDate.Unknown.class));
         assertThat(result.items())
-                .extracting(ReleaseBrowseReadPort.Item::canonicalTitle)
+                .extracting(Item::canonicalTitle)
                 .containsExactly(
                         "Marvel's Wolverine",
                         "Crimson Desert",
-                        "Crimson Desert",
                         "Subnautica 2",
                         "Fable",
-                        "Subnautica 2",
                         "The Witcher IV");
     }
 
     @Test
-    void usesReleaseIdAsTheUniqueFinalTieBreakerAcrossPages() {
+    void ordersTiedReleasesOfOneGameByTheUniqueReleaseIdInsideItsGroup() {
         String firstRelease = "50000000-0000-4000-8000-000000000010";
         String secondRelease = "50000000-0000-4000-8000-000000000011";
         insertTiedRelease(firstRelease, "10000000-0000-4000-8000-000000000001");
         insertTiedRelease(secondRelease, "10000000-0000-4000-8000-000000000004");
         try {
-            ReleaseBrowseReadPort.Criteria firstPage =
-                    criteria(BrowseReleasesUseCase.View.UPCOMING, 1, 1);
-            ReleaseBrowseReadPort.Criteria secondPage =
-                    criteria(BrowseReleasesUseCase.View.UPCOMING, 2, 1);
+            var result =
+                    adapter.findPublishedReleases(
+                                    criteria(BrowseReleasesUseCase.View.UPCOMING, 1, 50))
+                            .orElseThrow();
 
-            assertThat(adapter.findPublishedReleases(firstPage).orElseThrow().items())
-                    .extracting(ReleaseBrowseReadPort.Item::releaseId)
-                    .containsExactly(firstRelease);
-            assertThat(adapter.findPublishedReleases(secondPage).orElseThrow().items())
-                    .extracting(ReleaseBrowseReadPort.Item::releaseId)
-                    .containsExactly(secondRelease);
+            // Both tied releases belong to game 001, so they group into one game.
+            Item deathStranding =
+                    result.items().stream()
+                            .filter(
+                                    item ->
+                                            item.gameId()
+                                                    .equals("30000000-0000-4000-8000-000000000001"))
+                            .findFirst()
+                            .orElseThrow();
+            List<String> ids =
+                    deathStranding.releases().stream().map(ReleaseRow::releaseId).toList();
+            assertThat(ids.indexOf(secondRelease)).isEqualTo(ids.indexOf(firstRelease) + 1);
         } finally {
             jdbcTemplate.update(
                     "DELETE FROM catalogue.release_snapshot WHERE release_id IN (?::uuid, ?::uuid)",
@@ -199,6 +303,130 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                     firstRelease,
                     secondRelease);
         }
+    }
+
+    @Test
+    void crossesFromUpcomingToRecentAsTheEvaluationDateAdvancesWithoutMutatingData() {
+        // One provider release with no negative signal and a fixed known date. Nothing about the
+        // row changes; only the trusted evaluation date (the window bounds) moves.
+        String releaseId = "50000000-0000-4000-8000-000000000020";
+        LocalDate date = LocalDate.of(2026, 6, 15);
+        jdbcTemplate.update(
+                "INSERT INTO catalogue.game_release (release_id, game_id, created_at) VALUES (?::uuid, '30000000-0000-4000-8000-000000000001', now())",
+                releaseId);
+        jdbcTemplate.update(
+                "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) VALUES ('00000000-0000-4000-8000-000000000001', ?::uuid, '30000000-0000-4000-8000-000000000001', ?::uuid, '20000000-0000-4000-8000-000000000002', 'day', ?, 'announced', 'product_curated', 'boundary test', 'release', now(), 'verified', 'not_required')",
+                releaseId,
+                PLATFORM_PLAYSTATION_5,
+                java.sql.Date.valueOf(date));
+        try {
+            LocalDate dayBefore = date.minusDays(1);
+            assertThat(releaseIds(BrowseReleasesUseCase.View.UPCOMING, dayBefore))
+                    .contains(releaseId);
+            assertThat(releaseIds(BrowseReleasesUseCase.View.RECENT, dayBefore))
+                    .doesNotContain(releaseId);
+
+            LocalDate dayAfter = date.plusDays(1);
+            assertThat(releaseIds(BrowseReleasesUseCase.View.RECENT, dayAfter)).contains(releaseId);
+            assertThat(releaseIds(BrowseReleasesUseCase.View.UPCOMING, dayAfter))
+                    .doesNotContain(releaseId);
+        } finally {
+            jdbcTemplate.update(
+                    "DELETE FROM catalogue.release_snapshot WHERE release_id = ?::uuid", releaseId);
+            jdbcTemplate.update(
+                    "DELETE FROM catalogue.game_release WHERE release_id = ?::uuid", releaseId);
+        }
+    }
+
+    @Test
+    void countsAndPagesGamesAfterApplyingTheWeeklyWindowInPostgreSql() {
+        String first = "50000000-0000-4000-8000-000000000030";
+        String second = "50000000-0000-4000-8000-000000000031";
+        for (String id : List.of(first, second)) {
+            jdbcTemplate.update(
+                    "INSERT INTO catalogue.game_release (release_id, game_id, created_at) VALUES (?::uuid, '30000000-0000-4000-8000-000000000001', now())",
+                    id);
+            jdbcTemplate.update(
+                    "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) VALUES ('00000000-0000-4000-8000-000000000001', ?::uuid, '30000000-0000-4000-8000-000000000001', ?::uuid, '20000000-0000-4000-8000-000000000002', 'day', ?::date, 'announced', 'product_curated', 'weekly test', 'release', now(), 'verified', 'not_required')",
+                    id,
+                    id.equals(first) ? PLATFORM_PLAYSTATION_5 : PLATFORM_XBOX_SERIES,
+                    id.equals(first) ? "2026-08-10" : "2026-08-12");
+        }
+        try {
+            var criteria =
+                    new ReleaseBrowseReadPort.Criteria(
+                            BrowseReleasesUseCase.View.RECENT,
+                            new ReleaseBrowseReadPort.Window(
+                                    LocalDate.of(2026, 8, 7), LocalDate.of(2026, 8, 13)),
+                            null,
+                            null,
+                            new ReleaseBrowseReadPort.Pagination(1, 1, 0),
+                            true,
+                            25);
+            var result = adapter.findPublishedReleases(criteria).orElseThrow();
+            assertThat(result.totalItems()).isEqualTo(1);
+            assertThat(result.items()).singleElement();
+            assertThat(result.items().getFirst().releases())
+                    .extracting(ReleaseRow::releaseId)
+                    .containsExactly(second, first);
+        } finally {
+            for (String id : List.of(first, second)) {
+                jdbcTemplate.update(
+                        "DELETE FROM catalogue.release_snapshot WHERE release_id = ?::uuid", id);
+                jdbcTemplate.update(
+                        "DELETE FROM catalogue.game_release WHERE release_id = ?::uuid", id);
+            }
+        }
+    }
+
+    private static List<ReleaseRow> flatten(ReleaseBrowseReadPort.Result result) {
+        return result.items().stream().flatMap(item -> item.releases().stream()).toList();
+    }
+
+    private static List<String> titles(ReleaseBrowseReadPort.Result result) {
+        return result.items().stream().map(Item::canonicalTitle).toList();
+    }
+
+    private static ReleaseBrowseReadPort.Criteria multi(
+            BrowseReleasesUseCase.View view, List<String> platformIds, List<String> regionIds) {
+        LocalDate from =
+                view == BrowseReleasesUseCase.View.RECENT
+                        ? LocalDate.of(2026, 2, 13)
+                        : LocalDate.of(2026, 8, 13);
+        LocalDate to =
+                view == BrowseReleasesUseCase.View.RECENT
+                        ? LocalDate.of(2026, 8, 13)
+                        : LocalDate.of(2027, 2, 13);
+        return new ReleaseBrowseReadPort.Criteria(
+                view,
+                new ReleaseBrowseReadPort.Window(from, to),
+                platformIds,
+                regionIds,
+                new ReleaseBrowseReadPort.Pagination(1, 20, 0),
+                true,
+                25);
+    }
+
+    private static List<String> releaseIds(BrowseReleasesUseCase.View view, LocalDate evaluatedOn) {
+        LocalDate from =
+                view == BrowseReleasesUseCase.View.RECENT
+                        ? evaluatedOn.minusMonths(6)
+                        : evaluatedOn;
+        LocalDate to =
+                view == BrowseReleasesUseCase.View.RECENT ? evaluatedOn : evaluatedOn.plusMonths(6);
+        var criteria =
+                new ReleaseBrowseReadPort.Criteria(
+                        view,
+                        new ReleaseBrowseReadPort.Window(from, to),
+                        null,
+                        null,
+                        new ReleaseBrowseReadPort.Pagination(1, 100, 0),
+                        true,
+                        25);
+        return adapter.findPublishedReleases(criteria).orElseThrow().items().stream()
+                .flatMap(item -> item.releases().stream())
+                .map(ReleaseRow::releaseId)
+                .toList();
     }
 
     @Test
@@ -285,10 +513,11 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
         return new ReleaseBrowseReadPort.Criteria(
                 view,
                 new ReleaseBrowseReadPort.Window(from, to),
-                platformId,
-                regionId,
+                platformId == null ? List.of() : List.of(platformId),
+                regionId == null ? List.of() : List.of(regionId),
                 new ReleaseBrowseReadPort.Pagination(page, pageSize, (long) (page - 1) * pageSize),
-                includeUnknownUpcomingDates);
+                includeUnknownUpcomingDates,
+                25);
     }
 
     private static Stream<Arguments> filterCombinations() {
@@ -299,12 +528,9 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         null,
                         List.of(
                                 "Pragmata",
-                                "Pragmata",
                                 "Crimson Desert",
                                 "Metroid Prime 4: Beyond",
-                                "Metroid Prime 4: Beyond",
                                 "Subnautica 2",
-                                "Resident Evil Requiem",
                                 "Resident Evil Requiem")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.RECENT,
@@ -343,11 +569,8 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                         List.of(
                                 "Marvel's Wolverine",
                                 "Crimson Desert",
-                                "Crimson Desert",
                                 "Subnautica 2",
                                 "Fable",
-                                "Subnautica 2",
-                                "The Witcher IV",
                                 "The Witcher IV")),
                 Arguments.of(
                         BrowseReleasesUseCase.View.UPCOMING,
@@ -385,7 +608,7 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                 "INSERT INTO catalogue.game_release (release_id, game_id, created_at) VALUES (?::uuid, '30000000-0000-4000-8000-000000000001', now())",
                 releaseId);
         jdbcTemplate.update(
-                "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) VALUES ('00000000-0000-4000-8000-000000000001', ?::uuid, '30000000-0000-4000-8000-000000000001', ?::uuid, '20000000-0000-4000-8000-000000000002', 'day', DATE '2026-08-14', 'scheduled', 'product_curated', 'tie test', 'release', now(), 'verified', 'not_required')",
+                "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) VALUES ('00000000-0000-4000-8000-000000000001', ?::uuid, '30000000-0000-4000-8000-000000000001', ?::uuid, '20000000-0000-4000-8000-000000000002', 'day', DATE '2026-08-14', 'announced', 'product_curated', 'tie test', 'release', now(), 'verified', 'not_required')",
                 releaseId,
                 platformId);
     }

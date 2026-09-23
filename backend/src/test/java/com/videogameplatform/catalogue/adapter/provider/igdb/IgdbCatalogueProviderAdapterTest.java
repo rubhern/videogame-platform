@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWork;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderFailureCode;
@@ -18,6 +20,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.DeserializationFeature;
@@ -86,7 +89,7 @@ class IgdbCatalogueProviderAdapterTest {
         assertThat(work.type()).isEqualTo(ProviderWorkType.MAIN_GAME);
         assertThat(work.releases())
                 .extracting(ProviderRelease::providerId)
-                .containsExactly("1", "2", "3", "4", "7", "8", "11");
+                .containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "11");
     }
 
     @Test
@@ -97,14 +100,14 @@ class IgdbCatalogueProviderAdapterTest {
                 .contains(
                         new ProviderRelease(
                                 "3",
-                                "xbox-series",
-                                "worldwide",
+                                new ProviderPlatform("169", "Xbox Series X|S", "series-x-s"),
+                                Optional.of(new ProviderRegion("8", "worldwide")),
                                 new ReleaseDate.Day(LocalDate.of(2026, 9, 30)),
                                 ProviderReleaseSignal.CANCELLED),
                         new ProviderRelease(
                                 "4",
-                                "nintendo-switch-2",
-                                "europe",
+                                new ProviderPlatform("508", "Nintendo Switch 2", "switch-2"),
+                                Optional.of(new ProviderRegion("1", "europe")),
                                 new ReleaseDate.Day(LocalDate.of(2026, 12, 1)),
                                 ProviderReleaseSignal.DELAYED));
     }
@@ -122,39 +125,60 @@ class IgdbCatalogueProviderAdapterTest {
                 .contains(
                         new ProviderRelease(
                                 "1",
-                                "playstation-5",
-                                "europe",
+                                new ProviderPlatform("167", "PlayStation 5", "ps5"),
+                                Optional.of(new ProviderRegion("1", "europe")),
                                 new ReleaseDate.Day(LocalDate.of(2025, 10, 2)),
                                 ProviderReleaseSignal.NONE),
                         new ProviderRelease(
                                 "2",
-                                "windows-pc",
-                                "worldwide",
+                                new ProviderPlatform("6", "PC (Microsoft Windows)", "win"),
+                                Optional.of(new ProviderRegion("8", "worldwide")),
                                 new ReleaseDate.Day(LocalDate.of(2025, 10, 1)),
                                 ProviderReleaseSignal.NONE));
     }
 
     @Test
-    void neverFoldsALegacyPcPlatformIntoTheModernWindowsPlatform() {
+    void keepsDistinctProviderPlatformsAsDistinctReferencesWithoutMerging() {
+        // A legacy PC platform (DOS, provider 13) and modern Windows (provider 6) are distinct
+        // provider entities. The adapter never merges them by name or slug: each release carries
+        // its
+        // own provider platform reference, and neither is dropped (#178 supersedes the old
+        // allowlist).
         ProviderWork work = fetchWorkFixture("game-response.json");
 
         assertThat(work.releases())
-                .filteredOn(release -> "windows-pc".equals(release.platformCode()))
-                .hasSize(2)
-                .allSatisfy(
-                        release -> assertThat(release.regionCode()).isIn("worldwide", "europe"));
-        assertThat(work.mappingFailures()).contains(ProviderMappingFailure.PLATFORM_NOT_SUPPORTED);
+                .filteredOn(release -> "6".equals(release.platform().providerId()))
+                .extracting(ProviderRelease::providerId)
+                .containsExactly("2", "8");
+        assertThat(work.releases())
+                .filteredOn(release -> "13".equals(release.platform().providerId()))
+                .singleElement()
+                .satisfies(
+                        release ->
+                                assertThat(release.platform())
+                                        .isEqualTo(new ProviderPlatform("13", "DOS", "dos")));
+    }
+
+    @Test
+    void resolvesAMissingReleaseRegionToTheUnknownSentinelWithoutAProviderReference() {
+        ProviderWork work = fetchWorkFixture("game-response.json");
+
+        assertThat(work.releases())
+                .filteredOn(release -> "11".equals(release.providerId()))
+                .singleElement()
+                .satisfies(release -> assertThat(release.region()).isEmpty());
     }
 
     @Test
     void isolatesUnmappableRecordsInsteadOfPublishingThem() {
         ProviderWork work = fetchWorkFixture("game-response.json");
 
-        assertThat(work.releases()).hasSize(7);
+        // Every platform with a provider id is acquirable now; only a missing platform reference
+        // and
+        // an unreadable date remain mapping failures.
+        assertThat(work.releases()).hasSize(9);
         assertThat(work.mappingFailures())
                 .containsExactlyInAnyOrder(
-                        ProviderMappingFailure.PLATFORM_NOT_SUPPORTED,
-                        ProviderMappingFailure.REGION_NOT_SUPPORTED,
                         ProviderMappingFailure.RECORD_UNREADABLE,
                         ProviderMappingFailure.RELEASE_DATE_INVALID);
     }
@@ -306,13 +330,6 @@ class IgdbCatalogueProviderAdapterTest {
                 IgdbApiSettings.MAX_REQUESTS_PER_SECOND,
                 1,
                 Duration.ofMillis(1),
-                25,
-                Map.of(
-                        "ps5", "playstation-5",
-                        "switch-2", "nintendo-switch-2",
-                        "win", "windows-pc",
-                        "series-x-s", "xbox-series"),
-                Map.of("worldwide", "worldwide", "europe", "europe"),
-                "unknown");
+                25);
     }
 }

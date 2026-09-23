@@ -9,8 +9,10 @@ import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase
 import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
 import com.videogameplatform.catalogue.domain.CatalogueSearchText;
+import com.videogameplatform.catalogue.domain.EffectiveReleaseStatusPolicy;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -53,16 +55,20 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
                                         searchText.tokens(),
                                         new GameSearchReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
-                                        searchPolicy.releaseContextLimit()))
+                                        searchPolicy.releaseContextLimit(),
+                                        CatalogueSearchPolicy.SUMMARY_PLATFORM_LIMIT))
                         .orElseThrow(CatalogueNotReadyException::new);
 
         long totalPages =
                 result.totalItems() / query.pageSize()
                         + (result.totalItems() % query.pageSize() == 0 ? 0 : 1);
 
+        LocalDate evaluatedOn = LocalDate.ofInstant(evaluatedAt, clock.getZone());
         return new SearchCatalogueResult(
                 result.publicationVersion(),
-                result.items().stream().map(item -> toItem(item, evaluatedAt)).toList(),
+                result.items().stream()
+                        .map(item -> toItem(item, evaluatedAt, evaluatedOn))
+                        .toList(),
                 new SearchCatalogueResult.PageMetadata(
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));
     }
@@ -85,7 +91,8 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
         return searchText;
     }
 
-    private SearchCatalogueResult.Item toItem(GameSearchReadPort.Item item, Instant evaluatedAt) {
+    private SearchCatalogueResult.Item toItem(
+            GameSearchReadPort.Item item, Instant evaluatedAt, LocalDate evaluatedOn) {
         List<SearchCatalogueResult.ReleaseContext> releaseContext =
                 item.releaseContext().stream()
                         .map(
@@ -99,7 +106,12 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
                                                         context.region().name()),
                                                 CatalogueReadMapping.toReleaseDate(
                                                         context.releaseDate()),
-                                                CatalogueReadMapping.toStatus(context.status()),
+                                                CatalogueReadMapping.toStatus(
+                                                        EffectiveReleaseStatusPolicy
+                                                                .effectiveStatus(
+                                                                        context.status(),
+                                                                        context.releaseDate(),
+                                                                        evaluatedOn)),
                                                 CatalogueReadMapping.toFreshness(
                                                         freshnessPolicy.status(
                                                                 context.lastSyncedAt(),
@@ -111,6 +123,21 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
                 item.canonicalTitle(),
                 item.matchedAlias(),
                 coverPolicy.resolve(item.cover()),
-                releaseContext);
+                releaseContext,
+                toReleaseSummary(item.releaseSummary()));
+    }
+
+    private static SearchCatalogueResult.ReleaseSummary toReleaseSummary(
+            GameSearchReadPort.ReleaseSummary summary) {
+        return new SearchCatalogueResult.ReleaseSummary(
+                summary.platforms().stream()
+                        .map(
+                                platform ->
+                                        new SearchCatalogueResult.Taxonomy(
+                                                platform.id(), platform.name()))
+                        .toList(),
+                summary.totalPlatforms(),
+                summary.earliestKnownYear(),
+                summary.latestKnownYear());
     }
 }

@@ -1,0 +1,16 @@
+# Isolated restore-rehearsal overrides.
+#
+# Applied on top of compose.yaml with a distinct COMPOSE_PROJECT_NAME so the rehearsal
+# gets its own Docker volumes and never touches the live private-dev state. Host port
+# publication is removed: the isolated stack is reached only through `docker compose
+# exec`, which also avoids clashing with the live loopback ports.
+#
+# restore-private-dev enforces the distinct project name and refuses the live one.
+
+services:
+  postgres:
+    ports: !reset []
+  keycloak:
+    ports: !reset []
+  application:
+    ports: !reset []
