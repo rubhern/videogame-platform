@@ -19,13 +19,21 @@ atomicity remains valuable; full in-memory materialization does not.
   adapter.
 - In one read-only `REPEATABLE READ` transaction, select the sole current publication
   and let PostgreSQL filter, count, deterministically order, `LIMIT` and `OFFSET`.
-- Materialize only `O(pageSize)` releases in Java.
+- Group the matching releases by game inside PostgreSQL before pagination (issue
+  [#175](https://github.com/rubhern/videogame-platform/issues/175)): a result is one game
+  carrying only the releases that match the requested view and active filters, each
+  release preserved independently. Count and page over games, so `totalItems` counts
+  games, and bound the releases grouped under one game with `catalogue.releases.release-group-limit`.
+- Materialize only `O(pageSize x releaseGroupLimit)` releases in Java.
 - Represent partial dates publicly as entered, while stored derived
   `period_start`/`period_end` columns support range queries without inventing dates.
 - Use evidence-backed partial GiST indexes for known recent/upcoming ranges and a
   partial index for the explicit unknown/TBA upcoming branch.
-- Order by effective period, lowercase canonical title, `gameId`, then unique
-  `releaseId`; unknown upcoming dates sort after known dates.
+- Order the releases within a game by effective period, lowercase canonical title,
+  `gameId`, then unique `releaseId`; unknown upcoming dates sort after known dates.
+  Position each game by its first matching release under that order, with `gameId` as
+  the final deterministic tie-breaker; do not introduce a second temporal-ordering
+  policy.
 - Keep normalized publication tables. Game/release snapshots belong to a publication;
   platform/region taxonomies remain stable global data. Hash the actual JSON for the
   ETag so label or evaluated-freshness changes invalidate it.
@@ -42,8 +50,9 @@ atomicity remains valuable; full in-memory materialization does not.
 ## Consequences
 
 Query behavior is bounded, deterministic, measurable and stateless. Exact counts and
-offsets still cost work in PostgreSQL, immutable publications duplicate snapshot rows
-and GiST adds migration/index storage.
+offsets still cost work in PostgreSQL and GiST adds migration/index storage.
+The historical immutable-publication storage assumption is replaced by current
+per-Game state in [ADR-0017](0017-discover-catalogue-members-automatically-from-igdb.md).
 
 ## Evidence and reconsideration triggers
 
@@ -54,6 +63,6 @@ matched 1,183 rows (about 1.4 ms count, 7.3 ms page) and upcoming matched 2,179 
 historical evidence, not portable latency gates.
 
 Revisit keyset pagination/count strategy for measured high-offset or count problems;
-retention before partitioning/copy-on-write for material snapshot cost; intermediary
+current-state/index storage for measured growth; intermediary
 caching for demonstrated public traffic; and replicas or another read store only for
 measured primary-load or query limitations.

@@ -12,11 +12,20 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Browse recent or upcoming releases
-         * @description Reads a bounded page from the last valid local catalogue publication. The application derives the
-         *     evaluation date and release window in `Europe/Madrid`. Empty, stale,
-         *     review-required, imprecise-date, TBA, and fallback-cover results are valid
-         *     states. PostgreSQL applies filters, total ordering, count, limit, and offset.
+         * Browse recent or upcoming releases grouped by game
+         * @description Reads a bounded page of games from the last valid local catalogue publication. Each
+         *     game appears once with only the releases that match the requested view and active
+         *     filters; `page.totalItems` counts games, not releases. Platform and region filters are
+         *     multi-select: values within one dimension combine with OR and the two dimensions combine
+         *     with AND. `availableFilters` is contextual and faceted: platform options reflect the
+         *     current view/window and the active region selection (never restricted by the active
+         *     platform set), region options reflect the current view/window and the active platform
+         *     selection (never restricted by the active region set), and a currently selected valid
+         *     value always stays representable. The application derives the evaluation date and the
+         *     selected bounded week window in `Europe/Madrid`. Empty, stale, review-required,
+         *     imprecise-date, TBA, and fallback-cover results are valid states. PostgreSQL groups by
+         *     game, applies filters, distinct facet discovery, total ordering, count, limit, and offset
+         *     before any release page reaches the application.
          */
         get: operations["listReleases"];
         put?: never;
@@ -39,6 +48,8 @@ export interface paths {
          * @description Searches canonical titles and approved aliases after trimming. Matching is
          *     case- and diacritic-insensitive, requires every token, and is non-fuzzy.
          *     It never calls a provider. Zero and multiple matches are valid outcomes.
+         *     Each result carries a bounded `releaseContext` sample and a separate
+         *     `releaseSummary` computed from every locally stored release of that game.
          */
         get: operations["searchGames"];
         put?: never;
@@ -110,7 +121,12 @@ export interface paths {
         };
         /**
          * Read, search, sort, and page Mis puntuaciones
-         * @description Applies current-user scope before search, sorting, counts, or pagination.
+         * @description Applies authenticated-current-user scope before search, sorting, counts, or
+         *     pagination. Only active game ratings are returned. Search uses the catalogue's
+         *     case- and diacritic-insensitive all-token word-prefix rules for canonical titles
+         *     and approved aliases. Every sort ends with gameId ascending as its unique
+         *     tie-breaker. Each item's entityTag is the current strong rating validator for
+         *     conditional update and delete; it is not a collection cache validator.
          */
         get: operations["listMyRatings"];
         put?: never;
@@ -291,24 +307,60 @@ export interface components {
             provenance: components["schemas"]["Provenance"];
         };
         GameSummaryText: components["schemas"]["EditorialSummary"] | components["schemas"]["SourcedSummary"];
+        /**
+         * @description Compact aggregate over every locally stored release of one game, independent of
+         *     the bounded `releaseContext` sample. `platforms` holds at most three distinct
+         *     platforms ordered by case-insensitive display name, then `platformId`;
+         *     `totalPlatforms` counts every distinct platform, so a consumer can render an
+         *     exact `+N` as `totalPlatforms` minus the returned platforms. The known years are
+         *     the calendar years represented by day, month, quarter, or year precision across
+         *     all releases, whatever their status. Both are omitted when every release date is
+         *     unknown; a year is never invented.
+         */
+        CompactReleaseSummary: {
+            platforms: components["schemas"]["Platform"][];
+            /** Format: int32 */
+            totalPlatforms: number;
+            /** Format: int32 */
+            earliestKnownYear?: number;
+            /** Format: int32 */
+            latestKnownYear?: number;
+        };
         GameSummary: {
             gameId: components["schemas"]["GameId"];
             slug: string;
             canonicalTitle: string;
             matchedAlias?: string;
             primaryCover: components["schemas"]["Cover"];
+            /**
+             * @description Bounded representative sample of the game's releases, ordered by release
+             *     period then `releaseId`. It is never the complete release set; use
+             *     `releaseSummary` for complete platform and year context.
+             */
             releaseContext: components["schemas"]["ReleaseSummary"][];
+            releaseSummary: components["schemas"]["CompactReleaseSummary"];
         };
+        /**
+         * @description One game and only the releases of that game that match the requested view and
+         *     active filters. Each release is preserved independently, so differing
+         *     platforms, regions, dates, and date precision stay visible. Releases are ordered
+         *     by the UC-001 release ordering, and the first release drives the game's position.
+         */
         ReleaseItem: {
             gameId: components["schemas"]["GameId"];
             slug: string;
             canonicalTitle: string;
             primaryCover: components["schemas"]["Cover"];
-            release: components["schemas"]["Release"];
+            releases: components["schemas"]["Release"][];
         };
+        /**
+         * @description The normalized, de-duplicated filter values applied to this response. An empty array means
+         *     no filter for that dimension (`Todas`), which is distinct from selecting a concrete region
+         *     such as `Worldwide`.
+         */
         ActiveFilters: {
-            platformId: components["schemas"]["PlatformId"] | null;
-            regionId: components["schemas"]["RegionId"] | null;
+            platformIds: components["schemas"]["PlatformId"][];
+            regionIds: components["schemas"]["RegionId"][];
         };
         AvailableFilters: {
             platforms: components["schemas"]["Platform"][];
@@ -420,7 +472,7 @@ export interface components {
             ratingStatistics: components["schemas"]["AvailableRatingStatistics"];
         };
         /** @enum {string} */
-        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "RATE_LIMIT_EXCEEDED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED";
+        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -457,7 +509,7 @@ export interface components {
             };
             content?: never;
         };
-        /** @description Request path, query, or JSON syntax cannot be parsed. */
+        /** @description Request path, query, header, or JSON syntax cannot be parsed. */
         MalformedRequest: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
@@ -656,18 +708,6 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description An edge abuse limit rejected the request. */
-        RateLimitExceeded: {
-            headers: {
-                "X-Correlation-ID": components["headers"]["XCorrelationId"];
-                "Cache-Control": components["headers"]["NoStoreCacheControl"];
-                "Retry-After": components["headers"]["RetryAfter"];
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
-        };
         /** @description No local snapshot is ready or local catalogue data cannot be read; no provider fallback call is made. */
         CatalogueUnavailable: {
             headers: {
@@ -733,10 +773,32 @@ export interface components {
         GameIdPath: components["schemas"]["GameId"];
         /** @example upcoming */
         ReleaseView: components["schemas"]["ReleaseView"];
-        /** @example platform_ps5 */
-        PlatformIdQuery: components["schemas"]["PlatformId"];
-        /** @example region_europe */
-        RegionIdQuery: components["schemas"]["RegionId"];
+        /**
+         * @description Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
+         * @example 2
+         */
+        ReleaseWeeks: 1 | 2 | 4;
+        /**
+         * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
+         *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
+         *     no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
+         * @example [
+         *       "platform_ps5",
+         *       "platform_switch"
+         *     ]
+         */
+        PlatformIdsQuery: components["schemas"]["PlatformId"][];
+        /**
+         * @description Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
+         *     combine with OR; the platform and region dimensions combine with AND. Omit it for no region
+         *     filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
+         *     and de-duplicated; an unknown value yields 422.
+         * @example [
+         *       "region_europe",
+         *       "region_worldwide"
+         *     ]
+         */
+        RegionIdsQuery: components["schemas"]["RegionId"][];
         /**
          * @description One-based page; a page beyond the last returns an empty page.
          * @example 1
@@ -832,10 +894,32 @@ export interface operations {
             query: {
                 /** @example upcoming */
                 view: components["parameters"]["ReleaseView"];
-                /** @example platform_ps5 */
-                platformId?: components["parameters"]["PlatformIdQuery"];
-                /** @example region_europe */
-                regionId?: components["parameters"]["RegionIdQuery"];
+                /**
+                 * @description Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
+                 * @example 2
+                 */
+                weeks?: components["parameters"]["ReleaseWeeks"];
+                /**
+                 * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
+                 *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
+                 *     no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "platform_ps5",
+                 *       "platform_switch"
+                 *     ]
+                 */
+                platformIds?: components["parameters"]["PlatformIdsQuery"];
+                /**
+                 * @description Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
+                 *     combine with OR; the platform and region dimensions combine with AND. Omit it for no region
+                 *     filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
+                 *     and de-duplicated; an unknown value yields 422.
+                 * @example [
+                 *       "region_europe",
+                 *       "region_worldwide"
+                 *     ]
+                 */
+                regionIds?: components["parameters"]["RegionIdsQuery"];
                 /**
                  * @description One-based page; a page beyond the last returns an empty page.
                  * @example 1
@@ -856,7 +940,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description A deterministic page of bounded-catalogue releases, possibly empty. */
+            /** @description A deterministic page of bounded-catalogue games with their matching releases, possibly empty. */
             200: {
                 headers: {
                     "X-Correlation-ID": components["headers"]["XCorrelationId"];
@@ -921,7 +1005,6 @@ export interface operations {
             400: components["responses"]["MalformedRequest"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["SearchValidationFailed"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -964,7 +1047,6 @@ export interface operations {
             404: components["responses"]["GameNotFound"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseReviewBlocked"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["GameReadFailed"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -990,7 +1072,6 @@ export interface operations {
                 };
             };
             406: components["responses"]["NotAcceptable"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -1020,7 +1101,6 @@ export interface operations {
             };
             403: components["responses"]["CsrfValidationFailed"];
             406: components["responses"]["NotAcceptable"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -1064,7 +1144,6 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["PersonalRatingsValidationFailed"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["PersonalRatingsReadFailed"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -1099,7 +1178,6 @@ export interface operations {
             401: components["responses"]["AuthenticationRequired"];
             404: components["responses"]["RatingNotFound"];
             406: components["responses"]["NotAcceptable"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -1173,7 +1251,6 @@ export interface operations {
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["RatingValidationFailed"];
             428: components["responses"]["PreconditionRequired"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["RatingWriteFailed"];
             503: components["responses"]["CatalogueUnavailable"];
         };
@@ -1219,7 +1296,6 @@ export interface operations {
             406: components["responses"]["NotAcceptable"];
             412: components["responses"]["RatingWriteConflict"];
             428: components["responses"]["PreconditionRequired"];
-            429: components["responses"]["RateLimitExceeded"];
             500: components["responses"]["RatingWriteFailed"];
         };
     };

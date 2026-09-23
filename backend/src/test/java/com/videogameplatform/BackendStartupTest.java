@@ -3,6 +3,8 @@ package com.videogameplatform;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.sdk.resources.Resource;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -26,7 +28,11 @@ import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "management.server.port=0")
+        properties = {
+            "management.server.port=0",
+            "TELEMETRY_DEPLOYMENT_ENVIRONMENT=integration-test",
+            "TELEMETRY_SERVICE_VERSION=43.0.0-test"
+        })
 @ActiveProfiles("structured")
 @ExtendWith(OutputCaptureExtension.class)
 class BackendStartupTest {
@@ -40,6 +46,8 @@ class BackendStartupTest {
     @LocalManagementPort private int managementPort;
 
     @Autowired private BuildProperties buildProperties;
+
+    @Autowired private Resource openTelemetryResource;
 
     @Value("${management.tracing.sampling.probability}")
     private double tracingSamplingProbability;
@@ -62,6 +70,12 @@ class BackendStartupTest {
             throws IOException, InterruptedException {
         assertThat(Runtime.version().feature()).isEqualTo(25);
         assertThat(tracingSamplingProbability).isEqualTo(1.0);
+        assertThat(
+                        openTelemetryResource.getAttribute(
+                                AttributeKey.stringKey("deployment.environment.name")))
+                .isEqualTo("integration-test");
+        assertThat(openTelemetryResource.getAttribute(AttributeKey.stringKey("service.version")))
+                .isEqualTo("43.0.0-test");
 
         String samplingCorrelationId = "baseline-sampling-check";
         var sampledProductRequest = get("/api/v1/session", samplingCorrelationId);

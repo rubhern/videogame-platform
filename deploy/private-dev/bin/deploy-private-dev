@@ -1,0 +1,381 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+compose_file="$repository_root/deploy/private-dev/compose.yaml"
+expected_image_repository="ghcr.io/rubhern/videogame-platform"
+expected_source_url="https://github.com/rubhern/videogame-platform"
+expected_target="vgpdev"
+lock_file="/run/lock/videogame-platform-dev-deployment.lock"
+default_evidence_directory="/var/lib/videogame-platform/dev/deployment-evidence"
+runtime_validator="$repository_root/scripts/validate-private-dev-runtime.sh"
+
+runtime_env=""
+application_image=""
+source_revision=""
+initiator=""
+evidence_directory="$default_evidence_directory"
+
+usage() {
+  cat <<'EOF'
+Usage: deploy-private-dev \
+  --env-file <protected-runtime.env> \
+  --image <ghcr.io/rubhern/videogame-platform@sha256:...> \
+  --source-revision <full-40-character-commit-sha> \
+  --initiator <owner-identifier> \
+  [--evidence-directory <absolute-directory>]
+
+This is the owner-triggered private-dev deployment boundary. It never selects an
+image: both the immutable digest and its expected source revision are mandatory.
+EOF
+}
+
+fail() {
+  printf '%s\n' "$1" >&2
+  return 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || fail "Required command is unavailable: $1"
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --env-file)
+      runtime_env="${2:-}"
+      shift 2
+      ;;
+    --image)
+      application_image="${2:-}"
+      shift 2
+      ;;
+    --source-revision)
+      source_revision="${2:-}"
+      shift 2
+      ;;
+    --initiator)
+      initiator="${2:-}"
+      shift 2
+      ;;
+    --evidence-directory)
+      evidence_directory="${2:-}"
+      shift 2
+      ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    *)
+      printf 'Unknown argument: %s\n' "$1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+[[ -n "$runtime_env" && -n "$application_image" && -n "$source_revision" && -n "$initiator" ]] || {
+  usage >&2
+  exit 2
+}
+
+for command_name in awk date docker flock hostname mktemp python3 realpath; do
+  require_command "$command_name"
+done
+
+[[ "$application_image" =~ ^${expected_image_repository}@sha256:[0-9a-f]{64}$ ]] ||
+  fail "--image must be the approved GHCR repository followed by an immutable sha256 digest."
+[[ "$source_revision" =~ ^[0-9a-f]{40}$ ]] ||
+  fail "--source-revision must be a full lowercase 40-character Git commit SHA."
+[[ "$initiator" =~ ^[A-Za-z0-9._@-]{1,100}$ ]] ||
+  fail "--initiator must contain only letters, numbers, dot, underscore, at-sign or hyphen."
+
+runtime_env="$(realpath -- "$runtime_env")"
+[[ -f "$runtime_env" ]] || fail "Runtime environment file does not exist: $runtime_env"
+[[ "$evidence_directory" == /* && -d "$evidence_directory" && -w "$evidence_directory" ]] ||
+  fail "Deployment evidence directory must already exist, be absolute and be writable: $evidence_directory"
+evidence_directory="$(realpath -- "$evidence_directory")"
+[[ "$evidence_directory" != / ]] || fail "Refusing to use the filesystem root as the evidence directory."
+
+actual_target="$(hostname --short)"
+[[ "$actual_target" == "$expected_target" ]] ||
+  fail "Refusing private-dev deployment on host '$actual_target'; expected '$expected_target'."
+
+exec 9>"$lock_file"
+flock --nonblock 9 || fail "Another private-dev deployment already holds $lock_file."
+
+umask 0027
+deployment_started_at="$(date --utc +%Y-%m-%dT%H:%M:%SZ)"
+deployment_id="$(date --utc +%Y%m%dT%H%M%S%NZ)-${source_revision:0:12}"
+evidence_path="$evidence_directory/$deployment_id.json"
+[[ ! -e "$evidence_path" ]] || fail "Deployment evidence already exists: $evidence_path"
+temporary_directory="$(mktemp -d)"
+evidence_temporary="$evidence_directory/.${deployment_id}.json.tmp"
+phase="preflight"
+outcome="in_progress"
+application_version=""
+migration_version=""
+candidate_container_id=""
+smoke_checks=""
+
+write_evidence() {
+  DEPLOYMENT_ID="$deployment_id" \
+  DEPLOYMENT_STARTED_AT="$deployment_started_at" \
+  DEPLOYMENT_FINISHED_AT="${deployment_finished_at:-}" \
+  DEPLOYMENT_SOURCE_REVISION="$source_revision" \
+  DEPLOYMENT_IMAGE="$application_image" \
+  DEPLOYMENT_APPLICATION_VERSION="$application_version" \
+  DEPLOYMENT_MIGRATION_VERSION="$migration_version" \
+  DEPLOYMENT_INITIATOR="$initiator" \
+  DEPLOYMENT_OUTCOME="$outcome" \
+  DEPLOYMENT_PHASE="$phase" \
+  DEPLOYMENT_CONTAINER_ID="$candidate_container_id" \
+  DEPLOYMENT_SMOKE_CHECKS="$smoke_checks" \
+    python3 - "$evidence_temporary" <<'PY'
+import json
+import os
+import pathlib
+import sys
+
+def optional(name):
+    value = os.environ[name]
+    return value if value else None
+
+record = {
+    "deploymentId": os.environ["DEPLOYMENT_ID"],
+    "environment": "dev",
+    "target": "vgpdev",
+    "startedAt": os.environ["DEPLOYMENT_STARTED_AT"],
+    "finishedAt": optional("DEPLOYMENT_FINISHED_AT"),
+    "sourceRevision": os.environ["DEPLOYMENT_SOURCE_REVISION"],
+    "image": os.environ["DEPLOYMENT_IMAGE"],
+    "applicationVersion": optional("DEPLOYMENT_APPLICATION_VERSION"),
+    "migrationVersion": optional("DEPLOYMENT_MIGRATION_VERSION"),
+    "initiator": os.environ["DEPLOYMENT_INITIATOR"],
+    "outcome": os.environ["DEPLOYMENT_OUTCOME"],
+    "phase": os.environ["DEPLOYMENT_PHASE"],
+    "candidateContainerId": optional("DEPLOYMENT_CONTAINER_ID"),
+    "smokeChecks": [
+        value for value in os.environ["DEPLOYMENT_SMOKE_CHECKS"].split(",") if value
+    ],
+}
+pathlib.Path(sys.argv[1]).write_text(
+    json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+)
+PY
+  mv -- "$evidence_temporary" "$evidence_path"
+}
+
+finish() {
+  local exit_code=$?
+  trap - EXIT
+  deployment_finished_at="$(date --utc +%Y-%m-%dT%H:%M:%SZ)"
+  if ((exit_code == 0)); then
+    outcome="success"
+    phase="complete"
+  else
+    outcome="failure"
+  fi
+  if ! write_evidence; then
+    exit_code=1
+    phase="evidence-recording"
+    outcome="failure"
+    write_evidence || printf 'Could not finalize deployment evidence at %s.\n' "$evidence_path" >&2
+  fi
+  rm -rf -- "$temporary_directory"
+  if ((exit_code == 0)); then
+    printf 'Private-dev deployment succeeded. Evidence: %s\n' "$evidence_path"
+  else
+    printf 'Private-dev deployment failed during %s. Evidence: %s\n' "$phase" "$evidence_path" >&2
+  fi
+  exit "$exit_code"
+}
+trap finish EXIT
+
+write_evidence
+
+export APPLICATION_IMAGE="$application_image"
+export SOURCE_REVISION="$source_revision"
+export APPLICATION_VERSION="deployment-preflight"
+export SMOKE_CORRELATION_ID="deployment-smoke-preflight"
+export SMOKE_TRACE_ID="00000000000000000000000000000001"
+compose=(
+  docker compose
+  --env-file "$runtime_env"
+  --file "$compose_file"
+  --profile application
+  --profile deployment
+)
+
+phase="target-and-runtime-preflight"
+docker info >/dev/null
+bash "$runtime_validator" --env-file "$runtime_env"
+rendered_config="$temporary_directory/compose.json"
+"${compose[@]}" config --format json >"$rendered_config"
+python3 - "$rendered_config" <<'PY'
+import json
+import pathlib
+import sys
+from urllib.parse import urlparse
+
+
+def require(condition, invariant):
+    if not condition:
+        print(f"Private-dev deployment preflight invariant failed: {invariant}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+def parse_private_https_origin(value, label, expected_port):
+    try:
+        parsed = urlparse(value)
+        port = parsed.port
+    except ValueError as error:
+        require(False, f"{label} has an invalid port: {error}")
+    require(parsed.scheme == "https", f"{label} must use HTTPS: {value!r}")
+    require(parsed.username is None and parsed.password is None, f"{label} must not include user info")
+    require(parsed.hostname is not None and parsed.hostname.startswith("vgpdev."), (
+        f"{label} must use the private vgpdev.* hostname: {value!r}"
+    ))
+    require(parsed.path == "" and parsed.params == "" and parsed.query == "" and parsed.fragment == "", (
+        f"{label} must be an origin without a path, query or fragment: {value!r}"
+    ))
+    port_description = "the default HTTPS port 443 without an explicit port" if expected_port is None else f"port {expected_port}"
+    require(port == expected_port, f"{label} must use {port_description}: {value!r}")
+    return parsed
+
+config = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+smoke = config["services"]["deployment-smoke"]
+application_origin = parse_private_https_origin(
+    smoke["environment"]["PRIVATE_DEV_APPLICATION_ORIGIN"],
+    "PRIVATE_DEV_APPLICATION_ORIGIN",
+    None,
+)
+keycloak_origin = parse_private_https_origin(
+    smoke["environment"]["PRIVATE_DEV_KEYCLOAK_ORIGIN"],
+    "PRIVATE_DEV_KEYCLOAK_ORIGIN",
+    8443,
+)
+require(
+    keycloak_origin.hostname == application_origin.hostname,
+    "Keycloak and application origins must use the same private hostname",
+)
+for secret_name in ("oidc_smoke_username", "oidc_smoke_password"):
+    source = pathlib.Path(config["secrets"][secret_name]["file"])
+    assert source.is_file() and source.stat().st_size > 0, f"required smoke credential is absent: {source}"
+PY
+
+for service_name in postgres keycloak telemetry; do
+  container_id="$("${compose[@]}" ps --quiet "$service_name")"
+  [[ -n "$container_id" ]] || fail "Required private-dev service is not created: $service_name"
+  [[ "$(docker inspect --format '{{.State.Status}}' "$container_id")" == running ]] ||
+    fail "Required private-dev service is not running: $service_name"
+  health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id")"
+  [[ -z "$health" || "$health" == healthy ]] ||
+    fail "Required private-dev service is not healthy: $service_name ($health)"
+done
+
+phase="immutable-image-verification"
+source_tag="$expected_image_repository:$source_revision"
+tag_inspection="$(docker buildx imagetools inspect "$source_tag")"
+published_digest="$(sed -n 's/^Digest:[[:space:]]*//p' <<<"$tag_inspection" | head -n 1)"
+[[ "$published_digest" =~ ^sha256:[0-9a-f]{64}$ ]] ||
+  fail "The explicit source revision has no valid published GHCR digest: $source_tag"
+[[ "$application_image" == "$expected_image_repository@$published_digest" ]] ||
+  fail "Approved image digest does not match the image published for source revision $source_revision."
+grep -q 'linux/amd64' <<<"$tag_inspection" ||
+  fail "The approved image does not publish the linux/amd64 platform required by vgpdev."
+
+docker pull "$application_image" >/dev/null
+docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$application_image" |
+  grep --fixed-strings --line-regexp --quiet "$application_image" ||
+  fail "The pulled local image does not retain the approved repository digest."
+revision_label="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$application_image")"
+application_version="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$application_image")"
+source_label="$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.source"}}' "$application_image")"
+[[ "$revision_label" == "$source_revision" ]] || fail "OCI source revision label does not match the approved revision."
+[[ "$source_label" == "$expected_source_url" ]] || fail "OCI source label does not match the approved repository."
+[[ "$application_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] ||
+  fail "OCI application version label is absent or invalid: $application_version"
+candidate_image_id="$(docker image inspect --format '{{.Id}}' "$application_image")"
+write_evidence
+
+export APPLICATION_VERSION="$application_version"
+export SMOKE_CORRELATION_ID="dev-deploy-${deployment_id:0:15}-${source_revision:0:12}"
+SMOKE_TRACE_ID="$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
+export SMOKE_TRACE_ID
+
+phase="smoke-runner-build"
+"${compose[@]}" build --pull deployment-smoke
+
+phase="database-migration"
+if ! migration_output="$("${compose[@]}" run --rm --no-deps migration 2>&1)"; then
+  printf '%s\n' "$migration_output" >&2
+  fail "The dedicated Flyway migration actor failed; application activation was not attempted."
+fi
+printf '%s\n' "$migration_output"
+migration_version="$(sed -n 's/.*VGP_MIGRATION_VERSION=//p' <<<"$migration_output" | tail -n 1)"
+[[ "$migration_version" =~ ^[0-9]+(\.[0-9]+)*$ ]] ||
+  fail "The migration actor did not report a valid current migration version."
+write_evidence
+
+phase="application-activation"
+"${compose[@]}" up \
+  --detach \
+  --force-recreate \
+  --no-deps \
+  --wait \
+  --wait-timeout 180 \
+  application
+candidate_container_id="$("${compose[@]}" ps --quiet application)"
+[[ -n "$candidate_container_id" ]] || fail "Compose did not identify the activated application container."
+[[ "$(docker inspect --format '{{.Image}}' "$candidate_container_id")" == "$candidate_image_id" ]] ||
+  fail "The activated application container does not use the approved local image."
+write_evidence
+
+phase="deployment-smoke"
+telemetry_trace_batches_before="$(
+  "${compose[@]}" logs --no-color --no-log-prefix --since "$deployment_started_at" telemetry |
+    awk '/"otelcol.signal": "traces"/ { count += 1 } END { print count + 0 }'
+)"
+"${compose[@]}" run --rm --no-deps deployment-smoke
+
+application_log_file="$temporary_directory/application.log"
+"${compose[@]}" logs --no-color --no-log-prefix --since "$deployment_started_at" application >"$application_log_file"
+python3 - "$SMOKE_CORRELATION_ID" "$SMOKE_TRACE_ID" "$application_log_file" <<'PY'
+import json
+import pathlib
+import sys
+
+correlation_id = sys.argv[1]
+trace_id = sys.argv[2]
+for line in pathlib.Path(sys.argv[3]).read_text(encoding="utf-8").splitlines():
+    try:
+        event = json.loads(line)
+    except json.JSONDecodeError:
+        continue
+    if event.get("correlationId") == correlation_id:
+        assert event.get("traceId") == trace_id, "smoke trace identifier did not propagate"
+        assert event.get("spanId"), "smoke access log omitted its span identifier"
+        break
+else:
+    raise SystemExit("candidate application logs omitted the smoke correlation evidence")
+PY
+
+collector_received_trace=false
+for _ in {1..20}; do
+  telemetry_logs="$("${compose[@]}" logs --no-color --no-log-prefix --since "$deployment_started_at" telemetry)"
+  telemetry_trace_batches_after="$(
+    awk '/"otelcol.signal": "traces"/ { count += 1 } END { print count + 0 }' <<<"$telemetry_logs"
+  )"
+  if ((telemetry_trace_batches_after > telemetry_trace_batches_before)) &&
+      grep -q '"resource spans":' <<<"$telemetry_logs"; then
+    collector_received_trace=true
+    break
+  fi
+  sleep 1
+done
+[[ "$collector_received_trace" == true ]] ||
+  fail "The collector did not record trace receipt from the candidate deployment."
+
+smoke_checks="liveness,readiness,version-metadata,releases-api,browser-shell,oidc-bff-session,diagnostic-metrics,trace-correlation,collector-trace-receipt"
+write_evidence

@@ -8,11 +8,11 @@ for solution architecture and technical leadership.
 
 ## Current phase
 
-Product alignment, Phase 1 solution definition, and the walking-skeleton compatibility
-gate are closed. Implementation is active in the private-platform and first-journey
-sequence. Preserve the approved MVP, domain, application, solution, platform,
-technology, API, delivery, and diagram decisions while completing the smallest
-executable vertical slices.
+The learning MVP is implemented, accepted in private `dev`, and tagged `v0.1.0`.
+Current work is post-MVP evolution and maintenance tracked in GitHub Issues. Preserve
+the approved MVP, domain, application, solution, platform, technology, API, delivery,
+and diagram decisions; a change to any of them needs an explicit owner decision and
+the matching ADR or record update.
 
 The repository uses one Java/Spring modular monolith, PostgreSQL with SQL-first Flyway
 migrations, a same-origin React frontend and BFF/API boundary, Keycloak for initial
@@ -56,28 +56,13 @@ evidence, decisions, assumptions, and proposals.
 
 ## Documentation governance
 
-`docs/README.md` owns the ownership rules and the maintenance procedure. Apply them;
-do not restate them elsewhere.
-
-The constraints that must hold in every change:
-
-- Identify the single canonical owner before writing. Update that owner and replace
-  any secondary explanation with a link plus the local context that document needs.
-- Executable sources own executable facts. OpenAPI owns HTTP shapes, Flyway SQL owns
-  the schema, Maven and npm manifests own exact versions, and scripts, Compose,
-  Dockerfiles, configuration, and workflows own their mechanics. Prose explains
-  intent, policy, prerequisites, failure behaviour, or a stable entry point.
-- Label current implementation, approved future behaviour, and historical evidence
-  explicitly rather than presenting them as one current state.
-- Update contracts, migrations, configuration, and documentation atomically, and
-  delete the text the change made obsolete.
-- A new document needs a distinct long-lived responsibility, an intended consumer, a
-  canonical owner, and a reason it cannot fit in an existing source. Prefer deleting,
-  merging, or linking over adding another partial authority.
-- Preserve durable constraints, invariant identifiers, evidence limitations, accepted
-  owner exceptions, and decision-reopening conditions.
-- After moving or deleting a file, update every inbound link, index, script, and
-  workflow, then run `bash scripts/validate-docs.sh`.
+`docs/README.md` owns the ownership map and the maintenance rules, and
+`.claude/rules/documentation-ownership.md` restates them as hard constraints. Apply
+them; do not restate them elsewhere. In every change: update the single canonical
+owner and link from elsewhere, let executable sources own executable facts, label
+implemented, approved-future, and historical content explicitly, change contracts,
+migrations, configuration, and documentation atomically, delete obsolete text, and
+run `bash scripts/validate-docs.sh` after moving, deleting, or relinking a file.
 
 ## Instruction and skill precedence
 
@@ -101,6 +86,13 @@ authority over a repository decision.
   architecture, follow the repository and report the conflict.
 - Never change an approved architecture decision because an external skill recommends
   another practice.
+
+## Frontend visual authority
+
+Before any frontend screen or component work, read and follow the mandatory rules in
+[Frontend design guidelines](docs/development/frontend-design.md). That guide is the
+single canonical owner of visual rules; link to it rather than restating them in
+agent instructions, skills, or feature documentation.
 
 ## Skills
 

@@ -20,6 +20,26 @@ public sealed interface ReleaseDate
 
     LocalDate periodEnd();
 
+    /**
+     * Whether the represented period has already elapsed at a trusted evaluation date (REL-011),
+     * derived purely from the date and its precision.
+     *
+     * <p>An exact day counts on the day itself; a month, quarter or year only once the whole period
+     * has ended; an unknown date can never be decided by time alone.
+     */
+    default boolean hasOccurredBy(LocalDate evaluationDate) {
+        if (evaluationDate == null) {
+            throw new IllegalArgumentException("A trusted evaluation date is required");
+        }
+        LocalDate end = periodEnd();
+        if (end == null) {
+            return false;
+        }
+        return precision() == Precision.DAY
+                ? !evaluationDate.isBefore(end)
+                : evaluationDate.isAfter(end);
+    }
+
     private static void requireFourDigitYear(int year) {
         if (year < 1 || year > 9999) {
             throw new IllegalArgumentException("A release date year must be between 1 and 9999");

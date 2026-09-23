@@ -2,7 +2,7 @@
 
 ARG NODE_IMAGE=node:24.19.0-bookworm-slim@sha256:3638d9a6fe4030bd716be989438248074489337ba3275657f93595428be4fc03
 ARG JDK_IMAGE=eclipse-temurin:25.0.4_7-jdk-noble@sha256:534968c051301957beae735e7ba1db54d99ddecf08746d3b9d4f318cc132dbc3
-ARG JRE_IMAGE=eclipse-temurin:25.0.4_7-jre-alpine-3.22@sha256:824157b4a5a674632b3464eea9cc47beaf73629c727ec676b400292fe391b471
+ARG JRE_IMAGE=eclipse-temurin:25.0.4_7-jre-alpine-3.23@sha256:f8b38ad02cacf5a1618a329dd22915fb1e2f2914fe6242e6daaf5cc7d22d6677
 
 FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS frontend-build
 

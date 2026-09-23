@@ -57,7 +57,6 @@ categories=(
   identity
   provider_fixtures
   container
-  infrastructure
   build
   ci
   dependencies
@@ -130,10 +129,6 @@ for path in "${changed_paths[@]}"; do
       enable container build frontend backend
       matched=true
       ;;
-    infrastructure/terraform/* | scripts/collect-oci-free-tier-evidence.py | scripts/review-oci-terraform-plan.py | scripts/test-oci-terraform-plan-gate.py | scripts/validate-terraform.sh)
-      enable documentation infrastructure
-      matched=true
-      ;;
     scripts/package-application.sh | scripts/validate-browser.sh)
       enable build frontend browser backend container
       matched=true
@@ -142,12 +137,17 @@ for path in "${changed_paths[@]}"; do
       enable identity browser backend
       matched=true
       ;;
+    backend/src/main/resources/db/dev-seed/*)
+      # The packaged browser journey asserts the demonstration catalogue it browses.
+      enable migrations backend browser
+      matched=true
+      ;;
     scripts/validate-migrations.sh | docker/postgres/* | backend/src/main/resources/db/*)
       enable migrations backend
       matched=true
       ;;
-    scripts/validate-topology-budget.sh)
-      enable documentation container build
+    scripts/validate-private-dev-runtime.sh | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | deploy/private-dev/*)
+      enable documentation build backend migrations identity container
       matched=true
       ;;
     scripts/backend-artifact.sh)
@@ -188,6 +188,11 @@ for path in "${changed_paths[@]}"; do
       ;;
     frontend/src/*.test.ts | frontend/src/*.test.tsx | frontend/src/test/*)
       enable frontend codeql_javascript
+      matched=true
+      ;;
+    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts)
+      # These journeys run only inside the real Keycloak identity gate.
+      enable frontend browser identity codeql_javascript
       matched=true
       ;;
     frontend/src/* | frontend/public/* | frontend/tests/*)

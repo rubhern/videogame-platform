@@ -34,7 +34,6 @@
       "Bash(bash scripts/validate-browser.sh:*)",
       "Bash(bash scripts/validate-identity.sh:*)",
       "Bash(bash scripts/validate-container-image.sh:*)",
-      "Bash(bash scripts/validate-topology-budget.sh:*)",
       "Bash(bash scripts/validate-prerequisites.sh:*)",
       "Bash(bash scripts/test-ci-change-detection.sh:*)",
       "Bash(bash scripts/detect-ci-changes.sh:*)",

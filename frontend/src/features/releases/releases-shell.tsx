@@ -1,76 +1,218 @@
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
-import type { ReleaseListItem } from "./releases-view-model";
+import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
+import { ReleaseCard } from "./release-card";
+import { ReleasesFilters } from "./releases-filters";
+import { ReleasesPagination } from "./releases-pagination";
+import { ReleasesWeeks } from "./releases-weeks";
+import { hasActiveFilters, releasesSearchPath, type ReleasesSearch } from "./releases-search";
+import { releaseViewTitle, type ReleasesViewModel } from "./releases-view-model";
+import { ReleasesViewNav } from "./releases-view-nav";
 
 export type ReleasesShellState =
   | { status: "loading" }
-  | { status: "success"; items: readonly ReleaseListItem[] }
-  | { status: "empty" }
-  | { status: "error"; message: string };
+  | {
+      status: "ready";
+      model: ReleasesViewModel;
+      isRefreshing: boolean;
+      isPlaceholderData: boolean;
+    }
+  | { status: "catalogue-not-ready" }
+  | { status: "unsupported-filters"; message: string }
+  | { status: "error"; message: string; correlationId: string | null };
 
 type ReleasesShellProps = {
+  search: ReleasesSearch;
   state: ReleasesShellState;
+  onRetry: () => void;
 };
 
-export function ReleasesShell({ state }: ReleasesShellProps) {
+function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string {
+  if (isRefreshing) {
+    return "Actualizando lanzamientos…";
+  }
+  const { totalItems, number, totalPages } = model.page;
+  const count = totalItems === 1 ? "1 juego" : `${totalItems} juegos`;
+  if (totalPages > 0 && number > totalPages) {
+    return `${count} · La página ${number} ya no está disponible`;
+  }
+  return totalPages > 0 ? `${count} · Página ${number} de ${totalPages}` : count;
+}
+
+function LoadingFilters() {
   return (
-    <section aria-labelledby="releases-title" className="mx-auto max-w-5xl px-5 py-12 sm:px-8">
-      <p className="text-sm font-semibold uppercase tracking-widest text-cyan-300">
-        Descubrimiento de lanzamientos
-      </p>
-      <h1 id="releases-title" className="mt-3 text-4xl font-bold tracking-tight text-white">
-        Lanzamientos recientes
-      </h1>
-      <p className="mt-4 max-w-2xl text-slate-300">
-        Una muestra mínima del catálogo local, servida por la API de producto.
-      </p>
+    <div className="release-filters release-filters-selects" aria-hidden="true">
+      <div className="release-select-row">
+        <span className="release-select-skeleton" />
+        <span className="release-select-skeleton" />
+      </div>
+    </div>
+  );
+}
 
-      <div className="mt-10">
-        {state.status === "loading" ? (
-          <p aria-live="polite" role="status" className="text-slate-200">
-            Cargando lanzamientos…
-          </p>
-        ) : null}
+export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
+  const resultsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const previousPage = useRef(search.page);
 
-        {state.status === "empty" ? (
-          <p aria-live="polite" role="status" className="rounded-lg border border-slate-700 p-5">
-            No hay lanzamientos recientes en este momento.
-          </p>
-        ) : null}
+  useEffect(() => {
+    if (previousPage.current === search.page) {
+      return;
+    }
+    previousPage.current = search.page;
+    resultsHeadingRef.current?.focus();
+  }, [search.page]);
 
-        {state.status === "error" ? (
-          <div role="alert" className="rounded-lg border border-red-400/60 bg-red-950/30 p-5">
-            <h2 className="font-semibold text-red-200">No se pudieron cargar los lanzamientos</h2>
-            <p className="mt-2 text-red-100">{state.message}</p>
+  const model = state.status === "ready" ? state.model : null;
+  const isTransitioning = state.status === "ready" && state.isPlaceholderData;
+  const isBeyondLastPage =
+    model !== null &&
+    model.page.totalItems > 0 &&
+    model.page.totalPages > 0 &&
+    model.page.number > model.page.totalPages;
+  return (
+    <section aria-labelledby="releases-title" className="releases-page">
+      <div className="page-container releases-section">
+        <div className="releases-heading">
+          <div>
+            <div className="releases-kicker-row">
+              <p className="eyebrow eyebrow-dot">
+                {search.view === "recent" ? "Ya disponibles" : "En calendario"}
+              </p>
+              {model !== null && !isTransitioning ? (
+                <p className="release-period">
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+                    <rect x="2.5" y="4.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M6 2.5v4M14 2.5v4M2.5 8.5h15" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                  </svg>
+                  <span className="release-period-full">{model.windowDescription}</span>
+                  <span className="release-period-compact">{model.compactWindowDescription}</span>
+                </p>
+              ) : null}
+            </div>
+            <h1 className="page-title" id="releases-title">
+              {releaseViewTitle(search.view)}
+            </h1>
+          </div>
+        </div>
+
+        <div className="releases-toolbar">
+          <ReleasesWeeks search={search} />
+          {model === null ? <LoadingFilters /> : <ReleasesFilters platforms={model.platforms} regions={model.regions} search={search} />}
+        </div>
+
+        <h2 className="sr-only" ref={resultsHeadingRef} tabIndex={-1}>
+          Resultados
+        </h2>
+
+        {state.status === "loading" ? <CatalogueLoading message="Cargando lanzamientos…" /> : null}
+
+        {state.status === "catalogue-not-ready" ? (
+          <div className="notice notice-info" role="status">
+            <span className="notice-symbol" aria-hidden="true">
+              ◷
+            </span>
+            <p className="notice-kicker">Catálogo en preparación</p>
+            <h3>El catálogo todavía no está disponible</h3>
+            <p>
+              Aún no hay una publicación local válida del catálogo. No se consulta ningún proveedor
+              externo para completarla.
+            </p>
+            <button className="button" onClick={onRetry} type="button">
+              Reintentar
+            </button>
+            <p className="notice-footnote">La búsqueda de juegos sigue disponible</p>
           </div>
         ) : null}
 
-        {state.status === "success" ? (
-          <ul aria-label="Lanzamientos recientes" className="grid gap-5">
-            {state.items.map((item) => (
-              <li key={item.releaseId}>
-                <article className="rounded-xl border border-slate-700 bg-slate-900 p-5">
-                  <h2 className="text-2xl font-semibold text-white">{item.title}</h2>
-                  <p className="mt-2 text-lg text-cyan-200">{item.date}</p>
-                  <p className="mt-1 text-sm text-slate-300">
-                    {item.platform} · {item.region}
-                  </p>
-                  <p className="mt-3 text-sm text-slate-400">Fuente: {item.provenance}</p>
-                  <p className="mt-1 text-sm text-amber-200">{item.freshness}</p>
-                  {item.review === null ? null : (
-                    <p className="mt-1 text-sm text-amber-200">{item.review}</p>
-                  )}
-                  <Link
-                    className="mt-5 inline-flex min-h-11 items-center rounded-lg bg-cyan-300 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-200"
-                    to={`/games/${item.slug}`}
-                  >
-                    Ver {item.title}
-                  </Link>
-                </article>
-              </li>
-            ))}
-          </ul>
+        {state.status === "unsupported-filters" ? (
+          <div className="notice notice-warning" role="alert">
+            <span className="notice-symbol notice-symbol-warning" aria-hidden="true">
+              !
+            </span>
+            <p className="notice-kicker">Revisa la selección</p>
+            <h3>Filtro no admitido</h3>
+            <p>{state.message}</p>
+            <Link
+              className="button button-primary"
+              to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
+            >
+              Quitar filtros
+            </Link>
+          </div>
         ) : null}
+
+        {state.status === "error" ? (
+          <div className="notice notice-danger" role="alert">
+            <span className="notice-symbol notice-symbol-danger" aria-hidden="true">
+              ×
+            </span>
+            <p className="notice-kicker">Error de carga</p>
+            <h3>No se pudieron cargar los lanzamientos</h3>
+            <p>{state.message}</p>
+            <button className="button button-danger" onClick={onRetry} type="button">
+              Reintentar
+            </button>
+            {state.correlationId === null ? null : (
+              <p className="notice-reference">Referencia para soporte: {state.correlationId}</p>
+            )}
+          </div>
+        ) : null}
+
+        {state.status === "ready" && state.isPlaceholderData ? (
+          <CatalogueLoading message="Cargando lanzamientos para la nueva selección…" />
+        ) : null}
+
+        {state.status === "ready" && !state.isPlaceholderData ? (
+          <>
+            {state.model.items.length === 0 ? (
+              <div className="notice notice-empty" role="status">
+                <span className="notice-symbol" aria-hidden="true">
+                  ⌕
+                </span>
+                <p className="notice-kicker">Sin resultados</p>
+                <h3>
+                  {isBeyondLastPage
+                    ? "Esta página ya no está disponible"
+                    : "Sin lanzamientos para esta selección"}
+                </h3>
+                <p>
+                  {isBeyondLastPage
+                    ? "La página solicitada ya no está disponible para estos resultados."
+                    : "Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."}
+                </p>
+                {hasActiveFilters(search) && state.model.page.totalItems === 0 ? (
+                  <Link
+                    className="button button-primary"
+                    to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
+                  >
+                    Quitar filtros
+                  </Link>
+                ) : null}
+              </div>
+            ) : (
+              <ul aria-label={releaseViewTitle(state.model.view)} className="release-grid">
+                {state.model.items.map((item) => (
+                  <li className="min-w-0" key={item.gameId}>
+                    <ReleaseCard item={item} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : null}
+
+        <div className="releases-footer">
+          {state.status === "ready" && !state.isPlaceholderData ? (
+            <>
+              <p className="result-count" role="status">
+                {resultsSummary(state.model, state.isRefreshing)}
+              </p>
+              <ReleasesPagination page={state.model.page} search={search} showPosition={false} />
+            </>
+          ) : null}
+          <ReleasesViewNav search={search} />
+        </div>
       </div>
     </section>
   );

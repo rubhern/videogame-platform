@@ -15,7 +15,8 @@ public record CatalogueFreshnessPolicy(Duration threshold) {
         }
     }
 
-    FreshnessStatus status(Instant lastSynchronizedAt, Instant evaluatedAt) {
+    /** Shared by every catalogue read; the type stays application-internal. */
+    public FreshnessStatus status(Instant lastSynchronizedAt, Instant evaluatedAt) {
         return lastSynchronizedAt.plus(threshold).isBefore(evaluatedAt)
                 ? FreshnessStatus.STALE
                 : FreshnessStatus.FRESH;

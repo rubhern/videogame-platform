@@ -3,7 +3,7 @@ package com.videogameplatform.catalogue.configuration;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.videogameplatform.catalogue.application.port.ReleaseBrowseReadPort;
+import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import java.time.Duration;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
@@ -30,9 +30,9 @@ class CataloguePersistenceConfigurationTest {
     void configuresAnIsolatedBoundedJdbcClientAndReadTransaction() {
         contextRunner.run(
                 context -> {
-                    CataloguePersistenceConfiguration.ReleaseBrowseExecution execution =
+                    CataloguePersistenceConfiguration.CatalogueReadExecution execution =
                             context.getBean(
-                                    CataloguePersistenceConfiguration.ReleaseBrowseExecution.class);
+                                    CataloguePersistenceConfiguration.CatalogueReadExecution.class);
                     NamedParameterJdbcTemplate catalogueJdbc = execution.jdbcOperations();
                     JdbcTemplate sharedJdbc = context.getBean("jdbcTemplate", JdbcTemplate.class);
                     TransactionTemplate readTransaction = execution.readTransaction();

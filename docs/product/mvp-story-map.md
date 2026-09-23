@@ -10,7 +10,7 @@ architecture source.
 
 | Activity | User outcome | MVP capability |
 |---|---|---|
-| Discover | Find a relevant recent/upcoming release | Bounded catalogue, platform/region filters, title/alias search, explicit empty/boundary states |
+| Discover | Find a relevant recent/upcoming release | Provider-synchronized catalogue, platform/region filters, title/alias search, explicit empty/boundary states |
 | Evaluate | Understand the correct game and release | Game page, provider-independent identity, date precision, provenance, freshness/review state, attributed cover/fallback |
 | Rate | Record one personal score after release | Inline 1–10 selector, authentication on confirmation, replay-safe return, create/update/delete, distinct aggregate/personal context |
 | Return | Find and maintain the rating | Authenticated `Mis puntuaciones`, search, sort, game navigation, edit, delete |
@@ -32,10 +32,9 @@ architecture source.
 - The complete slice includes relevant tests, security, observability, and operational
   evidence.
 
-The accepted synthetic round reached 4/5 unaided and the focused regression resolved
-the blocking rating-state inconsistency. This closes the internal journey gate but
-does not validate demand or real-user behaviour. See the
-[prototype](clickable-prototype.md) and [synthesis](../research/simulated-round-synthesis.md).
+The journey gate evidence and its limits are recorded in the
+[synthesis](../research/simulated-round-synthesis.md); it does not validate demand or
+real-user behaviour.
 
 Anything outside the [Product Brief](product-brief.md) MVP boundary remains deferred,
 even if it appeared in the original vision or synthetic feedback.

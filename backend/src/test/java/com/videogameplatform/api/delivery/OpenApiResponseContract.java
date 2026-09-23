@@ -25,29 +25,38 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 /** Focused runtime-response conformance checks backed by the reviewed OpenAPI source. */
-final class OpenApiResponseContract {
+public final class OpenApiResponseContract {
 
-    private static final String RELEASES_PATH = "/releases";
-    private static final String RELEASES_METHOD = "get";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final Map<String, Object> contract;
+    private final String path;
+    private final String operationMethod;
 
-    private OpenApiResponseContract(Map<String, Object> contract) {
+    private OpenApiResponseContract(
+            Map<String, Object> contract, String path, String operationMethod) {
         this.contract = contract;
+        this.path = path;
+        this.operationMethod = operationMethod;
     }
 
-    static OpenApiResponseContract load() {
+    /** Loads the reviewed contract for one operation so assertions cannot drift from it. */
+    public static OpenApiResponseContract load(String path) {
+        return load(path, "get");
+    }
+
+    public static OpenApiResponseContract load(String path, String operationMethod) {
         Path source = findContractSource();
         try (InputStream input = Files.newInputStream(source)) {
-            return new OpenApiResponseContract(asMap(new Yaml().load(input), "OpenAPI root"));
+            return new OpenApiResponseContract(
+                    asMap(new Yaml().load(input), "OpenAPI root"), path, operationMethod);
         } catch (IOException exception) {
             throw new IllegalStateException(
                     "Cannot read reviewed OpenAPI source " + source, exception);
         }
     }
 
-    void assertJsonResponse(
+    public void assertJsonResponse(
             HttpResponse<String> response, int expectedStatus, String expectedSchemaName) {
         assertJsonResponse(
                 response.statusCode(),
@@ -57,7 +66,7 @@ final class OpenApiResponseContract {
                 expectedSchemaName);
     }
 
-    void assertJsonResponse(
+    public void assertJsonResponse(
             MockHttpServletResponse response, int expectedStatus, String expectedSchemaName) {
         assertJsonResponse(
                 response.getStatus(),
@@ -88,7 +97,7 @@ final class OpenApiResponseContract {
         validate(OBJECT_MAPPER.readTree(body), schema, "$response");
     }
 
-    void assertEmptyResponse(HttpResponse<String> response, int expectedStatus) {
+    public void assertEmptyResponse(HttpResponse<String> response, int expectedStatus) {
         assertThat(response.statusCode()).isEqualTo(expectedStatus);
         assertThat(response.body()).isEmpty();
         Map<String, Object> specification = responseSpecification(expectedStatus);
@@ -98,8 +107,10 @@ final class OpenApiResponseContract {
 
     private Map<String, Object> responseSpecification(int status) {
         Map<String, Object> paths = asMap(contract.get("paths"), "paths");
-        Map<String, Object> path = asMap(paths.get(RELEASES_PATH), RELEASES_PATH);
-        Map<String, Object> operation = asMap(path.get(RELEASES_METHOD), "GET " + RELEASES_PATH);
+        Map<String, Object> operation =
+                asMap(
+                        asMap(paths.get(path), path).get(operationMethod),
+                        operationMethod.toUpperCase(java.util.Locale.ROOT) + " " + path);
         Map<String, Object> responses = asMap(operation.get("responses"), "responses");
         Map<String, Object> response =
                 asMap(responses.get(Integer.toString(status)), "response " + status);
