@@ -253,6 +253,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Validate private-dev topology and bounded synthetic OTLP receipt
+        run: |
+          bash scripts/validate-private-dev-runtime.sh
+          bash scripts/validate-private-dev-runtime.sh --telemetry-smoke
+
       - name: Set up pinned ARM64 emulation
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
         with:
@@ -267,10 +272,8 @@ jobs:
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
           cache-binary: false
 
-      - name: Verify dependency platforms and the OCI resource budget
-        run: |
-          bash scripts/local-dependencies.sh verify-images
-          bash scripts/validate-topology-budget.sh
+      - name: Verify dependency platforms
+        run: bash scripts/local-dependencies.sh verify-images
 
       - name: Build, inspect, run and scan both application platforms
         env:

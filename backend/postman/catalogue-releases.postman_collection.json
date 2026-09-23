@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "8403481b-23f0-42ba-a97b-1c47ae012f32",
     "name": "VideoGame Platform Backend - Catalogue Releases",
-    "description": "Executable examples for the OpenAPI 1.2.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI 3.0.0 GET /api/v1/releases contract implemented through the Maven-generated ReleasesApi interface and a bounded PostgreSQL page query grouped by game. Each item is one game with its matching releases, and pagination counts games. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -28,14 +28,20 @@
               "    const body = pm.response.json();",
               "    pm.expect(body.view).to.eql(\"recent\");",
               "    pm.expect(body).to.have.all.keys(\"view\", \"evaluatedOn\", \"window\", \"activeFilters\", \"availableFilters\", \"items\", \"page\");",
+              "    pm.expect((Date.parse(body.window.to) - Date.parse(body.window.from)) / 86400000).to.eql(6);",
               "    pm.expect(body.page.number).to.eql(1);",
               "    pm.expect(body.page.size).to.eql(20);",
               "    pm.expect(body.page.totalItems).to.be.a(\"number\").and.at.least(0);",
               "    pm.expect(body.page.totalPages).to.be.a(\"number\").and.at.least(0);",
               "    body.items.forEach(function (item) {",
-              "        pm.expect(item.release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"lastSyncedAt\", \"verificationLevel\", \"reviewStatus\", \"freshnessStatus\");",
-              "        pm.expect([\"day\", \"month\", \"quarter\", \"year\", \"unknown\"]).to.include(item.release.releaseDate.precision);",
-              "        pm.expect([\"fresh\", \"stale\"]).to.include(item.release.freshnessStatus);",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"releases\");",
+              "        pm.expect(item.releases).to.be.an(\"array\").and.not.empty;",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release).to.include.all.keys(\"releaseId\", \"gameId\", \"releaseDate\", \"provenance\", \"lastSyncedAt\", \"verificationLevel\", \"reviewStatus\", \"freshnessStatus\");",
+              "            pm.expect(release.gameId).to.eql(item.gameId);",
+              "            pm.expect([\"day\", \"month\", \"quarter\", \"year\", \"unknown\"]).to.include(release.releaseDate.precision);",
+              "            pm.expect([\"fresh\", \"stale\"]).to.include(release.freshnessStatus);",
+              "        });",
               "    });",
               "});",
               "",
@@ -167,11 +173,12 @@
               "    pm.response.to.have.status(200);",
               "});",
               "",
-              "pm.test(\"Active filters are echoed without changing available taxonomies\", function () {",
+              "pm.test(\"Multi-select filters combine OR within a dimension and AND across dimensions\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(body.view).to.eql(\"upcoming\");",
-              "    pm.expect(body.activeFilters.platformId).to.eql(\"10000000-0000-4000-8000-000000000004\");",
-              "    pm.expect(body.activeFilters.regionId).to.eql(\"20000000-0000-4000-8000-000000000001\");",
+              "    pm.expect((Date.parse(body.window.to) - Date.parse(body.window.from)) / 86400000).to.eql(14);",
+              "    pm.expect(body.activeFilters.platformIds).to.include.members([\"10000000-0000-4000-8000-000000000004\", \"10000000-0000-4000-8000-000000000001\"]);",
+              "    pm.expect(body.activeFilters.regionIds).to.include.members([\"20000000-0000-4000-8000-000000000001\"]);",
               "    pm.expect(body.availableFilters.platforms).to.be.an(\"array\").and.not.empty;",
               "    pm.expect(body.availableFilters.regions).to.be.an(\"array\").and.not.empty;",
               "});"
@@ -191,7 +198,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&platformId=10000000-0000-4000-8000-000000000004&regionId=20000000-0000-4000-8000-000000000001",
+          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&platformIds=10000000-0000-4000-8000-000000000004&platformIds=10000000-0000-4000-8000-000000000001&regionIds=20000000-0000-4000-8000-000000000001&weeks=2",
           "host": [
             "{{baseUrl}}"
           ],
@@ -206,16 +213,24 @@
               "value": "upcoming"
             },
             {
-              "key": "platformId",
+              "key": "platformIds",
               "value": "10000000-0000-4000-8000-000000000004"
             },
             {
-              "key": "regionId",
+              "key": "platformIds",
+              "value": "10000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "regionIds",
               "value": "20000000-0000-4000-8000-000000000001"
+            },
+            {
+              "key": "weeks",
+              "value": "2"
             }
           ]
         },
-        "description": "Uses stable product-owned IDs from the deterministic local seed, never provider IDs."
+        "description": "Multi-select faceted filter: two platforms (OR) intersected (AND) with the concrete Worldwide region. Uses stable product-owned IDs from the deterministic local seed, never provider IDs. Worldwide is a real region, distinct from omitting the dimension (Todas)."
       },
       "response": []
     },
@@ -235,7 +250,7 @@
               "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
               "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
               "    pm.expect(body.code).to.eql(\"PLATFORM_NOT_SUPPORTED\");",
-              "    pm.expect(body.correlationId).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "});"
             ],
             "type": "text/javascript",
@@ -253,7 +268,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/releases?view=recent&platformId=unsupported-platform",
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&platformIds=unsupported-platform",
           "host": [
             "{{baseUrl}}"
           ],
@@ -268,12 +283,12 @@
               "value": "recent"
             },
             {
-              "key": "platformId",
+              "key": "platformIds",
               "value": "unsupported-platform"
             }
           ]
         },
-        "description": "Demonstrates the stable product validation error for an identifier outside the local taxonomy."
+        "description": "Demonstrates the stable product validation error when any selected value is outside the local taxonomy."
       },
       "response": []
     },
@@ -291,6 +306,7 @@
               "pm.test(\"Stable pagination code and violation are returned\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(body.code).to.eql(\"PAGINATION_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/pageSize\");",
               "});"
             ],
@@ -334,6 +350,63 @@
       "response": []
     },
     {
+      "name": "Unsupported week horizon",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/weeks\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&weeks=3",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "weeks",
+              "value": "3"
+            }
+          ]
+        },
+        "description": "Demonstrates one-based bounded pagination validation."
+      },
+      "response": []
+    },
+    {
       "name": "Unknown query parameter",
       "event": [
         {
@@ -347,6 +420,7 @@
               "pm.test(\"Shared strict-query convention returns a stable error\", function () {",
               "    const body = pm.response.json();",
               "    pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/unbounded\");",
               "});"
             ],
@@ -386,6 +460,163 @@
           ]
         },
         "description": "Proves the central API convention rejects parameters outside the endpoint policy instead of ignoring them."
+      },
+      "response": []
+    },
+    {
+      "name": "Malformed conditional validator is ignored",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Malformed If-None-Match does not produce a false 304\", function () {",
+              "    pm.response.to.have.status(200);",
+              "    pm.expect(pm.response.json().view).to.eql(\"recent\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"releaseEtag\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "\"unterminated, W/{{releaseEtag}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&page=1&pageSize=20",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "page",
+              "value": "1"
+            },
+            {
+              "key": "pageSize",
+              "value": "20"
+            }
+          ]
+        },
+        "description": "A syntactically invalid multi-value validator is ignored instead of being split into a false matching tag. Run after Recent releases."
+      },
+      "response": []
+    },
+    {
+      "name": "Missing required release view",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Missing view returns contracted 400 Problem Details\", function () {",
+              "    pm.response.to.have.status(400);",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(body.code).to.eql(\"REQUEST_MALFORMED\");",
+              "    pm.expect(body.status).to.eql(400);",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ]
+        },
+        "description": "Proves that the required OpenAPI view parameter is enforced at the real HTTP boundary."
+      },
+      "response": []
+    },
+    {
+      "name": "Unsupported release representation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Unsupported Accept returns contracted 406 Problem Details\", function () {",
+              "    pm.response.to.have.status(406);",
+              "    const body = pm.response.json();",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(body.code).to.eql(\"REPRESENTATION_NOT_ACCEPTABLE\");",
+              "    pm.expect(body.status).to.eql(406);",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/xml",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            }
+          ]
+        },
+        "description": "Proves representation negotiation returns stable RFC 9457 Problem Details."
       },
       "response": []
     }

@@ -3,7 +3,7 @@
   "displayName": "VideoGame Platform",
   "enabled": true,
   "sslRequired": "external",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "resetPasswordAllowed": false,
   "rememberMe": false,
   "loginWithEmailAllowed": false,
@@ -12,11 +12,24 @@
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "subComponents": {},
+        "config": {
+          "kc.user.profile.config": [
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}}},{\"name\":\"email\",\"displayName\":\"${email}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"email\":{},\"length\":{\"max\":255}}},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}}},{\"name\":\"vgpDeploymentSmoke\",\"displayName\":\"Deployment smoke ownership marker\",\"multivalued\":false,\"permissions\":{\"view\":[\"admin\"],\"edit\":[\"admin\"]},\"validations\":{\"length\":{\"min\":4,\"max\":4}}}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+          ]
+        }
+      }
+    ]
+  },
   "clients": [
     {
       "clientId": "videogame-platform-bff",
       "name": "VideoGame Platform BFF",
-      "description": "Confidential local BFF client for the learning MVP.",
+      "description": "Confidential BFF client for the learning MVP.",
       "enabled": true,
       "protocol": "openid-connect",
       "clientAuthenticatorType": "client-secret",
@@ -29,41 +42,21 @@
       "authorizationServicesEnabled": false,
       "frontchannelLogout": true,
       "fullScopeAllowed": false,
-      "rootUrl": "http://localhost:8080",
+      "rootUrl": "${APPLICATION_PUBLIC_ORIGIN}",
       "baseUrl": "/",
       "redirectUris": [
-        "http://localhost:8080/login/oauth2/code/keycloak",
-        "http://application:8080/login/oauth2/code/keycloak"
+        "${APPLICATION_PUBLIC_ORIGIN}/login/oauth2/code/keycloak"
       ],
       "webOrigins": [
-        "http://localhost:8080",
-        "http://application:8080"
+        "${APPLICATION_PUBLIC_ORIGIN}"
       ],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:8080/##http://application:8080/",
+        "post.logout.redirect.uris": "${APPLICATION_PUBLIC_ORIGIN}/",
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.session.required": "true",
         "backchannel.logout.revoke.offline.tokens": "false"
       }
-    }
-  ],
-  "users": [
-    {
-      "username": "${LOCAL_TEST_USER_USERNAME}",
-      "enabled": true,
-      "firstName": "Local",
-      "lastName": "User",
-      "email": "local-user@localhost.invalid",
-      "emailVerified": true,
-      "requiredActions": [],
-      "credentials": [
-        {
-          "type": "password",
-          "value": "${LOCAL_TEST_USER_PASSWORD}",
-          "temporary": false
-        }
-      ]
     }
   ]
 }

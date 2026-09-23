@@ -1,9 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" role="img" aria-labelledby="title description">
-  <title id="title">Portada no disponible</title>
-  <desc id="description">Imagen de reemplazo de VideoGame Platform</desc>
-  <rect width="600" height="800" fill="#0f172a"/>
-  <path d="M170 260h260v280H170z" fill="#1e293b" stroke="#67e8f9" stroke-width="12"/>
-  <path d="m220 470 70-80 55 55 35-40 50 65" fill="none" stroke="#67e8f9" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/>
-  <circle cx="365" cy="335" r="28" fill="#67e8f9"/>
-  <text x="300" y="620" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="28" text-anchor="middle">VideoGame Platform</text>
+  <title id="title">Carátula no disponible</title>
+  <desc id="description">Marcador editorial de VideoGame Platform para un juego sin carátula oficial.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#243d73"/>
+      <stop offset=".52" stop-color="#64558d"/>
+      <stop offset="1" stop-color="#b06b75"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(452 180) rotate(124) scale(430 360)">
+      <stop stop-color="#f0c48a" stop-opacity=".72"/>
+      <stop offset="1" stop-color="#f0c48a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency=".75" numOctaves="3" seed="8" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="mono"/>
+      <feComponentTransfer in="mono"><feFuncA type="table" tableValues="0 .08"/></feComponentTransfer>
+    </filter>
+  </defs>
+  <rect width="600" height="800" fill="url(#background)"/>
+  <rect width="600" height="800" fill="url(#glow)"/>
+  <circle cx="82" cy="154" r="245" fill="#0f1317" opacity=".28"/>
+  <path d="M-28 538 194 286l196 224 105-121 146 167v278H-28Z" fill="#10151b" opacity=".5"/>
+  <path d="m127 158 173-86 173 86v197L300 442 127 355Z" fill="none" stroke="#e9eef3" stroke-opacity=".3" stroke-width="2"/>
+  <path d="M256 217h88l31 36v64c0 15-12 27-27 27h-96c-15 0-27-12-27-27v-64l31-36Z" fill="#0f1317" fill-opacity=".42" stroke="#e9eef3" stroke-width="8" stroke-linejoin="round"/>
+  <circle cx="272" cy="278" r="9" fill="#e9eef3"/>
+  <path d="M327 268v20m-10-10h20" stroke="#e9eef3" stroke-width="8" stroke-linecap="round"/>
+  <rect y="580" width="600" height="220" fill="#0f1317" fill-opacity=".84"/>
+  <path d="M58 630h33l11-13h27l11 13h33v30H58Z" fill="none" stroke="#8fa9e6" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="88" cy="645" r="4" fill="#8fa9e6"/>
+  <path d="M139 639v12m-6-6h12" stroke="#8fa9e6" stroke-width="4" stroke-linecap="round"/>
+  <text x="58" y="700" fill="#e9eef3" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="2">VIDEO GAME PLATFORM</text>
+  <text x="58" y="738" fill="#b8c2cc" font-family="Arial, sans-serif" font-size="16" letter-spacing="3">CARÁTULA NO DISPONIBLE</text>
+  <rect width="600" height="800" filter="url(#grain)" opacity=".55"/>
 </svg>

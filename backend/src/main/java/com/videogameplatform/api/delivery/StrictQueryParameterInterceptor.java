@@ -1,67 +1,138 @@
 package com.videogameplatform.api.delivery;
 
+import com.videogameplatform.api.generated.CatalogueApi;
+import com.videogameplatform.api.generated.RatingsApi;
+import com.videogameplatform.api.generated.ReleasesApi;
+import com.videogameplatform.api.generated.model.ProblemCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.Map;
+import jakarta.validation.constraints.Min;
+import java.util.Arrays;
 import java.util.Set;
+import java.util.stream.Collectors;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 
-/** Central enforcement of the API convention that query parameters are closed. */
+/**
+ * Central enforcement of the API convention that query parameters are closed.
+ */
 @Component
 final class StrictQueryParameterInterceptor implements HandlerInterceptor {
 
-    private static final Map<String, ParameterPolicy> POLICIES =
-            Map.of(
-                    "/api/v1/releases",
-                    new ParameterPolicy(
-                            Set.of("view", "platformId", "regionId", "page", "pageSize"),
-                            Set.of("page", "pageSize")));
-
-    private final ReleaseApiMetrics metrics;
-
-    StrictQueryParameterInterceptor(ReleaseApiMetrics metrics) {
-        this.metrics = metrics;
-    }
+    private static final String SEARCH_PARAMETER = "q";
 
     @Override
     public boolean preHandle(
             HttpServletRequest request, HttpServletResponse response, Object handler) {
-        if (!HttpMethod.GET.matches(request.getMethod())) {
+        if (!HttpMethod.GET.matches(request.getMethod())
+                || !(handler instanceof HandlerMethod method)
+                || !isClosedQueryOperation(method)) {
             return true;
         }
-        ParameterPolicy policy = POLICIES.get(request.getRequestURI());
-        if (policy == null) {
-            return true;
-        }
+        Set<QueryParameter> parameters = queryParameters(method);
+        Set<String> allowed =
+                parameters.stream()
+                        .map(QueryParameter::name)
+                        .collect(Collectors.toUnmodifiableSet());
 
         String unknown =
                 request.getParameterMap().keySet().stream()
-                        .filter(name -> !policy.allowed().contains(name))
+                        .filter(name -> !allowed.contains(name))
                         .sorted()
                         .findFirst()
                         .orElse(null);
         if (unknown != null) {
             ApiRequestException exception =
-                    new ApiRequestException("REQUEST_PARAMETER_UNKNOWN", "/query/" + unknown);
-            metrics.validationFailure(request.getParameter("view"), exception);
+                    new ApiRequestException(
+                            ProblemCode.REQUEST_PARAMETER_UNKNOWN, "/query/" + unknown);
             throw exception;
         }
-        for (String name : policy.allowed()) {
-            String[] values = request.getParameterValues(name);
-            if (values != null && values.length > 1) {
-                String code =
-                        policy.pagination().contains(name)
-                                ? "PAGINATION_INVALID"
-                                : "FILTER_INVALID";
-                ApiRequestException exception = new ApiRequestException(code, "/query/" + name);
-                metrics.validationFailure(request.getParameter("view"), exception);
+        for (QueryParameter parameter : parameters) {
+            String[] values = request.getParameterValues(parameter.name());
+            if (values != null
+                    && values[0].isBlank()
+                    && com.videogameplatform.api.generated.RatingsApi.class.isAssignableFrom(
+                            method.getBeanType())) {
+                throw new ApiRequestException(
+                        repeatedParameterCode(parameter), "/query/" + parameter.name());
+            }
+            if (values != null && values.length > 1 && !parameter.multiValued()) {
+                ApiRequestException exception =
+                        new ApiRequestException(
+                                repeatedParameterCode(parameter), "/query/" + parameter.name());
+                throw exception;
+            }
+            if (values != null
+                    && !parameter.acceptedValues().isEmpty()
+                    && !parameter.acceptedValues().contains(values[0])) {
+                ApiRequestException exception =
+                        new ApiRequestException(
+                                ProblemCode.FILTER_INVALID, "/query/" + parameter.name());
                 throw exception;
             }
         }
         return true;
     }
 
-    private record ParameterPolicy(Set<String> allowed, Set<String> pagination) {}
+    /** The public catalogue reads declare a closed query; other operations are unaffected. */
+    private static boolean isClosedQueryOperation(HandlerMethod method) {
+        Class<?> beanType = method.getBeanType();
+        return ReleasesApi.class.isAssignableFrom(beanType)
+                || CatalogueApi.class.isAssignableFrom(beanType)
+                || RatingsApi.class.isAssignableFrom(beanType);
+    }
+
+    private static Set<QueryParameter> queryParameters(HandlerMethod method) {
+        return Arrays.stream(method.getMethodParameters())
+                .map(StrictQueryParameterInterceptor::queryParameter)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** A repeated value is reported against the parameter it actually belongs to. */
+    private static ProblemCode repeatedParameterCode(QueryParameter parameter) {
+        if (parameter.pagination()) {
+            return ProblemCode.PAGINATION_INVALID;
+        }
+        if (Set.of("sort", "direction").contains(parameter.name())) return ProblemCode.SORT_INVALID;
+        return SEARCH_PARAMETER.equals(parameter.name())
+                ? ProblemCode.SEARCH_QUERY_INVALID
+                : ProblemCode.FILTER_INVALID;
+    }
+
+    private static QueryParameter queryParameter(MethodParameter parameter) {
+        RequestParam annotation = parameter.getParameterAnnotation(RequestParam.class);
+        if (annotation == null) {
+            return null;
+        }
+        String name = annotation.name().isBlank() ? annotation.value() : annotation.name();
+        // A collection-typed parameter (an OpenAPI array such as platformIds/regionIds)
+        // legitimately
+        // repeats; scalar parameters stay single-valued and reject repetition.
+        boolean multiValued =
+                java.util.Collection.class.isAssignableFrom(parameter.getParameterType());
+        return new QueryParameter(
+                name,
+                parameter.hasParameterAnnotation(Min.class),
+                multiValued,
+                "weeks".equals(name)
+                        ? Set.of("1", "2", "4")
+                        : acceptedValues(parameter.getParameterType()));
+    }
+
+    private static Set<String> acceptedValues(Class<?> parameterType) {
+        if (!parameterType.isEnum()) {
+            return Set.of();
+        }
+        return Arrays.stream(parameterType.getEnumConstants())
+                .map(Object::toString)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private record QueryParameter(
+            String name, boolean pagination, boolean multiValued, Set<String> acceptedValues) {}
 }

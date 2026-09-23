@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+#
+# Decide, and record, whether to recover by APPLICATION ROLLBACK or FORWARD FIX.
+#
+# Under ADR-0006 the schema evolves with immutable, forward-only migrations and
+# expand/contract. Application rollback is valid only while the older application is
+# schema-compatible with the current database. This tool surfaces the checkable facts
+# (current applied schema version vs the rollback candidate's packaged migration
+# version) and applies the hard guardrails; it never reverts an applied migration.
+#
+# It cannot prove semantic compatibility of intervening migrations. When the database
+# is ahead of the rollback candidate it recommends a forward fix unless the owner
+# explicitly confirms the intervening migrations were expand-only.
+#
+# Mechanics owner. Policy: docs/architecture/deployment/mvp-platform-and-delivery.md
+# and docs/development/database-migrations.md
+
+set -Eeuo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+compose_file="$repository_root/deploy/private-dev/compose.yaml"
+# shellcheck source=deploy/private-dev/lib/backup-common.sh
+source "$repository_root/deploy/private-dev/lib/backup-common.sh"
+
+current_schema_version=""
+target_migration_version=""
+target_image=""
+runtime_env=""
+schema_compatible_confirmed=false
+evidence_path=""
+
+usage() {
+  cat <<'EOF'
+Usage: assess-recovery-strategy \
+  --target-migration-version <flyway-version-packaged-in-rollback-image> \
+  ( --current-schema-version <flyway-version-currently-applied> | --env-file <runtime.env> ) \
+  [--target-image <ghcr-digest>] \
+  [--schema-compatible-confirmed] \
+  [--evidence-path <absolute-json-path>]
+
+Prints ROLLBACK, FORWARD_FIX or REFUSE with rationale and the invariant guardrails.
+With --env-file it reads the current applied version from the live database instead
+of taking it as an argument.
+EOF
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --current-schema-version) current_schema_version="${2:-}"; shift 2 ;;
+    --target-migration-version) target_migration_version="${2:-}"; shift 2 ;;
+    --target-image) target_image="${2:-}"; shift 2 ;;
+    --env-file) runtime_env="${2:-}"; shift 2 ;;
+    --schema-compatible-confirmed) schema_compatible_confirmed=true; shift ;;
+    --evidence-path) evidence_path="${2:-}"; shift 2 ;;
+    --help) usage; exit 0 ;;
+    *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+bc_require_commands python3
+
+[[ -n "$target_migration_version" ]] || { usage >&2; exit 2; }
+
+if [[ -z "$current_schema_version" && -n "$runtime_env" ]]; then
+  bc_require_commands docker realpath
+  runtime_env="$(realpath -- "$runtime_env")"
+  current_schema_version="$(
+    docker compose --env-file "$runtime_env" --file "$compose_file" \
+      exec -T postgres gosu postgres psql \
+      --dbname=videogame_platform --tuples-only --no-align \
+      --command="SELECT coalesce(max(version), '') FROM flyway_schema_history WHERE success"
+  )"
+fi
+[[ -n "$current_schema_version" ]] ||
+  bc_fail "Provide --current-schema-version or --env-file to read it from the database."
+
+version_pattern='^[0-9]+([._][0-9]+)*$'
+[[ "$current_schema_version" =~ $version_pattern ]] ||
+  bc_fail "Current schema version is not a Flyway version: $current_schema_version"
+[[ "$target_migration_version" =~ $version_pattern ]] ||
+  bc_fail "Target migration version is not a Flyway version: $target_migration_version"
+
+# Decision and comparison in one deterministic place.
+decision="$(
+  VGP_CURRENT="$current_schema_version" \
+  VGP_TARGET="$target_migration_version" \
+  VGP_CONFIRMED="$schema_compatible_confirmed" \
+    python3 <<'PY'
+import os
+
+
+def parse(version):
+    return tuple(int(part) for part in version.replace("_", ".").split("."))
+
+
+current = parse(os.environ["VGP_CURRENT"])
+target = parse(os.environ["VGP_TARGET"])
+confirmed = os.environ["VGP_CONFIRMED"] == "true"
+
+if target == current:
+    print("ROLLBACK\tThe database schema is unchanged since the rollback candidate; "
+          "redeploy the older image without running migrations.")
+elif target > current:
+    print("REFUSE\tThe candidate's packaged migration version is newer than the "
+          "applied schema; this is a forward deployment, not a rollback.")
+elif confirmed:
+    print("ROLLBACK\tThe database is ahead of the candidate, but the intervening "
+          "migrations were confirmed expand-only and backward compatible; redeploy "
+          "the older image without running migrations.")
+else:
+    print("FORWARD_FIX\tThe database is ahead of the candidate and intervening "
+          "migration compatibility is unconfirmed; deploy a new forward fix rather "
+          "than rolling the application back.")
+PY
+)"
+
+verdict="${decision%%$'\t'*}"
+rationale="${decision#*$'\t'}"
+
+printf 'Decision: %s\n' "$verdict"
+printf 'Current applied schema version: %s\n' "$current_schema_version"
+printf 'Rollback candidate migration version: %s\n' "$target_migration_version"
+[[ -n "$target_image" ]] && printf 'Rollback candidate image: %s\n' "$target_image"
+printf 'Rationale: %s\n' "$rationale"
+cat <<'EOF'
+Invariant guardrails (always apply):
+  - Never revert or edit an applied migration; never run `flyway clean` or drop schema.
+  - A rollback replaces only the application image and does NOT run the older image's
+    migrations against the current database.
+  - If schema compatibility is uncertain, forward-fix; do not gamble on rollback.
+EOF
+
+if [[ -n "$evidence_path" ]]; then
+  [[ "$evidence_path" == /* ]] || bc_fail "--evidence-path must be absolute."
+  VGP_VERDICT="$verdict" \
+  VGP_RATIONALE="$rationale" \
+  VGP_CURRENT="$current_schema_version" \
+  VGP_TARGET="$target_migration_version" \
+  VGP_IMAGE="$target_image" \
+  VGP_CONFIRMED="$schema_compatible_confirmed" \
+    python3 - "$evidence_path" <<'PY'
+import json
+import os
+import sys
+
+record = {
+    "kind": "recovery-strategy-assessment",
+    "decision": os.environ["VGP_VERDICT"],
+    "currentSchemaVersion": os.environ["VGP_CURRENT"],
+    "targetMigrationVersion": os.environ["VGP_TARGET"],
+    "targetImage": os.environ["VGP_IMAGE"] or None,
+    "schemaCompatibleConfirmed": os.environ["VGP_CONFIRMED"] == "true",
+    "rationale": os.environ["VGP_RATIONALE"],
+}
+with open(sys.argv[1], "w", encoding="utf-8") as handle:
+    handle.write(json.dumps(record, indent=2, sort_keys=True) + "\n")
+PY
+  printf 'Assessment evidence: %s\n' "$evidence_path"
+fi
+
+case "$verdict" in
+  ROLLBACK | FORWARD_FIX) exit 0 ;;
+  REFUSE) exit 3 ;;
+  *) exit 1 ;;
+esac

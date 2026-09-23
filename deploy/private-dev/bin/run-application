@@ -1,0 +1,38 @@
+#!/bin/sh
+
+set -eu
+
+read_required_secret() {
+  variable_name="$1"
+  file_path="$2"
+  if [ ! -r "$file_path" ]; then
+    printf 'Required secret file is not readable: %s\n' "$file_path" >&2
+    exit 1
+  fi
+  secret_value="$(cat "$file_path")"
+  if [ -z "$secret_value" ]; then
+    printf 'Required secret file is empty: %s\n' "$file_path" >&2
+    exit 1
+  fi
+  export "$variable_name=$secret_value"
+  unset secret_value
+}
+
+read_optional_secret() {
+  variable_name="$1"
+  file_path="$2"
+  if [ ! -r "$file_path" ]; then
+    printf 'Optional secret file is not readable: %s\n' "$file_path" >&2
+    exit 1
+  fi
+  secret_value="$(cat "$file_path")"
+  export "$variable_name=$secret_value"
+  unset secret_value
+}
+
+read_required_secret APPLICATION_DB_PASSWORD "${APPLICATION_DB_PASSWORD_FILE:?}"
+read_required_secret KEYCLOAK_BFF_CLIENT_SECRET "${KEYCLOAK_BFF_CLIENT_SECRET_FILE:?}"
+read_optional_secret IGDB_CLIENT_ID "${IGDB_CLIENT_ID_FILE:?}"
+read_optional_secret IGDB_CLIENT_SECRET "${IGDB_CLIENT_SECRET_FILE:?}"
+
+exec java -jar /application/application.jar

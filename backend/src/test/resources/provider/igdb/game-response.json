@@ -1,0 +1,18 @@
+[
+  {
+    "id": 116530,
+    "name": "Ghost of Yotei",
+    "url": "https://www.igdb.com/games/ghost-of-yotei",
+    "updated_at": 1751000000,
+    "cover": {
+      "image_id": "co9x1z"
+    },
+    "game_status": {
+      "status": "Released"
+    },
+    "created_at": 1600000000,
+    "game_type": {
+      "type": "main_game"
+    }
+  }
+]

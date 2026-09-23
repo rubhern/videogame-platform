@@ -1,0 +1,23 @@
+#!/bin/sh
+
+set -eu
+
+migration_password_file="${APPLICATION_MIGRATION_DB_PASSWORD_FILE:?}"
+if [ ! -r "$migration_password_file" ]; then
+  printf 'Required migration secret file is not readable: %s\n' "$migration_password_file" >&2
+  exit 1
+fi
+
+migration_password="$(cat "$migration_password_file")"
+if [ -z "$migration_password" ]; then
+  printf 'Required migration secret file is empty: %s\n' "$migration_password_file" >&2
+  exit 1
+fi
+
+export APPLICATION_MIGRATION_DB_PASSWORD="$migration_password"
+unset migration_password
+
+exec java \
+  -Dloader.main=com.videogameplatform.platform.migration.DatabaseMigrationApplication \
+  -cp /application/application.jar \
+  org.springframework.boot.loader.launch.PropertiesLauncher

@@ -1,5 +1,6 @@
 package com.videogameplatform.platform.observability;
 
+import javax.sql.DataSource;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.dao.DataAccessException;
@@ -15,8 +16,14 @@ final class CatalogueStoreHealthIndicator implements HealthIndicator {
 
     private final JdbcTemplate jdbcTemplate;
 
-    CatalogueStoreHealthIndicator(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
+    CatalogueStoreHealthIndicator(
+            DataSource dataSource, ReadinessHealthProperties readinessProperties) {
+        this.jdbcTemplate = new JdbcTemplate(dataSource);
+        this.jdbcTemplate.setQueryTimeout(readinessProperties.catalogueStoreQueryTimeoutSeconds());
+    }
+
+    int queryTimeoutSeconds() {
+        return jdbcTemplate.getQueryTimeout();
     }
 
     @Override

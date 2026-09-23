@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 1.2.0
+  version: 3.1.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -30,23 +30,33 @@ paths:
     get:
       tags: [Releases]
       operationId: listReleases
-      summary: Browse recent or upcoming releases
+      summary: Browse recent or upcoming releases grouped by game
       description: |
-        Reads a bounded page from the last valid local catalogue publication. The application derives the
-        evaluation date and release window in `Europe/Madrid`. Empty, stale,
-        review-required, imprecise-date, TBA, and fallback-cover results are valid
-        states. PostgreSQL applies filters, total ordering, count, limit, and offset.
+        Reads a bounded page of games from the last valid local catalogue publication. Each
+        game appears once with only the releases that match the requested view and active
+        filters; `page.totalItems` counts games, not releases. Platform and region filters are
+        multi-select: values within one dimension combine with OR and the two dimensions combine
+        with AND. `availableFilters` is contextual and faceted: platform options reflect the
+        current view/window and the active region selection (never restricted by the active
+        platform set), region options reflect the current view/window and the active platform
+        selection (never restricted by the active region set), and a currently selected valid
+        value always stays representable. The application derives the evaluation date and the
+        selected bounded week window in `Europe/Madrid`. Empty, stale, review-required,
+        imprecise-date, TBA, and fallback-cover results are valid states. PostgreSQL groups by
+        game, applies filters, distinct facet discovery, total ordering, count, limit, and offset
+        before any release page reaches the application.
       security: []
       parameters:
         - $ref: '#/components/parameters/ReleaseView'
-        - $ref: '#/components/parameters/PlatformIdQuery'
-        - $ref: '#/components/parameters/RegionIdQuery'
+        - $ref: '#/components/parameters/ReleaseWeeks'
+        - $ref: '#/components/parameters/PlatformIdsQuery'
+        - $ref: '#/components/parameters/RegionIdsQuery'
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
         - $ref: '#/components/parameters/PublicIfNoneMatch'
       responses:
         '200':
-          description: A deterministic page of bounded-catalogue releases, possibly empty.
+          description: A deterministic page of bounded-catalogue games with their matching releases, possibly empty.
           headers:
             X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
             Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
@@ -56,52 +66,69 @@ paths:
               schema: { $ref: '#/components/schemas/ReleasePage' }
               examples:
                 upcoming:
-                  summary: Upcoming release with an imprecise date
+                  summary: One game grouping several matching releases with differing dates
                   value:
                     view: upcoming
                     evaluatedOn: '2026-07-31'
-                    window: { from: '2026-07-31', to: '2026-12-31' }
-                    activeFilters: { platformId: platform_ps5, regionId: region_europe }
+                    window: { from: '2026-07-31', to: '2026-08-07' }
+                    activeFilters: { platformIds: [], regionIds: [] }
                     availableFilters:
                       platforms:
                         - { platformId: platform_ps5, name: PlayStation 5 }
+                        - { platformId: platform_win, name: Windows PC }
                       regions:
                         - { regionId: region_europe, name: Europe }
+                        - { regionId: region_worldwide, name: Worldwide }
                     items:
                       - gameId: game_silksong
                         slug: hollow-knight-silksong
                         canonicalTitle: Hollow Knight Silksong
                         primaryCover:
                           kind: provider
-                          url: https://images.igdb.com/igdb/image/upload/t_cover_big/coexample.webp
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp
                           alternativeText: Carátula de Hollow Knight Silksong
                           attribution:
                             label: IGDB
                             sourceUrl: https://www.igdb.com/games/hollow-knight-silksong
-                        release:
-                          releaseId: release_silksong_ps5_eu
-                          gameId: game_silksong
-                          platform: { platformId: platform_ps5, name: PlayStation 5 }
-                          region: { regionId: region_europe, name: Europe }
-                          releaseDate: { precision: quarter, value: 2026-Q4 }
-                          status: scheduled
-                          provenance:
-                            sourceKind: external_provider
-                            sourceName: IGDB
-                            sourceEntityType: release
-                          providerUpdatedAt: '2026-07-25T08:10:00Z'
-                          lastSyncedAt: '2026-07-30T05:00:00Z'
-                          verificationLevel: provider_only
-                          reviewStatus: not_required
-                          freshnessStatus: fresh
+                        releases:
+                          - releaseId: release_silksong_ps5_eu
+                            gameId: game_silksong
+                            platform: { platformId: platform_ps5, name: PlayStation 5 }
+                            region: { regionId: region_europe, name: Europe }
+                            releaseDate: { precision: day, value: '2026-08-04' }
+                            status: scheduled
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release
+                            providerUpdatedAt: '2026-07-25T08:10:00Z'
+                            lastSyncedAt: '2026-07-30T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
+                          - releaseId: release_silksong_win_ww
+                            gameId: game_silksong
+                            platform: { platformId: platform_win, name: Windows PC }
+                            region: { regionId: region_worldwide, name: Worldwide }
+                            releaseDate: { precision: month, value: 2026-08 }
+                            status: scheduled
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release
+                            providerUpdatedAt: '2026-07-25T08:10:00Z'
+                            lastSyncedAt: '2026-07-30T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 staleWithFallback:
                   summary: Last valid stale data remains usable with a fallback cover
                   value:
                     view: recent
                     evaluatedOn: '2026-07-31'
-                    window: { from: '2026-01-01', to: '2026-07-31' }
-                    activeFilters: { platformId: null, regionId: null }
+                    window: { from: '2026-07-25', to: '2026-07-31' }
+                    activeFilters: { platformIds: [], regionIds: [] }
                     availableFilters:
                       platforms:
                         - { platformId: platform_switch, name: Nintendo Switch }
@@ -116,31 +143,31 @@ paths:
                           url: /assets/covers/fallback.svg
                           alternativeText: Carátula oficial no disponible
                           attribution: null
-                        release:
-                          releaseId: release_example_switch_eu
-                          gameId: game_example
-                          platform: { platformId: platform_switch, name: Nintendo Switch }
-                          region: { regionId: region_europe, name: Europe }
-                          releaseDate: { precision: month, value: 2026-05 }
-                          status: released
-                          provenance:
-                            sourceKind: external_provider
-                            sourceName: IGDB
-                            sourceEntityType: release
-                          providerUpdatedAt: '2026-05-01T09:00:00Z'
-                          lastSyncedAt: '2026-05-02T05:00:00Z'
-                          lastVerifiedAt: '2026-05-02T05:10:00Z'
-                          verificationLevel: verified
-                          reviewStatus: required
-                          freshnessStatus: stale
+                        releases:
+                          - releaseId: release_example_switch_eu
+                            gameId: game_example
+                            platform: { platformId: platform_switch, name: Nintendo Switch }
+                            region: { regionId: region_europe, name: Europe }
+                            releaseDate: { precision: day, value: '2026-07-28' }
+                            status: released
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release
+                            providerUpdatedAt: '2026-05-01T09:00:00Z'
+                            lastSyncedAt: '2026-05-02T05:00:00Z'
+                            lastVerifiedAt: '2026-05-02T05:10:00Z'
+                            verificationLevel: verified
+                            reviewStatus: required
+                            freshnessStatus: stale
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 empty:
                   summary: No release matches the active filters
                   value:
                     view: upcoming
                     evaluatedOn: '2026-07-31'
-                    window: { from: '2026-07-31', to: '2026-12-31' }
-                    activeFilters: { platformId: platform_ps5, regionId: region_europe }
+                    window: { from: '2026-07-31', to: '2026-08-07' }
+                    activeFilters: { platformIds: [platform_ps5], regionIds: [region_europe] }
                     availableFilters:
                       platforms:
                         - { platformId: platform_ps5, name: PlayStation 5 }
@@ -150,9 +177,9 @@ paths:
                     page: { number: 1, size: 20, totalItems: 0, totalPages: 0 }
         '304': { $ref: '#/components/responses/PublicNotModified' }
         '400': { $ref: '#/components/responses/MalformedRequest' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/ReleaseValidationFailed' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -165,6 +192,8 @@ paths:
         Searches canonical titles and approved aliases after trimming. Matching is
         case- and diacritic-insensitive, requires every token, and is non-fuzzy.
         It never calls a provider. Zero and multiple matches are valid outcomes.
+        Each result carries a bounded `releaseContext` sample and a separate
+        `releaseSummary` computed from every locally stored release of that game.
       security: []
       parameters:
         - $ref: '#/components/parameters/CatalogueQuery'
@@ -192,7 +221,7 @@ paths:
                         matchedAlias: Biohazard 4
                         primaryCover:
                           kind: provider
-                          url: https://images.igdb.com/igdb/image/upload/t_cover_big/coexample1.webp
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample1.webp
                           alternativeText: Carátula de Resident Evil 4
                           attribution:
                             label: IGDB
@@ -203,6 +232,14 @@ paths:
                             releaseDate: { precision: day, value: '2005-03-18' }
                             status: released
                             freshnessStatus: fresh
+                        releaseSummary:
+                          platforms:
+                            - { platformId: platform_gamecube, name: Nintendo GameCube }
+                            - { platformId: platform_ps2, name: PlayStation 2 }
+                            - { platformId: platform_windows, name: Windows PC }
+                          totalPlatforms: 7
+                          earliestKnownYear: 2005
+                          latestKnownYear: 2014
                       - gameId: game_resident_evil_4_2023
                         slug: resident-evil-4-2023
                         canonicalTitle: Resident Evil 4 Remake
@@ -218,6 +255,12 @@ paths:
                             releaseDate: { precision: year, value: '2023' }
                             status: released
                             freshnessStatus: stale
+                        releaseSummary:
+                          platforms:
+                            - { platformId: platform_ps5, name: PlayStation 5 }
+                          totalPlatforms: 1
+                          earliestKnownYear: 2023
+                          latestKnownYear: 2023
                     page: { number: 1, size: 20, totalItems: 2, totalPages: 1 }
                 emptyOutsideBoundary:
                   summary: Plausible title outside the bounded catalogue
@@ -229,7 +272,6 @@ paths:
         '400': { $ref: '#/components/responses/MalformedRequest' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/SearchValidationFailed' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -270,7 +312,7 @@ paths:
                       language: es
                     primaryCover:
                       kind: provider
-                      url: https://images.igdb.com/igdb/image/upload/t_cover_big/co1234.webp
+                      url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1234.webp
                       alternativeText: Carátula de Juego de ejemplo
                       attribution:
                         label: IGDB
@@ -390,7 +432,6 @@ paths:
         '404': { $ref: '#/components/responses/GameNotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/ReleaseReviewBlocked' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/GameReadFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -417,7 +458,6 @@ paths:
                 authenticated:
                   value: { authenticated: true, csrfToken: opaque-csrf-token }
         '406': { $ref: '#/components/responses/NotAcceptable' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
     post:
       tags: [Session]
@@ -438,7 +478,6 @@ paths:
             Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
         '403': { $ref: '#/components/responses/CsrfValidationFailed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /me/ratings:
@@ -446,7 +485,13 @@ paths:
       tags: [Ratings]
       operationId: listMyRatings
       summary: Read, search, sort, and page Mis puntuaciones
-      description: Applies current-user scope before search, sorting, counts, or pagination.
+      description: |
+        Applies authenticated-current-user scope before search, sorting, counts, or
+        pagination. Only active game ratings are returned. Search uses the catalogue's
+        case- and diacritic-insensitive all-token word-prefix rules for canonical titles
+        and approved aliases. Every sort ends with gameId ascending as its unique
+        tie-breaker. Each item's entityTag is the current strong rating validator for
+        conditional update and delete; it is not a collection cache validator.
       security:
         - sessionCookie: []
       parameters:
@@ -474,7 +519,7 @@ paths:
                           canonicalTitle: Juego de ejemplo
                           primaryCover:
                             kind: provider
-                            url: https://images.igdb.com/igdb/image/upload/t_cover_big/co1234.webp
+                            url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1234.webp
                             alternativeText: Carátula de Juego de ejemplo
                             attribution:
                               label: IGDB
@@ -494,7 +539,6 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/PersonalRatingsValidationFailed' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/PersonalRatingsReadFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -529,7 +573,6 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '404': { $ref: '#/components/responses/RatingNotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/InternalError' }
     put:
       tags: [Ratings]
@@ -610,7 +653,6 @@ paths:
         '415': { $ref: '#/components/responses/UnsupportedMediaType' }
         '422': { $ref: '#/components/responses/RatingValidationFailed' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/RatingWriteFailed' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
     delete:
@@ -648,7 +690,6 @@ paths:
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '412': { $ref: '#/components/responses/RatingWriteConflict' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
-        '429': { $ref: '#/components/responses/RateLimitExceeded' }
         '500': { $ref: '#/components/responses/RatingWriteFailed' }
 
 components:
@@ -675,20 +716,46 @@ components:
       name: view
       in: query
       required: true
-      schema: { type: string, enum: [recent, upcoming] }
+      schema: { $ref: '#/components/schemas/ReleaseView' }
       example: upcoming
-    PlatformIdQuery:
-      name: platformId
+    ReleaseWeeks:
+      name: weeks
       in: query
       required: false
-      schema: { $ref: '#/components/schemas/PlatformId' }
-      example: platform_ps5
-    RegionIdQuery:
-      name: regionId
+      description: Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
+      schema: { type: integer, enum: [1, 2, 4], default: 1 }
+      example: 2
+    PlatformIdsQuery:
+      name: platformIds
       in: query
       required: false
-      schema: { $ref: '#/components/schemas/RegionId' }
-      example: region_europe
+      description: |
+        Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
+        dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
+        no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/PlatformId' }
+      example: [platform_ps5, platform_switch]
+    RegionIdsQuery:
+      name: regionIds
+      in: query
+      required: false
+      description: |
+        Repeatable multi-select region filter (`regionIds=a&regionIds=b`). Values in this dimension
+        combine with OR; the platform and region dimensions combine with AND. Omit it for no region
+        filter, which is distinct from selecting the concrete `Worldwide` region. Values are trimmed
+        and de-duplicated; an unknown value yields 422.
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        items: { $ref: '#/components/schemas/RegionId' }
+      example: [region_europe, region_worldwide]
     Page:
       name: page
       in: query
@@ -796,6 +863,11 @@ components:
       required: true
       schema: { type: string, format: uri-reference }
       example: /api/v1/me/ratings/game_example
+    AllowedMethods:
+      description: Methods supported by the selected resource.
+      required: true
+      schema: { type: string, minLength: 1 }
+      example: GET
     RetryAfter:
       description: Retry delay in seconds when a useful value is known.
       required: false
@@ -803,6 +875,12 @@ components:
       example: 60
 
   schemas:
+    ReleaseView:
+      type: string
+      enum: [recent, upcoming]
+      # Keep Spring's generated enum identifiers identical to the accepted query values.
+      x-enum-varnames: [recent, upcoming]
+
     GameId:
       type: string
       minLength: 1
@@ -997,9 +1075,30 @@ components:
       oneOf:
         - $ref: '#/components/schemas/EditorialSummary'
         - $ref: '#/components/schemas/SourcedSummary'
+    CompactReleaseSummary:
+      type: object
+      required: [platforms, totalPlatforms]
+      description: |
+        Compact aggregate over every locally stored release of one game, independent of
+        the bounded `releaseContext` sample. `platforms` holds at most three distinct
+        platforms ordered by case-insensitive display name, then `platformId`;
+        `totalPlatforms` counts every distinct platform, so a consumer can render an
+        exact `+N` as `totalPlatforms` minus the returned platforms. The known years are
+        the calendar years represented by day, month, quarter, or year precision across
+        all releases, whatever their status. Both are omitted when every release date is
+        unknown; a year is never invented.
+      properties:
+        platforms:
+          type: array
+          maxItems: 3
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Platform' }
+        totalPlatforms: { type: integer, format: int32, minimum: 0 }
+        earliestKnownYear: { type: integer, format: int32, minimum: 1, maximum: 9999 }
+        latestKnownYear: { type: integer, format: int32, minimum: 1, maximum: 9999 }
     GameSummary:
       type: object
-      required: [gameId, slug, canonicalTitle, primaryCover, releaseContext]
+      required: [gameId, slug, canonicalTitle, primaryCover, releaseContext, releaseSummary]
       properties:
         gameId: { $ref: '#/components/schemas/GameId' }
         slug: { type: string, minLength: 1, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
@@ -1008,28 +1107,45 @@ components:
         primaryCover: { $ref: '#/components/schemas/Cover' }
         releaseContext:
           type: array
+          description: |
+            Bounded representative sample of the game's releases, ordered by release
+            period then `releaseId`. It is never the complete release set; use
+            `releaseSummary` for complete platform and year context.
           items: { $ref: '#/components/schemas/ReleaseSummary' }
+        releaseSummary: { $ref: '#/components/schemas/CompactReleaseSummary' }
     ReleaseItem:
       type: object
-      required: [gameId, slug, canonicalTitle, primaryCover, release]
+      required: [gameId, slug, canonicalTitle, primaryCover, releases]
       properties:
         gameId: { $ref: '#/components/schemas/GameId' }
         slug: { type: string, minLength: 1 }
         canonicalTitle: { type: string, minLength: 1 }
         primaryCover: { $ref: '#/components/schemas/Cover' }
-        release: { $ref: '#/components/schemas/Release' }
+        releases:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Release' }
+      description: |
+        One game and only the releases of that game that match the requested view and
+        active filters. Each release is preserved independently, so differing
+        platforms, regions, dates, and date precision stay visible. Releases are ordered
+        by the UC-001 release ordering, and the first release drives the game's position.
     ActiveFilters:
       type: object
-      required: [platformId, regionId]
+      required: [platformIds, regionIds]
+      description: |
+        The normalized, de-duplicated filter values applied to this response. An empty array means
+        no filter for that dimension (`Todas`), which is distinct from selecting a concrete region
+        such as `Worldwide`.
       properties:
-        platformId:
-          oneOf:
-            - $ref: '#/components/schemas/PlatformId'
-            - { type: 'null' }
-        regionId:
-          oneOf:
-            - $ref: '#/components/schemas/RegionId'
-            - { type: 'null' }
+        platformIds:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/PlatformId' }
+        regionIds:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/RegionId' }
     AvailableFilters:
       type: object
       required: [platforms, regions]
@@ -1050,7 +1166,7 @@ components:
       type: object
       required: [view, evaluatedOn, window, activeFilters, availableFilters, items, page]
       properties:
-        view: { type: string, enum: [recent, upcoming] }
+        view: { $ref: '#/components/schemas/ReleaseView' }
         evaluatedOn: { type: string, format: date }
         window: { $ref: '#/components/schemas/ReleaseWindow' }
         activeFilters: { $ref: '#/components/schemas/ActiveFilters' }
@@ -1217,7 +1333,6 @@ components:
         - MEDIA_TYPE_UNSUPPORTED
         - REPRESENTATION_NOT_ACCEPTABLE
         - METHOD_NOT_ALLOWED
-        - RATE_LIMIT_EXCEEDED
         - INTERNAL_ERROR
         - AUTHENTICATION_REQUIRED
         - GAME_NOT_FOUND
@@ -1279,7 +1394,7 @@ components:
         Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
         ETag: { $ref: '#/components/headers/PublicEntityTag' }
     MalformedRequest:
-      description: Request path, query, or JSON syntax cannot be parsed.
+      description: Request path, query, header, or JSON syntax cannot be parsed.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -1349,6 +1464,17 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             representationNotAcceptable: { $ref: '#/components/examples/RepresentationNotAcceptable' }
+    MethodNotAllowed:
+      description: The resource does not support the requested HTTP method.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+        Allow: { $ref: '#/components/headers/AllowedMethods' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            methodNotAllowed: { $ref: '#/components/examples/MethodNotAllowed' }
     RatingPreconditionFailed:
       description: The create target exists or the update entity tag is stale.
       headers:
@@ -1462,17 +1588,6 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             preconditionRequired: { $ref: '#/components/examples/PreconditionRequired' }
-    RateLimitExceeded:
-      description: An edge abuse limit rejected the request.
-      headers:
-        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
-        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
-        Retry-After: { $ref: '#/components/headers/RetryAfter' }
-      content:
-        application/problem+json:
-          schema: { $ref: '#/components/schemas/Problem' }
-          examples:
-            rateLimitExceeded: { $ref: '#/components/examples/RateLimitExceeded' }
     CatalogueUnavailable:
       description: No local snapshot is ready or local catalogue data cannot be read; no provider fallback call is made.
       headers:
@@ -1590,6 +1705,20 @@ components:
         code: REPRESENTATION_NOT_ACCEPTABLE
         category: validation
         correlationId: correlation-opaque
+    MethodNotAllowed:
+      value:
+        type: urn:videogame-platform:problem:method-not-allowed
+        title: Method is not allowed
+        status: 405
+        detail: Use a supported method for this resource.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: METHOD_NOT_ALLOWED
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /method
+            code: METHOD_NOT_ALLOWED
+            message: This HTTP method is not supported.
     RatingAlreadyExists:
       value:
         type: urn:videogame-platform:problem:rating-already-exists
@@ -1763,16 +1892,6 @@ components:
         instance: urn:videogame-platform:problem-instance:opaque
         code: PRECONDITION_REQUIRED
         category: validation
-        correlationId: correlation-opaque
-    RateLimitExceeded:
-      value:
-        type: urn:videogame-platform:problem:rate-limit-exceeded
-        title: Rate limit exceeded
-        status: 429
-        detail: Wait before retrying this request.
-        instance: urn:videogame-platform:problem-instance:opaque
-        code: RATE_LIMIT_EXCEEDED
-        category: technical
         correlationId: correlation-opaque
     CatalogueNotReady:
       value:
