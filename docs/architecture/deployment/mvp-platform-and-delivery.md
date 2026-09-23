@@ -5,9 +5,13 @@
 - **Scope:** Private, zero-recurring-cost learning platform
 
 This document owns environment purpose, deployment topology, artefact/configuration/
-secret behaviour, migration/backup/recovery, and technical delivery. The
+secret policy, migration/backup/recovery policy, and technical delivery. The
 [delivery lifecycle](../../development/delivery-lifecycle.md) owns human workflow,
-gates, review, acceptance, and release.
+gates, review, acceptance, and release. The
+[private-dev README](../../../deploy/private-dev/README.md) owns operator commands
+and host procedures, and the [operations runbook](../../development/operations-runbook.md)
+records which procedures have been proven on the real host and their evidence
+boundary.
 
 ## Environments and topology
 
@@ -18,125 +22,62 @@ gates, review, acceptance, and release.
 | `dev`        | Persistent private integration, HTTPS, identity, delivery, telemetry, recovery | Non-sensitive learning data; owner tailnet only |
 | `production` | Deferred/prohibited                                                            | Undefined                                       |
 
-The current `dev` foundation is one owner-managed private Linux host: Lenovo Y520 (`vgpdev`), Ubuntu Server 24.04 LTS
-`x86_64`, existing 8 GB RAM and SSD, with Docker
-Engine and Compose. Owner administration uses key-based OpenSSH over Tailscale;
-Tailscale runs on Windows and the host, not WSL. Ethernet uses a router DHCP
-reservation; addressing and tailnet identifiers stay outside canonical documents.
-[ADR-0019](../../decisions/0019-host-private-dev-on-an-owner-managed-linux-host.md)
-records the hosting decision; [#124](https://github.com/rubhern/videogame-platform/issues/124)
-owns measured evidence and outstanding host acceptance.
+`dev` is one owner-managed private Linux host (`vgpdev`: Ubuntu Server 24.04 LTS,
+`x86_64`, 8 GB RAM, SSD, Docker Engine and Compose) under
+[ADR-0019](../../decisions/0019-host-private-dev-on-an-owner-managed-linux-host.md).
+Owner administration uses key-based OpenSSH over Tailscale; Tailscale Serve is the
+only HTTPS edge and admits only the owner. Tailscale does not replace Keycloak or
+product authorization. No public application, identity, database, telemetry or SSH
+ingress is allowed; router port forwarding, Tailscale Funnel and public DNS remain
+prohibited. Machine addressing and tailnet identifiers stay outside the repository.
 
-Reviewed repository configuration now defines the non-root application boundary,
-Keycloak, PostgreSQL, bounded telemetry and owner-triggered application deployment
-mechanism prepared by #43 and #36. Applying and validating it on `vgpdev` remains
-environment evidence rather than a repository fact; backup/restore remains #44.
-Tailscale does not replace Keycloak/product authorization. No public application,
-identity, database, telemetry or SSH ingress is allowed, and router port forwarding
-must remain disabled.
-
-The superseded OCI infrastructure and procedures were removed from the active
-repository; Git history and [#42](https://github.com/rubhern/videogame-platform/issues/42)
-retain the abandoned path and teardown evidence. No paid or trial-only substitute is
-authorized. Public production, HA, staging, Kubernetes, distributed components,
-automatic broad sync and paid managed services remain deferred.
-
-## Host foundation reconstruction
-
-These are rebuild instructions, not an installation log or proof of a completed
-rebuild. Record outcomes and exceptions in #124; retain machine-specific addressing
-and credentials privately.
-
-1. Review existing data with the owner before erasing the target SSD. Check disk
-   identity/SMART health, then clean-install Ubuntu Server 24.04 LTS `amd64` with
-   OpenSSH and a non-root sudo user. Apply supported package updates. Prefer local
-   SSD boot over PXE/network boot in firmware.
-2. Allocate the intended SSD space to the root filesystem. If the installer leaves
-   free extents in LVM, inspect `lsblk -f`, `sudo lvs` and `sudo vgs`, then extend the
-   verified root LV and filesystem with `sudo lvextend -r -l +100%FREE <root-lv>`.
-   Skip when the VG has no free extents; verify with `df -h /` and `sudo vgs`.
-3. Connect Ethernet and reserve its address in the router. Install the owner's SSH
-   public key and verify a second SSH session before disabling password/root login.
-   Install [Tailscale on Linux](https://tailscale.com/docs/install/linux) and Windows,
-   enroll both in the owner's private tailnet, and verify OpenSSH from Windows or WSL
-   through Windows Tailscale. Keep access restricted to the owner. Check router
-   forwarding/UPnP mappings and effective host/router IPv4 and IPv6 ingress rules;
-   confirm administrative access is unavailable from outside the tailnet/LAN.
-4. Configure a `/etc/systemd/logind.conf.d/` drop-in with `[Login]` and
-   `HandleLidSwitch=ignore`, `HandleLidSwitchExternalPower=ignore`,
-   `HandleLidSwitchDocked=ignore` and `IdleAction=ignore`. Mask `sleep.target`,
-   `suspend.target`, `hibernate.target` and `hybrid-sleep.target` with
-   `sudo systemctl mask`. Reboot to apply and test closed-lid SSH/Tailscale access.
-   Check firmware power-restoration options where available; record unsupported
-   automatic restart or an untested power-loss path instead of assuming recovery.
-5. Follow the supported [Docker Ubuntu apt installation](https://docs.docker.com/engine/install/ubuntu/)
-   for Engine and the Compose plugin. Enable Docker and Tailscale at boot with
-   `sudo systemctl enable --now docker tailscaled`. After reboot check
-   `systemctl is-active docker tailscaled`, `sudo docker info`,
-   `sudo docker run --rm hello-world` and `sudo docker compose version`.
-   Do not start the repository application/dependency Compose stack here.
-6. Install `smartmontools` and `lm-sensors` from Ubuntu packages. Record OS/architecture,
-   `uptime`, `free -h`, `lsblk`, `sudo vgs`, `sudo lvs`, SMART health for the verified
-   SSD (`sudo smartctl -a <disk>`) and `sensors`. Observe normal headless idle operation
-   over a recorded interval and inspect `systemctl --failed` and boot errors with
-   `journalctl -b -p err`. A single idle snapshot does not prove sustained stability
-   or workload capacity; keep untested acceptance checks open.
-
-The following delivery/runtime/recovery policies govern later slices; they do not
-claim those capabilities are configured on the current host.
+The superseded OCI path was removed; Git history and
+[#42](https://github.com/rubhern/videogame-platform/issues/42) retain it. No paid or
+trial-only substitute is authorized. Public production, HA, staging, Kubernetes,
+distributed components, automatic broad sync and paid managed services remain
+deferred.
 
 ## Private dev runtime boundary
 
-[`deploy/private-dev`](../../../deploy/private-dev/README.md) is the operator entry
-point and its Compose, realm, collector and validation files own executable mechanics.
-The default stack starts PostgreSQL, Keycloak and the OpenTelemetry Collector. The
-application definition is profile-gated and receives only runtime database
-credentials. The deployment profile adds a one-shot migration actor and browser smoke
-runner; neither starts with the default dependency stack. Repository configuration
-does not select or deploy an application digest by itself.
+The default stack starts PostgreSQL, Keycloak and one internal OpenTelemetry
+Collector. The application is profile-gated and receives only runtime database
+credentials; the deployment profile adds a one-shot migration actor and a browser
+smoke runner. Repository configuration never selects or deploys an application digest
+by itself.
 
 PostgreSQL and the collector publish no host port. The product and Keycloak HTTP
-ports bind only to host loopback, where Tailscale Serve terminates HTTPS on separate
-tailnet-only ports. Database and telemetry networks are Docker-internal; the edge
-network exists only for required outbound access and loopback publication. Keycloak
-management and application Actuator ports stay container-internal. Tailscale Funnel,
-router forwarding and public DNS/ingress remain prohibited; tailnet policy permits
-only the owner.
+ports bind only to host IPv4 loopback, where Tailscale Serve terminates HTTPS on
+separate tailnet-only ports. Keycloak management and application Actuator ports stay
+container-internal. The application trusts forwarded scheme/port headers only from
+the internal loopback peer (`SERVER_FORWARD_HEADERS_STRATEGY=NATIVE`, explained in
+the Compose file) so the effective origin matches the external HTTPS origin that the
+same-origin state-change check compares against; HSTS is enabled only for that
+private HTTPS origin. The browser edge sends CSP with the approved IGDB cover CDN as
+its sole external resource origin, framing and content-type sniffing disabled, and a
+strict cross-origin referrer policy; CORS stays absent because the browser API is
+same-origin. Executable and live validation treat IPv4 and IPv6 independently: host
+acceptance requires separate non-tailnet evidence for the public IPv4 address and
+every global IPv6 address.
 
 Real secrets are independent files below an owner-managed protected directory outside
-Git. Compose grants each service only its required files. Entrypoint wrappers read
-them without putting values in Compose environment metadata or command arguments;
-optional IGDB files may remain empty to keep synchronization disabled. Changing a
-file does not rotate an already-created PostgreSQL role or imported Keycloak client:
-rotation must update the owning service state and then replace the file as one
-reviewed operation.
+Git. Compose grants each service only its required files; entrypoint wrappers read
+them without putting values in Compose metadata or command arguments. Optional IGDB
+files may remain empty to keep synchronization disabled. Replacing a file does not
+rotate an already-created PostgreSQL role or imported Keycloak client: rotation must
+update the owning service state and the file as one reviewed operation.
 
-The database/role bootstrap and parameterized Keycloak realm are shared executable
-contracts with local development rather than private-dev copies. Local Compose adds a
-separate synthetic-user import that private dev does not mount. Private dev changes
-only secret transport, public origin and runtime topology around those contracts. A
-one-time idempotent private-dev command creates the non-personal deployment-smoke
-account from protected host files through the private HTTPS Admin API; it assigns no
-direct client role or group and never adds that account or its credentials to the
-shared realm import.
+The database/role bootstrap and the parameterized Keycloak realm are shared
+executable contracts with local development. Local Compose adds a synthetic-user
+import that private dev does not mount; private dev instead provisions one marked,
+non-personal deployment-smoke account through the private Admin API, never through
+the shared realm import.
 
-Telemetry is one replaceable, internal-only OpenTelemetry Collector rather than a
-self-hosted dashboard/storage stack. It accepts application OTLP HTTP metrics and
-traces, limits memory and batch size, samples traces at the application boundary and
-emits only basic batch/count diagnostics into size-limited container logs. Application
-resources identify the `dev` environment and immutable application version. The
-collector has no secret and is not a readiness dependency. A durable telemetry
-backend, dashboards, alerting and remote export remain deferred until measured value
-justifies their host cost. A bounded synthetic check submits exactly one fixed
-versioned span and one fixed metric and verifies receipt without exposing their
-contents in basic collector logs. This accepts the telemetry boundary within #43;
-application-produced signals remain real deployment evidence, not a repository fact.
-
-Executable and live validation treat IPv4 and IPv6 independently. Container HTTP
-publication is explicit IPv4 loopback only, protected internal ports have no host
-listener in either family, and host acceptance requires separate non-tailnet evidence
-for the public IPv4 address and every global IPv6 address (or recorded evidence that
-no global IPv6 address exists).
+Telemetry is one replaceable, internal-only collector, not a dashboard/storage stack.
+It accepts application OTLP metrics and traces, bounds memory and batch size, and
+emits only basic count diagnostics into size-limited container logs. It holds no
+secret and is not a readiness dependency. A durable telemetry backend, dashboards,
+alerting and remote export remain deferred until measured value justifies their host
+cost.
 
 ## Artefact and delivery
 
@@ -145,87 +86,58 @@ and modular monolith. It runs non-root, contains no environment configuration,
 secrets, raw provider data, personal data, dev seed, or copied provider images, and
 is identified by commit SHA and content digest rather than `latest`.
 
-GitHub Actions validates pull requests. Trusted `main` builds/scans the same index,
-produces SBOM/provenance evidence, and publishes to GHCR. Pull requests receive no
-provider/deployment secrets and never publish/deploy. Deployment promotes an already
-validated digest only when the owner invokes
-`deploy/private-dev/bin/deploy-private-dev`; trusted `main` publication does not
-trigger deployment.
+GitHub Actions validates pull requests without provider or deployment secrets and
+never publishes or deploys from them. Trusted `main` builds and scans the same
+index, produces SBOM/provenance evidence, and publishes to GHCR. Deployment promotes
+an already validated digest only when the owner invokes the deployment command; it is
+never automatic. The
+[delivery pipeline diagram](../diagrams/mermaid/delivery-pipeline.mmd) shows the flow.
 
-Technical sequence:
-
-```text
-owner approves source revision + digest -> validate target/runtime/evidence
--> verify revision tag digest + OCI labels -> build smoke runner
--> serialized one-shot Flyway migration -> replace application with exact digest
--> candidate readiness -> deployment smoke + telemetry evidence -> record outcome
-```
-
-One non-blocking host lock prohibits concurrent `dev` deployments. The selected image
-runs migrations with only the migration role before the application service is
-replaced; migration failure prevents activation. Readiness and smoke are bound to the
-new Compose container and any failure records a failed deployment even if another or
-older process remains healthy. The mechanism does not implement automatic rollback,
-backup/restore or host-loss recovery. Deployment success is not product acceptance or
-a named release.
-
-Every normal deployment proves management liveness/readiness, exact build version and
-source revision, bounded diagnostic metrics, the releases API through the rendered
-browser shell, a real Keycloak-backed opaque BFF session and logout, structured W3C
-trace/correlation, and collector trace receipt. The releases proof accepts a valid
-empty publication and the contract's distinct `CATALOGUE_NOT_READY` response when no
-publication exists; the browser smoke blocks IGDB hosts and never initiates catalogue
-synchronization. It does not run the complete MVP journey owned by #45. An external
-JSON evidence record contains the initiator, source revision, immutable digest,
-application and migration versions, candidate identity,
-completed smoke checks, timestamps, phase and outcome without credentials or personal
-data. The private-dev README owns the operator command and first-host evidence steps.
-
-## Configuration and secrets
-
-Configuration is injected at runtime; `.env.example` files document local names and
-safe defaults. Missing security-critical configuration fails clearly. Private-host
-secrets must use a protected runtime source, remain independently rotatable and
-least-privileged, and stay out of Git, images, frontend code, URLs, logs, screenshots
-and CI artifacts. The application, migration, Keycloak and deployment-smoke actors
-receive only their required files; smoke credentials never enter application
-metadata. The private-dev provisioning command consumes its protected inputs in
-memory, creates only its marked non-personal Keycloak account and refuses direct
-client roles or groups. OCI Vault and Terraform state are not current-host
-requirements.
+Deployment runs under one non-blocking host lock: verify the supplied revision and
+digest, run the selected image once as the migration actor, replace only the
+application container with that digest, wait for candidate readiness, run the
+deployment smoke against the candidate and the private HTTPS boundary, and record an
+external JSON evidence file that holds no credentials or personal data.
+Migration failure leaves the previous application running. A readiness or smoke
+failure records a failed deployment even if another or older process still answers.
+The mechanism implements no automatic rollback; backup, restore, rollback assessment
+and host-loss recovery are separate owner-triggered controls. Deployment success is
+not product acceptance or a named release.
 
 ## PostgreSQL, migrations, and recovery
 
-One server hosts separate application and Keycloak databases/roles. Business modules
-retain logical table ownership. The selected application image runs once as the
-dedicated Flyway actor, on the internal data network with the migration role, and
-exits before application replacement. The normal application keeps Flyway disabled
-and only the runtime role. Destructive changes use expand/contract and explicit
-recovery; application rollback is allowed only while schema compatible.
+One server hosts separate application and Keycloak databases and roles; business
+modules retain logical table ownership. The selected application image runs once as
+the dedicated Flyway actor with the migration role and exits before application
+replacement; the running application keeps Flyway disabled and only the runtime role.
+Destructive changes use expand/contract and explicit recovery. An applied migration
+is never reverted: application rollback is allowed only while the older image is
+schema-compatible, otherwise the recovery is a forward fix.
 
-Back up irreplaceable ratings, identity mapping/configuration, and product editorial
-outside the host, encrypted and within the zero-cost constraint. Record environment, time,
-PostgreSQL/schema/application version; retain only useful backups; prove isolated
-restore after setup and material changes. Catalogue provider data may be resynced,
-but personal/identity/editorial state is not assumed disposable.
+Irreplaceable state is the application and Keycloak databases (ratings, identity
+mapping, product-owned curation). They are backed up together as per-database logical
+dumps encrypted to the owner's public key, so the host holds no decryption material,
+with a manifest, integrity sums and bounded retention; copying a backup off the host
+is an owner step. Roles, passwords and secret files are not backed up: a restore
+recreates roles from the protected files, which the owner must preserve separately.
+Restore is rehearsed in an isolated Compose project, never against the live one.
+Host-loss recovery composes the host foundation rebuild, restore and the normal
+deployment. Catalogue provider data may be resynced, but personal, identity and
+editorial state is never assumed disposable.
 
 ## Health, observability, privacy, and failure
 
-Liveness reports process viability. Readiness proves supported local-data behaviour
-and required local dependencies; IGDB/CDN/telemetry outages do not make the app
-unready. Health never reveals topology or secrets. Telemetry uses bounded labels,
-replaceable OpenTelemetry-compatible export, minimal retention, and no personal data
-or credentials.
+Liveness reports process viability. Readiness proves local database and catalogue
+store access only; IGDB, the cover CDN and telemetry outages never make the
+application unready. Health never reveals topology or secrets. Telemetry uses bounded
+labels, replaceable OpenTelemetry-compatible export, minimal retention, and no
+personal data or credentials.
 
 Catalogue synchronization is one internal management-port command, never a public
-request or scheduled job. PostgreSQL enforces one active run; an abandoned worker is
-fenced before a successor can write. Run history is retained in bounded quantity,
-independently of current catalogue state.
+request or scheduled job. PostgreSQL enforces one active run and fences an abandoned
+worker before a successor can write; run history is retained in bounded quantity.
 [ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
-owns the date interval, in-call paging and partial-failure decisions; the
-[backend guide](../../../backend/README.md) owns invocation and migration prerequisites.
-Credentials come from backend secret configuration and are absent when disabled.
-Automatic scheduling remains deferred.
+owns the date interval, paging and partial-failure decisions.
 
 | Failure                       | Required behaviour                                                                                           |
 |-------------------------------|--------------------------------------------------------------------------------------------------------------|
@@ -233,9 +145,9 @@ Automatic scheduling remains deferred.
 | Cover CDN unavailable         | Use product fallback; keep game visible                                                                      |
 | No valid catalogue            | `CATALOGUE_NOT_READY`; no request-path provider call                                                         |
 | Migration failure             | Do not activate new application                                                                              |
-| Readiness/smoke failure       | Record deployment failure; recovery/redeploy requires a separate owner decision and #44-compatible procedure |
+| Readiness/smoke failure       | Record deployment failure; recover by the assessed rollback or forward fix, never by reverting an applied migration |
 | Backup failure                | Report recoverability failure; do not claim release success                                                  |
-| Host loss                     | Rebuild foundation; restore durable state and verify the journey through the recovery procedure owned by #44 |
+| Host loss                     | Rebuild the foundation, restore durable state from an encrypted backup, then redeploy and repeat the smoke   |
 
-Standard OCI container images, PostgreSQL logical backups, OpenTelemetry and private
-ingress preserve portability. Hosting reconsideration triggers belong to ADR-0019.
+Standard OCI images, PostgreSQL logical backups, OpenTelemetry and private ingress
+preserve portability. Hosting reconsideration triggers belong to ADR-0019.

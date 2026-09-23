@@ -47,8 +47,9 @@ catalogue:
   jdbc:
     read-timeout: ${CATALOGUE_JDBC_READ_TIMEOUT:5s}
   releases:
-    recent-window-months: ${CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS:6}
-    upcoming-window-months: ${CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS:6}
+    # Bounds the releases grouped under one game so request memory stays O(pageSize x limit);
+    # the synchronization cap keeps a game at most this many releases in total.
+    release-group-limit: ${CATALOGUE_RELEASES_RELEASE_GROUP_LIMIT:25}
     freshness-threshold: ${CATALOGUE_RELEASES_FRESHNESS_THRESHOLD:P7D}
   search:
     release-context-limit: ${CATALOGUE_SEARCH_RELEASE_CONTEXT_LIMIT:3}
@@ -70,20 +71,9 @@ catalogue:
       requests-per-second: ${IGDB_REQUESTS_PER_SECOND:3}
       max-retries: ${IGDB_MAX_RETRIES:2}
       retry-backoff: ${IGDB_RETRY_BACKOFF:250ms}
-      # Product-owned provider taxonomy allowlist. An unmapped provider platform is a reported
-      # mapping failure, never a merge into a nearby product platform: generic PC must not absorb
-      # DOS, Linux or Mac releases.
-      platform-codes:
-        "[ps5]": playstation-5
-        "[switch-2]": nintendo-switch-2
-        "[win]": windows-pc
-        "[series-x-s]": xbox-series
-      region-codes:
-        "[worldwide]": worldwide
-        "[europe]": europe
-        "[north america]": north-america
-        "[japan]": japan
-      unknown-region-code: ${CATALOGUE_SYNC_UNKNOWN_REGION_CODE:unknown}
+      # Provider platform and release-region taxonomy is acquired from accepted releases through
+      # typed provider references keyed by provider entity ID; there is no product-owned allowlist
+      # to configure. See #178 and the catalogue synchronization documentation.
 
 ratings:
   jdbc:

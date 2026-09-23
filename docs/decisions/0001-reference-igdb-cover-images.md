@@ -46,6 +46,14 @@ and provider details remain isolated behind an adapter. Availability still depen
 on a third-party CDN, attribution consumes interface space and arbitrary transforms
 or permanent availability cannot be guaranteed.
 
+## Amendment 2026-09-20
+
+Owner decision: the visible attribution and source link are required on the game detail
+page, which every displayed cover links to, and no longer on each catalogue release card.
+The reference mode, the allowlisted host, the fallback rule and the prohibition on
+describing provider artwork as product-owned are unchanged, and the API still delivers the
+attribution with every provider cover.
+
 ## Reconsider when
 
 Reopen before a public or commercial release, monetization, binary copying or

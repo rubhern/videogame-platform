@@ -218,14 +218,47 @@ import pathlib
 import sys
 from urllib.parse import urlparse
 
+
+def require(condition, invariant):
+    if not condition:
+        print(f"Private-dev deployment preflight invariant failed: {invariant}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+def parse_private_https_origin(value, label, expected_port):
+    try:
+        parsed = urlparse(value)
+        port = parsed.port
+    except ValueError as error:
+        require(False, f"{label} has an invalid port: {error}")
+    require(parsed.scheme == "https", f"{label} must use HTTPS: {value!r}")
+    require(parsed.username is None and parsed.password is None, f"{label} must not include user info")
+    require(parsed.hostname is not None and parsed.hostname.startswith("vgpdev."), (
+        f"{label} must use the private vgpdev.* hostname: {value!r}"
+    ))
+    require(parsed.path == "" and parsed.params == "" and parsed.query == "" and parsed.fragment == "", (
+        f"{label} must be an origin without a path, query or fragment: {value!r}"
+    ))
+    port_description = "the default HTTPS port 443 without an explicit port" if expected_port is None else f"port {expected_port}"
+    require(port == expected_port, f"{label} must use {port_description}: {value!r}")
+    return parsed
+
 config = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 smoke = config["services"]["deployment-smoke"]
-application_origin = urlparse(smoke["environment"]["PRIVATE_DEV_APPLICATION_ORIGIN"])
-keycloak_origin = urlparse(smoke["environment"]["PRIVATE_DEV_KEYCLOAK_ORIGIN"])
-assert application_origin.scheme == "https" and application_origin.hostname.startswith("vgpdev.")
-assert application_origin.port is None, "application HTTPS origin must use port 443"
-assert keycloak_origin.scheme == "https" and keycloak_origin.hostname == application_origin.hostname
-assert keycloak_origin.port == 8443, "Keycloak HTTPS origin must use port 8443"
+application_origin = parse_private_https_origin(
+    smoke["environment"]["PRIVATE_DEV_APPLICATION_ORIGIN"],
+    "PRIVATE_DEV_APPLICATION_ORIGIN",
+    None,
+)
+keycloak_origin = parse_private_https_origin(
+    smoke["environment"]["PRIVATE_DEV_KEYCLOAK_ORIGIN"],
+    "PRIVATE_DEV_KEYCLOAK_ORIGIN",
+    8443,
+)
+require(
+    keycloak_origin.hostname == application_origin.hostname,
+    "Keycloak and application origins must use the same private hostname",
+)
 for secret_name in ("oidc_smoke_username", "oidc_smoke_password"):
     source = pathlib.Path(config["secrets"][secret_name]["file"])
     assert source.is_file() and source.stat().st_size > 0, f"required smoke credential is absent: {source}"

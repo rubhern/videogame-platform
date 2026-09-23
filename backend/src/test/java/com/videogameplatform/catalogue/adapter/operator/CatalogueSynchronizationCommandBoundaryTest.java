@@ -125,23 +125,13 @@ class CatalogueSynchronizationCommandBoundaryTest {
         assertThat(crossSite.body()).isEmpty();
     }
 
-    /** The shipped taxonomy allowlist must actually bind, or every release would fail mapping. */
+    /** Provider bounds must bind; taxonomy is now acquired by reference, not from an allowlist. */
     @Test
-    void bindsTheShippedProviderTaxonomyAllowlist() {
-        assertThat(providerSettings.platformCodes())
-                .containsEntry("ps5", "playstation-5")
-                .containsEntry("win", "windows-pc")
-                .containsEntry("switch-2", "nintendo-switch-2")
-                .containsEntry("series-x-s", "xbox-series")
-                .doesNotContainKeys("dos", "linux", "mac");
-        assertThat(providerSettings.regionCodes())
-                .containsEntry("worldwide", "worldwide")
-                .containsEntry("europe", "europe")
-                .containsEntry("north america", "north-america")
-                .containsEntry("japan", "japan");
-        assertThat(providerSettings.unknownRegionCode()).isEqualTo("unknown");
+    void bindsTheApprovedProviderRequestBounds() {
         assertThat(providerSettings.requestsPerSecond())
+                .isPositive()
                 .isLessThanOrEqualTo(IgdbApiSettings.MAX_REQUESTS_PER_SECOND);
+        assertThat(providerSettings.maxReleasesPerGame()).isPositive();
     }
 
     private static HttpResponse<String> get(int targetPort, String path)

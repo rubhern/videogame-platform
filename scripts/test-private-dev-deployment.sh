@@ -15,6 +15,14 @@ digest="sha256:1111111111111111111111111111111111111111111111111111111111111111"
 source_revision="2222222222222222222222222222222222222222"
 image="ghcr.io/rubhern/videogame-platform@$digest"
 lock_file="/run/lock/videogame-platform-dev-deployment.lock"
+application_origin="https://vgpdev.preflight-regression.ts.net"
+keycloak_origin="https://vgpdev.preflight-regression.ts.net:8443"
+
+# The fake Compose renderer must reflect the protected runtime input. This differs
+# from the validator's disposable static fixture so the regression cannot pass by
+# sharing a hard-coded hostname.
+export FAKE_PRIVATE_DEV_APPLICATION_ORIGIN="$application_origin"
+export FAKE_PRIVATE_DEV_KEYCLOAK_ORIGIN="$keycloak_origin"
 
 cleanup() {
   rm -rf -- "$temporary_directory"
@@ -37,8 +45,8 @@ for name in \
   printf 'test-%s\n' "$name" >"$secrets_directory/$name"
 done
 cat >"$runtime_env" <<EOF
-PRIVATE_DEV_APPLICATION_ORIGIN=https://vgpdev.validation.invalid
-PRIVATE_DEV_KEYCLOAK_ORIGIN=https://vgpdev.validation.invalid:8443
+PRIVATE_DEV_APPLICATION_ORIGIN=$application_origin
+PRIVATE_DEV_KEYCLOAK_ORIGIN=$keycloak_origin
 EOF
 
 cat >"$fake_bin/hostname" <<'EOF'
@@ -106,12 +114,20 @@ if [[ "$1" == compose ]]; then
   if [[ "$arguments" == *" config --format json "* ]]; then
     python3 - "$FAKE_REPOSITORY_ROOT" "$FAKE_SECRETS_DIRECTORY" "$FAKE_IMAGE" <<'PY'
 import json
+import os
 import pathlib
 import sys
 
 repository = pathlib.Path(sys.argv[1])
 secrets_directory = pathlib.Path(sys.argv[2])
 image = sys.argv[3]
+application_origin = os.environ.get("FAKE_PRIVATE_DEV_APPLICATION_ORIGIN", "https://vgpdev.validation.invalid")
+application_public_origin = os.environ.get("FAKE_APPLICATION_PUBLIC_ORIGIN", application_origin)
+keycloak_origin = os.environ.get("FAKE_PRIVATE_DEV_KEYCLOAK_ORIGIN", "https://vgpdev.validation.invalid:8443")
+issuer_uri = os.environ.get(
+    "FAKE_PRIVATE_DEV_OIDC_ISSUER_URI",
+    f"{keycloak_origin}/realms/videogame-platform",
+)
 secret_files = {
     name.replace("-", "_"): {"file": str(secrets_directory / name)}
     for name in (
@@ -153,6 +169,7 @@ services = {
         "unless-stopped",
         ("keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"),
         build={"context": str(repository / "deploy/private-dev/keycloak")},
+        environment={"KC_HOSTNAME": keycloak_origin},
         ports=[{"host_ip": "127.0.0.1", "published": 8180, "target": 8080}],
         volumes=[{
             "source": str(repository / "docker/keycloak/import/videogame-platform-realm.json"),
@@ -174,6 +191,15 @@ services = {
             "APPLICATION_FLYWAY_ENABLED": "false",
             "APPLICATION_SESSION_COOKIE_NAME": "__Host-vgp_session",
             "APPLICATION_SESSION_COOKIE_SECURE": "true",
+            "APPLICATION_PUBLIC_ORIGIN": application_public_origin,
+            "APPLICATION_OIDC_REDIRECT_URI": f"{application_origin}/login/oauth2/code/keycloak",
+            "APPLICATION_HSTS_ENABLED": "true",
+            "SERVER_FORWARD_HEADERS_STRATEGY": "NATIVE",
+            "OIDC_ISSUER_URI": issuer_uri,
+            "OIDC_AUTHORIZATION_URI": f"{keycloak_origin}/realms/videogame-platform/protocol/openid-connect/auth",
+            "OIDC_TOKEN_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token",
+            "OIDC_JWK_SET_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs",
+            "OIDC_USER_INFO_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo",
             "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "dev",
             "TELEMETRY_SERVICE_VERSION": "0.15.0-SNAPSHOT",
         },
@@ -201,8 +227,8 @@ services = {
         {
             "EXPECTED_APPLICATION_VERSION": "0.15.0-SNAPSHOT",
             "EXPECTED_SOURCE_REVISION": "2" * 40,
-            "PRIVATE_DEV_APPLICATION_ORIGIN": "https://vgpdev.validation.invalid",
-            "PRIVATE_DEV_KEYCLOAK_ORIGIN": "https://vgpdev.validation.invalid:8443",
+            "PRIVATE_DEV_APPLICATION_ORIGIN": application_origin,
+            "PRIVATE_DEV_KEYCLOAK_ORIGIN": keycloak_origin,
         },
         build={"context": str(repository / "deploy/private-dev/smoke")},
         shm_size=256 * 1024 * 1024,
@@ -285,6 +311,8 @@ run_deployment() {
   FAKE_DOCKER_COMMAND_LOG="$command_log" \
   FAKE_IMAGE="$image" \
   FAKE_NODE_INVOCATION_MARKER="$node_invocation_marker" \
+  FAKE_PRIVATE_DEV_APPLICATION_ORIGIN="$application_origin" \
+  FAKE_PRIVATE_DEV_KEYCLOAK_ORIGIN="$keycloak_origin" \
   FAKE_REPOSITORY_ROOT="$repository_root" \
   FAKE_SECRETS_DIRECTORY="$secrets_directory" \
   FAKE_TELEMETRY_STATE="$evidence_directory/telemetry-state" \
@@ -339,6 +367,32 @@ if PATH="$fake_bin:$PATH" "$deployment_command" \
   exit 1
 fi
 
+if PATH="$fake_bin:$PATH" \
+    FAKE_PRIVATE_DEV_OIDC_ISSUER_URI=http://keycloak:8080/realms/videogame-platform \
+    FAKE_REPOSITORY_ROOT="$repository_root" \
+    FAKE_SECRETS_DIRECTORY="$secrets_directory" \
+    FAKE_IMAGE="$image" \
+    "$runtime_validator" --env-file "$runtime_env" >/dev/null 2>&1; then
+  printf "Private-dev runtime validation accepted an issuer that differs from Keycloak's external hostname.\n" >&2
+  exit 1
+fi
+
+if runtime_validation_error="$(PATH="$fake_bin:$PATH" \
+    FAKE_APPLICATION_PUBLIC_ORIGIN=https://vgpdev.mismatched-origin.ts.net \
+    FAKE_DOCKER_COMMAND_LOG="$command_log" \
+    FAKE_NODE_INVOCATION_MARKER="$node_invocation_marker" \
+    FAKE_REPOSITORY_ROOT="$repository_root" \
+    FAKE_SECRETS_DIRECTORY="$secrets_directory" \
+    FAKE_IMAGE="$image" \
+    "$runtime_validator" --env-file "$runtime_env" 2>&1)"; then
+  printf 'Private-dev runtime validation accepted an application origin that differs from the configured origin.\n' >&2
+  exit 1
+fi
+if ! grep -Fq 'Private-dev topology invariant failed: APPLICATION_PUBLIC_ORIGIN must equal the resolved PRIVATE_DEV_APPLICATION_ORIGIN' <<<"$runtime_validation_error"; then
+  printf 'Private-dev runtime validation did not identify the application-origin invariant failure:\n%s\n' "$runtime_validation_error" >&2
+  exit 1
+fi
+
 : >"$command_log"
 digest_evidence="$temporary_directory/digest-evidence"
 mkdir -p "$digest_evidence"
@@ -348,6 +402,8 @@ if PATH="$fake_bin:$PATH" \
     FAKE_DOCKER_COMMAND_LOG="$command_log" \
     FAKE_IMAGE="$image" \
     FAKE_NODE_INVOCATION_MARKER="$node_invocation_marker" \
+    FAKE_PRIVATE_DEV_APPLICATION_ORIGIN="$application_origin" \
+    FAKE_PRIVATE_DEV_KEYCLOAK_ORIGIN="$keycloak_origin" \
     FAKE_REPOSITORY_ROOT="$repository_root" \
     FAKE_SECRETS_DIRECTORY="$secrets_directory" \
     "$deployment_command" \

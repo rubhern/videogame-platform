@@ -20,12 +20,15 @@ required_files=(
   "deploy/private-dev/compose.yaml"
   "deploy/private-dev/runtime.env.example"
   "deploy/private-dev/smoke/Dockerfile"
+  "deploy/private-dev/smoke/deployment-smoke-contract.test.mjs"
   "deploy/private-dev/smoke/deployment-smoke.mjs"
+  "deploy/private-dev/smoke/deployment-smoke-order.test.mjs"
   "deploy/private-dev/smoke/package-lock.json"
   "deploy/private-dev/smoke/package.json"
   "deploy/private-dev/smoke/releases-outcome.mjs"
   "deploy/private-dev/smoke/releases-outcome.test.mjs"
   "scripts/test-private-dev-oidc-provisioning.py"
+  "scripts/test-private-dev-oidc-provisioning-keycloak.py"
   ".mvn/wrapper/maven-wrapper.properties"
   "AGENTS.md"
   "README.md"
@@ -44,10 +47,8 @@ required_files=(
   "frontend/tsconfig.app.json"
   "frontend/tsconfig.node.json"
   "docs/product/product-brief.md"
-  "docs/product/clickable-prototype.md"
   "docs/product/mvp-story-map.md"
-  "docs/product/assumptions.md"
-  "docs/product/open-questions.md"
+  "docs/product/assumptions-and-decisions.md"
   "docs/product/glossary.md"
   "docs/research/README.md"
   "docs/research/competitor-journey-comparison-metacritic.md"
@@ -55,19 +56,17 @@ required_files=(
   "docs/research/igdb-poc-results.md"
   "docs/research/igdb-poc-sample.csv"
   "docs/research/simulated-round-synthesis.md"
-  "docs/reference/README.md"
   "docs/reference/video-game-platform-vision.pdf"
   "docs/README.md"
-  "docs/development/README.md"
   "docs/development/continuous-integration.md"
   "docs/development/database-migrations.md"
   "docs/development/local-setup.md"
   "docs/development/observability.md"
   "docs/development/openapi.md"
+  "docs/development/operations-runbook.md"
   "docs/development/delivery-lifecycle.md"
   "docs/development/work-management.md"
   "docs/development/ai-assistance.md"
-  "docs/architecture/README.md"
   "docs/architecture/domain/mvp-domain-model.md"
   "docs/architecture/application/mvp-use-cases.md"
   "docs/architecture/mvp-solution-architecture.md"
@@ -81,10 +80,11 @@ required_files=(
   "docs/architecture/diagrams/structurizr/workspace.json"
   "docs/architecture/diagrams/structurizr/structurizr.properties"
   "docs/architecture/diagrams/mermaid/module-context-map.mmd"
-  "docs/architecture/diagrams/mermaid/hexagonal-dependency-rules.mmd"
-  "docs/architecture/diagrams/mermaid/authenticate-and-create-rating-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/oidc-bff-session-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/session-csrf-logout-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/rating-intent-authentication-sequence.mmd"
+  "docs/architecture/diagrams/mermaid/persistence-ownership.mmd"
   "docs/architecture/diagrams/mermaid/synchronize-bounded-catalogue-sequence.mmd"
-  "docs/architecture/diagrams/mermaid/catalogue-persistence-model.mmd"
   "docs/architecture/diagrams/mermaid/delivery-pipeline.mmd"
   "docs/architecture/diagrams/scripts/render-mermaid.sh"
   "docs/decisions/0001-reference-igdb-cover-images.md"
@@ -332,6 +332,36 @@ try:
             errors.append("Keycloak BFF client root URL must use APPLICATION_PUBLIC_ORIGIN")
     if "users" in realm:
         errors.append("Shared Keycloak realm must not embed environment-specific users")
+    profiles = realm.get("components", {}).get("org.keycloak.userprofile.UserProfileProvider", [])
+    if len(profiles) != 1:
+        errors.append("Keycloak realm must define exactly one declarative user profile")
+    else:
+        profile_config = profiles[0].get("config", {}).get("kc.user.profile.config", [])
+        if len(profile_config) != 1 or not isinstance(profile_config[0], str):
+            errors.append("Keycloak realm user profile must define one JSON configuration")
+        else:
+            try:
+                profile = json.loads(profile_config[0])
+                expected_marker = {
+                    "displayName": "Deployment smoke ownership marker",
+                    "multivalued": False,
+                    "name": "vgpDeploymentSmoke",
+                    "permissions": {"edit": ["admin"], "view": ["admin"]},
+                    "validations": {"length": {"max": 4, "min": 4}},
+                }
+                if profile.get("unmanagedAttributePolicy") not in (None, "DISABLED"):
+                    errors.append("Keycloak realm user profile must keep unmanaged attributes disabled")
+                markers = [
+                    attribute
+                    for attribute in profile.get("attributes", [])
+                    if isinstance(attribute, dict) and attribute.get("name") == "vgpDeploymentSmoke"
+                ]
+                if markers != [expected_marker]:
+                    errors.append(
+                        "Keycloak realm must declare the admin-only deployment smoke marker"
+                    )
+            except (TypeError, json.JSONDecodeError):
+                errors.append("Keycloak realm user profile must contain valid JSON")
     if local_realm_users.get("realm") != "videogame-platform":
         errors.append("Local Keycloak user import must target videogame-platform")
     if len(users) != 1 or users[0].get("username") != "${LOCAL_TEST_USER_USERNAME}":
@@ -414,8 +444,6 @@ expected_backend_variables = {
     "APPLICATION_SESSION_COOKIE_NAME",
     "APPLICATION_SESSION_COOKIE_SECURE",
     "CATALOGUE_JDBC_READ_TIMEOUT",
-    "CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS",
-    "CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS",
     "CATALOGUE_RELEASES_FRESHNESS_THRESHOLD",
     "CATALOGUE_RELEASES_CACHE_CONTROL",
     "CATALOGUE_SEARCH_RELEASE_CONTEXT_LIMIT",

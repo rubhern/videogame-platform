@@ -74,12 +74,9 @@ class GameDetailsServiceTest {
     private static GameDetailsReadPort.Game game() {
         var cover = new CatalogueCoverReference.Product("/assets/covers/fallback.svg", "Fallback");
         var tuple =
-                new ReleaseBrowseReadPort.Item(
+                new ReleaseBrowseReadPort.ReleaseRow(
                         "release",
                         "game",
-                        "game",
-                        "Game",
-                        cover,
                         new ReleaseBrowseReadPort.Taxonomy("pc", "PC"),
                         new ReleaseBrowseReadPort.Taxonomy("eu", "Europe"),
                         new ReleaseDate.Day(LocalDate.of(2026, 8, 13)),

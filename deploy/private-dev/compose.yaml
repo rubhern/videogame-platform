@@ -150,12 +150,22 @@ services:
     entrypoint: ["/opt/videogame-platform/bin/run-application"]
     environment:
       SPRING_PROFILES_ACTIVE: oidc,structured
-      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      APPLICATION_PUBLIC_ORIGIN: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}
+      APPLICATION_OIDC_REDIRECT_URI: ${PRIVATE_DEV_APPLICATION_ORIGIN:?Set PRIVATE_DEV_APPLICATION_ORIGIN in runtime.env}/login/oauth2/code/keycloak
+      APPLICATION_HSTS_ENABLED: "true"
+      # Tailscale Serve terminates the tailnet HTTPS and forwards plaintext HTTP to this
+      # loopback-published port, overwriting X-Forwarded-Proto=https on every request. NATIVE
+      # activates Tomcat's RemoteIpValve, which honours X-Forwarded-Proto/For only from internal
+      # (loopback/private) peers and never the browser-facing Host, so the effective scheme/port
+      # match the external HTTPS origin without trusting client-supplied forwarded headers. FRAMEWORK
+      # (unconditional trust of every client) must not be used here.
+      SERVER_FORWARD_HEADERS_STRATEGY: NATIVE
       APPLICATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
       APPLICATION_DB_USERNAME: videogame_app
       APPLICATION_DB_PASSWORD_FILE: /run/secrets/application_db_password
       APPLICATION_FLYWAY_ENABLED: "false"
       MANAGEMENT_SERVER_ADDRESS: 0.0.0.0
+      OIDC_ISSUER_URI: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}/realms/videogame-platform
       OIDC_AUTHORIZATION_URI: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}/realms/videogame-platform/protocol/openid-connect/auth
       OIDC_TOKEN_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs

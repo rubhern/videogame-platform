@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.oauth2.client.oidc.authentication.OidcIdTokenDecoderFactory;
@@ -23,6 +24,7 @@ import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 
 /** Composition root for the same-origin BFF security boundary. */
@@ -32,6 +34,16 @@ public class IdentitySecurityConfiguration {
 
     static final String AUTHORIZATION_BASE_URI = "/auth/login";
     static final String SESSION_PATH = "/api/v1/session";
+    private static final String CONTENT_SECURITY_POLICY =
+            "default-src 'self'; "
+                    + "base-uri 'self'; "
+                    + "object-src 'none'; "
+                    + "frame-ancestors 'none'; "
+                    + "form-action 'self'; "
+                    + "script-src 'self'; "
+                    + "style-src 'self'; "
+                    + "img-src 'self' data: https://images.igdb.com; "
+                    + "connect-src 'self'";
 
     @Bean
     SecurityFilterChain applicationSecurity(
@@ -42,7 +54,8 @@ public class IdentitySecurityConfiguration {
             CurrentUser currentUser,
             RatingResumeAuthenticationSuccessHandler ratingResumeSuccessHandler,
             RatingIntentAuthenticationFailureHandler ratingIntentFailureHandler,
-            @Value("${server.servlet.session.cookie.name:vgp_session}") String sessionCookieName)
+            @Value("${server.servlet.session.cookie.name:vgp_session}") String sessionCookieName,
+            @Value("${platform.http-security.hsts.enabled:false}") boolean hstsEnabled)
             throws Exception {
         HttpSessionCsrfTokenRepository csrfTokens = new HttpSessionCsrfTokenRepository();
         csrfTokens.setHeaderName("X-CSRF-Token");
@@ -81,7 +94,31 @@ public class IdentitySecurityConfiguration {
                                                     response.setStatus(
                                                             HttpStatus.NO_CONTENT.value());
                                                 }))
-                .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+                .headers(
+                        headers -> {
+                            headers.contentSecurityPolicy(
+                                            policy ->
+                                                    policy.policyDirectives(
+                                                            CONTENT_SECURITY_POLICY))
+                                    .contentTypeOptions(Customizer.withDefaults())
+                                    .frameOptions(frame -> frame.deny())
+                                    .referrerPolicy(
+                                            referrer ->
+                                                    referrer.policy(
+                                                            ReferrerPolicy
+                                                                    .STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
+                            if (hstsEnabled) {
+                                // Tailscale Serve terminates private HTTPS. The private-dev
+                                // profile enables this explicitly; local loopback HTTP does not.
+                                headers.httpStrictTransportSecurity(
+                                        hsts ->
+                                                hsts.requestMatcher(request -> true)
+                                                        .includeSubDomains(true)
+                                                        .preload(false));
+                            } else {
+                                headers.httpStrictTransportSecurity(hsts -> hsts.disable());
+                            }
+                        });
 
         ClientRegistrationRepository repository = registrations.getIfAvailable();
         if (repository != null) {

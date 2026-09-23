@@ -43,8 +43,9 @@ final class IgdbQueries {
     }
 
     static String releaseDatesForGames(List<String> providerIds, int limit) {
-        return "fields game,id,date,y,m,d,date_format.format,release_region.region,status.name,"
-                + "platform.slug,platform.name;"
+        return "fields game,id,date,y,m,d,date_format.format,"
+                + "release_region.id,release_region.region,status.name,"
+                + "platform.id,platform.slug,platform.name;"
                 + " where game = ("
                 + identifierList(providerIds)
                 + ");"

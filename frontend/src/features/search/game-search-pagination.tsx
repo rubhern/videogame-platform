@@ -27,18 +27,18 @@ export function GameSearchPagination({ params, page }: GameSearchPaginationProps
   }
 
   return (
-    <nav aria-label="Paginación de resultados" className="pagination">
-      {hasPrevious ? (
-        <Link className="button" to={gameSearchPath(params, { page: page.number - 1 })}>
-          Página anterior
-        </Link>
-      ) : null}
-      <p className="text-sm text-muted">
+    <nav aria-label="Paginación de resultados" className="pagination search-pagination">
+      <p>
         Página {page.number} de {Math.max(page.totalPages, 1)}
       </p>
+      {hasPrevious ? (
+        <Link className="button view-action view-action-back" to={gameSearchPath(params, { page: page.number - 1 })}>
+          <span aria-hidden="true">←</span> Página anterior
+        </Link>
+      ) : null}
       {hasNext ? (
-        <Link className="button" to={gameSearchPath(params, { page: page.number + 1 })}>
-          Página siguiente
+        <Link className="button view-action" to={gameSearchPath(params, { page: page.number + 1 })}>
+          Página siguiente <span aria-hidden="true">→</span>
         </Link>
       ) : null}
     </nav>

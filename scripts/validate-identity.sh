@@ -50,6 +50,7 @@ keycloak_admin_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 bff_client_secret="$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')"
 test_user_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 test_user_username="local-user"
+smoke_user_username="integration-deployment-smoke"
 
 bash scripts/package-application.sh
 application_jar="$(resolve_backend_jar)"
@@ -124,6 +125,20 @@ docker run --rm --network "$identity_network" "$playwright_image" \
   exit 1
 }
 
+docker run --rm \
+  --network "$identity_network" \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+  --env KEYCLOAK_TEST_ORIGIN=http://keycloak:8080 \
+  --env KEYCLOAK_TEST_ADMIN_USERNAME=local-admin \
+  --env KEYCLOAK_TEST_ADMIN_PASSWORD="$keycloak_admin_password" \
+  --env KEYCLOAK_TEST_SMOKE_USERNAME="$smoke_user_username" \
+  --env KEYCLOAK_TEST_SMOKE_PASSWORD="$test_user_password" \
+  --volume "$repository_root:/work:ro" \
+  --workdir /work \
+  "$playwright_image" \
+  python3 scripts/test-private-dev-oidc-provisioning-keycloak.py
+
 docker run --detach \
   --name "$application_container" \
   --network "$identity_network" \
@@ -172,7 +187,7 @@ docker run --rm \
   --network "$identity_network" \
   --user "$(id -u):$(id -g)" \
   --env PLAYWRIGHT_BASE_URL=http://application:8080 \
-  --env OIDC_TEST_USERNAME="$test_user_username" \
+  --env OIDC_TEST_USERNAME="$smoke_user_username" \
   --env OIDC_TEST_PASSWORD="$test_user_password" \
   --volume "$repository_root:/work" \
   --workdir /work \

@@ -165,10 +165,7 @@ class IgdbApiClientTest {
                         requestsPerSecond,
                         2,
                         backoff,
-                        25,
-                        Map.of("ps5", "playstation-5"),
-                        Map.of("europe", "europe"),
-                        "unknown");
+                        25);
         return new IgdbApiClient(
                 HttpClient.newHttpClient(),
                 JsonMapper.builder()

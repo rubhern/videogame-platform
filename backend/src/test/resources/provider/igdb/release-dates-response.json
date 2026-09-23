@@ -9,9 +9,11 @@
       "format": "YYYYMMMMDD"
     },
     "release_region": {
+      "id": 1,
       "region": "europe"
     },
     "platform": {
+      "id": 167,
       "slug": "ps5",
       "name": "PlayStation 5"
     },
@@ -24,9 +26,11 @@
       "format": "YYYYMMMMDD"
     },
     "release_region": {
+      "id": 8,
       "region": "worldwide"
     },
     "platform": {
+      "id": 6,
       "slug": "win",
       "name": "PC (Microsoft Windows)"
     },
@@ -45,9 +49,11 @@
       "name": "Cancelled"
     },
     "release_region": {
+      "id": 8,
       "region": "worldwide"
     },
     "platform": {
+      "id": 169,
       "slug": "series-x-s",
       "name": "Xbox Series X|S"
     },
@@ -66,9 +72,11 @@
       "name": "Delayed"
     },
     "release_region": {
+      "id": 1,
       "region": "europe"
     },
     "platform": {
+      "id": 508,
       "slug": "switch-2",
       "name": "Nintendo Switch 2"
     },
@@ -84,9 +92,11 @@
       "format": "YYYYMMMMDD"
     },
     "release_region": {
+      "id": 8,
       "region": "worldwide"
     },
     "platform": {
+      "id": 13,
       "slug": "dos",
       "name": "DOS"
     },
@@ -102,9 +112,11 @@
       "format": "YYYYMMMMDD"
     },
     "release_region": {
+      "id": 5,
       "region": "japan"
     },
     "platform": {
+      "id": 167,
       "slug": "ps5",
       "name": "PlayStation 5"
     },
@@ -118,9 +130,11 @@
       "format": "YYYYQ2"
     },
     "release_region": {
+      "id": 8,
       "region": "worldwide"
     },
     "platform": {
+      "id": 167,
       "slug": "ps5",
       "name": "PlayStation 5"
     },
@@ -132,9 +146,11 @@
       "format": "TBD"
     },
     "release_region": {
+      "id": 1,
       "region": "europe"
     },
     "platform": {
+      "id": 6,
       "slug": "win",
       "name": "PC (Microsoft Windows)"
     },
@@ -147,6 +163,7 @@
       "format": "YYYYMMMMDD"
     },
     "release_region": {
+      "id": 1,
       "region": "europe"
     },
     "game": 116530
@@ -157,9 +174,11 @@
       "format": "YYYYMMMMDD"
     },
     "release_region": {
+      "id": 1,
       "region": "europe"
     },
     "platform": {
+      "id": 167,
       "slug": "ps5",
       "name": "PlayStation 5"
     },
@@ -174,6 +193,7 @@
       "format": "YYYYMMMM"
     },
     "platform": {
+      "id": 169,
       "slug": "series-x-s",
       "name": "Xbox Series X|S"
     },

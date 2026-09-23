@@ -29,6 +29,12 @@ const resultPage = {
           freshnessStatus: "fresh",
         },
       ],
+      releaseSummary: {
+        platforms: [{ platformId: "platform-ps5", name: "PlayStation 5" }],
+        totalPlatforms: 1,
+        earliestKnownYear: 2027,
+        latestKnownYear: 2027,
+      },
     },
   ],
   page: { number: 1, size: 6, totalItems: 1, totalPages: 1 },
@@ -90,9 +96,11 @@ describe("catalogue search page", () => {
 
     expect(await screen.findByRole("heading", { level: 3, name: "The Witcher IV" }))
       .toBeInTheDocument();
-    expect(screen.getByText(/Coincide con el título alternativo/)).toHaveTextContent(
-      "The Witcher 4",
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Resultados para «the witcher 4»",
     );
+    expect(screen.getByText(/Coincidencia:/)).toHaveTextContent("Coincidencia: The Witcher 4");
+    expect(screen.getByText("2027")).toBeInTheDocument();
     const request = searchCalls(fetchMock)[0];
     expect(request).toBeDefined();
     expect(
@@ -106,7 +114,7 @@ describe("catalogue search page", () => {
     const { router } = renderApp("/search");
 
     await user.type(
-      await screen.findByRole("searchbox", { name: "Buscar en el catálogo" }),
+      await screen.findByRole("combobox", { name: "Buscar en el catálogo" }),
       "the witcher 4",
     );
     await user.click(screen.getByRole("button", { name: "Buscar" }));
@@ -210,7 +218,7 @@ describe("catalogue search page", () => {
     renderApp("/search");
 
     await user.type(
-      await screen.findByRole("searchbox", { name: "Buscar en el catálogo" }),
+      await screen.findByRole("combobox", { name: "Buscar en el catálogo" }),
       "the witcher 4",
     );
     await user.click(screen.getByRole("button", { name: "Buscar" }));

@@ -1,64 +1,14 @@
 # VideoGame Platform backend
 
-The backend is a Java 25 / Spring Boot modular monolith. It currently implements the
-PostgreSQL-backed `GET /api/v1/releases`, `GET /api/v1/games` and
-`GET /api/v1/games/{gameId}` operations, authenticated current-user rating read/write/delete
-and the paginated `GET /api/v1/me/ratings` collection,
-the minimal BFF session resource, Keycloak login navigation, the rating authentication
-boundary (`/auth/rating-intent` start and single-use, expiring return context that
-resumes the same game and selected value without persisting a rating), packaged
-frontend routes, Actuator health/info/metrics, and the internal operator-triggered
-IGDB catalogue synchronization.
-The remaining operations in the [OpenAPI contract](../docs/architecture/api/openapi.yaml)
-are approved contracts, not implemented claims.
-
-## Public game details
-
-Catalogue reads one publication through the existing read-only transaction policy.
-The application read port bounds complete aliases/releases and fails closed if a game
-exceeds either bound; it never returns a truncated eligibility context. Missing
-editorial content uses an explicit product-owned “not yet curated” message, while
-sourced summaries retain their language and provenance.
-
-Ratings consumes Catalogue application context and reads only its own tables.
-PostgreSQL computes count, mean and ten distribution buckets in one statement;
-a missing contribution set is empty, and a read failure becomes unavailable without
-blocking the game. No personal record or user identity is included in public delivery.
-
-The public representation revalidates on every reuse because Madrid evaluation dates
-and aggregate/freshness state affect its ETag. Degraded aggregates are not stored.
-The [observability policy](../docs/development/observability.md) defines the shared
-HTTP metrics and the bounded detail-read meter for eligibility and aggregate state.
-No provider request is made during a game read.
-
-The forward migrations add defaulted catalogue summary columns and extend the
-module-owned rating table with timestamps and an opaque version token. The previous
-application remains compatible with the expanded schema. Apply them before activating
-this version. Roll back the application while retaining the additive data; do not
-reverse the migration or drop ratings to recover an application deployment.
-
-## Personal rating commands
-
-`GET`, conditional `PUT`, and conditional `DELETE` on
-`/api/v1/me/ratings/{gameId}` implement `UC-005`, `UC-006`, and `UC-007`. The server
-derives the product `UserId` exclusively from the validated OIDC issuer and subject.
-Personal absence is scoped by that identifier, so another user's row is never exposed.
-
-Create requires `If-None-Match: *`; update and delete require the current strong,
-opaque `ETag` in `If-Match`. PostgreSQL enforces one active row per user and game,
-and conditional DML resolves concurrent races without lost updates. Create and update
-re-evaluate release eligibility with the trusted application clock; delete deliberately
-does not. Each successful write and its database-computed aggregate are read in one
-bounded transaction. A database failure rolls back the personal state before a safe
-`RATING_WRITE_FAILED` response. These authenticated responses use `no-store`, and
-state changes require the session CSRF token plus same-origin browser metadata.
-
-The collection endpoint `/api/v1/me/ratings` remains unimplemented and is owned by
-issue #32; no rating UI is included here.
-
-For the local browser login, cookie synchronization and automatic CSRF bootstrap used
-to exercise these commands, follow the
-[authenticated Postman instructions](postman/README.md#authenticated-personal-rating-run).
+The backend is a Java 25 / Spring Boot modular monolith. It implements every
+operation of the [OpenAPI contract](../docs/architecture/api/openapi.yaml)
+(release discovery, catalogue search, game details, the BFF session, and the
+current user's personal ratings), the Keycloak login and rating-intent navigation
+routes under `/auth`, the packaged frontend routes, Actuator health/info/metrics, and
+the internal operator-triggered IGDB catalogue synchronization. Behaviour is specified
+by the [use cases](../docs/architecture/application/mvp-use-cases.md) and
+[API conventions](../docs/architecture/api/api-conventions.md); this README owns
+only how to build, run, and exercise it.
 
 ## Build and verify
 
@@ -79,10 +29,13 @@ Useful focused commands:
 ./mvnw -pl backend clean generate-sources
 ./mvnw spotless:apply
 bash scripts/validate-migrations.sh
+bash scripts/analyze-catalogue-search.sh
+bash scripts/analyze-release-browse.sh
 ```
 
-Dependency and plugin versions are authoritative in the root and backend Maven
-POMs; this README intentionally does not duplicate them.
+The two `analyze-*` scripts write representative-scale query plans under ignored
+`backend/target/query-plans/`; ADR-0015 and ADR-0016 record the accepted evidence.
+Dependency and plugin versions are authoritative in the root and backend Maven POMs.
 
 ## Run locally
 
@@ -98,22 +51,16 @@ APPLICATION_FLYWAY_ENABLED=true ./mvnw -pl backend spring-boot:run
 ```
 
 The application listens on `http://localhost:8080`. Add
-`SPRING_PROFILES_ACTIVE=oidc` to exercise the Keycloak BFF flow, or use the complete
-packaged topology:
+`SPRING_PROFILES_ACTIVE=oidc` to exercise the Keycloak BFF flow, or run the complete
+packaged topology with `bash scripts/local-dependencies.sh application`.
 
-```bash
-bash scripts/local-dependencies.sh application
-```
-
-For deterministic release examples, add
+For deterministic examples add
 `SPRING_FLYWAY_LOCATIONS=classpath:db/migration,classpath:db/dev-seed`. The seed is
-development-only and excluded from the production image profile. It holds a small
-intentional matrix — twelve games over twenty releases across four platforms and five
-regions — that produces several real pages, an incomplete last page, filters with
-many, few and no results, every date precision, and both cover-fallback reasons.
-
-The seed uses absolute dates, so add `PLATFORM_CLOCK_FIXED_INSTANT=2026-08-13T10:00:00Z`
-to evaluate the same `recent` and `upcoming` windows the browser gate asserts.
+development-only, excluded from the production image, and holds a small intentional
+matrix (several pages, an incomplete last page, filters with many/few/no results,
+every date precision, both cover-fallback reasons). It uses absolute dates, so add
+`PLATFORM_CLOCK_FIXED_INSTANT=2026-08-13T10:00:00Z` to evaluate the same `recent`
+and `upcoming` windows the browser gate asserts.
 
 Configuration names, defaults, and secret classification are maintained in
 [`backend/.env.example`](.env.example) and
@@ -122,51 +69,42 @@ Configuration names, defaults, and secret classification are maintained in
 
 ## Modules and dependency direction
 
-| Module      | Responsibility                                                                              |
-|-------------|---------------------------------------------------------------------------------------------|
-| `catalogue` | Games, releases, local publication reads, and bounded provider synchronization              |
-| `ratings`   | Release eligibility, aggregates, and transactional current-user rating commands             |
-| `identity`  | BFF session and external identity integration                                               |
-| `api`       | HTTP delivery and mapping only                                                              |
-| `platform`  | Cross-cutting runtime configuration and observability                                       |
+| Module      | Responsibility                                                                   |
+|-------------|----------------------------------------------------------------------------------|
+| `catalogue` | Games, releases, aliases, covers, local publication reads, and provider synchronization |
+| `ratings`   | Release eligibility, aggregates, personal rating commands, and the `Mis puntuaciones` projection |
+| `identity`  | BFF session, external identity integration, and the rating-intent return context |
+| `api`       | HTTP delivery and mapping only                                                   |
+| `platform`  | Cross-cutting runtime configuration and observability                            |
 
 Domain and application code remain independent from Spring, HTTP, generated OpenAPI
-types, persistence models, and provider DTOs. Adapters depend inward and do not
-instantiate application services. Module composition belongs in the owning
-`configuration` package. Within a layer, cohesive use cases use capability packages
-such as `search`, `releases`, and `cover`; genuinely shared mechanisms stay at the
-layer root. Spring Modulith named interfaces expose only the public application
-contracts, while ArchUnit prevents adapters from reaching capability internals.
-
-The approved structure and trade-offs live in the
-[solution architecture](../docs/architecture/mvp-solution-architecture.md) and
-[ADR-0002](../docs/decisions/0002-use-a-modular-monolith-and-relational-data-boundary.md).
+types, persistence models, and provider DTOs; adapters depend inward and module
+composition belongs in the owning `configuration` package. Within a layer, cohesive
+use cases use capability packages such as `search`, `releases`, and `cover`. Spring
+Modulith named interfaces expose only the public application contracts, and ArchUnit
+prevents adapters from reaching capability internals. The rules and their rationale
+are in the [solution architecture](../docs/architecture/mvp-solution-architecture.md).
 
 ## HTTP contract
 
-`docs/architecture/api/openapi.yaml` is the product HTTP source of truth. Maven
-generates disposable interfaces and transport models below
+Maven generates disposable interfaces and transport models from OpenAPI below
 `backend/target/generated-sources/openapi`; never edit or commit them. Manual
-controllers in `api.delivery` implement generated interfaces and map to application
-models.
-
-Follow the [OpenAPI workflow](../docs/development/openapi.md) for contract changes.
-Update the relevant [Postman collection](postman/README.md) in the same change.
+controllers in `api.delivery` implement the generated interfaces and map to
+application models. Follow the [OpenAPI workflow](../docs/development/openapi.md) for
+contract changes and update the relevant [Postman collection](postman/README.md) in
+the same change.
 
 ## Persistence and observability
 
 Flyway SQL under `src/main/resources/db/migration/` is the executable schema
-authority. Hibernate schema generation is disabled, the migration role owns DDL,
-and the runtime role has only required DML privileges. See the
-[migration workflow](../docs/development/database-migrations.md).
+authority; the [migration workflow](../docs/development/database-migrations.md) owns
+the policy. Actuator exposes health groups, build information, metrics, and the
+synchronization command on the separate management port (`8081` by default, loopback
+only), never on the product port; [observability](../docs/development/observability.md)
+owns the signal catalogue.
 
-For catalogue-search plan evidence, run `bash scripts/analyze-catalogue-search.sh`.
-The supported fixture sizes live in the script; full production count/page plans are
-written under ignored `backend/target/query-plans/`. See
-[ADR-0016](../docs/decisions/0016-search-the-bounded-catalogue-with-postgresql-text-search.md)
-for the indexing decision and its limits.
-
-Catalogue synchronization (`UC-009`) is one internal management command:
+Catalogue synchronization (`UC-009`) is one internal management command with
+required inclusive ISO dates:
 
 ```bash
 curl --fail -X POST -H 'Content-Type: application/json' \
@@ -175,35 +113,15 @@ curl --fail -X POST -H 'Content-Type: application/json' \
 curl --fail http://localhost:8081/actuator/cataloguesync
 ```
 
-`from` and `to` are required ISO dates and both are inclusive. One POST paginates
-internally until every IGDB Game represented by a `release_dates` row in that
-interval has been reconciled. There is no total
-Game limit. `providerPageSize` is an internal memory/transport bound only.
-The GET reports the last run or `never_run`.
-The reconciliation, date-window, retry and per-Game atomicity decisions live in
-[ADR-0017](../docs/decisions/0017-discover-catalogue-members-automatically-from-igdb.md).
-The endpoint is not scheduled and is absent from the public OpenAPI.
-
-Apply the Flyway schema before enabling this command, even if GET is the first
-operation. Application startup normally leaves Flyway disabled; see the
-[migration workflow](../docs/development/database-migrations.md).
-An earlier local #33 schema is not compatible with the rewritten, unpublished
-migration: preserve its data and arrange an explicit reviewed conversion before
-starting this version. Do not use checksum repair as a schema upgrade or reset a
-persistent database.
-
-Without `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` the command reports
-`SYNCHRONIZATION_DISABLED` and changes nothing, which is how CI and a normal local run
-behave; automated provider evidence uses the fixtures under
-`src/test/resources/provider/igdb/`. Live provider evidence needs a confidential Twitch
-developer application and belongs in the ignored `backend/.env` only.
-
-Actuator exposes health groups, build information, metrics, and that command on the
-separate local management port (`8081` by default), not on the product port.
-Correlation uses `X-Correlation-ID`; tracing uses W3C context; OTLP export is
-disabled by default.
-Metric labels must remain bounded and must not include user, game, request, or
-correlation identifiers. See [observability](../docs/development/observability.md).
+One POST paginates internally until every IGDB Game with a release date in the
+interval has been reconciled; there is no total Game limit. The GET reports the last
+run or `never_run`. Apply the Flyway schema before enabling the command. Without
+`IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` it reports `SYNCHRONIZATION_DISABLED` and
+changes nothing, which is how CI and a normal local run behave; automated provider
+evidence uses the fixtures under `src/test/resources/provider/igdb/`, and live
+credentials belong in the ignored `backend/.env` only.
+[ADR-0017](../docs/decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
+owns the reconciliation decisions.
 
 ## Packaged application and image
 

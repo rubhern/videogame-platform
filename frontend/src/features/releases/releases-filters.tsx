@@ -1,6 +1,14 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
-import { hasActiveFilters, releasesSearchPath, type ReleasesSearch } from "./releases-search";
+import { platformIcon, regionIcon } from "../../shared/catalogue/taxonomy-icons";
+import { MultiSelect, type MultiSelectOption } from "../../shared/ui/multi-select";
+import type { SelectIconName } from "../../shared/ui/select-icon";
+import {
+  hasActiveFilters,
+  releasesSearchPath,
+  toggleFilterValue,
+  type ReleasesSearch,
+} from "./releases-search";
 import type { ReleaseFilterOption } from "./releases-view-model";
 
 type ReleasesFiltersProps = {
@@ -9,70 +17,66 @@ type ReleasesFiltersProps = {
   regions: readonly ReleaseFilterOption[];
 };
 
-type FilterGroupProps = {
-  label: string;
-  currentId: string | null;
-  options: readonly ReleaseFilterOption[];
-  allLabel: string;
-  toPath: (id: string | null) => string;
-};
-
-function FilterGroup({ label, currentId, options, allLabel, toPath }: FilterGroupProps) {
-  return (
-    <div className="filter-group">
-      <span className="filter-label">{label}</span>
-      <ul aria-label={`Filtrar por ${label.toLocaleLowerCase("es")}`} className="filter-options">
-        <li>
-          <Link
-            aria-current={currentId === null ? "page" : undefined}
-            className="filter-chip"
-            to={toPath(null)}
-          >
-            {allLabel}
-          </Link>
-        </li>
-        {options.map((option) => (
-          <li key={option.id}>
-            <Link
-              aria-current={currentId === option.id ? "page" : undefined}
-              className="filter-chip"
-              to={toPath(option.id)}
-            >
-              {option.name}
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+function toOptions(
+  options: readonly ReleaseFilterOption[],
+  iconFor: (option: ReleaseFilterOption) => SelectIconName,
+): MultiSelectOption[] {
+  return options.map((option) => ({ value: option.id, label: option.name, icon: iconFor(option) }));
 }
 
+/**
+ * Two compact multi-select dropdowns share one accessible control. Several values inside one
+ * dimension combine with OR and the two dimensions combine with AND; no selection means the
+ * dimension is unfiltered (`Todas`), which is distinct from selecting the concrete `Worldwide`
+ * region. Toggling navigates so the selection stays shareable in the URL.
+ */
 export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersProps) {
+  const navigate = useNavigate();
   return (
-    <section aria-labelledby="release-filters-title" className="release-filters">
+    <section
+      aria-labelledby="release-filters-title"
+      className="release-filters release-filters-facets"
+    >
       <h2 className="sr-only" id="release-filters-title">
         Filtros de lanzamientos
       </h2>
-      <div className="filter-rail">
-        <FilterGroup
+      <div className="release-facet-row">
+        <MultiSelect
           allLabel="Todas"
-          currentId={search.platformId}
+          className="release-filter-select"
+          icon="platform"
           label="Plataforma"
-          options={platforms}
-          toPath={(platformId) => releasesSearchPath(search, { platformId, page: 1 })}
+          onToggle={(platformId) => {
+            void navigate(
+              releasesSearchPath(search, {
+                platformIds: toggleFilterValue(search.platformIds, platformId),
+                page: 1,
+              }),
+            );
+          }}
+          options={toOptions(platforms, (platform) => platformIcon(platform.id, platform.name))}
+          selected={search.platformIds}
         />
-        <span className="filter-divider" aria-hidden="true" />
-        <FilterGroup
+        <MultiSelect
           allLabel="Todas"
-          currentId={search.regionId}
+          className="release-filter-select"
+          icon="region"
           label="Región"
-          options={regions}
-          toPath={(regionId) => releasesSearchPath(search, { regionId, page: 1 })}
+          onToggle={(regionId) => {
+            void navigate(
+              releasesSearchPath(search, {
+                regionIds: toggleFilterValue(search.regionIds, regionId),
+                page: 1,
+              }),
+            );
+          }}
+          options={toOptions(regions, (region) => regionIcon(region.id))}
+          selected={search.regionIds}
         />
         {hasActiveFilters(search) ? (
           <Link
             className="filter-reset"
-            to={releasesSearchPath(search, { platformId: null, regionId: null, page: 1 })}
+            to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
           >
             Quitar filtros
           </Link>

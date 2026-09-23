@@ -78,10 +78,7 @@ class CatalogueSynchronizationConfiguration {
                 provider.requestsPerSecond(),
                 provider.maxRetries(),
                 provider.retryBackoff(),
-                properties.maxReleasesPerGame(),
-                provider.platformCodes(),
-                provider.regionCodes(),
-                provider.unknownRegionCode());
+                properties.maxReleasesPerGame());
     }
 
     @Bean

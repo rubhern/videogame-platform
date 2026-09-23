@@ -156,7 +156,7 @@ class GameDetailsApiIntegrationTest {
         "unknown,released,provider_only,not_required,RELEASE_DATE_UNCERTAIN",
         "unknown,released,verified,not_required,ELIGIBLE_RELEASE_FOUND",
         "day,released,verified,required,RELEASE_REVIEW_REQUIRED",
-        "day,scheduled,verified,not_required,RELEASE_NOT_OCCURRED",
+        "day,delayed,verified,not_required,RELEASE_NOT_OCCURRED",
         "day,cancelled,verified,not_required,RELEASE_CANCELLED"
     })
     void preservesDatePrecisionAndEvaluatesReleaseEvidence(

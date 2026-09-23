@@ -7,9 +7,6 @@ import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult
 import com.videogameplatform.ratings.application.GetRatingContextUseCase;
 import com.videogameplatform.ratings.application.port.RatingStatisticsReadPort;
 import com.videogameplatform.ratings.domain.RatingEligibilityPolicy;
-import java.time.LocalDate;
-import java.time.Month;
-import java.time.YearMonth;
 
 public final class RatingContextService implements GetRatingContextUseCase {
     private final RatingStatisticsReadPort statistics;
@@ -36,29 +33,15 @@ public final class RatingContextService implements GetRatingContextUseCase {
                                         new RatingEligibilityPolicy.Evidence(
                                                 r.status() == CatalogueReleaseStatus.RELEASED,
                                                 r.status() == CatalogueReleaseStatus.CANCELLED,
+                                                r.status() == CatalogueReleaseStatus.DELAYED,
                                                 r.reviewStatus()
                                                         == BrowseReleasesResult.Review.REQUIRED,
                                                 r.verificationLevel()
                                                         == BrowseReleasesResult.Verification
                                                                 .VERIFIED,
                                                 r.releaseDate().precision()
-                                                        == CatalogueReleaseDate.Precision.DAY,
-                                                periodEnd(r.releaseDate())))
+                                                        == CatalogueReleaseDate.Precision.UNKNOWN))
                         .toList();
-        return new RatingEligibilityPolicy().evaluate(evidence, game.evaluatedOn());
-    }
-
-    private static LocalDate periodEnd(CatalogueReleaseDate date) {
-        return switch (date.precision()) {
-            case DAY -> LocalDate.parse(date.value());
-            case MONTH -> YearMonth.parse(date.value()).atEndOfMonth();
-            case QUARTER ->
-                    YearMonth.of(
-                                    Integer.parseInt(date.value().substring(0, 4)),
-                                    Integer.parseInt(date.value().substring(6)) * 3)
-                            .atEndOfMonth();
-            case YEAR -> LocalDate.of(Integer.parseInt(date.value()), Month.DECEMBER, 31);
-            case UNKNOWN -> null;
-        };
+        return new RatingEligibilityPolicy().evaluate(evidence);
     }
 }

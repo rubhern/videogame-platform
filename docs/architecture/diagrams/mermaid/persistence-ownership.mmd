@@ -1,0 +1,37 @@
+---
+title: Module-owned PostgreSQL schemas
+---
+%% Ownership and relationship view only. Columns, constraints and indexes are owned
+%% by the Flyway SQL under backend/src/main/resources/db/migration/.
+erDiagram
+    publication["catalogue.catalogue_publication"]
+    game["catalogue.game"]
+    game_snapshot["catalogue.game_snapshot"]
+    game_alias["catalogue.game_alias"]
+    game_external_reference["catalogue.game_external_reference"]
+    game_release["catalogue.game_release"]
+    release_snapshot["catalogue.release_snapshot"]
+    release_external_reference["catalogue.release_external_reference"]
+    platform["catalogue.platform"]
+    region["catalogue.region"]
+    synchronization_run["catalogue.synchronization_run"] {
+        jsonb report "bounded run history, one active run, no catalogue content"
+    }
+    rating["ratings.rating"]
+    game_listing["ratings.game_listing"]
+    game_listing_alias["ratings.game_listing_alias"]
+
+    publication ||--o{ game_snapshot : "singleton revision for cache validators"
+    game ||--o| game_snapshot : "current state"
+    game ||--o{ game_alias : "searchable as"
+    game ||--o{ game_external_reference : "provider identity"
+    game ||--o{ game_release : owns
+    game_release ||--o| release_snapshot : "current state"
+    game_release ||--o{ release_external_reference : "provider identity"
+    platform ||--o{ release_snapshot : classifies
+    region ||--o{ release_snapshot : classifies
+
+    game ||--o{ rating : "rated by users (FK only, never read across modules)"
+    game_listing ||--o{ game_listing_alias : "searchable as"
+    game_listing }o..o| game : "rebuildable projection via application contract"
+    rating }o..o| game_listing : "listed in Mis puntuaciones"

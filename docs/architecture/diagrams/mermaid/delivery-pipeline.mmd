@@ -1,48 +1,25 @@
 flowchart TD
-    Commit["Reviewed commit merged to main"]
-    Docs["Validate documentation and OpenAPI"]
-    Checks["Compile, static analysis, tests and security checks"]
-    Build["Build frontend and backend"]
-    Image["Build linux/amd64 + linux/arm64 OCI image"]
-    Scan["Dependency and vulnerability scan"]
-    GHCR["Publish immutable image to GHCR<br/>commit SHA + content digest"]
-    Approval{"Manual owner approval<br/>for private dev"}
-    NotDeployed["Not deployed<br/>await approval or close the deployment"]
-    Target["Validate private dev target<br/>and secret references"]
-    Recovery["Confirm backup and recovery preconditions"]
-    Migration["Run one serialized Flyway migration job"]
-    Replace["Replace application container<br/>using the selected digest"]
-    Ready{"Readiness passes?"}
-    Smoke["Run smoke and accessibility journey checks"]
-    Record["Record source, digest, migration and observed outcome"]
-    Decision{"Deployment decision"}
-    Accept["Accept private dev deployment"]
-    ForwardFix["Forward-fix through a new reviewed change"]
-    Restore["Restore previous application image<br/>when schema-compatible"]
-    Failed["Record failed deployment<br/>old healthy version is not a success"]
+    subgraph CI["GitHub Actions"]
+        PR["Pull request: selective affected-area gates<br/>no secrets, never publishes"]
+        Main["Trusted main: complete integration<br/>build, scan, SBOM"]
+        GHCR["Publish immutable multi-arch image to GHCR<br/>commit SHA + content digest, never latest"]
+        PR --> Main --> GHCR
+    end
 
-    Commit --> Docs --> Checks --> Build --> Image --> Scan --> GHCR --> Approval
-    Approval -->|Approved| Target --> Recovery --> Migration --> Replace --> Ready
-    Approval -->|Not approved| NotDeployed
+    subgraph Deploy["Owner-triggered on vgpdev (one host lock)"]
+        Verify["Verify supplied revision and digest<br/>pull by digest, check OCI labels"]
+        Migrate["Run the image once as the migration actor"]
+        Replace["Replace only the application container<br/>with the selected digest"]
+        Ready{"Candidate ready?"}
+        Smoke["Deployment smoke over the private HTTPS edge<br/>readiness, releases API, browser shell, OIDC session, telemetry"]
+        Record["Record JSON evidence: success or failure + phase"]
+        Verify --> Migrate --> Replace --> Ready
+        Ready -->|yes| Smoke --> Record
+        Ready -->|no| Record
+    end
 
-    Ready -->|Yes| Smoke --> Record --> Decision
-    Ready -->|No| Failed --> Decision
-
-    Decision -->|Accept| Accept
-    Decision -->|Forward-fix| ForwardFix --> Commit
-    Decision -->|Restore| Restore --> Record
-
-    Note["Rules:<br/>• never deploy latest<br/>• no concurrent dev deployments<br/>• application rollback does not imply database rollback"]
-    Note -.-> Migration
-    Note -.-> GHCR
-
-    classDef ci fill:#f5f0ff,stroke:#7c3aed,stroke-width:2px,color:#4c1d95
-    classDef deploy fill:#fff7ed,stroke:#ea580c,stroke-width:2px,color:#7c2d12
-    classDef decision fill:#ecfeff,stroke:#0891b2,stroke-width:2px,color:#164e63
-    classDef success fill:#ecfdf5,stroke:#16a34a,stroke-width:2px,color:#14532d
-    classDef failure fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337
-    class Commit,Docs,Checks,Build,Image,Scan,GHCR ci
-    class Target,Recovery,Migration,Replace,Smoke,Record deploy
-    class Approval,NotDeployed,Ready,Decision decision
-    class Accept success
-    class Failed,ForwardFix,Restore failure
+    GHCR -->|owner selects digest + revision| Verify
+    Migrate -->|migration fails: previous application keeps running| Record
+    Record -->|failure| Assess["Assess rollback vs forward fix<br/>an applied migration is never reverted"]
+    Assess -->|schema-compatible| Verify
+    Assess -->|forward fix| PR

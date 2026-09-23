@@ -17,7 +17,7 @@ eligibility, and aggregate calculation. Identity supplies only authenticated
 | `Game` / `GameId` | Accepted product work and provider-independent identity |
 | `GameAlias` | Localized/alternative/historical/product-curated title resolving to one game |
 | `CoverReference` | Approved `provider_cdn_reference` or product-owned fallback with provenance, alt text, usage status, and check time |
-| `Release` / `ReleaseId` | One coherent commercial game + platform + region + date + status tuple |
+| `Release` / `ReleaseId` | One coherent commercial game + platform + region + date + status tuple. Persisted status is provider evidence (`announced` for no negative signal, `delayed`, `cancelled`, or explicit `released`); `scheduled`/`released` for a known date are derived per request from the date and the trusted evaluation date |
 | `Availability` | Subscription/promotion access; defined only to prevent confusion with `Release` |
 | `ReleaseDate` | Closed day, month, quarter, year, or unknown value; precision is never invented |
 | `ExternalReference` | Typed provider/entity/provider-ID link; never product identity |
@@ -32,13 +32,15 @@ committed, or redistributed.
 
 ## Rating policies
 
-A game is globally eligible when at least one release is `released`, does not require
-review, and its temporal threshold has passed. Known dates may use `provider_only` or
-`verified` evidence; an unknown date requires `verified` evidence. Eligibility starts
-on the exact day, after the represented month/quarter/year ends, or immediately for a
-verified unknown-date release marked released. Freshness alone does not revoke a
-historical release fact. Create/update re-evaluate eligibility; the owner may always
-delete an existing rating.
+A game is globally eligible when at least one release has effectively occurred and is
+neither cancelled, delayed, nor pending review. For a known date, occurrence is derived
+from the release date and the trusted evaluation date, not from a provider status
+transition: it starts on the exact day and after the represented month/quarter/year
+ends. A known date may use `provider_only` or `verified` evidence. An unknown date has
+no temporal threshold, so it proves eligibility only through explicit `verified`
+`released` evidence. Because occurrence is derived, the passage of time never depends on
+catalogue synchronization. Freshness alone does not revoke a historical release fact.
+Create/update re-evaluate eligibility; the owner may always delete an existing rating.
 
 Eligibility reasons are `ELIGIBLE_RELEASE_FOUND`, `NO_COMMERCIAL_RELEASE`,
 `RELEASE_NOT_OCCURRED`, `RELEASE_CANCELLED`, `RELEASE_DATE_UNCERTAIN`, and
@@ -66,6 +68,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `CAT-004` | Importing a work creates its identity, external reference, snapshot, releases, and cover as one accepted state. |
 | `CAT-005` | Import is idempotent: one provider reference resolves to at most one game, on any retry. |
 | `CAT-006` | A provider work type the product does not model is deferred, not imported and not a failure. |
+| `CAT-007` | Platform and region taxonomy is acquired from accepted releases: a provider entity is resolved through a typed external reference, reusing the known product entity or creating it as accepted state, never merged by name/slug ([ADR-0020](../../decisions/0020-acquire-platform-and-region-taxonomy-from-releases.md)). |
 | `GAME-001` | Every game uses a provider-independent `GameId`. |
 | `GAME-002` | Canonical title is non-blank. |
 | `GAME-003` | Slug is navigation, not identity. |
@@ -77,7 +80,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `GAME-009` | An invalid or unavailable provider cover is never displayed; the fallback is used instead. |
 | `GAME-010` | Provider covers are references; binaries are not product-stored. |
 | `GAME-011` | Provider covers use only the allowlisted documented image host. |
-| `GAME-012` | Provider cover display includes attribution and source path. |
+| `GAME-012` | A provider cover carries attribution and source path, shown on the game page every displayed cover links to. |
 | `GAME-013` | Cover references contain no credential/token/authenticated URL. |
 | `GAME-014` | Cover failure selects fallback without hiding the game. |
 | `GAME-015` | Approval is scoped to usage/release mode and asserts no ownership; it is not a per-image human review. |
@@ -95,6 +98,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `REL-009` | Unknown release information remains explicit. |
 | `REL-010` | Verification, review, and freshness remain independent. |
 | `REL-011` | Time policies receive explicit time/zone, never host defaults. |
+| `REL-012` | Recent/upcoming classification and rating occurrence for a known date derive from the effective release date and the trusted evaluation date; provider status is evidence, never the clock. Synchronization refreshes evidence and never advances time. |
 | `EXT-001` | Provider ID is a reference, never internal identity, slug, or matching key. |
 | `EXT-002` | Provider taxonomy does not become the public product contract. |
 | `EXT-003` | Provider failure preserves last valid local data. |

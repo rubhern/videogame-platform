@@ -133,6 +133,33 @@ import json
 import pathlib
 import stat
 import sys
+from urllib.parse import urlparse
+
+
+def require(condition, invariant):
+    if not condition:
+        print(f"Private-dev topology invariant failed: {invariant}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+def parse_private_https_origin(value, label, expected_port):
+    require(isinstance(value, str), f"{label} must be a string origin")
+    try:
+        parsed = urlparse(value)
+        port = parsed.port
+    except ValueError as error:
+        require(False, f"{label} has an invalid port: {error}")
+    require(parsed.scheme == "https", f"{label} must use HTTPS: {value!r}")
+    require(parsed.username is None and parsed.password is None, f"{label} must not include user info")
+    require(parsed.hostname is not None and parsed.hostname.startswith("vgpdev."), (
+        f"{label} must use the private vgpdev.* hostname: {value!r}"
+    ))
+    require(parsed.path == "" and parsed.params == "" and parsed.query == "" and parsed.fragment == "", (
+        f"{label} must be an origin without a path, query or fragment: {value!r}"
+    ))
+    port_description = "the default HTTPS port 443 without an explicit port" if expected_port is None else f"port {expected_port}"
+    require(port == expected_port, f"{label} must use {port_description}: {value!r}")
+    return parsed
 
 config = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 services = config["services"]
@@ -199,11 +226,73 @@ assert config["networks"]["data"]["internal"] is True
 assert config["networks"]["telemetry"]["internal"] is True
 assert "ports" not in services["postgres"]
 assert "ports" not in services["telemetry"]
-assert services["application"]["environment"]["APPLICATION_FLYWAY_ENABLED"] == "false"
-assert services["application"]["environment"]["APPLICATION_SESSION_COOKIE_NAME"] == "__Host-vgp_session"
-assert services["application"]["environment"]["APPLICATION_SESSION_COOKIE_SECURE"] == "true"
-assert services["application"]["environment"]["TELEMETRY_DEPLOYMENT_ENVIRONMENT"] == "dev"
-assert services["application"]["environment"]["TELEMETRY_SERVICE_VERSION"]
+application_oidc = services["application"]["environment"]
+smoke_environment = services["deployment-smoke"]["environment"]
+configured_application_origin = smoke_environment["PRIVATE_DEV_APPLICATION_ORIGIN"]
+configured_keycloak_origin = smoke_environment["PRIVATE_DEV_KEYCLOAK_ORIGIN"]
+application_origin = parse_private_https_origin(
+    configured_application_origin, "PRIVATE_DEV_APPLICATION_ORIGIN", None
+)
+keycloak_origin = parse_private_https_origin(
+    configured_keycloak_origin, "PRIVATE_DEV_KEYCLOAK_ORIGIN", 8443
+)
+require(
+    keycloak_origin.hostname == application_origin.hostname,
+    "Keycloak and application origins must use the same private hostname",
+)
+require(
+    services["keycloak"]["environment"]["KC_HOSTNAME"] == configured_keycloak_origin,
+    "KC_HOSTNAME must equal the resolved PRIVATE_DEV_KEYCLOAK_ORIGIN",
+)
+require(application_oidc["APPLICATION_FLYWAY_ENABLED"] == "false", "application Flyway must be disabled")
+require(
+    application_oidc["APPLICATION_SESSION_COOKIE_NAME"] == "__Host-vgp_session",
+    "application session cookie must use the __Host- prefix",
+)
+require(
+    application_oidc["APPLICATION_SESSION_COOKIE_SECURE"] == "true",
+    "application session cookie must be Secure",
+)
+require(
+    application_oidc["APPLICATION_PUBLIC_ORIGIN"] == configured_application_origin,
+    "APPLICATION_PUBLIC_ORIGIN must equal the resolved PRIVATE_DEV_APPLICATION_ORIGIN",
+)
+require(
+    application_oidc["APPLICATION_OIDC_REDIRECT_URI"]
+    == f"{configured_application_origin}/login/oauth2/code/keycloak",
+    "APPLICATION_OIDC_REDIRECT_URI must be the configured application origin plus the Keycloak callback path",
+)
+require(application_oidc["APPLICATION_HSTS_ENABLED"] == "true", "HSTS must be enabled for private HTTPS")
+require(
+    application_oidc.get("SERVER_FORWARD_HEADERS_STRATEGY") == "NATIVE",
+    "application must resolve the external HTTPS scheme through Tomcat's peer-restricted RemoteIpValve (SERVER_FORWARD_HEADERS_STRATEGY=NATIVE)",
+)
+require(
+    application_oidc["TELEMETRY_DEPLOYMENT_ENVIRONMENT"] == "dev",
+    "telemetry deployment environment must be dev",
+)
+require(application_oidc["TELEMETRY_SERVICE_VERSION"], "telemetry service version must be present")
+expected_issuer = f"{configured_keycloak_origin}/realms/videogame-platform"
+require(
+    application_oidc["OIDC_ISSUER_URI"] == expected_issuer,
+    "application issuer must match Keycloak's external HTTPS origin",
+)
+require(
+    application_oidc["OIDC_AUTHORIZATION_URI"] == f"{expected_issuer}/protocol/openid-connect/auth",
+    "OIDC authorization URI must use Keycloak's external HTTPS origin",
+)
+require(
+    application_oidc["OIDC_TOKEN_URI"] == "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token",
+    "OIDC token URI must use Keycloak's internal service endpoint",
+)
+require(
+    application_oidc["OIDC_JWK_SET_URI"] == "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs",
+    "OIDC JWK set URI must use Keycloak's internal service endpoint",
+)
+require(
+    application_oidc["OIDC_USER_INFO_URI"] == "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo",
+    "OIDC user-info URI must use Keycloak's internal service endpoint",
+)
 assert services["migration"]["environment"] == {
     "APPLICATION_MIGRATION_DB_PASSWORD_FILE": "/run/secrets/application_migration_db_password",
     "APPLICATION_MIGRATION_DB_URL": "jdbc:postgresql://postgres:5432/videogame_platform",
@@ -263,7 +352,10 @@ python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(enc
   "$repository_root/deploy/private-dev/bin/provision-oidc-smoke-user"
 if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
   node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
-  node --test "$repository_root/deploy/private-dev/smoke/releases-outcome.test.mjs"
+  node --test \
+    "$repository_root/deploy/private-dev/smoke/releases-outcome.test.mjs" \
+    "$repository_root/deploy/private-dev/smoke/deployment-smoke-order.test.mjs" \
+    "$repository_root/deploy/private-dev/smoke/deployment-smoke-contract.test.mjs"
   bash "$repository_root/scripts/test-private-dev-deployment.sh"
   python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"
 fi

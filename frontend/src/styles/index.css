@@ -2,6 +2,8 @@
 @import "tailwindcss";
 @import "./game-details.css";
 @import "./my-ratings.css";
+@import "./app-select.css";
+@import "./search-suggestions.css";
 
 @theme {
   --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
@@ -30,6 +32,21 @@
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     color-scheme: dark;
+
+    /* Shared elevation and motion values. Kept deliberately small: one resting and
+       one lifted shadow, one easing curve and two durations for the whole product. */
+    --elevation-rest: 0 1px 2px color-mix(in srgb, #000 40%, transparent);
+    --elevation-lift:
+      0 18px 34px -22px color-mix(in srgb, #000 88%, transparent),
+      0 2px 8px -4px color-mix(in srgb, #000 60%, transparent);
+    --ease-out: cubic-bezier(0.22, 0.68, 0.36, 1);
+    --duration-fast: 140ms;
+    --duration-normal: 240ms;
+
+    /* The cover frame matches the ratio the approved provider actually delivers, so
+       `object-fit: cover` has nothing to crop off real artwork. It stays a fixed frame,
+       not a per-image one, so the grid keeps one rhythm whatever a source delivers. */
+    --cover-aspect: 227 / 320;
   }
 
   html {
@@ -53,6 +70,12 @@
     outline-offset: 3px;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    :focus-visible {
+      transition: outline-offset var(--duration-fast) var(--ease-out);
+    }
+  }
+
   button,
   input,
   select {
@@ -74,11 +97,44 @@
 
 @layer components {
   .app-frame {
+    position: relative;
     display: flex;
+    isolation: isolate;
     min-height: 100vh;
     flex-direction: column;
     background: var(--color-canvas);
     color: var(--color-ink);
+  }
+
+  /* Ambient field. Two very low-opacity washes give the charcoal canvas depth, and the
+     generated grain tile keeps the large gradients from banding on dark displays. */
+  .app-frame::before {
+    position: fixed;
+    z-index: -1;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        68rem 34rem at 12% -6%,
+        color-mix(in srgb, var(--color-accent) 13%, transparent),
+        transparent 62%
+      ),
+      radial-gradient(
+        54rem 30rem at 96% 4%,
+        color-mix(in srgb, var(--color-warning) 6%, transparent),
+        transparent 58%
+      );
+    content: "";
+  }
+
+  .app-frame::after {
+    position: fixed;
+    z-index: -1;
+    inset: 0;
+    opacity: 0.035;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    content: "";
   }
 
   .app-frame > main {
@@ -96,7 +152,28 @@
     position: relative;
     z-index: 20;
     border-bottom: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
-    background: color-mix(in srgb, var(--color-canvas) 94%, transparent);
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-accent) 5%, transparent),
+        transparent 62%
+      ),
+      color-mix(in srgb, var(--color-canvas) 94%, transparent);
+  }
+
+  /* Hairline of accent light along the very top of the product. */
+  .site-header::before {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--color-accent) 55%, transparent) 22%,
+      color-mix(in srgb, var(--color-accent) 22%, transparent) 62%,
+      transparent
+    );
+    content: "";
   }
 
   .header-layout {
@@ -104,6 +181,7 @@
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
+    justify-content: space-between;
     padding-block: 11px;
   }
 
@@ -125,7 +203,22 @@
     height: 32px;
     flex: none;
     border-radius: 10px;
-    background: var(--color-accent);
+    background: linear-gradient(150deg, var(--color-accent-hover), #6f86c8);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent),
+      0 6px 18px -8px color-mix(in srgb, var(--color-accent) 85%, transparent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .brand-mark {
+      transition: box-shadow var(--duration-normal) var(--ease-out);
+    }
+  }
+
+  .brand:hover .brand-mark {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 65%, transparent),
+      0 8px 24px -8px color-mix(in srgb, var(--color-accent) 100%, transparent);
   }
 
   .brand-mark::before,
@@ -196,6 +289,14 @@
     white-space: nowrap;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .nav-link {
+      transition:
+        color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out);
+    }
+  }
+
   .nav-link:hover {
     color: var(--color-ink);
     background: var(--color-raised);
@@ -205,10 +306,11 @@
     color: var(--color-canvas);
     background: var(--color-accent);
     font-weight: 600;
+    box-shadow: 0 6px 18px -10px color-mix(in srgb, var(--color-accent) 95%, transparent);
   }
 
   .header-search {
-    order: 3;
+    position: relative;
     display: flex;
     min-width: 0;
     min-height: 44px;
@@ -219,11 +321,53 @@
     border-radius: 999px;
     padding: 11px 16px;
     background: var(--color-raised);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+  }
+
+  .catalogue-search-control {
+    order: 3;
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .mobile-search-trigger,
+  .mobile-search-dialog {
+    display: none;
+  }
+
+  .release-period-compact {
+    display: none;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .header-search {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out);
+    }
+  }
+
+  .header-search:hover {
+    border-color: color-mix(in srgb, var(--color-ink) 24%, transparent);
   }
 
   .header-search:focus-within {
     border-color: var(--color-accent);
     background: #1d242c;
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--color-ink) 8%, transparent),
+      0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+  }
+
+  .header-search:focus-within .search-icon,
+  .header-search:focus-within .search-icon::after {
+    border-color: var(--color-accent);
+    background-color: var(--color-accent);
+  }
+
+  .header-search:focus-within .search-icon {
+    background-color: transparent;
   }
 
   .header-search input {
@@ -291,27 +435,39 @@
     transform: rotate(45deg);
   }
 
-  .account-divider {
-    display: none;
+  .account-control {
+    position: relative;
+    order: 2;
+    flex: none;
+    margin-left: auto;
   }
 
-  .account-link {
-    order: 2;
+  .account-trigger {
     display: inline-flex;
-    min-width: 44px;
     min-height: 44px;
     align-items: center;
     justify-content: center;
-    flex: none;
+    gap: 9px;
     border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
     border-radius: 999px;
-    padding: 7px;
+    padding: 6px 12px 6px 6px;
     color: var(--color-ink);
     background: var(--color-raised);
-    text-decoration: none;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
-  .account-link:hover {
+  @media (prefers-reduced-motion: no-preference) {
+    .account-trigger {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out);
+    }
+  }
+
+  .account-trigger:hover,
+  .account-trigger[aria-expanded="true"] {
     border-color: var(--color-accent);
     background: #1d242c;
   }
@@ -350,33 +506,62 @@
     border-radius: 8px 8px 0 0;
   }
 
-  .account-label {
-    display: none;
+  .account-chevron {
+    width: 7px;
+    height: 7px;
+    margin: -3px 2px 0 1px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
   }
 
-  .account-control {
-    order: 2;
-    display: inline-flex;
+  .account-panel {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 200px;
+    padding: 5px;
+    border: 1px solid var(--color-line);
+    border-radius: 12px;
+    background: var(--color-surface);
+    box-shadow: var(--elevation-lift);
+  }
+
+  .account-option {
+    display: flex;
+    width: 100%;
+    min-height: 44px;
     align-items: center;
-    gap: 9px;
-    flex: none;
-  }
-
-  .account-logout {
-    min-height: 36px;
-    padding: 6px 14px;
-    border-radius: 999px;
+    gap: 11px;
+    border: 0;
+    border-radius: 8px;
+    padding: 9px 11px;
+    color: var(--color-ink);
+    background: transparent;
     font-size: 0.8125rem;
-    font-weight: 600;
+    text-align: left;
+    text-decoration: none;
     white-space: nowrap;
   }
 
-  .catalogue-masthead {
-    border-top: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
-    background: var(--color-surface);
+  .account-option:hover,
+  .account-option:focus-visible {
+    background: var(--color-raised);
   }
 
-  .catalogue-masthead .page-container,
+  .account-option:disabled {
+    opacity: 0.65;
+    cursor: wait;
+  }
+
+  .account-option svg {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    color: var(--color-accent);
+  }
+
   .site-footer .page-container {
     display: flex;
     align-items: baseline;
@@ -408,6 +593,243 @@
     gap: 16px 24px;
   }
 
+  .releases-kicker-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+  }
+
+  .releases-page,
+  .search-page {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .releases-page::before,
+  .search-page::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0 0 auto;
+    height: 330px;
+    pointer-events: none;
+    background-image:
+      linear-gradient(90deg, var(--color-canvas) 2%, transparent 66%),
+      linear-gradient(180deg, transparent 8%, var(--color-canvas) 100%),
+      url("/assets/recent-releases-hero.png");
+    background-position: center top;
+    background-size: cover;
+    content: "";
+  }
+
+  .releases-page .releases-section,
+  .search-page .search-section {
+    padding-block: 34px 64px;
+  }
+
+  .releases-page .releases-heading {
+    min-height: 140px;
+    padding-bottom: 12px;
+  }
+
+  /* The search heading shares the release hero rhythm; the query it repeats is visitor input, so
+     a long unbroken one wraps instead of widening the page. */
+  .search-heading {
+    display: flex;
+    min-height: 140px;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  .releases-page .eyebrow,
+  .search-page .eyebrow {
+    margin: 0;
+    color: var(--color-accent-hover);
+    font-size: 0.71875rem;
+  }
+
+  .release-period {
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    gap: 9px;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
+    border-radius: 999px;
+    padding: 6px 12px;
+    color: var(--color-muted);
+    background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+
+  .release-period svg {
+    width: 17px;
+    height: 17px;
+    flex: none;
+  }
+
+  /* Release titles read as brushed metal over the hero: a cool vertical gradient
+     clipped to the glyphs, white at the cap line and periwinkle-tinted silver at the
+     baseline, with a soft bloom instead of a text shadow (a shadow would paint over a
+     clipped fill). Forced colours restore a solid system colour below. */
+  .releases-page .page-title,
+  .search-page .page-title {
+    max-width: 1050px;
+    margin-top: 12px;
+    padding-bottom: 0.06em;
+    color: transparent;
+    background: linear-gradient(
+      180deg,
+      #fff 0%,
+      var(--color-ink) 42%,
+      color-mix(in srgb, var(--color-accent-hover) 78%, var(--color-ink)) 74%,
+      color-mix(in srgb, var(--color-accent) 72%, var(--color-ink)) 100%
+    );
+    background-clip: text;
+    -webkit-background-clip: text;
+    font-size: clamp(2.5rem, 5vw, 4.25rem);
+    line-height: 0.96;
+    letter-spacing: -0.035em;
+    filter:
+      drop-shadow(0 0 22px color-mix(in srgb, var(--color-accent) 22%, transparent))
+      drop-shadow(0 4px 18px color-mix(in srgb, var(--color-canvas) 85%, transparent));
+  }
+
+  .releases-page .page-title::before,
+  .search-page .page-title::before {
+    display: none;
+  }
+
+  .releases-page .view-action {
+    border-color: color-mix(in srgb, var(--color-ink) 38%, transparent);
+    background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+    backdrop-filter: blur(8px);
+  }
+
+  .releases-toolbar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+  }
+
+  .releases-page .release-filters {
+    min-width: 0;
+    flex: 1 1 auto;
+    margin-top: 14px;
+    border: 0;
+    padding-top: 0;
+  }
+
+  .release-select-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .release-select-skeleton {
+    display: inline-flex;
+    width: 235px;
+    max-width: 100%;
+    min-height: 44px;
+    flex: none;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 22%, transparent);
+    border-radius: 999px;
+    background: var(--color-raised);
+  }
+
+  /* Two compact multi-select dropdowns sit side by side, their reset link aligned to the triggers.
+     Several selected values inside one dimension combine with OR, and the two dimensions combine
+     with AND. No selection means the dimension is unfiltered (Todas), distinct from the concrete
+     Worldwide region. */
+  .release-facet-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 12px 20px;
+  }
+
+  @media (max-width: 619px) {
+    .release-facet-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: end;
+      gap: 8px;
+    }
+
+    .release-facet-row .filter-reset {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
+
+  .release-facet-row .filter-reset {
+    margin-bottom: 3px;
+  }
+
+  /* Both release windows close with one bar: total and page on the left, pager in the
+     middle and the other window on the right. */
+  .releases-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px 20px;
+    margin-top: 38px;
+  }
+
+  .releases-footer .result-count {
+    margin: 0;
+    color: var(--color-muted);
+    text-align: left;
+  }
+
+  .releases-footer .pagination,
+  .releases-footer nav {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .releases-footer nav[aria-label="Ventana de lanzamientos"] {
+    margin-left: auto;
+  }
+
+  .releases-page .release-grid,
+  .search-page .release-grid {
+    gap: 16px 12px;
+    margin-top: 16px;
+  }
+
+  .releases-page .catalogue-card,
+  .search-page .catalogue-card {
+    gap: 7px;
+    border-color: color-mix(in srgb, var(--color-ink) 16%, transparent);
+    border-radius: 14px;
+    padding: 6px 6px 12px;
+    background: color-mix(in srgb, var(--color-surface) 94%, transparent);
+  }
+
+  .releases-page .card-body,
+  .search-page .card-body {
+    gap: 4px;
+    padding-inline: 3px;
+  }
+
+  .releases-page .card-title,
+  .search-page .card-title {
+    font-size: 1.1875rem;
+  }
+
+  .releases-page .card-statuses {
+    margin-top: 0;
+  }
+
   .eyebrow {
     margin: 0 0 8px;
     color: var(--color-accent);
@@ -430,10 +852,12 @@
     flex: none;
     border-radius: 50%;
     background: var(--color-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 16%, transparent);
     content: "";
   }
 
   .page-title {
+    position: relative;
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
@@ -442,6 +866,25 @@
     line-height: 1.03;
     letter-spacing: -0.012em;
     text-wrap: balance;
+  }
+
+  /* Editorial titles sit on a faint light bloom instead of flat charcoal. */
+  .page-title::before {
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: -10%;
+    width: 70%;
+    max-width: 640px;
+    aspect-ratio: 5 / 2;
+    pointer-events: none;
+    background: radial-gradient(
+      closest-side,
+      color-mix(in srgb, var(--color-accent) 14%, transparent),
+      transparent
+    );
+    content: "";
+    transform: translateY(-50%);
   }
 
   .button {
@@ -462,21 +905,39 @@
     text-decoration: none;
   }
 
+  @media (prefers-reduced-motion: no-preference) {
+    .button {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+  }
+
   .button:hover {
     border-color: var(--color-ink);
     color: var(--color-canvas);
     background: var(--color-ink);
+    box-shadow: var(--elevation-lift);
+  }
+
+  .button:active {
+    transform: translateY(1px);
   }
 
   .button-primary {
     border-color: var(--color-accent);
     color: var(--color-canvas);
-    background: var(--color-accent);
+    background: linear-gradient(170deg, var(--color-accent-hover), var(--color-accent));
+    box-shadow: 0 10px 26px -16px color-mix(in srgb, var(--color-accent) 100%, transparent);
   }
 
   .button-primary:hover {
     border-color: var(--color-accent-hover);
     background: var(--color-accent-hover);
+    box-shadow: 0 14px 30px -14px color-mix(in srgb, var(--color-accent) 100%, transparent);
   }
 
   .button-danger {
@@ -485,27 +946,29 @@
     background: var(--color-danger);
   }
 
+  .button-danger:hover {
+    border-color: var(--color-danger);
+    color: var(--color-canvas);
+    background: color-mix(in srgb, var(--color-danger) 80%, #fff);
+  }
+
   .view-action {
     flex: none;
   }
 
-  .release-window {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 5px 10px;
-    margin: 12px 0 0;
-    color: var(--color-subtle);
-    font-family: var(--font-mono);
-    font-size: 0.75rem;
-    line-height: 1.5;
-    letter-spacing: 0.025em;
+  /* The trailing arrow leans into the direction the action moves you. */
+  .view-action span {
+    display: inline-block;
   }
 
-  .release-window-evaluated {
-    border-left: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
-    padding-left: 10px;
-    color: var(--color-muted);
+  @media (prefers-reduced-motion: no-preference) {
+    .view-action span {
+      transition: transform var(--duration-normal) var(--ease-out);
+    }
+
+    .view-action:hover span {
+      transform: translateX(3px);
+    }
   }
 
   .release-filters {
@@ -514,25 +977,6 @@
     padding-top: 16px;
   }
 
-  .filter-rail {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    margin-inline: -16px;
-    padding: 2px 16px 8px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .filter-group,
-  .filter-options {
-    display: flex;
-    align-items: center;
-    flex: none;
-    gap: 9px;
-  }
-
-  .filter-label,
   .notice-kicker,
   .notice-footnote {
     flex: none;
@@ -544,68 +988,22 @@
     text-transform: uppercase;
   }
 
-  .filter-options {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .filter-chip {
-    display: inline-flex;
-    min-height: 44px;
-    align-items: center;
-    border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
-    border-radius: 999px;
-    padding: 10px 15px;
-    color: var(--color-muted);
-    background: var(--color-raised);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    text-decoration: none;
-    white-space: nowrap;
-  }
-
-  .filter-chip:hover {
-    border-color: var(--color-accent);
-    color: var(--color-ink);
-  }
-
-  .filter-chip[aria-current="page"] {
-    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
-    color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-accent) 18%, var(--color-raised));
-    font-weight: 600;
-  }
-
-  .filter-group:nth-of-type(2) .filter-chip[aria-current="page"] {
-    border-color: var(--color-ink);
-    color: var(--color-canvas);
-    background: var(--color-ink);
-  }
-
-  .filter-divider {
-    width: 1px;
-    height: 22px;
-    flex: none;
-    margin-inline: 6px;
-    background: color-mix(in srgb, var(--color-ink) 12%, transparent);
-  }
-
   .filter-reset {
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
     flex: none;
     margin-left: 8px;
+    padding-inline: 4px;
     color: var(--color-accent);
     font-size: 0.75rem;
     font-weight: 600;
+    white-space: nowrap;
     text-underline-offset: 4px;
   }
 
-  .filter-chip-skeleton {
-    display: block;
-    height: 44px;
-    flex: none;
-    border-radius: 999px;
-    background: var(--color-raised);
+  .filter-reset:hover {
+    color: var(--color-accent-hover);
   }
 
   .result-count {
@@ -621,22 +1019,90 @@
   .catalogue-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 22px 14px;
+    gap: 16px 12px;
     margin: 16px 0 0;
     padding: 0;
     list-style: none;
   }
 
+  /* Short, transform-only entrance so a new result set arrives instead of blinking in.
+     The stagger is capped: later rows share the last step rather than growing. */
+  @media (prefers-reduced-motion: no-preference) {
+    .release-grid > li,
+    .catalogue-grid > li,
+    .my-ratings-list > * {
+      animation: rise-in 340ms var(--ease-out) both;
+    }
+
+    .release-grid > li:nth-child(1),
+    .catalogue-grid > li:nth-child(1),
+    .my-ratings-list > :nth-child(1) {
+      animation-delay: 0ms;
+    }
+    .release-grid > li:nth-child(2),
+    .catalogue-grid > li:nth-child(2),
+    .my-ratings-list > :nth-child(2) {
+      animation-delay: 30ms;
+    }
+    .release-grid > li:nth-child(3),
+    .catalogue-grid > li:nth-child(3),
+    .my-ratings-list > :nth-child(3) {
+      animation-delay: 60ms;
+    }
+    .release-grid > li:nth-child(4),
+    .catalogue-grid > li:nth-child(4),
+    .my-ratings-list > :nth-child(4) {
+      animation-delay: 90ms;
+    }
+    .release-grid > li:nth-child(n + 5),
+    .catalogue-grid > li:nth-child(n + 5),
+    .my-ratings-list > :nth-child(n + 5) {
+      animation-delay: 120ms;
+    }
+  }
+
+  /* Catalogue cards are a real surface: near-invisible at rest so the covers keep the
+     rhythm, clearly elevated on hover or keyboard focus. */
   .catalogue-card {
+    position: relative;
     display: flex;
     min-width: 0;
     height: 100%;
     flex-direction: column;
     gap: 10px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+    border-radius: 16px;
+    padding: 7px 7px 13px;
+    background: linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--color-surface) 96%, var(--color-ink)),
+      color-mix(in srgb, var(--color-canvas) 88%, var(--color-surface))
+    );
+    box-shadow: var(--elevation-rest);
   }
 
-  .release-cover-wrap {
-    position: relative;
+  @media (prefers-reduced-motion: no-preference) {
+    .catalogue-card {
+      transition:
+        border-color var(--duration-normal) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        transform var(--duration-normal) var(--ease-out);
+    }
+  }
+
+  .catalogue-card:hover,
+  .catalogue-card:focus-within {
+    border-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
+    box-shadow:
+      var(--elevation-lift),
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .catalogue-card:hover,
+    .catalogue-card:focus-within {
+      transform: translateY(-3px);
+    }
   }
 
   .cover-figure {
@@ -644,10 +1110,40 @@
   }
 
   .cover-link {
+    position: relative;
     display: block;
+    isolation: isolate;
     overflow: hidden;
     border-radius: 12px;
     box-shadow: 0 18px 34px -26px #000;
+  }
+
+  /* Provider covers arrive at one fixed CDN size, so on a dense grid or a high-DPI screen
+     they are always upscaled. A faint grain breaks up the smooth interpolation and a
+     vignette gives the frame a printed edge instead of a soft one. Both sit above the
+     image, never over text, and are purely decorative. */
+  .cover-link::before {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    opacity: 0.1;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23g)'/%3E%3C/svg%3E");
+    content: "";
+  }
+
+  .cover-link::after {
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      124% 96% at 50% 44%,
+      transparent 62%,
+      color-mix(in srgb, #05080b 30%, transparent)
+    );
+    content: "";
   }
 
   .cover-static {
@@ -657,23 +1153,32 @@
   .catalogue-cover {
     display: block;
     width: 100%;
-    aspect-ratio: 3 / 4;
+    aspect-ratio: var(--cover-aspect);
     border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
     border-radius: 12px;
     background: var(--color-raised);
     object-fit: cover;
-    transition: transform 180ms ease;
+    /* A small micro-contrast lift restores the bite that upscaling costs. */
+    filter: saturate(1.06) contrast(1.03);
   }
 
-  .catalogue-card:hover .catalogue-cover {
-    transform: translateY(-3px);
+  @media (prefers-reduced-motion: no-preference) {
+    .catalogue-cover {
+      transition: transform 320ms var(--ease-out);
+    }
+
+    .catalogue-card:hover .catalogue-cover,
+    .catalogue-card:focus-within .catalogue-cover {
+      transform: scale(1.045);
+    }
   }
 
   .cover-caption {
-    margin-top: 6px;
+    margin-top: 7px;
     color: var(--color-muted);
     font-size: 0.6875rem;
     line-height: 1.45;
+    letter-spacing: 0.02em;
   }
 
   .text-link {
@@ -684,22 +1189,6 @@
 
   .text-link:hover {
     color: var(--color-accent);
-  }
-
-  .release-date-badge {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    max-width: calc(100% - 16px);
-    border-radius: 999px;
-    padding: 4px 9px;
-    color: var(--color-canvas);
-    background: color-mix(in srgb, var(--color-ink) 94%, transparent);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    font-weight: 600;
-    line-height: 1.35;
-    letter-spacing: 0.035em;
   }
 
   .card-body {
@@ -728,17 +1217,14 @@
     color: var(--color-accent);
   }
 
-  .card-platform,
-  .card-source,
-  .card-alias,
-  .search-release-context {
+  /* Card metadata sits on the card surface, so it uses `muted` rather than `subtle`. */
+  .card-platform {
     margin: 0;
-    color: var(--color-subtle);
+    color: var(--color-muted);
     font-size: 0.75rem;
     line-height: 1.5;
   }
 
-  .card-alias span,
   .search-release-date {
     color: var(--color-accent);
     font-weight: 600;
@@ -753,15 +1239,29 @@
     list-style: none;
   }
 
+  /* Status pills carry a leading marker so the neutral and warning tiers are
+     distinguishable without colour, and stay quiet enough not to outrank the title. */
   .badge {
     display: inline-flex;
     align-items: center;
-    border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+    gap: 5px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
     border-radius: 999px;
-    padding: 3px 7px;
+    padding: 3px 9px;
     color: var(--color-muted);
+    background: color-mix(in srgb, var(--color-ink) 4%, transparent);
     font-size: 0.6875rem;
     line-height: 1.4;
+  }
+
+  .badge::before {
+    width: 5px;
+    height: 5px;
+    flex: none;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.65;
+    content: "";
   }
 
   .badge-warning {
@@ -770,10 +1270,17 @@
     background: color-mix(in srgb, var(--color-warning) 12%, transparent);
   }
 
+  .badge-warning::before {
+    border-radius: 1px;
+    opacity: 1;
+    transform: rotate(45deg);
+  }
+
   .card-action {
     display: inline-flex;
     min-height: 32px;
     align-items: center;
+    gap: 6px;
     align-self: start;
     margin-top: auto;
     color: var(--color-ink);
@@ -782,43 +1289,239 @@
     text-decoration: none;
   }
 
+  .card-action span[aria-hidden] {
+    display: inline-block;
+    border-bottom: 1px solid transparent;
+    padding-bottom: 1px;
+  }
+
   .card-action:hover {
     color: var(--color-accent);
   }
 
-  .search-release-context {
+  .card-action:hover span[aria-hidden] {
+    border-bottom-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .card-action,
+    .card-action span[aria-hidden] {
+      transition:
+        color var(--duration-fast) var(--ease-out),
+        border-color var(--duration-fast) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+
+    .card-action:hover span[aria-hidden] {
+      transform: translateX(2px);
+    }
+  }
+
+  /* A search result keeps one bounded stack under the cover: title, an explaining alias, the
+     year context and the compact platform row pinned to the card foot, so its height never
+     follows the number of releases. A long alias wraps inside its chip instead of truncating. */
+  .search-card-alias {
+    max-width: 100%;
+    align-self: start;
+    margin: 3px 0 0;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
+    border-radius: 999px;
+    padding: 3px 10px;
+    color: var(--color-muted);
+    background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  .search-card-alias span {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  .search-card-year {
+    margin: 3px 0 0;
+    color: var(--color-accent-hover);
+    font-size: 0.875rem;
+    line-height: 1.4;
+  }
+
+  .search-card-platforms {
+    --platform-icon-size: 18px;
+
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    margin: auto 0 0;
+    padding: 8px 0 0;
+    list-style: none;
+  }
+
+  .search-card-platforms li {
+    display: inline-flex;
+    min-height: 22px;
+    align-items: center;
+  }
+
+  .search-card-platforms .app-select-icon {
+    width: var(--platform-icon-size);
+    height: var(--platform-icon-size);
+    color: color-mix(in srgb, var(--color-ink) 90%, var(--color-muted));
+  }
+
+  /* Owner-provided wordmarks are wide: keep their ratio at the shared row height. */
+  .search-card-platforms .app-select-icon-playstation-5,
+  .search-card-platforms .app-select-icon-playstation-4 {
+    width: 40px;
+    height: 12px;
+  }
+
+  .search-card-platforms .app-select-icon-xbox-series-x-s,
+  .search-card-platforms .app-select-icon-nintendo-switch-2 {
+    width: 28px;
+    height: 14px;
+  }
+
+  .search-card-platforms .search-card-platform-more {
+    min-width: 30px;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    color: var(--color-muted);
+    background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+  }
+
+  /* The single visible release row: date first, then the grouped platforms and region. It uses
+     the compact card-metadata scale so the date never outsizes the platforms. */
+  .card-release {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 6px;
+    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.5;
+  }
+
+  /* The overflow control keeps the card compact: it never adds a release row, and its popover is
+     an overlay so the card height never grows with the release count. */
+  .release-overflow {
+    position: relative;
+    /* Spans the card-body width so the absolutely-positioned popover can cap at 100% and never
+       spill past the card, even on the right column of a narrow two-column phone grid. */
+    align-self: stretch;
+    margin-top: auto;
+  }
+
+  /* An open popover overlaps the cards below it. Grid items honour z-index, so lift the whole
+     grid cell that owns the open popover above later rows; raising the inner card is not enough
+     because the next row's grid item paints after it. */
+  .release-grid > li:has(.release-overflow-popover) {
+    position: relative;
+    z-index: 20;
+  }
+
+  .release-overflow-toggle {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+    border-radius: 999px;
+    padding: 3px 9px;
+    color: var(--color-muted);
+    background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+
+  .release-overflow-toggle:hover {
+    color: var(--color-accent);
+  }
+
+  .release-overflow-popover {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    width: max-content;
+    max-width: 100%;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 16%, transparent);
+    border-radius: 12px;
+    padding: 8px;
+    background: var(--color-raised);
+    box-shadow: var(--elevation-rest);
+  }
+
+  .release-overflow-list {
     display: flex;
     flex-direction: column;
-    gap: 7px;
+    gap: 8px;
+    margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  .search-release-context li {
+  .release-overflow-list li {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 5px;
+    gap: 4px 6px;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.45;
   }
 
   .catalogue-loading {
     padding-bottom: 24px;
   }
 
+  /* Placeholders reuse the real card surface so the arriving results land in the same
+     shape instead of replacing a different-looking block. */
   .loading-card {
     display: grid;
     gap: 10px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+    border-radius: 16px;
+    padding: 7px 7px 13px;
+    background: linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--color-surface) 96%, var(--color-ink)),
+      color-mix(in srgb, var(--color-canvas) 88%, var(--color-surface))
+    );
   }
 
   .skeleton {
+    position: relative;
+    display: block;
+    overflow: hidden;
     border-radius: 6px;
-    background: linear-gradient(90deg, var(--color-raised), #232c36, var(--color-raised));
-    background-size: 420px 100%;
-    animation: shimmer 1.4s linear infinite;
+    background: color-mix(in srgb, var(--color-raised) 92%, var(--color-ink));
+  }
+
+  .skeleton::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      100deg,
+      transparent 20%,
+      color-mix(in srgb, var(--color-accent) 12%, transparent) 45%,
+      color-mix(in srgb, var(--color-ink) 7%, transparent) 55%,
+      transparent 80%
+    );
+    content: "";
+    transform: translateX(-100%);
+    animation: shimmer 1.5s var(--ease-out) infinite;
   }
 
   .skeleton-cover {
-    aspect-ratio: 3 / 4;
+    aspect-ratio: var(--cover-aspect);
     border-radius: 12px;
   }
 
@@ -832,18 +1535,56 @@
     height: 10px;
   }
 
+  .skeleton-meta-short {
+    width: 42%;
+  }
+
   .notice {
+    position: relative;
     display: flex;
     align-items: center;
+    overflow: hidden;
     flex-direction: column;
     gap: 13px;
-    margin: 20px 0 40px;
-    border: 1px dashed color-mix(in srgb, var(--color-ink) 18%, transparent);
-    border-radius: 16px;
+    /* A notice is a message, not a region: cap it so it never reads as an empty panel. */
+    max-width: 680px;
+    margin: 24px auto 40px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
+    border-radius: 20px;
     padding: 34px 18px;
     color: var(--color-muted);
-    background: var(--color-surface);
+    background: linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--color-surface) 92%, var(--color-ink)),
+      var(--color-canvas)
+    );
+    box-shadow: var(--elevation-rest);
     text-align: center;
+  }
+
+  /* A single wash keyed to the notice tone, so an empty result never looks like an error. */
+  .notice::before {
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(
+      36rem 14rem at 50% -10%,
+      color-mix(in srgb, var(--notice-tone, var(--color-accent)) 12%, transparent),
+      transparent 70%
+    );
+    content: "";
+  }
+
+  .notice > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .notice {
+      animation: rise-in 300ms var(--ease-out) both;
+    }
   }
 
   .notice h2,
@@ -870,19 +1611,31 @@
     font-size: 0.625rem;
   }
 
+  .notice-empty {
+    --notice-tone: var(--color-muted);
+  }
+
+  /* A page title used as a notice heading centres its bloom with the notice. */
+  .notice .page-title::before {
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
   .notice-info {
-    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+    --notice-tone: var(--color-accent);
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
   }
 
   .notice-warning {
-    border-color: color-mix(in srgb, var(--color-warning) 42%, transparent);
-    background: var(--color-warning-surface);
+    --notice-tone: var(--color-warning);
+    border-color: color-mix(in srgb, var(--color-warning) 38%, transparent);
+    background: linear-gradient(170deg, var(--color-warning-surface), var(--color-canvas));
   }
 
   .notice-danger {
-    border-style: solid;
-    border-color: color-mix(in srgb, var(--color-danger) 42%, transparent);
-    background: var(--color-danger-surface);
+    --notice-tone: var(--color-danger);
+    border-color: color-mix(in srgb, var(--color-danger) 38%, transparent);
+    background: linear-gradient(170deg, var(--color-danger-surface), var(--color-canvas));
   }
 
   .notice-symbol {
@@ -896,6 +1649,9 @@
     border-radius: 15px;
     color: var(--color-accent);
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--color-ink) 10%, transparent),
+      0 14px 30px -18px color-mix(in srgb, var(--color-accent) 100%, transparent);
     font-family: var(--font-mono);
     font-size: 1.125rem;
     font-weight: 600;
@@ -905,38 +1661,27 @@
     border-color: color-mix(in srgb, var(--color-warning) 45%, transparent);
     color: var(--color-warning);
     background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+    box-shadow: 0 14px 30px -18px color-mix(in srgb, var(--color-warning) 100%, transparent);
   }
 
   .notice-symbol-danger {
     border-color: color-mix(in srgb, var(--color-danger) 45%, transparent);
     color: var(--color-danger);
     background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+    box-shadow: 0 14px 30px -18px color-mix(in srgb, var(--color-danger) 100%, transparent);
   }
 
-  .stale-banner {
-    border-bottom: 1px solid color-mix(in srgb, var(--color-warning) 16%, transparent);
-    background: color-mix(in srgb, var(--color-warning) 3%, var(--color-canvas));
-  }
-
-  .stale-banner .page-container {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding-block: 7px;
-  }
-
-  .stale-banner .notice-symbol {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    font-size: 0.625rem;
-  }
-
-  .stale-banner p {
+  /* A support reference is an opaque identifier: mono, and never case-transformed. */
+  .notice .notice-reference {
+    max-width: 100%;
     margin: 0;
     color: var(--color-muted);
-    font-size: 0.75rem;
-    line-height: 1.45;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    overflow-wrap: anywhere;
   }
 
   .pagination {
@@ -945,8 +1690,16 @@
     flex-wrap: wrap;
     gap: 12px;
     margin-top: 38px;
-    border-top: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
     padding-top: 22px;
+    border-top: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+    /* Hairline of accent light so the end of a result set reads as a deliberate edge. */
+    border-image: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--color-accent) 40%, transparent),
+        color-mix(in srgb, var(--color-ink) 10%, transparent) 42%,
+        transparent
+      )
+      1;
   }
 
   .pagination p {
@@ -954,6 +1707,22 @@
     font-family: var(--font-mono);
     font-size: 0.65625rem;
     letter-spacing: 0.08em;
+  }
+
+  .search-pagination {
+    gap: 12px 16px;
+  }
+
+  .search-pagination p {
+    margin: 0 4px 0 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .view-action-back:hover span {
+      transform: translateX(-3px);
+    }
   }
 
   .search-intro {
@@ -966,12 +1735,24 @@
   .site-footer {
     margin-top: 20px;
     border-top: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
-    background: var(--color-surface);
+    background: linear-gradient(
+      180deg,
+      var(--color-canvas),
+      color-mix(in srgb, var(--color-surface) 92%, var(--color-canvas))
+    );
   }
 
   .site-footer .page-container {
     padding-block: 22px;
     letter-spacing: 0.15em;
+  }
+
+  /* Holds SVG filter definitions only; it must never take layout or focus. */
+  .filter-defs {
+    position: absolute;
+    width: 0;
+    height: 0;
+    pointer-events: none;
   }
 
   .skip-link {
@@ -995,32 +1776,13 @@
       gap: 14px;
     }
 
-    .header-search {
+    .catalogue-search-control {
       order: 3;
-      max-width: 420px;
-      flex: 1 1 240px;
-      margin-left: auto;
+      flex: 1 1 100%;
     }
 
-    .header-search kbd,
-    .account-label,
-    .account-divider {
+    .header-search kbd {
       display: inline-block;
-    }
-
-    .account-divider {
-      order: 2;
-      width: 1px;
-      height: 24px;
-      background: color-mix(in srgb, var(--color-ink) 12%, transparent);
-    }
-
-    .account-link {
-      order: 2;
-      gap: 9px;
-      padding: 6px 15px 6px 6px;
-      font-size: 0.8125rem;
-      font-weight: 600;
     }
 
     .primary-nav {
@@ -1037,20 +1799,28 @@
       font-size: 2.625rem;
     }
 
-    .filter-rail {
-      margin-inline: -24px;
-      padding-inline: 24px;
-    }
-
     .result-count {
       margin-top: 12px;
     }
 
     .release-grid,
     .catalogue-grid {
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 26px 18px;
-      margin-top: 16px;
+      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+      gap: 18px 14px;
+      margin-top: 18px;
+    }
+
+    .releases-page .release-grid,
+    .search-page .release-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .search-card-year {
+      font-size: 0.9375rem;
+    }
+
+    .search-card-platforms {
+      --platform-icon-size: 20px;
     }
 
     .card-title {
@@ -1067,25 +1837,43 @@
     }
   }
 
+  @media (min-width: 780px) {
+    .releases-page .release-grid,
+    .search-page .release-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
   @media (min-width: 1024px) {
     .page-container {
       padding-inline: 28px;
     }
 
     .header-layout {
-      flex-wrap: nowrap;
+      display: grid;
+      grid-template-columns: auto auto minmax(240px, 680px) minmax(0, 1fr) auto;
       gap: 22px;
     }
 
-    .brand,
-    .primary-nav,
-    .header-search,
-    .account-divider {
-      order: 1;
+    .header-layout > * {
+      order: 0;
     }
 
-    .account-link {
-      order: 2;
+    .brand {
+      grid-column: 1;
+    }
+
+    .primary-nav {
+      grid-column: 2;
+    }
+
+    .catalogue-search-control {
+      grid-column: 3;
+    }
+
+    .account-control {
+      grid-column: 5;
+      margin-left: 0;
     }
 
     .primary-nav {
@@ -1101,9 +1889,8 @@
     }
 
     .header-search {
-      max-width: 414px;
+      width: 100%;
       min-height: 42px;
-      margin-left: auto;
       padding: 10px 16px;
     }
 
@@ -1124,25 +1911,19 @@
       padding-top: 18px;
     }
 
-    .filter-rail {
-      margin: 0;
-      padding: 0 0 8px;
-      overflow-x: auto;
-    }
-
-    .filter-chip {
-      min-height: 38px;
-      padding-block: 8px;
-    }
-
     .result-count {
       text-align: right;
     }
 
     .release-grid,
     .catalogue-grid {
-      grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
-      gap: 30px 22px;
+      grid-template-columns: repeat(auto-fill, minmax(192px, 1fr));
+      gap: 22px 18px;
+    }
+
+    .releases-page .release-grid,
+    .search-page .release-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
     }
 
     .card-title {
@@ -1150,7 +1931,7 @@
     }
 
     .notice {
-      padding: 52px 32px;
+      padding: 46px 40px;
     }
 
     .notice h2,
@@ -1159,39 +1940,317 @@
     }
   }
 
-  @media (prefers-reduced-motion: reduce) {
-    .catalogue-cover {
-      transition: none;
+  @media (max-width: 619px) {
+    .header-layout {
+      flex-wrap: wrap;
+      column-gap: 4px;
+      row-gap: 4px;
+      padding-block: 8px;
     }
 
-    .skeleton {
+    .brand {
+      gap: 6px;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+    }
+
+    .brand-mark::before {
+      top: 12px;
+      left: 6px;
+      width: 16px;
+    }
+
+    .brand-mark::after {
+      top: 7px;
+      left: 12px;
+    }
+
+    .brand-name > :first-child {
+      font-size: 1.125rem;
+    }
+
+    .brand-name > :last-child {
+      display: none;
+    }
+
+    .primary-nav {
+      order: 2;
+      flex: none;
+      gap: 0;
+      margin: 0 0 0 auto;
+      padding: 0;
+      overflow: visible;
+    }
+
+    .nav-link {
+      min-height: 44px;
+      padding: 10px 6px;
+      font-size: 0.71875rem;
+    }
+
+    .catalogue-search-control {
+      order: 3;
+      flex: none;
+    }
+
+    .header-search-desktop {
+      display: none;
+    }
+
+    .mobile-search-trigger {
+      display: inline-flex;
+      width: 44px;
+      height: 44px;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid color-mix(in srgb, var(--color-ink) 22%, transparent);
+      border-radius: 50%;
+      background: var(--color-raised);
+      color: var(--color-ink);
+    }
+
+    .mobile-search-trigger:hover {
+      border-color: var(--color-accent);
+    }
+
+    .mobile-search-trigger .search-icon {
+      width: 17px;
+      height: 17px;
+      border-color: currentColor;
+    }
+
+    .mobile-search-trigger .search-icon::after {
+      background: currentColor;
+    }
+
+    .mobile-search-dialog[open] {
+      position: fixed;
+      inset: max(12px, env(safe-area-inset-top)) 0 auto;
+      display: block;
+      width: calc(100vw - 32px);
+      max-width: 480px;
+      margin-inline: auto;
+      border: 1px solid var(--color-line);
+      border-radius: 16px;
+      padding: 12px;
+      background: var(--color-surface);
+      box-shadow: var(--elevation-lift);
+    }
+
+    .mobile-search-dialog::backdrop {
+      background: color-mix(in srgb, var(--color-canvas) 76%, transparent);
+    }
+
+    .mobile-search-dialog-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mobile-search-dialog .header-search {
+      flex: 1 1 auto;
+    }
+
+    .mobile-search-close {
+      width: 44px;
+      height: 44px;
+      flex: none;
+      border: 0;
+      border-radius: 50%;
+      color: var(--color-muted);
+      background: var(--color-raised);
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    .account-control {
+      order: 4;
+    }
+
+    .releases-kicker-row {
+      width: 100%;
+      flex-wrap: nowrap;
+      gap: 6px;
+    }
+
+    .releases-page .eyebrow,
+    .search-page .eyebrow {
+      flex: none;
+      font-size: 0.5625rem;
+      letter-spacing: 0.1em;
+      white-space: nowrap;
+    }
+
+    .eyebrow-dot {
+      gap: 6px;
+    }
+
+    .eyebrow-dot::before {
+      width: 5px;
+      height: 5px;
+    }
+
+    .release-period {
+      min-width: 0;
+      min-height: 30px;
+      flex: 1 1 auto;
+      justify-content: center;
+      gap: 0;
+      padding: 5px 7px;
+      font-size: 0.625rem;
+      white-space: nowrap;
+    }
+
+    .release-period svg,
+    .release-period-full {
+      display: none;
+    }
+
+    .release-period-compact {
+      display: inline;
+    }
+
+    .release-select-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .release-select-skeleton {
+      width: 100%;
+    }
+
+    .release-select-row .filter-reset {
+      grid-column: 1 / -1;
+      justify-self: start;
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .releases-page .release-grid,
+    .search-page .release-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton::after {
       animation: none;
+      opacity: 0.35;
+      transform: none;
     }
   }
 
   @media (forced-colors: active) {
-    .nav-link[aria-current="page"],
-    .filter-chip[aria-current="page"] {
+    .nav-link[aria-current="page"] {
       outline: 2px solid Highlight;
       outline-offset: -2px;
     }
 
     .badge,
     .button,
-    .filter-chip,
+    .search-card-alias,
+    .search-card-platform-more,
+    .release-period,
+    .app-select-trigger,
     .header-search,
-    .account-link {
+    .mobile-search-trigger,
+    .mobile-search-dialog,
+    .mobile-search-close,
+    .account-trigger,
+    .account-panel,
+    .catalogue-card,
+    .loading-card {
       border-color: ButtonText;
     }
+
+    /* Decorative depth carries no meaning: drop it so system colours stay authoritative. */
+    .app-frame::before,
+    .app-frame::after,
+    .releases-page::before,
+    .search-page::before,
+    .page-title::before,
+    .notice::before,
+    .cover-link::before,
+    .cover-link::after {
+      display: none;
+    }
+
+    /* Never re-map provider artwork colours on top of the system palette. */
+    .catalogue-cover,
+    .game-artwork .catalogue-cover {
+      filter: none;
+    }
+
+    .catalogue-card,
+    .releases-page .catalogue-card,
+    .search-page .catalogue-card,
+    .loading-card,
+    .notice,
+    .site-header,
+    .site-footer {
+      background: Canvas;
+      box-shadow: none;
+    }
+
+    .release-period,
+    .app-select-trigger,
+    .releases-page .view-action,
+    .mobile-search-trigger,
+    .mobile-search-dialog,
+    .mobile-search-close {
+      color: CanvasText;
+      background: Canvas;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .releases-page .page-title,
+    .search-page .page-title {
+      color: CanvasText;
+      background: none;
+      filter: none;
+    }
+
+    .mobile-search-dialog::backdrop {
+      background: Canvas;
+    }
+
   }
 }
 
 @keyframes shimmer {
   from {
-    background-position: -420px 0;
+    transform: translateX(-100%);
   }
 
   to {
-    background-position: 420px 0;
+    transform: translateX(100%);
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }

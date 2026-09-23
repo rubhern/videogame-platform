@@ -7,7 +7,7 @@ import {
   getGameDetails,
 } from "../features/game-details/game-details-api";
 import { GameDetailsContent } from "../features/game-details/game-details-content";
-import { CatalogueLoading } from "../shared/ui/catalogue-loading";
+import { GameDetailsLoading } from "../features/game-details/game-details-loading";
 
 export function GameDetailsPage() {
   const { gameId = "" } = useParams();
@@ -28,7 +28,7 @@ export function GameDetailsPage() {
           <>
             <p className="eyebrow eyebrow-dot">Ficha del catálogo</p>
             <h1 className="page-title">Detalle del juego</h1>
-            <CatalogueLoading message="Cargando el juego…" />
+            <GameDetailsLoading message="Cargando el juego…" />
           </>
         ) : query.isError ? (
           <>
@@ -65,7 +65,7 @@ export function GameDetailsPage() {
                     : "No pudimos leer los datos locales. Inténtalo de nuevo más tarde."}
               </p>
               {error?.correlationId ? (
-                <p className="notice-footnote">
+                <p className="notice-reference">
                   Referencia para soporte: {error.correlationId}
                 </p>
               ) : null}

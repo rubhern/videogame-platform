@@ -143,8 +143,6 @@ create_backend_env_if_missing() {
     printf 'APPLICATION_SESSION_COOKIE_NAME=vgp_session\n'
     printf 'APPLICATION_SESSION_COOKIE_SECURE=false\n'
     printf 'CATALOGUE_JDBC_READ_TIMEOUT=5s\n'
-    printf 'CATALOGUE_RELEASES_RECENT_WINDOW_MONTHS=6\n'
-    printf 'CATALOGUE_RELEASES_UPCOMING_WINDOW_MONTHS=6\n'
     printf 'CATALOGUE_RELEASES_FRESHNESS_THRESHOLD=P7D\n'
     printf 'CATALOGUE_RELEASES_CACHE_CONTROL="public, max-age=60, stale-while-revalidate=300"\n'
     printf 'RATINGS_JDBC_OPERATION_TIMEOUT=5s\n'

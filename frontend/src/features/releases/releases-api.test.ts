@@ -8,7 +8,7 @@ const releasePageResponse = {
   view: "recent",
   evaluatedOn: "2026-08-13",
   window: { from: "2026-02-13", to: "2026-08-13" },
-  activeFilters: { platformId: null, regionId: null },
+  activeFilters: { platformIds: [], regionIds: [] },
   availableFilters: { platforms: [], regions: [] },
   items: [],
   page: { number: 1, size: 6, totalItems: 0, totalPages: 0 },
