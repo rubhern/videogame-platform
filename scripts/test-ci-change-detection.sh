@@ -62,20 +62,55 @@ run_case frontend-unit-test \
   'frontend,codeql_javascript' \
   'browser,backend,migrations,identity,provider_fixtures,container,sonar'
 
+run_case frontend-identity-journey \
+  'frontend/tests/rating-boundary.spec.ts' \
+  'frontend,browser,identity,codeql_javascript' \
+  'backend,migrations,provider_fixtures,container,sonar'
+
 run_case backend \
   'backend/src/main/java/com/videogameplatform/catalogue/application/internal/ReleaseCatalogueService.java' \
   'backend,sonar,codeql_java' \
   'frontend,browser,migrations,identity,provider_fixtures,container'
+
+run_case backend-postman \
+  'backend/postman/actuator.postman_collection.json' \
+  'documentation,backend' \
+  'openapi,frontend,browser,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case migration \
   'backend/src/main/resources/db/migration/V99999999_000000__test.sql' \
   'backend,migrations' \
   'frontend,browser,identity,provider_fixtures,container'
 
-run_case topology-budget \
-  'scripts/validate-topology-budget.sh' \
-  'documentation,container,build' \
-  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+run_case development-seed \
+  'backend/src/main/resources/db/dev-seed/V99999999_000000__test.sql' \
+  'backend,migrations,browser' \
+  'frontend,identity,provider_fixtures,container'
+
+run_case agent-configuration \
+  $'CLAUDE.md\nAGENTS.md\n.claude/settings.json\n.claude/rules/hexagonal-boundaries.md\n.claude/skills/validate\n.worktreeinclude' \
+  'documentation' \
+  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case agent-skills \
+  $'.agents/skills/validate/SKILL.md\n.codex/config.toml' \
+  'documentation' \
+  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case backend-artifact \
+  'scripts/backend-artifact.sh' \
+  'documentation,build,browser,backend,identity,container' \
+  'openapi,frontend,migrations,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case local-dependencies \
+  'scripts/local-dependencies.sh' \
+  'documentation,build,backend,migrations,identity,container' \
+  'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case private-dev-runtime \
+  $'deploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py' \
+  'documentation,build,backend,migrations,identity,container' \
+  'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case identity \
   'backend/src/main/java/com/videogameplatform/identity/configuration/IdentitySecurityConfiguration.java' \

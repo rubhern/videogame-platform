@@ -4,102 +4,46 @@
 - **Date:** 2026-08-03
 - **Owner:** Ruben Hernandez
 - **Scope:** Private, non-commercial learning MVP
-- **Related architecture:** [Learning MVP solution architecture](../architecture/mvp-solution-architecture.md)
-- **Related platform:** [Learning MVP platform and delivery design](../architecture/deployment/mvp-platform-and-delivery.md)
 
 ## Context
 
-The approved architecture requires structured logs, metrics, trace correlation,
-health, and business-operation outcomes from the first slice. The zero-cost dev
-platform provides OCI Logging, Monitoring, and a bounded APM allowance, but application
-code should not depend on one hosting vendor.
-
-[OpenTelemetry](https://opentelemetry.io/docs/) is a vendor-neutral observability
-framework for traces, metrics, and logs. OCI documents an
-[OpenTelemetry integration with OCI APM and Logging](https://docs.oracle.com/en/learn/oci-apm-with-opentelemetry/).
+The application needs enough logs, metrics and traces to diagnose a vertical slice,
+but the instrumentation contract should not depend on one hosting or visualization
+backend. A full self-hosted observability stack would compete with the application on
+the constrained dev VM.
 
 ## Decision
 
-Instrument the application with OpenTelemetry-compatible APIs, semantic conventions,
-and W3C trace context where supported by the selected implementation stack.
+- Emit structured logs and instrument requests, database/provider work and scheduled
+  synchronization with OpenTelemetry-compatible APIs and semantic conventions.
+- Propagate correlation and trace context across supported boundaries.
+- Keep secrets, tokens and personal data out of telemetry.
+- Use bounded metric labels; user input and request/game/release/user/correlation IDs
+  must not become metric dimensions.
+- Configure exporters at the platform boundary; observability backends are optional
+  and replaceable.
+- Start with runtime health, error, latency, resource and synchronization signals
+  needed to operate the current journey.
 
-Initially:
-
-- emit structured application logs with correlation, trace, and span identifiers;
-- measure bounded request, dependency, rating-command, and catalogue-synchronization
-  signals;
-- propagate trace context through HTTP and meaningful internal boundaries;
-- expose liveness, readiness, version, and migration/synchronization diagnostics;
-- export local telemetry to console or a lightweight local backend;
-- export `dev` telemetry through an OpenTelemetry collector/exporter to OCI Logging,
-  Monitoring, and the Always Free APM allowance where useful.
-
-Keep the domain independent from telemetry products. Domain/application code may
-express meaningful operation outcomes through internal abstractions, while adapters
-perform vendor export. Do not add high-cardinality identifiers or sensitive data to
-metric labels, traces, or logs.
-
-OCI is the initial backend, not the application contract. Retention and ingestion are
-bounded to the zero-cost allowance; a missing telemetry backend MUST NOT make product
-reads unavailable.
+Signal names and local inspection belong to
+[observability](../development/observability.md); platform retention and failure
+behavior belong to the [platform design](../architecture/deployment/mvp-platform-and-delivery.md).
 
 ## Alternatives considered
 
-### OCI-specific SDK instrumentation throughout the application
-
-It provides direct feature access but creates hosting lock-in and leaks infrastructure
-into application/domain code.
-
-### Self-hosted Prometheus, Loki, Tempo, and Grafana
-
-This offers rich hands-on tooling but adds several always-on components to a
-resource-constrained single VM. It may be used later as a bounded experiment, not the
-initial operational dependency.
-
-### Logs only
-
-This is simpler but does not satisfy the approved trace correlation, health, and
-business-operation visibility needed to diagnose the complete journey.
-
-### Defer observability until production
-
-This would make early failure modes and deployment acceptance opaque and contradicts
-the approved engineering gate.
+- **OCI-specific instrumentation throughout:** rejected because it creates code-level
+  hosting lock-in.
+- **Self-hosted Prometheus/Loki/Tempo/Grafana:** deferred until measured diagnostic
+  value justifies the resource and maintenance cost.
+- **Logs only or defer observability:** rejected because they provide insufficient
+  evidence for failures and performance.
 
 ## Consequences
 
-### Positive
+Instrumentation remains portable and can support multiple backends. It still adds
+code, storage and review cost, and trace/metric volume must be bounded deliberately.
 
-- Instrumentation is portable across OCI and future observability backends.
-- Standard context makes application, identity, database, and synchronization
-  diagnosis more coherent.
-- The project learns current enterprise observability without self-hosting a large
-  stack initially.
+## Reconsider when
 
-### Negative
-
-- OpenTelemetry SDK/collector configuration adds implementation and operational work.
-- OCI's free APM allowance is small and requires sampling/retention discipline.
-- Semantic conventions and exporters evolve and require version management.
-
-## Risks and mitigations
-
-- **Sensitive telemetry:** allowlist fields, redact secrets/tokens/personal data, and
-  test representative failures.
-- **Cardinality/cost growth:** use route templates and bounded outcome labels; set
-  sampling and retention limits.
-- **Backend outage:** buffer only within safe bounds, fail open for product traffic,
-  and expose exporter health separately from readiness.
-- **Instrumentation coupling:** isolate exporters and avoid OCI SDKs in domain and
-  application rules.
-- **Noise:** start with signals needed to answer current operational questions and add
-  more only from evidence.
-
-## Follow-up actions
-
-- Select supported SDK and collector versions in the technology baseline.
-- Define the initial attribute allowlist, sampling, redaction, and retention policy.
-- Add tests for correlation propagation and absence of secrets/personal data.
-- Create a minimal dashboard for version, request failures/latency, rating outcomes,
-  catalogue freshness/synchronization, and dependency health.
-- Revisit the backend if OCI limits or a hosting migration justify another exporter.
+Add a backend or broader signals only for a concrete diagnostic or operational need
+within the zero-cost resource envelope.

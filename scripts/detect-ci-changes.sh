@@ -121,7 +121,7 @@ for path in "${changed_paths[@]}"; do
       enable ci documentation
       matched=true
       ;;
-    *.md | docs/* | .agents/* | .codex/* | .github/ISSUE_TEMPLATE/* | .github/pull_request_template.md | .gitignore | .gitattributes)
+    *.md | docs/* | .agents/* | .claude/* | .codex/* | .worktreeinclude | .github/ISSUE_TEMPLATE/* | .github/pull_request_template.md | .gitignore | .gitattributes)
       enable documentation
       matched=true
       ;;
@@ -137,12 +137,25 @@ for path in "${changed_paths[@]}"; do
       enable identity browser backend
       matched=true
       ;;
+    backend/src/main/resources/db/dev-seed/*)
+      # The packaged browser journey asserts the demonstration catalogue it browses.
+      enable migrations backend browser
+      matched=true
+      ;;
     scripts/validate-migrations.sh | docker/postgres/* | backend/src/main/resources/db/*)
       enable migrations backend
       matched=true
       ;;
-    scripts/validate-topology-budget.sh)
-      enable documentation container build
+    scripts/validate-private-dev-runtime.sh | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | deploy/private-dev/*)
+      enable documentation build backend migrations identity container
+      matched=true
+      ;;
+    scripts/backend-artifact.sh)
+      enable documentation build browser backend identity container
+      matched=true
+      ;;
+    scripts/local-dependencies.sh)
+      enable documentation build backend migrations identity container
       matched=true
       ;;
     compose.yaml)
@@ -155,6 +168,10 @@ for path in "${changed_paths[@]}"; do
       ;;
     backend/pom.xml)
       enable documentation build dependencies backend sonar codeql_java
+      matched=true
+      ;;
+    backend/postman/*)
+      enable documentation backend
       matched=true
       ;;
     package.json)
@@ -171,6 +188,11 @@ for path in "${changed_paths[@]}"; do
       ;;
     frontend/src/*.test.ts | frontend/src/*.test.tsx | frontend/src/test/*)
       enable frontend codeql_javascript
+      matched=true
+      ;;
+    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts)
+      # These journeys run only inside the real Keycloak identity gate.
+      enable frontend browser identity codeql_javascript
       matched=true
       ;;
     frontend/src/* | frontend/public/* | frontend/tests/*)

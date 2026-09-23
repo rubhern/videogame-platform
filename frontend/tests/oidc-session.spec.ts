@@ -5,7 +5,7 @@ const password = process.env.OIDC_TEST_PASSWORD;
 
 test.skip(!username || !password, "The real Keycloak compatibility topology is not active.");
 
-test("real Keycloak establishes and terminates only an opaque BFF session", async ({
+test("real Keycloak smoke account establishes and terminates only an opaque BFF session", async ({
   context,
   page,
 }) => {
@@ -24,6 +24,9 @@ test("real Keycloak establishes and terminates only an opaque BFF session", asyn
   await page.getByRole("button", { name: "Sign In" }).click();
 
   await expect(page).toHaveURL(/http:\/\/application:8080\/$/);
+  expect(browserRequests).not.toContainEqual(
+    expect.stringMatching(/\/login-actions\/required-action(?:\?|$)/),
+  );
   const authenticatedSession = await sessionState(page);
   expect(authenticatedSession).toEqual({
     authenticated: true,

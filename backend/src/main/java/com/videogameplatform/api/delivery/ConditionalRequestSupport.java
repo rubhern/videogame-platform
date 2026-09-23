@@ -2,23 +2,23 @@ package com.videogameplatform.api.delivery;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.HexFormat;
+import org.springframework.http.ETag;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 /** Strong representation validators and RFC-compatible conditional GET matching. */
 @Component
-final class ConditionalRequestSupport {
+public final class ConditionalRequestSupport {
 
     private final ObjectMapper objectMapper;
 
-    ConditionalRequestSupport(ObjectMapper objectMapper) {
+    public ConditionalRequestSupport(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
-    String strongEntityTag(Object representation) {
+    public String strongEntityTag(Object representation) {
         try {
             byte[] json = objectMapper.writeValueAsBytes(representation);
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(json);
@@ -31,17 +31,14 @@ final class ConditionalRequestSupport {
         }
     }
 
-    boolean matches(String ifNoneMatch, String entityTag) {
-        return ifNoneMatch != null
-                && Arrays.stream(ifNoneMatch.split(","))
-                        .map(String::trim)
-                        .anyMatch(
-                                value ->
-                                        "*".equals(value)
-                                                || opaqueTag(value).equals(opaqueTag(entityTag)));
-    }
-
-    private static String opaqueTag(String value) {
-        return value.startsWith("W/") ? value.substring(2) : value;
+    public boolean matches(String ifNoneMatch, String entityTag) {
+        if (ifNoneMatch == null) {
+            return false;
+        }
+        ETag responseTag = ETag.create(entityTag);
+        return ETag.parse(ifNoneMatch).stream()
+                .anyMatch(
+                        requestTag ->
+                                requestTag.isWildcard() || requestTag.compare(responseTag, false));
     }
 }

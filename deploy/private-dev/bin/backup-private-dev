@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+#
+# Owner-triggered encrypted backup of the irreplaceable private-dev durable state.
+#
+# It logically dumps the application and Keycloak databases from the running
+# PostgreSQL service, encrypts each dump to the operator's GPG public key, writes an
+# integrity manifest and checksums, self-verifies the result, and applies retention.
+#
+# It never stores roles or credentials: those are bootstrapped from the protected
+# secret files at restore. It never decrypts, so it needs only the public key.
+#
+# The platform design owns the policy; this script owns the mechanics:
+#   docs/architecture/deployment/mvp-platform-and-delivery.md
+#   deploy/private-dev/README.md
+
+set -Eeuo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+compose_file="$repository_root/deploy/private-dev/compose.yaml"
+# shellcheck source=deploy/private-dev/lib/backup-common.sh
+source "$repository_root/deploy/private-dev/lib/backup-common.sh"
+
+expected_target="vgpdev"
+databases=(videogame_platform videogame_keycloak)
+
+runtime_env=""
+gnupg_home=""
+recipient=""
+destination=""
+initiator=""
+keep_count="7"
+
+usage() {
+  cat <<'EOF'
+Usage: backup-private-dev \
+  --env-file <protected-runtime.env> \
+  --gnupg-home <public-keyring-directory> \
+  --recipient <owner-gpg-key-id-or-fingerprint> \
+  --destination <backups-root-outside-the-host> \
+  --initiator <owner-identifier> \
+  [--keep <retained-backups>]   # default 7
+
+Produces one encrypted, self-verified backup directory and prunes older backups to
+the retention count. The destination is meant to be an off-host or externally mounted
+location; the artifacts are public-key encrypted, so even an untrusted destination
+cannot read the data. No credentials or personal data are printed or stored.
+EOF
+}
+
+while (($# > 0)); do
+  case "$1" in
+    --env-file) runtime_env="${2:-}"; shift 2 ;;
+    --gnupg-home) gnupg_home="${2:-}"; shift 2 ;;
+    --recipient) recipient="${2:-}"; shift 2 ;;
+    --destination) destination="${2:-}"; shift 2 ;;
+    --initiator) initiator="${2:-}"; shift 2 ;;
+    --keep) keep_count="${2:-}"; shift 2 ;;
+    --help) usage; exit 0 ;;
+    *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+  esac
+done
+
+[[ -n "$runtime_env" && -n "$gnupg_home" && -n "$recipient" && -n "$destination" && -n "$initiator" ]] || {
+  usage >&2
+  exit 2
+}
+
+bc_require_commands awk date docker find gpg hostname mktemp python3 realpath sha256sum sort tr wc
+[[ "$initiator" =~ ^[A-Za-z0-9._@-]{1,100}$ ]] ||
+  bc_fail "--initiator must contain only letters, numbers, dot, underscore, at-sign or hyphen."
+[[ "$keep_count" =~ ^[0-9]+$ && "$keep_count" -ge 1 ]] ||
+  bc_fail "--keep must be a positive integer."
+
+runtime_env="$(realpath -- "$runtime_env")"
+[[ -f "$runtime_env" ]] || bc_fail "Runtime environment file does not exist: $runtime_env"
+gnupg_home="$(realpath -- "$gnupg_home")"
+[[ -d "$gnupg_home" ]] || bc_fail "GPG home directory does not exist: $gnupg_home"
+destination="$(realpath -m -- "$destination")"
+[[ "$destination" == /* && "$destination" != / ]] ||
+  bc_fail "--destination must be an absolute path and not the filesystem root."
+
+actual_target="$(hostname --short)"
+[[ "$actual_target" == "$expected_target" ]] ||
+  bc_fail "Refusing private-dev backup on host '$actual_target'; expected '$expected_target'."
+
+# Resolve and record the recipient before touching the database, so a missing or
+# ambiguous key stops the run before any dump exists.
+recipient_fingerprint="$(bc_gpg_recipient_fingerprint "$gnupg_home" "$recipient")"
+
+compose=(docker compose --env-file "$runtime_env" --file "$compose_file")
+
+docker info >/dev/null
+postgres_container="$("${compose[@]}" ps --quiet postgres)"
+[[ -n "$postgres_container" ]] || bc_fail "PostgreSQL service is not created; start the dependency stack first."
+[[ "$(docker inspect --format '{{.State.Status}}' "$postgres_container")" == running ]] ||
+  bc_fail "PostgreSQL service is not running."
+[[ "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$postgres_container")" == healthy ]] ||
+  bc_fail "PostgreSQL service is not healthy."
+
+umask 0077
+mkdir -p -- "$destination"
+created_at="$(date --utc +%Y-%m-%dT%H:%M:%SZ)"
+backup_id="$(date --utc +%Y%m%dT%H%M%SZ)"
+backup_dir="$destination/$backup_id"
+[[ ! -e "$backup_dir" ]] || bc_fail "Backup directory already exists: $backup_dir"
+staging="$(mktemp -d)"
+trap 'rm -rf -- "$staging"' EXIT
+mkdir -p -- "$backup_dir"
+
+# Server version is non-secret metadata for restore compatibility judgement.
+postgres_server_version="$(
+  "${compose[@]}" exec -T postgres gosu postgres psql \
+    --dbname=postgres --tuples-only --no-align --command='SHOW server_version' |
+    awk '{ print $1 }'
+)"
+
+records="$staging/records.tsv"
+: >"$records"
+declare -a manifest_env=()
+
+for database in "${databases[@]}"; do
+  plaintext="$staging/${database}${BC_DUMP_SUFFIX}"
+  # Custom format (-Fc): compressed, portable, and restorable selectively with
+  # pg_restore. Ownership and privileges are kept so the restored objects retain the
+  # grants the runtime role needs; the roles are recreated from the secret files before
+  # restore. peer auth lets the in-container postgres OS user connect as the postgres
+  # role without a password reaching the process arguments or logs.
+  "${compose[@]}" exec -T postgres gosu postgres \
+    pg_dump --format=custom "$database" >"$plaintext"
+  [[ -s "$plaintext" ]] || bc_fail "Dump for database '$database' is empty: $database"
+
+  # Application schema metadata (Flyway). Keycloak manages its own schema, so a
+  # missing Flyway table there is expected and recorded as absent.
+  applied="" schema_version=""
+  if flyway_meta="$(
+    "${compose[@]}" exec -T postgres gosu postgres psql \
+      --dbname="$database" --tuples-only --no-align --field-separator=: \
+      --command="SELECT count(*), coalesce(max(version), '') FROM flyway_schema_history WHERE success" \
+      2>/dev/null
+  )"; then
+    applied="${flyway_meta%%:*}"
+    schema_version="${flyway_meta#*:}"
+  fi
+  manifest_env+=("VGP_DB_META_${database}=${applied}:${schema_version}")
+
+  bc_package_dump "$database" "$plaintext" "$backup_dir" "$gnupg_home" "$recipient" >>"$records"
+done
+
+export VGP_BACKUP_TARGET="$expected_target"
+export VGP_BACKUP_ID="$backup_id"
+export VGP_BACKUP_CREATED_AT="$created_at"
+export VGP_POSTGRES_SERVER_VERSION="$postgres_server_version"
+export VGP_BACKUP_RECIPIENT_FINGERPRINT="$recipient_fingerprint"
+for meta_assignment in "${manifest_env[@]}"; do
+  export "${meta_assignment?}"
+done
+bc_write_manifest "$backup_dir/$BC_MANIFEST_NAME" "$records"
+
+bc_write_checksums "$backup_dir"
+bc_verify_backup "$backup_dir"
+
+printf 'Backup complete: %s\n' "$backup_dir"
+printf 'Initiator: %s  Recipient: %s\n' "$initiator" "$recipient_fingerprint"
+printf 'Applying retention (keep %s):\n' "$keep_count"
+bc_prune_backups "$destination" "$keep_count"
+printf 'Backup and retention finished; no secrets were printed.\n'

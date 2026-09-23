@@ -1,0 +1,51 @@
+services:
+  telemetry-smoke:
+    image: curlimages/curl:8.22.0@sha256:58adaa4e8dca9c988bae2aba4ab3434a0bb2da16bbe3f92dec39ec7785166777
+    command:
+      - --fail-with-body
+      - --silent
+      - --show-error
+      - --retry
+      - "20"
+      - --retry-connrefused
+      - --retry-delay
+      - "0"
+      - --header
+      - "Content-Type: application/json"
+      - --data-binary
+      - "@/fixtures/trace.json"
+      - --output
+      - /dev/null
+      - http://telemetry:4318/v1/traces
+      - --next
+      - --fail-with-body
+      - --silent
+      - --show-error
+      - --retry
+      - "20"
+      - --retry-connrefused
+      - --retry-delay
+      - "0"
+      - --header
+      - "Content-Type: application/json"
+      - --data-binary
+      - "@/fixtures/metric.json"
+      - --output
+      - /dev/null
+      - http://telemetry:4318/v1/metrics
+    volumes:
+      - ./otel/synthetic:/fixtures:ro
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - telemetry
+    depends_on:
+      - telemetry
+    mem_limit: 32m
+    cpus: 0.1
+    pids_limit: 32
+    logging:
+      driver: none

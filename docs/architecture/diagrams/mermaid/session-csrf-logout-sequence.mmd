@@ -7,13 +7,7 @@ sequenceDiagram
     participant SessionApi as SessionController
     participant Session as Server-side HTTP session
 
-    Browser->>Security: GET /api/v1/session + vgp_session automatically
-    Security->>Session: Resolve opaque session and SecurityContext
-    Security->>SessionApi: Dispatch authenticated request
-    SessionApi->>Session: Obtain session-bound CsrfToken
-    Session-->>SessionApi: Current CSRF token
-    SessionApi-->>Browser: 200 {authenticated:true, csrfToken} + Cache-Control:no-store
-    Note over Browser,SessionApi: The cookie is automatic and HttpOnly, React reads only the session state
+    Note over Browser,Session: The browser already holds the session cookie and the session-bound CSRF token from GET /api/v1/session
 
     Browser->>OriginFilter: POST /api/v1/session + Cookie automatically + X-CSRF-Token explicitly
     OriginFilter->>OriginFilter: Validate Origin and Sec-Fetch-Site when present

@@ -3,129 +3,331 @@ package com.videogameplatform.api.delivery;
 import com.videogameplatform.api.generated.model.ErrorCategory;
 import com.videogameplatform.api.generated.model.Problem;
 import com.videogameplatform.api.generated.model.ProblemCode;
+import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.api.generated.model.Violation;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
-import com.videogameplatform.catalogue.application.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.application.details.GameNotFoundException;
+import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
+import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
+import com.videogameplatform.ratings.application.PersonalRatingReadException;
+import com.videogameplatform.ratings.application.PersonalRatingsReadException;
+import com.videogameplatform.ratings.application.RatingAlreadyExistsException;
+import com.videogameplatform.ratings.application.RatingNotEligibleException;
+import com.videogameplatform.ratings.application.RatingNotFoundException;
+import com.videogameplatform.ratings.application.RatingValueInvalidException;
+import com.videogameplatform.ratings.application.RatingWriteConflictException;
+import com.videogameplatform.ratings.application.RatingWriteException;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /** Maps delivery and catalogue failures to the reviewed stable Problem Details contract. */
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
+    private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
+    private static final String CORRELATION_ID_NAME = "correlationId";
+    private static final String GAME_ID_PATH_POINTER = "/path/gameId";
+    private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
     @ExceptionHandler(ApiRequestException.class)
-    ResponseEntity<Problem> requestInvalid(ApiRequestException exception) {
+    public ResponseEntity<Problem> requestInvalid(
+            ApiRequestException exception, HttpServletResponse response) {
         return switch (exception.code()) {
-            case "FILTER_INVALID" ->
+            case SORT_INVALID ->
                     problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            ProblemCode.SORT_INVALID,
+                            "Sort is invalid",
+                            "Use a supported sort and direction.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Select a supported ordering.");
+            case FILTER_INVALID ->
+                    problem(
+                            response,
                             HttpStatus.UNPROCESSABLE_CONTENT,
                             exception.code(),
                             "Release filter is invalid",
                             "Correct the release view or filter combination.",
-                            "validation",
+                            ErrorCategory.VALIDATION,
                             exception.pointer(),
                             "Use exactly one supported release view or filter value.");
-            case "PAGINATION_INVALID" ->
+            case PAGINATION_INVALID ->
                     problem(
+                            response,
                             HttpStatus.UNPROCESSABLE_CONTENT,
                             exception.code(),
                             "Pagination is invalid",
                             "Use page at least 1 and pageSize from 1 through 100.",
-                            "validation",
+                            ErrorCategory.VALIDATION,
                             exception.pointer(),
                             "Use an integer inside the supported pagination range.");
-            case "REQUEST_PARAMETER_UNKNOWN" ->
+            case SEARCH_QUERY_INVALID -> searchQueryInvalid(response, exception.pointer());
+            case REQUEST_PARAMETER_UNKNOWN ->
                     problem(
+                            response,
                             HttpStatus.UNPROCESSABLE_CONTENT,
                             exception.code(),
                             "Request parameter is unknown",
                             "Remove unsupported query parameters.",
-                            "validation",
+                            ErrorCategory.VALIDATION,
                             exception.pointer(),
                             "This query parameter is not supported.");
-            default -> internalError();
+            case PRECONDITION_REQUIRED -> preconditionRequired(response);
+            case REQUEST_MALFORMED -> preconditionHeaderMalformed(response, exception.pointer());
+            default -> unexpectedFailure(exception, response);
         };
     }
 
-    @ExceptionHandler(ReleaseQueryValidationException.class)
-    ResponseEntity<Problem> taxonomyUnsupported(ReleaseQueryValidationException exception) {
-        boolean platform =
-                exception.code() == ReleaseQueryValidationException.Code.PLATFORM_NOT_SUPPORTED;
+    @ExceptionHandler(
+            com.videogameplatform.ratings.application.PersonalRatingsQueryInvalidException.class)
+    ResponseEntity<Problem> personalRatingsQueryInvalid(
+            com.videogameplatform.ratings.application.PersonalRatingsQueryInvalidException
+                    exception,
+            HttpServletResponse response) {
+        var code =
+                switch (exception.field()) {
+                    case SEARCH -> ProblemCode.SEARCH_QUERY_INVALID;
+                    case SORT, DIRECTION -> ProblemCode.SORT_INVALID;
+                    case PAGINATION -> ProblemCode.PAGINATION_INVALID;
+                };
+        String pointer =
+                switch (exception.field()) {
+                    case SEARCH -> "/query/q";
+                    case SORT -> "/query/sort";
+                    case DIRECTION -> "/query/direction";
+                    case PAGINATION -> "/query/page";
+                };
+        return requestInvalid(new ApiRequestException(code, pointer), response);
+    }
+
+    @ExceptionHandler(RatingNotFoundException.class)
+    ResponseEntity<Problem> ratingNotFound(HttpServletResponse response) {
         return problem(
-                HttpStatus.UNPROCESSABLE_CONTENT,
-                exception.code().name(),
-                platform ? "Platform is not supported" : "Region is not supported",
-                platform
-                        ? "Select a platform from the normalized available filters."
-                        : "Select a region from the normalized available filters.",
-                "validation",
-                platform ? "/query/platformId" : "/query/regionId",
-                platform
-                        ? "Use a supported platform identifier."
-                        : "Use a supported region identifier.");
+                response,
+                HttpStatus.NOT_FOUND,
+                ProblemCode.RATING_NOT_FOUND,
+                "Rating was not found",
+                "No active rating exists in the authenticated scope.",
+                ErrorCategory.NOT_FOUND,
+                GAME_ID_PATH_POINTER,
+                "Read a rating owned by the authenticated user.");
+    }
+
+    @ExceptionHandler(RatingAlreadyExistsException.class)
+    ResponseEntity<Problem> ratingAlreadyExists(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.PRECONDITION_FAILED,
+                ProblemCode.RATING_ALREADY_EXISTS,
+                "Rating already exists",
+                "Read the existing rating before choosing update intent.",
+                ErrorCategory.CONFLICT,
+                "/headers/If-None-Match",
+                "Use the current strong ETag with update intent.");
+    }
+
+    @ExceptionHandler(RatingWriteConflictException.class)
+    ResponseEntity<Problem> ratingWriteConflict(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.PRECONDITION_FAILED,
+                ProblemCode.RATING_WRITE_CONFLICT,
+                "Rating write conflict",
+                "The rating changed; refresh before explicitly retrying.",
+                ErrorCategory.CONFLICT,
+                "/headers/If-Match",
+                "Use the current strong ETag.");
+    }
+
+    @ExceptionHandler(RatingNotEligibleException.class)
+    ResponseEntity<Problem> ratingNotEligible(
+            RatingNotEligibleException exception, HttpServletResponse response) {
+        boolean review = "RELEASE_REVIEW_REQUIRED".equals(exception.reason());
+        ResponseEntity<Problem> result =
+                problem(
+                        response,
+                        HttpStatus.UNPROCESSABLE_CONTENT,
+                        review
+                                ? ProblemCode.RELEASE_DATA_REVIEW_REQUIRED
+                                : ProblemCode.RATING_NOT_ELIGIBLE,
+                        review ? "Release data requires review" : "Rating is not eligible",
+                        review
+                                ? "Current release evidence cannot authorize this rating command safely."
+                                : "The game does not currently have qualifying release evidence.",
+                        ErrorCategory.BUSINESS_RULE,
+                        GAME_ID_PATH_POINTER,
+                        "Choose a game with qualifying release evidence.");
+        result.getBody()
+                .setEligibilityReason(Problem.EligibilityReasonEnum.valueOf(exception.reason()));
+        return result;
+    }
+
+    @ExceptionHandler(RatingValueInvalidException.class)
+    ResponseEntity<Problem> ratingValueInvalid(
+            RatingValueInvalidException exception, HttpServletResponse response) {
+        return ratingValueInvalid(response);
+    }
+
+    @ExceptionHandler(RatingWriteException.class)
+    ResponseEntity<Problem> ratingWriteFailed(
+            RatingWriteException exception, HttpServletResponse response) {
+        logTechnicalFailure(ProblemCode.RATING_WRITE_FAILED, exception);
+        return problem(
+                response,
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                ProblemCode.RATING_WRITE_FAILED,
+                "Rating write failed",
+                "The previous valid personal and aggregate state was preserved.",
+                ErrorCategory.TECHNICAL,
+                "/rating",
+                "Retry after rating persistence is restored.");
+    }
+
+    @ExceptionHandler(PersonalRatingReadException.class)
+    ResponseEntity<Problem> personalRatingReadFailed(
+            PersonalRatingReadException exception, HttpServletResponse response) {
+        logTechnicalFailure(ProblemCode.INTERNAL_ERROR, exception);
+        return internalError(response);
+    }
+
+    @ExceptionHandler(PersonalRatingsReadException.class)
+    ResponseEntity<Problem> personalRatingsReadFailed(
+            PersonalRatingsReadException exception, HttpServletResponse response) {
+        logTechnicalFailure(ProblemCode.PERSONAL_RATINGS_READ_FAILED, exception);
+        return problem(
+                response,
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                ProblemCode.PERSONAL_RATINGS_READ_FAILED,
+                "Personal ratings read failed",
+                "Your ratings cannot currently be read.",
+                ErrorCategory.TECHNICAL,
+                "/rating",
+                "Retry after personal ratings access is restored.");
+    }
+
+    @ExceptionHandler(ReleaseQueryValidationException.class)
+    ResponseEntity<Problem> taxonomyUnsupported(
+            ReleaseQueryValidationException exception, HttpServletResponse response) {
+        return switch (exception.code()) {
+            case PLATFORM_NOT_SUPPORTED ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            ProblemCode.PLATFORM_NOT_SUPPORTED,
+                            "Platform is not supported",
+                            "Select a platform from the normalized available filters.",
+                            ErrorCategory.VALIDATION,
+                            "/query/platformIds",
+                            "Use a supported platform identifier.");
+            case REGION_NOT_SUPPORTED ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            ProblemCode.REGION_NOT_SUPPORTED,
+                            "Region is not supported",
+                            "Select a region from the normalized available filters.",
+                            ErrorCategory.VALIDATION,
+                            "/query/regionIds",
+                            "Use a supported region identifier.");
+        };
+    }
+
+    @ExceptionHandler(SearchQueryInvalidException.class)
+    ResponseEntity<Problem> searchQueryInvalid(HttpServletResponse response) {
+        return searchQueryInvalid(response, "/query/q");
+    }
+
+    @ExceptionHandler(GameNotFoundException.class)
+    ResponseEntity<Problem> gameNotFound(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.NOT_FOUND,
+                ProblemCode.GAME_NOT_FOUND,
+                "Game not found",
+                "The game is not in the current local catalogue.",
+                ErrorCategory.NOT_FOUND,
+                GAME_ID_PATH_POINTER,
+                "Use an internal identifier from the local catalogue.");
     }
 
     @ExceptionHandler(CatalogueNotReadyException.class)
-    ResponseEntity<Problem> catalogueNotReady() {
+    ResponseEntity<Problem> catalogueNotReady(HttpServletResponse response) {
         return problem(
+                response,
                 HttpStatus.SERVICE_UNAVAILABLE,
-                "CATALOGUE_NOT_READY",
+                ProblemCode.CATALOGUE_NOT_READY,
                 "Catalogue is not ready",
                 "No valid local catalogue snapshot has been published yet.",
-                "technical",
+                ErrorCategory.TECHNICAL,
                 "/catalogue",
                 "Publish a valid local catalogue snapshot before retrying.");
     }
 
     @ExceptionHandler(CatalogueReadException.class)
-    ResponseEntity<Problem> catalogueReadFailed() {
+    ResponseEntity<Problem> catalogueReadFailed(
+            CatalogueReadException exception, HttpServletResponse response) {
+        logTechnicalFailure(ProblemCode.CATALOGUE_READ_FAILED, exception);
         return problem(
+                response,
                 HttpStatus.SERVICE_UNAVAILABLE,
-                "CATALOGUE_READ_FAILED",
+                ProblemCode.CATALOGUE_READ_FAILED,
                 "Catalogue read failed",
                 "Local catalogue data cannot currently be read.",
-                "technical",
+                ErrorCategory.TECHNICAL,
                 "/catalogue",
                 "Retry after local catalogue access is restored.");
     }
 
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
-    ResponseEntity<Problem> representationNotAcceptable() {
+    ResponseEntity<Problem> representationNotAcceptable(HttpServletResponse response) {
         return problem(
+                response,
                 HttpStatus.NOT_ACCEPTABLE,
-                "REPRESENTATION_NOT_ACCEPTABLE",
+                ProblemCode.REPRESENTATION_NOT_ACCEPTABLE,
                 "Representation is not acceptable",
                 "Request application/json for this resource.",
-                "validation",
+                ErrorCategory.VALIDATION,
                 "/headers/Accept",
                 "Use application/json in the Accept header.");
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-    ResponseEntity<Problem> methodNotAllowed(HttpRequestMethodNotSupportedException exception) {
+    ResponseEntity<Problem> methodNotAllowed(
+            HttpRequestMethodNotSupportedException exception, HttpServletResponse servletResponse) {
         ResponseEntity<Problem> response =
                 problem(
+                        servletResponse,
                         HttpStatus.METHOD_NOT_ALLOWED,
-                        "METHOD_NOT_ALLOWED",
+                        ProblemCode.METHOD_NOT_ALLOWED,
                         "Method is not allowed",
                         "Use a supported method for this resource.",
-                        "validation",
+                        ErrorCategory.VALIDATION,
                         "/method",
                         "This HTTP method is not supported.");
         HttpHeaders headers = new HttpHeaders();
@@ -136,38 +338,116 @@ public class ApiExceptionHandler {
         return new ResponseEntity<>(response.getBody(), headers, response.getStatusCode());
     }
 
-    @ExceptionHandler({
-        MissingServletRequestParameterException.class,
-        MethodArgumentTypeMismatchException.class
-    })
-    ResponseEntity<Problem> requestMalformed() {
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    ResponseEntity<Problem> requestMalformed(HttpServletResponse response) {
         return problem(
+                response,
                 HttpStatus.BAD_REQUEST,
-                "REQUEST_MALFORMED",
+                ProblemCode.REQUEST_MALFORMED,
                 "Request is malformed",
                 "A required parameter is missing or cannot be parsed.",
-                "validation",
+                ErrorCategory.VALIDATION,
                 "/query",
                 "Use parameter names and primitive values defined by the API contract.");
     }
 
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    ResponseEntity<Problem> requestHeaderMissing(
+            MissingRequestHeaderException exception, HttpServletResponse response) {
+        if ("If-Match".equalsIgnoreCase(exception.getHeaderName())) {
+            return preconditionRequired(response);
+        }
+        return requestMalformed(response);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    ResponseEntity<Problem> requestBodyInvalid(
+            MethodArgumentNotValidException exception, HttpServletResponse response) {
+        if (exception.getBindingResult().getFieldErrors().stream()
+                .anyMatch(error -> "value".equals(error.getField()))) {
+            return ratingValueInvalid(response);
+        }
+        return requestMalformed(response);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    ResponseEntity<Problem> requestBodyUnreadable(
+            HttpMessageNotReadableException exception, HttpServletResponse response) {
+        if (hasCause(exception, UnrecognizedPropertyException.class)) {
+            return problem(
+                    response,
+                    HttpStatus.UNPROCESSABLE_CONTENT,
+                    ProblemCode.REQUEST_PROPERTY_UNKNOWN,
+                    "Request property is unknown",
+                    "Remove unsupported command properties.",
+                    ErrorCategory.VALIDATION,
+                    "/body",
+                    "Use only properties defined by the command contract.");
+        }
+        return requestMalformed(response);
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    ResponseEntity<Problem> mediaTypeUnsupported(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                ProblemCode.MEDIA_TYPE_UNSUPPORTED,
+                "Media type is unsupported",
+                "Send the request body as application/json.",
+                ErrorCategory.VALIDATION,
+                "/headers/Content-Type",
+                "Use application/json.");
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<Problem> requestValueInvalid(
+            MethodArgumentTypeMismatchException exception, HttpServletResponse response) {
+        if (ReleaseView.class.equals(exception.getRequiredType())) {
+            return problem(
+                    response,
+                    HttpStatus.UNPROCESSABLE_CONTENT,
+                    ProblemCode.FILTER_INVALID,
+                    "Release filter is invalid",
+                    "Correct the release view or filter combination.",
+                    ErrorCategory.VALIDATION,
+                    "/query/" + exception.getName(),
+                    "Use exactly one supported release view or filter value.");
+        }
+        return requestMalformed(response);
+    }
+
     @ExceptionHandler(HandlerMethodValidationException.class)
-    ResponseEntity<Problem> requestConstraintInvalid(HandlerMethodValidationException exception) {
+    ResponseEntity<Problem> requestConstraintInvalid(
+            HandlerMethodValidationException exception, HttpServletResponse response) {
         String parameter =
                 exception.getParameterValidationResults().stream()
                         .map(result -> result.getMethodParameter().getParameterName())
                         .filter(java.util.Objects::nonNull)
                         .findFirst()
                         .orElse("query");
+        if ("q".equals(parameter)) {
+            return searchQueryInvalid(response, "/query/q");
+        }
+        if ("ifMatch".equals(parameter)) {
+            return preconditionHeaderMalformed(response, "/headers/If-Match");
+        }
+        if ("ifNoneMatch".equals(parameter)) {
+            return preconditionHeaderMalformed(response, "/headers/If-None-Match");
+        }
+        if ("ratingWrite".equals(parameter)) {
+            return ratingValueInvalid(response);
+        }
         boolean pagination = "page".equals(parameter) || "pageSize".equals(parameter);
         return problem(
+                response,
                 HttpStatus.UNPROCESSABLE_CONTENT,
-                pagination ? "PAGINATION_INVALID" : "FILTER_INVALID",
+                pagination ? ProblemCode.PAGINATION_INVALID : ProblemCode.FILTER_INVALID,
                 pagination ? "Pagination is invalid" : "Release filter is invalid",
                 pagination
                         ? "Use page at least 1 and pageSize from 1 through 100."
                         : "Correct the release view or filter combination.",
-                "validation",
+                ErrorCategory.VALIDATION,
                 "/query/" + parameter,
                 pagination
                         ? "Use an integer inside the supported pagination range."
@@ -180,33 +460,97 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    ResponseEntity<Problem> unexpectedFailure() {
-        return internalError();
+    ResponseEntity<Problem> unexpectedFailure(Exception exception, HttpServletResponse response) {
+        logTechnicalFailure(ProblemCode.INTERNAL_ERROR, exception);
+        return internalError(response);
     }
 
-    private static ResponseEntity<Problem> internalError() {
+    private static ResponseEntity<Problem> searchQueryInvalid(
+            HttpServletResponse response, String pointer) {
         return problem(
+                response,
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ProblemCode.SEARCH_QUERY_INVALID,
+                "Search query is invalid",
+                "Supply a non-blank query of at most 100 Unicode code points.",
+                ErrorCategory.VALIDATION,
+                pointer,
+                "Use a single searchable query inside the supported bounds.");
+    }
+
+    private static ResponseEntity<Problem> ratingValueInvalid(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ProblemCode.RATING_VALUE_INVALID,
+                "Rating value is invalid",
+                "Correct the rating value before retrying.",
+                ErrorCategory.VALIDATION,
+                "/value",
+                "Must be an integer from 1 through 10.");
+    }
+
+    /** A precondition header is present but is not the quoted strong tag the contract requires. */
+    private static ResponseEntity<Problem> preconditionHeaderMalformed(
+            HttpServletResponse response, String pointer) {
+        return problem(
+                response,
+                HttpStatus.BAD_REQUEST,
+                ProblemCode.REQUEST_MALFORMED,
+                "Request is malformed",
+                "A precondition header does not match the API contract.",
+                ErrorCategory.VALIDATION,
+                pointer,
+                "Use the double-quoted strong entity tag from a previous ETag, or"
+                        + " If-None-Match: * for create.");
+    }
+
+    private static ResponseEntity<Problem> preconditionRequired(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.PRECONDITION_REQUIRED,
+                ProblemCode.PRECONDITION_REQUIRED,
+                "A request precondition is required",
+                "Declare exactly one supported intent precondition.",
+                ErrorCategory.VALIDATION,
+                "/headers",
+                "Use If-None-Match: * for create or one strong If-Match for update/delete.");
+    }
+
+    private static boolean hasCause(Throwable exception, Class<? extends Throwable> type) {
+        for (Throwable current = exception; current != null; current = current.getCause()) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static ResponseEntity<Problem> internalError(HttpServletResponse response) {
+        return problem(
+                response,
                 HttpStatus.INTERNAL_SERVER_ERROR,
-                "INTERNAL_ERROR",
+                ProblemCode.INTERNAL_ERROR,
                 "Internal error",
                 "The request could not be completed.",
-                "technical",
+                ErrorCategory.TECHNICAL,
                 "/request",
                 "The request could not be completed safely.");
     }
 
     private static ResponseEntity<Problem> problem(
+            HttpServletResponse response,
             HttpStatus status,
-            String code,
+            ProblemCode code,
             String title,
             String detail,
-            String category,
+            ErrorCategory category,
             String pointer,
             String message) {
-        String correlationId = correlationId();
+        String correlationId = correlationId(response);
         String type =
-                "urn:videogame-platform:problem:" + code.toLowerCase(Locale.ROOT).replace('_', '-');
-        ProblemCode problemCode = ProblemCode.fromValue(code);
+                "urn:videogame-platform:problem:"
+                        + code.getValue().toLowerCase(Locale.ROOT).replace('_', '-');
         Problem body =
                 new Problem(
                         type,
@@ -214,18 +558,33 @@ public class ApiExceptionHandler {
                         status.value(),
                         detail,
                         "urn:videogame-platform:problem-instance:" + correlationId,
-                        problemCode,
-                        ErrorCategory.fromValue(category),
+                        code,
+                        category,
                         correlationId);
-        body.setViolations(List.of(new Violation(pointer, problemCode, message)));
+        body.setViolations(List.of(new Violation(pointer, code, message)));
         return ResponseEntity.status(status)
+                .header(CORRELATION_ID_HEADER, correlationId)
                 .contentType(MediaType.APPLICATION_PROBLEM_JSON)
                 .cacheControl(CacheControl.noStore())
                 .body(body);
     }
 
-    private static String correlationId() {
-        String value = MDC.get("correlationId");
-        return value == null ? UUID.randomUUID().toString() : value;
+    private static String correlationId(HttpServletResponse response) {
+        String responseCorrelationId = response.getHeader(CORRELATION_ID_HEADER);
+        if (responseCorrelationId != null && !responseCorrelationId.isBlank()) {
+            return responseCorrelationId;
+        }
+        String mdcCorrelationId = MDC.get(CORRELATION_ID_NAME);
+        String effectiveCorrelationId =
+                mdcCorrelationId == null ? UUID.randomUUID().toString() : mdcCorrelationId;
+        response.setHeader(CORRELATION_ID_HEADER, effectiveCorrelationId);
+        return effectiveCorrelationId;
+    }
+
+    private static void logTechnicalFailure(ProblemCode code, Exception exception) {
+        LOGGER.atError()
+                .addKeyValue("error.code", code.getValue())
+                .setCause(exception)
+                .log("API request failed");
     }
 }
