@@ -63,8 +63,10 @@ Post-MVP (#156, implemented): the header search offers typeahead suggestions thr
 the same `UC-002` read, with no separate endpoint or matching rule. From 2 trimmed
 code points and 250 ms after the latest keystroke, it requests the first page of five;
 a superseded request is cancelled and can never render. Each suggestion projects only
-the returned cover, title, explaining alias, platforms and release-context year (one
-year, an inclusive range, or `Por confirmar`). Choosing one opens the game;
+the returned cover, title and explaining alias, plus the platforms and years of the
+#187 compact release summary, never the bounded release context: up to three platform
+icons, the exact `+N` of further distinct platforms, and one known year, an inclusive
+range, or `Por confirmar`. Choosing one opens the game;
 `Enter` without an active suggestion keeps the existing full search. The threshold
 gates suggestions only and does not change what an explicit search accepts.
 
