@@ -70,6 +70,11 @@ range, or `Por confirmar`. Choosing one opens the game;
 `Enter` without an active suggestion keeps the existing full search. The threshold
 gates suggestions only and does not change what an explicit search accepts.
 
+Post-MVP (#188, implemented): the full results page projects each result the same way:
+cover, title, explaining alias, and the platforms and year of the #187 compact release
+summary, never the bounded release context. Matching, ranking, page size and pagination
+are unchanged; the game page keeps the complete release context.
+
 `UC-009` reconciles all relevant new and known Games in the requested date interval through one operation.
 [ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
 owns Game selection, import policy, stable Release identity and per-Game atomicity.
