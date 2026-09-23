@@ -1,0 +1,21 @@
+{
+  "realm": "videogame-platform",
+  "users": [
+    {
+      "username": "${LOCAL_TEST_USER_USERNAME}",
+      "enabled": true,
+      "firstName": "Local",
+      "lastName": "User",
+      "email": "local-user@localhost.invalid",
+      "emailVerified": true,
+      "requiredActions": [],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${LOCAL_TEST_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

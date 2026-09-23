@@ -17,11 +17,16 @@ import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
+@Execution(ExecutionMode.SAME_THREAD)
 class CataloguePersistenceIntegrationTest {
 
-    private static final String DATABASE_NAME = "catalogue_persistence";
-    private static final String CHECKSUM_DATABASE_NAME = "flyway_checksum";
+    private static final String DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("catalogue_persistence");
+    private static final String CHECKSUM_DATABASE_NAME =
+            PostgreSqlTestDatabase.isolatedDatabaseName("flyway_checksum");
     private static final String PUBLICATION_ID = "00000000-0000-4000-8000-000000000001";
     private static final String GAME_ID = "30000000-0000-4000-8000-000000000001";
     private static final String PLATFORM_ID = "10000000-0000-4000-8000-000000000001";
@@ -38,7 +43,7 @@ class CataloguePersistenceIntegrationTest {
         var migrationResult = flyway.migrate();
         flyway.validate();
 
-        assertThat(migrationResult.migrationsExecuted).isEqualTo(6);
+        assertThat(migrationResult.migrationsExecuted).isEqualTo(17);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -56,11 +61,32 @@ class CataloguePersistenceIntegrationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(6);
+                    .isEqualTo(17);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
-                    .isEqualTo(8);
+                    .isEqualTo(12);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.release_snapshot"))
+                    .isEqualTo(20);
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM information_schema.tables "
+                                            + "WHERE table_schema='catalogue' AND table_name IN "
+                                            + "('synchronization_candidate','synchronization_checkpoint')"))
+                    .isZero();
+            assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_alias"))
                     .isEqualTo(8);
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM catalogue.game_alias WHERE approval_status = 'approved'"))
+                    .isEqualTo(7);
+            // Every published alias resolves to a game in the same publication and is
+            // searchable through its generated normalized form.
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM catalogue.game_alias WHERE btrim(normalized_alias) = ''"))
+                    .isZero();
             assertThat(
                             singleInt(
                                     statement,
@@ -78,7 +104,11 @@ class CataloguePersistenceIntegrationTest {
                                     + "30000000-0000-4000-8000-000000000005,"
                                     + "30000000-0000-4000-8000-000000000006,"
                                     + "30000000-0000-4000-8000-000000000007,"
-                                    + "30000000-0000-4000-8000-000000000008");
+                                    + "30000000-0000-4000-8000-000000000008,"
+                                    + "30000000-0000-4000-8000-000000000009,"
+                                    + "30000000-0000-4000-8000-00000000000a,"
+                                    + "30000000-0000-4000-8000-00000000000b,"
+                                    + "30000000-0000-4000-8000-00000000000c");
         }
     }
 
@@ -134,6 +164,34 @@ class CataloguePersistenceIntegrationTest {
     }
 
     @Test
+    void allowsOnlyOneActiveSynchronizationRunPerProvider() throws SQLException {
+        execute(synchronizationRunInsert("80000000-0000-4000-8000-000000000001"));
+        try {
+            assertSqlState(
+                    synchronizationRunInsert("80000000-0000-4000-8000-000000000002"), "23505");
+        } finally {
+            execute("DELETE FROM catalogue.synchronization_run");
+        }
+    }
+
+    @Test
+    void rejectsAnUnfinishedRunThatClaimsAnOutcome() {
+        assertSqlState(
+                "INSERT INTO catalogue.synchronization_run (run_id, provider, window_from, window_to, started_at, run_status) "
+                        + "VALUES ('80000000-0000-4000-8000-000000000003', 'IGDB', '2026-01-01', '2026-12-31', now(), 'succeeded')",
+                "23514");
+    }
+
+    @Test
+    void rejectsInvalidSynchronizationRunWindows() {
+        assertSqlState(
+                "INSERT INTO catalogue.synchronization_run "
+                        + "(run_id,provider,window_from,window_to,started_at,run_status) VALUES "
+                        + "('80000000-0000-4000-8000-000000000004','IGDB','2026-10-01','2026-09-01',now(),'running')",
+                "23514");
+    }
+
+    @Test
     void rejectsUnsafeExternalReferenceUrls() {
         assertSqlState(
                 "INSERT INTO catalogue.game_external_reference (game_id, provider, provider_entity_type, provider_id, provider_url) "
@@ -144,25 +202,22 @@ class CataloguePersistenceIntegrationTest {
     }
 
     @Test
-    void preventsExternalReferenceJoinCardinalityFromMultiplyingARelease() throws SQLException {
-        execute(
+    void preventsExternalReferenceJoinCardinalityFromMultiplyingARelease() {
+        assertSqlState(
                 "INSERT INTO catalogue.game_external_reference (game_id, provider, provider_entity_type, provider_id, provider_url) "
                         + "VALUES ('"
                         + GAME_ID
-                        + "', 'IGDB', 'game', 'first-reference', 'https://www.igdb.com/games/example')");
-        try {
-            assertSqlState(
-                    "INSERT INTO catalogue.game_external_reference (game_id, provider, provider_entity_type, provider_id, provider_url) "
-                            + "VALUES ('"
-                            + GAME_ID
-                            + "', 'IGDB', 'game', 'second-reference', 'https://www.igdb.com/games/example-2')",
-                    "23505");
-        } finally {
-            execute(
-                    "DELETE FROM catalogue.game_external_reference WHERE game_id = '"
-                            + GAME_ID
-                            + "' AND provider = 'IGDB' AND provider_entity_type = 'game'");
-        }
+                        + "', 'IGDB', 'game', 'second-reference', 'https://www.igdb.com/games/example-2')",
+                "23505");
+    }
+
+    /** CAT-005: one provider reference resolves to at most one game, so import is idempotent. */
+    @Test
+    void keepsOneProviderReferenceResolvingToAtMostOneGame() {
+        assertSqlState(
+                "INSERT INTO catalogue.game_external_reference (game_id, provider, provider_entity_type, provider_id, provider_url) "
+                        + "VALUES ('30000000-0000-4000-8000-000000000002', 'IGDB', 'game', '9000001', 'https://www.igdb.com/games/duplicate')",
+                "23505");
     }
 
     @Test
@@ -192,12 +247,12 @@ class CataloguePersistenceIntegrationTest {
         try (Connection connection = PostgreSqlTestDatabase.runtimeConnection(DATABASE_NAME);
                 Statement statement = connection.createStatement()) {
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
-                    .isEqualTo(8);
+                    .isEqualTo(12);
             assertThat(
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM catalogue.game_external_reference"))
-                    .isZero();
+                    .isEqualTo(12);
             assertThatThrownBy(
                             () ->
                                     statement.execute(
@@ -237,6 +292,13 @@ class CataloguePersistenceIntegrationTest {
                 .load();
     }
 
+    private static String synchronizationRunInsert(String runId) {
+        return "INSERT INTO catalogue.synchronization_run (run_id, provider, window_from, window_to, started_at, run_status) "
+                + "VALUES ('"
+                + runId
+                + "', 'IGDB', '2026-01-01', '2026-12-31', now(), 'running')";
+    }
+
     private static void insertReleaseIdentity(String releaseId) throws SQLException {
         execute(
                 "INSERT INTO catalogue.game_release (release_id, game_id, created_at) VALUES ('"
@@ -260,7 +322,7 @@ class CataloguePersistenceIntegrationTest {
                 + REGION_ID
                 + "', "
                 + dateValues
-                + ", 'scheduled', 'product_curated', 'constraint test', 'test_release', now(), 'verified', 'not_required')";
+                + ", 'announced', 'product_curated', 'constraint test', 'test_release', now(), 'verified', 'not_required')";
     }
 
     private static void assertSqlState(String sql, String expectedSqlState) {

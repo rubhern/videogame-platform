@@ -84,6 +84,12 @@ else
   fail "npm" "npm is missing or cannot run"
 fi
 
+if python_output="$(python3 --version 2>&1)"; then
+  pass "Python" "$python_output"
+else
+  fail "Python" "python3 is missing; repository scripts read Maven and image metadata with it"
+fi
+
 if docker_output="$(docker version --format 'client={{.Client.Version}} server={{.Server.Version}}' 2>&1)"; then
   pass "Docker Desktop" "$docker_output"
 else

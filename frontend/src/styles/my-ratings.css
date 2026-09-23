@@ -1,0 +1,148 @@
+@layer components {
+  .my-ratings-filters, .my-rating-edit, .my-rating-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 12px;
+  }
+  /* The personal filters read as one control bar rather than four loose fields. */
+  .my-ratings-filters {
+    margin-block: 24px 20px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+    border-radius: 18px;
+    padding: 16px;
+    background: linear-gradient(
+      170deg,
+      color-mix(in srgb, var(--color-surface) 82%, var(--color-canvas)),
+      color-mix(in srgb, var(--color-canvas) 92%, var(--color-surface))
+    );
+    box-shadow: var(--elevation-rest);
+  }
+  .my-ratings-filters label, .my-rating-edit label {
+    display: grid;
+    gap: 8px;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+  }
+  .my-ratings-filters > label, .my-ratings-search label {
+    color: var(--color-subtle);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .my-ratings-search { flex: 1 1 260px; min-width: 0; }
+  .my-ratings-filters input {
+    width: 100%;
+    min-height: 44px;
+    padding: 8px 14px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+    border-radius: 22px;
+    color: var(--color-ink);
+    background: var(--color-raised);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .my-ratings-filters input {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out);
+    }
+  }
+  .my-ratings-filters input:hover {
+    border-color: color-mix(in srgb, var(--color-ink) 26%, transparent);
+  }
+  .my-ratings-filters input:focus-visible {
+    border-color: var(--color-accent);
+  }
+  .my-ratings-list { display: grid; gap: 16px; margin-block: 24px; }
+  .my-rating-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(96px, 168px) minmax(0, 1fr);
+    gap: 24px;
+    padding: 18px;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+    border-radius: 18px;
+    background: linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--color-surface) 88%, var(--color-canvas)),
+      color-mix(in srgb, var(--color-canvas) 88%, var(--color-surface))
+    );
+    box-shadow: var(--elevation-rest);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .my-rating-card {
+      transition:
+        border-color var(--duration-normal) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out);
+    }
+  }
+  .my-rating-card:hover, .my-rating-card:focus-within {
+    border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
+    box-shadow: var(--elevation-lift);
+  }
+  .my-rating-card .cover-link { border-radius: 14px; }
+  .my-rating-card .catalogue-cover { border-radius: 14px; }
+  .my-rating-body { min-width: 0; }
+  .my-rating-body .card-title { font-size: 1.375rem; }
+  /* The personal score is the reason this row exists: give it a real badge. */
+  .my-rating-value {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-block: 14px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
+    border-radius: 999px;
+    padding: 6px 16px 6px 14px;
+    color: var(--color-muted);
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+    font-size: 0.8125rem;
+    box-shadow: 0 12px 28px -20px color-mix(in srgb, var(--color-accent) 100%, transparent);
+  }
+  .my-rating-value strong {
+    color: var(--color-ink);
+    font-size: 1.375rem;
+    letter-spacing: -0.01em;
+  }
+  .my-rating-dates { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 0.8125rem; color: var(--color-muted); }
+  .my-rating-body .card-action { margin-top: 14px; }
+  .my-rating-dates dt {
+    margin-bottom: 4px;
+    color: var(--color-subtle);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .my-rating-actions, .my-rating-edit { margin-top: 18px; }
+  .my-rating-edit {
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-line));
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .my-rating-edit { animation: rise-in 220ms var(--ease-out) both; }
+  }
+  .my-rating-skeleton-cover { aspect-ratio: var(--cover-aspect); border-radius: 14px; }
+  .my-rating-skeleton-score { width: 168px; height: 38px; border-radius: 999px; margin-block: 14px; }
+  .my-ratings-input-error {
+    margin: 0 0 8px;
+    color: var(--color-danger);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+  @media (max-width: 599px) {
+    .my-rating-card { grid-template-columns: 90px minmax(0, 1fr); gap: 14px; padding: 14px; }
+    .my-rating-actions, .my-rating-edit { align-items: stretch; flex-direction: column; }
+    .my-rating-actions .button, .my-rating-edit .button { white-space: normal; }
+  }
+  @media (forced-colors: active) {
+    .my-ratings-filters, .my-rating-card, .my-rating-edit, .my-rating-value {
+      border-color: CanvasText;
+      background: Canvas;
+      box-shadow: none;
+    }
+  }
+}

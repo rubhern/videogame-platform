@@ -1,0 +1,30 @@
+sequenceDiagram
+    autonumber
+
+    actor Visitor
+    participant Browser as Browser / React
+    participant BFF as BFF (identity module)
+    participant Keycloak
+    participant Ratings as Ratings API
+
+    Visitor->>Browser: Press a rating value on a game page
+    Browser->>BFF: GET /auth/rating-intent/start?gameId&slug&value
+    BFF->>BFF: Validate gameId and value (invalid input never starts authentication)
+    alt Already authenticated
+        BFF-->>Browser: 302 back to the game with the resumed selection
+    else Anonymous
+        BFF->>BFF: Store short-lived return context (gameId, slug, value)
+        BFF-->>Browser: 302 into the established Keycloak OIDC flow
+        Browser->>Keycloak: Authorization Code + PKCE
+        Keycloak-->>Browser: Callback with single-use code
+        Browser->>BFF: /login/oauth2/code/keycloak
+        BFF->>Keycloak: Exchange code server-to-server and validate tokens
+        BFF->>BFF: Bind the return context to the resolved UserId
+        BFF-->>Browser: 302 back to the same game context
+    end
+    Browser->>BFF: GET /auth/rating-intent
+    BFF-->>Browser: 200 pending value (single use) or 404
+    Browser->>Ratings: PUT /api/v1/me/ratings/{gameId} + If-None-Match:* + X-CSRF-Token
+    Ratings-->>Browser: Personal rating and aggregate, or a stable rejection code
+
+    Note over Browser,Ratings: The BFF never persists a rating on callback. The browser issues the command once and never retries it
