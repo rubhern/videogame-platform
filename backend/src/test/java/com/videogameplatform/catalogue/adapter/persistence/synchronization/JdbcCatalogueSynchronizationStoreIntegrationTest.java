@@ -19,7 +19,9 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderCallStatistics;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderReleaseSignal;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderWorkType;
+import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationProgress;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
+import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.time.Clock;
@@ -83,7 +85,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         Clock.fixed(NOW, ZoneId.of("Europe/Madrid")),
                         new SynchronizationPolicy(2, 25, 50, Duration.ofMinutes(30)),
                         new CoverSelectionPolicy(
-                                "/assets/covers/fallback.svg", "VideoGame Platform"));
+                                "/assets/covers/fallback.svg", "VideoGame Platform"),
+                        SynchronizationProgress.NONE);
     }
 
     @Test
@@ -221,11 +224,54 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         List.of(release("10", "2026-05-01")),
                         List.of()));
 
-        var result = service.synchronize(WINDOW);
+        var run = org.mockito.Mockito.mock(SynchronizationProgress.Run.class);
+        var progress = org.mockito.Mockito.mock(SynchronizationProgress.class);
+        org.mockito.Mockito.when(
+                        progress.started(
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(run);
+        var observed =
+                new CatalogueSynchronizationService(
+                        store,
+                        provider,
+                        Clock.fixed(NOW, ZoneId.of("Europe/Madrid")),
+                        new SynchronizationPolicy(2, 25, 50, Duration.ofMinutes(30)),
+                        new CoverSelectionPolicy(
+                                "/assets/covers/fallback.svg", "VideoGame Platform"),
+                        progress);
+
+        var result = observed.synchronize(WINDOW);
 
         assertThat(result.outcome()).isEqualTo(SynchronizationOutcome.FAILED);
         assertThat(count("game")).isZero();
         assertThat(count("game_external_reference")).isZero();
+        // PostgreSQL rejects the value; the operator sees a stable reason and the identity the
+        // failed attempt assigned, never the driver message or the provider reference.
+        var failure = org.mockito.ArgumentCaptor.forClass(SynchronizationProgress.Failure.class);
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<Optional<SynchronizedGameIdentity>> identity =
+                org.mockito.ArgumentCaptor.forClass(Optional.class);
+        org.mockito.Mockito.verify(run)
+                .gameFailed(
+                        org.mockito.ArgumentMatchers.eq(1),
+                        org.mockito.ArgumentMatchers.eq(1),
+                        failure.capture(),
+                        identity.capture(),
+                        org.mockito.ArgumentMatchers.any());
+        assertThat(failure.getValue().reason())
+                .isEqualTo(
+                        SynchronizationWriteException.Reason.PERSISTENCE_CONSTRAINT_VIOLATION
+                                .name());
+        assertThat(identity.getValue())
+                .hasValueSatisfying(
+                        assigned -> {
+                            assertThat(assigned.published()).isFalse();
+                            assertThat(assigned.slug()).endsWith("-" + assigned.gameId());
+                            assertThat(assigned.slug()).startsWith("xxx");
+                        });
     }
 
     @Test

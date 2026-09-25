@@ -14,6 +14,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -26,10 +28,16 @@ import tools.jackson.databind.ObjectMapper;
  * {@link ProviderFailureCode} vocabulary. No response body, URL or credential ever leaves it,
  * including through an exception message.
  *
+ * <p>Retries are logged at DEBUG with the endpoint name, attempt, stable reason and backoff only;
+ * the run log reports cumulative retries at INFO.
+ *
  * <p>The JDK HTTP client is used directly, as in the accepted provider proof, so timeouts, retries
  * and the untrusted raw payload stay explicit instead of being handled by message converters.
  */
 public final class IgdbApiClient {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(IgdbApiClient.class);
+    private static final String TOKEN_ENDPOINT = "token";
 
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -67,7 +75,7 @@ public final class IgdbApiClient {
                         .build();
 
         HttpResponse<String> response =
-                send(request, attempt, ProviderFailureCode.PROVIDER_UNAVAILABLE);
+                send(request, endpoint, attempt, ProviderFailureCode.PROVIDER_UNAVAILABLE);
         if (isUnauthorized(response.statusCode())) {
             if (!mayRefresh) {
                 throw failure(ProviderFailureCode.PROVIDER_AUTHENTICATION_FAILED, attempt);
@@ -75,6 +83,7 @@ public final class IgdbApiClient {
             // The cached application token expired earlier than announced; obtain a new one once.
             invalidateToken();
             attempt.retried();
+            logRetry(endpoint, 1, ProviderFailureCode.PROVIDER_AUTHENTICATION_FAILED, 0L);
             return executeQuery(endpoint, query, attempt, false);
         }
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
@@ -103,7 +112,11 @@ public final class IgdbApiClient {
                         .build();
 
         HttpResponse<String> response =
-                send(request, attempt, ProviderFailureCode.PROVIDER_AUTHENTICATION_FAILED);
+                send(
+                        request,
+                        TOKEN_ENDPOINT,
+                        attempt,
+                        ProviderFailureCode.PROVIDER_AUTHENTICATION_FAILED);
         if (response.statusCode() < 200 || response.statusCode() >= 300) {
             throw failure(ProviderFailureCode.PROVIDER_AUTHENTICATION_FAILED, attempt);
         }
@@ -130,12 +143,19 @@ public final class IgdbApiClient {
     }
 
     private HttpResponse<String> send(
-            HttpRequest request, Attempt attempt, ProviderFailureCode exhaustedCode) {
+            HttpRequest request,
+            String endpoint,
+            Attempt attempt,
+            ProviderFailureCode exhaustedCode) {
         ProviderFailureCode lastCode = exhaustedCode;
         for (int retry = 0; retry <= settings.maxRetries(); retry++) {
             if (retry > 0) {
                 attempt.retried();
-                backoff(retry);
+                long backoffMillis = backoffMillis(retry);
+                logRetry(endpoint, retry, lastCode, backoffMillis);
+                if (backoffMillis > 0) {
+                    LockSupport.parkNanos(Duration.ofMillis(backoffMillis).toNanos());
+                }
             }
             rateLimiter.acquire();
             long startedAt = System.nanoTime();
@@ -164,14 +184,24 @@ public final class IgdbApiClient {
         throw failure(lastCode, attempt);
     }
 
-    private void backoff(int retry) {
-        long millis =
-                Math.min(
-                        10_000L,
-                        settings.retryBackoff().toMillis() * (1L << Math.min(retry - 1, 8)));
-        if (millis > 0) {
-            LockSupport.parkNanos(Duration.ofMillis(millis).toNanos());
-        }
+    private long backoffMillis(int retry) {
+        return Math.min(
+                10_000L, settings.retryBackoff().toMillis() * (1L << Math.min(retry - 1, 8)));
+    }
+
+    private static void logRetry(
+            String endpoint, int retry, ProviderFailureCode reason, long backoffMillis) {
+        LOGGER.atDebug()
+                .addKeyValue("provider.endpoint", endpoint)
+                .addKeyValue("provider.retry", retry)
+                .addKeyValue("provider.reason", reason.name())
+                .addKeyValue("provider.backoff_ms", backoffMillis)
+                .log(
+                        "IGDB request retry: endpoint={} retry={} reason={} backoff_ms={}",
+                        endpoint,
+                        retry,
+                        reason.name(),
+                        backoffMillis);
     }
 
     private static boolean isUnauthorized(int statusCode) {

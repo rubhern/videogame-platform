@@ -20,11 +20,14 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -35,6 +38,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.OidcLoginRequestPostProcessor;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -44,6 +48,9 @@ import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(properties = "management.server.port=0")
 @AutoConfigureMockMvc
+// The private-dev log encoder: failure and completion events must survive ECS rendering.
+@ActiveProfiles("structured")
+@ExtendWith(OutputCaptureExtension.class)
 @Import(PersonalRatingApiIntegrationTest.FixedClock.class)
 @Execution(ExecutionMode.SAME_THREAD)
 class PersonalRatingApiIntegrationTest {
@@ -53,6 +60,11 @@ class PersonalRatingApiIntegrationTest {
     private static final String ALICE = "alice-subject";
     private static final String BOB = "bob-subject";
     private static final ObjectMapper JSON = new ObjectMapper();
+    private static final String CORRELATION_HEADER = "X-Correlation-ID";
+    private static final String COMPLETION_LOGGER =
+            "com.videogameplatform.platform.observability.CorrelationIdFilter";
+    private static final String FAILURE_LOGGER =
+            "com.videogameplatform.api.delivery.ApiExceptionHandler";
     private static final OpenApiResponseContract GET_CONTRACT =
             OpenApiResponseContract.load("/me/ratings/{gameId}");
     private static final OpenApiResponseContract PUT_CONTRACT =
@@ -272,9 +284,12 @@ class PersonalRatingApiIntegrationTest {
     }
 
     @Test
-    void rejectsUnauthenticatedAndNonCsrfOrCrossOriginMutationsBeforeApplicationWork()
-            throws Exception {
-        mockMvc.perform(get(path()).accept(MediaType.APPLICATION_JSON))
+    void rejectsUnauthenticatedAndNonCsrfOrCrossOriginMutationsBeforeApplicationWork(
+            CapturedOutput output) throws Exception {
+        mockMvc.perform(
+                        get(path())
+                                .accept(MediaType.APPLICATION_JSON)
+                                .header(CORRELATION_HEADER, "rating-unauthenticated"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
         mockMvc.perform(
@@ -287,6 +302,7 @@ class PersonalRatingApiIntegrationTest {
         mockMvc.perform(
                         put(path())
                                 .with(login(ALICE))
+                                .header(CORRELATION_HEADER, "rating-csrf-missing")
                                 .header(HttpHeaders.IF_NONE_MATCH, "*")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{\"value\":7}"))
@@ -308,6 +324,24 @@ class PersonalRatingApiIntegrationTest {
                                 Integer.class,
                                 game))
                 .isZero();
+
+        // Rejected before MVC, yet each completion names its registered route and stable code.
+        JsonNode unauthenticated = logEvent(output, COMPLETION_LOGGER, "rating-unauthenticated");
+        assertThat(unauthenticated.path("log").path("level").stringValue()).isEqualTo("INFO");
+        assertThat(unauthenticated.path("http").path("route").stringValue())
+                .isEqualTo("/api/v1/me/ratings/{gameId}");
+        assertThat(unauthenticated.path("http").path("status_code").asInt()).isEqualTo(401);
+        assertThat(unauthenticated.path("error").path("code").stringValue())
+                .isEqualTo("AUTHENTICATION_REQUIRED");
+        assertThat(unauthenticated.path("message").stringValue())
+                .contains("GET /api/v1/me/ratings/{gameId}", "401", "AUTHENTICATION_REQUIRED");
+        JsonNode csrf = logEvent(output, COMPLETION_LOGGER, "rating-csrf-missing");
+        assertThat(csrf.path("http").path("method").stringValue()).isEqualTo("PUT");
+        assertThat(csrf.path("http").path("status_code").asInt()).isEqualTo(403);
+        assertThat(csrf.path("error").path("code").stringValue())
+                .isEqualTo("CSRF_VALIDATION_FAILED");
+        assertThat(unauthenticated.toString() + csrf)
+                .doesNotContain(game.toString(), ALICE, "SESSION", "XSRF");
     }
 
     @Test
@@ -663,18 +697,40 @@ class PersonalRatingApiIntegrationTest {
     }
 
     @Test
-    void collectionDatabaseFailuresReturnTheStablePrivateError() throws Exception {
+    void collectionDatabaseFailuresReturnTheStablePrivateError(CapturedOutput output)
+            throws Exception {
         create(ALICE, 7);
         admin.execute("ALTER TABLE ratings.game_listing RENAME TO game_listing_unavailable");
         try {
             var result =
-                    mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)))
+                    mockMvc.perform(
+                                    get("/api/v1/me/ratings")
+                                            .with(login(ALICE))
+                                            .header(CORRELATION_HEADER, "rating-read-failure"))
                             .andExpect(status().isInternalServerError())
                             .andExpect(header().string("Cache-Control", "no-store"))
                             .andExpect(jsonPath("$.code").value("PERSONAL_RATINGS_READ_FAILED"))
                             .andReturn();
             assertThat(result.getResponse().getContentAsString())
                     .doesNotContain("SELECT", "game_listing", "SQLException");
+
+            // OB-01: the ECS encoder must write the technical-failure event, with bounded types.
+            assertThat(output.getAll()).doesNotContain("failed to append");
+            JsonNode failure = logEvent(output, FAILURE_LOGGER, "rating-read-failure");
+            assertThat(failure.path("log").path("level").stringValue()).isEqualTo("ERROR");
+            assertThat(failure.path("error").path("code").stringValue())
+                    .isEqualTo("PERSONAL_RATINGS_READ_FAILED");
+            assertThat(failure.path("error").path("root_cause_type").stringValue())
+                    .isEqualTo("org.postgresql.util.PSQLException");
+            assertThat(failure.path("error").path("sql_state").stringValue()).isEqualTo("42P01");
+            assertThat(failure.toString())
+                    .doesNotContain("SELECT", "game_listing", "stack_trace", ALICE);
+            JsonNode completion = logEvent(output, COMPLETION_LOGGER, "rating-read-failure");
+            assertThat(completion.path("log").path("level").stringValue()).isEqualTo("WARN");
+            assertThat(completion.path("http").path("route").stringValue())
+                    .isEqualTo("/api/v1/me/ratings");
+            assertThat(completion.path("error").path("code").stringValue())
+                    .isEqualTo("PERSONAL_RATINGS_READ_FAILED");
         } finally {
             admin.execute("ALTER TABLE ratings.game_listing_unavailable RENAME TO game_listing");
         }
@@ -704,6 +760,18 @@ class PersonalRatingApiIntegrationTest {
                                 .content("{\"value\":" + value + "}"))
                 .andExpect(status().isOk())
                 .andReturn();
+    }
+
+    private static JsonNode logEvent(CapturedOutput output, String logger, String correlationId) {
+        return output.getAll()
+                .lines()
+                .filter(line -> line.startsWith("{") && line.contains(correlationId))
+                .map(JSON::readTree)
+                .filter(event -> logger.equals(event.path("log").path("logger").stringValue()))
+                .filter(event -> correlationId.equals(event.path("correlationId").stringValue()))
+                .reduce((first, second) -> second)
+                .orElseThrow(
+                        () -> new AssertionError("No " + logger + " event for " + correlationId));
     }
 
     private String path() {

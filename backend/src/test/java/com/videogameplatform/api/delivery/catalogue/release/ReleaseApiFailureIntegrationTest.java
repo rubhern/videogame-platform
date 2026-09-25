@@ -11,7 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.classic.spi.ThrowableProxy;
 import ch.qos.logback.core.read.ListAppender;
 import com.videogameplatform.api.delivery.ApiExceptionHandler;
 import com.videogameplatform.api.delivery.ApiRequestException;
@@ -81,7 +80,7 @@ class ReleaseApiFailureIntegrationTest {
     }
 
     @Test
-    void unexpectedFailureReturnsSafeContractedProblemAndLogsOriginalExceptionOnce()
+    void unexpectedFailureReturnsSafeContractedProblemAndLogsBoundedFailureTypesOnce()
             throws Exception {
         String correlationId = "owner-correlation-79";
         var failure = new IllegalStateException("private implementation path and SQL");
@@ -112,7 +111,11 @@ class ReleaseApiFailureIntegrationTest {
 
         ILoggingEvent event = singleFailureEvent();
         assertThat(keyValue(event, "error.code")).isEqualTo("INTERNAL_ERROR");
-        assertThat(loggedThrowable(event)).isSameAs(failure);
+        assertThat(keyValue(event, "error.type")).isEqualTo(IllegalStateException.class.getName());
+        assertThat(event.getThrowableProxy()).isNull();
+        assertThat(event.getFormattedMessage() + event.getKeyValuePairs())
+                .contains("INTERNAL_ERROR")
+                .doesNotContain(failure.getMessage());
         assertThat(event.getMDCPropertyMap()).containsEntry("correlationId", correlationId);
         assertThat(event.getMDCPropertyMap())
                 .containsKeys("traceId", "spanId")
@@ -120,7 +123,8 @@ class ReleaseApiFailureIntegrationTest {
     }
 
     @Test
-    void technicalCatalogueFailureReturnsSafe503AndLogsPreservedCauseOnce() throws Exception {
+    void technicalCatalogueFailureReturnsSafe503AndLogsRootCauseTypeAndSqlStateOnce()
+            throws Exception {
         SQLException rootCause = new SQLException("jdbc://private-host/catalogue", "08006");
         var failure = new CatalogueReadException(rootCause);
         doThrow(failure).when(useCase).browse(any());
@@ -146,8 +150,13 @@ class ReleaseApiFailureIntegrationTest {
 
         ILoggingEvent event = singleFailureEvent();
         assertThat(keyValue(event, "error.code")).isEqualTo("CATALOGUE_READ_FAILED");
-        assertThat(loggedThrowable(event)).isSameAs(failure);
-        assertThat(failure).hasCause(rootCause);
+        assertThat(keyValue(event, "error.type")).isEqualTo(CatalogueReadException.class.getName());
+        assertThat(keyValue(event, "error.root_cause_type"))
+                .isEqualTo(SQLException.class.getName());
+        assertThat(keyValue(event, "error.sql_state")).isEqualTo("08006");
+        assertThat(event.getThrowableProxy()).isNull();
+        assertThat(event.getFormattedMessage() + event.getKeyValuePairs())
+                .doesNotContain(rootCause.getMessage(), "private-host");
         assertThat(event.getMDCPropertyMap())
                 .containsEntry("correlationId", effectiveCorrelationId);
     }
@@ -270,7 +279,7 @@ class ReleaseApiFailureIntegrationTest {
         assertThat(result.getBody().getCorrelationId()).isEqualTo("safe-fallback-correlation");
         ILoggingEvent event = singleFailureEvent();
         assertThat(keyValue(event, "error.code")).isEqualTo("INTERNAL_ERROR");
-        assertThat(loggedThrowable(event)).isSameAs(exception);
+        assertThat(keyValue(event, "error.type")).isEqualTo(ApiRequestException.class.getName());
     }
 
     @Test
@@ -312,11 +321,6 @@ class ReleaseApiFailureIntegrationTest {
     private ILoggingEvent singleFailureEvent() {
         assertThat(appender.list).hasSize(1);
         return appender.list.getFirst();
-    }
-
-    private static Throwable loggedThrowable(ILoggingEvent event) {
-        assertThat(event.getThrowableProxy()).isInstanceOf(ThrowableProxy.class);
-        return ((ThrowableProxy) event.getThrowableProxy()).getThrowable();
     }
 
     private static Object keyValue(ILoggingEvent event, String key) {

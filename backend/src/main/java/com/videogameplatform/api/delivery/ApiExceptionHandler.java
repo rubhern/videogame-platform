@@ -19,12 +19,16 @@ import com.videogameplatform.ratings.application.RatingValueInvalidException;
 import com.videogameplatform.ratings.application.RatingWriteConflictException;
 import com.videogameplatform.ratings.application.RatingWriteException;
 import jakarta.servlet.http.HttpServletResponse;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.slf4j.spi.LoggingEventBuilder;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -39,6 +43,8 @@ import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -50,6 +56,11 @@ public class ApiExceptionHandler {
 
     private static final String CORRELATION_ID_HEADER = "X-Correlation-ID";
     private static final String CORRELATION_ID_NAME = "correlationId";
+    // Read by the platform request-completion event; the name is shared by literal convention.
+    private static final String ERROR_CODE_ATTRIBUTE =
+            "com.videogameplatform.observability.error-code";
+    private static final Pattern SQL_STATE = Pattern.compile("[0-9A-Z]{5}");
+    private static final int MAX_CAUSE_DEPTH = 16;
     private static final String GAME_ID_PATH_POINTER = "/path/gameId";
     private static final Logger LOGGER = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
@@ -548,6 +559,7 @@ public class ApiExceptionHandler {
             String pointer,
             String message) {
         String correlationId = correlationId(response);
+        reportErrorCode(code);
         String type =
                 "urn:videogame-platform:problem:"
                         + code.getValue().toLowerCase(Locale.ROOT).replace('_', '-');
@@ -581,10 +593,61 @@ public class ApiExceptionHandler {
         return effectiveCorrelationId;
     }
 
+    private static void reportErrorCode(ProblemCode code) {
+        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
+        if (attributes != null) {
+            attributes.setAttribute(
+                    ERROR_CODE_ATTRIBUTE, code.getValue(), RequestAttributes.SCOPE_REQUEST);
+        }
+    }
+
+    /**
+     * Logs a technical failure with bounded diagnostics only.
+     *
+     * <p>Exception and SQLState types are code-owned vocabularies; exception messages and stack
+     * traces may carry SQL, connection details or data values, so they are written only at DEBUG.
+     */
     private static void logTechnicalFailure(ProblemCode code, Exception exception) {
-        LOGGER.atError()
-                .addKeyValue("error.code", code.getValue())
-                .setCause(exception)
-                .log("API request failed");
+        String type = exception.getClass().getName();
+        String rootCauseType = rootCause(exception).getClass().getName();
+        Optional<String> sqlState = sqlState(exception);
+        LoggingEventBuilder event =
+                LOGGER.atError()
+                        .addKeyValue("error.code", code.getValue())
+                        .addKeyValue("error.type", type)
+                        .addKeyValue("error.root_cause_type", rootCauseType);
+        sqlState.ifPresent(state -> event.addKeyValue("error.sql_state", state));
+        event.log(
+                "API request failed: code={} type={} root_cause_type={}{}",
+                code.getValue(),
+                type,
+                rootCauseType,
+                sqlState.map(state -> " sql_state=" + state).orElse(""));
+        LOGGER.atDebug().setCause(exception).log("API request failure cause");
+    }
+
+    private static Throwable rootCause(Throwable failure) {
+        Throwable current = failure;
+        for (int depth = 0;
+                depth < MAX_CAUSE_DEPTH
+                        && current.getCause() != null
+                        && current.getCause() != current;
+                depth++) {
+            current = current.getCause();
+        }
+        return current;
+    }
+
+    private static Optional<String> sqlState(Throwable failure) {
+        Throwable current = failure;
+        for (int depth = 0; depth < MAX_CAUSE_DEPTH && current != null; depth++) {
+            if (current instanceof SQLException sql
+                    && sql.getSQLState() != null
+                    && SQL_STATE.matcher(sql.getSQLState()).matches()) {
+                return Optional.of(sql.getSQLState());
+            }
+            current = current.getCause();
+        }
+        return Optional.empty();
     }
 }
