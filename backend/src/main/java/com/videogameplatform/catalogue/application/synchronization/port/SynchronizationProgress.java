@@ -30,7 +30,9 @@ public interface SynchronizationProgress {
                 }
 
                 @Override
-                public void skipped(CatalogueSynchronizationReport report) {}
+                public void skipped(CatalogueSynchronizationReport report) {
+                    // Discards the event.
+                }
             };
 
     /** A run acquired its lease; the returned tracker belongs to this run alone. */
@@ -49,14 +51,20 @@ public interface SynchronizationProgress {
         Run NONE =
                 new Run() {
                     @Override
-                    public void pageRequested(int page, Counters counters) {}
+                    public void pageRequested(int page, Counters counters) {
+                        // Discards the event.
+                    }
 
                     @Override
-                    public void pageFetched(int page, int games, Counters counters) {}
+                    public void pageFetched(int page, int games, Counters counters) {
+                        // Discards the event.
+                    }
 
                     @Override
                     public void gameSucceeded(
-                            int page, int position, GameResult result, Counters counters) {}
+                            int page, int position, GameResult result, Counters counters) {
+                        // Discards the event.
+                    }
 
                     @Override
                     public void gameFailed(
@@ -64,16 +72,24 @@ public interface SynchronizationProgress {
                             int position,
                             Failure failure,
                             Optional<SynchronizedGameIdentity> game,
-                            Counters counters) {}
+                            Counters counters) {
+                        // Discards the event.
+                    }
 
                     @Override
-                    public void pageCompleted(int page, Counters counters) {}
+                    public void pageCompleted(int page, Counters counters) {
+                        // Discards the event.
+                    }
 
                     @Override
-                    public void runFailed(Failure failure, Counters counters) {}
+                    public void runFailed(Failure failure, Counters counters) {
+                        // Discards the event.
+                    }
 
                     @Override
-                    public void finished(CatalogueSynchronizationReport report) {}
+                    public void finished(CatalogueSynchronizationReport report) {
+                        // Discards the event.
+                    }
                 };
 
         /** A provider page request is about to start. */

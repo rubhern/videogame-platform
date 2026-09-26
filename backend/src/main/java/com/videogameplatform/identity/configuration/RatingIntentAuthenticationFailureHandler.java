@@ -31,7 +31,7 @@ import org.springframework.stereotype.Component;
 public final class RatingIntentAuthenticationFailureHandler
         extends SimpleUrlAuthenticationFailureHandler {
 
-    private static final Logger LOGGER =
+    private static final Logger FAILURE_LOG =
             LoggerFactory.getLogger(RatingIntentAuthenticationFailureHandler.class);
     private static final String ACCESS_DENIED = "access_denied";
     private static final Set<String> REPORTED_OAUTH2_ERRORS =
@@ -71,7 +71,8 @@ public final class RatingIntentAuthenticationFailureHandler
                 AuthenticationProblemEntryPoint.ERROR_CODE_ATTRIBUTE,
                 cancelled ? "AUTHENTICATION_CANCELLED" : "AUTHENTICATION_FAILED");
         if (!cancelled) {
-            LOGGER.atWarn()
+            FAILURE_LOG
+                    .atWarn()
                     .addKeyValue("error.code", "AUTHENTICATION_FAILED")
                     .addKeyValue("identity.oauth2_error", oauth2Error)
                     .log("OIDC login failed: oauth2_error={}", oauth2Error);
@@ -94,7 +95,6 @@ public final class RatingIntentAuthenticationFailureHandler
 
     private static String oauth2Error(AuthenticationException exception) {
         if (exception instanceof OAuth2AuthenticationException oauth2
-                && oauth2.getError() != null
                 && REPORTED_OAUTH2_ERRORS.contains(oauth2.getError().getErrorCode())) {
             return oauth2.getError().getErrorCode();
         }

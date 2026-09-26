@@ -41,7 +41,7 @@ final class HandlerMappingRouteTemplateResolver implements RouteTemplateResolver
                             instanceof String pattern
                     ? Optional.of(pattern)
                     : Optional.empty();
-        } catch (Exception exception) {
+        } catch (Exception _) {
             // A method or media-type mismatch has no single template; the event stays UNMATCHED.
             return Optional.empty();
         } finally {

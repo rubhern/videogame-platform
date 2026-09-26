@@ -204,7 +204,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                     Failure.of(Stage.PERSISTENCE, failure.reason().name()),
                     failure.game(),
                     counts);
-        } catch (IllegalArgumentException failure) {
+        } catch (IllegalArgumentException _) {
             fail(game, Failure.of(Stage.RECONCILIATION, RECORD_REJECTED), Optional.empty(), counts);
         }
     }
@@ -284,14 +284,14 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         final SynchronizedGameIdentity identity;
         try {
             identity = published.orElseGet(() -> assignIdentity(work));
-        } catch (IllegalArgumentException failure) {
+        } catch (IllegalArgumentException _) {
             // The title yields no navigable slug, so no identity could be assigned.
             fail(game, Failure.of(Stage.RECONCILIATION, RECORD_REJECTED), published, counts);
             return;
         }
         try {
             publish(runId, game, work, existing, identity, synchronizedAt, counts);
-        } catch (DuplicateReleaseReference failure) {
+        } catch (DuplicateReleaseReference _) {
             fail(
                     game,
                     Failure.of(Stage.RECONCILIATION, DUPLICATE_RELEASE_REFERENCE),
@@ -303,7 +303,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                     Failure.of(Stage.PERSISTENCE, failure.reason().name()),
                     Optional.of(identity),
                     counts);
-        } catch (IllegalArgumentException failure) {
+        } catch (IllegalArgumentException _) {
             fail(
                     game,
                     Failure.of(Stage.RECONCILIATION, RECORD_REJECTED),

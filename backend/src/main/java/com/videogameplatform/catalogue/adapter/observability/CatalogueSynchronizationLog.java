@@ -41,6 +41,14 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
     static final Duration PAGE_CHECKPOINT_MIN_SPACING = Duration.ofSeconds(10);
     static final int GAME_FAILURE_WARN_LIMIT = 20;
 
+    private static final String RUN_ID = "sync.run_id";
+    private static final String PHASE = "sync.phase";
+    private static final String WINDOW_FROM = "sync.window_from";
+    private static final String WINDOW_TO = "sync.window_to";
+    private static final String PAGE = "sync.page";
+    private static final String PAGE_POSITION = "sync.page_position";
+    private static final String GAMES_FAILED = "sync.games.failed";
+    private static final String ELAPSED_MS = "sync.elapsed_ms";
     private static final Logger LOGGER = LoggerFactory.getLogger(CatalogueSynchronizationLog.class);
 
     private final LongSupplier nanoTime;
@@ -60,10 +68,10 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
             Instant startedAt,
             int providerPageSize) {
         LOGGER.atInfo()
-                .addKeyValue("sync.run_id", runId)
-                .addKeyValue("sync.phase", "started")
-                .addKeyValue("sync.window_from", request.from())
-                .addKeyValue("sync.window_to", request.to())
+                .addKeyValue(RUN_ID, runId)
+                .addKeyValue(PHASE, "started")
+                .addKeyValue(WINDOW_FROM, request.from())
+                .addKeyValue(WINDOW_TO, request.to())
                 .addKeyValue("sync.provider_page_size", providerPageSize)
                 .log(
                         "Catalogue synchronization started: run={} window={}..{}"
@@ -80,8 +88,8 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
         LOGGER.atInfo()
                 .addKeyValue("sync.outcome", report.outcome())
                 .addKeyValue("sync.code", report.outcomeCode())
-                .addKeyValue("sync.window_from", report.from())
-                .addKeyValue("sync.window_to", report.to())
+                .addKeyValue(WINDOW_FROM, report.from())
+                .addKeyValue(WINDOW_TO, report.to())
                 .log(
                         "Catalogue synchronization skipped: outcome={} code={} window={}..{}",
                         report.outcome(),
@@ -112,8 +120,8 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
         public void pageRequested(int page, Counters counters) {
             enter("provider_page", page, 0, 0);
             LOGGER.atDebug()
-                    .addKeyValue("sync.run_id", runId)
-                    .addKeyValue("sync.page", page)
+                    .addKeyValue(RUN_ID, runId)
+                    .addKeyValue(PAGE, page)
                     .log("Catalogue synchronization page requested: run={} page={}", runId, page);
             checkpointIfDue(counters, PROGRESS_INTERVAL);
         }
@@ -122,8 +130,8 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
         public void pageFetched(int page, int games, Counters counters) {
             enter("reconciling", page, games, 0);
             LOGGER.atDebug()
-                    .addKeyValue("sync.run_id", runId)
-                    .addKeyValue("sync.page", page)
+                    .addKeyValue(RUN_ID, runId)
+                    .addKeyValue(PAGE, page)
                     .addKeyValue("sync.page_games", games)
                     .log(
                             "Catalogue synchronization page fetched: run={} page={} games={}",
@@ -137,9 +145,9 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
         public void gameSucceeded(int page, int position, GameResult result, Counters counters) {
             this.position = position;
             LOGGER.atDebug()
-                    .addKeyValue("sync.run_id", runId)
-                    .addKeyValue("sync.page", page)
-                    .addKeyValue("sync.page_position", position)
+                    .addKeyValue(RUN_ID, runId)
+                    .addKeyValue(PAGE, page)
+                    .addKeyValue(PAGE_POSITION, position)
                     .addKeyValue("sync.game_result", result)
                     .log(
                             "Catalogue synchronization game {}: run={} page={} game={}/{}",
@@ -164,12 +172,12 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
             Level level = gameFailures <= GAME_FAILURE_WARN_LIMIT ? Level.WARN : Level.DEBUG;
             LoggingEventBuilder event =
                     LOGGER.atLevel(level)
-                            .addKeyValue("sync.run_id", runId)
-                            .addKeyValue("sync.page", page)
-                            .addKeyValue("sync.page_position", position)
+                            .addKeyValue(RUN_ID, runId)
+                            .addKeyValue(PAGE, page)
+                            .addKeyValue(PAGE_POSITION, position)
                             .addKeyValue("sync.failure.stage", stage(failure))
                             .addKeyValue("sync.failure.reason", failure.reason())
-                            .addKeyValue("sync.games.failed", counters.failedGames())
+                            .addKeyValue(GAMES_FAILED, counters.failedGames())
                             .addKeyValue("sync.game_identity", identityState(game));
             game.ifPresent(
                     identity ->
@@ -195,8 +203,8 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                     counters.failedGames());
             if (gameFailures == GAME_FAILURE_WARN_LIMIT) {
                 LOGGER.atWarn()
-                        .addKeyValue("sync.run_id", runId)
-                        .addKeyValue("sync.games.failed", counters.failedGames())
+                        .addKeyValue(RUN_ID, runId)
+                        .addKeyValue(GAMES_FAILED, counters.failedGames())
                         .log(
                                 "Catalogue synchronization reached {} Game failures: run={};"
                                         + " further Game failures are logged at DEBUG and"
@@ -220,12 +228,12 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
             failures.merge(key(failure), 1L, Long::sum);
             LoggingEventBuilder event =
                     LOGGER.atWarn()
-                            .addKeyValue("sync.run_id", runId)
-                            .addKeyValue("sync.phase", phase)
-                            .addKeyValue("sync.page", page)
+                            .addKeyValue(RUN_ID, runId)
+                            .addKeyValue(PHASE, phase)
+                            .addKeyValue(PAGE, page)
                             .addKeyValue("sync.failure.stage", stage(failure))
                             .addKeyValue("sync.failure.reason", failure.reason())
-                            .addKeyValue("sync.elapsed_ms", elapsed().toMillis());
+                            .addKeyValue(ELAPSED_MS, elapsed().toMillis());
             failure.failureType().ifPresent(type -> event.addKeyValue("sync.failure.type", type));
             event.log(
                     "Catalogue synchronization run failure: run={} stage={} reason={}{} phase={}"
@@ -246,13 +254,13 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                     Duration.between(report.startedAt(), report.completedAt()).toMillis();
             String failureSummary = failureSummary();
             withCounters(LOGGER.atLevel(level(report.outcome())), c)
-                    .addKeyValue("sync.run_id", runId)
+                    .addKeyValue(RUN_ID, runId)
                     .addKeyValue("sync.outcome", report.outcome())
                     .addKeyValue("sync.code", report.outcomeCode())
-                    .addKeyValue("sync.window_from", report.from())
-                    .addKeyValue("sync.window_to", report.to())
+                    .addKeyValue(WINDOW_FROM, report.from())
+                    .addKeyValue(WINDOW_TO, report.to())
                     .addKeyValue("sync.pages", page)
-                    .addKeyValue("sync.elapsed_ms", elapsedMillis)
+                    .addKeyValue(ELAPSED_MS, elapsedMillis)
                     .addKeyValue("sync.releases.created", c.createdReleases())
                     .addKeyValue("sync.releases.updated", c.updatedReleases())
                     .addKeyValue("sync.releases.unchanged", c.unchangedReleases())
@@ -302,12 +310,12 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
             }
             lastCheckpointNanos = now;
             withCounters(LOGGER.atInfo(), counters)
-                    .addKeyValue("sync.run_id", runId)
-                    .addKeyValue("sync.phase", phase)
-                    .addKeyValue("sync.page", page)
-                    .addKeyValue("sync.page_position", position)
+                    .addKeyValue(RUN_ID, runId)
+                    .addKeyValue(PHASE, phase)
+                    .addKeyValue(PAGE, page)
+                    .addKeyValue(PAGE_POSITION, position)
                     .addKeyValue("sync.page_games", pageGames)
-                    .addKeyValue("sync.elapsed_ms", elapsed().toMillis())
+                    .addKeyValue(ELAPSED_MS, elapsed().toMillis())
                     .log(
                             "Catalogue synchronization progress: run={} phase={} page={}"
                                     + " game={}/{} elapsed_s={} games[created={} updated={}"
@@ -349,7 +357,7 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                 .addKeyValue("sync.games.updated", c.updatedGames())
                 .addKeyValue("sync.games.unchanged", c.unchangedGames())
                 .addKeyValue("sync.games.deferred", c.deferredGames())
-                .addKeyValue("sync.games.failed", c.failedGames())
+                .addKeyValue(GAMES_FAILED, c.failedGames())
                 .addKeyValue("sync.release_dates_inspected", c.inspectedReleaseDates())
                 .addKeyValue("sync.provider.requests", c.providerRequests())
                 .addKeyValue("sync.provider.retries", c.providerRetries());

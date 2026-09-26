@@ -65,6 +65,7 @@ class SynchronizationWriteFailuresTest {
                         new IllegalStateException(PRIVATE_DETAIL));
 
         assertThat(unclassified)
+                .isNotEmpty()
                 .allSatisfy(
                         failure ->
                                 assertThat(SynchronizationWriteFailures.reason(failure))

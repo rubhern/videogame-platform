@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -204,7 +205,7 @@ class CatalogueSynchronizationServiceTest {
         startRun();
         when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
                 .thenReturn(new ReleasePage(List.of(), 0, 0L, true, ONE_REQUEST));
-        org.mockito.Mockito.doThrow(new SynchronizationWriteException(Reason.OWNERSHIP_LOST))
+        doThrow(new SynchronizationWriteException(Reason.OWNERSHIP_LOST))
                 .when(store)
                 .heartbeat(RUN);
 
@@ -290,18 +291,18 @@ class CatalogueSynchronizationServiceTest {
             return new Run() {
                 @Override
                 public void pageRequested(int page, Counters counters) {
-                    record("pageRequested:" + page, counters);
+                    observe("pageRequested:" + page, counters);
                 }
 
                 @Override
                 public void pageFetched(int page, int games, Counters counters) {
-                    record("pageFetched:" + page + ":" + games, counters);
+                    observe("pageFetched:" + page + ":" + games, counters);
                 }
 
                 @Override
                 public void gameSucceeded(
                         int page, int position, GameResult result, Counters counters) {
-                    record("gameSucceeded:" + page + "/" + position + ":" + result, counters);
+                    observe("gameSucceeded:" + page + "/" + position + ":" + result, counters);
                 }
 
                 @Override
@@ -312,7 +313,7 @@ class CatalogueSynchronizationServiceTest {
                         Optional<SynchronizedGameIdentity> game,
                         Counters counters) {
                     game.ifPresent(identity -> identities.put(position, identity));
-                    record(
+                    observe(
                             "gameFailed:"
                                     + page
                                     + "/"
@@ -328,12 +329,12 @@ class CatalogueSynchronizationServiceTest {
 
                 @Override
                 public void pageCompleted(int page, Counters counters) {
-                    record("pageCompleted:" + page, counters);
+                    observe("pageCompleted:" + page, counters);
                 }
 
                 @Override
                 public void runFailed(Failure failure, Counters counters) {
-                    record(
+                    observe(
                             "runFailed:"
                                     + failure.stage()
                                     + ":"
@@ -363,7 +364,7 @@ class CatalogueSynchronizationServiceTest {
                     : "unpublished";
         }
 
-        private void record(String event, Counters counters) {
+        private void observe(String event, Counters counters) {
             events.add(event);
             lastCounters = counters;
         }
