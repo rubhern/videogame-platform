@@ -1,4 +1,9 @@
-import { formatCalendarDay, formatCompactCalendarDay, formatReleaseDate } from "../../shared/catalogue/release-date";
+import {
+  formatCalendarDay,
+  formatCompactCalendarDay,
+  formatReleaseDate,
+  formatReleaseDateShort,
+} from "../../shared/catalogue/release-date";
 import { regionLabel } from "../../shared/catalogue/region-label";
 import type { ReleasePage } from "./releases-api";
 import type { ReleaseView } from "./releases-search";
@@ -30,6 +35,8 @@ export type ReleaseCover =
 export type ReleaseContextGroup = {
   key: string;
   date: string;
+  /** The same date in its compact chip form, at the same precision. */
+  shortDate: string;
   region: string;
   platforms: string[];
   isStale: boolean;
@@ -157,6 +164,7 @@ function toReleaseContextGroups(releases: readonly Release[]): ReleaseContextGro
       group = {
         key,
         date,
+        shortDate: formatReleaseDateShort(release.releaseDate),
         region: regionLabel(release.region.name),
         platforms: [],
         isStale: false,

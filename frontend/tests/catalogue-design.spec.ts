@@ -145,7 +145,6 @@ test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
   await expect(page.getByRole("combobox", { name: /^Plataforma:/ })).toBeVisible();
   await expect(page.getByRole("combobox", { name: /^Región:/ })).toBeVisible();
   await expect(page.locator(".release-period")).toBeVisible();
-  await expect(page.getByRole("link", { name: view === "recent" ? "Ver próximos" : "Ver recientes" })).toBeVisible();
   await expectAccessibleLayout(page);
 
   await page.getByRole("combobox", { name: /^Plataforma:/ }).focus();

@@ -41,8 +41,11 @@ export function ReleasesPagination({
       className="pagination"
     >
       {hasPrevious ? (
-        <Link className="button" to={releasesSearchPath(search, { page: page.number - 1 })}>
-          Página anterior
+        <Link
+          className="button view-action view-action-back"
+          to={releasesSearchPath(search, { page: page.number - 1 })}
+        >
+          <span aria-hidden="true">←</span> Página anterior
         </Link>
       ) : null}
       {showPosition ? (
@@ -51,8 +54,8 @@ export function ReleasesPagination({
         </p>
       ) : null}
       {hasNext ? (
-        <Link className="button" to={releasesSearchPath(search, { page: page.number + 1 })}>
-          Página siguiente
+        <Link className="button view-action" to={releasesSearchPath(search, { page: page.number + 1 })}>
+          Página siguiente <span aria-hidden="true">→</span>
         </Link>
       ) : null}
     </nav>

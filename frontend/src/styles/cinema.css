@@ -1,0 +1,368 @@
+/* The cinematic stage. Every primary page opens on one: the product-owned night art for the
+   release windows, search and the personal collection, or the game's own cover on its page.
+   The stage runs up behind the transparent header and fades into the canvas, and every layer
+   is decorative: text above it keeps its own scrims and nothing readable depends on it. */
+
+@layer components {
+  /* The stage is anchored to the app frame, not to its page section, so it always starts at the
+     very top of the document behind the header, whatever height the header takes. */
+  .cinema {
+    --stage-height: 620px;
+
+    position: absolute;
+    z-index: -1;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: var(--stage-height);
+    overflow: hidden;
+    pointer-events: none;
+    -webkit-mask-image: linear-gradient(180deg, #000 68%, transparent);
+    mask-image: linear-gradient(180deg, #000 68%, transparent);
+  }
+
+  .cinema-art {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* The art itself, slightly overscanned so the slow push-in never shows an edge. */
+  .cinema-art::before {
+    position: absolute;
+    inset: -3%;
+    background-image: url("/assets/night-hero.webp");
+    background-position: var(--art-position, 100% 20%);
+    background-repeat: no-repeat;
+    background-size: cover;
+    content: "";
+    filter: brightness(1.2) contrast(1.08) saturate(1.12);
+  }
+
+  /* Grade and scrims: moonlight from the upper right, a dark side for the copy, the header
+     scrim and the fade into the page. */
+  .cinema-art::after {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(
+        64rem 36rem at 72% -4%,
+        color-mix(in srgb, var(--color-accent) 18%, transparent),
+        transparent 64%
+      ),
+      radial-gradient(
+        30rem 22rem at 64% 70%,
+        color-mix(in srgb, #ff9a4d 12%, transparent),
+        transparent 70%
+      ),
+      linear-gradient(
+        90deg,
+        var(--color-canvas) 0%,
+        color-mix(in srgb, var(--color-canvas) 86%, transparent) 22%,
+        color-mix(in srgb, var(--color-canvas) 34%, transparent) 50%,
+        transparent 74%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-canvas) 70%, transparent) 0%,
+        transparent 30%,
+        transparent 60%,
+        var(--color-canvas) 100%
+      );
+    content: "";
+  }
+
+  /* Two banks of mist drift across the stage in opposite directions. */
+  .cinema-fog {
+    position: absolute;
+    inset: 30% -20% 0;
+    opacity: 0.55;
+    background:
+      radial-gradient(
+        40% 34% at 30% 62%,
+        color-mix(in srgb, #b9c6e8 16%, transparent),
+        transparent 70%
+      ),
+      radial-gradient(
+        36% 30% at 76% 74%,
+        color-mix(in srgb, #9fb0d8 14%, transparent),
+        transparent 70%
+      );
+    filter: blur(28px);
+    mix-blend-mode: screen;
+  }
+
+  .cinema-fog + .cinema-fog {
+    inset: 46% -30% -6%;
+    opacity: 0.4;
+    background: radial-gradient(
+      44% 36% at 58% 60%,
+      color-mix(in srgb, #c7d2f0 14%, transparent),
+      transparent 72%
+    );
+  }
+
+  /* Motes of light rising through the stage: warm embers over the night art. */
+  .cinema-motes {
+    position: absolute;
+    inset: 0;
+  }
+
+  .cinema-motes span {
+    position: absolute;
+    bottom: var(--y, 20%);
+    left: var(--x, 50%);
+    width: var(--s, 3px);
+    height: var(--s, 3px);
+    border-radius: 50%;
+    background: #ffd2a0;
+    box-shadow:
+      0 0 8px 2px color-mix(in srgb, #ff9d4d 95%, transparent),
+      0 0 22px 6px color-mix(in srgb, #ff8a3d 45%, transparent);
+    opacity: 0;
+  }
+
+  /* Grain over the whole stage, so the art and the gradients share one texture. */
+  .cinema::after {
+    position: absolute;
+    inset: 0;
+    opacity: 0.07;
+    background-image: var(--grain);
+    content: "";
+    mix-blend-mode: overlay;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .cinema-art::before {
+      animation: stage-push 38s ease-in-out infinite alternate;
+    }
+
+    .cinema-fog {
+      animation: fog-drift 34s ease-in-out infinite alternate;
+    }
+
+    .cinema-fog + .cinema-fog {
+      animation-duration: 46s;
+      animation-direction: alternate-reverse;
+    }
+
+    .cinema-motes span {
+      animation: mote-rise var(--t, 9s) linear var(--d, 0s) infinite;
+    }
+
+    /* The stage sinks slower than the page scrolls, where the browser can drive that from the
+       scroll position alone. */
+    @supports (animation-timeline: scroll()) {
+      .cinema-art {
+        animation: stage-parallax linear both;
+        animation-range: 0 640px;
+        animation-timeline: scroll(root);
+      }
+    }
+  }
+
+  /* ---------------------------------------------------------------- Variants */
+
+  /* Search looks further into the night: the castle and the moon. */
+  .cinema-search {
+    --art-position: 86% 12%;
+  }
+
+  .cinema-search .cinema-art::before {
+    filter: brightness(1.15) contrast(1.1) saturate(1.05) hue-rotate(-8deg);
+  }
+
+  /* The personal collection is lit warmer, closer to the lights of the valley. */
+  .cinema-collection {
+    --art-position: 58% 64%;
+  }
+
+  .cinema-collection .cinema-art::after {
+    background:
+      radial-gradient(
+        40rem 26rem at 70% 40%,
+        color-mix(in srgb, #ff9a4d 16%, transparent),
+        transparent 64%
+      ),
+      linear-gradient(
+        90deg,
+        var(--color-canvas) 0%,
+        color-mix(in srgb, var(--color-canvas) 86%, transparent) 22%,
+        color-mix(in srgb, var(--color-canvas) 34%, transparent) 52%,
+        transparent 76%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-canvas) 70%, transparent) 0%,
+        transparent 30%,
+        transparent 60%,
+        var(--color-canvas) 100%
+      );
+  }
+
+  /* A game's page is lit by its own cover: blown up, blurred and graded, never resampled or
+     stored. It adds no request beyond the cover the page already shows. */
+  .cinema-cover {
+    --stage-height: 820px;
+  }
+
+  .cinema-cover .cinema-art::before {
+    inset: -12%;
+    background-image: var(--hero-art);
+    background-position: center 30%;
+    filter: blur(48px) saturate(1.7) brightness(0.72);
+  }
+
+  .cinema-cover .cinema-art::after {
+    background:
+      radial-gradient(
+        60% 70% at 24% 30%,
+        color-mix(in srgb, #fff 8%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        120% 90% at 50% 20%,
+        transparent 40%,
+        color-mix(in srgb, var(--color-canvas) 70%, transparent) 100%
+      ),
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-canvas) 60%, transparent) 0%,
+        transparent 26%,
+        color-mix(in srgb, var(--color-canvas) 30%, transparent) 62%,
+        var(--color-canvas) 100%
+      );
+  }
+
+  /* Over a cover the motes are cool dust in the light, not embers. */
+  .cinema-cover .cinema-motes span {
+    background: #eef2ff;
+    box-shadow:
+      0 0 6px 1px color-mix(in srgb, #dfe7ff 80%, transparent),
+      0 0 16px 4px color-mix(in srgb, var(--color-accent) 36%, transparent);
+  }
+
+  @media (min-width: 620px) {
+    .cinema {
+      --stage-height: 780px;
+    }
+
+    .cinema-cover {
+      --stage-height: 900px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .cinema {
+      --stage-height: 820px;
+    }
+
+    .cinema-cover {
+      --stage-height: 940px;
+    }
+  }
+
+  /* Phones keep the figure in frame, so the copy reads over the darker foreground rock. */
+  @media (max-width: 619px) {
+    .cinema-art::before {
+      background-image: url("/assets/night-hero-980.webp");
+      background-position: var(--art-position-phone, 84% 30%);
+    }
+
+    .cinema-art::after {
+      background:
+        radial-gradient(
+          26rem 20rem at 80% 16%,
+          color-mix(in srgb, var(--color-accent) 20%, transparent),
+          transparent 62%
+        ),
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--color-canvas) 60%, transparent) 0%,
+          transparent 26%,
+          color-mix(in srgb, var(--color-canvas) 40%, transparent) 52%,
+          var(--color-canvas) 92%
+        );
+    }
+
+    .cinema-search {
+      --art-position-phone: 70% 12%;
+    }
+
+    .cinema-collection {
+      --art-position-phone: 62% 70%;
+    }
+
+    .cinema-cover .cinema-art::before {
+      background-image: var(--hero-art);
+      background-position: center 30%;
+    }
+
+    .cinema-cover .cinema-art::after {
+      background:
+        radial-gradient(
+          120% 90% at 50% 20%,
+          transparent 40%,
+          color-mix(in srgb, var(--color-canvas) 70%, transparent) 100%
+        ),
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--color-canvas) 50%, transparent) 0%,
+          transparent 30%,
+          color-mix(in srgb, var(--color-canvas) 40%, transparent) 64%,
+          var(--color-canvas) 100%
+        );
+    }
+  }
+
+  @media (forced-colors: active) {
+    .cinema {
+      display: none;
+    }
+  }
+}
+
+@keyframes stage-push {
+  from {
+    transform: scale(1);
+  }
+
+  to {
+    transform: scale(1.07) translate3d(-1%, 1%, 0);
+  }
+}
+
+@keyframes stage-parallax {
+  to {
+    transform: translate3d(0, 180px, 0);
+  }
+}
+
+@keyframes fog-drift {
+  from {
+    transform: translate3d(-6%, 0, 0);
+  }
+
+  to {
+    transform: translate3d(6%, -3%, 0);
+  }
+}
+
+@keyframes mote-rise {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) scale(0.6);
+  }
+
+  12% {
+    opacity: 0.95;
+  }
+
+  70% {
+    opacity: 0.6;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--drift, 24px), -240px, 0) scale(1);
+  }
+}

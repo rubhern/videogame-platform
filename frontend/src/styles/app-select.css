@@ -22,12 +22,12 @@
     min-height: 44px;
     align-items: center;
     gap: 9px;
-    border: 1px solid color-mix(in srgb, var(--color-ink) 22%, transparent);
+    border: 1px solid var(--glass-border);
     border-radius: 999px;
-    padding: 8px 13px;
+    padding: 8px 14px;
     color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-surface) 90%, transparent);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-ink) 5%, transparent);
+    background: color-mix(in srgb, var(--color-canvas) 42%, transparent);
+    box-shadow: var(--glass-highlight);
     font-size: 0.8125rem;
     text-align: left;
   }
@@ -35,7 +35,7 @@
   .app-select-trigger:hover,
   .app-select-trigger[aria-expanded="true"] {
     border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
-    background: color-mix(in srgb, var(--color-raised) 92%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   }
 
   .app-select-trigger:focus-visible {
@@ -189,9 +189,12 @@
     -webkit-mask-image: url("/assets/regions/japan.png");
   }
 
-  .app-select-icon-europe {
+  /* The Europe artwork fills only the middle ~40% of its canvas: enlarge it to the shared size. */
+  span.app-select-icon-europe {
     mask-image: url("/assets/regions/europe.png");
+    mask-size: 250%;
     -webkit-mask-image: url("/assets/regions/europe.png");
+    -webkit-mask-size: 250%;
   }
 
   .app-select-icon-north-america {
@@ -207,13 +210,21 @@
     width: 100%;
     max-height: 288px;
     overflow-y: auto;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 36%, var(--color-line));
-    border-radius: 14px;
-    padding: 5px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--glass-border));
+    border-radius: 18px;
+    padding: 6px;
     color: var(--color-ink);
-    background: var(--color-raised);
-    box-shadow: 0 18px 42px color-mix(in srgb, #000 65%, transparent);
-    scrollbar-color: var(--color-line) var(--color-raised);
+    background: var(--glass-solid);
+    box-shadow: var(--glass-highlight), var(--elevation-lift);
+    scrollbar-color: var(--color-line) transparent;
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .app-select-options:not([hidden]) {
+      animation: pop-in 180ms var(--ease-out) both;
+    }
   }
 
   .app-select-options[hidden] {
@@ -227,7 +238,7 @@
     align-items: center;
     gap: 10px;
     border: 0;
-    border-radius: 9px;
+    border-radius: 12px;
     padding: 8px 10px;
     color: var(--color-ink);
     background: transparent;
@@ -243,7 +254,7 @@
 
   .app-select-option:hover,
   .app-select-option[data-active="true"] {
-    background: color-mix(in srgb, var(--color-accent) 16%, var(--color-raised));
+    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   }
 
   .app-select-option[aria-selected="true"] {
@@ -270,7 +281,7 @@
     min-height: 40px;
     align-items: center;
     gap: 10px;
-    border-radius: 9px;
+    border-radius: 12px;
     padding: 8px 10px;
     color: var(--color-ink);
     background: transparent;
@@ -287,7 +298,7 @@
 
   .app-multiselect-option:hover,
   .app-multiselect-option[data-active="true"] {
-    background: color-mix(in srgb, var(--color-accent) 16%, var(--color-raised));
+    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   }
 
   .app-multiselect-option[aria-selected="true"] {
@@ -323,7 +334,7 @@
   }
 
   .release-filter-select {
-    width: 235px;
+    width: 220px;
     max-width: 100%;
     flex: none;
   }
@@ -393,6 +404,8 @@
       color: ButtonText;
       background: Canvas;
       box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
 
     .app-select-option[data-active="true"],
