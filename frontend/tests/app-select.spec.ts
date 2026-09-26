@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+import { analyzeAccessibility } from "./fixtures/accessibility";
 import { pragmata, releasePage } from "./fixtures/releases";
 
 test("release filters open from the full trigger and show tinted platform icons", async ({ page }) => {
@@ -42,7 +42,7 @@ test("release filters open from the full trigger and show tinted platform icons"
     await expect(icon).toBeVisible();
     expect(await icon.evaluate((element) => getComputedStyle(element).maskImage)).toContain(`${mark}.png`);
   }
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
   await list.getByRole("option", { name: "Windows PC" }).click();
   await expect(page).toHaveURL(/platformIds=10000000-0000-4000-8000-000000000003/);
   await expect(trigger).toContainText("Windows PC");
@@ -91,6 +91,6 @@ test("personal rating dropdowns use the same keyboard and visual treatment", asy
   await expect(score).toBeFocused();
   await score.click();
   await expect(page.getByRole("option", { name: "9/10" })).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
 });

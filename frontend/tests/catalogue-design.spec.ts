@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { analyzeAccessibility } from "./fixtures/accessibility";
 import { pragmata, pragmataRelease, releasePage } from "./fixtures/releases";
 
 async function expectAccessibleLayout(page: Page) {
@@ -8,7 +8,7 @@ async function expectAccessibleLayout(page: Page) {
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
   ).toBeLessThanOrEqual(0);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
 }
 
 async function expectComfortableCatalogueMetadata(page: Page) {

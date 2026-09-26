@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Route } from "@playwright/test";
 
+import { analyzeAccessibility } from "./fixtures/accessibility";
 import { gameDetailsFixture } from "../src/test/game-details-fixture";
 
 /**
@@ -181,7 +181,7 @@ test("anonymous press, authentication return, automatic create, update and delet
   expect(backend.commands).toHaveLength(1);
   expect(backend.commands[0]?.headers["if-none-match"]).toBe("*");
   expect(backend.commands[0]?.headers["if-match"]).toBeUndefined();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
 
   // A reload resumes nothing (single-use context) and keeps the persisted rating.
   await page.reload();
@@ -232,7 +232,7 @@ test("a stale ETag conflict shows the winning state and never retries the comman
   await expect(note(page, 5)).toHaveAttribute("aria-pressed", "true");
   expect(backend.commands).toHaveLength(1);
   expect(backend.commands[0]?.headers["if-match"]).toBe('"rating-version-1"');
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });
 
 test("rejected and ambiguous commands preserve the previous valid state", async ({
@@ -287,5 +287,5 @@ test("an ineligible game keeps the scale disabled and stays accessible", async (
   await page.goto(gamePath);
   await expect(note(page, 8)).toBeDisabled();
   await expect(page.getByText("el lanzamiento aún no ha ocurrido")).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });

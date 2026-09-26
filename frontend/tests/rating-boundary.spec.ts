@@ -1,5 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+
+import { analyzeAccessibility } from "./fixtures/accessibility";
 
 const gamePath =
   "/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem";
@@ -27,7 +28,7 @@ test("anonymous browsing exposes no login entry point but offers the rating boun
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "8", exact: true })).toBeEnabled();
   await expect(page.getByRole("button", { name: /Puntuar|Actualizar/ })).toHaveCount(0);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });
 
 test.describe("real Keycloak rating journey", () => {
@@ -65,7 +66,7 @@ test.describe("real Keycloak rating journey", () => {
       name: "Puntuaciones de la comunidad",
     });
     await expect(community.getByLabel(/Nota media: 8,0 de 10/)).toBeVisible();
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
 
     // A reload reads the persisted rating back with a fresh ETag and resumes nothing.
     await page.reload();
@@ -108,7 +109,7 @@ test.describe("real Keycloak rating journey", () => {
     for (const width of [1320, 834, 390, 320]) {
       await page.setViewportSize({ width, height: 950 });
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+      expect((await analyzeAccessibility(page)).violations).toEqual([]);
       await page.screenshot({ path: testInfo.outputPath(`my-ratings-${width}.png`), fullPage: true });
     }
     const search = page.getByRole("search", { name: "Buscar en mis puntuaciones" });
@@ -143,7 +144,7 @@ test.describe("real Keycloak rating journey", () => {
     await expect(page.getByRole("heading", { name: "Resultados de mis puntuaciones" })).toBeFocused();
     expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })))
       .toEqual({ local: 0, session: 0 });
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
   });
 
   test("a new visitor self-registers through Keycloak and resumes the same game and value", async ({
