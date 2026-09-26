@@ -26,7 +26,8 @@ with a dedicated short statement timeout; health details remain hidden.
 
 - Accept a valid `X-Correlation-ID` or generate one; return the effective value and
   use it in Problem Details and diagnostic context.
-- Use the `structured` Spring profile for ECS JSON console logs.
+- Use the `structured` Spring profile for ECS JSON console logs; [application logs](#application-logs)
+  owns the event model.
 - Use route templates and bounded outcome/code vocabularies in metric labels.
 - Use standard `http.server.requests` for request rate, status, and latency; its
   percentile histogram supports latency analysis without defining an SLO.
@@ -44,8 +45,9 @@ with a dedicated short statement timeout; health details remain hidden.
   `.request.duration{operation}`, `.retry{operation}` and `.mapping.failure{reason}`.
   Operations are the closed `window`, `works`, `release_dates` vocabulary.
 - Durable run reports hold the requested window, provider request/retry/latency
-  totals and aggregate counters. Structured logs contain outcome, stable code and
-  counters, never raw payloads or provider identities. Cursors are not metric labels.
+  totals and aggregate counters. The synchronization log adds lifecycle, progress and
+  per-Game failure stage/reason; it never contains titles, raw payloads or provider
+  identities. Cursors are not metric labels.
 - No process-local publication-age gauge claims durable catalogue freshness.
   Unchanged evidence is not rewritten merely to change its timestamp.
 - Never use user, game, release, request, correlation, URL, search, provider, or raw
@@ -59,8 +61,66 @@ with a dedicated short statement timeout; health details remain hidden.
 
 Never log or export credentials, cookies, CSRF values, authorization codes, OAuth
 tokens, personal rating ownership, raw provider payloads, database URLs with
-credentials, or arbitrary exception text. Error responses expose stable codes and a
-correlation identifier, never stack traces or SQL.
+credentials, or arbitrary exception text; technical failures name exception and
+SQLState types only. Error responses expose stable codes and a correlation identifier,
+never stack traces or SQL.
+
+## Application logs
+
+One event model serves both renderings. Each event carries bounded key-values, and its
+message repeats the same values, so the default plain console (local Compose and direct
+runs) shows what the ECS JSON of the `structured` profile (private dev) shows. Plain
+lines also carry `[traceId-spanId] [correlationId]` through `logging.pattern.correlation`
+in `application.yaml`. Key-values never use the `error` object together with an attached
+throwable, because the ECS encoder then drops the event.
+
+HTTP completion: one event per request from `CorrelationIdFilter`, except the liveness
+and readiness probes. It records `http.method`, `http.route` (the registered template,
+resolved even when a security filter rejected the request before MVC, otherwise
+`UNMATCHED`), `http.status_code`, `http.outcome`, `duration_ms`, and `error.code` when
+the answering boundary reports one: the Problem code, `AUTHENTICATION_REQUIRED`,
+`CSRF_VALIDATION_FAILED`, `AUTHENTICATION_CANCELLED` or `AUTHENTICATION_FAILED`.
+Expected client errors stay at `INFO`; `5xx` completions are `WARN`.
+
+Technical failures: the API boundary writes one `ERROR` with `error.code`,
+`error.type`, `error.root_cause_type` and, for a database cause, `error.sql_state`.
+Exception messages and stack traces can carry SQL, connection details or data values,
+so they are written only by a `DEBUG` event that is off by default. Enabling it on a
+shared environment is a reviewed, temporary exception. A failed OIDC login is one
+`WARN` with an allowlisted OAuth 2.0 error code or `other`.
+
+Catalogue synchronization (`CatalogueSynchronizationLog`):
+
+| Event | Level | Bounded context |
+|---|---|---|
+| Started | `INFO` | run, window, provider page size |
+| Progress checkpoint | `INFO` | run, phase, page, game position, elapsed, Game/release/provider counters |
+| Game reconciled or deferred | `DEBUG` | run, page, position, result |
+| Game failed | `WARN` for the first 20 of a run, then `DEBUG` | run, page, position, stage, reason, failed count, identity (below) |
+| Run failure | `WARN` | run, phase, page, stage, reason, exception class when unexpected |
+| Finished | `INFO` succeeded, `WARN` partial, `ERROR` failed | outcome, stable code, window, pages, elapsed, all counters, failures tallied by `stage/reason` |
+| Skipped | `INFO` | `SYNCHRONIZATION_DISABLED` or `SYNCHRONIZATION_ALREADY_RUNNING`, window |
+| Rejected command | `INFO` | `INVALID_SYNCHRONIZATION_WINDOW`, never the raw input |
+| IGDB retry | `DEBUG` | endpoint name, retry, provider failure code, backoff |
+
+While events keep arriving, a checkpoint is written at least every 60 seconds and at
+provider-page completion, but never less than 10 seconds after the previous one.
+Spacing uses a monotonic source, not the product clock. Stages are `provider_page`,
+`provider_game`, `validation`, `reconciliation`, `persistence` and `run`. Reasons come
+from `ProviderFailureCode`, `ProviderMappingFailure`, `SynchronizationWriteException.Reason`
+and the service constants (`WORK_NOT_RETURNED`, `TITLE_MISSING`,
+`RELEASE_LIMIT_EXCEEDED`, `DUPLICATE_RELEASE_REFERENCE`, `RECORD_REJECTED`,
+`UNEXPECTED_FAILURE`). Persistence reasons distinguish `PERSISTENCE_TIMEOUT`,
+`PERSISTENCE_CONSTRAINT_VIOLATION` and `PERSISTENCE_CONNECTION_FAILED` only from
+Spring's translated exception types; anything else, including lock and deadlock
+failures, is `PERSISTENCE_WRITE_FAILED`.
+
+Every Game failure states `identity`: `published` with the catalogue Game ID and slug;
+`unpublished` with the ID and slug the failed attempt assigned to a new Game, which were
+rolled back and change on the next run; or `none` when the failure precedes any product
+identity (provider fetch, or validation of a new Game). Provider identities and titles
+never appear, so a `none` failure is identified only by run, page, position, stage and
+reason.
 
 The [platform design](../architecture/deployment/mvp-platform-and-delivery.md) owns
 remote telemetry topology, retention, and privacy; the private-dev Compose and

@@ -141,6 +141,10 @@ management:
 
 logging:
   include-application-name: false
+  pattern:
+    # Plain console lines keep Boot's [traceId-spanId] and add [correlationId] when a request has
+    # one, so a reported Problem instance can be matched without the structured profile.
+    correlation: '%correlationId%replace([%X{correlationId:-}] ){"\[\] ",""}'
   level:
     root: INFO
     com.videogameplatform: INFO

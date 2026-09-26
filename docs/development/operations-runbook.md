@@ -162,9 +162,28 @@ Private dev (proven on `vgpdev`; this is the source of the current `dev` catalog
 5. To keep synchronization disabled between runs, empty both files and recreate the
    application again.
 
-Diagnostics: the run outcome, stable code and bounded counters are in the structured
-application log and in the `catalogue.synchronization.*` meters listed in
-[observability](observability.md). PostgreSQL allows one active run; an abandoned
+Following a run: the POST blocks, so watch the application log from a second shell.
+The same filter works for plain (local) and ECS JSON (private dev) lines:
+
+```bash
+docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+  --file deploy/private-dev/compose.yaml --profile application \
+  logs --follow --since 5m application | grep 'Catalogue synchronization'
+```
+
+Locally, `docker compose logs --follow application | grep 'Catalogue synchronization'`
+does the same. Expect `started`, then a `progress` line at least every minute, then one
+`finished` line with the outcome, stable code and a `failures=stage/REASON=count` tally.
+`skipped` names `SYNCHRONIZATION_DISABLED` or `SYNCHRONIZATION_ALREADY_RUNNING`. A
+`game failed` or `run failure` line names the stage and reason. A progress line with
+rising counters means the run is advancing slowly. No progress line for more than about
+two minutes and no `finished` line means one provider call or write is stuck beyond
+its timeout and retries. The event model and levels are in
+[observability](observability.md#application-logs). This procedure is verified by tests
+and a local probe only; it is not yet proven on `vgpdev`. The
+`catalogue.synchronization.*` meters remain the aggregate signal.
+
+PostgreSQL allows one active run; an abandoned
 worker is fenced after `CATALOGUE_SYNC_ABANDON_RUN_AFTER` before a successor can
 write. Provider failure never deletes local Games, Releases or covers; the previous
 valid publication keeps serving.

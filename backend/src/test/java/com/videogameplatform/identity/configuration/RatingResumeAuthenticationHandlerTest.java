@@ -2,6 +2,10 @@ package com.videogameplatform.identity.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.videogameplatform.identity.adapter.session.RatingReturnContext;
 import com.videogameplatform.identity.adapter.session.RatingReturnContextStore;
 import com.videogameplatform.identity.adapter.session.ResumedRatingIntent;
@@ -14,10 +18,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
 import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
 import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
@@ -102,6 +109,69 @@ class RatingResumeAuthenticationHandlerTest {
                                 "failed"));
 
         assertThat(response.getRedirectedUrl()).isEqualTo("/");
+    }
+
+    @Test
+    void loginFailureReportsAStableCodeAndOnlyAnAllowlistedOAuth2Error() throws Exception {
+        var failures = captureFailureLogs();
+        try {
+            var cancelled = new MockHttpServletRequest();
+            new RatingIntentAuthenticationFailureHandler(store)
+                    .onAuthenticationFailure(
+                            cancelled,
+                            new MockHttpServletResponse(),
+                            new OAuth2AuthenticationException(new OAuth2Error("access_denied")));
+            var misconfigured = new MockHttpServletRequest();
+            new RatingIntentAuthenticationFailureHandler(store)
+                    .onAuthenticationFailure(
+                            misconfigured,
+                            new MockHttpServletResponse(),
+                            new OAuth2AuthenticationException(
+                                    new OAuth2Error(
+                                            "invalid_client",
+                                            "client secret private-secret rejected",
+                                            "https://identity.example/private")));
+            var unknown = new MockHttpServletRequest();
+            new RatingIntentAuthenticationFailureHandler(store)
+                    .onAuthenticationFailure(
+                            unknown,
+                            new MockHttpServletResponse(),
+                            new OAuth2AuthenticationException(
+                                    new OAuth2Error("provider_supplied_private_text")));
+
+            assertThat(cancelled.getAttribute(AuthenticationProblemEntryPoint.ERROR_CODE_ATTRIBUTE))
+                    .isEqualTo("AUTHENTICATION_CANCELLED");
+            assertThat(
+                            misconfigured.getAttribute(
+                                    AuthenticationProblemEntryPoint.ERROR_CODE_ATTRIBUTE))
+                    .isEqualTo("AUTHENTICATION_FAILED");
+            // A visitor cancelling is not an operational warning; a failed exchange is.
+            assertThat(failures.list).hasSize(2);
+            assertThat(failures.list).allMatch(event -> event.getLevel() == Level.WARN);
+            assertThat(failures.list.get(0).getFormattedMessage()).contains("invalid_client");
+            assertThat(failures.list.get(1).getFormattedMessage()).contains("oauth2_error=other");
+            assertThat(failures.list)
+                    .allSatisfy(
+                            event ->
+                                    assertThat(
+                                                    event.getFormattedMessage()
+                                                            + event.getKeyValuePairs())
+                                            .doesNotContain(
+                                                    "private-secret",
+                                                    "identity.example",
+                                                    "provider_supplied_private_text"));
+        } finally {
+            ((Logger) LoggerFactory.getLogger(RatingIntentAuthenticationFailureHandler.class))
+                    .detachAppender(failures);
+        }
+    }
+
+    private static ListAppender<ILoggingEvent> captureFailureLogs() {
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        ((Logger) LoggerFactory.getLogger(RatingIntentAuthenticationFailureHandler.class))
+                .addAppender(appender);
+        return appender;
     }
 
     private static OAuth2AuthenticationToken authentication() {

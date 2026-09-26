@@ -17,6 +17,9 @@ import tools.jackson.databind.ObjectMapper;
 /** Returns the contract Problem instead of redirecting unauthenticated API fetches. */
 @Component
 public final class AuthenticationProblemEntryPoint implements AuthenticationEntryPoint {
+    // Read by the platform request-completion event; the name is shared by literal convention.
+    static final String ERROR_CODE_ATTRIBUTE = "com.videogameplatform.observability.error-code";
+
     private final ObjectMapper objectMapper;
 
     public AuthenticationProblemEntryPoint(ObjectMapper objectMapper) {
@@ -30,6 +33,7 @@ public final class AuthenticationProblemEntryPoint implements AuthenticationEntr
             AuthenticationException exception)
             throws IOException {
         String correlationId = correlationId();
+        request.setAttribute(ERROR_CODE_ATTRIBUTE, "AUTHENTICATION_REQUIRED");
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "urn:videogame-platform:problem:authentication-required");
         body.put("title", "Authentication is required");

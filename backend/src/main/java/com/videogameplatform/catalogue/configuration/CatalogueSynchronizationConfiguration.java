@@ -1,5 +1,6 @@
 package com.videogameplatform.catalogue.configuration;
 
+import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationLog;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.operator.CatalogueSynchronizationEndpoint;
 import com.videogameplatform.catalogue.adapter.persistence.synchronization.JdbcCatalogueSynchronizationStore;
@@ -12,6 +13,7 @@ import com.videogameplatform.catalogue.application.synchronization.internal.Cove
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationProgress;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.net.http.HttpClient;
 import java.time.Clock;
@@ -49,6 +51,11 @@ class CatalogueSynchronizationConfiguration {
     @Bean
     CatalogueSynchronizationMetrics catalogueSynchronizationMetrics(MeterRegistry registry) {
         return new CatalogueSynchronizationMetrics(registry);
+    }
+
+    @Bean
+    SynchronizationProgress catalogueSynchronizationLog() {
+        return new CatalogueSynchronizationLog();
     }
 
     @Bean
@@ -127,8 +134,10 @@ class CatalogueSynchronizationConfiguration {
             CatalogueProviderPort provider,
             Clock clock,
             SynchronizationPolicy policy,
-            CoverSelectionPolicy coverPolicy) {
-        return new CatalogueSynchronizationService(store, provider, clock, policy, coverPolicy);
+            CoverSelectionPolicy coverPolicy,
+            SynchronizationProgress progress) {
+        return new CatalogueSynchronizationService(
+                store, provider, clock, policy, coverPolicy, progress);
     }
 
     @Bean

@@ -144,7 +144,10 @@ class BackendStartupTest {
         assertThat(response.statusCode()).isEqualTo(404);
         assertThat(response.headers().firstValue("X-Correlation-ID")).contains(correlationId);
         var accessLog = structuredAccessLog(output, correlationId);
-        assertThat(accessLog.path("message").stringValue()).isEqualTo("HTTP request completed");
+        assertThat(accessLog.path("message").stringValue())
+                .startsWith("HTTP request completed")
+                .contains("GET /** status=404 outcome=CLIENT_ERROR");
+        assertThat(accessLog.path("log").path("level").stringValue()).isEqualTo("INFO");
         assertThat(accessLog.path("correlationId").stringValue()).isEqualTo(correlationId);
         assertThat(accessLog.path("traceId").stringValue()).isEqualTo(TRACE_ID);
         assertThat(accessLog.path("spanId").stringValue()).matches("[0-9a-f]{16}");
@@ -191,7 +194,7 @@ class BackendStartupTest {
         String logLine =
                 output.getAll()
                         .lines()
-                        .filter(line -> line.contains("\"message\":\"HTTP request completed\""))
+                        .filter(line -> line.contains("\"message\":\"HTTP request completed"))
                         .filter(
                                 line ->
                                         line.contains(

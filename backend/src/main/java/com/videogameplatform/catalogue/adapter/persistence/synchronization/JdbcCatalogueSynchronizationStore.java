@@ -8,6 +8,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
+import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
@@ -101,7 +102,8 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                         Map.of("id", runId, "provider", provider),
                         (rs, row) -> rs.getObject(1, UUID.class));
         if (rows.isEmpty()) {
-            throw new SynchronizationWriteException("Synchronization ownership expired");
+            throw new SynchronizationWriteException(
+                    SynchronizationWriteException.Reason.OWNERSHIP_LOST);
         }
         jdbc.update(
                 "UPDATE catalogue.synchronization_run SET heartbeat_at=CURRENT_TIMESTAMP WHERE run_id=:id",
@@ -194,7 +196,9 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                                                     rs.getString(
                                                                             "review_status")))));
                     if (rows.size() > maxReleases) {
-                        throw new SynchronizationWriteException("Game exceeds release bound");
+                        throw new SynchronizationWriteException(
+                                SynchronizationWriteException.Reason.RELEASE_BOUND_EXCEEDED,
+                                SynchronizedGameIdentity.published(g.gameId(), g.slug()));
                     }
                     Map<String, PublishedRelease> releases = new LinkedHashMap<>();
                     rows.forEach(e -> releases.put(e.getKey(), e.getValue()));
@@ -213,7 +217,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
         try {
             return transaction.execute(status -> save(runId, write));
         } catch (DataAccessException | TransactionException failure) {
-            throw new SynchronizationWriteException(failure);
+            throw SynchronizationWriteFailures.classify(failure);
         }
     }
 

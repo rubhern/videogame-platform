@@ -40,6 +40,8 @@ public final class CsrfProblemAccessDeniedHandler implements AccessDeniedHandler
         }
 
         String correlationId = correlationId();
+        request.setAttribute(
+                AuthenticationProblemEntryPoint.ERROR_CODE_ATTRIBUTE, "CSRF_VALIDATION_FAILED");
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("type", "urn:videogame-platform:problem:csrf-validation-failed");
         body.put("title", "CSRF validation failed");
