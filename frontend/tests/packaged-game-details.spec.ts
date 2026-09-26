@@ -1,5 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+
+import { analyzeAccessibility } from "./fixtures/accessibility";
 import { gameDetailsFixture } from "../src/test/game-details-fixture";
 
 const gamePath =
@@ -27,7 +28,7 @@ test("public game details follow a real search result through the packaged API a
   await expect(page.getByRole("button", { name: "8", exact: true })).toBeEnabled();
   await expect(page.getByText("Disponible para puntuar")).toHaveCount(0);
   await expect(page.getByText("Sin nota todavía")).toBeVisible();
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
   await page.reload();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Resident Evil Requiem",
@@ -125,7 +126,7 @@ for (const state of [
               ? "No se pudo cargar el juego"
               : game.canonicalTitle,
     );
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
     expect(
       await page.evaluate(
         () =>
@@ -200,7 +201,7 @@ for (const width of [390, 834, 1320]) {
     await expect(page.getByRole("table")).toHaveCount(0);
     await expect(page.getByText("Lanzamientos y evidencia")).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -214,13 +215,25 @@ for (const width of [390, 834, 1320]) {
         throw new Error("Detail composition must be visible");
       expect(cover.width).toBeGreaterThan(350);
       expect(cover.x).toBeLessThan(title.x);
-      expect(score.y).toBeGreaterThan(cover.y + cover.height);
+      // Both scores open the page beside the cover, under the title, within the cover's height.
+      expect(score.x).toBeGreaterThan(cover.x + cover.width);
+      expect(score.y).toBeGreaterThan(title.y + title.height);
+      expect(score.y).toBeLessThan(cover.y + cover.height);
     }
     if (width === 390) {
-      const selectors = await page.locator(".game-context-selectors").boundingBox();
       const cover = await page.locator(".game-artwork").boundingBox();
-      if (!selectors || !cover) throw new Error("Mobile context must be visible");
-      expect(selectors.y).toBeLessThan(cover.y);
+      const title = await page.getByRole("heading", { level: 1 }).boundingBox();
+      const score = await page.locator(".game-community-score").boundingBox();
+      const context = await page.locator(".game-release-context").boundingBox();
+      const selectors = await page.locator(".game-context-selectors").boundingBox();
+      if (!cover || !title || !score || !context || !selectors)
+        throw new Error("Mobile context must be visible");
+      // Cover, title and the game-level scores come first; the selectors sit inside the release
+      // context they drive, after the scores they never change.
+      expect(title.y).toBeGreaterThan(cover.y);
+      expect(score.y).toBeGreaterThan(title.y);
+      expect(context.y).toBeGreaterThan(score.y);
+      expect(selectors.y).toBeGreaterThan(context.y);
     }
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({

@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { analyzeAccessibility } from "./fixtures/accessibility";
 import type { GameSearchPage } from "../src/features/search/game-search-api";
 import { gameDetailsFixture } from "../src/test/game-details-fixture";
 import { releasePage } from "./fixtures/releases";
@@ -97,7 +97,7 @@ for (const width of [1320, 390]) {
     expect(Math.abs((popup?.width ?? 0) - (control?.width ?? 0))).toBeLessThanOrEqual(1);
     expect((popup?.y ?? 0) - ((control?.y ?? 0) + (control?.height ?? 0))).toBeGreaterThanOrEqual(0);
 
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
 
     // Escape closes only the popup, even inside the phone search dialog.
     await page.keyboard.press("Escape");

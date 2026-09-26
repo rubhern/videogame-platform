@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { analyzeAccessibility } from "./fixtures/accessibility";
 import type { ReleasePage } from "../src/features/releases/releases-api";
 
 const igdbHosts = new Set(["api.igdb.com", "igdb.com", "images.igdb.com", "www.igdb.com"]);
@@ -28,7 +28,7 @@ function releaseCard(page: Page, title: string) {
 }
 
 async function expectNoAccessibilityViolations(page: Page) {
-  const results = await new AxeBuilder({ page }).analyze();
+  const results = await analyzeAccessibility(page);
   expect(results.violations).toEqual([]);
 }
 

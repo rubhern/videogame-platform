@@ -10,6 +10,8 @@ describe("taxonomy icons", () => {
     expect(platformIcon("mac-id", "Mac")).toBe("macos");
     expect(platformIcon("macos-id", "macOS")).toBe("macos");
     expect(platformIcon("meta-quest-id", "Meta Quest")).toBe("meta-quest");
+    expect(platformIcon("meta-quest-2-id", "Meta Quest 2")).toBe("meta-quest");
+    expect(platformIcon("meta-quest-3-id", "Meta Quest 3")).toBe("meta-quest");
     expect(platformIcon("switch-id", "Nintendo Switch")).toBe("nintendo-switch");
     expect(platformIcon("ps4-id", "PlayStation 4")).toBe("playstation-4");
     expect(platformIcon("ps5-id", "PlayStation 5")).toBe("playstation-5");

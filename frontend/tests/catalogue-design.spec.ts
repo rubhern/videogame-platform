@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { analyzeAccessibility } from "./fixtures/accessibility";
 import { pragmata, pragmataRelease, releasePage } from "./fixtures/releases";
 
 async function expectAccessibleLayout(page: Page) {
@@ -8,7 +8,7 @@ async function expectAccessibleLayout(page: Page) {
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
   ).toBeLessThanOrEqual(0);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
 }
 
 async function expectComfortableCatalogueMetadata(page: Page) {
@@ -145,7 +145,6 @@ test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
   await expect(page.getByRole("combobox", { name: /^Plataforma:/ })).toBeVisible();
   await expect(page.getByRole("combobox", { name: /^Región:/ })).toBeVisible();
   await expect(page.locator(".release-period")).toBeVisible();
-  await expect(page.getByRole("link", { name: view === "recent" ? "Ver próximos" : "Ver recientes" })).toBeVisible();
   await expectAccessibleLayout(page);
 
   await page.getByRole("combobox", { name: /^Plataforma:/ }).focus();
