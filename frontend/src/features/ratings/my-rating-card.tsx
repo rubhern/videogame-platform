@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { AppSelect } from "../../shared/ui/app-select";
@@ -40,11 +40,14 @@ export function MyRatingCard({ item, csrfToken, onChanged }: {
     setEditing(false);
     editButton.current?.focus();
   }
-  return <article className="my-rating-card" aria-labelledby={id} aria-busy={command.isPending}>
+  // The row reads left to right: the game, then the personal score it exists for, then its
+  // maintenance actions. The edit form and any outcome open beneath them.
+  // The row is washed by its own cover's light.
+  const coverLight = { "--cover-art": `url(${JSON.stringify(game.primaryCover.url)})` } as CSSProperties;
+  return <article className="my-rating-card" aria-labelledby={id} aria-busy={command.isPending} style={coverLight}>
     <CatalogueCover cover={cover} to={path} />
     <div className="my-rating-body">
       <h2 className="card-title" id={id}>{game.canonicalTitle}</h2>
-      <p className="my-rating-value">Tu puntuación: <strong>{personalRating.value}/10</strong></p>
       <dl className="my-rating-dates">
         <div><dt>Puntuado</dt><dd><time dateTime={personalRating.createdAt}>{formatTimestamp(personalRating.createdAt)}</time></dd></div>
         <div><dt>Actualizado</dt><dd><time dateTime={personalRating.updatedAt}>{formatTimestamp(personalRating.updatedAt)}</time></dd></div>
@@ -53,49 +56,50 @@ export function MyRatingCard({ item, csrfToken, onChanged }: {
         <span className="sr-only">Ver ficha de {game.canonicalTitle}</span>
         <span aria-hidden="true">Ver ficha →</span>
       </Link>
-      {editing ? <form className="my-rating-edit" onSubmit={(event) => {
-        event.preventDefault();
-        if (command.isPending || mustRefresh) return;
-        setFailure(null);
-        command.mutate({ type: "save", value: selected, csrfToken, currentRating: personalRating }, {
-          onSuccess: () => { finishEditing(); onChanged(`Puntuación de ${game.canonicalTitle} guardada.`); },
-          onError: setFailure,
-        });
-      }}>
-        <AppSelect
-          autoFocus
-          className="my-rating-score-select"
-          disabled={command.isPending || mustRefresh}
-          icon="rating"
-          label="Nueva puntuación"
-          onChange={(value) => setSelected(Number(value))}
-          options={Array.from({ length: 10 }, (_, index) => ({
-            value: String(index + 1), label: `${index + 1}/10`,
-          }))}
-          value={String(selected)}
-        />
-        <button className="button button-primary" disabled={command.isPending || mustRefresh}>Guardar cambios</button>
-        <button className="button" type="button" disabled={command.isPending} onClick={finishEditing}>Cancelar</button>
-      </form> : null}
-      <div className="my-rating-actions">
-        <button className="button" ref={editButton} type="button" disabled={command.isPending || mustRefresh}
-          aria-expanded={editing} onClick={() => { setSelected(personalRating.value); setEditing(true); }}>
-          Editar puntuación
-        </button>
-        <button className="button rating-remove" type="button" disabled={command.isPending || mustRefresh}
-          onClick={() => {
-            setFailure(null);
-            command.mutate({ type: "delete", csrfToken, currentRating: personalRating }, {
-              onSuccess: () => onChanged(`Puntuación de ${game.canonicalTitle} eliminada.`),
-              onError: setFailure,
-            });
-          }}>Eliminar puntuación</button>
-      </div>
-      {command.isPending ? <p role="status">Guardando cambio…</p> : null}
-      {failure ? <div className="game-rating-feedback game-rating-feedback-error" role="alert">
-        <p>{failures[failure.kind]}</p>
-        {failure.correlationId ? <p>Referencia: {failure.correlationId}</p> : null}
-      </div> : null}
     </div>
+    <p className="my-rating-value"><span>Tu puntuación </span><strong>{personalRating.value}/10</strong></p>
+    <div className="my-rating-actions">
+      <button className="button" ref={editButton} type="button" disabled={command.isPending || mustRefresh}
+        aria-expanded={editing} onClick={() => { setSelected(personalRating.value); setEditing(true); }}>
+        Editar puntuación
+      </button>
+      <button className="button rating-remove" type="button" disabled={command.isPending || mustRefresh}
+        onClick={() => {
+          setFailure(null);
+          command.mutate({ type: "delete", csrfToken, currentRating: personalRating }, {
+            onSuccess: () => onChanged(`Puntuación de ${game.canonicalTitle} eliminada.`),
+            onError: setFailure,
+          });
+        }}>Eliminar puntuación</button>
+    </div>
+    {editing ? <form className="my-rating-edit" onSubmit={(event) => {
+      event.preventDefault();
+      if (command.isPending || mustRefresh) return;
+      setFailure(null);
+      command.mutate({ type: "save", value: selected, csrfToken, currentRating: personalRating }, {
+        onSuccess: () => { finishEditing(); onChanged(`Puntuación de ${game.canonicalTitle} guardada.`); },
+        onError: setFailure,
+      });
+    }}>
+      <AppSelect
+        autoFocus
+        className="my-rating-score-select"
+        disabled={command.isPending || mustRefresh}
+        icon="rating"
+        label="Nueva puntuación"
+        onChange={(value) => setSelected(Number(value))}
+        options={Array.from({ length: 10 }, (_, index) => ({
+          value: String(index + 1), label: `${index + 1}/10`,
+        }))}
+        value={String(selected)}
+      />
+      <button className="button button-primary" disabled={command.isPending || mustRefresh}>Guardar cambios</button>
+      <button className="button" type="button" disabled={command.isPending} onClick={finishEditing}>Cancelar</button>
+    </form> : null}
+    {command.isPending ? <p className="my-rating-pending" role="status">Guardando cambio…</p> : null}
+    {failure ? <div className="game-rating-feedback game-rating-feedback-error my-rating-feedback" role="alert">
+      <p>{failures[failure.kind]}</p>
+      {failure.correlationId ? <p className="game-rating-footnote">Referencia: {failure.correlationId}</p> : null}
+    </div> : null}
   </article>;
 }

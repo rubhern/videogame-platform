@@ -1,131 +1,655 @@
+/* The public game page: a premium game hub built only from the contract's data. The stage is lit
+   by the game's own cover (cinema.css); the cover, title and both scores open the page, and the
+   release context follows with the selectors that drive it. */
+
 @layer components {
   .game-details-section {
-    padding-block: 28px 48px;
-    background: radial-gradient(
-      ellipse at 75% 0%,
-      color-mix(in srgb, var(--color-accent) 7%, transparent),
-      transparent 55%
-    );
+    padding-block: 20px 64px;
   }
 
+  /* Phones: cover, title, both scores, then the release context. From tablet the cover stands
+     beside the title and scores, and the context spans the page below them. */
   .game-detail-layout {
-    position: relative;
     display: grid;
-    isolation: isolate;
-    grid-template-areas: "heading" "selectors" "artwork" "information" "rating";
-    gap: 20px;
-  }
-
-  /* Blurred, heavily dimmed wash of this game's own cover. It is decorative only: every
-     readable surface below keeps its own opaque background. */
-  .game-hero-ambience {
-    position: absolute;
-    z-index: -1;
-    inset: -96px -12px auto;
-    height: 420px;
-    opacity: 0.3;
-    pointer-events: none;
-    background-image: var(--hero-art);
-    background-position: center 22%;
-    background-size: cover;
-    filter: blur(58px) saturate(130%);
-    mask-image: radial-gradient(78% 104% at 50% 4%, #000 8%, transparent 68%);
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .game-hero-ambience {
-      animation: fade-in 700ms var(--ease-out) both;
-    }
+    grid-template-areas: "art" "heading" "scores" "main";
+    grid-template-columns: minmax(0, 1fr);
+    gap: 26px;
   }
 
   .game-detail-layout > * {
     min-width: 0;
   }
+
   .game-detail-heading {
     grid-area: heading;
-  }
-  .game-artwork {
-    grid-area: artwork;
-    width: 100%;
-    max-width: 420px;
-    justify-self: center;
-  }
-  .game-rating-row {
-    grid-area: rating;
-    display: grid;
-    gap: 20px;
-  }
-  .game-context-selectors {
-    grid-area: selectors;
-  }
-  .game-information-panel {
-    grid-area: information;
+    text-align: center;
   }
 
+  .game-detail-heading .eyebrow-dot {
+    justify-content: center;
+  }
+
+  .game-artwork {
+    position: relative;
+    grid-area: art;
+    width: min(64vw, 270px);
+    justify-self: center;
+  }
+
+  .game-scores {
+    display: grid;
+    grid-area: scores;
+    gap: 14px;
+  }
+
+  .game-detail-main {
+    display: grid;
+    grid-area: main;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 18px;
+  }
+
+  /* ---------------------------------------------------------------- Title */
+
   .game-detail-title {
-    margin: 0;
-    font-family: var(--font-sans);
-    font-size: clamp(2.5rem, 4.5vw, 4rem);
-    font-weight: 600;
-    line-height: 1.05;
-    letter-spacing: -0.025em;
+    margin: 14px 0 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.4rem, 6.4vw, 5.75rem);
+    font-stretch: 112%;
+    font-weight: 850;
+    line-height: 0.92;
+    letter-spacing: -0.045em;
+    text-shadow:
+      0 4px 40px color-mix(in srgb, var(--color-canvas) 75%, transparent),
+      0 0 80px color-mix(in srgb, var(--color-accent) 20%, transparent);
     text-wrap: balance;
   }
 
+  .game-detail-title-long {
+    font-size: clamp(2rem, 4.3vw, 3.75rem);
+    line-height: 0.96;
+  }
+
   .game-detail-aliases {
-    margin: 12px 0 0;
+    margin: 16px 0 0;
     color: var(--color-muted);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     line-height: 1.5;
   }
 
+  .game-detail-aliases span {
+    color: var(--color-accent-hover);
+    font-family: var(--font-serif);
+    font-size: 1.35em;
+    font-style: italic;
+  }
+
+  /* ---------------------------------------------------------------- Cover */
+
+  /* The cover casts its own light: a blurred copy glows beneath it. */
+  .game-artwork::before {
+    position: absolute;
+    z-index: -1;
+    top: 6%;
+    right: 4%;
+    left: 4%;
+    aspect-ratio: var(--cover-aspect);
+    border-radius: 28%;
+    background: var(--cover-art) center / cover no-repeat;
+    content: "";
+    filter: blur(36px) saturate(1.8);
+    opacity: 0.85;
+    transform: translateY(24px) scale(1.02);
+  }
+
   .game-artwork .cover-link {
-    border: 1px solid
-      color-mix(in srgb, var(--color-accent) 45%, var(--color-line));
-    border-radius: 16px;
+    border-radius: 18px;
     box-shadow:
-      0 30px 70px -30px #000,
-      0 0 46px -22px color-mix(in srgb, var(--color-accent) 85%, transparent);
+      0 0 0 1px color-mix(in srgb, var(--color-ink) 16%, transparent),
+      0 60px 90px -44px #000,
+      0 0 70px -24px color-mix(in srgb, var(--color-accent) 70%, transparent);
+    transform: perspective(1100px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+  }
+
+  /* The vignette doubles as the glare that follows a pointer across the cover. */
+  .game-artwork .cover-link::after {
+    background:
+      radial-gradient(
+        circle at var(--glare-x, 50%) var(--glare-y, 0%),
+        rgb(255 255 255 / var(--glare, 0)),
+        transparent 55%
+      ),
+      radial-gradient(
+        124% 96% at 50% 44%,
+        transparent 62%,
+        color-mix(in srgb, #05080b 34%, transparent)
+      );
+  }
+
+  .game-artwork:hover {
+    --glare: 0.2;
   }
 
   /* The detail frame is far wider than any provider cover size, so this is the one place
      that earns a real sharpening pass on top of the shared micro-contrast lift. */
   .game-artwork .catalogue-cover {
-    border-radius: 15px;
-    filter: saturate(1.06) contrast(1.03) url("#cover-unsharp");
+    border-radius: 18px;
+    filter: saturate(1.08) contrast(1.04) url("#cover-unsharp");
   }
 
   .game-artwork .cover-caption {
+    margin-top: 10px;
+    text-align: center;
+  }
+
+  /* ---------------------------------------------------------------- Shared glass panels */
+
+  .game-community-score,
+  .game-personal-rating,
+  .game-release-context,
+  .game-compact-summary {
+    position: relative;
+    isolation: isolate;
+    border: 1px solid var(--glass-border);
+    border-radius: 26px;
+    background: var(--glass);
+    box-shadow: var(--glass-highlight), var(--elevation-lift);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  .game-community-score::before,
+  .game-personal-rating::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse at 10% -30%,
+        color-mix(in srgb, var(--color-accent) 22%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse at 100% 130%,
+        color-mix(in srgb, var(--color-aurora) 16%, transparent),
+        transparent 55%
+      );
+    content: "";
+  }
+
+  /* Opacity-only entrance: the measured composition is never caught mid-transform. */
+  @media (prefers-reduced-motion: no-preference) {
+    .game-detail-heading,
+    .game-artwork,
+    .game-scores > *,
+    .game-detail-main > * {
+      animation: fade-in 620ms var(--ease-out) both;
+    }
+
+    .game-artwork {
+      animation-delay: 60ms;
+    }
+    .game-scores > * {
+      animation-delay: 160ms;
+    }
+    .game-scores > :nth-child(2) {
+      animation-delay: 240ms;
+    }
+    .game-detail-main > * {
+      animation-delay: 320ms;
+    }
+
+    .game-artwork .cover-link {
+      transition:
+        transform 600ms var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out);
+    }
+  }
+
+  /* The pointer tilt is a flourish for a mouse; everything else keeps the cover still. */
+  @media (prefers-reduced-motion: reduce), (hover: none) {
+    .game-artwork .cover-link {
+      transform: none;
+    }
+
+    .game-artwork:hover {
+      --glare: 0;
+    }
+  }
+
+  /* ---------------------------------------------------------------- Community dial */
+
+  .game-community-score {
+    display: grid;
+    grid-template-areas: "dial label" "dial detail";
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    column-gap: 20px;
+    row-gap: 6px;
+    overflow: hidden;
+    padding: 18px 22px 18px 18px;
+    text-align: left;
+  }
+
+  .score-dial {
+    width: 118px;
+    height: 118px;
+    grid-area: dial;
+    transform: rotate(-90deg);
+  }
+
+  .score-dial-track {
+    fill: none;
+    stroke: color-mix(in srgb, var(--color-ink) 12%, transparent);
+    stroke-width: 6;
+  }
+
+  .game-community-score-empty .score-dial-track {
+    stroke-dasharray: 2.6 6.4;
+  }
+
+  .score-dial-value {
+    fill: none;
+    stroke-linecap: round;
+    stroke-width: 7;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-accent) 90%, transparent));
+  }
+
+  .score-dial-stop-start {
+    stop-color: #e6ecff;
+  }
+
+  .score-dial-stop-middle {
+    stop-color: var(--color-accent);
+  }
+
+  .score-dial-stop-end {
+    stop-color: var(--color-aurora);
+  }
+
+  .game-score-label {
+    display: flex;
+    grid-area: label;
+    align-items: center;
+    align-self: end;
+    gap: 8px;
+    margin: 0;
+    color: var(--color-accent-hover);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .game-score-star {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    color: var(--color-accent);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 80%, transparent));
+  }
+
+  /* Solid ink keeps the headline score's contrast deterministic; the glow supplies the lift. */
+  .game-score-value {
+    display: grid;
+    grid-area: dial;
+    place-self: center;
+    justify-items: center;
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    font-stretch: 106%;
+    font-weight: 850;
+    line-height: 1;
+    letter-spacing: -0.04em;
+    text-shadow: 0 0 30px color-mix(in srgb, var(--color-accent) 55%, transparent);
+  }
+
+  .game-score-value span {
+    margin-top: 4px;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-shadow: none;
+  }
+
+  .game-score-placeholder {
+    grid-area: dial;
+    place-self: center;
+    color: var(--color-subtle);
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 700;
+  }
+
+  .game-score-detail {
+    grid-area: detail;
+    align-self: start;
+  }
+
+  .game-score-empty {
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-stretch: 106%;
+    font-weight: 750;
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+  }
+
+  .game-score-description {
+    margin: 4px 0 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  /* ---------------------------------------------------------------- Personal keypad */
+
+  /* The panel sizes its own scale: a keypad of two rows of five, or one row of ten once the
+     panel is wide enough to keep every target at least 44px. */
+  .game-personal-rating {
+    display: grid;
+    align-content: start;
+    gap: 18px;
+    padding: 20px 22px 22px;
+    container-type: inline-size;
+    text-align: left;
+  }
+
+  .game-rating-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .game-rating-star {
+    width: 28px;
+    height: 28px;
+    flex: none;
+    margin-top: 2px;
+    color: var(--color-accent);
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 70%, transparent));
+  }
+
+  .game-rating-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-stretch: 108%;
+    font-weight: 750;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .game-rating-subtitle {
+    margin: 4px 0 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .game-rating-notice {
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+    border-radius: 14px;
+    padding: 10px 14px;
+    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .rating-scale {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    justify-items: center;
+    gap: 10px 8px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  @container (min-width: 520px) {
+    .rating-scale {
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 6px;
+    }
+  }
+
+  .rating-option {
+    display: grid;
+    width: 100%;
+    min-width: 44px;
+    max-width: 52px;
+    aspect-ratio: 1;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    color: var(--color-ink);
+    background:
+      radial-gradient(
+        circle at 35% 28%,
+        color-mix(in srgb, var(--color-ink) 12%, transparent),
+        transparent 70%
+      ),
+      color-mix(in srgb, var(--color-surface) 80%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-ink) 12%, transparent);
+    font: inherit;
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+  }
+
+  .rating-option:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-accent) 80%, transparent);
+    background:
+      radial-gradient(
+        circle at 35% 28%,
+        color-mix(in srgb, var(--color-accent) 30%, transparent),
+        transparent 72%
+      ),
+      color-mix(in srgb, var(--color-surface) 80%, transparent);
+    box-shadow: var(--glow-accent);
+  }
+
+  /* Values below the current rating stay faintly lit, so the scale reads as a gauge; the rating
+     itself is the one pressed orb, marked by its ring and glow as well as its fill. */
+  .rating-option:has(~ .rating-option[aria-pressed="true"]) {
+    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+    color: var(--color-ink);
+    background:
+      radial-gradient(
+        circle at 35% 28%,
+        color-mix(in srgb, var(--color-accent) 34%, transparent),
+        transparent 72%
+      ),
+      color-mix(in srgb, var(--color-accent) 22%, var(--color-surface));
+  }
+
+  .rating-option[aria-pressed="true"] {
+    border-color: transparent;
+    color: #0b0f1a;
+    background: var(--aurora);
+    box-shadow:
+      0 0 0 3px var(--color-canvas),
+      0 0 0 5px var(--color-accent),
+      0 0 34px color-mix(in srgb, var(--color-accent) 80%, transparent);
+    font-weight: 850;
+  }
+
+  .rating-option:focus-visible {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 4px;
+  }
+
+  .rating-option:disabled {
+    border-style: dashed;
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* One short pop confirms the value that was just saved. */
+  @media (prefers-reduced-motion: no-preference) {
+    .rating-option {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+
+    .rating-option:hover:not(:disabled) {
+      transform: translateY(-2px);
+    }
+
+    .rating-option:active:not(:disabled) {
+      transform: scale(0.92);
+    }
+
+    .rating-option[aria-pressed="true"] {
+      animation: rating-pressed 460ms var(--ease-pop);
+    }
+  }
+
+  .game-rating-feedback {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  }
+
+  .game-rating-feedback p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .game-rating-feedback-error {
+    border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  }
+
+  .game-rating-footnote {
+    color: var(--color-muted);
+    font-family: var(--font-mono);
     font-size: 0.6875rem;
   }
+
+  .game-rating-actions {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+  }
+
+  .rating-remove {
+    min-height: 40px;
+    padding-block: 8px;
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+
+  .rating-remove:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-danger) 70%, transparent);
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+    box-shadow: none;
+  }
+
+  /* ---------------------------------------------------------------- Release context */
+
+  /* One shrinkable column: a swipeable rail inside must never widen the panel. */
+  .game-release-context {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+    padding: 22px;
+    text-align: left;
+  }
+
+  .game-context-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+  }
+
+  .game-panel-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.375rem;
+    font-stretch: 108%;
+    font-weight: 750;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .game-context-announcement {
+    margin: 0;
+    color: var(--color-accent-hover);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
   .game-context-selectors {
     display: flex;
+    min-width: 0;
     flex-wrap: wrap;
-    gap: 18px 24px;
     align-content: start;
+    gap: 16px 30px;
   }
+
   .game-context-selectors fieldset {
     min-width: 0;
     margin: 0;
     padding: 0;
     border: 0;
   }
+
+  /* Legends share the filter-label voice used by the catalogue and personal selectors. */
   .game-context-selectors legend {
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     color: var(--color-muted);
-    font-size: 0.8125rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.45;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
   }
+
   .game-context-options {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
+
   .game-context-option {
     position: relative;
     display: block;
     min-width: 0;
     cursor: pointer;
   }
+
   .game-context-option input {
     position: absolute;
     top: 50%;
@@ -135,574 +659,520 @@
     margin: -7px 0 0;
     accent-color: var(--color-accent);
   }
-  .game-context-option span {
+
+  .game-context-option > span {
     display: flex;
+    min-height: 44px;
     align-items: center;
-    min-height: 46px;
-    border: 1px solid var(--color-line);
-    border-radius: 18px;
-    padding: 10px 15px 10px 36px;
+    gap: 8px;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 8px 16px 8px 36px;
     color: var(--color-muted);
-    background: var(--color-surface);
+    background: color-mix(in srgb, var(--color-ink) 5%, transparent);
     font-size: 0.8125rem;
+    font-weight: 600;
     overflow-wrap: anywhere;
   }
-  .game-context-option input:checked + span {
-    border-color: var(--color-accent);
-    background: color-mix(
-      in srgb,
-      var(--color-accent) 12%,
-      var(--color-surface)
-    );
-    color: var(--color-ink);
-    box-shadow: inset 0 0 0 1px
-      color-mix(in srgb, var(--color-accent) 25%, transparent);
-    font-weight: 600;
+
+  .game-context-option .app-select-icon {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    color: var(--color-accent-hover);
   }
+
+  .game-context-option .app-select-icon-playstation-5,
+  .game-context-option .app-select-icon-playstation-4 {
+    width: 36px;
+    height: 11px;
+  }
+
+  .game-context-option .app-select-icon-xbox-series-x-s,
+  .game-context-option .app-select-icon-nintendo-switch-2 {
+    width: 26px;
+    height: 13px;
+  }
+
+  .game-context-option input:checked + span {
+    border-color: color-mix(in srgb, var(--color-accent) 80%, transparent);
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #fff 14%, transparent),
+      0 10px 28px -14px color-mix(in srgb, var(--color-accent) 100%, transparent);
+  }
+
   .game-context-option input:focus-visible {
     outline: none;
   }
+
   .game-context-option input:focus-visible + span {
     outline: 2px solid var(--color-accent);
     outline-offset: 3px;
   }
-  .game-context-option:hover span {
-    border-color: var(--color-accent);
+
+  .game-context-option:hover > span {
+    border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
+    color: var(--color-ink);
   }
 
-  .game-information-panel,
-  .game-community-score,
-  .game-personal-rating {
-    border: 1px solid var(--color-line);
-    border-radius: 16px;
-    background: linear-gradient(
-      135deg,
-      var(--color-surface),
-      color-mix(in srgb, var(--color-raised) 45%, var(--color-surface))
-    );
-    box-shadow: var(--elevation-rest);
-  }
-
-  /* Opacity-only entrance: the detail composition must never be measured mid-transform. */
   @media (prefers-reduced-motion: no-preference) {
-    .game-detail-heading,
-    .game-artwork,
-    .game-context-selectors,
-    .game-information-panel,
-    .game-rating-row > * {
-      animation: fade-in 360ms var(--ease-out) both;
+    .game-context-option > span {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out);
     }
+  }
 
-    .game-artwork {
-      animation-delay: 40ms;
-    }
-    .game-context-selectors {
-      animation-delay: 70ms;
-    }
-    .game-information-panel {
-      animation-delay: 100ms;
-    }
-    .game-rating-row > * {
-      animation-delay: 130ms;
-    }
-  }
-  .game-information-panel {
+  .game-release-records {
     display: grid;
-    gap: 24px;
-    padding: 22px;
-    align-content: start;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+    gap: 14px;
   }
-  .game-panel-title {
-    margin: 0;
-    font-size: 1.125rem;
-    font-weight: 600;
-    line-height: 1.3;
+
+  /* Each record is its own card: its date and status lead, and the provenance and freshness
+     evidence follows as a quieter grid. Records are never merged. */
+  .game-release-record {
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 18px;
+    background: linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--color-ink) 6%, transparent),
+      color-mix(in srgb, var(--color-ink) 1%, transparent)
+    );
+    container-type: inline-size;
   }
-  .game-context-announcement {
-    margin: 7px 0 18px;
-    color: var(--color-accent);
-    font-size: 0.75rem;
-    line-height: 1.5;
-  }
-  .game-release-record + .game-release-record {
-    margin-top: 18px;
-    border-top: 1px solid var(--color-line);
-    padding-top: 18px;
-  }
+
   .game-release-record h3 {
     margin: 0 0 12px;
-    font-size: 0.8125rem;
+    color: var(--color-accent-hover);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.45;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
   }
+
   .game-release-metadata {
     display: grid;
-    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 18px;
     margin: 0;
   }
+
   .game-release-metadata > div {
     display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.4fr);
-    gap: 12px;
+    align-content: start;
+    gap: 3px;
   }
+
   .game-release-metadata dt,
   .game-release-metadata dd {
     margin: 0;
-    font-size: 0.8125rem;
-    line-height: 1.5;
     overflow-wrap: anywhere;
   }
+
   .game-release-metadata dt {
-    color: var(--color-muted);
-  }
-  .game-release-metadata dd {
-    color: var(--color-ink);
-  }
-  .game-release-metadata .game-release-date {
-    font-weight: 600;
-  }
-  .game-release-metadata .game-warning {
-    color: var(--color-warning);
-  }
-  .game-compact-summary {
-    min-width: 0;
-    border-top: 1px solid var(--color-line);
-    padding-top: 22px;
-  }
-  .game-summary-text {
-    margin: 12px 0 0;
-    color: var(--color-muted);
-    font-size: 0.9375rem;
-    line-height: 1.65;
-    white-space: pre-line;
-  }
-  .game-summary-source {
-    margin: 16px 0 0;
-    color: var(--color-accent);
-    font-size: 0.75rem;
-    line-height: 1.5;
-  }
-
-  .game-community-score,
-  .game-personal-rating {
-    position: relative;
-    overflow: hidden;
-    border-color: color-mix(in srgb, var(--color-accent) 32%, var(--color-line));
-    border-radius: 18px;
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--color-accent) 8%, transparent),
-      0 28px 60px -34px color-mix(in srgb, var(--color-accent) 55%, transparent);
-  }
-  .game-community-score::before,
-  .game-personal-rating::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background:
-      radial-gradient(
-        ellipse at 82% 120%,
-        color-mix(in srgb, var(--color-accent) 16%, transparent),
-        transparent 58%
-      ),
-      radial-gradient(
-        ellipse at 0% -20%,
-        color-mix(in srgb, var(--color-accent) 7%, transparent),
-        transparent 50%
-      );
-  }
-  .game-community-score > *,
-  .game-personal-rating > * {
-    position: relative;
-  }
-
-  .game-community-score {
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    padding: 26px 24px;
-  }
-  .game-score-symbol {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    width: 84px;
-    height: 84px;
-    border: 2px solid color-mix(in srgb, var(--color-accent) 85%, transparent);
-    border-radius: 50%;
-    color: var(--color-accent);
-    background: radial-gradient(
-      circle,
-      color-mix(in srgb, var(--color-accent) 22%, var(--color-surface)) 0%,
-      color-mix(in srgb, var(--color-accent) 6%, var(--color-surface)) 72%
-    );
-    box-shadow:
-      0 0 26px color-mix(in srgb, var(--color-accent) 45%, transparent),
-      inset 0 0 18px color-mix(in srgb, var(--color-accent) 22%, transparent);
-  }
-  .game-score-star {
-    width: 40px;
-    height: 40px;
-  }
-  .game-score-body {
-    min-width: 0;
-  }
-  .game-score-label {
-    margin: 0 0 6px;
-    color: var(--color-ink);
-    font-size: 0.8125rem;
-    font-weight: 500;
-    line-height: 1.5;
-  }
-  .game-score-empty {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    line-height: 1.15;
-  }
-  /* Solid ink keeps the headline score's contrast deterministic; the glow supplies the
-     lift that a gradient fill would have cost in legibility. */
-  .game-score-value {
-    margin: 0;
-    color: var(--color-ink);
-    font-size: 4rem;
-    font-weight: 700;
-    line-height: 1;
-    letter-spacing: -0.04em;
-    text-shadow: 0 0 34px color-mix(in srgb, var(--color-accent) 45%, transparent);
-  }
-  .game-score-value span {
-    font-size: 1.375rem;
-    font-weight: 400;
-    color: var(--color-muted);
-    letter-spacing: normal;
-  }
-  .game-score-description {
-    margin: 8px 0 0;
-    color: var(--color-accent);
-    font-size: 0.9375rem;
-    line-height: 1.5;
-  }
-
-  .game-personal-rating {
-    display: grid;
-    gap: 20px;
-    padding: 24px;
-    align-content: start;
-  }
-  .game-rating-heading {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-  }
-  .game-rating-star {
-    flex: none;
-    width: 34px;
-    height: 34px;
-    margin-top: 2px;
-    color: var(--color-accent);
-    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 55%, transparent));
-  }
-  .game-rating-title {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.01em;
-  }
-  .game-rating-subtitle {
-    margin: 4px 0 0;
-    color: var(--color-muted);
-    font-size: 0.9375rem;
-    line-height: 1.5;
-  }
-  .game-rating-notice {
-    margin: 0;
-    border-radius: 12px;
-    border: 1px solid color-mix(in srgb, var(--color-warning) 45%, var(--color-line));
-    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
-    padding: 10px 14px;
-    font-size: 0.875rem;
-    line-height: 1.5;
-  }
-
-  .rating-scale {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 10px;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    min-width: 0;
-  }
-  .rating-option {
-    display: grid;
-    place-items: center;
-    width: 52px;
-    height: 52px;
-    padding: 0;
-    border: 1px solid color-mix(in srgb, var(--color-ink) 16%, var(--color-line));
-    border-radius: 50%;
-    color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-raised) 75%, var(--color-canvas));
-    font: inherit;
-    font-size: 1.125rem;
-    font-weight: 600;
-    line-height: 1;
-    cursor: pointer;
-  }
-  .rating-option:hover:not(:disabled) {
-    border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
-  }
-  .rating-option:active:not(:disabled) {
-    transform: scale(0.94);
-  }
-  .rating-option[aria-pressed="true"] {
-    border-color: var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 30%, var(--color-surface));
-    box-shadow:
-      0 0 0 2px var(--color-accent),
-      0 0 22px color-mix(in srgb, var(--color-accent) 60%, transparent);
-    font-size: 1.25rem;
-  }
-  /* One short pulse confirms the value that was just saved. */
-  @media (prefers-reduced-motion: no-preference) {
-    .rating-option {
-      transition:
-        border-color var(--duration-fast) var(--ease-out),
-        box-shadow var(--duration-fast) var(--ease-out),
-        background-color var(--duration-fast) var(--ease-out),
-        transform var(--duration-fast) var(--ease-out);
-    }
-    .rating-option[aria-pressed="true"] {
-      animation: rating-pressed 420ms var(--ease-out);
-    }
-  }
-  .rating-option:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 3px;
-  }
-  .rating-option:disabled {
-    opacity: 0.45;
-    border-style: dashed;
-    cursor: not-allowed;
-  }
-
-  .game-rating-feedback {
-    margin: 0;
-    border-radius: 12px;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-line));
-    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-    padding: 12px 14px;
-    display: grid;
-    gap: 10px;
-    justify-items: start;
-  }
-  .game-rating-feedback p {
-    margin: 0;
-    font-size: 0.875rem;
-    line-height: 1.5;
-  }
-  .game-rating-feedback-error {
-    border-color: color-mix(in srgb, var(--color-danger) 50%, var(--color-line));
-    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
-  }
-  .game-rating-footnote {
     color: var(--color-muted);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
+    line-height: 1.45;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
-  .game-rating-actions {
-    display: grid;
-    gap: 10px;
-    justify-items: center;
+  .game-release-metadata dd {
+    color: var(--color-ink);
+    font-size: 0.8125rem;
+    line-height: 1.5;
   }
-  .rating-remove {
-    min-height: 40px;
-    padding-block: 8px;
-    color: var(--color-muted);
-    font-weight: 500;
+
+  .game-release-lead {
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 14px;
   }
-  .rating-remove:hover:not(:disabled) {
-    border-color: var(--color-danger);
-    color: var(--color-danger);
-    background: transparent;
+
+  .game-release-metadata .game-release-date {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-stretch: 106%;
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: -0.025em;
   }
-  .rating-remove:disabled {
-    opacity: 0.5;
+
+  .game-release-metadata .game-release-status {
+    padding-top: 2px;
   }
+
+  /* A narrow record gives each lead fact its own row so a full date never breaks mid-phrase. */
+  @container (max-width: 459px) {
+    .game-release-lead {
+      grid-column: 1 / -1;
+    }
+
+    .game-release-lead:first-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+  }
+
+  @container (min-width: 600px) {
+    .game-release-metadata {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .game-release-lead {
+      grid-column: span 2;
+    }
+  }
+
+  /* A leading diamond keeps the warning tier distinguishable without colour. */
+  .game-release-metadata .game-warning {
+    color: var(--color-warning);
+  }
+
+  .game-release-metadata .game-warning::before {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin: 0 8px 1px 1px;
+    border-radius: 1px;
+    background: currentColor;
+    content: "";
+    transform: rotate(45deg);
+  }
+
+  /* Release status as a chip: the word states it, the tone only reinforces it. */
+  .game-status {
+    --status-tone: var(--color-muted);
+
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid color-mix(in srgb, var(--status-tone) 45%, transparent);
+    border-radius: 999px;
+    padding: 4px 12px 4px 10px;
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--status-tone) 14%, transparent);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+
+  .game-status::before {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--status-tone);
+    box-shadow: 0 0 10px 1px color-mix(in srgb, var(--status-tone) 80%, transparent);
+    content: "";
+  }
+
+  .game-status-released {
+    --status-tone: #7fe0c0;
+  }
+
+  .game-status-upcoming {
+    --status-tone: var(--color-accent);
+  }
+
+  .game-status-warning {
+    --status-tone: var(--color-warning);
+  }
+
+  .game-status-danger {
+    --status-tone: var(--color-danger);
+  }
+
+  /* ---------------------------------------------------------------- Summary */
+
+  .game-compact-summary {
+    min-width: 0;
+    padding: 22px;
+    text-align: left;
+  }
+
+  .game-summary-text {
+    max-width: 68ch;
+    margin: 14px 0 0;
+    color: color-mix(in srgb, var(--color-ink) 86%, var(--color-muted));
+    font-size: 1rem;
+    line-height: 1.75;
+    white-space: pre-line;
+  }
+
+  .game-summary-source {
+    margin: 18px 0 0;
+    color: var(--color-accent-hover);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.5;
+    letter-spacing: 0.08em;
+  }
+
   .game-details-back {
-    margin-top: 28px;
+    margin-top: 40px;
   }
 
-  /* Detail-shaped loading placeholders. */
+  /* ---------------------------------------------------------------- Loading */
+
   .game-details-loading .game-detail-heading {
     display: grid;
+    justify-items: center;
     gap: 14px;
-    justify-items: start;
   }
-  .detail-skeleton-title {
-    width: min(100%, 460px);
-    height: 48px;
-    border-radius: 10px;
-  }
-  .detail-skeleton-aliases {
-    width: min(100%, 280px);
+
+  .skeleton.detail-skeleton-kicker {
+    width: 150px;
     height: 12px;
   }
-  .detail-skeleton-pill {
-    width: 132px;
-    height: 46px;
-    border-radius: 999px;
+
+  .skeleton.detail-skeleton-title {
+    width: min(100%, 520px);
+    height: 64px;
+    border-radius: 14px;
   }
-  .detail-skeleton-panel {
-    border-color: color-mix(in srgb, var(--color-line) 70%, transparent);
-    box-shadow: none;
+
+  .skeleton.detail-skeleton-aliases {
+    width: min(100%, 280px);
+    height: 14px;
   }
-  .detail-skeleton-rows {
-    min-height: 196px;
-    border-radius: 12px;
+
+  .skeleton.detail-skeleton-score {
+    min-height: 156px;
+    border-radius: 26px;
   }
-  .detail-skeleton-summary {
-    min-height: 132px;
-    border-radius: 12px;
+
+  .skeleton.detail-skeleton-rating {
+    min-height: 200px;
+    border-radius: 26px;
   }
-  .detail-skeleton-score {
-    min-height: 172px;
-    border-radius: 18px;
+
+  .skeleton.detail-skeleton-context {
+    min-height: 320px;
+    border-radius: 26px;
+  }
+
+  .skeleton.detail-skeleton-summary {
+    min-height: 180px;
+    border-radius: 26px;
+  }
+
+  /* ---------------------------------------------------------------- Responsive */
+
+  /* Phones turn each option group into one swipeable rail of chips; arrow keys still move the
+     selection and bring the focused chip into view. */
+  @media (max-width: 619px) {
+    .game-context-selectors fieldset {
+      width: 100%;
+    }
+
+    .game-context-options {
+      flex-wrap: nowrap;
+      margin-inline: -22px;
+      padding: 4px 22px 8px;
+      overflow-x: auto;
+      scroll-padding-inline: 22px;
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(
+        90deg,
+        transparent,
+        #000 18px,
+        #000 calc(100% - 30px),
+        transparent
+      );
+      mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 30px), transparent);
+    }
+
+    .game-context-option {
+      flex: none;
+    }
+
+    .game-context-option > span {
+      white-space: nowrap;
+    }
   }
 
   @media (min-width: 760px) {
     .game-details-section {
-      padding-block: 32px 56px;
+      padding-block: 36px 72px;
     }
+
     .game-detail-layout {
-      grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.6fr);
-      grid-template-areas: "artwork heading" "artwork selectors" "artwork information" "rating rating";
-      grid-template-rows: auto auto 1fr auto;
-      column-gap: 26px;
-      row-gap: 20px;
-      align-items: start;
+      grid-template-areas:
+        "art heading"
+        "art scores"
+        "main main";
+      grid-template-columns: clamp(250px, 33%, 400px) minmax(0, 1fr);
+      grid-template-rows: 1fr auto auto;
+      column-gap: clamp(28px, 4vw, 56px);
+      row-gap: 28px;
     }
+
+    /* Title and scores form one block on the cover's baseline; any spare height opens above
+       the title, where the cover's light is brightest. */
+    .game-detail-heading {
+      align-self: end;
+      text-align: left;
+    }
+
+    .game-detail-heading .eyebrow-dot {
+      justify-content: flex-start;
+    }
+
     .game-artwork {
-      max-width: none;
+      width: 100%;
+      align-self: start;
+      justify-self: stretch;
     }
-    .game-rating-row {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-      gap: 24px;
+
+    .game-artwork .cover-caption {
+      text-align: left;
+    }
+
+    .game-scores {
+      align-self: end;
+    }
+
+    .game-details-loading .game-detail-heading {
+      justify-items: start;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .game-scores {
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr);
       align-items: stretch;
     }
-  }
 
-  @media (min-width: 1180px) {
-    .game-detail-layout {
-      grid-template-columns: minmax(0, 0.9fr) minmax(0, 2fr);
-      column-gap: 30px;
+    .game-detail-main {
+      grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+      gap: 20px;
     }
-    .game-information-panel {
-      grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-      gap: 24px;
-      padding: 24px;
-    }
+
+    .game-release-context,
     .game-compact-summary {
-      border-top: 0;
-      border-left: 1px solid var(--color-line);
-      padding-top: 0;
-      padding-left: 24px;
+      padding: 26px;
     }
+
     .game-community-score {
-      padding: 30px 28px;
-      gap: 28px;
+      grid-template-areas: "dial" "label" "detail";
+      grid-template-columns: minmax(0, 1fr);
+      justify-items: center;
+      padding: 22px 18px;
+      text-align: center;
     }
-    .game-score-symbol {
-      width: 100px;
-      height: 100px;
+
+    .game-score-label {
+      justify-content: center;
+      margin-top: 8px;
     }
-    .game-score-star {
-      width: 48px;
-      height: 48px;
+
+    .game-score-detail {
+      text-align: center;
     }
-    .game-score-value {
-      font-size: 4.75rem;
-    }
+
     .game-score-empty {
-      font-size: 1.75rem;
+      font-size: 1.25rem;
     }
-    .game-personal-rating {
-      padding: 28px;
+
+    .score-dial {
+      width: 128px;
+      height: 128px;
     }
-    .rating-scale {
-      justify-content: space-between;
-      gap: 8px;
+
+    .game-score-value {
+      font-size: 2.75rem;
     }
   }
 
-  .game-context-option span {
-    transition: none;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .game-context-option span {
-      transition:
-        border-color var(--duration-fast) var(--ease-out),
-        background-color var(--duration-fast) var(--ease-out),
-        color var(--duration-fast) var(--ease-out);
-    }
-  }
+  /* ---------------------------------------------------------------- Forced colours */
 
   @media (forced-colors: active) {
     .game-context-option input:checked + span {
       outline: 2px solid Highlight;
       outline-offset: -3px;
     }
+
     .game-context-option input:focus-visible + span {
       outline-color: Highlight;
     }
-    .game-information-panel,
+
     .game-community-score,
     .game-personal-rating,
-    .game-context-option span,
+    .game-release-context,
+    .game-compact-summary,
+    .game-release-record,
+    .game-context-option > span,
+    .game-status,
     .rating-option {
       border-color: CanvasText;
+      background: Canvas;
+      box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
+
     .rating-option[aria-pressed="true"] {
       outline: 2px solid Highlight;
       outline-offset: -3px;
       background: Highlight;
       color: HighlightText;
     }
+
     .rating-option:focus-visible {
       outline-color: Highlight;
       outline-offset: 3px;
     }
-    .game-score-symbol,
+
     .game-community-score::before,
-    .game-personal-rating::before {
-      box-shadow: none;
-      background: none;
-    }
-    .game-hero-ambience {
+    .game-personal-rating::before,
+    .game-artwork::before,
+    .game-status::before {
       display: none;
     }
-    .game-score-value {
+
+    .score-dial-track,
+    .score-dial-value {
+      stroke: CanvasText;
+      filter: none;
+    }
+
+    .game-score-value,
+    .game-detail-title {
       text-shadow: none;
     }
+
     .game-artwork .cover-link {
       box-shadow: none;
+      transform: none;
+    }
+
+    .game-artwork .catalogue-cover {
+      filter: none;
+    }
+
+    .game-context-options {
+      -webkit-mask-image: none;
+      mask-image: none;
     }
   }
 }
 
 @keyframes rating-pressed {
   0% {
-    transform: scale(0.9);
+    transform: scale(0.86);
   }
 
   55% {
-    transform: scale(1.09);
+    transform: scale(1.12);
   }
 
   100% {

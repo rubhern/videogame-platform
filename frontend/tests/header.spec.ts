@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
+import { analyzeAccessibility } from "./fixtures/accessibility";
 import { releasePage } from "./fixtures/releases";
 
 for (const width of [320, 390, 834, 1320]) {
@@ -33,7 +33,7 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByRole("link", { name: "Mis puntuaciones" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Cerrar sesión" })).toBeVisible();
-    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
 
     await page.keyboard.press("Tab");
     await expect(page.getByRole("link", { name: "Mis puntuaciones" })).toBeFocused();

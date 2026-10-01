@@ -83,6 +83,7 @@ describe("release group projection", () => {
     expect(item?.releaseGroups).toHaveLength(1);
     expect(item?.releaseGroups[0]).toMatchObject({
       date: "24 de septiembre de 2026",
+      shortDate: "24 sep 2026",
       region: "Mundial",
       platforms: ["PlayStation 5", "Windows PC"],
       releaseCount: 2,

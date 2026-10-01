@@ -24,6 +24,7 @@ const pragmata: ReleaseListItem = {
     {
       key: "quarter|2026-Q2|worldwide",
       date: "2.º trimestre de 2026",
+      shortDate: "T2 2026",
       region: "Mundial",
       platforms: ["Windows PC"],
       isStale: false,
@@ -149,27 +150,6 @@ describe("releases shell", () => {
     expect(screen.getAllByRole("link", { name: "Quitar filtros" })[0]).toHaveAttribute("href", "/?weeks=1");
   });
 
-  it("links to the other release window", () => {
-    renderShell({ status: "ready", model: viewModel(), isRefreshing: false, isPlaceholderData: false });
-
-    const windowNav = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
-    expect(within(windowNav).getByRole("link", { name: "Ver próximos" })).toHaveAttribute(
-      "href",
-      "/?view=upcoming&weeks=1",
-    );
-    // The recent view closes with the switch, after the results and the pager.
-    expect(
-      screen.getByRole("list", { name: "Lanzamientos recientes" }).compareDocumentPosition(windowNav) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it("keeps the window switch reachable while the recent view is loading", () => {
-    renderShell({ status: "loading" });
-
-    expect(screen.getByRole("link", { name: "Ver próximos" })).toHaveAttribute("href", "/?view=upcoming&weeks=1");
-  });
-
   it("gives upcoming the same hero, selectors and closing bar", () => {
     renderShell(
       { status: "ready", model: viewModel({ view: "upcoming", windowDescription: "Del 13 de agosto de 2026 al 13 de febrero de 2027" }), isRefreshing: false, isPlaceholderData: false },
@@ -184,12 +164,7 @@ describe("releases shell", () => {
     expect(screen.getByRole("combobox", { name: /Plataforma/ })).toHaveTextContent("Todas");
     expect(screen.getByRole("combobox", { name: /Región/ })).toHaveTextContent("Todas");
     expect(screen.getByRole("status")).toHaveTextContent("1 juego · Página 1 de 1");
-    const windowNav = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
-    expect(within(windowNav).getByRole("link", { name: "Ver recientes" })).toHaveAttribute("href", "/?weeks=1");
-    expect(
-      screen.getByRole("list", { name: "Próximos lanzamientos" }).compareDocumentPosition(windowNav) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "Ventana de lanzamientos" })).not.toBeInTheDocument();
   });
 
   it("distinguishes stale local data from a technical failure", () => {

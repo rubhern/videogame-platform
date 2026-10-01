@@ -49,6 +49,28 @@ export function formatCompactCalendarDay(value: string): string {
     : `${match[3]}/${match[2]}/${match[1]}`;
 }
 
+const shortMonths = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+] as const;
+
+function shortMonthName(month: string): string | null {
+  const number = Number(month);
+  return Number.isInteger(number) && number >= 1 && number <= 12
+    ? (shortMonths[number - 1] ?? null)
+    : null;
+}
+
 /**
  * Spanish apocopates `primero` and `tercero` before a masculine singular noun, so
  * the first and third quarters abbreviate as `1.er` and `3.er` rather than `.º`.
@@ -81,6 +103,44 @@ export function formatReleaseDate(releaseDate: ReleaseDate): string {
     return match === null
       ? "Fecha no disponible"
       : `${quarterOrdinal(match[2] ?? "")} trimestre de ${match[1]}`;
+  }
+
+  if (releaseDate.precision === "year" && /^\d{4}$/.test(value)) {
+    return value;
+  }
+
+  return "Fecha no disponible";
+}
+
+/**
+ * Compact form of the same release date for a chip over a cover (`25 sep 2026`, `sep 2026`,
+ * `T3 2026`, `2026`). It keeps the contract precision and never implies a finer one; the full
+ * wording from `formatReleaseDate` stays available beside it.
+ */
+export function formatReleaseDateShort(releaseDate: ReleaseDate): string {
+  const value = "value" in releaseDate ? releaseDate.value : null;
+
+  if (releaseDate.precision === "unknown" || value === null) {
+    return "Por confirmar";
+  }
+
+  if (releaseDate.precision === "day") {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    const month = match === null ? null : shortMonthName(match[2] ?? "");
+    return match === null || month === null
+      ? "Fecha no disponible"
+      : `${Number(match[3])} ${month} ${match[1]}`;
+  }
+
+  if (releaseDate.precision === "month") {
+    const match = /^(\d{4})-(\d{2})$/.exec(value);
+    const month = match === null ? null : shortMonthName(match[2] ?? "");
+    return match === null || month === null ? "Fecha no disponible" : `${month} ${match[1]}`;
+  }
+
+  if (releaseDate.precision === "quarter") {
+    const match = /^(\d{4})-Q([1-4])$/.exec(value);
+    return match === null ? "Fecha no disponible" : `T${match[2]} ${match[1]}`;
   }
 
   if (releaseDate.precision === "year" && /^\d{4}$/.test(value)) {

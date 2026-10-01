@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
@@ -16,9 +17,11 @@ type GameSearchCardProps = {
 export function GameSearchCard({ result }: GameSearchCardProps) {
   const gamePath = `/games/${result.gameId}/${result.slug}`;
   const { platforms, hiddenPlatformCount } = result;
+  // The card is lit by its own cover: the same image, blurred beneath it.
+  const coverLight = { "--cover-art": `url(${JSON.stringify(result.cover.url)})` } as CSSProperties;
 
   return (
-    <article className="catalogue-card search-card">
+    <article className="catalogue-card search-card" style={coverLight}>
       <CatalogueCover caption={false} cover={result.cover} to={gamePath} />
       <div className="card-body">
         <h3 className="card-title">

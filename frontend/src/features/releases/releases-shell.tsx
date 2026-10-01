@@ -2,13 +2,19 @@ import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
+import { CinematicStage } from "../../shared/ui/cinematic-stage";
+import { HeroTitle } from "../../shared/ui/hero-title";
 import { ReleaseCard } from "./release-card";
 import { ReleasesFilters } from "./releases-filters";
 import { ReleasesPagination } from "./releases-pagination";
 import { ReleasesWeeks } from "./releases-weeks";
-import { hasActiveFilters, releasesSearchPath, type ReleasesSearch } from "./releases-search";
+import {
+  hasActiveFilters,
+  releasesSearchPath,
+  type ReleaseView,
+  type ReleasesSearch,
+} from "./releases-search";
 import { releaseViewTitle, type ReleasesViewModel } from "./releases-view-model";
-import { ReleasesViewNav } from "./releases-view-nav";
 
 export type ReleasesShellState =
   | { status: "loading" }
@@ -26,6 +32,13 @@ type ReleasesShellProps = {
   search: ReleasesSearch;
   state: ReleasesShellState;
   onRetry: () => void;
+};
+
+// The hero splits each window title into its display lead and editorial accent; together they
+// read exactly as the view title.
+const heroTitles: Record<ReleaseView, { lead: string; accent: string }> = {
+  recent: { lead: "Lanzamientos", accent: "recientes" },
+  upcoming: { lead: "Próximos", accent: "lanzamientos" },
 };
 
 function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string {
@@ -71,7 +84,8 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
     model.page.totalPages > 0 &&
     model.page.number > model.page.totalPages;
   return (
-    <section aria-labelledby="releases-title" className="releases-page">
+    <section aria-labelledby="releases-title" className="hero-page releases-page">
+      <CinematicStage variant="releases" />
       <div className="page-container releases-section">
         <div className="releases-heading">
           <div>
@@ -90,15 +104,16 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
                 </p>
               ) : null}
             </div>
-            <h1 className="page-title" id="releases-title">
-              {releaseViewTitle(search.view)}
-            </h1>
+            <HeroTitle id="releases-title" {...heroTitles[search.view]} />
           </div>
         </div>
 
         <div className="releases-toolbar">
           <ReleasesWeeks search={search} />
-          {model === null ? <LoadingFilters /> : <ReleasesFilters platforms={model.platforms} regions={model.regions} search={search} />}
+          {/* Filter choices come from the response, so a failed read shows none rather than
+              empty placeholders that look like broken controls. */}
+          {state.status === "loading" ? <LoadingFilters /> : null}
+          {model === null ? null : <ReleasesFilters platforms={model.platforms} regions={model.regions} search={search} />}
         </div>
 
         <h2 className="sr-only" ref={resultsHeadingRef} tabIndex={-1}>
@@ -168,7 +183,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
             {state.model.items.length === 0 ? (
               <div className="notice notice-empty" role="status">
                 <span className="notice-symbol" aria-hidden="true">
-                  ⌕
+                  <span className="search-icon" />
                 </span>
                 <p className="notice-kicker">Sin resultados</p>
                 <h3>
@@ -202,17 +217,14 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
           </>
         ) : null}
 
-        <div className="releases-footer">
-          {state.status === "ready" && !state.isPlaceholderData ? (
-            <>
-              <p className="result-count" role="status">
-                {resultsSummary(state.model, state.isRefreshing)}
-              </p>
-              <ReleasesPagination page={state.model.page} search={search} showPosition={false} />
-            </>
-          ) : null}
-          <ReleasesViewNav search={search} />
-        </div>
+        {state.status === "ready" && !state.isPlaceholderData ? (
+          <div className="releases-footer">
+            <p className="result-count" role="status">
+              {resultsSummary(state.model, state.isRefreshing)}
+            </p>
+            <ReleasesPagination page={state.model.page} search={search} showPosition={false} />
+          </div>
+        ) : null}
       </div>
     </section>
   );

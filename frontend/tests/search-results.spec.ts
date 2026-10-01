@@ -1,6 +1,6 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
+import { analyzeAccessibility } from "./fixtures/accessibility";
 import type { GameSearchPage } from "../src/features/search/game-search-api";
 import { releasePage } from "./fixtures/releases";
 
@@ -66,7 +66,7 @@ async function expectAccessibleLayout(page: Page) {
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth),
   ).toBeLessThanOrEqual(0);
-  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
 }
 
 function cards(page: Page) {

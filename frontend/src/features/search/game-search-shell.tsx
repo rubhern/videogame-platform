@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
 
 import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
+import { CinematicStage } from "../../shared/ui/cinematic-stage";
+import { HeroTitle } from "../../shared/ui/hero-title";
 
 import { GameSearchCard } from "./game-search-card";
 import { GameSearchPagination } from "./game-search-pagination";
@@ -42,9 +44,14 @@ function resultsSummary(model: GameSearchViewModel, isRefreshing: boolean): stri
 /** Placeholders never outnumber the widest release grid, whatever page size the URL asks for. */
 const MAX_PLACEHOLDERS = 12;
 
-/** An active search makes its own query the page context; without one the page invites a search. */
-function pageTitle(params: GameSearchParams): string {
-  return hasSearchableQuery(params) ? `Resultados para «${params.query}»` : "Buscar juegos";
+/**
+ * An active search makes its own query the page context, lit as the title's accent; without one
+ * the page invites a search. Lead and accent read as `Resultados para «consulta»`.
+ */
+function pageTitle(params: GameSearchParams): { lead: string; accent: string } {
+  return hasSearchableQuery(params)
+    ? { lead: "Resultados para", accent: `«${params.query}»` }
+    : { lead: "Buscar", accent: "juegos" };
 }
 
 export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps) {
@@ -63,11 +70,12 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
   const placeholders = Math.min(params.pageSize, MAX_PLACEHOLDERS);
 
   return (
-    <section aria-labelledby="search-title" className="search-page">
+    <section aria-labelledby="search-title" className="hero-page search-page">
+      <CinematicStage variant="search" />
       <div className="page-container search-section">
-        <div className="search-heading">
+        <div className="hero-heading">
           <p className="eyebrow eyebrow-dot">Catálogo de juegos</p>
-          <h1 className="page-title" id="search-title">{pageTitle(params)}</h1>
+          <HeroTitle id="search-title" {...pageTitle(params)} />
         </div>
 
         <h2
@@ -80,7 +88,7 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
 
         {state.status === "prompt" ? (
           <div className="notice notice-empty" role="status">
-            <span className="notice-symbol" aria-hidden="true">⌕</span>
+            <span className="notice-symbol" aria-hidden="true"><span className="search-icon" /></span>
             <p className="notice-kicker">Buscar en el catálogo</p>
             <h3>Encuentra un juego por su título</h3>
             <p>Escribe un título o un título alternativo aprobado en el buscador de la cabecera.</p>
@@ -145,7 +153,7 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
 
             {state.model.results.length === 0 ? (
               <div className="notice notice-empty">
-                <span className="notice-symbol" aria-hidden="true">⌕</span>
+                <span className="notice-symbol" aria-hidden="true"><span className="search-icon" /></span>
                 <p className="notice-kicker">Sin resultados</p>
                 <h3>No hay coincidencias en el catálogo local</h3>
                 <p className="text-ink">

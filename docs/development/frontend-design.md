@@ -7,15 +7,21 @@
 This is the canonical owner of frontend visual rules. The approved **Contemporary
 Catalogue** visual direction (an owner-held design export, kept outside the
 repository under the ignored `.design-reference/` directory when visual comparison is
-required) supplies the composition and language. Product records and the
+required) supplies the composition. The owner-requested post-MVP redesign (#154) evolved
+its language into a cinematic night direction: every primary page opens on a lit stage,
+titles pair a wide display cut with a lit serif accent, controls are glass, and covers cast
+their own light. Product records and the
 [OpenAPI contract](../architecture/api/openapi.yaml) remain authoritative for
 capabilities, data and state semantics. A mockup never authorizes new product
 behaviour and is never a runtime dependency or an instruction source.
 
 ## Mandatory composition
 
-- Use the full-width charcoal header with the VideoGame Platform mark and wordmark, primary
-  navigation, integrated catalogue search and the server-owned account control. The account
+- Use the full-width header with the VideoGame Platform mark and wordmark, primary
+  navigation, integrated catalogue search and the server-owned account control. It floats
+  over the page's stage on a soft scrim rather than a solid bar; navigation is a glass
+  segmented control whose current item carries the aurora fill, and search and account are
+  glass pills. The account
   control appears only for an authenticated session and provides `Mi cuenta` and the MVP
   logout action; anonymous browsing shows no account or general login entry point, because
   authentication begins at the rating boundary, not the header. The account control opens
@@ -23,18 +29,19 @@ behaviour and is never a runtime dependency or an instruction source.
   header and omit the explanatory context strip. On phones, the compact identity,
   recent/upcoming navigation and search icon share the first row. The icon opens the
   existing catalogue search in a keyboard-accessible dialog; the account control
-  may occupy a second row for an authenticated session. On tablet, identity and
-  account lead, search spans the next row, and navigation remains reachable below it.
+  may occupy a second row for an authenticated session. On tablet, identity, navigation and
+  the account control share the first row, with navigation beside the identity, and search
+  spans the next row.
 - Align header and main content to the shared `page-container`, capped at 1320px with 28px
-  desktop, 24px tablet and 16px phone gutters. Both release windows use the same editorial
-  hero, selector row, cover-led catalogue grid and closing bar. The bar places the result
-  total on the left, pager in the middle and window switch on the right; it omits a repeated
-  page position.
+  desktop, 24px tablet and 16px phone gutters. Both release windows use the same cinematic
+  stage, title, glass filter dock, cover-led catalogue grid and closing dock. The dock places
+  the result total on the left and the pager on the right, with both pager links on one row
+  on phones; it omits a repeated page position and is absent without results. Switching
+  between the release windows belongs to the main navigation only.
 - Keep the current release view as the only `h1`: **Lanzamientos recientes** or **Próximos
   lanzamientos**. Show the API-derived release window beside **Ya disponibles** or **En
-  calendario** above an editorial title with a cool metallic gradient fill and a soft
-  bloom; omit the redundant evaluation-date label. Never replace API dates with a
-  hard-coded relative period.
+  calendario** above the title; omit the redundant evaluation-date label. Never replace API
+  dates with a hard-coded relative period.
   On phones, keep the kicker and the API-derived period on one row and show both
   boundaries as day/month/year to fit without changing the desktop wording.
 - Treat 1320px, 834px and 390px as the representative review widths, while supporting reflow
@@ -43,12 +50,16 @@ behaviour and is never a runtime dependency or an instruction source.
   rails may scroll horizontally on narrow screens.
 - Do not add a featured release, ranking, editorial description, publisher, studio, new
   release window or destination solely because it appears in the reference.
-- Both release windows use a decorative, product-owned cinematic hero image, two selectors
-  for platform and region, and twelve results per default page so six columns form two rows
-  on wide desktop. Its covers fill the column in the standard frame so the artwork leads the
-  card. Below each release cover keep the full title, which is the game link, then one
-  compact release row that lists the platforms sharing the first relevant release's date
-  and region together with that region, and the review notice when the API requires one.
+- Both release windows use the product-owned night stage, two selectors for platform and
+  region, and twelve results per default page so six columns form two rows on wide desktop.
+  Keep the hero short enough that the first row of covers is fully visible at 1320×900. Its
+  covers fill the column in the standard frame so the artwork leads the card. The first
+  relevant release's date rides on the cover as a glass chip in its compact form at the same
+  precision (`25 sep 2026`, `sep 2026`, `T3 2026`, `2026`, `Por confirmar`); the full wording
+  stays in the release row for assistive technology. Below each release cover keep the full
+  title, which is the game link, then one compact release row that lists the platforms sharing
+  that date and region together with that region, and the review notice when the API requires
+  one.
   A card shows at most one release row; any further releases collapse into a single
   `+ N lanzamientos más` control, where `N` counts the hidden releases, that opens an
   accessible popover preserving each hidden release's date, platform and region. The card
@@ -57,25 +68,37 @@ behaviour and is never a runtime dependency or an instruction source.
 ## Visual language and tokens
 
 - [Global styles](../../frontend/src/styles/index.css) own the executable semantic tokens,
-  shared dimensions and breakpoints. Use `canvas`, `surface`, `raised`, `ink`, `muted`,
-  `subtle`, `accent`, `line`, `warning` and `danger` roles through those conventions instead
-  of placing palette values in JSX.
-- Use charcoal surfaces, restrained periwinkle accents, editorial serif headings, sans-serif
-  body text and monospaced labels and operational metadata. Use the locally hosted Instrument
-  Serif, IBM Plex Sans and IBM Plex Mono assets with system fallbacks and `font-display: swap`.
-  Font licences live under [public/assets/fonts](../../frontend/public/assets/fonts/README.md).
-- Covers carry the catalogue rhythm. The standard cover frame has a 12px radius, a quiet
-  border and a restrained shadow. Its ratio is the one the approved provider actually
+  shared dimensions and breakpoints, and the [foundation](../../frontend/src/styles/foundation.css)
+  owns the shared glass, glow, aurora and grain values. Use `canvas`, `surface`, `raised`,
+  `ink`, `muted`, `subtle`, `accent`, `aurora`, `line`, `warning` and `danger` roles through
+  those conventions instead of placing palette values in JSX.
+- Use a near-black ink-blue canvas, glass surfaces and one signature light: moonlit
+  periwinkle turning to aurora violet, used for the current navigation item, primary actions,
+  the pressed rating, score arcs and title accents. Warm light belongs to the art alone;
+  `warning` stays reserved for review and freshness states.
+- Typography: Mona Sans is the interface and display family — its wide, heavy cut sets game
+  titles at poster scale and page titles at a compact size on one line, and its regular width sets everything else. A title's
+  accent word is set in Instrument Serif italic and lit by the aurora gradient (**Lanzamientos
+  _recientes_**, **Resultados para _«consulta»_**, **Mis _puntuaciones_**); the heading still
+  reads as one phrase to assistive technology. IBM Plex Mono sets kickers, labels and
+  operational metadata. The brand wordmark keeps its own Instrument Serif; product identity
+  belongs to the branding work. Use the locally hosted assets with system fallbacks and
+  `font-display: swap`. Font licences live under
+  [public/assets/fonts](../../frontend/public/assets/fonts/README.md).
+- Covers carry the catalogue rhythm. The standard cover frame has a 14px radius, a quiet
+  edge and a restrained shadow. Its ratio is the one the approved provider actually
   delivers, so `object-fit: cover` crops nothing off real artwork.
-  Global styles own the executable value. Place the release date over the upper-left of the cover, on a scrim that
-  keeps it legible over any artwork. Release and search result cards show no status,
+  Global styles own the executable value. Release and search result cards show no status,
   freshness, provenance, cover attribution or **Ver ficha** action: the game page owns those, including the
   provider attribution and source link that [ADR-0001](../decisions/0001-reference-igdb-cover-images.md)
   requires. Never truncate contract data to equalize card heights; a long value wraps inside
   its chip.
-- A catalogue card is a surface, not a loose column of text: a quiet gradient, a hairline
-  border, the resting shadow and equal height across a row. It lifts and scales its cover
-  slightly on hover and keyboard focus.
+- A catalogue card is lit by its own cover: a blurred copy of the same artwork glows beneath
+  it, and on hover or keyboard focus the card lifts, a glass surface gathers it together, the
+  glow spills past its edges as a coloured halo and a band of light sweeps the cover. Cards
+  keep equal height across a row. The title link's target covers the whole card, so the card
+  is one pointer target while the title stays its only keyboard stop, and its focus ring
+  outlines the card.
 - Provider covers arrive at one fixed CDN size, so every frame wider than that size upscales
   them. Treat that as a permanent condition of [ADR-0001](../decisions/0001-reference-igdb-cover-images.md),
   not a defect: covers carry a faint grain, a vignette and a small micro-contrast lift so the
@@ -98,19 +121,33 @@ behaviour and is never a runtime dependency or an instruction source.
 Depth and motion belong to the visual language, not to individual screens. Global styles own
 the executable values; these constraints hold wherever they are used:
 
-- The canvas carries one fixed ambient field: low-opacity accent and warm washes plus a
+- The canvas carries one fixed ambient field: slowly drifting low-opacity aurora washes plus a
   generated grain tile that keeps large dark gradients from banding. It never scrolls with the
   content, never sits above it, and nothing readable depends on it.
-- Elevation has two levels only, a resting hairline and a lifted shadow, with one easing curve
-  and two durations. Do not add a per-component shadow scale.
+- Every primary page opens on a cinematic stage anchored to the top of the document, so it
+  runs behind the header: the product-owned night art for the release windows, search (a
+  castle-and-moon crop), `Mis puntuaciones` (a warmer valley crop), the not-found route and a
+  game page that failed to load; a game's own cover on its page. The stage is graded with
+  scrims for the copy, drifting mist, rising motes of light and a grain pass, pushes in
+  slowly and sinks slower than the page scrolls where the browser can drive that from scroll
+  position alone. It fades into the canvas, is hidden from assistive technology and takes no
+  input. The night art ships as product-owned WebP in desktop and phone sizes.
+- Elevation has a resting hairline, a lifted shadow and one luminous accent glow for selected,
+  focused and key values, with one easing curve, one overshoot for presses and three
+  durations. Do not add a per-component shadow scale.
+- Glass — a translucent surface with backdrop blur, a hairline edge and an inner highlight —
+  is the one surface for panels, docks, notices and controls over the stage. Text on glass
+  keeps its contrast against the darkest art it can cover. A glass container that holds open
+  lists sits on its own stacking layer, so its lists paint above later content.
 - Content surfaces lift on `:hover` **and** `:focus-within`, so depth never depends on a
   pointer.
-- Motion is short, purposeful and limited to transform and opacity: entrance for arriving
-  content, feedback on press, hover and selection. Declare it inside
+- Motion is purposeful and limited to transform and opacity: the stage's push-in, mist,
+  motes and parallax; entrance for arriving content; lift, light sweeps and the mouse-only
+  cover tilt on hover; feedback on press and selection. Declare it inside
   `@media (prefers-reduced-motion: no-preference)` instead of disabling it afterwards, so
   reduced motion is the default and nothing animates or transitions there.
-- Composition a browser check measures — the detail cover, title and score panels — uses an
-  opacity-only entrance, never a transform.
+- Composition a browser check measures — the page openings' title block and filter dock, and
+  the detail cover, title and score panels — uses an opacity-only entrance, never a transform.
 - Forced colours drop every wash, scrim, gradient, shadow, blur and rail mask and return to
   system colours.
 
@@ -132,17 +169,23 @@ the executable values; these constraints hold wherever they are used:
   platform wordmarks keep their ratio at the row height. Genres, companies and scores in
   the reference are not part of the contract and stay omitted.
 - The full search results page (#188) follows the owner's approved results reference and
-  shares the release windows' decorative hero, metallic title and six-column grid. An
+  shares the release windows' stage, title treatment and six-column grid. An
   active query is the only `h1`, **Resultados para «consulta»**, under the **Catálogo de
   juegos** kicker, with no explanatory paragraph; before a query the page keeps **Buscar
   juegos**. The game total and page position sit above the grid (for example,
   `153 juegos del catálogo local · Página 1 de 26`), and the pager below repeats the
-  position before its previous/next actions. Each card shows the cover, the title link, a
-  `Coincidencia: alias` chip only when the alias differs from the title, then one known
-  year, an inclusive range or `Por confirmar`, and up to three platform icons with the
-  exact `+N` of further platforms at the card foot, all from the compact release summary.
+  position before its previous/next actions. Each card shows the cover with one known year,
+  an inclusive range or `Por confirmar` as its glass chip, the title link, a
+  `Coincidencia: alias` chip only when the alias differs from the title, and up to three
+  platform icons with the exact `+N` of further platforms at the card foot, all from the
+  compact release summary.
   It never renders release rows or status chips, so its height never follows the release
   count. Platform names stay available to assistive technology and as tooltips.
+- Release windows, search results and `Mis puntuaciones` share one page opening: the
+  cinematic stage, the kicker and the display title with its lit accent, directly under
+  the header with tight spacing, so the first row of covers shows without scrolling. Titles longer than about 26 characters, usually a visitor's query, step down a size. Every
+  paginated list uses the same previous/next actions, each with its direction arrow, and a
+  result total sits left-aligned with the content it counts.
 - Use `CatalogueCover` for provider covers, provider failure fallback and attribution, and
   `CatalogueLoading` for releases and search loading, with one placeholder per result the
   page will show. Release and search result cards render the cover without its caption; the
@@ -153,7 +196,8 @@ the executable values; these constraints hold wherever they are used:
   and maintenance rows for the personal collection. Placeholders themselves stay silent; the
   screen keeps exactly one live status.
 - Render platform and region choices from `availableFilters` in labelled select-only
-  comboboxes on one compact row in both release windows. The entire control opens its
+  comboboxes in one glass dock with the period in both release windows; on phones the dock
+  becomes a two-row panel. The entire control opens its
   list, and every option has a decorative icon. Recognized platforms use the owner-provided
   PlayStation, Nintendo Switch, Windows and Xbox marks tinted with the product accent;
   unknown platforms retain a generic gamepad. Other application dropdowns share the same
@@ -178,16 +222,19 @@ the executable values; these constraints hold wherever they are used:
 
 ## Public game details
 
-The owner's game-detail reference refines the catalogue foundation with a large
-left-hand cover in the shared cover frame, a prominent sans-serif game title,
-platform/region pills near the title, a bordered metadata and compact-summary panel,
-and a strong community-score panel immediately below the cover. Use existing shell, fonts, colours, focus styles and responsive gutters;
-the detail title uses the existing sans font to match this reference. The hero sits on a
-decorative ambience derived from the cover this page already displays — blurred, heavily
-dimmed and masked so it fades on every edge. It adds no request, no asset and no licence
-surface beyond that cover, and every readable panel below keeps its own opaque background. Card-level
-ratings on release and search results are not part of the approved MVP screens until
-an owner decision schedules that work.
+The game page is a premium game hub built only from the contract's data. It opens on a
+stage lit by the cover this page already displays — blown up, blurred and graded, never
+resampled or stored — so it adds no request, no asset and no licence surface beyond that
+cover; every readable panel keeps its own glass background. From tablet width the large
+cover, in the shared frame with its own glow beneath it, stands beside the title and both
+score panels, which form one block on the cover's baseline; the release context and the
+summary span the page below. On phones the order is cover, title, both scores, then the
+release context. The scores belong to the game, so they never sit after the evidence. The
+title is the display cut at poster scale, stepping down for long titles, and aliases follow in
+the lit serif. For a mouse, the cover leans toward the pointer and catches a glare; touch,
+pen, reduced motion and forced colours keep it still. Card-level ratings on release and
+search results are not part of the approved MVP screens until an owner decision schedules
+that work.
 
 Platform and region are native labelled radio groups derived from the game's
 returned release tuples. Selection is URL-backed and updates the visible evidence;
@@ -197,18 +244,26 @@ combination rather than merging their dates or evidence. No selector is invented
 a game without releases. This presentation selection does not change the global
 game eligibility or community aggregate.
 
-The selected-context panel retains date precision, status, provenance, verification,
-review, freshness and available evidence timestamps. Keep summary language and source.
+The release-context panel holds the platform/region selectors — on phones each group is
+one swipeable rail of chips with platform and region icons — and then one card per record
+for the selection. It retains date precision, status, provenance, verification, review,
+freshness and available evidence timestamps. Each record leads with its own date and a
+status chip that states the status in words; the remaining evidence follows as a quieter
+grid of monospaced labels, and a warning value keeps a non-colour marker. The summary sits in
+its own panel beside the context from desktop width. Keep summary language and source.
 There is no separate bottom release/evidence section. Display the community mean and
 count prominently, or an equally prominent “Sin nota todavía” / “Nota no disponible”
 state in the same position. The distribution remains a backend/API capability and
-is not rendered on this page. The community panel and the personal-rating panel share
-the bottom row as two bordered, accent-glow panels: the community score keeps its
-glowing star badge, large mean and count; **Tu puntuación** carries the inline 1-10
-scale. The scale is a labelled group of ten circular buttons; pressing a value saves it
+is not rendered on this page. The community panel and the personal-rating panel are two
+glass, accent-lit panels: the community score is a lit dial whose arc fills to the mean out
+of ten, with the large mean inside it and the count beside it (a dashed, empty dial for the
+no-score states); **Tu puntuación** carries the inline 1-10 scale as a keypad of two rows
+of five, or one row of ten once its panel keeps every target at least 44px. The scale is a
+labelled group of ten circular buttons; pressing a value saves it
 immediately (create or update through the conditional contract), so there is no separate
-confirm action. The current rating is the one pressed value (accent ring and glow, not
-colour alone); the subtitle never restates it. Arrow keys only move focus inside the
+confirm action. The current rating is the one pressed value (aurora fill, ring and glow,
+not colour alone), and the values below it stay faintly lit so the scale reads as a gauge;
+the subtitle never restates it. Arrow keys only move focus inside the
 scale, so browsing never saves by accident, and a quiet **Eliminar puntuación** action
 appears once a rating exists. Eligibility is expressed by the control itself: an
 ineligible game keeps the scale disabled and states the reason in the panel subtitle.
@@ -229,10 +284,12 @@ taglines or background artwork from the reference. List/follow actions remain de
 
 ## Personal ratings collection
 
-`Mis puntuaciones` reuses the catalogue shell, title block, cover treatment, tokens
-and native controls. Present cover-led rows with game navigation, a clearly personal
-score and the two rating timestamps. The personal score carries its own accent badge:
-it is the reason the row exists. The private filters form one control bar rather than
+`Mis puntuaciones` reuses the catalogue shell, page opening, cover treatment, tokens and
+native controls. Present cover-led glass rows, each washed by its own cover's light, with
+game navigation, a clearly personal score and the two rating timestamps; a row reads game,
+score, then its actions, and the edit form and outcomes open beneath them. The personal score
+is an aurora tile in the language of the game page's pressed value: it is the reason the row
+exists. The private filters form one glass control bar rather than
 four loose fields, and stay separate from the header's public catalogue search. Direct
 editing expands a labelled native 1–10
 selection with Save/Cancel actions; deletion remains a distinct action. Announce
@@ -252,9 +309,12 @@ Empty ratings, no search matches, an exhausted page and load failure remain dist
 | Unsupported filter / invalid input | Warning notice, explanation and applicable correction; preserve labels and invalid semantics |
 | Technical error | Restrained danger notice, safe message, optional support reference and retry |
 
-Every one of these states is a message, not a region: render it as a width-capped panel with a
-tone-keyed symbol and wash, centred in the content column rather than stretched across it. Only
-the tone changes between them.
+Every one of these states is a message, not a region: render it as a width-capped glass panel
+with a lit, tone-keyed orb and wash, centred in the content column rather than stretched across
+it. Only the tone changes between them. The notice owns its recovery and its way out: when it replaces a
+whole route, as on the game page, its heading is the page heading and the retry and return
+actions sit inside it. Filter placeholders appear only while loading; a failed read omits the
+filters its response would have supplied rather than showing empty controls.
 
 Use the existing live-region semantics. Do not add announcements to individual skeletons or
 replace a contract state with decorative success content.

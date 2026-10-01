@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
@@ -11,20 +12,28 @@ type ReleaseCardProps = {
 export function ReleaseCard({ item }: ReleaseCardProps) {
   const gamePath = `/games/${item.gameId}/${item.slug}`;
   const [primaryGroup, ...hiddenGroups] = item.releaseGroups;
+  // The card is lit by its own cover: the same image, blurred beneath it.
+  const coverLight = { "--cover-art": `url(${JSON.stringify(item.cover.url)})` } as CSSProperties;
 
   return (
-    <article className="catalogue-card">
+    <article className="catalogue-card" style={coverLight}>
       <CatalogueCover caption={false} cover={item.cover} to={gamePath} />
+      {primaryGroup === undefined ? null : (
+        <span aria-hidden="true" className="card-date-badge">
+          {primaryGroup.shortDate}
+        </span>
+      )}
       <div className="card-body">
         <h3 className="card-title">
           <Link to={gamePath}>{item.title}</Link>
         </h3>
         {primaryGroup === undefined ? null : (
           <>
-            {/* One compact row for the first relevant release: its date, then the platforms
-                sharing that date and region, then the region. */}
+            {/* One compact row for the first relevant release: its date (shown on the cover chip,
+                read here in full), then the platforms sharing that date and region, then the
+                region. */}
             <p className="card-release">
-              <span className="search-release-date">{primaryGroup.date}</span>
+              <span className="sr-only">{primaryGroup.date}</span>
               <span className="card-platform">
                 {primaryGroup.platforms.join(" · ")} · {primaryGroup.region}
               </span>

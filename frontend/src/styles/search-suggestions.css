@@ -11,16 +11,17 @@
     overflow: hidden;
     flex-direction: column;
     border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
-    border-radius: 12px;
+    border-radius: 18px;
     padding: 0 6px;
-    background: color-mix(in srgb, #121821 94%, transparent);
+    background: var(--glass-solid);
     box-shadow:
       var(--elevation-lift),
       0 24px 60px -28px color-mix(in srgb, #000 90%, transparent),
       0 0 0 1px color-mix(in srgb, #000 30%, transparent),
       inset 0 1px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
     color: var(--color-ink);
-    backdrop-filter: blur(18px) saturate(1.2);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
     cursor: default;
   }
 
@@ -393,6 +394,10 @@
 
     .mobile-search-dialog .header-search {
       position: static;
+      /* A backdrop filter would make the field the popup's containing block again; the
+         dialog is already opaque, so the field needs no blur of its own. */
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
     }
 
     .search-suggestions {

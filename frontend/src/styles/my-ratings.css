@@ -1,47 +1,73 @@
+/* `Mis puntuaciones`: the personal collection on the shared stage, as cover-lit glass rows. */
+
 @layer components {
-  .my-ratings-filters, .my-rating-edit, .my-rating-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: end;
-    gap: 12px;
-  }
-  /* The personal filters read as one control bar rather than four loose fields. */
+  /* The personal filters read as one glass control bar rather than four loose fields: the
+     search leads, then sort, direction and page size share one row of equal selectors. */
   .my-ratings-filters {
-    margin-block: 24px 20px;
-    border: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
-    border-radius: 18px;
-    padding: 16px;
-    background: linear-gradient(
-      170deg,
-      color-mix(in srgb, var(--color-surface) 82%, var(--color-canvas)),
-      color-mix(in srgb, var(--color-canvas) 92%, var(--color-surface))
-    );
-    box-shadow: var(--elevation-rest);
-  }
-  .my-ratings-filters label, .my-rating-edit label {
+    position: relative;
+    z-index: 10;
     display: grid;
-    gap: 8px;
-    color: var(--color-muted);
-    font-size: 0.875rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: end;
+    gap: 14px 10px;
+    margin-block: 28px 20px;
+    border: 1px solid var(--glass-border);
+    border-radius: 26px;
+    padding: 16px;
+    background: var(--glass);
+    box-shadow: var(--glass-highlight), var(--elevation-lift);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
   }
-  .my-ratings-filters > label, .my-ratings-search label {
+
+  @media (prefers-reduced-motion: no-preference) {
+    .my-ratings-filters {
+      animation: fade-in 760ms var(--ease-out) 120ms both;
+    }
+  }
+
+  .my-ratings-search,
+  .my-ratings-search + .app-select {
+    grid-column: 1 / -1;
+  }
+
+  .my-ratings-search {
+    min-width: 0;
+  }
+
+  /* Matches the selector labels beside it, so every control starts on one baseline. */
+  .my-ratings-search label {
+    display: block;
+    margin-bottom: 8px;
     color: var(--color-subtle);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
+    line-height: 1.45;
     letter-spacing: 0.14em;
     text-transform: uppercase;
   }
-  .my-ratings-search { flex: 1 1 260px; min-width: 0; }
+
+  .my-ratings-search-field {
+    display: flex;
+    gap: 8px;
+  }
+
+  .my-ratings-search-field .button {
+    flex: none;
+  }
+
   .my-ratings-filters input {
     width: 100%;
+    min-width: 0;
     min-height: 44px;
-    padding: 8px 14px;
-    border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
-    border-radius: 22px;
+    padding: 8px 18px;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
     color: var(--color-ink);
-    background: var(--color-raised);
+    background: color-mix(in srgb, var(--color-canvas) 50%, transparent);
     box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
   }
+
   @media (prefers-reduced-motion: no-preference) {
     .my-ratings-filters input {
       transition:
@@ -49,100 +75,379 @@
         box-shadow var(--duration-normal) var(--ease-out);
     }
   }
+
   .my-ratings-filters input:hover {
     border-color: color-mix(in srgb, var(--color-ink) 26%, transparent);
   }
+
   .my-ratings-filters input:focus-visible {
     border-color: var(--color-accent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 18%, transparent);
   }
-  .my-ratings-list { display: grid; gap: 16px; margin-block: 24px; }
+
+  .my-ratings-filters .my-ratings-select {
+    width: 100%;
+  }
+
+  .my-ratings-list {
+    display: grid;
+    gap: 16px;
+    margin-block: 18px 8px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .my-ratings-list > * {
+      animation: rise-in 520ms var(--ease-out) both;
+    }
+
+    .my-ratings-list > :nth-child(2) {
+      animation-delay: 50ms;
+    }
+    .my-ratings-list > :nth-child(3) {
+      animation-delay: 100ms;
+    }
+    .my-ratings-list > :nth-child(n + 4) {
+      animation-delay: 150ms;
+    }
+  }
+
+  /* A maintenance row: the game, the personal score it exists for, then its actions. The edit
+     form and any outcome take implicit rows beneath them, so an idle row keeps no empty gap. */
   .my-rating-card {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(96px, 168px) minmax(0, 1fr);
-    gap: 24px;
-    padding: 18px;
-    border: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
-    border-radius: 18px;
-    background: linear-gradient(
-      160deg,
-      color-mix(in srgb, var(--color-surface) 88%, var(--color-canvas)),
-      color-mix(in srgb, var(--color-canvas) 88%, var(--color-surface))
-    );
-    box-shadow: var(--elevation-rest);
+    grid-template-areas:
+      "cover body"
+      "cover score"
+      "actions actions";
+    grid-template-columns: 88px minmax(0, 1fr);
+    align-items: start;
+    isolation: isolate;
+    overflow: hidden;
+    gap: 12px 16px;
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 14px;
+    background: var(--glass);
+    box-shadow: var(--glass-highlight), var(--elevation-rest);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
   }
+
+  /* Each row is washed by its own cover's light from the left edge. */
+  .my-rating-card::before {
+    position: absolute;
+    z-index: -1;
+    top: -30%;
+    bottom: -30%;
+    left: -10%;
+    width: 46%;
+    background: var(--cover-art) center / cover no-repeat;
+    content: "";
+    filter: blur(44px) saturate(1.8);
+    opacity: 0.32;
+  }
+
   @media (prefers-reduced-motion: no-preference) {
-    .my-rating-card {
+    .my-rating-card,
+    .my-rating-card::before {
       transition:
         border-color var(--duration-normal) var(--ease-out),
-        box-shadow var(--duration-normal) var(--ease-out);
+        box-shadow var(--duration-normal) var(--ease-out),
+        opacity var(--duration-normal) var(--ease-out);
     }
   }
-  .my-rating-card:hover, .my-rating-card:focus-within {
-    border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
-    box-shadow: var(--elevation-lift);
+
+  .my-rating-card:hover,
+  .my-rating-card:focus-within {
+    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+    box-shadow: var(--glass-highlight), var(--elevation-lift);
   }
-  .my-rating-card .cover-link { border-radius: 14px; }
-  .my-rating-card .catalogue-cover { border-radius: 14px; }
-  .my-rating-body { min-width: 0; }
-  .my-rating-body .card-title { font-size: 1.375rem; }
-  /* The personal score is the reason this row exists: give it a real badge. */
-  .my-rating-value {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-block: 14px;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
-    border-radius: 999px;
-    padding: 6px 16px 6px 14px;
+
+  .my-rating-card:hover::before,
+  .my-rating-card:focus-within::before {
+    opacity: 0.55;
+  }
+
+  .my-rating-card > .cover-figure,
+  .skeleton.my-rating-skeleton-cover {
+    grid-area: cover;
+  }
+
+  .my-rating-body {
+    grid-area: body;
+    min-width: 0;
+  }
+
+  .my-rating-value,
+  .skeleton.my-rating-skeleton-score {
+    grid-area: score;
+  }
+
+  .my-rating-actions {
+    grid-area: actions;
+  }
+
+  .my-rating-edit,
+  .my-rating-pending,
+  .my-rating-feedback {
+    grid-column: 1 / -1;
+  }
+
+  .my-rating-card .cover-link,
+  .my-rating-card .catalogue-cover {
+    border-radius: 12px;
+  }
+
+  .my-rating-card .cover-link {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-ink) 12%, transparent),
+      0 18px 30px -18px #000;
+  }
+
+  .my-rating-card .cover-caption {
+    margin-top: 6px;
+    line-height: 1.35;
+  }
+
+  .my-rating-body .card-title {
+    font-size: 1.25rem;
+    font-stretch: 106%;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+  }
+
+  .my-rating-dates {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 24px;
+    margin: 10px 0 0;
     color: var(--color-muted);
-    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
     font-size: 0.8125rem;
-    box-shadow: 0 12px 28px -20px color-mix(in srgb, var(--color-accent) 100%, transparent);
   }
-  .my-rating-value strong {
-    color: var(--color-ink);
-    font-size: 1.375rem;
-    letter-spacing: -0.01em;
-  }
-  .my-rating-dates { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 0.8125rem; color: var(--color-muted); }
-  .my-rating-body .card-action { margin-top: 14px; }
+
   .my-rating-dates dt {
-    margin-bottom: 4px;
-    color: var(--color-subtle);
+    margin-bottom: 2px;
+    color: var(--color-muted);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
   }
-  .my-rating-actions, .my-rating-edit { margin-top: 18px; }
+
+  .my-rating-dates dd {
+    margin: 0;
+    color: var(--color-ink);
+  }
+
+  .card-action {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    gap: 6px;
+    align-self: start;
+    color: var(--color-accent-hover);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .card-action:hover {
+    color: #fff;
+  }
+
+  .my-rating-body .card-action {
+    margin-top: 10px;
+  }
+
+  /* The personal score is the reason this row exists: the same aurora fill and glow as the
+     pressed value on the game page's keypad, so a rating looks like one thing everywhere. */
+  .my-rating-value {
+    display: inline-grid;
+    align-self: start;
+    justify-items: start;
+    justify-self: start;
+    gap: 3px;
+    margin: 0;
+    border-radius: 18px;
+    padding: 9px 18px 11px;
+    color: color-mix(in srgb, #0b0f1a 72%, transparent);
+    background: var(--aurora);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
+      0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent),
+      0 16px 40px -16px color-mix(in srgb, var(--color-accent) 100%, transparent);
+  }
+
+  .my-rating-value span {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .my-rating-value strong {
+    color: #0b0f1a;
+    font-family: var(--font-display);
+    font-size: 1.875rem;
+    font-stretch: 106%;
+    font-weight: 850;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .my-rating-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .my-rating-actions .button {
+    padding-inline: 14px;
+    white-space: normal;
+  }
+
   .my-rating-edit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
+    border-radius: 18px;
     padding: 14px;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-line));
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--color-accent) 7%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
   }
+
   @media (prefers-reduced-motion: no-preference) {
-    .my-rating-edit { animation: rise-in 220ms var(--ease-out) both; }
+    .my-rating-edit {
+      animation: rise-in 240ms var(--ease-out) both;
+    }
   }
-  .my-rating-skeleton-cover { aspect-ratio: var(--cover-aspect); border-radius: 14px; }
-  .my-rating-skeleton-score { width: 168px; height: 38px; border-radius: 999px; margin-block: 14px; }
+
+  .my-rating-pending {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+  }
+
+  .skeleton.my-rating-skeleton-cover {
+    aspect-ratio: var(--cover-aspect);
+    border-radius: 12px;
+  }
+
+  .skeleton.my-rating-skeleton-score {
+    width: 124px;
+    height: 66px;
+    border-radius: 18px;
+  }
+
+  .my-rating-body .skeleton + .skeleton {
+    margin-top: 10px;
+  }
+
   .my-ratings-input-error {
-    margin: 0 0 8px;
+    margin: -8px 0 16px;
     color: var(--color-danger);
     font-size: 0.8125rem;
     line-height: 1.5;
   }
-  @media (max-width: 599px) {
-    .my-rating-card { grid-template-columns: 90px minmax(0, 1fr); gap: 14px; padding: 14px; }
-    .my-rating-actions, .my-rating-edit { align-items: stretch; flex-direction: column; }
-    .my-rating-actions .button, .my-rating-edit .button { white-space: normal; }
+
+  .my-ratings-pagination {
+    gap: 12px;
   }
+
+  .my-ratings-refresh {
+    margin-left: auto;
+  }
+
+  @media (min-width: 620px) {
+    .my-ratings-filters {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      padding: 18px;
+    }
+
+    .my-ratings-search + .app-select {
+      grid-column: auto;
+    }
+
+    .my-rating-card {
+      grid-template-areas:
+        "cover body score"
+        "cover actions actions";
+      grid-template-columns: 104px minmax(0, 1fr) auto;
+      gap: 14px 22px;
+      padding: 16px;
+    }
+
+    .my-rating-value {
+      justify-items: end;
+      justify-self: end;
+    }
+
+    .my-rating-actions {
+      display: flex;
+      flex-wrap: wrap;
+    }
+
+    .my-rating-edit,
+    .my-rating-pending,
+    .my-rating-feedback {
+      grid-column: 2 / -1;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .my-ratings-filters {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 236px) minmax(0, 190px) minmax(0, 150px);
+      gap: 14px;
+    }
+
+    .my-ratings-search {
+      grid-column: auto;
+    }
+
+    .my-rating-card {
+      grid-template-areas: "cover body score actions";
+      grid-template-columns: 96px minmax(0, 1fr) auto auto;
+      align-items: center;
+      gap: 12px 28px;
+      padding: 14px 24px 14px 14px;
+    }
+
+    .my-rating-card > .cover-figure {
+      align-self: start;
+    }
+
+    .my-rating-body .card-title {
+      font-size: 1.5rem;
+    }
+
+    .my-rating-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
   @media (forced-colors: active) {
-    .my-ratings-filters, .my-rating-card, .my-rating-edit, .my-rating-value {
-      border-color: CanvasText;
+    .my-ratings-filters,
+    .my-rating-card,
+    .my-rating-edit,
+    .my-rating-value {
+      border: 1px solid CanvasText;
+      color: CanvasText;
       background: Canvas;
       box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    .my-rating-value strong {
+      color: CanvasText;
+    }
+
+    .my-rating-card::before {
+      display: none;
     }
   }
 }

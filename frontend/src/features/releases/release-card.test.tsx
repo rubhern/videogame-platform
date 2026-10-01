@@ -10,6 +10,7 @@ function group(overrides: Partial<ReleaseContextGroup> = {}): ReleaseContextGrou
   return {
     key: "day|2026-09-24|worldwide",
     date: "24 de septiembre de 2026",
+    shortDate: "24 sep 2026",
     region: "Mundial",
     platforms: ["PlayStation 5"],
     isStale: false,
@@ -73,6 +74,8 @@ describe("release card", () => {
     renderCard(item({ releaseGroups: [group({ platforms: ["PlayStation 5"] })] }));
 
     expect(screen.getByText("24 de septiembre de 2026")).toBeInTheDocument();
+    // The cover chip repeats the date compactly for sight only; the row reads it in full.
+    expect(screen.getByText("24 sep 2026")).toHaveAttribute("aria-hidden", "true");
     expect(screen.getByText("PlayStation 5 · Mundial")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /lanzamientos más/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "The Witcher IV" })).toHaveAttribute(
