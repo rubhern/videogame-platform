@@ -180,6 +180,58 @@
     content: "";
   }
 
+  /* A reading lights its panel with its temperature: the glow rises from the panel's floor. */
+  .game-community-score[data-thermal],
+  .game-personal-rating[data-thermal] {
+    border-color: color-mix(in srgb, var(--thermal) 30%, var(--glass-border));
+  }
+
+  .game-community-score[data-thermal]::before,
+  .game-personal-rating[data-thermal]::before {
+    background:
+      radial-gradient(
+        ellipse at 10% -30%,
+        color-mix(in srgb, var(--color-accent) 16%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse at 30% 135%,
+        color-mix(in srgb, var(--thermal) 30%, transparent),
+        transparent 62%
+      );
+  }
+
+  /* Exceptional readings carry their own climate: frost on a frozen score and live embers on a
+     burning one. The middle bands stay plain light. */
+  .game-community-score[data-thermal="freeze"] {
+    box-shadow:
+      var(--glass-highlight),
+      var(--elevation-lift),
+      inset 0 0 0 1px color-mix(in srgb, var(--color-freeze) 24%, transparent),
+      inset 0 22px 44px -28px color-mix(in srgb, var(--color-freeze) 70%, transparent);
+  }
+
+  .game-community-score[data-thermal="burn"]::after {
+    position: absolute;
+    z-index: -1;
+    inset: 30% 0 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(
+      ellipse at 30% 100%,
+      color-mix(in srgb, var(--color-burn) 36%, transparent),
+      color-mix(in srgb, var(--color-hot) 10%, transparent) 46%,
+      transparent 72%
+    );
+    content: "";
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .game-community-score[data-thermal="burn"]::after {
+      animation: ember-breathe 3.2s ease-in-out infinite alternate;
+    }
+  }
+
   /* Opacity-only entrance: the measured composition is never caught mid-transform. */
   @media (prefers-reduced-motion: no-preference) {
     .game-detail-heading,
@@ -220,54 +272,40 @@
     }
   }
 
-  /* ---------------------------------------------------------------- Community dial */
+  /* ---------------------------------------------------------------- Community reading */
 
+  /* The community mean read on the Gameómetro: the G-meter, then the number, its temperature in
+     words and the count. The number stays the authority; the meter only interprets it. */
   .game-community-score {
     display: grid;
-    grid-template-areas: "dial label" "dial detail";
+    grid-template-areas: "label label" "meter body";
     grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
     align-items: center;
-    column-gap: 20px;
-    row-gap: 6px;
+    column-gap: 16px;
     overflow: hidden;
-    padding: 18px 22px 18px 18px;
+    padding: 18px 22px 18px 16px;
     text-align: left;
   }
 
-  .score-dial {
-    width: 118px;
-    height: 118px;
-    grid-area: dial;
-    transform: rotate(-90deg);
+  .game-score-meter {
+    width: 104px;
+    height: 104px;
+    grid-area: meter;
   }
 
-  .score-dial-track {
-    fill: none;
-    stroke: color-mix(in srgb, var(--color-ink) 12%, transparent);
-    stroke-width: 6;
+  .game-score-body {
+    display: grid;
+    grid-area: body;
+    justify-items: start;
+    gap: 6px;
   }
 
-  .game-community-score-empty .score-dial-track {
-    stroke-dasharray: 2.6 6.4;
-  }
-
-  .score-dial-value {
-    fill: none;
-    stroke-linecap: round;
-    stroke-width: 7;
-    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--color-accent) 90%, transparent));
-  }
-
-  .score-dial-stop-start {
-    stop-color: #e6ecff;
-  }
-
-  .score-dial-stop-middle {
-    stop-color: var(--color-accent);
-  }
-
-  .score-dial-stop-end {
-    stop-color: var(--color-aurora);
+  /* The needle sweeps up to the mean as the panel arrives; the panel itself only fades. */
+  @media (prefers-reduced-motion: no-preference) {
+    .game-score-meter .game-meter-needle {
+      animation: meter-sweep 1100ms var(--ease-pop) 240ms both;
+    }
   }
 
   .game-score-label {
@@ -276,7 +314,7 @@
     align-items: center;
     align-self: end;
     gap: 8px;
-    margin: 0;
+    margin: 0 0 6px;
     color: var(--color-accent-hover);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
@@ -286,20 +324,19 @@
     text-transform: uppercase;
   }
 
-  .game-score-star {
-    width: 16px;
-    height: 16px;
-    flex: none;
-    color: var(--color-accent);
-    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 80%, transparent));
+  .game-score-reading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
   }
 
-  /* Solid ink keeps the headline score's contrast deterministic; the glow supplies the lift. */
+  /* Solid ink keeps the headline score's contrast deterministic; its temperature supplies the
+     glow. */
   .game-score-value {
-    display: grid;
-    grid-area: dial;
-    place-self: center;
-    justify-items: center;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
@@ -308,31 +345,17 @@
     font-weight: 850;
     line-height: 1;
     letter-spacing: -0.04em;
-    text-shadow: 0 0 30px color-mix(in srgb, var(--color-accent) 55%, transparent);
+    text-shadow: 0 0 30px
+      color-mix(in srgb, var(--thermal, var(--color-accent)) 55%, transparent);
   }
 
   .game-score-value span {
-    margin-top: 4px;
     color: var(--color-muted);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
     font-weight: 400;
     letter-spacing: 0.14em;
     text-shadow: none;
-  }
-
-  .game-score-placeholder {
-    grid-area: dial;
-    place-self: center;
-    color: var(--color-subtle);
-    font-family: var(--font-display);
-    font-size: 2rem;
-    font-weight: 700;
-  }
-
-  .game-score-detail {
-    grid-area: detail;
-    align-self: start;
   }
 
   .game-score-empty {
@@ -372,13 +395,20 @@
     gap: 12px;
   }
 
-  .game-rating-star {
-    width: 28px;
-    height: 28px;
+  /* The panel's own G-meter: empty until a value is pressed, then it swings to that value. */
+  .game-rating-meter {
+    width: 40px;
+    height: 40px;
     flex: none;
-    margin-top: 2px;
-    color: var(--color-accent);
-    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-accent) 70%, transparent));
+    margin: -4px -2px -4px -6px;
+  }
+
+  .game-rating-meter .game-meter-tick {
+    display: none;
+  }
+
+  .game-rating-meter :is(.game-meter-track, .game-meter-trail, .game-meter-head) {
+    stroke-width: 7.6;
   }
 
   .game-rating-title {
@@ -453,41 +483,89 @@
     cursor: pointer;
   }
 
+  /* Each value carries its own temperature: it lights up in it on hover, the pressed value
+     glows in it, and the values below keep a ring of theirs, so the keypad reads as a
+     thermometer filled up to the rating. The pressed orb is marked by its ring and glow as well
+     as its fill. */
   .rating-option:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--color-accent) 80%, transparent);
+    border-color: color-mix(in srgb, var(--thermal) 80%, transparent);
     background:
       radial-gradient(
         circle at 35% 28%,
-        color-mix(in srgb, var(--color-accent) 30%, transparent),
+        color-mix(in srgb, var(--thermal) 32%, transparent),
         transparent 72%
       ),
       color-mix(in srgb, var(--color-surface) 80%, transparent);
-    box-shadow: var(--glow-accent);
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--thermal) 30%, transparent),
+      0 14px 34px -14px var(--thermal);
   }
 
-  /* Values below the current rating stay faintly lit, so the scale reads as a gauge; the rating
-     itself is the one pressed orb, marked by its ring and glow as well as its fill. */
   .rating-option:has(~ .rating-option[aria-pressed="true"]) {
-    border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+    border-color: color-mix(in srgb, var(--thermal) 70%, transparent);
     color: var(--color-ink);
     background:
       radial-gradient(
         circle at 35% 28%,
-        color-mix(in srgb, var(--color-accent) 34%, transparent),
-        transparent 72%
+        color-mix(in srgb, var(--thermal) 14%, transparent),
+        transparent 70%
       ),
-      color-mix(in srgb, var(--color-accent) 22%, var(--color-surface));
+      color-mix(in srgb, var(--color-surface) 80%, transparent);
+    box-shadow: inset 0 0 12px -5px var(--thermal);
   }
 
   .rating-option[aria-pressed="true"] {
     border-color: transparent;
     color: #0b0f1a;
-    background: var(--aurora);
+    background: radial-gradient(
+      circle at 34% 26%,
+      #fff 0,
+      var(--thermal) 46%,
+      var(--thermal-deep) 100%
+    );
     box-shadow:
       0 0 0 3px var(--color-canvas),
-      0 0 0 5px var(--color-accent),
-      0 0 34px color-mix(in srgb, var(--color-accent) 80%, transparent);
+      0 0 0 5px var(--thermal),
+      0 0 34px color-mix(in srgb, var(--thermal) 80%, transparent);
     font-weight: 850;
+  }
+
+  /* The scale's key: from ice at 1 to fire at 10. */
+  .rating-thermal-scale {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: -6px 0 0;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .rating-thermal-scale span {
+    flex: none;
+    color: var(--thermal);
+  }
+
+  .rating-thermal-scale::before {
+    order: 1;
+    height: 2px;
+    flex: 1;
+    border-radius: 2px;
+    opacity: 0.7;
+    background: linear-gradient(
+      90deg,
+      var(--color-freeze),
+      var(--color-cold),
+      var(--color-warm),
+      var(--color-hot),
+      var(--color-burn)
+    );
+    content: "";
+  }
+
+  .rating-thermal-scale span:last-child {
+    order: 2;
   }
 
   .rating-option:focus-visible {
@@ -1048,7 +1126,7 @@
 
   @media (min-width: 1024px) {
     .game-scores {
-      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.5fr);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
       align-items: stretch;
     }
 
@@ -1063,29 +1141,17 @@
     }
 
     .game-community-score {
-      grid-template-areas: "dial" "label" "detail";
-      grid-template-columns: minmax(0, 1fr);
-      justify-items: center;
-      padding: 22px 18px;
-      text-align: center;
-    }
-
-    .game-score-label {
-      justify-content: center;
-      margin-top: 8px;
-    }
-
-    .game-score-detail {
-      text-align: center;
+      column-gap: 16px;
+      padding: 22px 20px 22px 14px;
     }
 
     .game-score-empty {
       font-size: 1.25rem;
     }
 
-    .score-dial {
-      width: 128px;
-      height: 128px;
+    .game-score-meter {
+      width: 112px;
+      height: 112px;
     }
 
     .game-score-value {
@@ -1133,16 +1199,16 @@
     }
 
     .game-community-score::before,
+    .game-community-score::after,
     .game-personal-rating::before,
     .game-artwork::before,
-    .game-status::before {
+    .game-status::before,
+    .rating-thermal-scale::before {
       display: none;
     }
 
-    .score-dial-track,
-    .score-dial-value {
-      stroke: CanvasText;
-      filter: none;
+    .rating-thermal-scale span {
+      color: CanvasText;
     }
 
     .game-score-value,
@@ -1163,6 +1229,22 @@
       -webkit-mask-image: none;
       mask-image: none;
     }
+  }
+}
+
+@keyframes meter-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes ember-breathe {
+  from {
+    opacity: 0.45;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 

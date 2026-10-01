@@ -205,83 +205,59 @@
     padding-block: 12px;
   }
 
+  /* Gameómetro identity: the Tilde mark and the wordmark, inlined from the canonical SVGs in
+     shared/brand so the needle can answer the link. */
   .brand {
     order: 1;
     display: inline-flex;
     min-height: 44px;
     align-items: center;
     flex: none;
-    gap: 11px;
+    gap: 3px;
     color: var(--color-ink);
     text-decoration: none;
   }
 
-  .brand-mark {
-    position: relative;
+  .brand-mark,
+  .brand-wordmark {
     display: block;
-    width: 32px;
-    height: 32px;
     flex: none;
-    border-radius: 10px;
-    background: linear-gradient(150deg, var(--color-accent-hover), #6f86c8);
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent),
-      0 6px 18px -8px color-mix(in srgb, var(--color-accent) 85%, transparent);
   }
 
+  .brand svg {
+    display: block;
+    overflow: visible;
+  }
+
+  /* The mark keeps its 64-unit icon canvas; the negative margin trims that canvas, so the ring,
+     not its padding, sets the header rhythm. */
+  .brand-mark svg {
+    width: 46px;
+    height: 46px;
+    margin: -1px -3px -1px -7px;
+  }
+
+  .brand-wordmark svg {
+    width: auto;
+    height: 19px;
+  }
+
+  .brand .gm-needle {
+    transform-box: view-box;
+    transform-origin: 32px 32px;
+  }
+
+  .brand:hover .gm-needle,
+  .brand:focus-visible .gm-needle {
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-burn) 90%, transparent));
+  }
+
+  /* The meter twitches hotter when the link is hovered or focused, then settles. */
   @media (prefers-reduced-motion: no-preference) {
-    .brand-mark {
-      transition: box-shadow var(--duration-normal) var(--ease-out);
+    .brand:hover .gm-needle,
+    .brand:focus-visible .gm-needle {
+      animation: needle-rev 760ms var(--ease-pop);
     }
-  }
-
-  .brand:hover .brand-mark {
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--color-accent) 65%, transparent),
-      0 8px 24px -8px color-mix(in srgb, var(--color-accent) 100%, transparent);
-  }
-
-  .brand-mark::before,
-  .brand-mark::after {
-    position: absolute;
-    border-radius: 2px;
-    background: var(--color-canvas);
-    content: "";
-  }
-
-  .brand-mark::before {
-    top: 14px;
-    left: 7px;
-    width: 18px;
-    height: 4px;
-  }
-
-  .brand-mark::after {
-    top: 9px;
-    left: 14px;
-    width: 4px;
-    height: 14px;
-  }
-
-  /* The wordmark keeps its own serif: product identity belongs to the branding work. */
-  .brand-name {
-    display: flex;
-    flex-direction: column;
-    line-height: 1;
-  }
-
-  .brand-name > :first-child {
-    font-family: var(--font-serif);
-    font-size: 1.375rem;
-  }
-
-  .brand-name > :last-child {
-    margin-top: 4px;
-    color: var(--color-subtle);
-    font-family: var(--font-mono);
-    font-size: 0.59375rem;
-    letter-spacing: 0.32em;
-    text-transform: uppercase;
   }
 
   .primary-nav {
@@ -1259,6 +1235,19 @@
     text-transform: uppercase;
   }
 
+  .site-footer-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .site-footer-mark svg {
+    display: block;
+    width: 28px;
+    height: 28px;
+    margin: -8px -2px -8px -6px;
+  }
+
   /* ---------------------------------------------------------------- Utilities */
 
   /* Holds SVG filter definitions only; it must never take layout or focus. */
@@ -1406,32 +1395,17 @@
     }
 
     .brand {
-      gap: 6px;
+      gap: 1px;
     }
 
-    .brand-mark {
-      width: 28px;
-      height: 28px;
-      border-radius: 8px;
+    .brand-mark svg {
+      width: 40px;
+      height: 40px;
+      margin: 0 -2px 0 -6px;
     }
 
-    .brand-mark::before {
-      top: 12px;
-      left: 6px;
-      width: 16px;
-    }
-
-    .brand-mark::after {
-      top: 7px;
-      left: 12px;
-    }
-
-    .brand-name > :first-child {
-      font-size: 1.125rem;
-    }
-
-    .brand-name > :last-child {
-      display: none;
+    .brand-wordmark svg {
+      height: 15px;
     }
 
     .primary-nav {
@@ -1540,6 +1514,14 @@
     }
   }
 
+  /* Below the narrowest common phone the compact mark alone keeps identity, both windows and
+     the search icon on one row. */
+  @media (max-width: 374px) {
+    .brand-wordmark {
+      display: none;
+    }
+  }
+
   /* ---------------------------------------------------------------- Forced colours */
 
   @media (forced-colors: active) {
@@ -1598,6 +1580,19 @@
     .title-accent {
       color: CanvasText;
       background: none;
+    }
+
+    /* The identity keeps its shape in the system's text colour. */
+    .brand svg :is(path, circle),
+    .site-footer-mark svg :is(path, circle) {
+      fill: CanvasText;
+      filter: none;
+    }
+
+    .brand svg .gm-ring,
+    .site-footer-mark svg .gm-ring {
+      fill: none;
+      stroke: CanvasText;
     }
 
     .mobile-search-dialog::backdrop {
@@ -1660,6 +1655,20 @@
   50% {
     opacity: 0.55;
     transform: scale(0.8);
+  }
+}
+
+@keyframes needle-rev {
+  30% {
+    transform: rotate(13deg);
+  }
+
+  62% {
+    transform: rotate(-4deg);
+  }
+
+  to {
+    transform: none;
   }
 }
 

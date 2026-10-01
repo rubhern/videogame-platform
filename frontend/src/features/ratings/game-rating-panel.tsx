@@ -3,6 +3,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { assignLocation } from "../../shared/browser/navigate";
+import { GameMeter } from "../../shared/score/game-meter";
+import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
 import type { GameDetails } from "../game-details/game-details-api";
 import {
   getPendingRatingIntent,
@@ -10,7 +12,6 @@ import {
 } from "../session/rating-intent";
 import { useSession } from "../session/use-session";
 import type { RatingCommandError } from "./personal-rating-api";
-import { RatingStar } from "./rating-star";
 import { useRatingCommand, usePersonalRating } from "./use-personal-rating";
 
 const RATING_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
@@ -111,6 +112,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   // Pressed value: the one being saved, else the recovered one awaiting its automatic save,
   // else the persisted rating.
   const selected = inFlight ?? recovered ?? persisted?.value ?? null;
+  const selectedBand = selected === null ? null : thermalBand(selected);
 
   function clearMarker() {
     if (marker === null) return;
@@ -215,9 +217,11 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
       className="game-personal-rating"
       aria-labelledby={titleId}
       aria-busy={busy}
+      data-thermal={selectedBand ?? undefined}
     >
       <div className="game-rating-heading">
-        <RatingStar className="game-rating-star" />
+        {/* The panel's meter swings to the pressed value as it is saved. */}
+        <GameMeter className="game-rating-meter" value={selected} />
         <div>
           <h2 id={titleId} className="game-rating-title">
             Tu puntuación
@@ -247,6 +251,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
             key={value}
             type="button"
             className="rating-option"
+            data-thermal={thermalBand(value) ?? undefined}
             value={value}
             aria-pressed={selected === value}
             disabled={!eligible}
@@ -261,6 +266,12 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
           </button>
         ))}
       </div>
+
+      {/* The scale's key: the keypad runs from ice to fire. */}
+      <p className="rating-thermal-scale">
+        <span data-thermal="freeze">1 · {thermalLabels.freeze}</span>
+        <span data-thermal="burn">10 · {thermalLabels.burn}</span>
+      </p>
 
       {feedback?.tone === "success" ? (
         // The pressed value already shows the result; announce it without visible text.

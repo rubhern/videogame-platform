@@ -1,4 +1,4 @@
-import { useId, type CSSProperties, type PointerEvent } from "react";
+import type { CSSProperties, PointerEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import {
@@ -7,6 +7,8 @@ import {
 } from "../../shared/catalogue/release-date";
 import { regionLabel } from "../../shared/catalogue/region-label";
 import { platformIcon, regionIcon } from "../../shared/catalogue/taxonomy-icons";
+import { GameMeter } from "../../shared/score/game-meter";
+import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { CinematicStage } from "../../shared/ui/cinematic-stage";
 import { SelectIcon } from "../../shared/ui/select-icon";
@@ -139,38 +141,6 @@ function Evidence({ release }: { release: GameDetails["releases"][number] }) {
   );
 }
 
-/**
- * The community mean as a lit dial: the arc fills to the mean out of ten. It is decorative; the
- * value beside it carries the accessible reading.
- */
-function ScoreDial({ value }: { value: number | null }) {
-  const gradientId = useId();
-  const circumference = 2 * Math.PI * 44;
-  const filled = value === null ? 0 : (Math.min(10, Math.max(0, value)) / 10) * circumference;
-  return (
-    <svg aria-hidden="true" className="score-dial" viewBox="0 0 100 100">
-      <defs>
-        <linearGradient id={gradientId} x1="0" x2="1" y1="0" y2="1">
-          <stop className="score-dial-stop-start" offset="0" />
-          <stop className="score-dial-stop-middle" offset="0.5" />
-          <stop className="score-dial-stop-end" offset="1" />
-        </linearGradient>
-      </defs>
-      <circle className="score-dial-track" cx="50" cy="50" r="44" />
-      {value === null ? null : (
-        <circle
-          className="score-dial-value"
-          cx="50"
-          cy="50"
-          r="44"
-          stroke={`url(#${gradientId})`}
-          strokeDasharray={`${filled} ${circumference}`}
-        />
-      )}
-    </svg>
-  );
-}
-
 // The cover leans toward a mouse pointer and catches its light. Only style properties change, so
 // nothing re-renders; touch, pen and reduced motion keep the cover still (see game-details.css).
 function tiltCover(event: PointerEvent<HTMLDivElement>) {
@@ -226,6 +196,9 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
     maximumFractionDigits: 1,
   });
   const scored = available !== null && available.count > 0;
+  const communityMean = scored ? (available.mean ?? null) : null;
+  // The temperature interprets the mean the page shows: the contract already rounds it.
+  const band = communityMean === null ? null : thermalBand(communityMean);
 
   function selectPlatform(id: string) {
     const next = new URLSearchParams(search);
@@ -272,47 +245,54 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
 
       <div className="game-scores">
         <section
-          className={`game-community-score${scored ? "" : " game-community-score-empty"}`}
+          className="game-community-score"
           aria-labelledby="statistics-title"
+          data-thermal={band ?? undefined}
         >
-          <ScoreDial value={scored ? (available.mean ?? null) : null} />
+          <GameMeter className="game-score-meter" value={communityMean} />
           <h2 id="statistics-title" className="game-score-label">
             Puntuaciones de la comunidad
           </h2>
-          {scored ? (
-            <p className="game-score-value" aria-label={`Nota media: ${mean} de 10`}>
-              {mean}
-              <span> / 10</span>
-            </p>
-          ) : (
-            <span aria-hidden="true" className="game-score-placeholder">
-              —
-            </span>
-          )}
-          <div className="game-score-detail">
-            {available ? (
-              available.count === 0 ? (
-                <>
-                  <p className="game-score-empty">Sin nota todavía</p>
-                  <p className="game-score-description">
-                    Todavía no hay puntuaciones para este juego.
+          <div className="game-score-body">
+            {scored ? (
+              <div className="game-score-reading">
+                <p className="game-score-value" aria-label={`Nota media: ${mean} de 10`}>
+                  {mean}
+                  <span> / 10</span>
+                </p>
+                {band === null ? null : (
+                  <p className="thermal-tag">
+                    <span className="sr-only">Temperatura: </span>
+                    {thermalLabels[band]}
                   </p>
-                </>
-              ) : (
-                <p className="game-score-description">
-                  {available.count.toLocaleString("es-ES")}{" "}
-                  {available.count === 1 ? "puntuación" : "puntuaciones"}
-                </p>
-              )
-            ) : (
-              <div role="status">
-                <p className="game-score-empty">Nota no disponible</p>
-                <p className="game-score-description">
-                  Las estadísticas no están disponibles temporalmente. Puedes
-                  seguir consultando el juego.
-                </p>
+                )}
               </div>
-            )}
+            ) : null}
+            <div className="game-score-detail">
+              {available ? (
+                available.count === 0 ? (
+                  <>
+                    <p className="game-score-empty">Sin nota todavía</p>
+                    <p className="game-score-description">
+                      Todavía no hay puntuaciones para este juego.
+                    </p>
+                  </>
+                ) : (
+                  <p className="game-score-description">
+                    {available.count.toLocaleString("es-ES")}{" "}
+                    {available.count === 1 ? "puntuación" : "puntuaciones"}
+                  </p>
+                )
+              ) : (
+                <div role="status">
+                  <p className="game-score-empty">Nota no disponible</p>
+                  <p className="game-score-description">
+                    Las estadísticas no están disponibles temporalmente. Puedes
+                    seguir consultando el juego.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </section>
         <GameRatingPanel game={game} />

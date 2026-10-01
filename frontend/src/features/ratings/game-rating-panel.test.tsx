@@ -141,6 +141,9 @@ describe("inline personal rating", () => {
     ).toBeInTheDocument();
     const group = screen.getByRole("group", { name: "Nota del 1 al 10" });
     expect(within(group).getAllByRole("button")).toHaveLength(10);
+    // The scale names its temperature in words, not only in colour.
+    expect(screen.getByText("1 · Congelado")).toBeVisible();
+    expect(screen.getByText("10 · Ardiendo")).toBeVisible();
     await waitFor(() =>
       expect(screen.getByRole("status")).toHaveTextContent("Selecciona una nota"),
     );

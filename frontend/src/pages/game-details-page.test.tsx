@@ -63,6 +63,8 @@ describe("public game details", () => {
       screen.getByRole("heading", { name: "Puntuaciones de la comunidad" }),
     ).toBeVisible();
     expect(screen.getByText("Sin nota todavía")).toBeVisible();
+    // No mean, no temperature: the band never stands in for a missing score.
+    expect(screen.queryByText(/^Temperatura:/)).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(
       screen.queryByText("Lanzamientos y evidencia"),
@@ -106,6 +108,8 @@ describe("public game details", () => {
     serve(game);
     renderApp(path);
     expect(await screen.findByLabelText("Nota media: 8,5 de 10")).toBeVisible();
+    // The mean is read as a temperature, named in words beside the authoritative number.
+    expect(screen.getByText("Ardiendo")).toHaveTextContent("Temperatura: Ardiendo");
     expect(screen.getByText("2 puntuaciones")).toBeVisible();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });

@@ -69,6 +69,14 @@ describe("application routing", () => {
     expect(await screen.findByRole("link", { name: "Pragmata" })).toBeInTheDocument();
   });
 
+  it("presents the product as Gameómetro in the shell", async () => {
+    renderApp();
+
+    await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" });
+    expect(screen.getByRole("link", { name: "Gameómetro · Inicio" })).toHaveAttribute("href", "/");
+    expect(within(screen.getByRole("contentinfo")).getByText("Gameómetro")).toBeVisible();
+  });
+
   it("uses the integrated search instead of a duplicate navigation link", async () => {
     const user = userEvent.setup();
     renderApp();

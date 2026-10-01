@@ -1,0 +1,153 @@
+/* Thermal language. Gameómetro reads a score as a temperature, from ice to fire. `thermalBand`
+   (shared/score) decides the band; these rules only paint it through `data-thermal`. A band never
+   replaces the number, and a reading that shows a band also names it in words. */
+
+@layer components {
+  [data-thermal="freeze"] {
+    --thermal: var(--color-freeze);
+    --thermal-deep: #8fd3ff;
+  }
+
+  [data-thermal="cold"] {
+    --thermal: var(--color-cold);
+    --thermal-deep: #2f80ff;
+  }
+
+  [data-thermal="warm"] {
+    --thermal: var(--color-warm);
+    --thermal-deep: #ffa21f;
+  }
+
+  [data-thermal="hot"] {
+    --thermal: var(--color-hot);
+    --thermal-deep: #ff5b16;
+  }
+
+  [data-thermal="burn"] {
+    --thermal: var(--color-burn);
+    --thermal-deep: #e3163c;
+  }
+
+  /* ------------------------------------------------------------- G-meter */
+
+  /* The brand mark as an instrument: a moonlit G whose trail and needle take the score's
+     temperature. The trail keeps a quiet base and lights up towards the needle. */
+  .game-meter {
+    display: block;
+    overflow: visible;
+  }
+
+  .game-meter-track {
+    fill: none;
+    stroke: color-mix(in srgb, var(--color-accent-hover) 22%, transparent);
+    stroke-width: 6.6;
+    stroke-linejoin: miter;
+  }
+
+  /* Without a score the meter rests: a dimmer G and no needle. */
+  .game-meter:not([data-thermal]) .game-meter-track {
+    stroke: color-mix(in srgb, var(--color-accent-hover) 12%, transparent);
+  }
+
+  /* Notches at the band edges (2, 4, 6 and 8) divide the scale into its five temperatures. */
+  .game-meter-tick {
+    stroke: var(--color-canvas);
+    stroke-width: 1.2;
+  }
+
+  .game-meter-trail,
+  .game-meter-head {
+    fill: none;
+    stroke-width: 6.6;
+  }
+
+  .game-meter-trail {
+    opacity: 0.32;
+    stroke: var(--thermal);
+  }
+
+  .game-meter-head-stop {
+    stop-color: var(--thermal);
+  }
+
+  .game-meter-needle {
+    fill: var(--thermal);
+    filter: drop-shadow(0 0 3px var(--thermal-deep));
+    transform: rotate(var(--meter-turn, 0deg));
+    transform-box: view-box;
+    transform-origin: 32px 32px;
+  }
+
+  .game-meter-core {
+    fill: #fff6e6;
+  }
+
+  /* A changed reading swings the needle to its new temperature. */
+  @media (prefers-reduced-motion: no-preference) {
+    .game-meter-needle {
+      transition:
+        transform 720ms var(--ease-pop),
+        fill var(--duration-normal) var(--ease-out);
+    }
+  }
+
+  /* ------------------------------------------------------------- Band tag */
+
+  .thermal-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--thermal) 45%, transparent);
+    border-radius: 999px;
+    padding: 4px 12px 4px 10px;
+    color: var(--thermal);
+    background: color-mix(in srgb, var(--thermal) 12%, transparent);
+    font-size: 0.8125rem;
+    font-weight: 650;
+    line-height: 1.2;
+  }
+
+  .thermal-tag::before {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--thermal);
+    box-shadow: 0 0 10px var(--thermal);
+    content: "";
+  }
+
+  /* ------------------------------------------------------------- Forced colours */
+
+  @media (forced-colors: active) {
+    .game-meter-track,
+    .game-meter-trail,
+    .game-meter-head {
+      stroke: CanvasText;
+    }
+
+    .game-meter-trail {
+      opacity: 1;
+    }
+
+    .game-meter-tick {
+      stroke: Canvas;
+    }
+
+    .game-meter-needle {
+      fill: Highlight;
+      filter: none;
+    }
+
+    .thermal-tag {
+      border-color: CanvasText;
+      color: CanvasText;
+      background: Canvas;
+    }
+
+    .thermal-tag::before {
+      display: none;
+    }
+  }
+}
