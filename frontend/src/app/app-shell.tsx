@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { readReleasesSearch, releasesSearchPath } from "../features/releases/releases-search";
+import { BrandMark, BrandWordmark } from "../shared/brand/brand-logo";
 import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
 
@@ -42,14 +43,9 @@ export function AppShell() {
       </a>
       <header className="site-header">
         <div className="header-layout page-container">
-          <Link className="brand" to="/" aria-label="VideoGame Platform · Inicio">
-            <span className="brand-mark" aria-hidden="true">
-              <span />
-            </span>
-            <span className="brand-name">
-              <span>VideoGame</span>
-              <span>Platform</span>
-            </span>
+          <Link className="brand" to="/" aria-label="Gameómetro · Inicio">
+            <BrandMark className="brand-mark" />
+            <BrandWordmark className="brand-wordmark" />
           </Link>
 
           <nav aria-label="Secciones principales" className="primary-nav">
@@ -81,7 +77,10 @@ export function AppShell() {
 
       <footer className="site-footer">
         <div className="page-container">
-          <span>VideoGame Platform</span>
+          <span className="site-footer-brand">
+            <BrandMark className="site-footer-mark" />
+            Gameómetro
+          </span>
         </div>
       </footer>
     </div>

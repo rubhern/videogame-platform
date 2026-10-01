@@ -1,5 +1,7 @@
 import { useId, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
+import { GameMeter } from "../../shared/score/game-meter";
+import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { AppSelect } from "../../shared/ui/app-select";
 import type { MyRatingItem } from "./my-ratings-api";
@@ -31,6 +33,7 @@ export function MyRatingCard({ item, csrfToken, onChanged }: {
   const editButton = useRef<HTMLButtonElement>(null);
   const command = useRatingCommand(item.game.gameId);
   const { game, personalRating } = item;
+  const band = thermalBand(personalRating.value);
   const path = `/games/${game.gameId}/${game.slug}`;
   const cover = "attribution" in game.primaryCover
     ? { ...game.primaryCover, kind: "provider" as const }
@@ -57,7 +60,11 @@ export function MyRatingCard({ item, csrfToken, onChanged }: {
         <span aria-hidden="true">Ver ficha →</span>
       </Link>
     </div>
-    <p className="my-rating-value"><span>Tu puntuación </span><strong>{personalRating.value}/10</strong></p>
+    <p className="my-rating-value" data-thermal={band ?? undefined}>
+      <GameMeter className="my-rating-meter" value={personalRating.value} />
+      <span>Tu puntuación {band ? <b>{thermalLabels[band]}</b> : null}</span>
+      <strong>{personalRating.value}/10</strong>
+    </p>
     <div className="my-rating-actions">
       <button className="button" ref={editButton} type="button" disabled={command.isPending || mustRefresh}
         aria-expanded={editing} onClick={() => { setSelected(personalRating.value); setEditing(true); }}>

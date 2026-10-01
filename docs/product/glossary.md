@@ -15,6 +15,7 @@
 | Rating | One active personal integer score from 1 to 10 for a released game; not a written review |
 | Rating eligibility | Dated decision that a qualifying commercial release permits create/update; delete remains allowed |
 | Aggregate rating | Arithmetic mean to one decimal, count, and distribution from active ratings; separate from personal rating |
+| Score temperature | Presentation of a personal or aggregate score as one of five bands, from Congelado to Ardiendo; never a separate score and never a change to ratings or the aggregate |
 | `Mis puntuaciones` | Authenticated view for finding, sorting, editing, and deleting the current user's ratings |
 | Spanish-first | Product behaviour designed around Spanish language and regional/platform release clarity, not only translation |
 | Learning MVP | Smallest complete journey that tests selected product and architecture learning goals; not product–market-fit evidence |

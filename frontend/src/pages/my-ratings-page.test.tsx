@@ -75,12 +75,15 @@ describe("Mis puntuaciones", () => {
       return Response.json(page(current, total));
     });
     renderApp("/mis-puntuaciones");
+    // The personal score names its temperature beside the number.
+    expect(await screen.findByText("Caliente")).toBeVisible();
     await userEvent.click(await screen.findByRole("button", { name: "Editar puntuación" }));
     expect(screen.getByRole("combobox", { name: /^Nueva puntuación/ })).toHaveFocus();
     await userEvent.click(screen.getByRole("combobox", { name: /^Nueva puntuación/ }));
     await userEvent.click(screen.getByRole("option", { name: "9/10" }));
     await userEvent.click(screen.getByRole("button", { name: "Guardar cambios" }));
     expect(await screen.findByText("9/10")).toBeVisible();
+    expect(screen.getByText("Ardiendo")).toBeVisible();
     const put = fetchMock.mock.calls.map(([request]) => request as Request).find(request => request.method === "PUT");
     expect(put?.headers.get("If-Match")).toBe('"version-1"');
     expect(put?.headers.get("X-CSRF-Token")).toBe("csrf");

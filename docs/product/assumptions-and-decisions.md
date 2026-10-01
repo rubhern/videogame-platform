@@ -40,6 +40,7 @@ source may substantiate real behaviour, demand, retention, or product–market f
 | Q-008 | Current initiative is learning-only, not commercial | A commercial/public release is proposed |
 | Q-009 | Journey gate is `PASS`: accepted synthetic 4/5 plus focused regression with no blocker | Journey rules, evidence objective, or release mode changes |
 | Q-010 | Synthetic evidence is decision-grade only for this internal learning workflow | A claim about real users/demand is needed |
+| Q-011 | The user-facing product name is **Gameómetro** (#152), accented wherever users see it; `VideoGame Platform` and its technical identifiers remain the repository and system names | The owner renames the product |
 
 Architectural consequences are recorded in [ADRs](../decisions/README.md). Add a new
 question only when it can materially change product direction.

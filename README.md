@@ -1,7 +1,8 @@
 # VideoGame Platform
 
 VideoGame Platform is a Spanish-first web product for discovering recent and
-upcoming video-game releases and keeping a personal rating for each game. It is also
+upcoming video-game releases and keeping a personal rating for each game. Users know it as
+**Gameómetro**. It is also
 a long-term learning project for product, architecture, delivery, and technical
 leadership, developed and operated by one person.
 

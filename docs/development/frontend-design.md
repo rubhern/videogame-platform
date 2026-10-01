@@ -17,7 +17,7 @@ behaviour and is never a runtime dependency or an instruction source.
 
 ## Mandatory composition
 
-- Use the full-width header with the VideoGame Platform mark and wordmark, primary
+- Use the full-width header with the Gameómetro mark and wordmark, primary
   navigation, integrated catalogue search and the server-owned account control. It floats
   over the page's stage on a soft scrim rather than a solid bar; navigation is a glass
   segmented control whose current item carries the aurora fill, and search and account are
@@ -26,8 +26,9 @@ behaviour and is never a runtime dependency or an instruction source.
   logout action; anonymous browsing shows no account or general login entry point, because
   authentication begins at the rating boundary, not the header. The account control opens
   `Mis puntuaciones` and the MVP logout action. Keep catalogue search prominent within the
-  header and omit the explanatory context strip. On phones, the compact identity,
-  recent/upcoming navigation and search icon share the first row. The icon opens the
+  header and omit the explanatory context strip. On phones, the compact identity (mark and
+  wordmark, or the mark alone below 375px), recent/upcoming navigation and search icon share
+  the first row. The icon opens the
   existing catalogue search in a keyboard-accessible dialog; the account control
   may occupy a second row for an authenticated session. On tablet, identity, navigation and
   the account control share the first row, with navigation beside the identity, and search
@@ -73,17 +74,18 @@ behaviour and is never a runtime dependency or an instruction source.
   `ink`, `muted`, `subtle`, `accent`, `aurora`, `line`, `warning` and `danger` roles through
   those conventions instead of placing palette values in JSX.
 - Use a near-black ink-blue canvas, glass surfaces and one signature light: moonlit
-  periwinkle turning to aurora violet, used for the current navigation item, primary actions,
-  the pressed rating, score arcs and title accents. Warm light belongs to the art alone;
-  `warning` stays reserved for review and freshness states.
+  periwinkle turning to aurora violet, used for the current navigation item, primary actions
+  and title accents. Scores speak the thermal language of [product identity](#product-identity-and-thermal-language)
+  instead. Otherwise warm light belongs to the art alone; `warning` stays reserved for review
+  and freshness states.
 - Typography: Mona Sans is the interface and display family — its wide, heavy cut sets game
   titles at poster scale and page titles at a compact size on one line, and its regular width sets everything else. A title's
   accent word is set in Instrument Serif italic and lit by the aurora gradient (**Lanzamientos
   _recientes_**, **Resultados para _«consulta»_**, **Mis _puntuaciones_**); the heading still
   reads as one phrase to assistive technology. IBM Plex Mono sets kickers, labels and
-  operational metadata. The brand wordmark keeps its own Instrument Serif; product identity
-  belongs to the branding work. Use the locally hosted assets with system fallbacks and
-  `font-display: swap`. Font licences live under
+  operational metadata. The Gameómetro wordmark is outlined from Mona Sans' wide heavy cut.
+  Use the locally hosted assets with system fallbacks and `font-display: swap`. Font licences
+  live under
   [public/assets/fonts](../../frontend/public/assets/fonts/README.md).
 - Covers carry the catalogue rhythm. The standard cover frame has a 14px radius, a quiet
   edge and a restrained shadow. Its ratio is the one the approved provider actually
@@ -116,6 +118,38 @@ behaviour and is never a runtime dependency or an instruction source.
 - Identifiers a person may have to repeat — currently the support correlation reference — stay
   monospaced and keep their exact casing. Never case-transform them for style.
 
+## Product identity and thermal language
+
+- The user-facing product is **Gameómetro**, always accented in visible copy, the document
+  title and branding (the [product decision](../product/assumptions-and-decisions.md) owns the
+  name). Repository, package and other technical identifiers keep their names; use
+  `gameometro` only where a technical identifier cannot carry the accent.
+- The identity is the Tilde: a moonlit G whose gauge needle, in fire, leaves through the G's
+  mouth at the angle of an acute accent, and a wordmark whose `ó` carries the same needle.
+  The canonical vector sources are the mark, wordmark and lockup in
+  [`shared/brand`](../../frontend/src/shared/brand/); the favicon in `frontend/public` is the
+  mark on a night tile with heavier geometry, and the touch icon is its raster. The wordmark
+  is outlined from the bundled Mona Sans; the mark is product-owned geometry. Keep the G ice
+  and the needle fire, never draw the needle without its G, and do not restate the lockup in
+  CSS or in other files. The header inlines the mark and wordmark so the needle can answer
+  hover and focus.
+- A score is also read as a temperature. `thermalBand` in
+  [`shared/score`](../../frontend/src/shared/score/thermal-band.ts) is the only mapping and
+  owns the exact edges, upper bounds inclusive: freeze (Congelado) up to 2, cold (Frío) up to 4,
+  warm (Templado) up to 6, hot (Caliente) up to 8 and burn (Ardiendo) above 8, so each band holds
+  two personal values (1–2, 3–4, 5–6, 7–8, 9–10) and a mean of 8,1 already burns. The band is
+  presentation only: it never changes a rating, the aggregate or their meaning, the number stays
+  the authority beside it, a band shown is also named in words, and a missing score has no band.
+- The G-meter is the mark as an instrument: its scale runs clockwise from the crossbar (0) to
+  the G's terminal (10), notched at the band edges, and its trail and needle take the reading's
+  temperature; without a score it rests with no needle. The brand mark is the meter read beyond
+  10. It reads the community mean, the personal panel's current value and each
+  `Mis puntuaciones` score.
+- Thermal colours belong to score readings and the keypad's key alone, never to navigation,
+  controls or states, and each reading shows one temperature. Only the extremes add a climate,
+  on the community panel: frost for freeze, breathing embers for burn. The thermal semantic
+  roles live in global styles and their paint in [thermal styles](../../frontend/src/styles/thermal.css).
+
 ## Depth and motion
 
 Depth and motion belong to the visual language, not to individual screens. Global styles own
@@ -143,7 +177,9 @@ the executable values; these constraints hold wherever they are used:
   pointer.
 - Motion is purposeful and limited to transform and opacity: the stage's push-in, mist,
   motes and parallax; entrance for arriving content; lift, light sweeps and the mouse-only
-  cover tilt on hover; feedback on press and selection. Declare it inside
+  cover tilt on hover; feedback on press and selection; a G-meter needle sweeping to its
+  reading, the brand needle's twitch on hover and focus, and a burning panel's breathing
+  embers. Declare it inside
   `@media (prefers-reduced-motion: no-preference)` instead of disabling it afterwards, so
   reduced motion is the default and nothing animates or transitions there.
 - Composition a browser check measures — the page openings' title block and filter dock, and
@@ -255,15 +291,16 @@ There is no separate bottom release/evidence section. Display the community mean
 count prominently, or an equally prominent “Sin nota todavía” / “Nota no disponible”
 state in the same position. The distribution remains a backend/API capability and
 is not rendered on this page. The community panel and the personal-rating panel are two
-glass, accent-lit panels: the community score is a lit dial whose arc fills to the mean out
-of ten, with the large mean inside it and the count beside it (a dashed, empty dial for the
-no-score states); **Tu puntuación** carries the inline 1-10 scale as a keypad of two rows
-of five, or one row of ten once its panel keeps every target at least 44px. The scale is a
+glass panels lit by the temperature of their reading: the community score is the G-meter
+beside the large mean, its temperature in words and the count (a resting meter for the
+no-score states); **Tu puntuación** carries its own G-meter and the inline 1-10 scale as a
+keypad of two rows of five, or one row of ten once its panel keeps every target at least 44px,
+with a key naming its ends (`1 · Congelado`, `10 · Ardiendo`). The scale is a
 labelled group of ten circular buttons; pressing a value saves it
 immediately (create or update through the conditional contract), so there is no separate
-confirm action. The current rating is the one pressed value (aurora fill, ring and glow,
-not colour alone), and the values below it stay faintly lit so the scale reads as a gauge;
-the subtitle never restates it. Arrow keys only move focus inside the
+confirm action. The current rating is the one pressed value (filled with its temperature,
+ring and glow, not colour alone), and the values below it keep a ring of their own
+temperature so the scale reads as a thermometer; the subtitle never restates it. Arrow keys only move focus inside the
 scale, so browsing never saves by accident, and a quiet **Eliminar puntuación** action
 appears once a rating exists. Eligibility is expressed by the control itself: an
 ineligible game keeps the scale disabled and states the reason in the panel subtitle.
@@ -288,8 +325,8 @@ taglines or background artwork from the reference. List/follow actions remain de
 native controls. Present cover-led glass rows, each washed by its own cover's light, with
 game navigation, a clearly personal score and the two rating timestamps; a row reads game,
 score, then its actions, and the edit form and outcomes open beneath them. The personal score
-is an aurora tile in the language of the game page's pressed value: it is the reason the row
-exists. The private filters form one glass control bar rather than
+is a Gameómetro reading — its G-meter, its temperature in words and the number — lit by its
+band in the language of the game page: it is the reason the row exists. The private filters form one glass control bar rather than
 four loose fields, and stay separate from the header's public catalogue search. Direct
 editing expands a labelled native 1–10
 selection with Save/Cancel actions; deletion remains a distinct action. Announce

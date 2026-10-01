@@ -260,26 +260,50 @@
     margin-top: 10px;
   }
 
-  /* The personal score is the reason this row exists: the same aurora fill and glow as the
-     pressed value on the game page's keypad, so a rating looks like one thing everywhere. */
+  /* The personal score is the reason this row exists: a Gameómetro reading in the language of
+     the game page — the G-meter, the number and its temperature — lit by its own band, so a
+     list of ratings stays one calm column instead of a wall of colour. */
   .my-rating-value {
     display: inline-grid;
+    grid-template-areas: "meter label" "meter value";
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
     align-self: start;
     justify-items: start;
     justify-self: start;
-    gap: 3px;
+    gap: 2px 10px;
     margin: 0;
+    border: 1px solid color-mix(in srgb, var(--thermal) 50%, transparent);
     border-radius: 18px;
-    padding: 9px 18px 11px;
-    color: color-mix(in srgb, #0b0f1a 72%, transparent);
-    background: var(--aurora);
+    padding: 8px 16px 9px 8px;
+    color: var(--color-ink);
+    background: linear-gradient(
+      120deg,
+      color-mix(in srgb, var(--thermal) 16%, var(--color-surface)),
+      color-mix(in srgb, var(--color-surface) 90%, transparent)
+    );
     box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
-      0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent),
-      0 16px 40px -16px color-mix(in srgb, var(--color-accent) 100%, transparent);
+      var(--glass-highlight),
+      0 16px 40px -18px color-mix(in srgb, var(--thermal) 90%, transparent);
+  }
+
+  .my-rating-meter {
+    grid-area: meter;
+    width: 42px;
+    height: 42px;
+  }
+
+  .my-rating-meter .game-meter-tick {
+    display: none;
+  }
+
+  .my-rating-meter :is(.game-meter-track, .game-meter-trail, .game-meter-head) {
+    stroke-width: 7.6;
   }
 
   .my-rating-value span {
+    grid-area: label;
+    color: var(--color-muted);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
     font-weight: 500;
@@ -287,8 +311,19 @@
     text-transform: uppercase;
   }
 
+  .my-rating-value b {
+    color: var(--thermal);
+    font-weight: 500;
+  }
+
+  .my-rating-value b::before {
+    color: var(--color-subtle);
+    content: "· ";
+  }
+
   .my-rating-value strong {
-    color: #0b0f1a;
+    grid-area: value;
+    color: var(--color-ink);
     font-family: var(--font-display);
     font-size: 1.875rem;
     font-stretch: 106%;
@@ -337,8 +372,8 @@
   }
 
   .skeleton.my-rating-skeleton-score {
-    width: 124px;
-    height: 66px;
+    width: 196px;
+    height: 62px;
     border-radius: 18px;
   }
 
@@ -383,6 +418,7 @@
     .my-rating-value {
       justify-items: end;
       justify-self: end;
+      min-width: 18rem;
     }
 
     .my-rating-actions {
@@ -442,7 +478,8 @@
       backdrop-filter: none;
     }
 
-    .my-rating-value strong {
+    .my-rating-value strong,
+    .my-rating-value b {
       color: CanvasText;
     }
 

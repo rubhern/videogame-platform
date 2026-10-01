@@ -83,7 +83,7 @@ for (const width of [320, 390, 834, 1320]) {
     );
     await expectAccessibleLayout(page);
     if (width < 620) {
-      const logo = await page.getByRole("link", { name: "VideoGame Platform · Inicio" }).boundingBox();
+      const logo = await page.getByRole("link", { name: "Gameómetro · Inicio" }).boundingBox();
       const recent = await page.getByRole("link", { name: "Recientes" }).boundingBox();
       const upcoming = await page.getByRole("link", { name: "Próximos", exact: true }).boundingBox();
       const search = await page.getByRole("button", { name: "Buscar juegos" }).boundingBox();

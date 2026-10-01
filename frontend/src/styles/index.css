@@ -3,6 +3,7 @@
 @import "./fonts.css";
 @import "tailwindcss";
 @import "./foundation.css";
+@import "./thermal.css";
 @import "./cinema.css";
 @import "./catalogue.css";
 @import "./game-details.css";
@@ -30,4 +31,11 @@
   --color-warning-surface: #1b1914;
   --color-danger: #f3a79c;
   --color-danger-surface: #1c1316;
+  /* Thermal language: a score read as a temperature, from ice to fire. Score readings only;
+     `warning` and `danger` keep their state meanings. */
+  --color-freeze: #dff4ff;
+  --color-cold: #63c3ff;
+  --color-warm: #ffcf63;
+  --color-hot: #ff9446;
+  --color-burn: #ff5b3d;
 }
