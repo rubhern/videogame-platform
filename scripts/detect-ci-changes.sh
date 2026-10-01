@@ -146,7 +146,7 @@ for path in "${changed_paths[@]}"; do
       enable migrations backend
       matched=true
       ;;
-    scripts/validate-private-dev-runtime.sh | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | deploy/private-dev/*)
+    scripts/validate-private-dev-runtime.sh | scripts/private-dev-metrics-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | deploy/private-dev/*)
       enable documentation build backend migrations identity container
       matched=true
       ;;
@@ -154,11 +154,11 @@ for path in "${changed_paths[@]}"; do
       enable documentation build browser backend identity container
       matched=true
       ;;
-    scripts/local-dependencies.sh)
+    scripts/local-dependencies.sh | scripts/test-local-observability.sh)
       enable documentation build backend migrations identity container
       matched=true
       ;;
-    compose.yaml)
+    compose.yaml | compose.observability.yaml)
       enable build container identity migrations backend
       matched=true
       ;;

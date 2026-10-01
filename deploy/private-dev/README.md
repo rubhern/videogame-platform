@@ -8,12 +8,17 @@ owns the policy; the files here own the executable details; the
 procedures have been proven on the host, their evidence boundary, and day-two
 operations (synchronization on `dev`, incident handling).
 
+Local use of the same provisioned metrics stack is documented in
+[local setup](../../docs/development/local-setup.md#local-metrics-and-dashboards).
+`compose.observability.yaml` owns shared metrics service definitions; this directory's
+`compose.yaml` and the root local overlay own environment-specific wiring.
+
 ## Boundaries
 
 - `compose.yaml` defines digest-pinned PostgreSQL, a locally optimized Keycloak image
-  built from a digest-pinned upstream, the bounded OpenTelemetry collector, the
+  built from a digest-pinned upstream, the bounded OpenTelemetry collector, Prometheus and Grafana, the
   digest-selected application, a one-shot migration actor and a one-shot browser
-  smoke runner. Only PostgreSQL, Keycloak and telemetry start without an explicit
+  smoke runner. Only PostgreSQL, Keycloak and the metrics stack start without an explicit
   profile or service selection; the application runtime receives `videogame_app`
   credentials and cannot migrate, and the migration actor receives only
   `videogame_app_migrator` credentials on the internal data network.
@@ -97,8 +102,8 @@ dedicated Playwright container, so Node.js is not a host prerequisite.
    placed in `runtime.env`.
 
 2. Validate the reviewed topology without starting or replacing services, and run
-   the independent telemetry receipt check (a disposable collector plus one fixed,
-   non-personal OTLP sender; no application is deployed):
+   the independent metrics path check (a disposable metrics stack and bounded synthetic
+   OTLP sender; no application is deployed):
 
    ```bash
    bash scripts/validate-private-dev-runtime.sh \
@@ -114,11 +119,11 @@ dedicated Playwright container, so Node.js is not a host prerequisite.
 
    ```bash
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml pull postgres telemetry
+     --file deploy/private-dev/compose.yaml pull postgres telemetry prometheus grafana
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
      --file deploy/private-dev/compose.yaml build --pull keycloak
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml up --detach postgres keycloak telemetry
+     --file deploy/private-dev/compose.yaml up --detach postgres keycloak telemetry prometheus grafana
    ```
 
 4. Keep Tailscale Funnel and router forwarding disabled. Confirm the owner-only
@@ -153,6 +158,56 @@ dedicated Playwright container, so Node.js is not a host prerequisite.
    `vgp-deployment-smoke` account, confirm through the private Admin Console that it
    is the failed non-personal account, delete that one account, and rerun the command;
    never add the marker to adopt it.
+
+## Metrics dashboards
+
+The [observability guide](../../docs/development/observability.md#private-dev-dashboards)
+owns dashboard interpretation and gaps; Compose, Collector, Prometheus and Grafana
+files here own all configuration. No dashboard UI setup is required.
+
+For an existing host, rerun `bin/prepare-secrets` with the protected directory and
+runtime group above; it preserves populated files and creates the Grafana admin
+secret. Validate, pull and start only `telemetry prometheus grafana` from the reviewed
+checkout using the dependency commands above. The application image is unaffected.
+Do not print the secret or put it in `runtime.env`, command arguments or a URL.
+Grafana reads it from its granted file at first database initialization; subsequent
+secret-file changes do not rotate the stored password.
+
+From the owner's workstation, open an SSH tunnel over the existing private path:
+
+```bash
+ssh -N -L 127.0.0.1:3000:127.0.0.1:3000 vgpdev
+```
+
+Open `http://127.0.0.1:3000`, sign in as `owner` using the protected Grafana admin
+secret, and select the provisioned **VideoGame Platform** folder. The loopback HTTP hop is
+inside the SSH tunnel; do not add a public bind, Tailscale Serve route or Funnel.
+
+Run `validate-private-dev-runtime.sh --telemetry-smoke` for disposable configuration,
+OTLP handoff, authenticated datasource/panel queries, anonymous denial, clean
+provisioning and recreation/persistence checks. Synthetic samples never go into the
+live project, even when an environment file is supplied. Run the existing validator
+with `--env-file <protected-runtime.env> --live` after real product activity and at
+least one synchronization run for read-only host checks and a resource snapshot.
+It requires a finite result in each dashboard category; absent synchronization data
+is an evidence gap, not an instruction to fabricate it. Allow several export/scrape
+intervals for rates. Capture another resource snapshot during normal browsing and
+an owner-triggered bounded sync, as well as at idle.
+
+For host persistence evidence, note a query timestamp and result, recreate only
+Prometheus and Grafana with `up --detach --no-deps --force-recreate prometheus grafana`,
+and query the original timestamp through Grafana again. Do not use `down --volumes`:
+the same project also owns irreplaceable PostgreSQL data. To recover from a metrics
+configuration failure, stop only Prometheus/Grafana and restore the prior Collector
+configuration; product readiness and requests must continue. Reapply the reviewed
+configuration to resume telemetry. Metrics volumes are disposable but intentional
+history deletion needs an explicit target review. Leave PostgreSQL volumes alone.
+
+Host acceptance also checks loopback access from the owner workstation, no OTLP,
+Collector handoff or Prometheus IPv4/IPv6 listener, representative real-data panels,
+retained samples after recreation, and continued readiness/product reads during a
+bounded metrics-stack outage. Record measured idle/load CPU, memory and PIDs plus
+metrics-volume disk usage in #158; the repository smoke does not prove host capacity.
 
 ## Owner-triggered deployment
 

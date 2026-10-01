@@ -15,6 +15,13 @@ processors:
     send_batch_max_size: 1024
 
 exporters:
+  prometheus:
+    endpoint: 0.0.0.0:9464
+    translation_strategy: UnderscoreEscapingWithSuffixes
+    metric_expiration: 5m
+    send_timestamps: false
+    enable_open_metrics: false
+    without_scope_info: true
   # Basic verbosity reports received batches and point/span counts, not attributes or
   # payload bodies. Docker's local log driver bounds retention in compose.yaml.
   debug:
@@ -25,7 +32,7 @@ service:
     metrics:
       receivers: [otlp]
       processors: [memory_limiter, batch]
-      exporters: [debug]
+      exporters: [debug, prometheus]
     traces:
       receivers: [otlp]
       processors: [memory_limiter, batch]

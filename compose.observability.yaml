@@ -1,0 +1,57 @@
+# Optional local topology; invoked by scripts/local-dependencies.sh.
+# Service images, resource bounds and provisioning stay shared with private dev.
+services:
+  telemetry:
+    extends:
+      file: ./deploy/private-dev/compose.observability.yaml
+      service: telemetry
+    profiles: [observability]
+    # Host/IDE backend runs can export OTLP; private dev has no such host listener.
+    ports:
+      - "127.0.0.1:4318:4318"
+    networks:
+      - telemetry
+      - edge
+
+  prometheus:
+    extends:
+      file: ./deploy/private-dev/compose.observability.yaml
+      service: prometheus
+    profiles: [observability]
+
+  grafana:
+    extends:
+      file: ./deploy/private-dev/compose.observability.yaml
+      service: grafana
+    profiles: [observability]
+
+  application:
+    environment:
+      # Explicit --observability opt-in; do not rewrite the owner's backend/.env.
+      TELEMETRY_OTLP_METRICS_ENABLED: "true"
+      TELEMETRY_OTLP_METRICS_ENDPOINT: http://telemetry:4318/v1/metrics
+      TELEMETRY_OTLP_TRACES_ENDPOINT: http://telemetry:4318/v1/traces
+      TELEMETRY_DEPLOYMENT_ENVIRONMENT: local
+    networks:
+      - default
+      - telemetry
+
+  telemetry-smoke:
+    extends:
+      file: ./deploy/private-dev/compose.telemetry-smoke.yaml
+      service: telemetry-smoke
+    profiles: [metrics-validation]
+
+secrets:
+  grafana_admin_password:
+    file: ./.local-secrets/grafana-admin-password
+
+volumes:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  default:
+  edge:
+  telemetry:
+    internal: true

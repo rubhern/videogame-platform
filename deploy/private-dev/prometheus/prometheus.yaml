@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 30s
+  scrape_timeout: 5s
+
+scrape_configs:
+  - job_name: application-otlp
+    static_configs:
+      - targets: [telemetry:9464]
+    # The Collector is the only source. Never scrape application Actuator.
+    sample_limit: 10000
+    body_size_limit: 8MB
+    label_limit: 16
+    label_name_length_limit: 80
+    label_value_length_limit: 160
+    metric_relabel_configs:
+      # Drop target_info/resource metadata and unrelated meter families before storage.
+      - source_labels: [__name__]
+        regex: '(http_server_requests_.*|jvm_.*|process_.*|system_cpu_.*|jdbc_connections_.*|hikaricp_.*|catalogue_.*|issue43_synthetic_receipt.*)'
+        action: keep
+      # id denotes a bounded JVM pool/buffer name, never a product identifier.
+      - regex: '__name__|job|instance|uri|method|status|outcome|exception|error|le|area|id|action|cause|state|pool|name|view|eligibility|aggregate|kind|operation|reason'
+        action: labelkeep

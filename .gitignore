@@ -1,4 +1,5 @@
 # Local credentials
+.local-secrets/
 .env
 .env.*
 !.env.example

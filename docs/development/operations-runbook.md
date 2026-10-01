@@ -14,7 +14,8 @@ and recorded the outcome in the linked issue or pull request. Anything else is m
 `scripts/test-private-dev-backup-recovery.sh`) proves logic, not host behaviour.
 
 The MVP is private, single-host and zero-cost. Nothing here claims public production,
-high availability, automatic recovery, alerting or a durable telemetry backend.
+high availability, automatic recovery or alerting. Retained private-dev metrics are
+disposable operational history.
 
 ## Environment responsibilities
 
@@ -67,8 +68,8 @@ Proven on `vgpdev` (#43, #36, #44, #45):
 
 - Static validation of the reviewed topology without touching services:
   `bash scripts/validate-private-dev-runtime.sh --env-file <runtime.env>`.
-- Bounded telemetry receipt check with a disposable collector:
-  `bash scripts/validate-private-dev-runtime.sh --telemetry-smoke`.
+- The original bounded telemetry receipt check with a disposable collector. The
+  extended metrics-stack smoke now has a separate evidence boundary below.
 - Stack state, logs and resource use of the `dev` Compose project with
   `docker compose --env-file <runtime.env> --file deploy/private-dev/compose.yaml ps`,
   `logs <service>` and `docker stats --no-stream`. Add `--profile application` when
@@ -92,6 +93,42 @@ Interpretation:
 - The application management port (`8081`), PostgreSQL, OTLP and Keycloak management
   have no host listener by design. A "connection refused" from the host to those ports
   is correct.
+
+## Metrics storage and dashboards
+
+Owner: [Metrics dashboards](../../deploy/private-dev/README.md#metrics-dashboards).
+The optional local startup is owned by
+[local setup](local-setup.md#local-metrics-and-dashboards); local lifecycle tests prove
+argument handling and secret/reset boundaries. The disposable local smoke
+(`bash scripts/test-local-observability.sh --smoke`, requiring free local ports)
+also proved loopback OTLP receipt, Prometheus queries, authenticated Grafana
+provisioning and actual container bounds with the pinned images on 2026-09-27.
+Its synthetic probe and empty application panels are not real application or
+private-host evidence.
+The owner-running local application has also supplied real OTLP, bounded product
+traffic and manual synchronization evidence recorded on #158. Its functional review
+distinguishes exact process totals, retained samples and the durable run report as
+explained in [observability](observability.md#synchronization-panel-queries-and-sparse-events).
+That local evidence does not satisfy private-host acceptance.
+[Observability](observability.md#private-dev-dashboards) explains the three views and
+the limits of their product-learning proxies.
+
+**Not yet exercised on `vgpdev` for #158.** The extended disposable smoke validates
+repository configuration and data flow only. Host acceptance must record real OTLP
+arrival, authenticated queries over the owner SSH tunnel, one representative panel
+per dashboard category, retained samples after Prometheus/Grafana recreation, and
+idle/normal-use CPU/memory/PID/disk measurements. Readiness and product reads must
+continue during a bounded metrics-stack outage. Record outcomes in
+[#158](https://github.com/rubhern/videogame-platform/issues/158), never infer them from
+container limits or synthetic samples.
+
+If a dashboard is empty, first check its time range and whether that operation has
+occurred since application startup. Then inspect Collector receipt, Prometheus
+scrape health and Grafana datasource health using the linked validator. A scrape
+failure isolates the handoff; absent application series with a healthy scrape can
+mean an OTLP export failure. Never recover telemetry by exposing Actuator or changing
+product readiness. Follow the linked procedure for recreation and recovery without
+touching PostgreSQL volumes.
 
 ## Deploying an immutable digest
 

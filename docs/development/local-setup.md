@@ -23,7 +23,9 @@ diagnostics rather than maintaining a parallel checklist here.
 
 The default Compose topology provides loopback-only PostgreSQL and Keycloak. The
 `full` profile adds the packaged application; the frontend is embedded, not a
-separate container.
+separate container. The optional observability overlay adds the same bounded metrics
+stack and provisioned dashboards used by private dev, with independent local volumes
+and credentials.
 
 | Service | Address | Notes |
 |---|---|---|
@@ -32,9 +34,12 @@ separate container.
 | Keycloak management | `127.0.0.1:9000` | Local health and metrics |
 | Application (`full` only) | `http://localhost:8080` | Frontend + BFF/API + modular monolith |
 | Application management | `127.0.0.1:8081` | Local Actuator health, info, and metrics |
+| Grafana (optional) | `http://127.0.0.1:3000` | Authenticated dashboards; no SSH tunnel needed locally |
+| Collector OTLP HTTP (optional) | `127.0.0.1:4318` | Host/IDE backend export only; Prometheus and the scrape handoff remain internal |
 
 Exact images, health checks, ports, resources, and wiring are authoritative in
-[`compose.yaml`](../../compose.yaml). `.env.example` and `backend/.env.example` own
+[`compose.yaml`](../../compose.yaml) and its optional
+[observability overlay](../../compose.observability.yaml). `.env.example` and `backend/.env.example` own
 configuration names and safe placeholders.
 
 ### Configuration sources
@@ -47,7 +52,8 @@ and the Compose `application` service (`env_file`). Compose adds explicit
 `environment` values only where the container genuinely differs from host execution
 (container addresses, internal OIDC endpoints, management bind address, the `oidc`
 profile, packaged Flyway execution); `environment` overrides `env_file`, so a
-container-specific value always wins. The packaged application publishes its
+container-specific value always wins. Explicit `--observability` startup also enables
+metrics export for that packaged invocation, without changing `backend/.env`. The packaged application publishes its
 management port only on host loopback (`127.0.0.1:8081`).
 
 ## Start, verify, and stop
@@ -77,9 +83,79 @@ For separate development loops, use the commands in the
 [backend README](../../backend/README.md) and
 [frontend README](../../frontend/README.md).
 
+## Local metrics and dashboards
+
+The overlay extends the [shared service definitions](../../deploy/private-dev/compose.observability.yaml),
+so images, bounds, retention, Collector/Prometheus configuration and Grafana
+provisioning have one executable owner. It adds only the local application wiring
+and loopback OTLP ingress. Local metrics and credentials never use private-dev state.
+
+### Packaged application with metrics
+
+1. Start Docker Desktop with integration enabled for the WSL distribution, then run
+   the prerequisite check above from the repository under `/home`.
+2. Start the complete application and metrics stack:
+
+   ```bash
+   bash scripts/local-dependencies.sh application --observability
+   ```
+
+   This creates missing ignored environment files and a Grafana password, builds the
+   packaged application and runs the stack in the foreground. Keep the terminal open.
+   Existing backend settings and secrets are preserved. No IGDB synchronization or
+   data seeding is triggered by enabling observability.
+3. Open the application at `http://localhost:8080` and Grafana at
+   `http://127.0.0.1:3000`. Sign in to Grafana as `owner`, reading the password from
+   `.local-secrets/grafana-admin-password` in a local editor. Do not paste it into
+   issues or commit the file. Open the **VideoGame Platform** folder; the datasource
+   and all three dashboards are already provisioned.
+4. Generate normal application traffic and wait a few export/scrape intervals. In a
+   second terminal, check the stack:
+
+   ```bash
+   bash scripts/local-dependencies.sh status
+   bash scripts/local-dependencies.sh verify-observability
+   ```
+
+   Verification checks running bounds, authentication, provisioning and query
+   execution. It reports missing application data rather than inventing samples.
+   Synchronization panels need a real, explicitly initiated synchronization; they
+   may legitimately be empty. See [dashboard interpretation](observability.md#private-dev-dashboards)
+   for counter, caching and product-learning limitations.
+5. Stop the foreground command with Ctrl+C, then stop/remove the local containers
+   while retaining their volumes:
+
+   ```bash
+   bash scripts/local-dependencies.sh down
+   ```
+
+   Start again with the same command in step 2. Grafana provisioning and retained
+   metrics survive normal stop/start. Do not delete or regenerate the password file:
+   Grafana's initialized database retains the original password.
+
+### Backend from an IDE or Maven
+
+Start dependencies plus metrics with `bash scripts/local-dependencies.sh up --observability`,
+or add just the metrics stack to already-running dependencies with
+`bash scripts/local-dependencies.sh observability`.
+
+For the existing [backend development command](../../backend/README.md), load
+`backend/.env` as usual and then set `TELEMETRY_OTLP_METRICS_ENABLED=true` and
+`TELEMETRY_OTLP_METRICS_ENDPOINT=http://localhost:4318/v1/metrics` in that process
+(or its IDE run configuration). Keep the other backend configuration, including
+migration and identity settings, as documented by the backend README. The packaged
+application uses the internal Collector hostname automatically; host execution uses
+loopback. Do not run both backends on port 8080 simultaneously.
+
+Local `down`, `status` and `reset` include the optional metrics services. Port 3000 or
+4318 already occupied means the local startup must resolve that conflict; it must
+never silently fall back to a public bind. Access on private dev still uses the
+[owner SSH tunnel](../../deploy/private-dev/README.md#metrics-dashboards).
+
 ## Disposable reset
 
-The named PostgreSQL volume persists through normal `down`/`up`. Reset only after
+The named PostgreSQL, Prometheus and Grafana volumes persist through normal
+`down`/`up`. Reset only after
 confirming it contains disposable project-local data:
 
 ```bash
@@ -88,8 +164,9 @@ bash scripts/local-dependencies.sh reset
 
 `reset --yes` is reserved for an explicitly disposable non-interactive environment.
 The wrapper validates the fixed Compose project name and removes only that project's
-containers, network, and PostgreSQL volume; it does not delete repository files,
-images, `.env` files, unrelated volumes, or remote data.
+containers, networks, PostgreSQL volume and optional metrics/Grafana volumes; it does
+not delete repository files, images, `.env` files, `.local-secrets`, unrelated volumes
+or remote data.
 
 Keycloak runs over loopback HTTP and uses a non-personal synthetic test account.
 The shared imported realm contains environment-neutral identity/client policy; its

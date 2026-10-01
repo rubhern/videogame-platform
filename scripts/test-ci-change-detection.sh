@@ -103,12 +103,17 @@ run_case backend-artifact \
   'openapi,frontend,migrations,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case local-dependencies \
-  'scripts/local-dependencies.sh' \
+  $'scripts/local-dependencies.sh\nscripts/test-local-observability.sh' \
   'documentation,build,backend,migrations,identity,container' \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
+run_case local-observability \
+  'compose.observability.yaml' \
+  'backend,migrations,identity,container,build' \
+  'documentation,openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
 run_case private-dev-runtime \
-  $'deploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py' \
+  $'scripts/private-dev-metrics-check.py\ndeploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py' \
   'documentation,build,backend,migrations,identity,container' \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 

@@ -6,6 +6,8 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="$repository_root/.env"
 backend_env_file="$repository_root/backend/.env"
 compose_file="$repository_root/compose.yaml"
+metrics_compose_file="$repository_root/compose.observability.yaml"
+with_observability=false
 source "$repository_root/scripts/backend-artifact.sh"
 
 readonly postgres_image="postgres:18.4-bookworm"
@@ -14,18 +16,24 @@ readonly expected_project_name="videogame-platform"
 
 usage() {
   cat <<'EOF'
-Usage: bash scripts/local-dependencies.sh <command>
+Usage: bash scripts/local-dependencies.sh <command> [options]
 
 Commands:
   up             Create the ignored infrastructure/backend env files when absent,
                  then start PostgreSQL and Keycloak.
   application    Build and run the complete packaged application topology.
+  observability  Start only Collector, Prometheus and Grafana (for host/IDE runs).
+  verify-observability  Check provisioning, authentication and metrics queries.
+
   down           Stop containers without deleting local data.
   status         Show container and health status.
   logs           Follow PostgreSQL and Keycloak logs.
   verify         Verify versions, health, role isolation, realm, confidential PKCE client and local user.
   verify-images  Verify linux/amd64 and linux/arm64 in both image manifests.
   reset [--yes]  Delete only this Compose project's disposable containers and volumes.
+
+Add --observability to up or application to include the metrics stack.
+Grafana: http://127.0.0.1:3000 (owner; .local-secrets/grafana-admin-password).
 EOF
 }
 
@@ -157,13 +165,31 @@ create_backend_env_if_missing() {
   printf 'Created ignored backend configuration at %s with shared generated credentials.\n' "$backend_env_file"
 }
 
+prepare_local_metrics_secret() {
+  local directory="$repository_root/.local-secrets"
+  local secret="$directory/grafana-admin-password"
+  [[ ! -L "$directory" && ! -L "$secret" ]] || die "Refusing a symlink for local metrics credentials"
+  mkdir -p "$directory"
+  chmod 700 "$directory"
+  if [[ ! -s "$secret" ]]; then
+    (umask 077; random_secret >"$secret")
+  fi
+  # The protected directory owns host access; the non-root Grafana container reads
+  # only its granted file (the same transport as private dev).
+  chmod 644 "$secret"
+}
+
 compose() {
   local application_version
   application_version="$(backend_reactor_version)" \
     || die "Could not read the reactor version from pom.xml"
 
+  local files=(--file "$compose_file")
+  if [[ "$with_observability" == true ]]; then
+    files+=(--file "$metrics_compose_file" --profile observability)
+  fi
   APPLICATION_VERSION="$application_version" \
-    docker compose --env-file "$env_file" --file "$compose_file" "$@"
+    docker compose --env-file "$env_file" "${files[@]}" "$@"
 }
 
 ensure_compose_available() {
@@ -316,12 +342,19 @@ verify_runtime() {
 
 command_name="${1:-}"
 
+if [[ "${2:-}" == --observability && ( "$command_name" == up || "$command_name" == application ) && $# == 2 ]]; then
+  with_observability=true
+elif (($# > 1)) && ! [[ "$command_name" == reset && "${2:-}" == --yes && $# == 2 ]]; then
+  die "Unsupported arguments; use up/application --observability or reset --yes"
+fi
+
 case "$command_name" in
   up)
     ensure_compose_available
     create_env_if_missing
     require_env
     create_backend_env_if_missing
+    if [[ "$with_observability" == true ]]; then prepare_local_metrics_secret; fi
     compose config --quiet
     compose up --detach --wait
     printf 'PostgreSQL is available on 127.0.0.1:%s.\n' "$(env_value POSTGRES_PORT)"
@@ -332,14 +365,38 @@ case "$command_name" in
     create_env_if_missing
     require_env
     create_backend_env_if_missing
+    if [[ "$with_observability" == true ]]; then prepare_local_metrics_secret; fi
     compose --profile full up --build
     ;;
+  observability)
+    ensure_compose_available
+    create_env_if_missing
+    require_env
+    create_backend_env_if_missing
+    prepare_local_metrics_secret
+    with_observability=true
+    compose up --detach telemetry prometheus grafana
+    printf 'Grafana: http://127.0.0.1:3000; user: owner; password file: .local-secrets/grafana-admin-password\n'
+    ;;
+  verify-observability)
+    ensure_compose_available
+    require_env
+    with_observability=true
+    metrics_config="$(mktemp)"
+    trap 'rm -f -- "$metrics_config"' EXIT
+    compose --profile full config --format json >"$metrics_config"
+    APPLICATION_VERSION="$(backend_reactor_version)" \
+      python3 "$repository_root/scripts/private-dev-metrics-check.py" \
+        --local --env-file "$env_file" --config "$metrics_config"
+    ;;
   down)
+    with_observability=true
     ensure_compose_available
     require_env
     compose down --remove-orphans
     ;;
   status)
+    with_observability=true
     ensure_compose_available
     require_env
     compose ps
@@ -361,11 +418,12 @@ case "$command_name" in
     verify_image_platform "$keycloak_image"
     ;;
   reset)
+    with_observability=true
     ensure_compose_available
     require_env
     if [[ "${2:-}" != "--yes" ]]; then
       printf 'This deletes only containers and named volumes in Compose project %s.\n' "$(env_value COMPOSE_PROJECT_NAME)"
-      read -r -p 'Delete disposable local PostgreSQL and Keycloak data? [y/N] ' confirmation
+      read -r -p 'Delete disposable local PostgreSQL, Keycloak and metrics data? [y/N] ' confirmation
       [[ "$confirmation" == "y" || "$confirmation" == "Y" ]] || die "Reset cancelled"
     fi
     compose down --volumes --remove-orphans

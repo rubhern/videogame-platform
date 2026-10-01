@@ -1,0 +1,372 @@
+{
+  "uid": "vgp-synchronization",
+  "title": "VideoGame Platform \u00b7 Catalogue synchronization",
+  "description": "Manual, sparse synchronization events. Instant totals and means are the latest observed application-process accumulation, not totals in the selected range or one run. The history panel shows retained cumulative samples. Use the management last-run report for an individual run; missing is not zero. After restart, previous lazy outcome meters may remain at the Collector for up to five minutes until expiry.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "videogame-platform"
+  ],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "title": "Runs by outcome \u00b7 observed process totals",
+      "type": "stat",
+      "description": "Exact observed cumulative completed/skipped run count by outcome since the application process started. Includes the first exported event; does not extrapolate an integer count. An outcome without a meter is absent, not an invented zero. This is not a total for the selected seven-day range.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (catalogue_synchronization_run_total{job=\"application-otlp\"})",
+          "legendFormat": "{{outcome}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Mean reported run duration \u00b7 process",
+      "type": "stat",
+      "description": "Cumulative timer sum divided by completed/skipped run count, per outcome, since process start. A single observation gives that run duration; several give their weighted mean. Use the durable last-run report for one execution. Skipped commands may be very short; no percentile is available. Skipped commands have a response/log but do not replace the durable last-run report.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (catalogue_synchronization_run_duration_milliseconds_sum{job=\"application-otlp\"}) / (sum by (outcome) (catalogue_synchronization_run_duration_milliseconds_count{job=\"application-otlp\"}) > 0)",
+          "legendFormat": "{{outcome}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 2,
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Catalogue work by kind \u00b7 process totals",
+      "type": "stat",
+      "description": "Exact accumulated record amounts reported after completed/skipped runs. Summary sum counts records; summary count counts reports. A recorded zero (for example no created records on an unchanged rerun) is valid. A missing series means no report for that kind has been exported; not in-flight progress or one run.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind) (catalogue_synchronization_run_records_sum{job=\"application-otlp\"})",
+          "legendFormat": "{{kind}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 3,
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Provider requests \u00b7 process totals",
+      "type": "stat",
+      "description": "Exact observed cumulative logical provider calls by closed operation/outcome, including work in progress. One call can include retries; retry attempts are separate. Failure outcomes absent from the registry mean none has been observed in this process, not a fabricated zero or proof of delivery health.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (operation, outcome) (catalogue_synchronization_provider_request_total{job=\"application-otlp\"})",
+          "legendFormat": "{{operation}} {{outcome}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Mean provider call duration \u00b7 process",
+      "type": "stat",
+      "description": "Cumulative elapsed time divided by logical provider call count, per operation, since process start. Includes failed calls and adapter work/retry waits within the timed call. A high mean suggests slow calls; it is not the last call or a percentile. No calls means no mean.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (operation) (catalogue_synchronization_provider_request_duration_milliseconds_sum{job=\"application-otlp\"}) / (sum by (operation) (catalogue_synchronization_provider_request_duration_milliseconds_count{job=\"application-otlp\"}) > 0)",
+          "legendFormat": "{{operation}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 5,
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Provider retries \u00b7 process totals",
+      "type": "stat",
+      "description": "Exact cumulative extra attempts by operation. The adapter registers a retry counter even for a successful call with zero retries, so a present zero is meaningful. A missing operation means no corresponding call metric has arrived. Increasing retries suggest transient provider/rate-limit trouble; inspect the run report/logs.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (operation) (catalogue_synchronization_provider_retry_total{job=\"application-otlp\"})",
+          "legendFormat": "{{operation}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 6,
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Mapping failures \u00b7 process totals",
+      "type": "stat",
+      "description": "Exact cumulative rejected provider mappings by bounded reason. These meters are registered lazily only when a mapping failure occurs. No series is legitimate when none has occurred, provided OTLP/scrape health is verified. Do not replace absence with zero; deferrals and persistence failures are different signals.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "colorMode": "none",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (reason) (catalogue_synchronization_provider_mapping_failure_total{job=\"application-otlp\"})",
+          "legendFormat": "{{reason}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 7,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Retained run-counter observations",
+      "type": "timeseries",
+      "description": "Historical cumulative counter samples in the selected range, not a count of runs in that range. Stair steps show observed increments; restarts reset counters and may leave a gap. A first event may precede the first sample. Old samples survive in Prometheus, but cannot reconstruct exact lifetime/per-run totals across unseen resets. Latest totals above use instant queries.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (catalogue_synchronization_run_total{job=\"application-otlp\"})",
+          "legendFormat": "{{outcome}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 8,
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 9
+      }
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}

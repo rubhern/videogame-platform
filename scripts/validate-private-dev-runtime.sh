@@ -31,9 +31,9 @@ Usage:
 
 Without arguments, validates the reviewed configuration with disposable placeholder
 inputs and does not start containers. --telemetry-smoke starts only a disposable
-collector, submits one fixed span and one fixed metric through its internal Docker
-network, then removes it. --live inspects an already-started host stack; it never creates,
-restarts, or removes services.
+metrics stack, checks OTLP receipt, queries and provisioning, then removes it.
+--live inspects an already-started host stack using temporary HTTP probes; it never
+recreates, restarts, or removes runtime services.
 EOF
 }
 
@@ -87,7 +87,8 @@ if [[ -z "$runtime_env" ]]; then
     igdb-client-id \
     igdb-client-secret \
     oidc-smoke-username \
-    oidc-smoke-password; do
+    oidc-smoke-password \
+    grafana-admin-password; do
     printf 'static-validation-%s\n' "$name" >"$secrets_directory/$name"
     chmod 0644 "$secrets_directory/$name"
   done
@@ -167,6 +168,8 @@ expected_services = {
     "postgres",
     "keycloak",
     "telemetry",
+    "prometheus",
+    "grafana",
     "application",
     "migration",
     "deployment-smoke",
@@ -182,6 +185,8 @@ expected_secret_access = {
     },
     "keycloak": {"keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"},
     "telemetry": set(),
+    "prometheus": set(),
+    "grafana": {"grafana_admin_password"},
     "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"},
     "migration": {"application_migration_db_password"},
     "deployment-smoke": {"oidc_smoke_username", "oidc_smoke_password"},
@@ -192,10 +197,13 @@ for service_name, service in services.items():
     assert service.get("restart") == expected_restart, f"{service_name} restart policy"
     assert int(service.get("mem_limit", 0)) > 0, f"{service_name} memory limit"
     assert float(service.get("cpus", 0)) > 0, f"{service_name} CPU limit"
+    assert int(service.get("pids_limit", 0)) > 0, f"{service_name} PID limit"
+    assert service["logging"] == {"driver": "local", "options": {"max-size": "10m", "max-file": "3"}}, f"{service_name} bounded logs"
     actual_secrets = {secret["source"] for secret in service.get("secrets") or []}
     assert actual_secrets == expected_secret_access[service_name], f"{service_name} secret grants"
     environment = service.get("environment") or {}
     forbidden = {
+        "GF_SECURITY_ADMIN_PASSWORD",
         "POSTGRES_PASSWORD",
         "APPLICATION_DB_PASSWORD",
         "APPLICATION_MIGRATION_DB_PASSWORD",
@@ -216,6 +224,7 @@ for service_name, service in services.items():
         published.append((service_name, port.get("host_ip"), int(port["published"]), int(port["target"])))
 assert sorted(published) == [
     ("application", "127.0.0.1", 8080, 8080),
+    ("grafana", "127.0.0.1", 3000, 3000),
     ("keycloak", "127.0.0.1", 8180, 8080),
 ], f"unexpected published ports: {published}"
 assert all(host_ip == "127.0.0.1" for _, host_ip, _, _ in published), (
@@ -226,6 +235,15 @@ assert config["networks"]["data"]["internal"] is True
 assert config["networks"]["telemetry"]["internal"] is True
 assert "ports" not in services["postgres"]
 assert "ports" not in services["telemetry"]
+assert "ports" not in services["prometheus"]
+assert services["prometheus"]["networks"] == {"telemetry": None}
+assert services["telemetry"]["networks"] == {"telemetry": None}
+assert "--storage.tsdb.retention.time=7d" in services["prometheus"]["command"]
+assert "--storage.tsdb.retention.size=512MiB" in services["prometheus"]["command"]
+assert services["grafana"]["environment"]["GF_AUTH_ANONYMOUS_ENABLED"] == "false"
+assert services["grafana"]["environment"]["GF_SECURITY_ADMIN_PASSWORD__FILE"] == "/run/secrets/grafana_admin_password"
+assert set(services["application"]["depends_on"]) == {"postgres", "keycloak"}
+assert services["application"]["environment"]["TELEMETRY_OTLP_METRICS_ENDPOINT"] == "http://telemetry:4318/v1/metrics"
 application_oidc = services["application"]["environment"]
 smoke_environment = services["deployment-smoke"]["environment"]
 configured_application_origin = smoke_environment["PRIVATE_DEV_APPLICATION_ORIGIN"]
@@ -313,11 +331,11 @@ realm_source, realm_target = next(iter(keycloak_imports))
 assert realm_source.endswith("/docker/keycloak/import/videogame-platform-realm.json")
 assert realm_target == "/opt/keycloak/data/import/videogame-platform-realm.json"
 
-for service_name in ("keycloak", "telemetry", "application", "migration", "deployment-smoke"):
+for service_name in ("keycloak", "telemetry", "prometheus", "grafana", "application", "migration", "deployment-smoke"):
     assert services[service_name].get("read_only") is True, f"{service_name} root filesystem"
     assert services[service_name].get("cap_drop") == ["ALL"], f"{service_name} capabilities"
 
-for service_name in ("postgres", "telemetry"):
+for service_name in ("postgres", "telemetry", "prometheus", "grafana"):
     assert "@sha256:" in services[service_name]["image"], f"{service_name} image is not digest-pinned"
 for service_name in ("application", "migration"):
     assert "@sha256:" in services[service_name]["image"], f"{service_name} image is not digest-pinned"
@@ -339,6 +357,8 @@ for directory in secret_directories:
 print("Private-dev Compose topology, isolation, secret grants, limits and restart policies passed.")
 PY
 
+python3 "$repository_root/scripts/private-dev-metrics-check.py" --static
+
 grep -q 'verbosity: basic' "$repository_root/deploy/private-dev/otel/collector.yaml"
 grep -q 'send_batch_max_size: 1024' "$repository_root/deploy/private-dev/otel/collector.yaml"
 grep -q 'service.version:' "$repository_root/backend/src/main/resources/application.yaml"
@@ -357,6 +377,7 @@ if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
     "$repository_root/deploy/private-dev/smoke/deployment-smoke-order.test.mjs" \
     "$repository_root/deploy/private-dev/smoke/deployment-smoke-contract.test.mjs"
   bash "$repository_root/scripts/test-private-dev-deployment.sh"
+  bash "$repository_root/scripts/test-local-observability.sh"
   python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"
 fi
 python3 -m json.tool "$repository_root/docker/keycloak/import/videogame-platform-realm.json" >/dev/null
@@ -396,8 +417,11 @@ if [[ "$telemetry_smoke" == true ]]; then
     --file "$compose_file"
     --file "$repository_root/deploy/private-dev/compose.telemetry-smoke.yaml"
   )
-  "${smoke_compose[@]}" up --detach telemetry
+  # Always isolate cleanup, even when the caller supplied a live runtime.env.
+  smoke_compose+=(--project-name "vgp-telemetry-smoke-$$")
   smoke_started=true
+  "${smoke_compose[@]}" config --format json >"$temporary_directory/smoke.json"
+  "${smoke_compose[@]}" up --detach telemetry prometheus grafana
   "${smoke_compose[@]}" run --rm telemetry-smoke
 
   for _ in {1..20}; do
@@ -419,12 +443,14 @@ if [[ "$telemetry_smoke" == true ]]; then
     printf 'Basic collector logs exposed synthetic signal contents.\n' >&2
     exit 1
   fi
-  printf 'Bounded synthetic OTLP receipt passed: one versioned span and one metric; signal contents were absent from collector logs.\n'
+  python3 "$repository_root/scripts/private-dev-metrics-check.py" \
+    --env-file "$runtime_env" --config "$temporary_directory/smoke.json" --synthetic
+  printf 'Initial bounded OTLP receipt and extended metrics smoke passed; initial signal contents were absent from Collector logs.\n'
 fi
 
 if [[ "$live" == false ]]; then
   if [[ "$telemetry_smoke" == true ]]; then
-    printf 'Private-dev validation passed; the disposable collector was removed and host settings were unchanged.\n'
+    printf 'Private-dev validation passed; the disposable metrics stack was removed and host settings were unchanged.\n'
   else
     printf 'Private-dev static validation passed; no containers or host settings were changed.\n'
   fi
@@ -432,7 +458,7 @@ if [[ "$live" == false ]]; then
 fi
 
 compose=(docker compose --env-file "$runtime_env" --file "$compose_file")
-required_services=(postgres keycloak telemetry)
+required_services=(postgres keycloak telemetry prometheus grafana)
 for service_name in "${required_services[@]}"; do
   container_id="$("${compose[@]}" ps --quiet "$service_name")"
   [[ -n "$container_id" ]] || {
@@ -454,11 +480,14 @@ done
 while IFS= read -r container_id; do
   [[ -n "$container_id" ]] || continue
   if docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$container_id" |
-      grep -Eq '^(POSTGRES_PASSWORD|APPLICATION_DB_PASSWORD|APPLICATION_MIGRATION_DB_PASSWORD|KEYCLOAK_DB_PASSWORD|KC_DB_PASSWORD|KC_BOOTSTRAP_ADMIN_PASSWORD|KEYCLOAK_BFF_CLIENT_SECRET|IGDB_CLIENT_ID|IGDB_CLIENT_SECRET)='; then
+      grep -Eq '^(GF_SECURITY_ADMIN_PASSWORD|POSTGRES_PASSWORD|APPLICATION_DB_PASSWORD|APPLICATION_MIGRATION_DB_PASSWORD|KEYCLOAK_DB_PASSWORD|KC_DB_PASSWORD|KC_BOOTSTRAP_ADMIN_PASSWORD|KEYCLOAK_BFF_CLIENT_SECRET|IGDB_CLIENT_ID|IGDB_CLIENT_SECRET)='; then
     printf 'Container metadata contains a forbidden secret environment variable: %s\n' "$container_id" >&2
     exit 1
   fi
 done < <("${compose[@]}" ps --quiet)
+
+python3 "$repository_root/scripts/private-dev-metrics-check.py" \
+  --env-file "$runtime_env" --config "$rendered_config"
 
 printf '\nCurrent bounded service resource snapshot (capture after idle and representative load):\n'
 docker stats --no-stream --format 'table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.PIDs}}' $("${compose[@]}" ps --quiet)
@@ -505,7 +534,8 @@ assert_ipv4_loopback_only() {
 
 assert_ipv4_loopback_only "${KEYCLOAK_LOOPBACK_PORT:-8180}" true
 assert_ipv4_loopback_only "${APPLICATION_LOOPBACK_PORT:-8080}" false
-for unpublished_port in 5432 4317 4318 8081 9000; do
+assert_ipv4_loopback_only 3000 true
+for unpublished_port in 5432 4317 4318 8081 9000 9090 9464; do
   assert_no_host_listener "$unpublished_port"
 done
 printf '\nTailscale Serve state (must say available within the tailnet):\n'
