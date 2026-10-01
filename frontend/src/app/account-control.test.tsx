@@ -8,15 +8,15 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 afterEach(() => vi.unstubAllGlobals());
 
-function renderControl() {
+function renderControl(path = "/") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
-          <Route path="/" element={<AccountControl />} />
+          <Route path="*" element={<AccountControl />} />
           <Route path="/mis-puntuaciones" element={<h1>Mis puntuaciones</h1>} />
         </Routes>
       </MemoryRouter>
@@ -25,7 +25,16 @@ function renderControl() {
 }
 
 describe("header account control", () => {
-  it("shows no account or login entry point for an anonymous session", async () => {
+  it("starts BFF navigation with the intended game for both account actions", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ authenticated: false })));
+    renderControl("/games/game-1/a-game?platformId=pc&regionId=europe");
+    const register = await screen.findByRole("link", { name: "Crear cuenta" });
+    const registration = new URL(register.getAttribute("href") ?? "", "https://app.example");
+    expect(registration.pathname).toBe("/auth/start");
+    expect(registration.searchParams.get("returnTo")).toBe("/games/game-1/a-game?platformId=pc&regionId=europe");
+    expect(registration.searchParams.get("intent")).toBe("register");
+  });
+  it("offers sign in and registration for an anonymous session", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => Response.json({ authenticated: false })),
@@ -33,12 +42,25 @@ describe("header account control", () => {
 
     renderControl();
 
-    await waitFor(() =>
-      expect(screen.queryByText("Mi cuenta")).not.toBeInTheDocument(),
-    );
+    expect(await screen.findByRole("link", { name: "Iniciar sesión" })).toHaveAttribute("href", "/auth/start?returnTo=%2F");
+    expect(screen.getByRole("link", { name: "Crear cuenta" })).toHaveAttribute("href", "/auth/start?returnTo=%2F&intent=register");
+    expect(screen.queryByText("Mi cuenta")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Cerrar sesión" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("opens the compact entry and returns focus on Escape", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ authenticated: false })));
+    const user = userEvent.setup();
+    renderControl();
+    const trigger = await screen.findByRole("button", { name: "Acceder a tu cuenta" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(trigger).toHaveFocus();
   });
 
   it("exposes Mi cuenta and a CSRF-protected logout for an authenticated session", async () => {

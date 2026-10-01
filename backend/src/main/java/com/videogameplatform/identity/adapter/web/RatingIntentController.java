@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  * BFF entry points for the rating authentication boundary.
  *
  * <p>These are authentication-navigation routes under {@code /auth}, not part of the product
- * OpenAPI contract. {@code start} is the only place a visitor begins authentication: it captures
+ * OpenAPI contract. {@code start} begins authentication for a rating selection: it captures
  * the selected value in a server-side return context and hands the browser to the established
  * Keycloak OIDC flow. It never executes or persists a rating command. The recovered selection is
  * read back once from the game page and presented as pending, non-persisted state.

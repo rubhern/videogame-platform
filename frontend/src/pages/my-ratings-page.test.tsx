@@ -28,10 +28,11 @@ function stub(handler: (request: Request) => Response | Promise<Response>, authe
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Mis puntuaciones", () => {
-  it("keeps anonymous visits private and offers the existing rating authentication journey", async () => {
+  it("keeps anonymous visits private and offers the product account entry", async () => {
     const fetchMock = stub(() => Response.json(page()), false);
     renderApp("/mis-puntuaciones");
     expect(await screen.findByText("Necesitas una sesión activa")).toBeVisible();
+    expect(screen.getAllByRole("link", { name: "Iniciar sesión" }).some(link => link.getAttribute("href") === "/auth/start?returnTo=%2Fmis-puntuaciones")).toBe(true);
     expect(fetchMock.mock.calls.some(([request]) => String((request as Request).url).includes("/me/ratings"))).toBe(false);
   });
   it("distinguishes no ratings from no search results without storing personal search", async () => {

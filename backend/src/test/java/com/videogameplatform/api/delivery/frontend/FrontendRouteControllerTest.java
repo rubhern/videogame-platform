@@ -28,6 +28,9 @@ class FrontendRouteControllerTest {
         mockMvc.perform(get("/search").param("q", "resident evil"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+        mockMvc.perform(get("/mis-puntuaciones"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/games/pragmata"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
@@ -37,6 +40,8 @@ class FrontendRouteControllerTest {
     void doesNotCaptureServerOwnedRouteRoots() throws Exception {
         mockMvc.perform(get("/api")).andExpect(status().isNotFound());
         mockMvc.perform(get("/auth")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/login")).andExpect(status().isNotFound());
         mockMvc.perform(get("/actuator")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/login/oauth2/code/keycloak")).andExpect(status().isNotFound());
     }
 }

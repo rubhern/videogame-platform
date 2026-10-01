@@ -30,5 +30,10 @@
 
 !/scripts/backend-artifact.sh
 
+!/docker/
+!/docker/keycloak/
+!/docker/keycloak/themes/
+!/docker/keycloak/themes/**
+
 !/package.json
 !/package-lock.json

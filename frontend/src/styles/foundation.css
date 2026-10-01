@@ -448,6 +448,45 @@
     margin-left: auto;
   }
 
+  .account-entry-links {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .account-entry-links a {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .account-signin {
+    color: var(--color-canvas);
+    background: var(--aurora);
+    border: 1px solid var(--color-accent);
+    box-shadow: var(--glass-highlight);
+  }
+
+  .account-register {
+    color: var(--color-muted);
+    border: 1px solid var(--glass-border);
+    background: var(--glass);
+  }
+
+  .account-register:hover {
+    color: var(--color-ink);
+    border-color: var(--color-accent);
+  }
+
+  .account-logout-error { max-width: 220px; padding: 8px 12px; color: var(--color-danger); font-size: 0.8125rem; }
+
   .account-trigger {
     display: inline-flex;
     min-height: 44px;
@@ -466,6 +505,8 @@
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
   }
+
+  .account-anonymous-trigger { display: none; }
 
   @media (prefers-reduced-motion: no-preference) {
     .account-trigger {
@@ -1334,6 +1375,20 @@
     }
   }
 
+  /* Narrow tablets and phones held sideways: the compact mark keeps the identity, navigation and
+     account entry on the first row, so the anonymous entry links never wrap onto a row of their
+     own. */
+  @media (min-width: 620px) and (max-width: 719px) {
+    .brand {
+      min-width: 44px;
+      justify-content: center;
+    }
+
+    .brand-wordmark {
+      display: none;
+    }
+  }
+
   @media (min-width: 1024px) {
     .page-container {
       padding-inline: 28px;
@@ -1388,7 +1443,7 @@
 
   @media (max-width: 619px) {
     .header-layout {
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       column-gap: 4px;
       row-gap: 4px;
       padding-block: 8px;
@@ -1396,6 +1451,8 @@
 
     .brand {
       gap: 1px;
+      min-width: 44px;
+      justify-content: center;
     }
 
     .brand-mark svg {
@@ -1406,6 +1463,34 @@
 
     .brand-wordmark svg {
       height: 15px;
+    }
+
+    .brand-wordmark { display: none; }
+
+    .account-trigger {
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border-radius: 50%;
+    }
+
+    .account-label, .account-chevron { display: none; }
+    .account-anonymous-trigger { display: inline-flex; }
+    .account-anonymous-trigger svg { width: 21px; height: 21px; }
+    .account-entry-links { display: none; }
+    .account-entry[data-open="true"] .account-entry-links {
+      position: absolute;
+      z-index: 5;
+      top: calc(100% + 10px);
+      right: 0;
+      display: grid;
+      min-width: 210px;
+      gap: 6px;
+      padding: 8px;
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      background: var(--glass-solid);
+      box-shadow: var(--glass-highlight), var(--elevation-lift);
     }
 
     .primary-nav {
@@ -1514,17 +1599,10 @@
     }
   }
 
-  /* Below the narrowest common phone the compact mark alone keeps identity, both windows and
-     the search icon on one row. */
-  @media (max-width: 374px) {
-    .brand-wordmark {
-      display: none;
-    }
-  }
-
   /* ---------------------------------------------------------------- Forced colours */
 
   @media (forced-colors: active) {
+    .account-entry-links a { background: Canvas; color: CanvasText; border-color: ButtonText; box-shadow: none; }
     .nav-link[aria-current="page"] {
       outline: 2px solid Highlight;
       outline-offset: -2px;

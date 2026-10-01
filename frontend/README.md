@@ -3,8 +3,9 @@
 The frontend is a client-rendered React/TypeScript SPA for the approved same-origin
 BFF/API. It implements the complete MVP journey: `UC-001` release discovery,
 `UC-002` bounded catalogue search, `UC-003` public game details, the `UC-004`
-same-origin authentication boundary (an authenticated-only header account control
-with CSRF-protected logout; authentication starts only from the rating control), the
+same-origin authentication boundary (direct BFF/OIDC navigation to hosted identity screens,
+anonymous account entry,
+an authenticated header account control and CSRF-protected logout), the
 `UC-005`–`UC-007` inline personal rating on the game page, and `UC-008`
 `/mis-puntuaciones`. Behaviour is specified by the
 [use cases](../docs/architecture/application/mvp-use-cases.md) and the
@@ -33,7 +34,7 @@ Start the backend on port 8080, then:
 npm run frontend:dev
 ```
 
-Vite serves `http://localhost:5173` and proxies `/api`, `/auth`, and `/actuator` to
+Vite serves `http://localhost:5173` and proxies `/api`, `/auth`, `/login` and `/actuator` to
 the backend. Those paths remain server-owned and must not become client routes.
 Production assets are written to ignored `frontend/dist/`; build the deployable
 same-origin JAR with `bash scripts/package-application.sh` and validate the packaged

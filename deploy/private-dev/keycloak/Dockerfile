@@ -13,3 +13,10 @@ ENV KC_CACHE=local \
     KC_METRICS_ENABLED=true
 
 RUN /opt/keycloak/bin/kc.sh build
+
+# One theme source, with brand/font/art assets copied from their canonical frontend owners.
+# The build context is the repository root in both local and private-dev Compose.
+COPY --chown=keycloak:keycloak docker/keycloak/themes/gameometro /opt/keycloak/themes/gameometro
+COPY --chown=keycloak:keycloak frontend/src/shared/brand/gameometro-logo.svg frontend/src/shared/brand/gameometro-mark.svg /opt/keycloak/themes/gameometro/login/resources/img/
+COPY --chown=keycloak:keycloak frontend/public/assets/night-hero.webp frontend/public/assets/night-hero-980.webp /opt/keycloak/themes/gameometro/login/resources/img/
+COPY --chown=keycloak:keycloak frontend/public/assets/fonts/mona-sans-latin.woff2 frontend/public/assets/fonts/instrument-serif-italic-latin.woff2 frontend/public/assets/fonts/ibm-plex-mono-400-latin.woff2 frontend/public/assets/fonts/*OFL.txt /opt/keycloak/themes/gameometro/login/resources/fonts/

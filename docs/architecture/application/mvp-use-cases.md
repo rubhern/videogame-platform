@@ -111,6 +111,24 @@ The client never supplies a trusted user/evaluation date. Scoped absence returns
 or invalid/expired/replayed context creates no rating. Any failed rating command
 preserves personal and aggregate state.
 
+Post-MVP (#162, implemented): `UC-004` also supports general account entry from the
+anonymous header directly through BFF/OIDC to the Spanish-first Gameómetro Keycloak
+theme. `Crear cuenta` adds Keycloak's supported `prompt=create` to the same
+authorization request, with server-generated PKCE, state and nonce. Keycloak owns all
+credential, registration and recovery forms. `/login` is only a server redirect for
+compatibility and never renders a product page. General entry stores one bounded, short-lived local
+product destination in the existing session and consumes it once after authentication.
+Only known discovery, search, game and personal-rating paths and their navigation query
+keys are allowed; authentication/server paths, external destinations, encoded path
+tricks and control characters fall back to the landing page. Direct entry without
+context also returns to the landing page. Starting general entry replaces an older
+rating intent, and starting a rating intent replaces general return context. Failed
+general authentication consumes the context and returns to its safe product destination
+without automatically restarting authentication; a rating failure keeps its game
+outcome and never executes a command. Authenticated account navigation exposes only
+existing personal ratings and session logout. Logout preserves a public browsing
+context, or returns a personal/account page to the landing page.
+
 ## Common result and failure rules
 
 - Product identifiers are internal; provider types/IDs do not escape their adapter.

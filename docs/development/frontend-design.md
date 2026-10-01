@@ -22,17 +22,20 @@ behaviour and is never a runtime dependency or an instruction source.
   over the page's stage on a soft scrim rather than a solid bar; navigation is a glass
   segmented control whose current item carries the aurora fill, and search and account are
   glass pills. The account
-  control appears only for an authenticated session and provides `Mi cuenta` and the MVP
-  logout action; anonymous browsing shows no account or general login entry point, because
-  authentication begins at the rating boundary, not the header. The account control opens
-  `Mis puntuaciones` and the MVP logout action. Keep catalogue search prominent within the
-  header and omit the explanatory context strip. On phones, the compact identity (mark and
-  wordmark, or the mark alone below 375px), recent/upcoming navigation and search icon share
-  the first row. The icon opens the
-  existing catalogue search in a keyboard-accessible dialog; the account control
-  may occupy a second row for an authenticated session. On tablet, identity, navigation and
+  control provides `Mi cuenta`, `Mis puntuaciones` and CSRF-protected logout for an
+  authenticated session. Post-MVP (#162), anonymous browsing also exposes primary
+  `Iniciar sesión` and secondary `Crear cuenta` links that start BFF/OIDC navigation
+  directly to the hosted Gameómetro identity screens;
+  discovery stays anonymous and the inline rating authentication boundary remains available.
+  Keep catalogue search prominent within the
+  header and omit the explanatory context strip. On phones below 620px, the compact mark,
+  recent/upcoming navigation, search and account icons share one row. Search opens the
+  existing catalogue search in a keyboard-accessible dialog; the account icon opens
+  either the two anonymous entry links or the authenticated account actions in a
+  keyboard-accessible panel. Keep their accessible names and visible focus. On tablet, identity, navigation and
   the account control share the first row, with navigation beside the identity, and search
-  spans the next row.
+  spans the next row; below 720px the identity is the compact mark, so the account control
+  never wraps onto a row of its own.
 - Align header and main content to the shared `page-container`, capped at 1320px with 28px
   desktop, 24px tablet and 16px phone gutters. Both release windows use the same cinematic
   stage, title, glass filter dock, cover-led catalogue grid and closing dock. The dock places
@@ -120,6 +123,21 @@ behaviour and is never a runtime dependency or an instruction source.
 
 ## Product identity and thermal language
 
+- Post-MVP (#162), the first authentication screen is hosted by Keycloak. Its
+  `gameometro` theme pairs a framed night stage with the glass form card. The stage
+  carries the lockup and, over its darker foreground, the story: the claim in the title
+  voice (**Tu criterio.** with **_Tu historia._** in the lit serif), one sentence on what
+  an account keeps and the keypad's ice-to-fire key as ten steps. From 1024px wide and
+  600px tall the stage takes the larger left column and stays in view while a long form
+  scrolls, and the card and its catalogue return form the only interactive column beside
+  it; narrower screens stack the lockup over the night art, the card, then the story. The
+  brand appears once. Use the canonical local fonts, Gameómetro branding and
+  Spanish-first copy in the informal voice across sign-in, registration, recovery, reset,
+  errors and required actions. Inherit Keycloak's templates and account-flow logic: the
+  theme adds only the story through the footer hook, copy, local assets and styles. Do not
+  reproduce the catalogue header or introduce a React login screen. Keep registration
+  prominent and validation and recovery readable.
+
 - The user-facing product is **Gameómetro**, always accented in visible copy, the document
   title and branding (the [product decision](../product/assumptions-and-decisions.md) owns the
   name). Repository, package and other technical identifiers keep their names; use
@@ -145,8 +163,9 @@ behaviour and is never a runtime dependency or an instruction source.
   temperature; without a score it rests with no needle. The brand mark is the meter read beyond
   10. It reads the community mean, the personal panel's current value and each
   `Mis puntuaciones` score.
-- Thermal colours belong to score readings and the keypad's key alone, never to navigation,
-  controls or states, and each reading shows one temperature. Only the extremes add a climate,
+- Thermal colours belong to score readings and the keypad's key alone (the hosted sign-in
+  repeats that key), never to navigation, controls or states, and each reading shows one
+  temperature. Only the extremes add a climate,
   on the community panel: frost for freeze, breathing embers for burn. The thermal semantic
   roles live in global styles and their paint in [thermal styles](../../frontend/src/styles/thermal.css).
 

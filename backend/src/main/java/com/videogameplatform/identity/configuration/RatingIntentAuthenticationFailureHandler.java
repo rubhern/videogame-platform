@@ -2,6 +2,7 @@ package com.videogameplatform.identity.configuration;
 
 import com.videogameplatform.identity.adapter.session.RatingReturnContext;
 import com.videogameplatform.identity.adapter.session.RatingReturnContextStore;
+import com.videogameplatform.identity.adapter.web.AuthenticationReturnTarget;
 import com.videogameplatform.identity.adapter.web.RatingBoundary;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,7 +22,7 @@ import org.springframework.stereotype.Component;
  *
  * <p>It discards any pending return context so a failed attempt can never be resumed. When a rating
  * boundary started the attempt, the visitor returns to the same game with a safe cancelled outcome
- * and no selection; otherwise the flow lands on the home page. No rating command is executed.
+ * and no selection; otherwise the visitor returns to the safe product context. No command is executed.
  *
  * <p>The request-completion event records whether the visitor cancelled or the login failed. A
  * failure is also logged with its OAuth 2.0 error code from a closed allowlist; the state,
@@ -78,6 +79,11 @@ public final class RatingIntentAuthenticationFailureHandler
                     .log("OIDC login failed: oauth2_error={}", oauth2Error);
         }
         Optional<RatingReturnContext> context = store.takeReturnContext();
+        String returnTo =
+                store.takeAuthenticationContext()
+                        .map(pending -> AuthenticationReturnTarget.safePath(pending.path()))
+                        .orElse("/");
+        response.setHeader("Cache-Control", "no-store");
         if (context.isPresent()) {
             RatingReturnContext pending = context.get();
             getRedirectStrategy()
@@ -90,7 +96,7 @@ public final class RatingIntentAuthenticationFailureHandler
                                     RatingBoundary.Outcome.CANCELLED));
             return;
         }
-        super.onAuthenticationFailure(request, response, exception);
+        getRedirectStrategy().sendRedirect(request, response, returnTo);
     }
 
     private static String oauth2Error(AuthenticationException exception) {
