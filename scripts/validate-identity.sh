@@ -7,7 +7,7 @@ source "$repository_root/scripts/backend-artifact.sh"
 playwright_image="mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e"
 java_image="eclipse-temurin@sha256:f9e65324a37f28209ce7dd0e5149a7aa954520ed936fb87813cf6ded2400a112"
 postgres_image="postgres:18.4-bookworm"
-keycloak_image="quay.io/keycloak/keycloak:26.7.0"
+keycloak_image="videogame-platform/keycloak-identity:26.7.0"
 identity_run_id="${RANDOM}-$$"
 identity_network="videogame-platform-identity-${identity_run_id}"
 postgres_container="videogame-platform-identity-postgres-${identity_run_id}"
@@ -53,6 +53,7 @@ test_user_username="local-user"
 smoke_user_username="integration-deployment-smoke"
 
 bash scripts/package-application.sh
+docker build --file deploy/private-dev/keycloak/Dockerfile --tag "$keycloak_image" .
 application_jar="$(resolve_backend_jar)"
 
 docker network create --internal "$identity_network" >/dev/null

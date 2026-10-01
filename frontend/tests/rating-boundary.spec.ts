@@ -8,7 +8,7 @@ const gamePath =
 const username = process.env.OIDC_TEST_USERNAME;
 const password = process.env.OIDC_TEST_PASSWORD;
 
-test("anonymous browsing exposes no login entry point but offers the rating boundary", async ({
+test("anonymous browsing offers account entry and preserves the rating boundary", async ({
   page,
 }) => {
   await page.goto(gamePath);
@@ -16,7 +16,8 @@ test("anonymous browsing exposes no login entry point but offers the rating boun
     page.getByRole("heading", { level: 1, name: "Resident Evil Requiem" }),
   ).toBeVisible();
 
-  // No general account/login entry point while anonymous.
+  await expect(page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Crear cuenta", exact: true })).toBeVisible();
   await expect(page.getByText("Mi cuenta")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Cerrar sesión" }),
@@ -50,9 +51,9 @@ test.describe("real Keycloak rating journey", () => {
     await expect(page).toHaveURL(
       /\/realms\/videogame-platform\/protocol\/openid-connect\/auth/,
     );
-    await page.getByLabel("Username").fill(username ?? "");
+    await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
-    await page.getByRole("button", { name: "Sign In" }).click();
+    await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
 
     // Back on the same game: the chosen value is persisted once through the conditional
     // contract, and personal and community state update together.
@@ -90,16 +91,16 @@ test.describe("real Keycloak rating journey", () => {
     await page.getByRole("button", { name: "Mi cuenta" }).click();
     await page.getByRole("button", { name: "Cerrar sesión" }).click();
     await expect(page.getByText("Mi cuenta")).toHaveCount(0);
-    await expect(await context.cookies("http://application:8080")).toEqual([]);
+    await expect(await context.cookies(new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://application:8080").origin)).toEqual([]);
   });
 
 
   test("Mis puntuaciones supports search, direct maintenance and a real concurrent ETag conflict", async ({ page, context }, testInfo) => {
     await page.goto(gamePath);
     await page.getByRole("button", { name: "8", exact: true }).click();
-    await page.getByLabel("Username").fill(username ?? "");
+    await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
-    await page.getByRole("button", { name: "Sign In" }).click();
+    await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
     await expect(page.getByRole("button", { name: "8", exact: true })).toHaveAttribute("aria-pressed", "true");
     await page.getByRole("button", { name: "Mi cuenta" }).click();
     await page.getByRole("link", { name: "Mis puntuaciones", exact: true }).click();
@@ -157,7 +158,7 @@ test.describe("real Keycloak rating journey", () => {
     await expect(page).toHaveURL(
       /\/realms\/videogame-platform\/protocol\/openid-connect\/auth/,
     );
-    await page.getByRole("link", { name: "Register" }).click();
+    await page.getByRole("link", { name: "Crear cuenta", exact: true }).click();
 
     const unique = `player-${Date.now()}`;
     await page.locator("#firstName").fill("New");
@@ -166,7 +167,7 @@ test.describe("real Keycloak rating journey", () => {
     await page.locator("#username").fill(unique);
     await page.locator("#password").fill("Str0ng-Passw0rd!");
     await page.locator("#password-confirm").fill("Str0ng-Passw0rd!");
-    await page.getByRole("button", { name: "Register" }).click();
+    await page.getByRole("button", { name: "Crear cuenta", exact: true }).click();
 
     // First-time registration completes authentication and persists the chosen value.
     await expect(page).toHaveURL(new RegExp(gamePath));

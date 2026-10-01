@@ -6,6 +6,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.videogameplatform.identity.adapter.session.AuthenticationReturnContext;
 import com.videogameplatform.identity.adapter.session.RatingReturnContext;
 import com.videogameplatform.identity.adapter.session.RatingReturnContextStore;
 import com.videogameplatform.identity.adapter.session.ResumedRatingIntent;
@@ -83,6 +84,40 @@ class RatingResumeAuthenticationHandlerTest {
     }
 
     @Test
+    void generalReturnIsShortLivedSingleUseAndCannotResumeAnOlderRating() throws Exception {
+        store.saveReturnContext(new RatingReturnContext(GAME_ID, SLUG, 8, NOW));
+        store.saveAuthenticationContext(new AuthenticationReturnContext("/search?q=zelda", NOW));
+        var handler = new RatingResumeAuthenticationSuccessHandler(store);
+        handler.onAuthenticationSuccess(request, response, authentication());
+        assertThat(response.getRedirectedUrl()).isEqualTo("/search?q=zelda");
+        assertThat(store.takeResumedIntent()).isEmpty();
+        var replay = new MockHttpServletResponse();
+        handler.onAuthenticationSuccess(request, replay, authentication());
+        assertThat(replay.getRedirectedUrl()).isEqualTo("/");
+        store.saveAuthenticationContext(
+                new AuthenticationReturnContext("/search?q=zelda", NOW.minusSeconds(601)));
+        var expired = new MockHttpServletResponse();
+        handler.onAuthenticationSuccess(request, expired, authentication());
+        assertThat(expired.getRedirectedUrl()).isEqualTo("/");
+    }
+
+    @Test
+    void ratingEntryReplacesGeneralReturnAndRevalidatesMalformedStoredTargets() throws Exception {
+        store.saveAuthenticationContext(new AuthenticationReturnContext("/search?q=zelda", NOW));
+        store.saveReturnContext(new RatingReturnContext(GAME_ID, SLUG, 8, NOW));
+        new RatingResumeAuthenticationSuccessHandler(store)
+                .onAuthenticationSuccess(request, response, authentication());
+        assertThat(response.getRedirectedUrl())
+                .isEqualTo("/games/" + GAME_ID + "/" + SLUG + "?rating-intent=resumed");
+        assertThat(store.takeAuthenticationContext()).isEmpty();
+        store.saveAuthenticationContext(new AuthenticationReturnContext("//attacker.example", NOW));
+        var malicious = new MockHttpServletResponse();
+        new RatingResumeAuthenticationSuccessHandler(store)
+                .onAuthenticationSuccess(request, malicious, authentication());
+        assertThat(malicious.getRedirectedUrl()).isEqualTo("/");
+    }
+
+    @Test
     void cancellationDiscardsTheContextAndReturnsToTheGameSafely() throws Exception {
         store.saveReturnContext(new RatingReturnContext(GAME_ID, SLUG, 8, NOW.minusSeconds(30)));
 
@@ -100,7 +135,7 @@ class RatingResumeAuthenticationHandlerTest {
     }
 
     @Test
-    void failureWithoutAContextLandsOnHome() throws Exception {
+    void failureWithoutAContextReturnsToLandingWithoutRestartingAuthentication() throws Exception {
         new RatingIntentAuthenticationFailureHandler(store)
                 .onAuthenticationFailure(
                         request,
@@ -109,6 +144,20 @@ class RatingResumeAuthenticationHandlerTest {
                                 "failed"));
 
         assertThat(response.getRedirectedUrl()).isEqualTo("/");
+    }
+
+    @Test
+    void generalFailureConsumesItsSafeReturnWithoutAnAutomaticAuthenticationLoop()
+            throws Exception {
+        store.saveAuthenticationContext(new AuthenticationReturnContext("/search?q=zelda", NOW));
+        new RatingIntentAuthenticationFailureHandler(store)
+                .onAuthenticationFailure(
+                        request,
+                        response,
+                        new org.springframework.security.authentication.BadCredentialsException(
+                                "failed"));
+        assertThat(response.getRedirectedUrl()).isEqualTo("/search?q=zelda");
+        assertThat(store.takeAuthenticationContext()).isEmpty();
     }
 
     @Test

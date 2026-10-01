@@ -97,6 +97,96 @@
         "description": "Demonstrates that logout is state-changing and cannot be invoked without current session-bound CSRF material."
       },
       "response": []
+    },
+    {
+      "name": "Start account entry with a safe local return",
+      "protocolProfileBehavior": {
+        "followRedirects": false
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Navigation uses the existing OIDC entry and is not cached\", function () {",
+              "    pm.response.to.have.status(302);",
+              "    pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/auth/login/keycloak\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/start?returnTo=%2Fsearch%3Fq%3Dzelda",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "start"
+          ],
+          "query": [
+            {
+              "key": "returnTo",
+              "value": "%2Fsearch%3Fq%3Dzelda"
+            }
+          ]
+        },
+        "description": "BFF authentication navigation outside the JSON API. Run anonymously with redirect following disabled. Malicious target rejection and callback consumption are covered by focused backend/browser tests."
+      },
+      "response": []
+    },
+    {
+      "name": "Start hosted self-registration with a safe local return",
+      "protocolProfileBehavior": {
+        "followRedirects": false
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Navigation uses the existing OIDC entry and is not cached\", function () {",
+              "    pm.response.to.have.status(302);",
+              "    pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/auth/login/keycloak?intent=register\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/start?returnTo=%2Fsearch%3Fq%3Dzelda&intent=register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "start"
+          ],
+          "query": [
+            {
+              "key": "returnTo",
+              "value": "%2Fsearch%3Fq%3Dzelda"
+            },
+            {
+              "key": "intent",
+              "value": "register"
+            }
+          ]
+        },
+        "description": "Starts the existing BFF/OIDC transaction with the closed registration intent. The authorization resolver adds supported prompt=create without accepting browser-supplied state, nonce or PKCE material."
+      },
+      "response": []
     }
   ]
 }

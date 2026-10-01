@@ -1,16 +1,24 @@
-import { useEffect, useId, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useId, useRef, useState, type FocusEvent } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useLogout, useSession } from "../features/session/use-session";
+import { authenticationStartUrl } from "../features/session/auth-entry";
 
-/** The authenticated header entry point; session and logout remain owned by the BFF hooks. */
+/** The session-derived header account entry; session and logout remain owned by the BFF hooks. */
 export function AccountControl() {
   const session = useSession();
   const logout = useLogout();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const signinRef = useRef<HTMLAnchorElement>(null);
   const panelId = useId();
+
+  const closeOnBlur = (event: FocusEvent<HTMLDivElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -35,7 +43,23 @@ export function AccountControl() {
     };
   }, [open]);
 
-  if (session.data?.authenticated !== true) return null;
+  if (session.data?.authenticated !== true) {
+    if (!session.data) return null;
+    const returnTo = location.pathname + location.search;
+    return (
+      <div className="account-control account-entry" data-open={open} ref={controlRef} onBlur={closeOnBlur}>
+        <button className="account-trigger account-anonymous-trigger" type="button"
+          aria-label="Acceder a tu cuenta" aria-controls={panelId} aria-expanded={open}
+          ref={triggerRef} onClick={() => setOpen(current => !current)}>
+          <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.6" /><path d="M5 20v-1a7 7 0 0 1 14 0v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+        </button>
+        <nav className="account-entry-links" id={panelId} aria-label="Acceso a tu cuenta">
+          <a className="account-signin" ref={signinRef} href={authenticationStartUrl(returnTo)}>Iniciar sesión</a>
+          <a className="account-register" href={authenticationStartUrl(returnTo, true)}>Crear cuenta</a>
+        </nav>
+      </div>
+    );
+  }
 
   const csrfToken = session.data.csrfToken;
 
@@ -43,11 +67,10 @@ export function AccountControl() {
     <div
       className="account-control"
       ref={controlRef}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
-      }}
+      onBlur={closeOnBlur}
     >
       <button
+        aria-label="Mi cuenta"
         aria-controls={open ? panelId : undefined}
         aria-expanded={open}
         className="account-trigger"
@@ -56,7 +79,7 @@ export function AccountControl() {
         type="button"
       >
         <span className="account-avatar" aria-hidden="true"><span /></span>
-        <span>Mi cuenta</span>
+        <span className="account-label">Mi cuenta</span>
         <span className="account-chevron" aria-hidden="true" />
       </button>
       {open ? (
@@ -70,7 +93,16 @@ export function AccountControl() {
           <button
             className="account-option"
             disabled={logout.isPending}
-            onClick={() => logout.mutate(csrfToken)}
+            onClick={() => logout.mutate(csrfToken, {
+              onSuccess: () => {
+                setOpen(false);
+                if (location.pathname === "/mis-puntuaciones") navigate("/");
+                else requestAnimationFrame(() => {
+                  if (triggerRef.current?.getClientRects().length) triggerRef.current.focus();
+                  else signinRef.current?.focus();
+                });
+              },
+            })}
             type="button"
           >
             <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
@@ -78,6 +110,7 @@ export function AccountControl() {
             </svg>
             {logout.isPending ? "Cerrando…" : "Cerrar sesión"}
           </button>
+          {logout.isError ? <p className="account-logout-error" role="alert">No se pudo cerrar la sesión. Vuelve a intentarlo.</p> : null}
         </div>
       ) : null}
     </div>

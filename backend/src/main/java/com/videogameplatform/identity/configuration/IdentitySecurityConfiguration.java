@@ -131,11 +131,13 @@ public class IdentitySecurityConfiguration {
                     new HttpSessionOAuth2AuthorizedClientRepository();
             http.oauth2Login(
                     oauth2 ->
-                            oauth2.authorizedClientRepository(authorizedClients)
+                            oauth2.loginPage("/auth/start")
+                                    .authorizedClientRepository(authorizedClients)
                                     .authorizationEndpoint(
                                             endpoint ->
                                                     endpoint.authorizationRequestResolver(
-                                                            authorizationRequests))
+                                                            new AccountEntryAuthorizationRequestResolver(
+                                                                    authorizationRequests)))
                                     .successHandler(ratingResumeSuccessHandler)
                                     .failureHandler(ratingIntentFailureHandler));
         }

@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Server-side, single-use store for the rating return context and the recovered selection.
+ * Server-side, single-use store for rating intents and general account-entry return context.
  *
  * <p>State lives exclusively in the application session, which the browser addresses only through
  * an opaque {@code HttpOnly} cookie, so it is tamper-resistant and never leaves the server. The
@@ -24,6 +24,8 @@ public class RatingReturnContextStore {
             RatingReturnContextStore.class.getName() + ".returnContext";
     private static final String RESUMED_INTENT_ATTRIBUTE =
             RatingReturnContextStore.class.getName() + ".resumedIntent";
+    private static final String AUTHENTICATION_CONTEXT_ATTRIBUTE =
+            RatingReturnContextStore.class.getName() + ".authenticationContext";
 
     private final HttpServletRequest request;
     private final Clock clock;
@@ -40,7 +42,26 @@ public class RatingReturnContextStore {
 
     /** Persists the return context, replacing any earlier pending context in this session. */
     public void saveReturnContext(RatingReturnContext context) {
-        request.getSession(true).setAttribute(RETURN_CONTEXT_ATTRIBUTE, context);
+        HttpSession session = request.getSession(true);
+        synchronized (session) {
+            session.removeAttribute(AUTHENTICATION_CONTEXT_ATTRIBUTE);
+            session.removeAttribute(RESUMED_INTENT_ATTRIBUTE);
+            session.setAttribute(RETURN_CONTEXT_ATTRIBUTE, context);
+        }
+    }
+
+    public void saveAuthenticationContext(AuthenticationReturnContext context) {
+        HttpSession session = request.getSession(true);
+        synchronized (session) {
+            session.removeAttribute(RETURN_CONTEXT_ATTRIBUTE);
+            session.removeAttribute(RESUMED_INTENT_ATTRIBUTE);
+            session.setAttribute(AUTHENTICATION_CONTEXT_ATTRIBUTE, context);
+        }
+    }
+
+    public Optional<AuthenticationReturnContext> takeAuthenticationContext() {
+        return takeAttribute(AUTHENTICATION_CONTEXT_ATTRIBUTE, AuthenticationReturnContext.class)
+                .filter(context -> context.issuedAt().plus(timeToLive).isAfter(clock.instant()));
     }
 
     /** Atomically removes and returns the pending return context, if one exists. */
@@ -68,11 +89,10 @@ public class RatingReturnContextStore {
         if (session == null) {
             return Optional.empty();
         }
-        Object value = session.getAttribute(attribute);
-        if (!type.isInstance(value)) {
-            return Optional.empty();
+        synchronized (session) {
+            Object value = session.getAttribute(attribute);
+            session.removeAttribute(attribute);
+            return type.isInstance(value) ? Optional.of(type.cast(value)) : Optional.empty();
         }
-        session.removeAttribute(attribute);
-        return Optional.of(type.cast(value));
     }
 }

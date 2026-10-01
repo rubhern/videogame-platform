@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { listMyRatings, MY_RATINGS_KEY, MyRatingsError, type MyRatingsPage, type MyRatingsQuery } from "../features/ratings/my-ratings-api";
 import { MyRatingCard } from "../features/ratings/my-rating-card";
 import { useSession } from "../features/session/use-session";
+import { authenticationStartUrl } from "../features/session/auth-entry";
 import { AppSelect } from "../shared/ui/app-select";
 import { CinematicStage } from "../shared/ui/cinematic-stage";
 import { HeroTitle } from "../shared/ui/hero-title";
@@ -71,8 +72,8 @@ export function MyRatingsPage() {
         </div> : csrfToken === null || query.error?.code === "AUTHENTICATION_REQUIRED" ? <div className="notice notice-empty" role="status">
           <span className="notice-symbol" aria-hidden="true">◷</span>
           <h2>Necesitas una sesión activa</h2>
-          <p>Inicia sesión al puntuar desde la ficha de un juego para consultar tus notas.</p>
-          <Link className="button button-primary" to="/search">Buscar un juego</Link>
+          <p>Inicia sesión para volver a tus puntuaciones.</p>
+          <a className="button button-primary" href={authenticationStartUrl("/mis-puntuaciones")}>Iniciar sesión</a>
         </div> : <>
           <form className="my-ratings-filters" role="search" aria-label="Buscar en mis puntuaciones"
             onSubmit={(event) => {

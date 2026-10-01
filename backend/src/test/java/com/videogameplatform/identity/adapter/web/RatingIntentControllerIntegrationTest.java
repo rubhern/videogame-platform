@@ -33,7 +33,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
-@WebMvcTest(RatingIntentController.class)
+@WebMvcTest({RatingIntentController.class, AuthenticationEntryController.class})
 @Import({
     IdentitySecurityConfiguration.class,
     AuthenticationProblemEntryPoint.class,
@@ -55,6 +55,89 @@ class RatingIntentControllerIntegrationTest {
     @Autowired
     RatingIntentControllerIntegrationTest(MockMvc mockMvc) {
         this.mockMvc = mockMvc;
+    }
+
+    @Test
+    void generalAccountEntryStoresOnlyABoundedLocalTargetAndStartsExistingOidc() throws Exception {
+        MvcResult started =
+                mockMvc.perform(get("/auth/start").queryParam("returnTo", "/search?q=zelda"))
+                        .andExpect(status().isFound())
+                        .andExpect(redirectedUrl("/auth/login/keycloak"))
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andReturn();
+        var store =
+                new RatingReturnContextStore(
+                        started.getRequest(), Clock.systemUTC(), java.time.Duration.ofMinutes(10));
+        org.assertj.core.api.Assertions.assertThat(
+                        store.takeAuthenticationContext().orElseThrow().path())
+                .isEqualTo("/search?q=zelda");
+        org.assertj.core.api.Assertions.assertThat(store.takeAuthenticationContext()).isEmpty();
+    }
+
+    @Test
+    void registrationStartsTheSamePkceFlowWithOnlySupportedPresentationParameters()
+            throws Exception {
+        mockMvc.perform(
+                        get("/auth/start")
+                                .param("intent", "register")
+                                .param("returnTo", "/search?q=zelda"))
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl("/auth/login/keycloak?intent=register"));
+        MvcResult authorization =
+                mockMvc.perform(
+                                get("/auth/login/keycloak")
+                                        .param("intent", "register")
+                                        .param("state", "attacker")
+                                        .param("nonce", "attacker")
+                                        .param("code_challenge", "attacker"))
+                        .andExpect(status().isFound())
+                        .andReturn();
+        var params =
+                org.springframework.web.util.UriComponentsBuilder.fromUriString(
+                                authorization.getResponse().getRedirectedUrl())
+                        .build()
+                        .getQueryParams();
+        org.assertj.core.api.Assertions.assertThat(params.getFirst("prompt")).isEqualTo("create");
+        org.assertj.core.api.Assertions.assertThat(params.getFirst("ui_locales")).isEqualTo("es");
+        org.assertj.core.api.Assertions.assertThat(params.getFirst("code_challenge_method"))
+                .isEqualTo("S256");
+        for (String key : List.of("state", "nonce", "code_challenge")) {
+            org.assertj.core.api.Assertions.assertThat(params.getFirst(key))
+                    .isNotBlank()
+                    .isNotEqualTo("attacker");
+        }
+    }
+
+    @Test
+    void compatibilityLoginOnlyRedirectsAndUnknownIntentNeverBecomesAnOidcParameter()
+            throws Exception {
+        mockMvc.perform(get("/login").param("returnTo", "//attacker.example"))
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl("/auth/login/keycloak"));
+        MvcResult result =
+                mockMvc.perform(get("/auth/login/keycloak").param("intent", "attacker"))
+                        .andExpect(status().isFound())
+                        .andReturn();
+        org.assertj.core.api.Assertions.assertThat(result.getResponse().getRedirectedUrl())
+                .contains("ui_locales=es")
+                .doesNotContain("prompt=")
+                .doesNotContain("attacker");
+    }
+
+    @Test
+    void authenticatedAccountEntryNeverRedirectsToAnExternalTarget() throws Exception {
+        mockMvc.perform(
+                        get("/auth/start")
+                                .with(authenticated("subject-a"))
+                                .queryParam("returnTo", "//attacker.example"))
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl("/"));
+        mockMvc.perform(
+                        get("/auth/start")
+                                .with(authenticated("subject-a"))
+                                .queryParam("returnTo", GAME_PATH))
+                .andExpect(status().isFound())
+                .andExpect(redirectedUrl(GAME_PATH));
     }
 
     @Test

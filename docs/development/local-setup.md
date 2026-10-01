@@ -79,6 +79,13 @@ Run the complete application with:
 bash scripts/local-dependencies.sh application
 ```
 
+If Keycloak reports `UnknownHostException: postgres`, check that its container and
+PostgreSQL share the Compose network. A stale or missing network attachment can be
+recovered with `down` followed by `application` from the same checkout and environment;
+this recreates containers while retaining the named database volumes. Do not reset
+identity data to fix a network-resolution failure. `verify` checks the configured
+synthetic account; additional self-registered accounts do not invalidate that check.
+
 For separate development loops, use the commands in the
 [backend README](../../backend/README.md) and
 [frontend README](../../frontend/README.md).
@@ -169,13 +176,25 @@ not delete repository files, images, `.env` files, `.local-secrets`, unrelated v
 or remote data.
 
 Keycloak runs over loopback HTTP and uses a non-personal synthetic test account.
+The local and private-dev images build the lightweight `gameometro` theme from
+[`Dockerfile`](../../deploy/private-dev/keycloak/Dockerfile), copying brand, fonts and
+art from their canonical frontend sources. After changing theme sources, rebuild the
+Keycloak service and recreate its container; inherited Keycloak templates own credential
+forms and validation. Existing realms are not overwritten by startup import. Set the
+`gameometro` Login theme, `Gameómetro` display name and supported/default Spanish
+locale in Realm Settings, and enable Forgot password in Login
+settings, or reset only a verified disposable local database to re-import the configuration.
+Recovery rendering is available; email delivery requires operator-configured SMTP in
+Keycloak. No SMTP service or paid resource is provisioned by this repository.
 The shared imported realm contains environment-neutral identity/client policy; its
 origins come from `APPLICATION_PUBLIC_ORIGIN`. A separate local-only user import adds
 the synthetic account and is not mounted by private dev. The realm enables
 Keycloak-hosted self-registration, so a new visitor can
-create an account from the Keycloak login page without administrator provisioning;
+create an account directly from the product header through the themed Keycloak
+registration flow, or follow the registration link on its sign-in screen, without administrator provisioning;
 the realm import owns this setting, so applying it to an already-provisioned instance
-needs a `reset` and re-import. The same applies to `KEYCLOAK_BFF_CLIENT_SECRET`: the
+needs an explicit update in Realm Settings, or a reset of a disposable local database.
+For `KEYCLOAK_BFF_CLIENT_SECRET`, the
 realm keeps the secret it was imported with, so a regenerated `.env` (for example a
 fresh worktree sharing the same Compose project) makes every login return to the game
 as "not completed" until the stored secret and `.env` agree again; `verify` reports

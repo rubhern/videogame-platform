@@ -159,6 +159,27 @@ dedicated Playwright container, so Node.js is not a host prerequisite.
    is the failed non-personal account, delete that one account, and rerun the command;
    never add the marker to adopt it.
 
+## Gameómetro identity theme
+
+Post-MVP (#162), the Keycloak image packages `docker/keycloak/themes/gameometro`
+and copies the canonical frontend brand, fonts and night artwork at build time.
+Both Compose build contexts are the repository root. The
+[frontend design guidelines](../../docs/development/frontend-design.md) own its visual
+rules; inherited Keycloak templates retain credential handling and account-flow logic.
+
+After owner review, build/recreate the Keycloak service from the reviewed checkout.
+Startup import skips an existing realm: in the private Admin Console, select
+`gameometro` as its Login theme, `Gameómetro` as its display name, set the
+supported/default locale to Spanish and enable
+Forgot password in Login settings. Do not delete identity data or re-import the realm
+to apply a theme. Recreate the service to clear its theme cache after changing assets.
+To roll back, select the previous built-in login theme and restore the previous realm
+settings; no product schema migration is involved.
+
+Password-recovery email requires SMTP configured privately in Keycloak. No mail service,
+credentials or paid infrastructure is added here. Rendering a recovery screen does not
+prove email delivery; test that separately against the owner's configured transport.
+
 ## Metrics dashboards
 
 The [observability guide](../../docs/development/observability.md#private-dev-dashboards)

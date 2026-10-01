@@ -180,7 +180,8 @@ try {
   // Keep the deployment subset aligned with the #34 compatibility proof in
   // frontend/tests/oidc-session.spec.ts without importing its full E2E harness.
   assert((await sessionState(page)).authenticated === false, "initial session was not anonymous");
-  await page.goto("/auth/login/keycloak");
+  await page.goto("/");
+  await page.getByRole("link", { name: "Iniciar sesión", exact: true }).click();
   assert(
     new URL(page.url()).origin === new URL(keycloakOrigin).origin,
     "OIDC authorization did not reach the configured Keycloak origin",

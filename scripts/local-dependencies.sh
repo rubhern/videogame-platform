@@ -289,7 +289,7 @@ verify_runtime() {
     || die "The imported BFF client accepted an unlisted callback (HTTP $invalid_redirect_status)"
 
   identity_result="$(compose exec -T postgres psql --username=postgres --dbname=videogame_keycloak \
-    --tuples-only --no-align --command="
+    --tuples-only --no-align --variable="local_user=$(env_value LOCAL_TEST_USER_USERNAME)" <<'SQL'
       SELECT concat_ws(':',
         (SELECT count(*) = 1 FROM realm WHERE name = 'videogame-platform'),
         (SELECT count(*) = 1
@@ -316,15 +316,18 @@ verify_runtime() {
         (SELECT count(*) = 1
            FROM user_entity u
            JOIN realm r ON r.id = u.realm_id
-          WHERE r.name = 'videogame-platform'),
+          WHERE r.name = 'videogame-platform'
+            AND u.username = :'local_user'),
         (SELECT count(*) = 1
            FROM credential cr
            JOIN user_entity u ON u.id = cr.user_id
            JOIN realm r ON r.id = u.realm_id
           WHERE r.name = 'videogame-platform'
+            AND u.username = :'local_user'
             AND cr.type = 'password')
       );
-    ")"
+SQL
+  )"
   [[ "$identity_result" == "t:t:t:t:t" ]] \
     || die "Realm, confidential client, PKCE or local-user verification failed: $identity_result"
 

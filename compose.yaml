@@ -27,7 +27,10 @@ services:
     stop_grace_period: 30s
 
   keycloak:
-    image: quay.io/keycloak/keycloak:26.7.0
+    image: videogame-platform/keycloak-gameometro:26.7.0
+    build:
+      context: .
+      dockerfile: deploy/private-dev/keycloak/Dockerfile
     command: ["start-dev", "--import-realm"]
     environment:
       KC_DB: postgres
