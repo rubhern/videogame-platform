@@ -4,6 +4,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.api.delivery.OpenApiResponseContract;
+import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
+import com.videogameplatform.catalogue.application.synchronization.internal.ReleaseReconciliationPolicy;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ReleaseWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.ProviderReleaseSignal;
+import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.net.URI;
@@ -11,8 +21,12 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +61,7 @@ class GameDetailsApiIntegrationTest {
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     @LocalServerPort int port;
     @Autowired MeterRegistry metrics;
+    @Autowired CatalogueSynchronizationStore synchronizationStore;
     private JdbcTemplate admin;
     private UUID game;
 
@@ -150,6 +165,8 @@ class GameDetailsApiIntegrationTest {
 
     @ParameterizedTest
     @CsvSource({
+        "day,announced,provider_only,not_required,ELIGIBLE_RELEASE_FOUND",
+        "day,announced,provider_only,required,RELEASE_REVIEW_REQUIRED",
         "month,released,provider_only,not_required,RELEASE_NOT_OCCURRED",
         "quarter,released,verified,not_required,RELEASE_NOT_OCCURRED",
         "year,released,verified,not_required,RELEASE_NOT_OCCURRED",
@@ -171,6 +188,95 @@ class GameDetailsApiIntegrationTest {
         assertThat(body.path("releases").get(0).path("releaseDate").path("precision").asString())
                 .isEqualTo(precision);
         assertThat(body.path("releases").get(0).path("reviewStatus").asString()).isEqualTo(review);
+    }
+
+    @Test
+    void resynchronizingTheRequiemReleaseDoesNotInventAReviewBlock() throws Exception {
+        // Private-dev #211 example: IGDB release 752219, PC/worldwide, 2026-02-27.
+        // Reconstruct the accepted pre-#177 representation; the live row already carries
+        // review=required and has no history from which to infer its former review state.
+        var date = new ReleaseDate.Day(LocalDate.parse("2026-02-27"));
+        admin.update(
+                "UPDATE catalogue.game_snapshot SET canonical_title = 'Resident Evil Requiem' WHERE game_id = ?",
+                game);
+        admin.update(
+                "UPDATE catalogue.release_snapshot SET exact_date = ?, platform_id = '10000000-0000-4000-8000-000000000003', region_id = '20000000-0000-4000-8000-000000000001', source_kind = 'external_provider', source_name = 'IGDB', source_entity_type = 'release_date' WHERE game_id = ?",
+                date.date(),
+                game);
+        admin.update(
+                "INSERT INTO catalogue.game_external_reference(game_id, provider, provider_entity_type, provider_id) VALUES (?, 'IGDB', 'game', '347668')",
+                game);
+        admin.update(
+                "INSERT INTO catalogue.release_external_reference(provider, provider_id, release_id, game_id) SELECT 'IGDB', '752219', release_id, game_id FROM catalogue.release_snapshot WHERE game_id = ?",
+                game);
+
+        var before = get(game.toString());
+        CONTRACT.assertJsonResponse(before, 200, "GameDetails");
+        assertThat(
+                        JSON.readTree(before.body())
+                                .path("ratingEligibility")
+                                .path("eligible")
+                                .asBoolean())
+                .isTrue();
+        var old = synchronizationStore.loadGame("347668", 10).orElseThrow();
+        var evidence =
+                new ProviderRelease(
+                        "752219",
+                        new ProviderPlatform("6", "Windows PC", "windows-pc"),
+                        Optional.of(new ProviderRegion("8", "Worldwide")),
+                        date,
+                        ProviderReleaseSignal.NONE);
+        Instant synchronizedAt = Instant.parse("2026-08-13T08:00:00Z");
+        var reconciled =
+                ReleaseReconciliationPolicy.reconcile(
+                                evidence,
+                                old.releases().get("752219"),
+                                synchronizedAt,
+                                synchronizedAt,
+                                "IGDB")
+                        .orElseThrow();
+        var run =
+                synchronizationStore
+                        .beginRun(
+                                "IGDB",
+                                new CatalogueSynchronizationRequest(date.date(), date.date()),
+                                synchronizedAt,
+                                Duration.ofMinutes(30))
+                        .orElseThrow();
+        try {
+            synchronizationStore.saveGame(
+                    run,
+                    new GameWrite(
+                            "347668",
+                            old.gameId(),
+                            false,
+                            old.title(),
+                            old.slug(),
+                            old.cover(),
+                            List.of(new ReleaseWrite("752219", reconciled)),
+                            synchronizedAt));
+        } finally {
+            admin.update("DELETE FROM catalogue.synchronization_run WHERE run_id = ?", run);
+        }
+
+        var response = get(game.toString());
+        CONTRACT.assertJsonResponse(response, 200, "GameDetails");
+        var body = JSON.readTree(response.body());
+        assertThat(body.path("canonicalTitle").asString()).isEqualTo("Resident Evil Requiem");
+        assertThat(body.path("ratingEligibility").path("reason").asString())
+                .isEqualTo("ELIGIBLE_RELEASE_FOUND");
+        assertThat(body.path("ratingEligibility").path("eligible").asBoolean()).isTrue();
+        assertThat(body.path("releases").get(0).path("releaseDate").path("value").asString())
+                .isEqualTo("2026-02-27");
+        assertThat(body.path("releases").get(0).path("status").asString()).isEqualTo("released");
+        assertThat(body.path("releases").get(0).path("reviewStatus").asString())
+                .isEqualTo("not_required");
+        assertThat(
+                        admin.queryForObject(
+                                "SELECT release_status FROM catalogue.release_snapshot WHERE game_id = ?",
+                                String.class,
+                                game))
+                .isEqualTo("announced");
     }
 
     @Test

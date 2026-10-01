@@ -35,7 +35,13 @@ public final class ReleaseReconciliationPolicy {
                         && platformProviderId.equals(previous.platformProviderId())
                         && Objects.equals(regionProviderId, previous.regionProviderId())
                         && providerRelease.date().equals(previous.date())
-                        && status == previous.status();
+                        && (status == previous.status()
+                                // #177 left legacy known-date occurrences persisted as released.
+                                // Normalizing that derived fact is not a provider evidence change.
+                                // Unknown-date released evidence remains explicit and independent.
+                                || status == ReleaseStatus.ANNOUNCED
+                                        && previous.status() == ReleaseStatus.RELEASED
+                                        && !(previous.date() instanceof ReleaseDate.Unknown));
         if (previous != null
                 && !unchanged
                 && previous.verificationLevel() == VerificationLevel.VERIFIED) {
