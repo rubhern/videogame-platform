@@ -56,8 +56,9 @@ for (const width of [320, 390, 834, 1320]) {
 
     const brand = page.getByRole("link", { name: "Gameómetro · Inicio" });
     await expect(brand).toBeVisible();
-    // The compact mark alone carries the identity below the narrowest common phone.
-    await expect(brand.locator(".brand-wordmark")).toBeVisible({ visible: width >= 375 });
+    // Phones and the narrowest tablets carry the identity with the compact mark alone, so the
+    // account control shares the first row; the wordmark joins the mark from 720px.
+    await expect(brand.locator(".brand-wordmark")).toBeVisible({ visible: width >= 720 });
     await expect(page.getByRole("contentinfo")).toContainText("Gameómetro");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
     expect((await analyzeAccessibility(page)).violations).toEqual([]);

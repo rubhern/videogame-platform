@@ -1599,14 +1599,6 @@
     }
   }
 
-  /* Below the narrowest common phone the compact mark alone keeps identity, both windows and
-     the search icon on one row. */
-  @media (max-width: 374px) {
-    .brand-wordmark {
-      display: none;
-    }
-  }
-
   /* ---------------------------------------------------------------- Forced colours */
 
   @media (forced-colors: active) {
