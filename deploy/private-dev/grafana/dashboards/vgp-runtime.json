@@ -1,0 +1,384 @@
+{
+  "uid": "vgp-runtime",
+  "title": "VideoGame Platform \u00b7 Runtime and HTTP",
+  "description": "Application HTTP and JVM/pool pressure. OTLP gauges are sampled once per minute; brief spikes can be missed. No universal warning thresholds or product readiness dependency.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": false,
+  "tags": [
+    "videogame-platform"
+  ],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "title": "Product requests by route and method",
+      "type": "timeseries",
+      "description": "Estimated requests/second by bounded route template and method over the rate window. Zero means no observed increments in that window, not no requests since startup. Cached browser responses need not reach the application.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (uri, method) (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"/api/v1/.*\"}[$__rate_interval]))",
+          "legendFormat": "{{method}} {{uri}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Product request outcome proportion",
+      "type": "timeseries",
+      "description": "Fraction of observed product requests by HTTP outcome. CLIENT_ERROR includes the contracted GET rating-absence 404; Journey separates it. REDIRECTION includes cache revalidation 304. No traffic yields no finite proportion.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (outcome) (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"/api/v1/.*\"}[$__rate_interval])) / ignoring(outcome) group_left sum(rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"/api/v1/.*\"}[$__rate_interval]))",
+          "legendFormat": "{{outcome}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 2,
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Product HTTP p95 by route / method",
+      "type": "timeseries",
+      "description": "Approximate 95th-percentile latency in milliseconds, per route and method, from existing histogram buckets over the rate window. Higher values mean slower observed requests. Sparse/no recent traffic gives unstable or absent percentiles; no latency SLO is implied.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, uri, method) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\",uri=~\"/api/v1/.*\"}[$__rate_interval])))",
+          "legendFormat": "{{method}} {{uri}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 3,
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Heap used / reported max",
+      "type": "timeseries",
+      "description": "Used heap divided by the sum of positive JVM-reported heap pool maxima. Unsupported maxima (-1) are excluded; no positive maximum gives no ratio. Near the reported maximum leaves less allocation headroom, but observe the trend and post-GC recovery. This is heap, not total container memory or RSS.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (instance) (jvm_memory_used_bytes{job=\"application-otlp\",area=\"heap\"}) / (sum by (instance) (jvm_memory_max_bytes{job=\"application-otlp\",area=\"heap\"} > 0) > 0)",
+          "legendFormat": "heap occupancy",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Process CPU consumed (cores)",
+      "type": "timeseries",
+      "description": "Rate of the existing cumulative JVM process CPU time, converted from nanoseconds to CPU-seconds/second (cores). Compare with the actual assigned Compose CPU quota; this is not host utilization or a universal 100% scale. Sustained usage near the quota can indicate CPU pressure; correlate with latency and docker stats. The rate window smooths short bursts.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix:cores"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(process_cpu_time_nanoseconds_total{job=\"application-otlp\"}[$__rate_interval]) / 1000000000",
+          "legendFormat": "process cores",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 5,
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "JVM live threads",
+      "type": "timeseries",
+      "description": "Live JVM platform threads at export time. Growth without returning to a stable level warrants investigation; thread count alone is not a saturation measure. It does not count every virtual task and there is no universal safe count.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "jvm_threads_live{job=\"application-otlp\"}",
+          "legendFormat": "live threads",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 6,
+      "gridPos": {
+        "x": 12,
+        "y": 18,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Hikari active / max",
+      "type": "timeseries",
+      "description": "Active borrowed database connections divided by the configured maximum, per pool. Approaching 100% leaves little borrowing headroom; correlate with sustained pending borrowers and query/acquisition latency. One-minute samples can miss short contention.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_active{job=\"application-otlp\"} / (hikaricp_connections_max{job=\"application-otlp\"} > 0)",
+          "legendFormat": "{{pool}} utilization",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 7,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Collector scrape availability",
+      "type": "timeseries",
+      "description": "Prometheus-created scrape health: 1 means the Collector exporter answered the latest scrape, 0 means the scrape failed. A healthy scrape does not prove fresh OTLP receipt or product readiness. Collector application series expire after five minutes without fresh delivery.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"application-otlp\"}",
+          "legendFormat": "scrape",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 8,
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Heap used and reported max",
+      "type": "timeseries",
+      "description": "Absolute companion to heap occupancy: total used heap and positive pool maxima in bytes. Compare the gap and GC recovery over time. Non-heap memory, stacks, native allocations and other processes consume additional container memory.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (instance) (jvm_memory_used_bytes{job=\"application-otlp\",area=\"heap\"})",
+          "legendFormat": "used heap",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        },
+        {
+          "refId": "B",
+          "expr": "sum by (instance) (jvm_memory_max_bytes{job=\"application-otlp\",area=\"heap\"} > 0)",
+          "legendFormat": "reported heap max",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 9,
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 9
+      }
+    },
+    {
+      "title": "Hikari pending borrowers",
+      "type": "timeseries",
+      "description": "Threads waiting to borrow a database connection, per pool, at export time. Sustained values above zero indicate pool pressure; correlate with active/max and slow queries. Zero means no wait at the sampling instant and does not rule out brief spikes.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_pending{job=\"application-otlp\"}",
+          "legendFormat": "{{pool}} pending",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          }
+        }
+      ],
+      "id": 10,
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 9
+      }
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}

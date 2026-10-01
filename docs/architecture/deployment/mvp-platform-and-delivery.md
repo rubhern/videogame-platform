@@ -37,15 +37,23 @@ trial-only substitute is authorized. Public production, HA, staging, Kubernetes,
 distributed components, automatic broad sync and paid managed services remain
 deferred.
 
+Local development can opt into the same metrics services and provisioning with
+independent credentials and volumes. Only local development publishes loopback OTLP
+for a host/IDE backend; private-dev Collector and Prometheus remain internal. The
+[local setup guide](../../development/local-setup.md#local-metrics-and-dashboards)
+owns local startup and reset procedures.
+
 ## Private dev runtime boundary
 
 The default stack starts PostgreSQL, Keycloak and one internal OpenTelemetry
-Collector. The application is profile-gated and receives only runtime database
+Collector, Prometheus and Grafana. The application is profile-gated and receives only runtime database
 credentials; the deployment profile adds a one-shot migration actor and a browser
 smoke runner. Repository configuration never selects or deploys an application digest
 by itself.
 
-PostgreSQL and the collector publish no host port. The product and Keycloak HTTP
+PostgreSQL, Prometheus and the collector publish no host port. Grafana binds only
+to IPv4 loopback and is reached through the owner's SSH tunnel; it has no Tailscale
+Serve route. The product and Keycloak HTTP
 ports bind only to host IPv4 loopback, where Tailscale Serve terminates HTTPS on
 separate tailnet-only ports. Keycloak management and application Actuator ports stay
 container-internal. The application trusts forwarded scheme/port headers only from
@@ -72,12 +80,28 @@ import that private dev does not mount; private dev instead provisions one marke
 non-personal deployment-smoke account through the private Admin API, never through
 the shared realm import.
 
-Telemetry is one replaceable, internal-only collector, not a dashboard/storage stack.
-It accepts application OTLP metrics and traces, bounds memory and batch size, and
-emits only basic count diagnostics into size-limited container logs. It holds no
-secret and is not a readiness dependency. A durable telemetry backend, dashboards,
-alerting and remote export remain deferred until measured value justifies their host
-cost.
+Private-dev metrics follow application OTLP → the existing internal Collector →
+Prometheus → Grafana. The Collector exposes a Prometheus-format handoff only on the
+internal telemetry network; the application stays independent of Prometheus. The
+Collector still emits basic batch counts, and traces have no retained backend.
+Prometheus retains local operational history with the approved initial seven-day /
+512 MiB TSDB retention threshold. WAL, head chunks and compaction need additional
+free disk: this threshold is not a filesystem quota. Metrics history is disposable,
+not part of the irreplaceable PostgreSQL backup set.
+
+Grafana provisions its datasource and three dashboards from Git, with anonymous
+access and self-registration disabled. Its admin password comes from the protected
+secret directory; the persistent Grafana database retains that credential, so file
+replacement alone does not rotate it. Prometheus data and Grafana state survive
+container recreation through separate named volumes. Compose and the configuration
+under `deploy/private-dev` own pinned images, CPU/memory/PID/log bounds, scrape/query
+limits and provisioning. The two added containers are an approved, reversible
+private-dev cost (#158), not approval for distributed monitoring. Measure idle and
+representative use on the host; limits alone do not demonstrate capacity.
+
+Telemetry, metrics storage and dashboards are never application startup/readiness
+or request dependencies. Log aggregation, trace storage, alerting and remote export
+remain deferred.
 
 ## Artefact and delivery
 

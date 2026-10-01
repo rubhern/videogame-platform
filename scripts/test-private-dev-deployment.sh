@@ -41,7 +41,8 @@ for name in \
   igdb-client-id \
   igdb-client-secret \
   oidc-smoke-username \
-  oidc-smoke-password; do
+  oidc-smoke-password \
+  grafana-admin-password; do
   printf 'test-%s\n' "$name" >"$secrets_directory/$name"
 done
 cat >"$runtime_env" <<EOF
@@ -64,6 +65,16 @@ cat >"$fake_bin/node" <<'EOF'
 : >"$FAKE_NODE_INVOCATION_MARKER"
 printf 'node: command not found\n' >&2
 exit 127
+EOF
+
+# This regression tests host command dependencies, not the metrics data path.
+# The real disposable telemetry smoke owns that integration evidence.
+cat >"$fake_bin/python3" <<'EOF'
+#!/bin/bash
+if [[ "${1:-}" == */scripts/private-dev-metrics-check.py ]]; then
+  exit 0
+fi
+exec /usr/bin/python3 "$@"
 EOF
 
 cat >"$fake_bin/docker" <<'EOF'
@@ -141,6 +152,7 @@ secret_files = {
         "igdb-client-secret",
         "oidc-smoke-username",
         "oidc-smoke-password",
+        "grafana-admin-password",
     )
 }
 
@@ -149,6 +161,8 @@ def service(restart, secrets=(), environment=None, **extra):
         "restart": restart,
         "mem_limit": 134217728,
         "cpus": 0.25,
+        "pids_limit": 128,
+        "logging": {"driver": "local", "options": {"max-size": "10m", "max-file": "3"}},
         "secrets": [{"source": name} for name in secrets],
         "environment": environment or {},
         **extra,
@@ -181,9 +195,17 @@ services = {
     "telemetry": service(
         "unless-stopped",
         image="otel/opentelemetry-collector@sha256:" + "2" * 64,
+        networks={"telemetry": None},
         read_only=True,
         cap_drop=["ALL"],
     ),
+    "prometheus": service("unless-stopped", image="prom/prometheus@sha256:" + "3" * 64,
+        networks={"telemetry": None}, read_only=True, cap_drop=["ALL"],
+        command=["--storage.tsdb.retention.time=7d", "--storage.tsdb.retention.size=512MiB"]),
+    "grafana": service("unless-stopped", ("grafana_admin_password",),
+        {"GF_AUTH_ANONYMOUS_ENABLED": "false", "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/grafana_admin_password"},
+        image="grafana/grafana@sha256:" + "4" * 64, read_only=True, cap_drop=["ALL"],
+        ports=[{"host_ip": "127.0.0.1", "published": 3000, "target": 3000}]),
     "application": service(
         "unless-stopped",
         ("application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"),
@@ -200,10 +222,12 @@ services = {
             "OIDC_TOKEN_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/token",
             "OIDC_JWK_SET_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/certs",
             "OIDC_USER_INFO_URI": "http://keycloak:8080/realms/videogame-platform/protocol/openid-connect/userinfo",
+            "TELEMETRY_OTLP_METRICS_ENDPOINT": "http://telemetry:4318/v1/metrics",
             "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "dev",
             "TELEMETRY_SERVICE_VERSION": "0.15.0-SNAPSHOT",
         },
         image=image,
+        depends_on={"postgres": {}, "keycloak": {}},
         ports=[{"host_ip": "127.0.0.1", "published": 8080, "target": 8080}],
         read_only=True,
         cap_drop=["ALL"],
@@ -255,7 +279,7 @@ PY
   if [[ "$arguments" == *" build --pull deployment-smoke "* ]]; then
     exit 0
   fi
-  if [[ "$arguments" == *" up --detach telemetry "* ||
+  if [[ "$arguments" == *" up --detach telemetry prometheus grafana "* ||
         "$arguments" == *" run --rm telemetry-smoke "* ||
         "$arguments" == *" down --volumes --remove-orphans "* ]]; then
     exit 0
@@ -299,7 +323,7 @@ printf 'Unexpected fake docker command: %s\n' "$*" >&2
 exit 92
 EOF
 
-chmod +x "$fake_bin/bash" "$fake_bin/docker" "$fake_bin/hostname" "$fake_bin/node"
+chmod +x "$fake_bin/python3" "$fake_bin/bash" "$fake_bin/docker" "$fake_bin/hostname" "$fake_bin/node"
 
 run_deployment() {
   local mode="$1"
