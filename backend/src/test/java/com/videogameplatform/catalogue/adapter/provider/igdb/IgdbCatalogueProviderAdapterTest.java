@@ -103,13 +103,15 @@ class IgdbCatalogueProviderAdapterTest {
                                 new ProviderPlatform("169", "Xbox Series X|S", "series-x-s"),
                                 Optional.of(new ProviderRegion("8", "worldwide")),
                                 new ReleaseDate.Day(LocalDate.of(2026, 9, 30)),
-                                ProviderReleaseSignal.CANCELLED),
+                                ProviderReleaseSignal.CANCELLED,
+                                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN),
                         new ProviderRelease(
                                 "4",
                                 new ProviderPlatform("508", "Nintendo Switch 2", "switch-2"),
                                 Optional.of(new ProviderRegion("1", "europe")),
                                 new ReleaseDate.Day(LocalDate.of(2026, 12, 1)),
-                                ProviderReleaseSignal.DELAYED));
+                                ProviderReleaseSignal.DELAYED,
+                                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN));
     }
 
     /**
@@ -128,13 +130,15 @@ class IgdbCatalogueProviderAdapterTest {
                                 new ProviderPlatform("167", "PlayStation 5", "ps5"),
                                 Optional.of(new ProviderRegion("1", "europe")),
                                 new ReleaseDate.Day(LocalDate.of(2025, 10, 2)),
-                                ProviderReleaseSignal.NONE),
+                                ProviderReleaseSignal.NONE,
+                                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN),
                         new ProviderRelease(
                                 "2",
                                 new ProviderPlatform("6", "PC (Microsoft Windows)", "win"),
                                 Optional.of(new ProviderRegion("8", "worldwide")),
                                 new ReleaseDate.Day(LocalDate.of(2025, 10, 1)),
-                                ProviderReleaseSignal.NONE));
+                                ProviderReleaseSignal.NONE,
+                                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN));
     }
 
     @Test
@@ -285,6 +289,53 @@ class IgdbCatalogueProviderAdapterTest {
         assertThatThrownBy(() -> adapter().fetchWorks(List.of("116530")))
                 .isInstanceOf(ProviderRequestException.class)
                 .hasMessage("PROVIDER_RESPONSE_INVALID");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "Full Release,FULL_RELEASE",
+        "Early Access,EARLY_ACCESS",
+        "Advanced Access,ADVANCE_ACCESS",
+        "Beta,BETA",
+        "Alpha,ALPHA",
+        ",UNKNOWN",
+        "Future Stage,UNKNOWN",
+        "Offline,UNKNOWN",
+        "Cancelled,UNKNOWN",
+        "Digital Compatibility Release,UNKNOWN",
+        "Next-Gen Optimization Patch Release,UNKNOWN"
+    })
+    void normalizesStagesIndependentlyOfLifecycleAndNeverRejectsUnsupportedEvidence(
+            String name, String expected) {
+        String status = name == null ? "" : ",\"status\":{\"name\":\"" + name + "\"}";
+        String payload =
+                "[{\"id\":920916,\"game\":116530,\"y\":2026,\"m\":10,\"d\":2,\"platform\":{\"id\":167,\"name\":\"PlayStation 5\"}"
+                        + status
+                        + "}]";
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/games",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                IgdbFixtureServer.fixture("game-response.json")),
+                                "/v4/release_dates", IgdbFixtureServer.always(200, payload)));
+        var work = adapter().fetchWorks(List.of("116530")).works().getFirst();
+        assertThat(work.releases())
+                .singleElement()
+                .satisfies(
+                        r -> {
+                            assertThat(r.stage().name()).isEqualTo(expected);
+                            assertThat(r.signal())
+                                    .isEqualTo(
+                                            "Cancelled".equals(name)
+                                                    ? ProviderReleaseSignal.CANCELLED
+                                                    : ProviderReleaseSignal.NONE);
+                        });
     }
 
     private ProviderWork fetchWorkFixture(String gameFixture) {

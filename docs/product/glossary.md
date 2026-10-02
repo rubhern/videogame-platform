@@ -6,6 +6,7 @@
 |---|---|
 | Game | Provider-independent video-game work; distinct from a platform/region release or edition |
 | Release | Commercial release of a game for one platform and region, with explicit date precision/status |
+| Presented release | The one release a discovery card or game-page selection shows for a platform when several are stored; the others stay stored and reachable |
 | Availability | Subscription, promotion, or rotating-catalogue access; never a commercial release |
 | Date precision | `day`, `month`, `quarter`, `year`, or `unknown`; never infer missing precision |
 | Catalogue | Accepted visible games with product-owned identity; a provider result joins it only through the explicit import policy |
@@ -19,6 +20,7 @@
 | `Mis puntuaciones` | Authenticated view for finding, sorting, editing, and deleting the current user's ratings |
 | Spanish-first | Product behaviour designed around Spanish language and regional/platform release clarity, not only translation |
 | Learning MVP | Smallest complete journey that tests selected product and architecture learning goals; not product–market-fit evidence |
+| Release stage | Product semantic type of a release date; see the [domain model](../architecture/domain/mvp-domain-model.md). Distinct from lifecycle status and editions. |
 | Synthetic evidence | Fictional/rehearsal observations accepted only for an explicitly bounded internal decision |
 | Vertical slice | Coherent capability across UI, application, data, security, testing, observability, and operation |
 | Owner | Ruben Hernandez, the only person accountable for decisions; AI may assist but does not approve |

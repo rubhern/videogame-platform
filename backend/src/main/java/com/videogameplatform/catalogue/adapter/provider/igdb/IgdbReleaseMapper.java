@@ -8,6 +8,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderMappingFailure;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderReleaseSignal;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Year;
@@ -75,7 +76,23 @@ final class IgdbReleaseMapper {
                         platform,
                         region(payload),
                         date.orElseThrow(),
-                        signal(payload, gameStatus)));
+                        signal(payload, gameStatus),
+                        stage(payload.status())));
+    }
+
+    /** The sole provider-to-product stage mapping, used by normal synchronization and complete-Game repair. */
+    static ReleaseStage stage(
+            com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbNamedValuePayload
+                    status) {
+        String name = status == null ? "" : status.value().trim().toLowerCase(Locale.ROOT);
+        return switch (name) {
+            case "full release" -> ReleaseStage.FULL_RELEASE;
+            case "early access" -> ReleaseStage.EARLY_ACCESS;
+            case "advanced access" -> ReleaseStage.ADVANCE_ACCESS;
+            case "beta" -> ReleaseStage.BETA;
+            case "alpha" -> ReleaseStage.ALPHA;
+            default -> ReleaseStage.UNKNOWN;
+        };
     }
 
     private static Optional<ProviderRegion> region(IgdbReleaseDatePayload payload) {

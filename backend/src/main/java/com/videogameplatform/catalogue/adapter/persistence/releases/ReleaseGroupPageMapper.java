@@ -7,6 +7,7 @@ import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverRefe
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Item;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Taxonomy;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
@@ -70,7 +71,8 @@ final class ReleaseGroupPageMapper {
                 instant(resultSet, "last_synchronized_at"),
                 instant(resultSet, "last_verified_at"),
                 VerificationLevel.fromValue(resultSet.getString("verification_level")),
-                ReviewStatus.fromValue(resultSet.getString("review_status")));
+                ReviewStatus.fromValue(resultSet.getString("review_status")),
+                ReleaseStage.fromValue(resultSet.getString("release_stage")));
     }
 
     private static Instant instant(ResultSet resultSet, String column) throws SQLException {

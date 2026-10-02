@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.adapter.persistence.details;
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueCoverReferenceRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
 import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
+import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
@@ -10,6 +11,7 @@ import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
@@ -99,6 +101,9 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                                 .formatted(MAX_ALIASES + 1),
                         params,
                         (rs, row) -> rs.getString("alias"));
+        // Platform by platform, each platform's releases in presentation precedence with the
+        // earliest date first, so the first release of a platform, and of a platform and region,
+        // is the presented one. Every release is still returned for eligibility and evidence.
         var releases =
                 jdbc.query(
                         """
@@ -111,9 +116,14 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
             JOIN catalogue.platform p ON p.platform_id = rs.platform_id
             JOIN catalogue.region r ON r.region_id = rs.region_id
             WHERE rs.publication_id = :publication AND rs.game_id = :game
-            ORDER BY rs.period_start NULLS LAST, rs.release_id LIMIT %d
+            ORDER BY min(rs.period_start) OVER (PARTITION BY rs.platform_id) NULLS LAST,
+                     lower(p.display_name), rs.platform_id, %s
+            LIMIT %d
             """
-                                .formatted(MAX_RELEASES + 1),
+                                .formatted(
+                                        ReleasePresentationOrder.of(
+                                                "rs", "r", "rs.period_start ASC NULLS LAST"),
+                                        MAX_RELEASES + 1),
                         params,
                         JdbcGameDetailsReadAdapter::release);
         if (aliases.size() > MAX_ALIASES || releases.size() > MAX_RELEASES) {
@@ -166,7 +176,8 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                 instant(rs, "last_verified_at"),
                 VerificationLevel.valueOf(
                         rs.getString("verification_level").toUpperCase(Locale.ROOT)),
-                ReviewStatus.valueOf(rs.getString("review_status").toUpperCase(Locale.ROOT)));
+                ReviewStatus.valueOf(rs.getString("review_status").toUpperCase(Locale.ROOT)),
+                ReleaseStage.fromValue(rs.getString("release_stage")));
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

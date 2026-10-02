@@ -13,6 +13,12 @@ public interface GameDetailsReadPort {
 
     Optional<Game> find(String gameId);
 
+    /**
+     * {@code releases} holds every release of the game, platform by platform with platforms in
+     * order of their earliest known date, and each platform's releases in presented-release
+     * precedence with the earliest date first: the first release of a platform, and of a platform
+     * and region, is the one presented there; later ones are additional records.
+     */
     record Game(
             String gameId,
             String slug,

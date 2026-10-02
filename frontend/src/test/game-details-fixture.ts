@@ -17,6 +17,7 @@ export function gameDetailsFixture(): GameDetails {
     releases: [
       {
         releaseId: "release-one",
+        stage: "unknown",
         gameId: "30000000-0000-4000-8000-000000000005",
         platform: { platformId: "playstation-5", name: "PlayStation 5" },
         region: { regionId: "europe", name: "Europe" },

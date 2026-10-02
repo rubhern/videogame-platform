@@ -150,7 +150,8 @@ class PersonalRatingServiceTest {
                         NOW,
                         BrowseReleasesResult.Verification.VERIFIED,
                         BrowseReleasesResult.Review.NOT_REQUIRED,
-                        CatalogueFreshness.FRESH);
+                        CatalogueFreshness.FRESH,
+                        com.videogameplatform.catalogue.application.CatalogueReleaseStage.UNKNOWN);
         return new GameDetailsResult(
                 GAME,
                 "game",

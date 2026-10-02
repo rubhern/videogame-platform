@@ -137,3 +137,7 @@ The package command embeds the Vite output. The browser and identity checks exer
 the packaged JAR; the container check validates the non-root multi-architecture OCI
 image, scans it, and generates SBOM evidence. Exact mechanics are owned by the
 scripts, Dockerfile, Compose file, and CI workflow.
+
+The private management command `releasestagerepair` supports explicit enrichment of
+stored Unknown release stages after deployment. The validated procedure and residual
+evidence boundary are owned by the [operations runbook](../docs/development/operations-runbook.md#current-provider-release-repair).

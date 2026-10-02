@@ -19,6 +19,7 @@ eligibility, and aggregate calculation. Identity supplies only authenticated
 | `CoverReference` | Approved `provider_cdn_reference` or product-owned fallback with provenance, alt text, usage status, and check time |
 | `Release` / `ReleaseId` | One coherent commercial game + platform + region + date + status tuple. Persisted status is provider evidence (`announced` for no negative signal, `delayed`, `cancelled`, or explicit `released`); `scheduled`/`released` for a known date are derived per request from the date and the trusted evaluation date |
 | `Availability` | Subscription/promotion access; defined only to prevent confusion with `Release` |
+| `ReleaseStage` | Semantic type of a release date: Full Release, Early Access, Advance Access, Beta, Alpha, or Unknown. Distinct from lifecycle status, work category, and edition; never inferred from dates. |
 | `ReleaseDate` | Closed day, month, quarter, year, or unknown value; precision is never invented |
 | `ExternalReference` | Typed provider/entity/provider-ID link; never product identity |
 | Verification / review / freshness | Independent evidence, ambiguity, and time-policy states |
@@ -30,6 +31,16 @@ anything else stays outside the domain. Every visible game resolves to an approv
 cover or fallback. Provider cover binaries are never copied, proxied, persisted,
 committed, or redistributed.
 
+Release stage is normalized independently of lifecycle. Existing Unknown evidence can
+be enriched; missing or unsupported new evidence never erases an established stage.
+Conflicting verified stage evidence follows the existing preservation rule. A complete valid
+provider Game aggregate defines its current provider-owned release set: missing typed
+references are removed atomically with reconciliation. Failed/incomplete/invalid evidence
+preserves the entire Game, and curated, official, unreferenced or other-provider evidence
+is outside that removal boundary. The product stores current serving state, not a historical
+provider ledger. No release
+is merged or deleted because it has the same platform, region, or stage as another.
+
 ## Rating policies
 
 A game is globally eligible when at least one release has effectively occurred and is
@@ -40,7 +51,8 @@ ends. A known date may use `provider_only` or `verified` evidence. An unknown da
 no temporal threshold, so it proves eligibility only through explicit `verified`
 `released` evidence. Because occurrence is derived, the passage of time never depends on
 catalogue synchronization. Freshness alone does not revoke a historical release fact.
-Create/update re-evaluate eligibility; the owner may always delete an existing rating.
+Release stage does not participate in this accepted eligibility policy; a future change
+requires a separate product decision. Create/update re-evaluate eligibility; the owner may always delete an existing rating.
 
 Eligibility reasons are `ELIGIBLE_RELEASE_FOUND`, `NO_COMMERCIAL_RELEASE`,
 `RELEASE_NOT_OCCURRED`, `RELEASE_CANCELLED`, `RELEASE_DATE_UNCERTAIN`, and
@@ -99,6 +111,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `REL-010` | Verification, review, and freshness remain independent. |
 | `REL-011` | Time policies receive explicit time/zone, never host defaults. |
 | `REL-012` | Recent/upcoming classification and rating occurrence for a known date derive from the effective release date and the trusted evaluation date; provider status is evidence, never the clock. Synchronization refreshes evidence and never advances time. |
+| `REL-013` | A presentation context shows at most one release per platform, chosen by one explicit lifecycle/stage/evidence precedence; every other current release stays stored, unmerged and reachable; removal of obsolete provider-owned references belongs to synchronization, not presentation, and no uniqueness rule limits releases per game and platform. |
 | `EXT-001` | Provider ID is a reference, never internal identity, slug, or matching key. |
 | `EXT-002` | Provider taxonomy does not become the public product contract. |
 | `EXT-003` | Provider failure preserves last valid local data. |

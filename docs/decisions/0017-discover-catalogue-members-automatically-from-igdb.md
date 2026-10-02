@@ -3,6 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-09-08
 - **Owner:** Ruben Hernandez
+- **Refined:** 2026-10-02, owner-approved current provider Release reconciliation (#212)
 - **Scope:** Private, non-commercial learning MVP
 - **Supersedes in part:** [ADR-0004](0004-synchronize-and-serve-local-catalogue-data.md)
   (membership, cover approval and global publication replacement) and the curation
@@ -75,15 +76,40 @@ internal Release; known references reconcile that Release. Multiple release date
 for one Game, including rows on different pages or cycles, remain multiple Releases
 of exactly one Game. Tuple constraints validate coherence but never resolve identity.
 Different provider references that collide with a product uniqueness constraint
-fail the aggregate rather than being silently merged. Missing provider releases
-are not deleted; existing records without an external release reference are not
-heuristically linked by date or title.
+fail the aggregate rather than being silently merged. A successfully resolved, completely
+fetched and validated Game aggregate is authoritative for that Game's current
+provider-owned Release set. The adapter queries all release dates for that Game with
+`maxReleasesPerGame + 1` rows, below the provider request cap; an overflow sentinel,
+unexpected Game/reference, duplicate reference, unreadable response or invalid Release
+rejects the aggregate before persistence. A valid empty release set is authoritative too.
+
+Create newly returned references, reconcile existing references without changing their
+product identity, and remove previously stored references absent from the complete set.
+Presence includes returned evidence whose update is withheld to preserve verification;
+withholding an update never makes its reference missing. Removal requires both a typed
+IGDB Release Date reference for the same Game and current snapshot provenance
+`external_provider / IGDB / release_date`. Product-curated, official-source, unreferenced,
+other-provider and shared-provider evidence remains outside this ownership boundary.
+Neither stage, date, platform, region, title nor tuple equality establishes removal.
+Existing unreferenced records are never heuristically linked.
+
+After locking current revision metadata, the Game transaction removes obsolete owned
+snapshots, external references and Release identities, then creates/updates returned
+members and advances the existing revision for any content change. Deletion precedes
+upsert so a replacement can reuse an obsolete tuple, but all writes roll back together
+on any failure. No history, tombstone or soft-delete state is retained. Provider fetch,
+overflow, mapping, validation or transaction failure preserves the complete last valid
+Game; other Games may succeed independently. A provider-backed verification flag protects
+conflicting updates, but does not turn an absent provider reference into current evidence.
 
 Game and release changes are committed together per Game. Invalid updates preserve
 that Game's complete last valid state; other valid Games in a partial run remain
 committed. Identical published values do not rewrite snapshots or rotate their
 revision. Existing verified release evidence cannot be overwritten by conflicting
-provider evidence; verification and review remain independent of automatic acquisition.
+provider evidence; verification and review remain independent of automatic acquisition. Release stage is
+normalized separately from lifecycle in the provider adapter. Enriching Unknown stage
+on otherwise unchanged date evidence preserves verification/review; missing stage cannot
+erase an established one. Stage has no rating-eligibility effect.
 
 A valid cover is published or replaced automatically. Invalid/missing cover data
 keeps the last valid cover, or the product fallback for a new Game. This applies the
@@ -130,7 +156,20 @@ synchronization is not human verification.
 The provider can still publish incorrect evidence; normalization, constraints,
 provenance and preservation of the last valid aggregate limit that risk.
 
-Full historical backfill, another provider, multi-provider reconciliation,
+Post-MVP #212 adds explicit bounded maintenance of known typed Game references that date
+windows cannot rediscover, including Games with undated or obsolete release references.
+A keyset batch completely refetches each known Game and delegates to the same validation,
+normalization, reconciliation and atomic create/update/delete path as normal synchronization;
+it is not another discovery source. Known stages are included because they can be stale too.
+An apply batch uses the same database run ownership/fencing as ordinary synchronization.
+Dry-run exercises the identical write transaction and constraints, rolls it back, emits no
+listing event and changes neither serving state, revision nor operational history. Failed or
+partial batches retain the operator checkpoint cursor; retries replay committed Games safely.
+Repair may enrich stage and refresh other evidence under the existing verification/review
+rules; unavailable evidence is preserved, never guessed. Its procedure and validated evidence
+belong to the [operations runbook](../development/operations-runbook.md).
+
+Full historical discovery backfill, another provider, multi-provider reconciliation,
 distributed scheduling, brokers and a manual-curation backoffice remain out of scope.
 Synthetic development seed IDs are unchanged and are not evidence of real IGDB
 identity; they must not be used to validate live acquisition.

@@ -5,6 +5,7 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
@@ -30,6 +31,9 @@ public interface CatalogueSynchronizationStore {
 
     WriteResult saveGame(UUID runId, GameWrite write);
 
+    /** Exercise the identical transaction and constraints, rolling everything back. */
+    WriteResult previewGame(GameWrite write);
+
     void completeRun(CatalogueSynchronizationReport report, int retainedRuns);
 
     Optional<CatalogueSynchronizationReport> lastRun();
@@ -49,7 +53,24 @@ public interface CatalogueSynchronizationStore {
             String slug,
             CoverSelection cover,
             List<ReleaseWrite> releases,
-            Instant synchronizedAt) {}
+            Instant synchronizedAt,
+            java.util.Set<String> returnedReleaseReferences,
+            int maxReleases) {
+        public GameWrite {
+            releases = List.copyOf(releases);
+            returnedReleaseReferences = java.util.Set.copyOf(returnedReleaseReferences);
+            if (maxReleases < 1 || returnedReleaseReferences.size() > maxReleases) {
+                throw new IllegalArgumentException(
+                        "A Game write requires a complete bounded reference set");
+            }
+            for (ReleaseWrite r : releases) {
+                if (!returnedReleaseReferences.contains(r.providerId())) {
+                    throw new IllegalArgumentException(
+                            "Written release must be present in the complete set");
+                }
+            }
+        }
+    }
 
     record ReleaseWrite(String providerId, PlannedRelease release) {}
 
@@ -58,7 +79,8 @@ public interface CatalogueSynchronizationStore {
             boolean updatedGame,
             int createdReleases,
             int updatedReleases,
-            int unchangedReleases) {}
+            int unchangedReleases,
+            int deletedReleases) {}
 
     /**
      * A previously published release, matched by its provider release reference. Platform and region
@@ -75,7 +97,8 @@ public interface CatalogueSynchronizationStore {
             ReleaseStatus status,
             Instant lastVerifiedAt,
             VerificationLevel verificationLevel,
-            ReviewStatus reviewStatus) {}
+            ReviewStatus reviewStatus,
+            ReleaseStage stage) {}
 
     sealed interface CoverSelection {
 
@@ -106,5 +129,6 @@ public interface CatalogueSynchronizationStore {
             Instant lastSynchronizedAt,
             Instant lastVerifiedAt,
             VerificationLevel verificationLevel,
-            ReviewStatus reviewStatus) {}
+            ReviewStatus reviewStatus,
+            ReleaseStage stage) {}
 }

@@ -66,6 +66,31 @@ class CatalogueSynchronizationCommandBoundaryTest {
     }
 
     @Test
+    void stageRepairStaysPrivateRejectsCrossSiteWritesAndDefaultsSafely() throws Exception {
+        assertThat(get(port, "/actuator/releasestagerepair").statusCode()).isEqualTo(404);
+        assertThat(post(port, "/actuator/releasestagerepair", "{}").statusCode()).isNotEqualTo(200);
+        assertThat(get(managementPort, "/actuator/releasestagerepair").statusCode()).isEqualTo(200);
+        assertThat(post(managementPort, "/actuator/releasestagerepair", "{}").body())
+                .contains("SYNCHRONIZATION_DISABLED");
+        assertThat(
+                        post(
+                                        managementPort,
+                                        "/actuator/releasestagerepair",
+                                        "{\"after\":\"invalid\"}")
+                                .statusCode())
+                .isEqualTo(400);
+        assertThat(
+                        send(HttpRequest.newBuilder(
+                                                uri(managementPort, "/actuator/releasestagerepair"))
+                                        .header("Content-Type", "application/json")
+                                        .header("Origin", "https://attacker.example")
+                                        .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                                        .build())
+                                .statusCode())
+                .isEqualTo(403);
+    }
+
+    @Test
     void reportsSynchronizationAsDisabledWithoutProviderCredentials() throws Exception {
         HttpResponse<String> response =
                 post(

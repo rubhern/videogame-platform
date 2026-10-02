@@ -90,6 +90,296 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
     }
 
     @Test
+    void readsOperationalReportsWrittenBeforeDeletionCountersExisted() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-10-02")));
+        var result = service.synchronize(WINDOW);
+        jdbc.update(
+                "UPDATE catalogue.synchronization_run SET report=jsonb_set(report,'{counters}',(report->'counters')-'deletedReleases') WHERE run_id=?",
+                result.runId());
+        var old = store.lastRun().orElseThrow();
+        assertThat(old.counters().deletedReleases()).isZero();
+        assertThat(old.counters().createdReleases()).isEqualTo(1);
+        jdbc.update(
+                "UPDATE catalogue.synchronization_run SET report=jsonb_set(report,'{counters,createdGames}','null'::jsonb) WHERE run_id=?",
+                result.runId());
+        assertThatThrownBy(() -> store.lastRun())
+                .isInstanceOf(tools.jackson.databind.exc.MismatchedInputException.class);
+    }
+
+    @Test
+    void replacementReferenceCanReuseTheObsoleteTupleWithoutMergingIdentity() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-10-02")));
+        service.synchronize(WINDOW);
+        var old = store.loadGame("100", 25).orElseThrow().releases().get("10").releaseId();
+        provider.works.put("100", work("100", release("20", "2026-10-02")));
+        var changed = service.synchronize(WINDOW);
+        assertThat(changed.outcome()).isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(changed.counters().createdReleases()).isEqualTo(1);
+        assertThat(changed.counters().deletedReleases()).isEqualTo(1);
+        assertThat(store.loadGame("100", 25).orElseThrow().releases()).containsOnlyKeys("20");
+        assertThat(store.loadGame("100", 25).orElseThrow().releases().get("20").releaseId())
+                .isNotEqualTo(old);
+    }
+
+    @Test
+    void returnedReferenceWithWithheldVerifiedUpdateIsStillPresent() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put(
+                "100", work("100", release("10", "2026-05-01"), release("11", "2026-06-01")));
+        service.synchronize(WINDOW);
+        jdbc.update(
+                "UPDATE catalogue.release_snapshot s SET verification_level='verified',last_verified_at=now() FROM catalogue.release_external_reference r WHERE r.release_id=s.release_id AND r.provider_id='10'");
+        var previous = store.loadGame("100", 25).orElseThrow().releases().get("10");
+        provider.works.put("100", work("100", release("10", "2026-10-02")));
+        var changed = service.synchronize(WINDOW);
+        assertThat(changed.counters().deletedReleases()).isEqualTo(1);
+        assertThat(changed.counters().updatedReleases()).isZero();
+        assertThat(store.loadGame("100", 25).orElseThrow().releases()).containsOnlyKeys("10");
+        assertThat(store.loadGame("100", 25).orElseThrow().releases().get("10"))
+                .isEqualTo(previous);
+    }
+
+    @Test
+    void completeProviderSetRemovesApproximationCreatesFullAndKeepsStableReturnedIdentity() {
+        provider.rows = List.of(new Row(10, "100"));
+        var approximate = pr("10", "167", "8", new ReleaseDate.YearOnly(java.time.Year.of(2026)));
+        provider.works.put("100", work("100", approximate, release("11", "2026-10-02")));
+        service.synchronize(WINDOW);
+        var previous = store.loadGame("100", 25).orElseThrow();
+        var pcId = previous.releases().get("11").releaseId();
+        var r = pr("20", "167", "8", new ReleaseDate.Day(LocalDate.parse("2026-10-02")));
+        var full =
+                new ProviderRelease(
+                        r.providerId(),
+                        r.platform(),
+                        r.region(),
+                        r.date(),
+                        r.signal(),
+                        com.videogameplatform.catalogue.domain.ReleaseStage.FULL_RELEASE);
+        provider.works.put("100", work("100", full, release("11", "2026-10-02")));
+        String before = version();
+        var changed = service.synchronize(WINDOW);
+        assertThat(changed.counters().deletedReleases()).isEqualTo(1);
+        assertThat(changed.counters().createdReleases()).isEqualTo(1);
+        var current = store.loadGame("100", 25).orElseThrow();
+        assertThat(current.releases()).containsOnlyKeys("20", "11");
+        assertThat(current.releases().get("11").releaseId()).isEqualTo(pcId);
+        assertThat(current.releases().get("20").stage())
+                .isEqualTo(com.videogameplatform.catalogue.domain.ReleaseStage.FULL_RELEASE);
+        assertThat(count("game_release")).isEqualTo(2);
+        assertThat(version()).isNotEqualTo(before);
+        String after = version();
+        var repeat = service.synchronize(WINDOW);
+        assertThat(repeat.counters().deletedReleases()).isZero();
+        assertThat(repeat.counters().updatedGames()).isZero();
+        assertThat(version()).isEqualTo(after);
+    }
+
+    @Test
+    void ownershipProtectsCuratedOfficialUnreferencedOtherProvidersAndSharedEvidence() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put(
+                "100",
+                work(
+                        "100",
+                        release("10", "2026-01-01"),
+                        release("11", "2026-02-01"),
+                        release("12", "2026-03-01"),
+                        release("13", "2026-04-01"),
+                        release("14", "2026-05-01"),
+                        release("15", "2026-06-01")));
+        service.synchronize(WINDOW);
+        jdbc.update(
+                "UPDATE catalogue.release_snapshot s SET source_kind='product_curated',source_name='Product',source_entity_type='curation' FROM catalogue.release_external_reference r WHERE s.release_id=r.release_id AND r.provider_id='10'");
+        jdbc.update(
+                "UPDATE catalogue.release_snapshot s SET source_kind='official_source',source_name='Publisher',source_entity_type='announcement' FROM catalogue.release_external_reference r WHERE s.release_id=r.release_id AND r.provider_id='11'");
+        jdbc.update("DELETE FROM catalogue.release_external_reference WHERE provider_id='12'");
+        jdbc.update(
+                "UPDATE catalogue.release_external_reference SET provider='OTHER' WHERE provider_id='13'");
+        jdbc.update(
+                "INSERT INTO catalogue.release_external_reference(provider,provider_id,release_id,game_id) SELECT 'OTHER','shared',release_id,game_id FROM catalogue.release_external_reference WHERE provider_id='14'");
+        var protectedRows =
+                jdbc.queryForList(
+                        "SELECT * FROM catalogue.release_snapshot WHERE exact_date<'2026-06-01' ORDER BY release_id");
+        // A returned reference must not take ownership from curated evidence either.
+        provider.works.put("100", work("100", release("10", "2027-01-01")));
+        var changed = service.synchronize(WINDOW);
+        assertThat(changed.counters().deletedReleases()).isEqualTo(1);
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT * FROM catalogue.release_snapshot ORDER BY release_id"))
+                .isEqualTo(protectedRows);
+        assertThat(count("game_release")).isEqualTo(5);
+    }
+
+    @Test
+    void failuresMissingGameInvalidReleaseAndOverflowPreserveWholePreviousState() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-05-01")));
+        service.synchronize(WINDOW);
+        var before = store.loadGame("100", 25).orElseThrow();
+        String revision = version();
+        provider.works.clear();
+        assertThat(service.synchronize(WINDOW).outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        provider.failure =
+                new com.videogameplatform.catalogue.application.synchronization.port
+                        .ProviderRequestException(
+                        com.videogameplatform.catalogue.application.synchronization.port
+                                .ProviderFailureCode.PROVIDER_RESPONSE_INVALID,
+                        ProviderCallStatistics.none());
+        assertThat(service.synchronize(WINDOW).outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        provider.failure = null;
+        provider.works.put(
+                "100",
+                new ProviderWork(
+                        "100",
+                        "Invalid rename",
+                        ProviderWorkType.MAIN_GAME,
+                        NOW,
+                        Optional.empty(),
+                        List.of(release("20", "2026-10-02")),
+                        List.of(
+                                com.videogameplatform.catalogue.application.synchronization.port
+                                        .ProviderMappingFailure.RELEASE_DATE_INVALID)));
+        assertThat(service.synchronize(WINDOW).outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        var overflow =
+                java.util.stream.IntStream.range(100, 126)
+                        .mapToObj(i -> release(Integer.toString(i), "2026-10-02"))
+                        .toArray(ProviderRelease[]::new);
+        provider.works.put("100", work("100", overflow));
+        assertThat(service.synchronize(WINDOW).outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        assertThat(store.loadGame("100", 25)).contains(before);
+        assertThat(version()).isEqualTo(revision);
+    }
+
+    @Test
+    void failureAfterDeletionRollsBackRemovalCreationTitleAndRevisionButOtherGameSucceeds() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-05-01")));
+        service.synchronize(WINDOW);
+        var before = store.loadGame("100", 25).orElseThrow();
+        // Two returned references violate the durable product tuple constraint after old deletion.
+        provider.rows = List.of(new Row(20, "100"), new Row(30, "101"));
+        provider.works.put(
+                "100",
+                new ProviderWork(
+                        "100",
+                        "Failed rename",
+                        ProviderWorkType.MAIN_GAME,
+                        NOW,
+                        Optional.of(
+                                new ProviderCover("new_cover", "https://www.igdb.com/games/game")),
+                        List.of(release("20", "2026-10-02"), release("21", "2026-10-02")),
+                        List.of()));
+        provider.works.put("101", work("101", release("30", "2026-10-03")));
+        var result = service.synchronize(WINDOW);
+        assertThat(result.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(result.counters().deletedReleases()).isZero();
+        assertThat(store.loadGame("100", 25)).contains(before);
+        assertThat(store.loadGame("101", 25)).isPresent();
+        assertThat(count("game_release")).isEqualTo(2);
+    }
+
+    @Test
+    void aValidEmptyCompleteSetRemovesOnlyOwnedReleasesAndPreservesTheGame() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-05-01")));
+        service.synchronize(WINDOW);
+        provider.works.put("100", work("100"));
+        var result = service.synchronize(WINDOW);
+        assertThat(result.counters().deletedReleases()).isEqualTo(1);
+        assertThat(count("game_release")).isZero();
+        assertThat(count("game")).isEqualTo(1);
+        assertThat(service.synchronize(WINDOW).counters().deletedReleases()).isZero();
+    }
+
+    @Test
+    void completeGameBackfillIsPreviewableResumableAndIdempotentIncludingKnownStages() {
+        provider.rows = List.of(new Row(10, "100"), new Row(11, "101"));
+        provider.works.put("100", work("100", release("10", "2026-05-01")));
+        provider.works.put("101", work("101", release("11", "2026-06-01")));
+        service.synchronize(WINDOW);
+        jdbc.update("UPDATE catalogue.release_snapshot SET release_stage='full_release'");
+        var repairStore =
+                new JdbcReleaseStageRepairStore(new NamedParameterJdbcTemplate(jdbc), "IGDB");
+        var repair =
+                new com.videogameplatform.catalogue.application.synchronization.ReleaseStageRepair(
+                        repairStore, service);
+        var zero = new UUID(0, 0);
+        var page = repairStore.knownGamesAfter(zero, 1);
+        String first = page.getFirst().gameReference();
+        provider.works.put(first, work(first, release("99", "2026-10-02")));
+        String before = version();
+        int runs = count("synchronization_run");
+        var dry = repair.repair(zero, 1, true);
+        assertThat(dry.reconciliation().counters().deletedReleases()).isEqualTo(1);
+        assertThat(dry.complete()).isFalse();
+        assertThat(version()).isEqualTo(before);
+        assertThat(count("synchronization_run")).isEqualTo(runs);
+        assertThat(count("game_release")).isEqualTo(2);
+        assertThat(store.loadGame(first, 25).orElseThrow().releases()).doesNotContainKey("99");
+        var applied = repair.repair(zero, 1, false);
+        assertThat(applied.reconciliation().counters().deletedReleases()).isEqualTo(1);
+        assertThat(store.loadGame(first, 25).orElseThrow().releases()).containsOnlyKeys("99");
+        var next = repair.repair(UUID.fromString(applied.nextAfter()), 1, false);
+        assertThat(next.complete()).isTrue();
+        String after = version();
+        var repeat = repair.repair(zero, 100, false);
+        assertThat(repeat.reconciliation().counters().deletedReleases()).isZero();
+        assertThat(repeat.reconciliation().counters().updatedGames()).isZero();
+        assertThat(version()).isEqualTo(after);
+        provider.works.remove(first);
+        var failed = repair.repair(zero, 1, false);
+        assertThat(failed.reconciliation().outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        assertThat(failed.nextAfter()).isEqualTo(zero.toString());
+        assertThat(failed.complete()).isFalse();
+        assertThat(store.loadGame(first, 25).orElseThrow().releases()).containsOnlyKeys("99");
+    }
+
+    @Test
+    void
+            repeatedSynchronizationEnrichesUnknownStagesWithoutChangingReleaseIdentityOrEligibilityEvidence() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-05-01")));
+        assertThat(service.synchronize(WINDOW).outcome())
+                .isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        var before =
+                jdbc.queryForMap(
+                        "SELECT release_id,review_status,verification_level FROM catalogue.release_snapshot");
+        var r = release("10", "2026-05-01");
+        var full =
+                new ProviderRelease(
+                        r.providerId(),
+                        r.platform(),
+                        r.region(),
+                        r.date(),
+                        r.signal(),
+                        com.videogameplatform.catalogue.domain.ReleaseStage.FULL_RELEASE);
+        provider.works.put("100", work("100", full));
+        var enriched = service.synchronize(WINDOW);
+        assertThat(enriched.counters().updatedReleases()).isEqualTo(1);
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT release_stage FROM catalogue.release_snapshot",
+                                String.class))
+                .isEqualTo("full_release");
+        assertThat(
+                        jdbc.queryForMap(
+                                "SELECT release_id,review_status,verification_level FROM catalogue.release_snapshot"))
+                .isEqualTo(before);
+        assertThat(service.synchronize(WINDOW).counters().updatedReleases()).isZero();
+        provider.works.put("100", work("100", r));
+        assertThat(service.synchronize(WINDOW).counters().updatedReleases()).isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT release_stage FROM catalogue.release_snapshot",
+                                String.class))
+                .isEqualTo("full_release");
+    }
+
+    @Test
     void onePostTraversesEveryPageAndDeduplicatesGamesAcrossPages() {
         provider.rows =
                 List.of(
@@ -436,7 +726,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 new ProviderPlatform(platformRef, platformName, platformSlug),
                 Optional.of(new ProviderRegion(regionRef, regionName)),
                 date,
-                ProviderReleaseSignal.NONE);
+                ProviderReleaseSignal.NONE,
+                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
     }
 
     private String version() {
@@ -461,7 +752,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         platformRef, "Platform " + platformRef, "platform-" + platformRef),
                 Optional.of(new ProviderRegion(regionRef, "Region " + regionRef)),
                 date,
-                ProviderReleaseSignal.NONE);
+                ProviderReleaseSignal.NONE,
+                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
     }
 
     private static ProviderWork work(String id, ProviderRelease... releases) {
@@ -478,6 +770,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
     private record Row(long id, String game) {}
 
     private static final class FixtureProvider implements CatalogueProviderPort {
+        com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException
+                failure;
         List<Row> rows = List.of();
         Map<String, ProviderWork> works = new HashMap<>();
         List<Integer> pageLimits = new ArrayList<>();

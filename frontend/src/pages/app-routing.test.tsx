@@ -25,6 +25,7 @@ const releasesResponse = {
       releases: [
         {
           releaseId: "40000000-0000-4000-8000-000000000006",
+          stage: "unknown",
           gameId: "30000000-0000-4000-8000-000000000006",
           platform: { platformId: "windows-pc", name: "Windows PC" },
           region: { regionId: "worldwide", name: "Worldwide" },

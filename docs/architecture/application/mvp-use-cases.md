@@ -8,23 +8,42 @@
 
 | ID       | Operation                           | Actor                 | Required behaviour                                                                                                                                                                                   |
 |----------|-------------------------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status), then groups the matching releases by game so a result is one game with only its view-and-filter-matching releases, and counts, uniquely orders, and pages games; cancelled is excluded from both views and delayed from recent; upcoming shows exact-day releases unless the visitor opts into approximate dates, where TBA sorts last; stale/empty/fallback are valid states |
+| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status), then groups the matching releases by game so a result is one game presenting at most one of its view-and-filter-matching releases per platform, and counts, uniquely orders, and pages games; cancelled is excluded from both views and delayed from recent; upcoming shows exact-day releases unless the visitor opts into approximate dates, where TBA sorts last; stale/empty/fallback are valid states |
 | `UC-002` | Search bounded catalogue            | Visitor               | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider                       |
 | `UC-003` | View game details                   | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page                                   |
 | `UC-009` | Synchronize catalogue from provider | Operator              | Synchronize every provider Game in an operator-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
 
-`UC-001` results are grouped by game before pagination: a game appears once and carries
-only the releases matching the requested view and active filters, each release preserved
-independently so differing platforms, regions, dates and date precision stay visible.
+`UC-001` results are grouped by game before pagination: a game appears once and carries,
+of the releases matching the requested view and active filters, only the presented
+release of each platform (see below), so differing platforms stay visible with the
+region, date and date precision of each presented release.
 Upcoming orders releases by date precision first (exact day, then month, quarter, year,
 and finally TBA/unknown), then by effective period, canonical title and `gameId`; recent
 orders by effective period, canonical title and `gameId`; both end in the unique
-`releaseId` tie-breaker. A game is positioned by its first matching release under that
+`releaseId` tie-breaker. A game is positioned by its first presented release under that
 order, with `gameId` as the final deterministic tie-breaker, and its releases keep the
 same order. Counting and pagination are over games, so `totalItems` counts games. The
 releases grouped under one game are explicitly bounded, so request memory is
 `O(pageSize x releaseGroupLimit)` plus bounded taxonomy; persistent
 filtering/counting/pagination/grouping never occurs over a complete Java snapshot.
+
+Post-MVP (#212, implemented): current legitimate releases remain distinct. Real provider
+data often holds several for one game and platform, such as regional releases, early or
+advance access beside a later date, or a still-returned approximate estimate beside an
+exact day. Synchronization removes obsolete provider references before presentation. A
+context presents one of them per platform (`REL-013`), chosen in PostgreSQL by one
+precedence: a release neither cancelled nor delayed, then a Full Release, then one not pending review, then
+verified evidence, then the most precise date, then Worldwide before a specific region
+before an unconfirmed region, then the context's own date order, and finally a stable
+region order and the unique `releaseId`. Discovery applies it to the matching releases with
+the view's date order (latest first for recent, soonest first for upcoming), so a region
+filter presents that region's own release, while facets and `totalItems` still come from
+every matching release. The game page applies it with the earliest date first to each
+platform and to each platform and region: a platform opens on its presented release's
+region, a selected combination shows its presented release, and any further records of
+that combination stay whole behind a disclosure. Presentation never deletes, merges or
+rewrites a release and never changes rating eligibility, which still evaluates every
+current release.
 
 Visitors select a fixed 1, 2, or 4 week horizon for either view; both default to one
 week. The application evaluates the inclusive recent range from `today - (7 × weeks - 1)`
@@ -94,14 +113,19 @@ each provider entity through a typed external reference and creating the product
 when the reference is unknown, per
 [ADR-0020](../../decisions/0020-acquire-platform-and-region-taxonomy-from-releases.md);
 provider identifiers never become product identity and names are never used to merge.
-A partial run preserves successful Games and the failed
-Game's last valid state. Provider DTOs and transport details remain in the adapter;
+A complete valid Game aggregate creates/updates returned typed Release references and
+removes absent provider-owned references in the same Game transaction. Curated, official,
+unreferenced and other-provider evidence is preserved. Failed/incomplete/invalid reads or
+writes preserve that Game's entire last valid state; a partial run preserves other successful
+Games. Removal is a content change and advances the existing catalogue revision; public
+reads and rating eligibility use only current remaining Releases. Provider DTOs and transport details remain in the adapter;
 no public request invokes it.
 
 `UC-003` reads complete game evidence from one local publication. Its
 [read port](../../../backend/src/main/java/com/videogameplatform/catalogue/application/details/port/GameDetailsReadPort.java)
 owns the operational aliases/releases bounds; exceeding them fails the read rather
-than evaluating a partial context. Catalogue supplies the application-derived Madrid
+than evaluating a partial context. It returns every release, platform by platform in
+presented-release order. Catalogue supplies the application-derived Madrid
 date and release context; Ratings evaluates eligibility and reads its own aggregate.
 No rating contribution returns an empty aggregate; an isolated statistics failure
 returns an explicit unavailable aggregate while preserving the game page. Personal
@@ -165,3 +189,28 @@ membership only through the import policy, and publishes a cover only after it
 validates. Exact HTTP mapping is owned by OpenAPI and API conventions; the internal
 synchronization command is an operator endpoint on the management port and is
 deliberately outside the product contract.
+
+### Explicit current-release repair (UC-009, post-MVP #212)
+
+Ordinary synchronization stores normalized release stage alongside lifecycle evidence.
+Adding stage to otherwise unchanged evidence preserves accepted date verification and
+review; conflicting verified updates are retained. Unknown incoming stage cannot erase a
+known stage. Provider vocabulary remains in the anti-corruption adapter. Stage eligibility
+policy is unchanged.
+
+Operator repair replays bounded date windows through ordinary synchronization, then visits
+all known typed Game references in bounded, deterministic Game-ID keyset batches. It includes
+Games with known stages and those whose releases no longer occur in date windows. Each Game
+is completely fetched and follows the identical normal reconciliation path: create new
+references, reconcile returned references and remove absent provider-owned current Releases
+atomically. It neither discovers unknown Games through reference repair nor guesses which
+record is stale from dates/tuples. Source ownership and completeness rules are those of
+[ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md).
+
+Dry-run validates the same persistence constraints in a rolled-back Game transaction with
+no listing event, serving-state, revision or run-history change. Apply uses the same database
+run ownership and fencing as synchronization. A failed Game retains its complete state;
+other Games can commit independently. A partial/failed/skipped batch retains its checkpoint
+cursor, so safe retries replay successes idempotently. A completed checkpoint performs only
+summaries; a fresh checkpoint rechecks later provider changes. This is explicit operator
+maintenance on private management, not a product-facing endpoint or historical ledger.

@@ -66,7 +66,8 @@ behaviour and is never a runtime dependency or an instruction source.
   one.
   A card shows at most one release row; any further releases collapse into a single
   `+ N lanzamientos más` control, where `N` counts the hidden releases, that opens an
-  accessible popover preserving each hidden release's date, platform and region. The card
+  accessible popover preserving each hidden release's date, platform and region. The API
+  presents at most one release per platform, so a platform never repeats on a card. The card
   height never grows with the number of releases.
 
 ## Visual language and tokens
@@ -298,18 +299,23 @@ search results are not part of the approved MVP screens until an owner decision 
 that work.
 
 Platform and region are native labelled radio groups derived from the game's
-returned release tuples. Selection is URL-backed and updates the visible evidence;
+returned release tuples, in the API's presented-release order: a platform opens on the
+region of its presented release. Selection is URL-backed and updates the visible evidence;
 changing platform retains the region only when that combination exists. Unsupported
-saved selections fall back to a real combination. Preserve all records for a selected
-combination rather than merging their dates or evidence. No selector is invented for
+saved selections fall back to a real combination. A selected combination shows its
+presented release; never merge or drop its further records. No selector is invented for
 a game without releases. This presentation selection does not change the global
 game eligibility or community aggregate.
 
 The release-context panel holds the platform/region selectors — on phones each group is
-one swipeable rail of chips with platform and region icons — and then one card per record
-for the selection. It retains date precision, status, provenance, verification, review,
-freshness and available evidence timestamps. Each record leads with its own date and a
-status chip that states the status in words; the remaining evidence follows as a quieter
+one swipeable rail of chips with platform and region icons — and then the card of the
+selection's presented release. Further records of the same selection stay whole, one card
+each, in a closed native disclosure, `Otras fechas registradas (N)`, whose summary carries
+the review notice when any of them is pending review; the status line counts them as
+additional dates. Each card retains date precision, status, provenance, verification, review,
+freshness and available evidence timestamps. Each record leads with its own date, its
+normalized Spanish release stage as quiet secondary text under that date, and a status
+chip that states the status in words; the remaining evidence follows as a quieter
 grid of monospaced labels, and a warning value keeps a non-colour marker. The summary sits in
 its own panel beside the context from desktop width. Keep summary language and source.
 There is no separate bottom release/evidence section. Display the community mean and

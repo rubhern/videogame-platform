@@ -255,6 +255,7 @@ class ReleaseCatalogueServiceTest {
                                 NOW,
                                 null,
                                 VerificationLevel.PROVIDER_ONLY,
-                                ReviewStatus.NOT_REQUIRED)));
+                                ReviewStatus.NOT_REQUIRED,
+                                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN)));
     }
 }

@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.application.releases.port;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
@@ -53,7 +54,11 @@ public interface ReleaseBrowseReadPort {
 
     record Taxonomy(String id, String name) {}
 
-    /** One game with the bounded, view-and-filter-matching releases grouped underneath it. */
+    /**
+     * One game with its bounded presented releases: of the releases matching the view and active
+     * filters, at most one per platform, chosen by the presented-release precedence with the
+     * view's own date order. Other matching releases of a platform stay stored and unchanged.
+     */
     record Item(
             String gameId,
             String slug,
@@ -76,5 +81,6 @@ public interface ReleaseBrowseReadPort {
             Instant lastSyncedAt,
             Instant lastVerifiedAt,
             VerificationLevel verificationLevel,
-            ReviewStatus reviewStatus) {}
+            ReviewStatus reviewStatus,
+            ReleaseStage stage) {}
 }

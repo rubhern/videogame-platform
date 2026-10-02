@@ -263,6 +263,7 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                     .addKeyValue(ELAPSED_MS, elapsedMillis)
                     .addKeyValue("sync.releases.created", c.createdReleases())
                     .addKeyValue("sync.releases.updated", c.updatedReleases())
+                    .addKeyValue("sync.releases.deleted", c.deletedReleases())
                     .addKeyValue("sync.releases.unchanged", c.unchangedReleases())
                     .addKeyValue("sync.provider.latency_ms", c.providerLatencyMillis())
                     .addKeyValue("sync.failures", failureSummary)

@@ -127,7 +127,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                             new GameProgress(run, pageNumber, position),
                             providerId,
                             started,
-                            counts);
+                            counts,
+                            false);
                 }
                 store.heartbeat(runId);
                 run.pageCompleted(pageNumber, counters(counts));
@@ -175,8 +176,81 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         }
     }
 
+    @Override
+    public CatalogueSynchronizationReport repairGames(List<String> providerIds, boolean dryRun) {
+        if (providerIds.size() > 100
+                || providerIds.stream().distinct().count() != providerIds.size()) {
+            throw new IllegalArgumentException(
+                    "Repair requires at most 100 unique Game references");
+        }
+        Instant started = clock.instant();
+        var day = started.atZone(java.time.ZoneOffset.UTC).toLocalDate();
+        var request = new CatalogueSynchronizationRequest(day, day);
+        Counts counts = new Counts();
+        if (!provider.isConfigured()) {
+            return skipped(request, started, "SYNCHRONIZATION_DISABLED", counts);
+        }
+        UUID runId = null;
+        if (!dryRun) {
+            var acquired =
+                    store.beginRun(
+                            provider.providerName(), request, started, policy.abandonRunAfter());
+            if (acquired.isEmpty()) {
+                return skipped(request, started, "SYNCHRONIZATION_ALREADY_RUNNING", counts);
+            }
+            runId = acquired.orElseThrow();
+        }
+        Run run =
+                dryRun
+                        ? SynchronizationProgress.NONE.started(
+                                null, request, started, providerIds.size())
+                        : progress.started(runId, request, started, providerIds.size());
+        try {
+            int position = 0;
+            for (String id : providerIds) {
+                // Repair never discovers/imports an unknown Game reference.
+                try {
+                    if (store.loadGame(id, policy.maxReleasesPerGame()).isEmpty()) {
+                        counts.failed++;
+                        continue;
+                    }
+                } catch (SynchronizationWriteException failure) {
+                    fail(
+                            new GameProgress(run, 1, ++position),
+                            Failure.of(Stage.PERSISTENCE, failure.reason().name()),
+                            failure.game(),
+                            counts);
+                    continue;
+                }
+                synchronizeGame(
+                        runId, new GameProgress(run, 1, ++position), id, started, counts, dryRun);
+            }
+        } catch (RuntimeException failure) {
+            counts.failed++;
+            run.runFailed(runFailure(failure), counters(counts));
+        }
+        var result =
+                report(
+                        runId,
+                        request,
+                        started,
+                        outcome(counts),
+                        dryRun ? "CATALOGUE_REPAIR_PREVIEW" : "CATALOGUE_REPAIR_COMPLETED",
+                        counts);
+        if (!dryRun) {
+            store.completeRun(result, policy.retainedRuns());
+            run.finished(result);
+        }
+        return result;
+    }
+
     private void synchronizeGame(
-            UUID runId, GameProgress game, String providerId, Instant started, Counts counts) {
+            UUID runId,
+            GameProgress game,
+            String providerId,
+            Instant started,
+            Counts counts,
+            boolean dryRun) {
         try {
             ProviderWorkBatch workBatch = provider.fetchWorks(List.of(providerId));
             counts.statistics = counts.statistics.plus(workBatch.statistics());
@@ -189,7 +263,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                         counts);
                 return;
             }
-            reconcile(runId, game, workBatch.works().getFirst(), started, counts);
+            reconcile(runId, game, workBatch.works().getFirst(), started, counts, dryRun);
         } catch (ProviderRequestException failure) {
             counts.statistics = counts.statistics.plus(failure.statistics());
             fail(
@@ -264,7 +338,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
             GameProgress game,
             ProviderWork work,
             Instant synchronizedAt,
-            Counts counts) {
+            Counts counts,
+            boolean dryRun) {
         Optional<GameState> existing =
                 store.loadGame(work.providerId(), policy.maxReleasesPerGame());
         Optional<SynchronizedGameIdentity> published =
@@ -290,7 +365,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
             return;
         }
         try {
-            publish(runId, game, work, existing, identity, synchronizedAt, counts);
+            publish(runId, game, work, existing, identity, synchronizedAt, counts, dryRun);
         } catch (DuplicateReleaseReference _) {
             fail(
                     game,
@@ -327,7 +402,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
             Optional<GameState> existing,
             SynchronizedGameIdentity identity,
             Instant synchronizedAt,
-            Counts counts) {
+            Counts counts,
+            boolean dryRun) {
         UUID gameId = identity.gameId();
         String slug = identity.slug();
         CoverSelection cover =
@@ -338,6 +414,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                         .orElseGet(() -> covers.forImport(work.title(), work.cover()));
         List<ReleaseWrite> releases = new ArrayList<>();
         Set<String> seen = new HashSet<>();
+        int withheld = 0;
         for (ProviderRelease providerRelease : work.releases()) {
             if (!seen.add(providerRelease.providerId())) {
                 throw new DuplicateReleaseReference();
@@ -356,21 +433,22 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
             release.ifPresent(
                     value -> releases.add(new ReleaseWrite(providerRelease.providerId(), value)));
             if (release.isEmpty()) {
-                counts.unchangedReleases++;
+                withheld++;
             }
         }
-        WriteResult result =
-                store.saveGame(
-                        runId,
-                        new GameWrite(
-                                work.providerId(),
-                                gameId,
-                                existing.isEmpty(),
-                                work.title(),
-                                slug,
-                                cover,
-                                releases,
-                                synchronizedAt));
+        GameWrite write =
+                new GameWrite(
+                        work.providerId(),
+                        gameId,
+                        existing.isEmpty(),
+                        work.title(),
+                        slug,
+                        cover,
+                        releases,
+                        synchronizedAt,
+                        seen,
+                        policy.maxReleasesPerGame());
+        WriteResult result = dryRun ? store.previewGame(write) : store.saveGame(runId, write);
         GameResult gameResult;
         if (result.createdGame()) {
             counts.created++;
@@ -382,6 +460,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
             counts.unchanged++;
             gameResult = GameResult.UNCHANGED;
         }
+        counts.unchangedReleases += withheld;
+        counts.deletedReleases += result.deletedReleases();
         counts.createdReleases += result.createdReleases();
         counts.updatedReleases += result.updatedReleases();
         counts.unchangedReleases += result.unchangedReleases();
@@ -432,7 +512,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                 c.failed,
                 c.statistics.requests(),
                 c.statistics.retries(),
-                c.statistics.latencyMillis());
+                c.statistics.latencyMillis(),
+                c.deletedReleases);
     }
 
     /** Where one Game sits in the run, for progress events only. */
@@ -455,6 +536,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         long createdReleases;
         long updatedReleases;
         long unchangedReleases;
+        long deletedReleases;
         long deferred;
         long failed;
         ProviderCallStatistics statistics = ProviderCallStatistics.none();

@@ -84,6 +84,8 @@ public final class ReleaseApiMapper {
                         new Region(source.region().id(), source.region().name()),
                         toReleaseDate(source.releaseDate()),
                         toStatus(source.status()),
+                        com.videogameplatform.api.generated.model.ReleaseStage.valueOf(
+                                source.stage().name()),
                         new Provenance(
                                 toSourceKind(source.provenance().sourceKind()),
                                 source.provenance().sourceName(),

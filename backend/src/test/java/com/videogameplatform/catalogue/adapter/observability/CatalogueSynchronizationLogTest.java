@@ -284,7 +284,7 @@ class CatalogueSynchronizationLogTest {
     }
 
     private static Counters counters(long created, long failed) {
-        return new Counters(created * 2, created, 0, 0, 0, 0, 0, 0, failed, created * 2, 0, 10);
+        return new Counters(created * 2, created, 0, 0, 0, 0, 0, 0, failed, created * 2, 0, 10, 0);
     }
 
     private static CatalogueSynchronizationReport report(
