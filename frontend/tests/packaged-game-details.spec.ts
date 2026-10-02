@@ -200,6 +200,21 @@ for (const width of [390, 834, 1320]) {
       route.fulfill({ json: game }),
     );
     await page.goto(gamePath);
+    await expect(page.getByText("Lanzamiento completo")).toBeVisible();
+    const dateLayout = await page.locator(".game-release-date").evaluate((date) => {
+      const stage = date.querySelector(".game-release-stage");
+      if (!stage || !date.firstChild) throw new Error("Release date and stage missing");
+      const range = document.createRange();
+      range.selectNodeContents(date.firstChild);
+      return {
+        dateBottom: range.getBoundingClientRect().bottom,
+        stageTop: stage.getBoundingClientRect().top,
+        dateSize: Number.parseFloat(getComputedStyle(date).fontSize),
+        stageSize: Number.parseFloat(getComputedStyle(stage).fontSize),
+      };
+    });
+    expect(dateLayout.stageTop).toBeGreaterThanOrEqual(dateLayout.dateBottom);
+    expect(dateLayout.stageSize).toBeLessThan(dateLayout.dateSize);
     const ps5 = page.getByRole("radio", { name: "PlayStation 5" });
     await ps5.focus();
     await page.keyboard.press("ArrowRight");
