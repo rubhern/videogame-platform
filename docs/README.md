@@ -14,6 +14,7 @@ and are not commitments.
 |---|---|---|
 | Project orientation and repository map | [Root README](../README.md) | Links and a short local context |
 | Backend/frontend immediate use | [Backend README](../backend/README.md), [frontend README](../frontend/README.md), [Postman README](../backend/postman/README.md) | Module-specific commands and troubleshooting |
+| IGDB development exploration and provider query examples | [IGDB Postman quick guide](../backend/postman/igdb-exploration.md) | Links; product scope and acquisition rules remain with their approved owners |
 | Product user, problem, value, MVP boundary, evidence standard, and risks | [Product Brief](product/product-brief.md) | Links to evidence and decisions |
 | Current journey and release cut | [MVP story map](product/mvp-story-map.md) | Acceptance criteria, not implementation tasks |
 | Product assumptions, resolved questions, and terminology | [Assumptions and decisions](product/assumptions-and-decisions.md) and [glossary](product/glossary.md) | No architecture or workflow rules |

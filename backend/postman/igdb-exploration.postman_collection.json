@@ -1,0 +1,1870 @@
+{
+  "info": {
+    "name": "VideoGame Platform - IGDB Exploration",
+    "description": "Development-only provider reference. Current and hypothetical future needs; not the product contract or an approved backlog. Read igdb-exploration.md. Use the IGDB environment and private credentials; run lookups before dependent requests. No automatic token acquisition, crawling, payload persistence or retries.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{igdbAccessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "igdbBaseUrl",
+      "value": "https://api.igdb.com/v4"
+    },
+    {
+      "key": "igdbGameId",
+      "value": "1942"
+    },
+    {
+      "key": "igdbMultiplayerGameId",
+      "value": "72"
+    },
+    {
+      "key": "igdbPlatformId",
+      "value": "6"
+    },
+    {
+      "key": "igdbReleaseRegionId",
+      "value": ""
+    },
+    {
+      "key": "igdbCompanyId",
+      "value": ""
+    },
+    {
+      "key": "igdbCollectionId",
+      "value": ""
+    },
+    {
+      "key": "igdbFranchiseId",
+      "value": ""
+    },
+    {
+      "key": "igdbAgeRatingIds",
+      "value": ""
+    },
+    {
+      "key": "igdbPopularityTypeId",
+      "value": ""
+    },
+    {
+      "key": "igdbPopularGameIds",
+      "value": ""
+    },
+    {
+      "key": "igdbSearchTerm",
+      "value": "The Witcher"
+    },
+    {
+      "key": "igdbGlobalSearchTerm",
+      "value": "Sonic"
+    },
+    {
+      "key": "igdbPageSize",
+      "value": "20"
+    },
+    {
+      "key": "igdbOffset",
+      "value": "0"
+    },
+    {
+      "key": "igdbAfterGameId",
+      "value": "0"
+    },
+    {
+      "key": "igdbNowEpoch",
+      "value": ""
+    },
+    {
+      "key": "igdbFromEpoch",
+      "value": ""
+    },
+    {
+      "key": "igdbToEpoch",
+      "value": ""
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "function reject(message) {",
+          "  console.error(message);",
+          "  pm.execution.skipRequest();",
+          "  throw new Error(message);",
+          "}",
+          "const now = Math.floor(Date.now() / 1000);",
+          "for (const [key, fallback] of Object.entries({igdbNowEpoch: now, igdbFromEpoch: now - 30 * 86400, igdbToEpoch: now + 90 * 86400})) {",
+          "  if (!pm.variables.get(key)) pm.variables.set(key, String(fallback));",
+          "}",
+          "for (const key of ['igdbClientId', 'igdbAccessToken']) {",
+          "  if (!pm.variables.get(key)) reject('Set ' + key + ' privately in the IGDB environment before sending.');",
+          "}",
+          "const pageSize = Number(pm.variables.get('igdbPageSize'));",
+          "if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 50) reject('Exploration page size must be 1..50.');",
+          "const body = pm.request.body.raw;",
+          "for (const match of body.matchAll(/{{(igdb\\w+)}}/g)) {",
+          "  const key = match[1], value = String(pm.variables.get(key) ?? '');",
+          "  if (!value) reject('Resolve ' + key + ' using the lookup described on this request.');",
+          "  if (key.endsWith('Ids')) {",
+          "    if (!/^\\d+(,\\d+)*$/.test(value) || value.split(',').length > pageSize) reject(key + ' must contain at most pageSize comma-separated numeric IDs.');",
+          "  } else if (key.includes('SearchTerm')) {",
+          "    if (/[\"\\\\;\\r\\n]/.test(value)) reject('Use a simple search term without query delimiters.');",
+          "  } else if (!/^\\d+$/.test(value)) reject(key + ' must be an unsigned integer.');",
+          "}",
+          "if (body.includes('igdbFromEpoch') && Number(pm.variables.get('igdbFromEpoch')) >= Number(pm.variables.get('igdbToEpoch'))) reject('Date window must be increasing.');",
+          "if (body.includes('igdbNowEpoch') && Number(pm.variables.get('igdbNowEpoch')) >= Number(pm.variables.get('igdbToEpoch'))) reject('Upcoming upper date must be later than now.');"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('IGDB HTTP 200 (401: renew token; 429: reduce request rate)', () => pm.response.to.have.status(200));",
+          "if (pm.response.code === 200) {",
+          "  const rows = pm.response.json();",
+          "  pm.test('JSON array response', () => pm.expect(rows).to.be.an('array'));",
+          "  if (!pm.request.url.toString().endsWith('/multiquery')) {",
+          "    const body = pm.variables.replaceIn(pm.request.body.raw);",
+          "    const limit = Number(body.match(/limit\\s+(\\d+)/)[1]);",
+          "    pm.test('Root rows respect explicit limit', () => pm.expect(rows.length).to.be.at.most(limit));",
+          "    pm.test('Records expose numeric provider IDs', () => rows.forEach(row => pm.expect(row.id).to.be.a('number')));",
+          "  }",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Core game data",
+      "description": "Start with the complete card. IDs below belong to IGDB, never to the product API.",
+      "item": [
+        {
+          "name": "The Witcher 3 - expanded game card",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "A focused detail card using Expander. Media, release rows and relationship lists are separate bounded queries. Default game: The Witcher 3 (1942). No fields wildcard.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,slug,summary,url,updated_at,first_release_date,\n  game_type.type,game_status.status,cover.image_id,\n  genres.name,themes.name,platforms.name,\n  involved_companies.company.name,involved_companies.developer,involved_companies.publisher;\nwhere id = {{igdbGameId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Completion time and submission count",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/game_time_to_beats",
+            "description": "Durations are seconds. Inspect count before presenting an estimate; an empty response means no evidence.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game_id,hastily,normally,completely,count;\nwhere game_id = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Co-op capabilities by platform",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/multiplayer_modes",
+            "description": "Default: Portal 2 (72). Platform-specific capabilities are richer than game_modes; missing fields are not evidence of false.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game,platform.name,campaigncoop,onlinecoop,onlinecoopmax,offlinecoop,offlinecoopmax,onlinemax,offlinemax,splitscreen;\nwhere game = {{igdbMultiplayerGameId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Releases",
+      "description": "Keep platform, region, precision and status on the same release row. Date windows are UTC and upper-exclusive.",
+      "item": [
+        {
+          "name": "Release window - all platforms",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/release_dates",
+            "description": "Window defaults to 30 days ago through 90 days ahead. Override epoch seconds in the environment. ID order makes offset exploration deterministic; inspect date rather than assuming chronological order.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,game.id,game.name,date,human,y,m,d,date_format.format,platform.id,platform.name,release_region.id,release_region.region,status.name;\nwhere date >= {{igdbFromEpoch}} & date < {{igdbToEpoch}};\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Upcoming releases - selected platform",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/release_dates",
+            "description": "Default platform: PC (6). Includes approximate dates; date_format is essential. This explores provider evidence, not product release eligibility.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,game.id,game.name,date,human,y,m,d,date_format.format,platform.id,platform.name,release_region.id,release_region.region,status.name;\nwhere date >= {{igdbNowEpoch}} & date < {{igdbToEpoch}} & platform = {{igdbPlatformId}};\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Game releases - platform and region",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/release_dates",
+            "description": "Run release-region lookup first and set igdbReleaseRegionId; it is a reference ID, not the old region enum.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,game.id,game.name,date,human,y,m,d,date_format.format,platform.id,platform.name,release_region.id,release_region.region,status.name;\nwhere game = {{igdbGameId}} & platform = {{igdbPlatformId}} & release_region = {{igdbReleaseRegionId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Release regions - resolve current IDs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/release_date_regions",
+            "description": "Copy the chosen region ID into igdbReleaseRegionId. Localization regions are a different resource.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,region;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Date precision vocabulary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/date_formats",
+            "description": "Resolve date_format references rather than assuming legacy enum values.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,format;\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Release status vocabulary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/release_date_statuses",
+            "description": "Status is separate from precision and the overall game status.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,description;\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Taxonomy",
+      "description": "Small dictionaries and focused game expansions; no product taxonomy is changed.",
+      "item": [
+        {
+          "name": "Platform reference",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/platforms",
+            "description": "Inspect current reference IDs; page through this dictionary as needed.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,slug,abbreviation,platform_type.name;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Genre dictionary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/genres",
+            "description": "Inspect current reference IDs; page through this dictionary as needed.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,slug;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Theme dictionary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/themes",
+            "description": "Inspect current reference IDs; page through this dictionary as needed.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,slug;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Gameplay modes",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/game_modes",
+            "description": "Inspect current reference IDs; page through this dictionary as needed.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,slug;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Current game types",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/game_types",
+            "description": "Inspect current reference IDs; page through this dictionary as needed.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,type;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Current game statuses",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/game_statuses",
+            "description": "Inspect current reference IDs; page through this dictionary as needed.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,status;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Genres, themes and modes of a game - Expander",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Retrieve meaningful labels in one call instead of fetching each ID separately.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields name,genres.id,genres.name,themes.name,game_modes.name;\nwhere id = {{igdbGameId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Companies",
+      "description": "Role belongs to involved_companies, not to the company itself.",
+      "item": [
+        {
+          "name": "Developer and publisher credits",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/involved_companies",
+            "description": "Copy a company.id to igdbCompanyId to inspect its profile. A company may have several roles for one game.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game,company.id,company.name,developer,publisher,porting,supporting;\nwhere game = {{igdbGameId}} & (developer = true | publisher = true);\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Company profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/companies",
+            "description": "Resolve igdbCompanyId from credits first. Avoid expanding the entire developed/published catalogue.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,description,country,parent.name,logo.image_id,url;\nwhere id = {{igdbCompanyId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Games developed by selected company",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Exploratory reverse relationship. Verify matching credit rows with the credits request when exact role pairing matters.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,game_type.type,cover.image_id;\nwhere involved_companies.company = {{igdbCompanyId}} & involved_companies.developer = true;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Media",
+      "description": "Paginate media endpoints instead of expanding every asset into the game card.",
+      "item": [
+        {
+          "name": "Cover metadata",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/covers",
+            "description": "Use image_id to construct a CDN rendition. Metadata retrieval does not authorize copying or redistributing assets.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,game,image_id,width,height,url;\nwhere game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Screenshots",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/screenshots",
+            "description": "Use image_id to construct a CDN rendition. Metadata retrieval does not authorize copying or redistributing assets.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,game,image_id,width,height,url;\nwhere game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Artwork",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/artworks",
+            "description": "Use image_id to construct a CDN rendition. Metadata retrieval does not authorize copying or redistributing assets.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,game,image_id,width,height,url;\nwhere game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Trailers and videos",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/game_videos",
+            "description": "video_id is a YouTube identifier, not an IGDB CDN image ID.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game,name,video_id;\nwhere game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Localization",
+      "description": "Aliases, regional titles and language support answer different questions.",
+      "item": [
+        {
+          "name": "Alternative titles and abbreviations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/alternative_names",
+            "description": "Comments explain working titles, acronyms and regional alternatives; an alias is not a translation guarantee.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game,name,comment;\nwhere game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Regional names and covers",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/game_localizations",
+            "description": "Localization region references point to regions, not release_date_regions.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game,name,region.id,region.name,region.identifier,cover.image_id;\nwhere game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Localization region vocabulary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/regions",
+            "description": "category remains a current string on regions; do not confuse it with deprecated enum fields on other resources.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,identifier,category;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Audio, subtitles and interface languages",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/language_supports",
+            "description": "Expands both language and support type. Missing support data is unknown, not unsupported.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game,language.id,language.name,language.locale,language_support_type.name;\nwhere game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Language dictionary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/languages",
+            "description": "Useful for future localized discovery filters.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,native_name,locale;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Language support kinds",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/language_support_types",
+            "description": "Inspect support types without assuming numeric enum values.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name;\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ratings and popularity",
+      "description": "Provider scores and popularity are separate from VideoGame Platform personal/aggregate ratings.",
+      "item": [
+        {
+          "name": "Game age classifications - PEGI and ESRB",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Expander retrieves available organizations including PEGI/ESRB without assuming old category/rating enums.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields name,age_ratings.organization.name,age_ratings.rating_category.rating,age_ratings.synopsis;\nwhere id = {{igdbGameId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Age-rating records by resolved IDs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/age_ratings",
+            "description": "Copy comma-separated age-rating IDs from the expanded game response to igdbAgeRatingIds. There is no game field on age_ratings.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,organization.name,rating_category.rating,synopsis,rating_cover_url;\nwhere id = ({{igdbAgeRatingIds}});\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Rating organizations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/age_rating_organizations",
+            "description": "Resolve PEGI/ESRB organization reference IDs.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name;\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Rating category labels",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/age_rating_categories",
+            "description": "rating here is the current category label; age_ratings.rating is deprecated.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,organization.name,rating;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "IGDB community and critic scores",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Show counts with scores; these provider scores must never replace product-owned rating statistics.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields name,rating,rating_count,aggregated_rating,aggregated_rating_count;\nwhere id = {{igdbGameId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Popularity types - choose a signal",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/popularity_types",
+            "description": "Copy a type ID into igdbPopularityTypeId. Visits, want-to-play and playing are signals, not personalized recommendations.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,external_popularity_source.name;\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Top popularity signal - bounded snapshot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/popularity_primitives",
+            "description": "Resolve returned game_id integers in the next request. Rank ties have no promised stable paging: this snapshot deliberately has no offset.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game_id,value,popularity_type.name,external_popularity_source.name,calculated_at;\nwhere popularity_type = {{igdbPopularityTypeId}};\nsort value desc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Resolve top signal game IDs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Copy at most igdbPageSize comma-separated game_id values to igdbPopularGameIds. Returned order is by ID, not rank; retain primitive scores when comparing.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,cover.image_id,game_type.type;\nwhere id = ({{igdbPopularGameIds}});\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Relationships",
+      "description": "Explore optional relationships without changing approved import eligibility.",
+      "item": [
+        {
+          "name": "Series and franchise references",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Copy collection/franchise IDs to their variables. Singular franchise is current; singular collection is deprecated.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields name,collections.id,collections.name,franchise.id,franchise.name,franchises.id,franchises.name;\nwhere id = {{igdbGameId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Series metadata",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/collections",
+            "description": "A series/collection and a franchise are different concepts. Query members via games to avoid expanding a growing games array.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,slug,type.name,url;\nwhere id = {{igdbCollectionId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Franchise metadata",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/franchises",
+            "description": "Resolve from the game references first; a game need not belong to a franchise.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,slug,url;\nwhere id = {{igdbFranchiseId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Games in a series - paginated",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Bounded member listing rather than collections.games.name expansion.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,game_type.type,first_release_date;\nwhere collections = {{igdbCollectionId}};\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Games in a franchise - paginated",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Includes primary and additional franchise memberships.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,game_type.type;\nwhere franchise = {{igdbFranchiseId}} | franchises = {{igdbFranchiseId}};\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DLC, expansions, remakes, remasters and ports",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Single-game inspection of relation arrays; root limit does not cap expanded children. For growing child lists use the next parent query. Remakes/remasters/ports may be absent for this sample.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields name,parent_game.name,version_parent.name,dlcs.name,expansions.name,standalone_expansions.name,expanded_games.name,remakes.name,remasters.name,ports.name;\nwhere id = {{igdbGameId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Children by parent - bounded page",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Shows parent-linked records. This is not a universal inverse of every remake/remaster/port relation.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,game_type.type,parent_game.id;\nwhere parent_game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Similar games - lightweight Expander",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Provider-supplied similarity is a discovery hypothesis. Root limit does not limit this relation array or guarantee relevance.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields name,similar_games.id,similar_games.name;\nwhere id = {{igdbGameId}};\nlimit 1;",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Official and community links",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/websites",
+            "description": "Inspect type labels to distinguish official sites, stores and communities; a trusted flag is not a licensing grant.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game,url,trusted,type.type;\nwhere game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Website type dictionary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/website_types",
+            "description": "Current reference table replaces websites.category.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,type;\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Store and external provider identities",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/external_games",
+            "description": "uid is an external service ID, not product identity or purchase availability evidence.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields game,name,uid,url,platform.name,external_game_source.name,game_release_format.format;\nwhere game = {{igdbGameId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "External source dictionary",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/external_game_sources",
+            "description": "Current source vocabulary replaces external_games.category and popularity_source.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name;\nsort id asc; limit {{igdbPageSize}}; offset {{igdbOffset}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Discovery and search",
+      "description": "Search results require identity review before selecting a game or edition.",
+      "item": [
+        {
+          "name": "Find games by name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Default term: The Witcher. Excludes editions, not DLC/remakes. Inspect type/platform/year before changing igdbGameId. Search strings must contain no quotes or backslashes.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "search \"{{igdbSearchTerm}}\";\nfields id,name,game_type.type,version_parent.name,platforms.name,first_release_date;\nwhere version_parent = null;\nlimit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Cross-resource search",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/search",
+            "description": "Default term: Sonic. Mixed result resources may omit game; choose games search when only game identity is needed.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "search \"{{igdbGlobalSearchTerm}}\";\nfields name,game.id,game.name,collection.name,platform.name,theme.name,character.name;\nlimit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Advanced queries",
+      "description": "Manual pages and independent batched needs; no automatic crawl or retries.",
+      "item": [
+        {
+          "name": "Games - ID cursor page",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/games",
+            "description": "Set igdbAfterGameId to the last returned ID for the next page. ID cursor avoids deep offsets but does not freeze mutable provider data.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "fields id,name,updated_at;\nwhere id > {{igdbAfterGameId}};\nsort id asc; limit {{igdbPageSize}};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Game-page evidence bundle - multiquery",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Client-ID",
+                "value": "{{igdbClientId}}"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{igdbBaseUrl}}/multiquery",
+            "description": "Four independent queries in one round trip. Results are named arrays, not an atomic snapshot or chained joins; pages can still be incomplete.\n\nReference: https://api-docs.igdb.com/",
+            "body": {
+              "mode": "raw",
+              "raw": "query games \"card\" {\n  fields name,summary,cover.image_id,genres.name;\n  where id = {{igdbGameId}}; limit 1;\n};\nquery release_dates \"releases\" {\n  fields game,platform.name,release_region.region,date,date_format.format,status.name;\n  where game = {{igdbGameId}}; sort id asc; limit {{igdbPageSize}};\n};\nquery language_supports \"languages\" {\n  fields language.name,language_support_type.name;\n  where game = {{igdbGameId}}; sort id asc; limit {{igdbPageSize}};\n};\nquery game_time_to_beats \"duration\" {\n  fields game_id,hastily,normally,completely,count;\n  where game_id = {{igdbGameId}}; sort id asc; limit {{igdbPageSize}};\n};",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const bundles = pm.response.json();",
+                  "  pm.test(\"All named query results returned\", () => pm.expect(bundles.map(x => x.name)).to.have.members([\"card\", \"releases\", \"languages\", \"duration\"]));",
+                  "  pm.test(\"Every query has a bounded result array\", () => bundles.forEach(x => { pm.expect(x.result).to.be.an(\"array\"); pm.expect(x.result.length).to.be.at.most(x.name === \"card\" ? 1 : Number(pm.variables.get(\"igdbPageSize\"))); }));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

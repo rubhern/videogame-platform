@@ -1,7 +1,9 @@
 # Backend Postman assets
 
 Executable Postman examples for the implemented product and Actuator APIs plus a
-non-secret local environment. The collections document implemented behaviour; the
+non-secret local environment. A separate IGDB collection supports provider exploration
+and hypothetical future needs; see the [IGDB quick guide](igdb-exploration.md).
+The product collections document implemented behaviour; the
 reviewed [`openapi.yaml`](../../docs/architecture/api/openapi.yaml) remains the
 product contract, and backend integration tests remain authoritative for PostgreSQL
 behaviour, W3C propagation, and negative sensitive-data assertions. Whenever a
@@ -17,6 +19,7 @@ backend API changes, update its tracked requests and assertions in the same chan
 | `personal-ratings` | Authenticated read, conditional create/update/delete, strong ETag reuse from the private collection, scoped search and ordering, duplicate/stale-write and CSRF rejection |
 | `session` | Anonymous session state and CSRF-protected logout rejection; the successful OIDC flow is covered by the real-browser identity gate instead |
 | `actuator` | Discovery, health groups, build info, metrics, and the `cataloguesync` operator command asserting the credential-free `SYNCHRONIZATION_DISABLED` outcome |
+| `igdb-exploration` | Development-only IGDB queries; uses `igdb.postman_environment.json`, private provider credentials and the [quick guide](igdb-exploration.md), independently of the backend and its local environment |
 
 `local.postman_environment.json` holds the product `baseUrl` (`http://localhost:8080`)
 and loopback-only `managementBaseUrl` (`http://localhost:8081`). To target another
