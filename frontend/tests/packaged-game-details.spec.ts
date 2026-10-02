@@ -148,10 +148,12 @@ for (const width of [390, 834, 1320]) {
     const game = gameDetailsFixture();
     const original = game.releases[0];
     if (!original) throw new Error("Fixture needs a release");
+    original.stage = "full_release";
     game.releases.push(
       {
         ...original,
         releaseId: "pc-eu",
+        stage: "unknown",
         platform: { platformId: "pc", name: "Windows PC" },
         releaseDate: { precision: "quarter", value: "2027-Q2" },
         status: "scheduled",
@@ -159,11 +161,22 @@ for (const width of [390, 834, 1320]) {
       {
         ...original,
         releaseId: "pc-world",
+        stage: "early_access",
         platform: { platformId: "pc", name: "Windows PC" },
         region: { regionId: "world", name: "Worldwide" },
         releaseDate: { precision: "unknown", value: null },
         freshnessStatus: "stale",
         reviewStatus: "required",
+      },
+      // A cancelled record of the same platform and region follows the presented one (#212).
+      {
+        ...original,
+        releaseId: "pc-world-cancelled",
+        stage: "alpha",
+        platform: { platformId: "pc", name: "Windows PC" },
+        region: { regionId: "world", name: "Worldwide" },
+        releaseDate: { precision: "day", value: "2026-05-01" },
+        status: "cancelled",
       },
     );
     game.ratingStatistics = {
@@ -197,6 +210,14 @@ for (const width of [390, 834, 1320]) {
     await expect(page.getByRole("radio", { name: "Mundial" })).toBeChecked();
     await expect(page.getByText("Fecha por confirmar")).toBeVisible();
     await expect(page).toHaveURL(/platformId=pc&regionId=world$/);
+    // The further record waits, whole and unmerged, behind a keyboard-operable disclosure.
+    await expect(page.getByText("1 de mayo de 2026")).toBeHidden();
+    await page.locator(".game-release-more > summary").focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText("1 de mayo de 2026")).toBeVisible();
+    await expect(page.getByText("Cancelado", { exact: true })).toBeVisible();
+    await expect(page.getByText("Acceso anticipado")).toBeVisible();
+    await expect(page.getByText("Alfa")).toBeVisible();
     await expect(page.getByLabel("Nota media: 8,5 de 10")).toBeVisible();
     await expect(page.getByRole("table")).toHaveCount(0);
     await expect(page.getByText("Lanzamientos y evidencia")).toHaveCount(0);

@@ -126,6 +126,119 @@ class GameDetailsApiIntegrationTest {
     }
 
     @Test
+    void completeReconciliationRemovesStalePublicEvidenceAndEligibilityAndRotatesValidator()
+            throws Exception {
+        admin.update(
+                "UPDATE catalogue.release_snapshot SET source_kind='external_provider',source_name='IGDB',source_entity_type='release_date',date_precision='year',exact_date=NULL,release_year=2026,release_status='announced' WHERE game_id=?",
+                game);
+        admin.update(
+                "INSERT INTO catalogue.game_external_reference(game_id,provider,provider_entity_type,provider_id) VALUES (?,'IGDB','game','900001')",
+                game);
+        admin.update(
+                "INSERT INTO catalogue.release_external_reference(provider,provider_id,release_id,game_id) SELECT 'IGDB','1001',release_id,game_id FROM catalogue.release_snapshot WHERE game_id=?",
+                game);
+        var previous = synchronizationStore.loadGame("900001", 10).orElseThrow();
+        var before = get(game.toString());
+        var evidence =
+                new ProviderRelease(
+                        "2001",
+                        new ProviderPlatform("167", "PlayStation 5", "ps5"),
+                        Optional.of(new ProviderRegion("8", "Worldwide")),
+                        new ReleaseDate.Day(LocalDate.parse("2026-08-13")),
+                        ProviderReleaseSignal.NONE,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.FULL_RELEASE);
+        var at = Instant.parse("2026-08-13T08:00:00Z");
+        var run =
+                synchronizationStore
+                        .beginRun(
+                                "IGDB",
+                                new CatalogueSynchronizationRequest(
+                                        LocalDate.parse("2026-08-13"),
+                                        LocalDate.parse("2026-08-13")),
+                                at,
+                                Duration.ofMinutes(30))
+                        .orElseThrow();
+        try {
+            var result =
+                    synchronizationStore.saveGame(
+                            run,
+                            new GameWrite(
+                                    "900001",
+                                    game,
+                                    false,
+                                    previous.title(),
+                                    previous.slug(),
+                                    previous.cover(),
+                                    List.of(
+                                            new ReleaseWrite(
+                                                    "2001",
+                                                    ReleaseReconciliationPolicy.reconcile(
+                                                                    evidence, null, at, at, "IGDB")
+                                                            .orElseThrow())),
+                                    at,
+                                    java.util.Set.of("2001"),
+                                    10));
+            assertThat(result.deletedReleases()).isEqualTo(1);
+            var after = get(game.toString());
+            CONTRACT.assertJsonResponse(after, 200, "GameDetails");
+            var body = JSON.readTree(after.body());
+            assertThat(body.path("releases").size()).isEqualTo(1);
+            assertThat(body.path("releases").get(0).path("stage").asString())
+                    .isEqualTo("full_release");
+            assertThat(
+                            body.path("releases")
+                                    .get(0)
+                                    .path("releaseDate")
+                                    .path("precision")
+                                    .asString())
+                    .isEqualTo("day");
+            assertThat(after.headers().firstValue("ETag"))
+                    .isNotEqualTo(before.headers().firstValue("ETag"));
+            assertThat(body.path("ratingEligibility").path("eligible").asBoolean()).isTrue();
+            // A valid empty complete set removes the only eligible current Release.
+            synchronizationStore.saveGame(
+                    run,
+                    new GameWrite(
+                            "900001",
+                            game,
+                            false,
+                            previous.title(),
+                            previous.slug(),
+                            previous.cover(),
+                            List.of(),
+                            at,
+                            java.util.Set.of(),
+                            10));
+            var empty = JSON.readTree(get(game.toString()).body());
+            assertThat(empty.path("releases").size()).isZero();
+            assertThat(empty.path("ratingEligibility").path("eligible").asBoolean()).isFalse();
+        } finally {
+            admin.update("DELETE FROM catalogue.synchronization_run WHERE run_id=?", run);
+        }
+    }
+
+    @Test
+    void stageChangesPresentationAndContractWhileEligibilityStillUsesTheEarlierRelease()
+            throws Exception {
+        admin.update(
+                "UPDATE catalogue.release_snapshot SET release_stage='early_access',exact_date=date '2026-08-12' WHERE game_id=?",
+                game);
+        release("day", "announced", "provider_only", "not_required");
+        admin.update(
+                "UPDATE catalogue.release_snapshot SET release_stage='full_release',exact_date=date '2026-10-02' WHERE game_id=? AND release_status='announced'",
+                game);
+        var response = get(game.toString());
+        CONTRACT.assertJsonResponse(response, 200, "GameDetails");
+        var body = JSON.readTree(response.body());
+        assertThat(body.path("releases").get(0).path("stage").asString()).isEqualTo("full_release");
+        assertThat(body.path("releases").get(0).path("status").asString()).isEqualTo("scheduled");
+        assertThat(body.path("releases").get(1).path("stage").asString()).isEqualTo("early_access");
+        assertThat(body.path("ratingEligibility").path("eligible").asBoolean()).isTrue();
+        assertThat(body.path("ratingEligibility").path("reason").asString())
+                .isEqualTo("ELIGIBLE_RELEASE_FOUND");
+    }
+
+    @Test
     void servesCompletePublicEvidenceAndEmptyStatisticsWithConditionalCaching() throws Exception {
         var response = get(game.toString());
         CONTRACT.assertJsonResponse(response, 200, "GameDetails");
@@ -142,6 +255,7 @@ class GameDetailsApiIntegrationTest {
         assertThat(release.path("platform").path("platformId").asString())
                 .isEqualTo("playstation-5");
         assertThat(release.path("region").path("regionId").asString()).isEqualTo("europe");
+        assertThat(release.path("stage").asString()).isEqualTo("unknown");
         assertThat(release.path("provenance").path("sourceKind").asString())
                 .isEqualTo("official_source");
         assertThat(release.path("freshnessStatus").asString()).isEqualTo("stale");
@@ -191,6 +305,39 @@ class GameDetailsApiIntegrationTest {
     }
 
     @Test
+    void listsThePresentedRecordFirstWhileEligibilityStillUsesEveryRecord() throws Exception {
+        // A verified upcoming day outranks the provider-only day that already occurred on the same
+        // platform and region, yet that additional record still proves eligibility.
+        UUID verifiedUpcoming = UUID.randomUUID();
+        admin.update(
+                "INSERT INTO catalogue.game_release VALUES (?, ?, now())", verifiedUpcoming, game);
+        admin.update(
+                """
+            INSERT INTO catalogue.release_snapshot(publication_id, release_id, game_id, platform_id, region_id,
+                date_precision, exact_date, release_status, source_kind, source_name, source_entity_type,
+                last_synchronized_at, last_verified_at, verification_level, review_status)
+            SELECT publication_id, ?, ?, '10000000-0000-4000-8000-000000000001',
+                '20000000-0000-4000-8000-000000000002', 'day', date '2026-09-01', 'announced',
+                'official_source', 'Official source', 'release', timestamptz '2026-01-01 00:00:00Z',
+                timestamptz '2026-01-01 00:00:00Z', 'verified', 'not_required'
+            FROM catalogue.catalogue_publication WHERE is_current
+            """,
+                verifiedUpcoming,
+                game);
+
+        var response = get(game.toString());
+        CONTRACT.assertJsonResponse(response, 200, "GameDetails");
+        var body = JSON.readTree(response.body());
+        assertThat(body.path("releases")).hasSize(2);
+        assertThat(body.path("releases").get(0).path("releaseId").asString())
+                .isEqualTo(verifiedUpcoming.toString());
+        assertThat(body.path("releases").get(0).path("status").asString()).isEqualTo("scheduled");
+        assertThat(body.path("releases").get(1).path("status").asString()).isEqualTo("released");
+        assertThat(body.path("ratingEligibility").path("reason").asString())
+                .isEqualTo("ELIGIBLE_RELEASE_FOUND");
+    }
+
+    @Test
     void resynchronizingTheRequiemReleaseDoesNotInventAReviewBlock() throws Exception {
         // Private-dev #211 example: IGDB release 752219, PC/worldwide, 2026-02-27.
         // Reconstruct the accepted pre-#177 representation; the live row already carries
@@ -225,7 +372,8 @@ class GameDetailsApiIntegrationTest {
                         new ProviderPlatform("6", "Windows PC", "windows-pc"),
                         Optional.of(new ProviderRegion("8", "Worldwide")),
                         date,
-                        ProviderReleaseSignal.NONE);
+                        ProviderReleaseSignal.NONE,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
         Instant synchronizedAt = Instant.parse("2026-08-13T08:00:00Z");
         var reconciled =
                 ReleaseReconciliationPolicy.reconcile(
@@ -254,7 +402,9 @@ class GameDetailsApiIntegrationTest {
                             old.slug(),
                             old.cover(),
                             List.of(new ReleaseWrite("752219", reconciled)),
-                            synchronizedAt));
+                            synchronizedAt,
+                            java.util.Set.of("752219"),
+                            10));
         } finally {
             admin.update("DELETE FROM catalogue.synchronization_run WHERE run_id = ?", run);
         }

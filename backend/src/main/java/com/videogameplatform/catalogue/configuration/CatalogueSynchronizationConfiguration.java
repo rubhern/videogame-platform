@@ -141,6 +141,28 @@ class CatalogueSynchronizationConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.synchronization.ReleaseStageRepair
+            releaseStageRepair(
+                    DataSource dataSource,
+                    CatalogueProviderPort provider,
+                    SynchronizeCatalogueUseCase synchronization) {
+        return new com.videogameplatform.catalogue.application.synchronization.ReleaseStageRepair(
+                new com.videogameplatform.catalogue.adapter.persistence.synchronization
+                        .JdbcReleaseStageRepairStore(
+                        new NamedParameterJdbcTemplate(dataSource), provider.providerName()),
+                synchronization);
+    }
+
+    @Bean
+    com.videogameplatform.catalogue.adapter.operator.ReleaseStageRepairEndpoint
+            releaseStageRepairEndpoint(
+                    com.videogameplatform.catalogue.application.synchronization.ReleaseStageRepair
+                            repair) {
+        return new com.videogameplatform.catalogue.adapter.operator.ReleaseStageRepairEndpoint(
+                repair);
+    }
+
+    @Bean
     CatalogueSynchronizationEndpoint catalogueSynchronizationEndpoint(
             SynchronizeCatalogueUseCase synchronizeCatalogue,
             CatalogueSynchronizationMetrics metrics) {

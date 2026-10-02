@@ -825,15 +825,58 @@
     container-type: inline-size;
   }
 
-  .game-release-record h3 {
-    margin: 0 0 12px;
+  /* Further records of the selected platform and region stay one native disclosure away: kept
+     whole and unmerged, never shown as equals of the presented record. */
+  .game-release-more > summary {
+    display: flex;
+    min-height: 44px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    padding: 6px 2px;
     color: var(--color-accent-hover);
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .game-release-more > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* The chevron turns with the open state; the label and the count carry the meaning. */
+  .game-release-more-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
     font-family: var(--font-mono);
     font-size: 0.6875rem;
-    font-weight: 500;
     line-height: 1.45;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
+  }
+
+  .game-release-more-label::before {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    content: "";
+    transform: rotate(-45deg);
+  }
+
+  .game-release-more[open] .game-release-more-label::before {
+    transform: rotate(45deg);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .game-release-more-label::before {
+      transition: transform var(--duration-fast) var(--ease-out);
+    }
+  }
+
+  .game-release-more > .game-release-records {
+    margin-top: 8px;
   }
 
   .game-release-metadata {

@@ -10,6 +10,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
@@ -193,8 +194,10 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                                                     rs.getString(
                                                                             "verification_level")),
                                                             ReviewStatus.fromValue(
+                                                                    rs.getString("review_status")),
+                                                            ReleaseStage.fromValue(
                                                                     rs.getString(
-                                                                            "review_status")))));
+                                                                            "release_stage")))));
                     if (rows.size() > maxReleases) {
                         throw new SynchronizationWriteException(
                                 SynchronizationWriteException.Reason.RELEASE_BOUND_EXCEEDED,
@@ -215,14 +218,30 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
     @Override
     public WriteResult saveGame(UUID runId, GameWrite write) {
         try {
-            return transaction.execute(status -> save(runId, write));
+            return transaction.execute(status -> save(runId, write, false));
         } catch (DataAccessException | TransactionException failure) {
             throw SynchronizationWriteFailures.classify(failure);
         }
     }
 
-    private WriteResult save(UUID runId, GameWrite w) {
-        fence(runId);
+    @Override
+    public WriteResult previewGame(GameWrite write) {
+        try {
+            return transaction.execute(
+                    status -> {
+                        WriteResult result = save(null, write, true);
+                        status.setRollbackOnly();
+                        return result;
+                    });
+        } catch (DataAccessException | TransactionException failure) {
+            throw SynchronizationWriteFailures.classify(failure);
+        }
+    }
+
+    private WriteResult save(UUID runId, GameWrite w, boolean dryRun) {
+        if (!dryRun) {
+            fence(runId);
+        }
         // A short metadata lock serializes revision updates; no provider call holds this lock.
         jdbc.update(
                 """
@@ -274,6 +293,51 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                     jdbc.update(
                             CatalogueSynchronizationSql.UPDATE_GAME_SNAPSHOT_WITH_COVER, snapshot);
         }
+        // All writes use this lock order. Compute removals from the locked current state,
+        // never from a stale application snapshot. The typed table is the release_date boundary.
+        var missing =
+                jdbc.query(
+                        """
+            SELECT s.release_id
+            FROM catalogue.release_snapshot s
+            JOIN catalogue.release_external_reference r ON r.release_id=s.release_id AND r.game_id=s.game_id
+            WHERE s.game_id=:game AND r.provider=:provider
+              AND s.source_kind='external_provider' AND s.source_name=:provider AND s.source_entity_type='release_date'
+              AND NOT EXISTS (SELECT 1 FROM catalogue.release_external_reference other
+                  WHERE other.game_id=s.game_id AND other.release_id=s.release_id AND other.provider<>:provider)
+              AND r.provider_id NOT IN (:returned)
+            ORDER BY s.release_id LIMIT :limit FOR UPDATE OF s,r
+            """,
+                        Map.of(
+                                "game",
+                                w.gameId(),
+                                "provider",
+                                provider,
+                                "returned",
+                                w.returnedReleaseReferences().isEmpty()
+                                        ? List.of("")
+                                        : w.returnedReleaseReferences(),
+                                "limit",
+                                w.maxReleases() + 1),
+                        (rs, row) -> rs.getObject(1, UUID.class));
+        if (missing.size() > w.maxReleases()) {
+            throw new SynchronizationWriteException(
+                    SynchronizationWriteException.Reason.RELEASE_BOUND_EXCEEDED);
+        }
+        // Remove before upsert: replacement evidence may legitimately reuse an obsolete tuple.
+        // FK failures roll back this deletion and every create/update for this Game.
+        if (!missing.isEmpty()) {
+            var deletion = Map.of("ids", missing, "game", w.gameId(), "provider", provider);
+            jdbc.update(
+                    "DELETE FROM catalogue.release_snapshot WHERE game_id=:game AND release_id IN (:ids)",
+                    deletion);
+            jdbc.update(
+                    "DELETE FROM catalogue.release_external_reference WHERE game_id=:game AND provider=:provider AND release_id IN (:ids)",
+                    deletion);
+            jdbc.update(
+                    "DELETE FROM catalogue.game_release WHERE game_id=:game AND release_id IN (:ids)",
+                    deletion);
+        }
         int created = 0, updated = 0, unchanged = 0;
         for (ReleaseWrite value : w.releases()) {
             List<UUID> ids =
@@ -314,6 +378,26 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                 "game",
                                 w.gameId()));
             }
+            if (!creating
+                    && !Boolean.TRUE.equals(
+                            jdbc.queryForObject(
+                                    """
+                    SELECT s.source_kind='external_provider' AND s.source_name=:provider AND s.source_entity_type='release_date'
+                        AND NOT EXISTS (SELECT 1 FROM catalogue.release_external_reference other
+                            WHERE other.game_id=s.game_id AND other.release_id=s.release_id AND other.provider<>:provider)
+                    FROM catalogue.release_snapshot s WHERE s.release_id=:release AND s.game_id=:game FOR UPDATE
+                    """,
+                                    Map.of(
+                                            "provider",
+                                            provider,
+                                            "release",
+                                            releaseId,
+                                            "game",
+                                            w.gameId()),
+                                    Boolean.class))) {
+                unchanged++;
+                continue;
+            }
             UUID platformId = resolvePlatform(value.release().platform());
             UUID regionId = resolveRegion(value.release().region());
             int changed =
@@ -334,7 +418,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                 unchanged++;
             }
         }
-        boolean changed = gameChanges > 0 || created > 0 || updated > 0;
+        boolean changed = gameChanges > 0 || created > 0 || updated > 0 || !missing.isEmpty();
         if (changed) {
             jdbc.update(
                     """
@@ -352,8 +436,16 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                             "id",
                             publication));
         }
-        listingChanged.accept(w.gameId().toString());
-        return new WriteResult(w.creating(), !w.creating() && changed, created, updated, unchanged);
+        if (!dryRun) {
+            listingChanged.accept(w.gameId().toString());
+        }
+        return new WriteResult(
+                w.creating(),
+                !w.creating() && changed,
+                created,
+                updated,
+                unchanged,
+                missing.size());
     }
 
     /** Product-only sentinel for a release whose provider states no region; it has no reference. */
@@ -536,10 +628,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                         return Optional.empty();
                     }
                     if (rs.getString("report") != null) {
-                        return Optional.of(
-                                json.readValue(
-                                        rs.getString("report"),
-                                        CatalogueSynchronizationReport.class));
+                        return Optional.of(readReport(rs.getString("report")));
                     }
                     return Optional.of(
                             new CatalogueSynchronizationReport(
@@ -553,8 +642,19 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                             : SynchronizationOutcome.FAILED,
                                     rs.getString("outcome_code"),
                                     new CatalogueSynchronizationReport.Counters(
-                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)));
+                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)));
                 });
+    }
+
+    private CatalogueSynchronizationReport readReport(String stored) {
+        var tree = json.readTree(stored);
+        // Reports written before current-set reconciliation have no deletion counter.
+        // Default only that absent field; keep strict validation of all existing data.
+        if (tree.get("counters") instanceof tools.jackson.databind.node.ObjectNode counters
+                && !counters.has("deletedReleases")) {
+            counters.put("deletedReleases", 0L);
+        }
+        return json.treeToValue(tree, CatalogueSynchronizationReport.class);
     }
 
     private static MapSqlParameterSource withCover(
@@ -603,6 +703,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                         "releaseQuarter",
                         date instanceof ReleaseDate.Quarter quarter ? quarter.quarter() : null)
                 .addValue("releaseStatus", release.status().value())
+                .addValue("releaseStage", release.stage().value())
                 .addValue("sourceKind", release.sourceKind().value())
                 .addValue("sourceName", release.sourceName())
                 .addValue("sourceEntityType", release.sourceEntityType())

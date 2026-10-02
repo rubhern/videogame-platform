@@ -156,6 +156,7 @@ describe("public game details", () => {
       {
         ...original,
         releaseId: "pc-world",
+        stage: "unknown",
         platform: { platformId: "pc", name: "Windows PC" },
         region: { regionId: "worldwide", name: "Worldwide" },
         releaseDate: { precision: "quarter", value: "2027-Q2" },
@@ -165,6 +166,7 @@ describe("public game details", () => {
       {
         ...original,
         releaseId: "pc-europe",
+        stage: "unknown",
         platform: { platformId: "pc", name: "Windows PC" },
         releaseDate: { precision: "unknown", value: null },
         reviewStatus: "required",
@@ -194,24 +196,88 @@ describe("public game details", () => {
     ).not.toBeInTheDocument();
     expect(gameRequests()).toHaveLength(1);
   });
-  it("keeps multiple records for the selected tuple and tolerates obsolete context parameters", async () => {
+  it("shows stages on primary and additional dates with a keyboard-accessible disclosure", async () => {
+    const user = userEvent.setup();
     const game = gameDetailsFixture();
     const original = game.releases[0];
     if (!original) throw new Error("Fixture needs a release");
-    game.releases.push({
-      ...original,
-      releaseId: "second",
-      releaseDate: { precision: "year", value: "2027" },
-    });
+    original.stage = "full_release";
+    game.releases.push({ ...original, releaseId: "early-access", stage: "early_access",
+      releaseDate: { precision: "year", value: "2025" } });
+    serve(game);
+    renderApp(path);
+    await screen.findByRole("heading", { name: game.canonicalTitle });
+    expect(screen.getByText("Lanzamiento completo")).toBeVisible();
+    expect(screen.getByText("Acceso anticipado")).not.toBeVisible();
+    const summary = screen.getByText("Otras fechas registradas (1)").closest("summary");
+    if (!summary) throw new Error("Disclosure requires a summary");
+    summary.focus();
+    expect(summary).toHaveFocus();
+    // jsdom cannot toggle native details by keyboard; real keyboard behavior is checked in Playwright.
+    await user.click(summary);
+    expect(screen.getByText("Acceso anticipado")).toBeVisible();
+    expect(screen.getByText("2025")).toBeVisible();
+    expect(screen.getByRole("button", { name: "8" })).toBeEnabled();
+  });
+
+  it("presents the first record of the selected tuple and keeps the others behind a disclosure", async () => {
+    const user = userEvent.setup();
+    const game = gameDetailsFixture();
+    const original = game.releases[0];
+    if (!original) throw new Error("Fixture needs a release");
+    // The API lists the presented release of each platform and region first (#212).
+    game.releases.push(
+      {
+        ...original,
+        releaseId: "older-estimate",
+        stage: "unknown",
+        releaseDate: { precision: "year", value: "2027" },
+        status: "scheduled",
+      },
+      {
+        ...original,
+        releaseId: "pending-review",
+        stage: "unknown",
+        releaseDate: { precision: "day", value: "2025-11-20" },
+        reviewStatus: "required",
+      },
+    );
     serve(game);
     renderApp(path + "?platformId=obsolete&regionId=obsolete");
     await screen.findByRole("heading", { level: 1, name: game.canonicalTitle });
+    expect(screen.getByRole("radio", { name: "PlayStation 5" })).toBeChecked();
     const context = screen.getByRole("region", {
       name: "Contexto de lanzamiento",
     });
+    expect(within(context).getByRole("status")).toHaveTextContent(
+      "PlayStation 5 · Europa · 2 fechas adicionales",
+    );
     expect(within(context).getByText("27 de febrero de 2026")).toBeVisible();
+    // The other records are neither merged nor dropped: they wait, whole, in a closed disclosure
+    // whose summary already says one of them is pending review.
+    const more = within(context).getByText("Otras fechas registradas (2)");
+    expect(more.closest("summary")).toHaveTextContent(
+      "Información pendiente de revisión",
+    );
+    expect(within(context).getByText("2027")).not.toBeVisible();
+    await user.click(more);
     expect(within(context).getByText("2027")).toBeVisible();
-    expect(screen.getByRole("radio", { name: "PlayStation 5" })).toBeChecked();
+    expect(within(context).getByText("20 de noviembre de 2025")).toBeVisible();
+    expect(screen.getByRole("button", { name: "8" })).toBeEnabled();
+  });
+  it("announces a single record without a disclosure", async () => {
+    serve();
+    renderApp(path);
+    await screen.findByRole("heading", { level: 1, name: "Resident Evil Requiem" });
+    const context = screen.getByRole("region", {
+      name: "Contexto de lanzamiento",
+    });
+    expect(within(context).getByRole("status")).toHaveTextContent(
+      /^PlayStation 5 · Europa$/,
+    );
+    expect(
+      within(context).queryByText(/Otras fechas registradas/),
+    ).not.toBeInTheDocument();
   });
   it("renders no release context without inventing selectors or metadata", async () => {
     const game = gameDetailsFixture();

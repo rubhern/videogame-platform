@@ -22,6 +22,7 @@ const pragmata: ReleasePage["items"][number] = {
   releases: [
     {
       releaseId: "40000000-0000-4000-8000-000000000006",
+      stage: "unknown",
       gameId: "30000000-0000-4000-8000-000000000006",
       platform: { platformId: "windows-pc", name: "Windows PC" },
       region: { regionId: "worldwide", name: "Worldwide" },
@@ -74,6 +75,7 @@ function upcomingGame(id: number, title: string, releaseDate: ReleaseDate): Rele
       {
         ...release,
         releaseId: `40000000-0000-4000-8000-${String(id).padStart(12, "0")}`,
+        stage: "unknown",
         gameId,
         releaseDate,
         status: "scheduled",

@@ -37,7 +37,8 @@ class ReleaseReconciliationPolicyTest {
                 ReleaseStatus.ANNOUNCED,
                 verification == VerificationLevel.VERIFIED ? NOW : null,
                 verification,
-                ReviewStatus.NOT_REQUIRED);
+                ReviewStatus.NOT_REQUIRED,
+                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
     }
 
     private static Optional<PlannedRelease> plan(
@@ -48,11 +49,67 @@ class ReleaseReconciliationPolicyTest {
                         new ProviderPlatform(platformRef, "Platform " + platformRef, "platform"),
                         Optional.of(new ProviderRegion(REGION_REF, "worldwide")),
                         date,
-                        ProviderReleaseSignal.NONE),
+                        ProviderReleaseSignal.NONE,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN),
                 old,
                 NOW,
                 NOW,
                 "IGDB");
+    }
+
+    @Test
+    void enrichesAnUnknownStageWithoutRevokingAcceptedDateEvidenceAndPreservesKnownStageOnMiss() {
+        var old = previous(VerificationLevel.VERIFIED);
+        var provider =
+                new ProviderRelease(
+                        "10",
+                        new ProviderPlatform(PC_REF, "PC", "pc"),
+                        Optional.of(new ProviderRegion(REGION_REF, "worldwide")),
+                        DATE,
+                        ProviderReleaseSignal.NONE,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.FULL_RELEASE);
+        var enriched =
+                ReleaseReconciliationPolicy.reconcile(provider, old, NOW, NOW, "IGDB")
+                        .orElseThrow();
+        assertThat(enriched.stage())
+                .isEqualTo(com.videogameplatform.catalogue.domain.ReleaseStage.FULL_RELEASE);
+        assertThat(enriched.verificationLevel()).isEqualTo(VerificationLevel.VERIFIED);
+        assertThat(enriched.reviewStatus()).isEqualTo(old.reviewStatus());
+        var known =
+                new PublishedRelease(
+                        old.releaseId(),
+                        old.gameId(),
+                        PC_REF,
+                        REGION_REF,
+                        DATE,
+                        old.status(),
+                        old.lastVerifiedAt(),
+                        old.verificationLevel(),
+                        old.reviewStatus(),
+                        enriched.stage());
+        var absent =
+                new ProviderRelease(
+                        "10",
+                        provider.platform(),
+                        provider.region(),
+                        DATE,
+                        ProviderReleaseSignal.NONE,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
+        assertThat(
+                        ReleaseReconciliationPolicy.reconcile(absent, known, NOW, NOW, "IGDB")
+                                .orElseThrow()
+                                .stage())
+                .isEqualTo(enriched.stage());
+        var conflicting =
+                new ProviderRelease(
+                        "10",
+                        provider.platform(),
+                        provider.region(),
+                        DATE,
+                        ProviderReleaseSignal.NONE,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.BETA);
+        assertThat(ReleaseReconciliationPolicy.reconcile(conflicting, known, NOW, NOW, "IGDB"))
+                .isEmpty();
     }
 
     @Test
@@ -88,7 +145,8 @@ class ReleaseReconciliationPolicyTest {
                         ReleaseStatus.RELEASED,
                         old.lastVerifiedAt(),
                         verification,
-                        review);
+                        review,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
 
         var release = plan(PC_REF, DATE, legacy).orElseThrow();
 
@@ -112,7 +170,8 @@ class ReleaseReconciliationPolicyTest {
                         ReleaseStatus.RELEASED,
                         null,
                         VerificationLevel.PROVIDER_ONLY,
-                        ReviewStatus.NOT_REQUIRED);
+                        ReviewStatus.NOT_REQUIRED,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
         var release =
                 ReleaseReconciliationPolicy.reconcile(
                                 new ProviderRelease(
@@ -120,7 +179,9 @@ class ReleaseReconciliationPolicyTest {
                                         new ProviderPlatform(PC_REF, "PC", "pc"),
                                         Optional.of(new ProviderRegion(REGION_REF, "worldwide")),
                                         DATE,
-                                        signal),
+                                        signal,
+                                        com.videogameplatform.catalogue.domain.ReleaseStage
+                                                .UNKNOWN),
                                 old,
                                 NOW,
                                 NOW,
@@ -144,7 +205,8 @@ class ReleaseReconciliationPolicyTest {
                         ReleaseStatus.RELEASED,
                         NOW,
                         VerificationLevel.VERIFIED,
-                        ReviewStatus.NOT_REQUIRED);
+                        ReviewStatus.NOT_REQUIRED,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
 
         assertThat(plan(PC_REF, unknown, old)).isEmpty();
     }
@@ -160,7 +222,8 @@ class ReleaseReconciliationPolicyTest {
                                 new ProviderPlatform(PC_REF, "PC (renamed)", "pc-renamed"),
                                 Optional.of(new ProviderRegion(REGION_REF, "Worldwide (renamed)")),
                                 DATE,
-                                ProviderReleaseSignal.NONE),
+                                ProviderReleaseSignal.NONE,
+                                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN),
                         previous(VerificationLevel.VERIFIED),
                         NOW,
                         NOW,

@@ -15,7 +15,8 @@ export interface paths {
          * Browse recent or upcoming releases grouped by game
          * @description Reads a bounded page of games from the last valid local catalogue publication. Each
          *     game appears once with only the releases that match the requested view and active
-         *     filters; `page.totalItems` counts games, not releases. Platform and region filters are
+         *     filters, presenting at most one of them per platform (see `ReleaseItem`);
+         *     `page.totalItems` counts games, not releases. Platform and region filters are
          *     multi-select: values within one dimension combine with OR and the two dimensions combine
          *     with AND. `availableFilters` is contextual and faceted: platform options reflect the
          *     current view/window and the active region selection (never restricted by the active
@@ -27,8 +28,8 @@ export interface paths {
          *     and unknown (TBA) precision; the precision choice composes with the window and both filter
          *     dimensions, and the facets reflect it. Empty, stale, review-required, imprecise-date, TBA,
          *     and fallback-cover results are valid states. PostgreSQL groups by game, applies filters,
-         *     distinct facet discovery, total ordering, count, limit, and offset before any release page
-         *     reaches the application.
+         *     distinct facet discovery, presented-release selection, total ordering, count, limit, and
+         *     offset before any release page reaches the application.
          */
         get: operations["listReleases"];
         put?: never;
@@ -247,6 +248,19 @@ export interface components {
         };
         /** @description Closed date/precision union; missing precision is never invented. */
         ReleaseDate: components["schemas"]["DayReleaseDate"] | components["schemas"]["MonthReleaseDate"] | components["schemas"]["QuarterReleaseDate"] | components["schemas"]["YearReleaseDate"] | components["schemas"]["UnknownReleaseDate"];
+        /**
+         * @description Product-owned release stage, independent of lifecycle status, game category and
+         *     editions. Absent or unsupported source evidence is unknown; dates never imply a
+         *     stage. Full release is preferred within the active platform/region/view context,
+         *     after rejecting negative lifecycle candidates. Other stages share the existing
+         *     evidence ordering. Stage does not change rating eligibility.
+         * @enum {string}
+         */
+        ReleaseStage: "full_release" | "early_access" | "advance_access" | "beta" | "alpha" | "unknown";
+        /**
+         * @description Shared full release evidence for discovery and game details. Stage naturally appears
+         *     in both consumers; compact search release summaries do not expose full evidence.
+         */
         Release: {
             releaseId: components["schemas"]["ReleaseId"];
             gameId: components["schemas"]["GameId"];
@@ -255,6 +269,7 @@ export interface components {
             releaseDate: components["schemas"]["ReleaseDate"];
             /** @enum {string} */
             status: "announced" | "scheduled" | "released" | "delayed" | "cancelled" | "unknown";
+            stage: components["schemas"]["ReleaseStage"];
             provenance: components["schemas"]["Provenance"];
             /** Format: date-time */
             providerUpdatedAt?: string;
@@ -344,10 +359,18 @@ export interface components {
             releaseSummary: components["schemas"]["CompactReleaseSummary"];
         };
         /**
-         * @description One game and only the releases of that game that match the requested view and
-         *     active filters. Each release is preserved independently, so differing
-         *     platforms, regions, dates, and date precision stay visible. Releases are ordered
-         *     by the UC-001 release ordering, and the first release drives the game's position.
+         * @description One game and its presented releases: among the releases of that game that match the
+         *     requested view and active filters, at most one per platform. When several matching
+         *     releases share a platform, the presentation precedence chooses one: a release that is
+         *     neither cancelled nor delayed, then a Full Release, then one not pending review, then verified evidence,
+         *     then the most precise date, then Worldwide before a specific region before an
+         *     unconfirmed region, then the view's own date order (latest first for recent, soonest
+         *     first for upcoming), and finally a stable region order and `releaseId`. The other
+         *     matching releases of that platform are neither merged nor deleted: they stay stored and
+         *     listed in the game details, and a region filter presents that region's own release.
+         *     Presented releases keep their own platform, region, date, and date precision. Releases
+         *     are ordered by the UC-001 release ordering, and the first release drives the game's
+         *     position.
          */
         ReleaseItem: {
             gameId: components["schemas"]["GameId"];
@@ -428,6 +451,17 @@ export interface components {
             aliases: string[];
             summary: components["schemas"]["GameSummaryText"];
             primaryCover: components["schemas"]["Cover"];
+            /**
+             * @description The game's complete stored release set: no release is merged, rewritten, or omitted,
+             *     and rating eligibility evaluates all of them. Releases are listed platform by
+             *     platform, ordering platforms by their earliest known release date (platforms with
+             *     only unknown dates last), then by name and identifier. Within a platform they follow
+             *     the `ReleaseItem` presentation precedence with the earliest date first as its date
+             *     order, so the first release of a platform is presented for that platform and the
+             *     first release of each platform and region is presented for that combination. Any
+             *     later release of the same platform and region is an additional record kept as
+             *     evidence.
+             */
             releases: components["schemas"]["Release"][];
             ratingEligibility: components["schemas"]["RatingEligibility"];
             ratingStatistics: components["schemas"]["RatingStatistics"];

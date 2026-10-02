@@ -32,14 +32,44 @@
               "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
               "const game = pm.response.json();",
               "pm.test(\"Coherent public context\", () => { pm.expect(game).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"aliases\", \"summary\", \"primaryCover\", \"releases\", \"ratingEligibility\", \"ratingStatistics\"); pm.expect(game).not.to.have.property(\"personalRating\"); });",
-              "pm.test(\"Complete release evidence\", () => game.releases.forEach(r => pm.expect(r).to.include.all.keys(\"releaseId\", \"gameId\", \"platform\", \"region\", \"releaseDate\", \"status\", \"provenance\", \"lastSyncedAt\", \"verificationLevel\", \"reviewStatus\", \"freshnessStatus\")));",
+              "pm.test(\"Complete release evidence\", () => game.releases.forEach(r => pm.expect(r).to.include.all.keys(\"releaseId\", \"gameId\", \"platform\", \"region\", \"releaseDate\", \"status\", \"stage\", \"provenance\", \"lastSyncedAt\", \"verificationLevel\", \"reviewStatus\", \"freshnessStatus\")));",
               "pm.test(\"Empty aggregate is not unavailable or a numeric mean\", () => { pm.expect(game.ratingStatistics.status).to.eql(\"available\"); pm.expect(game.ratingStatistics.count).to.eql(0); pm.expect(game.ratingStatistics.mean).to.eql(null); pm.expect(Object.keys(game.ratingStatistics.distribution)).to.have.lengthOf(10); Object.values(game.ratingStatistics.distribution).forEach(n => pm.expect(n).to.eql(0)); });",
               "pm.test(\"Application-derived date and public headers\", () => { pm.expect(game.ratingEligibility.evaluatedOn).to.match(/^\\d{4}-\\d{2}-\\d{2}$/); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"public, max-age=0, must-revalidate\"); pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).not.to.be.empty; });",
-              "pm.collectionVariables.set(\"gameEtag\", pm.response.headers.get(\"ETag\"));"
+              "pm.collectionVariables.set(\"gameEtag\", pm.response.headers.get(\"ETag\"));",
+              "pm.test(\"Product release stages\", () => { const body = pm.response.json(); const releases = body.releases || (body.items || []).flatMap(item => item.releases || []); releases.forEach(r => pm.expect([\"full_release\", \"early_access\", \"advance_access\", \"beta\", \"alpha\", \"unknown\"]).to.include(r.stage)); });"
             ]
           }
         }
       ]
+    },
+    {
+      "name": "Several records for one platform in presentation order",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/games/30000000-0000-4000-8000-000000000009"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const releases = pm.response.json().releases;",
+              "pm.test(\"Every stored record is returned unmerged\", () => { pm.expect(releases).to.have.lengthOf(2); pm.expect(new Set(releases.map(r => r.region.regionId)).size).to.eql(2); });",
+              "pm.test(\"Releases are listed platform by platform\", () => { const platforms = releases.map(r => r.platform.platformId); platforms.forEach((platform, index) => { if (index > 0 && platform !== platforms[index - 1]) pm.expect(platforms.slice(index)).not.to.include(platforms[index - 1]); }); });",
+              "pm.test(\"The presented record leads its platform\", () => pm.expect(releases[0].region.name).to.eql(\"Europe\"));"
+            ]
+          }
+        }
+      ],
+      "description": "Metroid Prime 4 has two same-day Nintendo Switch 2 records in Europe and Japan. Both are returned; each platform's records are contiguous and its presented record comes first, here Europe by the stable region order."
     },
     {
       "name": "Conditional public game",

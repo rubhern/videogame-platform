@@ -26,5 +26,6 @@ public record CatalogueSynchronizationReport(
             long failedGames,
             long providerRequests,
             long providerRetries,
-            long providerLatencyMillis) {}
+            long providerLatencyMillis,
+            long deletedReleases) {}
 }

@@ -126,6 +126,7 @@ test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
           {
             ...pragmataRelease,
             releaseId: `40000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+            stage: "unknown",
           },
         ],
       })),

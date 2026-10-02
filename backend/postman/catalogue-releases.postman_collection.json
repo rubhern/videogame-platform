@@ -51,7 +51,15 @@
               "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
               "});",
               "",
-              "pm.collectionVariables.set(\"releaseEtag\", pm.response.headers.get(\"ETag\"));"
+              "pm.test(\"Each game presents at most one release per platform\", function () {",
+              "    pm.response.json().items.forEach(function (item) {",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
+              "    });",
+              "});",
+              "",
+              "pm.collectionVariables.set(\"releaseEtag\", pm.response.headers.get(\"ETag\"));",
+              "pm.test(\"Product release stages\", () => { const body = pm.response.json(); const releases = body.releases || (body.items || []).flatMap(item => item.releases || []); releases.forEach(r => pm.expect([\"full_release\", \"early_access\", \"advance_access\", \"beta\", \"alpha\", \"unknown\"]).to.include(r.stage)); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -323,6 +331,13 @@
               "    if (firstApproximate >= 0) {",
               "        pm.expect(firstGamePrecisions.slice(firstApproximate)).to.not.include(\"day\");",
               "    }",
+              "});",
+              "",
+              "pm.test(\"Each game presents at most one release per platform\", function () {",
+              "    pm.response.json().items.forEach(function (item) {",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
+              "    });",
               "});"
             ],
             "type": "text/javascript",

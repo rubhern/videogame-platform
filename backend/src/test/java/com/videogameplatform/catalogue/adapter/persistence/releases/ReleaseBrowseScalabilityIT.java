@@ -2,6 +2,7 @@ package com.videogameplatform.catalogue.adapter.persistence.releases;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
@@ -77,6 +78,8 @@ class ReleaseBrowseScalabilityIT {
         assertThat(result.totalItems()).isEqualTo(expectedMatches);
         assertThat(expectedMatches).isBetween(1L, rows - 1L);
         assertThat(result.items()).hasSize(20);
+        // Every generated release shares one platform, so each game presents exactly one.
+        assertThat(result.items()).allSatisfy(item -> assertThat(item.releases()).hasSize(1));
         assertUsesIndex(countPlan, "ix_release_browse_period");
         assertUsesIndex(pagePlan, "ix_release_browse_period");
         assertDoesNotSequentiallyScan(pagePlan, "release_snapshot", "game_snapshot");
@@ -90,6 +93,7 @@ class ReleaseBrowseScalabilityIT {
         recordPlan(rows, "upcoming-approximate-page", upcomingPagePlan);
 
         assertThat(upcoming.items()).hasSize(20);
+        assertThat(upcoming.items()).allSatisfy(item -> assertThat(item.releases()).hasSize(1));
         assertThat(upcoming.totalItems()).isEqualTo(expectedUpcomingMatches);
         assertUsesIndex(upcomingCountPlan, "ix_release_browse_period");
         assertUsesIndex(upcomingCountPlan, "ix_release_browse_unknown");
@@ -192,6 +196,16 @@ class ReleaseBrowseScalabilityIT {
         jdbc.update(
                 "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_year, release_month, release_quarter, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) SELECT ?::uuid, md5('release-' || n)::uuid, md5('game-' || n)::uuid, '91000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000001', CASE WHEN n % 100 = 1 THEN 'unknown' WHEN n % 100 BETWEEN 2 AND 6 THEN 'year' WHEN n % 100 BETWEEN 7 AND 11 THEN 'quarter' WHEN n % 100 BETWEEN 12 AND 21 THEN 'month' ELSE 'day' END, CASE WHEN n % 100 = 0 OR n % 100 >= 22 THEN DATE '2010-01-01' + (n % 7305) END, CASE WHEN n % 100 BETWEEN 2 AND 21 THEN 2010 + ((n / 100) % 20) END, CASE WHEN n % 100 BETWEEN 12 AND 21 THEN 1 + ((n / 2000) % 12) END, CASE WHEN n % 100 BETWEEN 7 AND 11 THEN 1 + ((n / 2000) % 4) END, CASE WHEN n % 2 = 0 THEN 'released' ELSE 'announced' END, 'product_curated', 'scale fixture', 'release', now(), 'verified', 'not_required' FROM generate_series(1, ?) n",
                 PUBLICATION_ID, rows);
+        // Every tenth game also has a second release on the same platform in another region, three
+        // days after its first, so presented-release selection discards real rows at scale.
+        jdbc.update(
+                "INSERT INTO catalogue.region (region_id, code, display_name) VALUES ('92000000-0000-4000-8000-000000000002', 'scale-region-two', 'Scale Region Two')");
+        jdbc.update(
+                "INSERT INTO catalogue.game_release (release_id, game_id, created_at) SELECT md5('extra-release-' || n)::uuid, md5('game-' || n)::uuid, now() FROM generate_series(10, ?, 10) n",
+                rows);
+        jdbc.update(
+                "INSERT INTO catalogue.release_snapshot (publication_id, release_id, game_id, platform_id, region_id, date_precision, exact_date, release_status, source_kind, source_name, source_entity_type, last_synchronized_at, verification_level, review_status) SELECT ?::uuid, md5('extra-release-' || n)::uuid, md5('game-' || n)::uuid, '91000000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000002', 'day', DATE '2010-01-01' + (n % 7305) + 3, 'announced', 'product_curated', 'scale fixture', 'release', now(), 'verified', 'not_required' FROM generate_series(10, ?, 10) n",
+                PUBLICATION_ID, rows);
         jdbc.execute("ANALYZE catalogue.game_snapshot");
         jdbc.execute("ANALYZE catalogue.release_snapshot");
     }
@@ -263,6 +277,8 @@ class ReleaseBrowseScalabilityIT {
     }
 
     // Count and paging are over games, mirroring the grouped adapter query.
+    private static final String RECENT_DATE_ORDER = "period_end DESC NULLS LAST";
+    private static final String UPCOMING_DATE_ORDER = "period_start ASC NULLS LAST";
     private static final String RECENT_RELEASE_ORDER = "period_end DESC NULLS LAST, release_id";
     private static final String RECENT_GAME_ORDER =
             "period_end DESC NULLS LAST, lower(canonical_title), game_id";
@@ -285,6 +301,7 @@ class ReleaseBrowseScalabilityIT {
     private static String pageSql() {
         return groupedPageSql(
                 "rs.publication_id = '" + PUBLICATION_ID + "'::uuid AND " + recentPredicate(),
+                RECENT_DATE_ORDER,
                 RECENT_RELEASE_ORDER,
                 RECENT_GAME_ORDER);
     }
@@ -297,16 +314,25 @@ class ReleaseBrowseScalabilityIT {
     private static String upcomingPageSql() {
         return groupedPageSql(
                 upcomingWhere().replaceFirst("^ WHERE ", ""),
+                UPCOMING_DATE_ORDER,
                 UPCOMING_RELEASE_ORDER,
                 UPCOMING_GAME_ORDER);
     }
 
-    private static String groupedPageSql(String where, String releaseOrder, String gameOrder) {
+    // Mirrors the adapter: the presented release of each game and platform, under the shared
+    // presentation precedence ending in the view's date order, positions and fills the page.
+    private static String groupedPageSql(
+            String where, String dateOrder, String releaseOrder, String gameOrder) {
         return "WITH filtered_release AS MATERIALIZED ("
                 + "SELECT * FROM catalogue.release_snapshot rs WHERE "
                 + where
+                + "), presented_release AS MATERIALIZED (SELECT DISTINCT ON (fr.game_id,"
+                + " fr.platform_id) fr.* FROM filtered_release fr JOIN catalogue.region"
+                + " release_region ON release_region.region_id = fr.region_id ORDER BY fr.game_id,"
+                + " fr.platform_id, "
+                + ReleasePresentationOrder.of("fr", "release_region", prefix("fr", dateOrder))
                 + "), game_top AS (SELECT DISTINCT ON (fr.game_id) fr.game_id, fr.period_end,"
-                + " fr.period_start, fr.date_precision, gs.canonical_title FROM filtered_release fr"
+                + " fr.period_start, fr.date_precision, gs.canonical_title FROM presented_release fr"
                 + " JOIN LATERAL (SELECT snapshot.canonical_title FROM catalogue.game_snapshot snapshot"
                 + " WHERE snapshot.publication_id = fr.publication_id AND snapshot.game_id = fr.game_id"
                 + " LIMIT 1) gs ON true ORDER BY fr.game_id, "
@@ -316,7 +342,7 @@ class ReleaseBrowseScalabilityIT {
                 + " LIMIT 20 OFFSET 0)"
                 + " SELECT gp.game_id, rel.release_id FROM game_page gp JOIN LATERAL ("
                 + "SELECT fr.release_id, fr.period_end, fr.period_start, fr.date_precision"
-                + " FROM filtered_release fr WHERE fr.game_id = gp.game_id ORDER BY "
+                + " FROM presented_release fr WHERE fr.game_id = gp.game_id ORDER BY "
                 + prefix("fr", releaseOrder)
                 + " LIMIT 25) rel ON true"
                 + " ORDER BY "
@@ -340,6 +366,7 @@ class ReleaseBrowseScalabilityIT {
     private static String exactUpcomingPageSql() {
         return groupedPageSql(
                 exactUpcomingWhere().replaceFirst("^ WHERE ", ""),
+                UPCOMING_DATE_ORDER,
                 UPCOMING_RELEASE_ORDER,
                 UPCOMING_GAME_ORDER);
     }

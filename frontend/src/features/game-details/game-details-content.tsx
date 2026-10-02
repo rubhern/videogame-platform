@@ -15,6 +15,15 @@ import { SelectIcon } from "../../shared/ui/select-icon";
 import { GameRatingPanel } from "../ratings/game-rating-panel";
 import type { GameDetails } from "./game-details-api";
 
+const releaseStages: Record<GameDetails["releases"][number]["stage"], string> = {
+  full_release: "Lanzamiento completo",
+  early_access: "Acceso anticipado",
+  advance_access: "Acceso previo",
+  beta: "Beta",
+  alpha: "Alfa",
+  unknown: "Tipo no especificado",
+};
+
 const releaseStatuses: Record<
   GameDetails["releases"][number]["status"],
   string
@@ -63,6 +72,7 @@ function Evidence({ release }: { release: GameDetails["releases"][number] }) {
         <dt>Lanzamiento</dt>
         <dd className="game-release-date">
           {formatReleaseDate(release.releaseDate)}
+          <span className="game-release-stage">{releaseStages[release.stage]}</span>
         </dd>
       </div>
       <div className="game-release-lead">
@@ -162,9 +172,19 @@ function releaseCover(event: PointerEvent<HTMLDivElement>) {
   }
 }
 
+function contextAnnouncement(platform: string, region: string, additional: number) {
+  const records =
+    additional === 0
+      ? ""
+      : ` · ${additional} ${additional === 1 ? "fecha adicional" : "fechas adicionales"}`;
+  return `${platform} · ${region}${records}`;
+}
+
 export function GameDetailsContent({ game }: { game: GameDetails }) {
   const [search, setSearch] = useSearchParams();
   // The API supplies one complete, bounded game. Selection changes only its visible context.
+  // Releases arrive platform by platform with each platform's and each platform-and-region's
+  // presented release first, so first appearance already selects the default region and record.
   const platforms = [
     ...new Map(
       game.releases.map((r) => [r.platform.platformId, r.platform]),
@@ -183,7 +203,8 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
   ];
   const region =
     regions.find((r) => r.regionId === search.get("regionId")) ?? regions[0];
-  const releases = platformReleases.filter(
+  // Later records of the same platform and region stay available, unmerged, behind a disclosure.
+  const [presented, ...additional] = platformReleases.filter(
     (r) => r.region.regionId === region?.regionId,
   );
   const statistics = game.ratingStatistics;
@@ -309,7 +330,11 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
             </h2>
             <p className="game-context-announcement" role="status">
               {platform && region
-                ? `${platform.name} · ${regionLabel(region.name)} · ${releases.length} ${releases.length === 1 ? "lanzamiento" : "lanzamientos"}`
+                ? contextAnnouncement(
+                    platform.name,
+                    regionLabel(region.name),
+                    additional.length,
+                  )
                 : "No hay lanzamientos comerciales registrados."}
             </p>
           </div>
@@ -364,14 +389,34 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
               </fieldset>
             </div>
           ) : null}
-          <div className="game-release-records">
-            {releases.map((release, index) => (
-              <div key={release.releaseId} className="game-release-record">
-                {releases.length > 1 ? <h3>Registro {index + 1}</h3> : null}
-                <Evidence release={release} />
+          {presented ? (
+            <div className="game-release-records">
+              <div className="game-release-record">
+                <Evidence release={presented} />
               </div>
-            ))}
-          </div>
+            </div>
+          ) : null}
+          {additional.length > 0 ? (
+            <details className="game-release-more">
+              <summary>
+                <span className="game-release-more-label">
+                  Otras fechas registradas ({additional.length})
+                </span>
+                {additional.some((r) => r.reviewStatus === "required") ? (
+                  <span className="badge badge-warning">
+                    Información pendiente de revisión
+                  </span>
+                ) : null}
+              </summary>
+              <div className="game-release-records">
+                {additional.map((release) => (
+                  <div key={release.releaseId} className="game-release-record">
+                    <Evidence release={release} />
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </section>
         <section
           aria-labelledby="summary-title"

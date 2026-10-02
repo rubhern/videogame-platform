@@ -2,6 +2,7 @@ package com.videogameplatform.catalogue.application.releases;
 
 import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
+import com.videogameplatform.catalogue.application.CatalogueReleaseStage;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import java.time.Instant;
@@ -53,7 +54,8 @@ public record BrowseReleasesResult(
             Instant lastVerifiedAt,
             Verification verificationLevel,
             Review reviewStatus,
-            CatalogueFreshness freshnessStatus) {}
+            CatalogueFreshness freshnessStatus,
+            CatalogueReleaseStage stage) {}
 
     public record Provenance(Source sourceKind, String sourceName, String sourceEntityType) {}
 

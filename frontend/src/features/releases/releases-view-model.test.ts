@@ -21,6 +21,7 @@ function release(
 ): components["schemas"]["Release"] {
   return {
     releaseId: "40000000-0000-4000-8000-000000000006",
+    stage: "unknown",
     gameId: "30000000-0000-4000-8000-000000000006",
     platform: { platformId: "playstation-5", name: "PlayStation 5" },
     region: { regionId: "worldwide", name: "Worldwide" },
@@ -99,6 +100,7 @@ describe("release group projection", () => {
         release({ releaseId: "r-xbox", platform: { platformId: "xbox-series", name: "Xbox Series X|S" } }),
         release({
           releaseId: "r-switch",
+          stage: "unknown",
           platform: { platformId: "nintendo-switch-2", name: "Nintendo Switch 2" },
           region: { regionId: "europe", name: "Europe" },
           releaseDate: { precision: "quarter", value: "2026-Q4" },
@@ -129,11 +131,13 @@ describe("release group projection", () => {
         release({ releaseId: "r-ps5" }),
         release({
           releaseId: "r-eu",
+          stage: "unknown",
           region: { regionId: "europe", name: "Europe" },
           releaseDate: { precision: "quarter", value: "2026-Q4" },
         }),
         release({
           releaseId: "r-jp",
+          stage: "unknown",
           region: { regionId: "japan", name: "Japan" },
           releaseDate: { precision: "year", value: "2027" },
         }),
@@ -156,6 +160,7 @@ const upcomingPage = page(
   [
     release({
       releaseId: "40000000-0000-4000-8000-000000000008",
+      stage: "unknown",
       gameId: "30000000-0000-4000-8000-000000000008",
       platform: { platformId: "windows-pc", name: "Windows PC" },
       region: { regionId: "unknown", name: "Unknown" },
@@ -182,6 +187,7 @@ const upcomingPage = page(
         releases: [
           release({
             releaseId: "40000000-0000-4000-8000-000000000008",
+            stage: "unknown",
             gameId: "30000000-0000-4000-8000-000000000008",
             platform: { platformId: "windows-pc", name: "Windows PC" },
             region: { regionId: "unknown", name: "Unknown" },

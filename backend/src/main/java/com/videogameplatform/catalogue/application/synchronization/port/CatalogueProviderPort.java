@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.application.synchronization.port;
 
 import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -80,7 +81,8 @@ public interface CatalogueProviderPort {
             ProviderPlatform platform,
             Optional<ProviderRegion> region,
             ReleaseDate date,
-            ProviderReleaseSignal signal) {
+            ProviderReleaseSignal signal,
+            ReleaseStage stage) {
         public ProviderRelease {
             if (providerId == null || providerId.isBlank()) {
                 throw new IllegalArgumentException("A release requires an external identity");
@@ -89,6 +91,7 @@ public interface CatalogueProviderPort {
                 throw new IllegalArgumentException("A release requires a platform reference");
             }
             region = java.util.Objects.requireNonNull(region, "region");
+            stage = java.util.Objects.requireNonNull(stage, "stage");
         }
     }
 

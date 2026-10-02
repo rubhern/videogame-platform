@@ -59,14 +59,14 @@ final class CatalogueSynchronizationSql {
                 date_precision, exact_date, release_year, release_month, release_quarter,
                 release_status, source_kind, source_name, source_entity_type,
                 provider_updated_at, last_synchronized_at, last_verified_at,
-                verification_level, review_status)
+                verification_level, review_status, release_stage)
             VALUES (
                 CAST(:publicationId AS uuid), CAST(:releaseId AS uuid), CAST(:gameId AS uuid),
                 CAST(:platformId AS uuid), CAST(:regionId AS uuid),
                 :datePrecision, :exactDate, :releaseYear, :releaseMonth, :releaseQuarter,
                 :releaseStatus, :sourceKind, :sourceName, :sourceEntityType,
                 :providerUpdatedAt, :lastSynchronizedAt, :lastVerifiedAt,
-                :verificationLevel, :reviewStatus)
+                :verificationLevel, :reviewStatus, :releaseStage)
             ON CONFLICT (publication_id, release_id) DO UPDATE SET
                 platform_id = EXCLUDED.platform_id, region_id = EXCLUDED.region_id,
                 date_precision = EXCLUDED.date_precision, exact_date = EXCLUDED.exact_date,
@@ -75,7 +75,8 @@ final class CatalogueSynchronizationSql {
                 provider_updated_at = EXCLUDED.provider_updated_at,
                 last_synchronized_at = EXCLUDED.last_synchronized_at,
                 last_verified_at = EXCLUDED.last_verified_at,
-                verification_level = EXCLUDED.verification_level, review_status = EXCLUDED.review_status
+                verification_level = EXCLUDED.verification_level, review_status = EXCLUDED.review_status,
+                release_stage = CASE WHEN EXCLUDED.release_stage = 'unknown' THEN release_snapshot.release_stage ELSE EXCLUDED.release_stage END
             WHERE (release_snapshot.platform_id, release_snapshot.region_id,
                 release_snapshot.date_precision, release_snapshot.exact_date,
                 release_snapshot.release_year, release_snapshot.release_month,
@@ -87,5 +88,6 @@ final class CatalogueSynchronizationSql {
                 EXCLUDED.release_year, EXCLUDED.release_month,
                 EXCLUDED.release_quarter, EXCLUDED.release_status,
                 EXCLUDED.verification_level, EXCLUDED.review_status, EXCLUDED.last_verified_at)
+                OR (EXCLUDED.release_stage <> 'unknown' AND release_snapshot.release_stage <> EXCLUDED.release_stage)
             """;
 }

@@ -136,7 +136,7 @@ class CatalogueSynchronizationServiceTest {
                                         Reason.PERSISTENCE_CONSTRAINT_VIOLATION,
                                         new IllegalStateException("duplicate key private"));
                             }
-                            return new WriteResult(true, false, 0, 0, 0);
+                            return new WriteResult(true, false, 0, 0, 0, 0);
                         });
 
         var report = service.synchronize(REQUEST);

@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.adapter.persistence.releases;
 
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
+import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase.View;
@@ -22,9 +23,12 @@ import org.springframework.transaction.support.TransactionOperations;
 public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
 
     // Grouping happens in PostgreSQL before pagination: filtered_release holds the releases that
-    // match the view and active filters, count and page operate over distinct games, and the
+    // match the view and active filters, presented_release keeps the one presented release of each
+    // game and platform among them, count and page operate over distinct games, and the presented
     // releases of a paged game are re-joined and bounded so request memory stays
     // O(pageSize x releaseGroupLimit). Java never fetches releases and groups them afterwards.
+    // Every game with a filtered release keeps at least one presented release, so the count over
+    // filtered releases is also the count of presented games.
     private static final String COUNT_SELECT =
             "SELECT count(DISTINCT rs.game_id) FROM catalogue.release_snapshot rs";
     private static final String FILTERED_RELEASE_PREFIX =
@@ -310,29 +314,32 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
         return builder.build(criteria.view());
     }
 
-    // A game's precise date, exact day first through TBA (unknown) last, drives the upcoming order.
-    private static String precisionRank(String alias) {
-        return "CASE "
-                + alias
-                + ".date_precision WHEN 'day' THEN 1 WHEN 'month' THEN 2"
-                + " WHEN 'quarter' THEN 3 WHEN 'year' THEN 4 ELSE 5 END";
+    /** The view's own date order: latest effective date first for recent, soonest for upcoming. */
+    private static String dateOrder(View view, String alias) {
+        return switch (view) {
+            case RECENT -> alias + ".period_end DESC NULLS LAST";
+            case UPCOMING -> alias + ".period_start ASC NULLS LAST";
+        };
     }
 
-    /** Ordering of the releases inside one game; ends in the unique release id. */
+    /**
+     * Ordering of the releases inside one game; ends in the unique release id. A precise date,
+     * exact day first through TBA (unknown) last, leads the upcoming order.
+     */
     private static String releaseOrder(View view, String alias) {
         return switch (view) {
-            case RECENT -> alias + ".period_end DESC NULLS LAST, " + alias + ".release_id";
+            case RECENT -> dateOrder(view, alias) + ", " + alias + ".release_id";
             case UPCOMING ->
-                    precisionRank(alias)
+                    ReleasePresentationOrder.precisionRank(alias)
                             + ", "
-                            + alias
-                            + ".period_start ASC NULLS LAST, "
+                            + dateOrder(view, alias)
+                            + ", "
                             + alias
                             + ".release_id";
         };
     }
 
-    /** Ordering of the games by their first relevant release; ends in the unique game id. */
+    /** Ordering of the games by their first presented release; ends in the unique game id. */
     private static String gameOrder(View view, String alias) {
         return switch (view) {
             case RECENT ->
@@ -343,7 +350,7 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                             + alias
                             + ".game_id";
             case UPCOMING ->
-                    precisionRank(alias)
+                    ReleasePresentationOrder.precisionRank(alias)
                             + ", "
                             + alias
                             + ".period_start ASC NULLS LAST, lower("
@@ -354,16 +361,27 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
         };
     }
 
+    // The presented release of a game and platform is the first of its filtered releases under the
+    // shared presentation precedence, which ends in the view's own date order. Only presented
+    // releases position, group and fill the page; the others stay stored and in game details.
     private static String pageSql(View view, String where) {
         return FILTERED_RELEASE_PREFIX
                 + where
                 + "),\n"
+                + "presented_release AS MATERIALIZED (\n"
+                + "    SELECT DISTINCT ON (fr.game_id, fr.platform_id) fr.*\n"
+                + "    FROM filtered_release fr\n"
+                + "    JOIN catalogue.region release_region"
+                + " ON release_region.region_id = fr.region_id\n"
+                + "    ORDER BY fr.game_id, fr.platform_id, "
+                + ReleasePresentationOrder.of("fr", "release_region", dateOrder(view, "fr"))
+                + "\n),\n"
                 + "game_top AS (\n"
                 + "    SELECT DISTINCT ON (fr.game_id)\n"
                 + "        fr.game_id, fr.period_end, fr.period_start, fr.date_precision,\n"
                 + "        gs.slug, gs.canonical_title, gs.cover_reference, gs.cover_source,\n"
                 + "        gs.cover_usage_mode, gs.cover_alternative_text, gs.cover_source_url\n"
-                + "    FROM filtered_release fr\n"
+                + "    FROM presented_release fr\n"
                 + GAME_SNAPSHOT_LATERAL
                 + "    ORDER BY fr.game_id, "
                 + releaseOrder(view, "fr")
@@ -382,7 +400,7 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 + "       rel.platform_id::text AS platform_id, rel.platform_name AS platform_name,\n"
                 + "       rel.region_id::text AS region_id, rel.region_name AS region_name,\n"
                 + "       rel.date_precision, rel.exact_date, rel.release_year, rel.release_month,\n"
-                + "       rel.release_quarter, rel.release_status, rel.source_kind, rel.source_name,\n"
+                + "       rel.release_quarter, rel.release_stage, rel.release_status, rel.source_kind, rel.source_name,\n"
                 + "       rel.source_entity_type, rel.provider_updated_at, rel.last_synchronized_at,\n"
                 + "       rel.last_verified_at, rel.verification_level, rel.review_status\n"
                 + "FROM game_page gp\n"
@@ -390,11 +408,11 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 + "    SELECT fr.release_id, fr.platform_id, fr.region_id,\n"
                 + "           p.display_name AS platform_name, r.display_name AS region_name,\n"
                 + "           fr.date_precision, fr.exact_date, fr.release_year, fr.release_month,\n"
-                + "           fr.release_quarter, fr.release_status, fr.source_kind, fr.source_name,\n"
+                + "           fr.release_quarter, fr.release_stage, fr.release_status, fr.source_kind, fr.source_name,\n"
                 + "           fr.source_entity_type, fr.provider_updated_at, fr.last_synchronized_at,\n"
                 + "           fr.last_verified_at, fr.verification_level, fr.review_status,\n"
                 + "           fr.period_end, fr.period_start\n"
-                + "    FROM filtered_release fr\n"
+                + "    FROM presented_release fr\n"
                 + "    JOIN catalogue.platform p ON p.platform_id = fr.platform_id\n"
                 + "    JOIN catalogue.region r ON r.region_id = fr.region_id\n"
                 + "    WHERE fr.game_id = gp.game_id\n"

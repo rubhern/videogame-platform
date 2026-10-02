@@ -21,9 +21,16 @@ atomicity remains valuable; full in-memory materialization does not.
   and let PostgreSQL filter, count, deterministically order, `LIMIT` and `OFFSET`.
 - Group the matching releases by game inside PostgreSQL before pagination (issue
   [#175](https://github.com/rubhern/videogame-platform/issues/175)): a result is one game
-  carrying only the releases that match the requested view and active filters, each
-  release preserved independently. Count and page over games, so `totalItems` counts
+  carrying only releases that match the requested view and active filters, never merged
+  with each other. Count and page over games, so `totalItems` counts
   games, and bound the releases grouped under one game with `catalogue.releases.release-group-limit`.
+- Before grouping, keep only the presented release of each game and platform (issue
+  [#212](https://github.com/rubhern/videogame-platform/issues/212)): PostgreSQL selects it
+  among the matching releases with the presented-release precedence the
+  [use cases](../architecture/application/mvp-use-cases.md) own, ending in the view's own
+  date order. The precedence now includes normalized Full Release ahead of pre-release
+  stages after negative lifecycle evidence, within the already filtered context. Facets and the game count still read every matching release; no release is
+  merged, deleted or constrained to one per platform.
 - Materialize only `O(pageSize x releaseGroupLimit)` releases in Java.
 - Represent partial dates publicly as entered, while stored derived
   `period_start`/`period_end` columns support range queries without inventing dates.
@@ -31,7 +38,7 @@ atomicity remains valuable; full in-memory materialization does not.
   partial index for the explicit unknown/TBA upcoming branch.
 - Order the releases within a game by effective period, lowercase canonical title,
   `gameId`, then unique `releaseId`; unknown upcoming dates sort after known dates.
-  Position each game by its first matching release under that order, with `gameId` as
+  Position each game by its first presented release under that order, with `gameId` as
   the final deterministic tie-breaker; do not introduce a second temporal-ordering
   policy.
 - Keep normalized publication tables. Game/release snapshots belong to a publication;
@@ -64,7 +71,11 @@ historical evidence, not portable latency gates. The exact-day upcoming default
 ([#214](https://github.com/rubhern/videogame-platform/issues/214)) keeps the shared period
 index and filters partial precision as a residual condition: with a fifth of generated
 releases at month, quarter or year precision, the default week at 1M releases read 4,410
-index rows to keep 756 (about 6 ms count, 10 ms page).
+index rows to keep 756 (about 6 ms count, 10 ms page). Presented-release selection (#212)
+adds one sort of the window's matching rows only: with every tenth generated game holding a
+second same-platform release, the default week page at 1.1M releases took about 11 ms
+against 10.8 ms without it on the same data, and the six-month windows stayed within
+run-to-run variance.
 
 Revisit keyset pagination/count strategy for measured high-offset or count problems;
 current-state/index storage for measured growth, including a day-precision partial index

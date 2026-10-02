@@ -225,6 +225,82 @@ worker is fenced after `CATALOGUE_SYNC_ABANDON_RUN_AFTER` before a successor can
 write. Provider failure never deletes local Games, Releases or covers; the previous
 valid publication keeps serving.
 
+
+## Current provider-release repair
+
+**Disposable-copy evidence (2026-10-02, #212):** the packaged candidate reconciled complete
+IGDB aggregates for Young Suns, Ace Combat 8 and Rushcremental in a PostgreSQL 18 copy of
+12,764 stored releases. Young Suns changed from eight to six current releases: absent
+references `957758` and `957760` were removed, and public detail no longer exposed them.
+Ace Combat 8 kept all six Full/Advance Access references; Rushcremental kept all six
+Beta/Full references. Previews changed neither serving state nor validators. Repeating
+each repair changed zero Games/releases and preserved the revision; eligibility stayed
+unchanged in all three examples. The source catalogue was read only. The copy was restored
+from its dump during the exercise. This proves bounded complete-Game repair, not a completed
+full-catalogue or persistent private-dev cleanup.
+
+The [repair tool](../../scripts/repair-release-stages.py) retains its existing filename and
+private `releasestagerepair` command, but now uses complete Game reconciliation for both stage
+and obsolete-reference repair. Keep credentials in the protected application environment,
+never CLI arguments or reports. Use loopback management; forward private-dev management
+locally when applicable. Persistent apply requires explicit owner approval after reviewing
+the candidate, preview and recovery plan. The applied stage migration remains unchanged.
+
+```bash
+# Report only: date windows are planned; known Games are completely refetched and previewed.
+python3 scripts/repair-release-stages.py \
+  --management-url http://127.0.0.1:8081 --from 2024-01-01 --to 2026-12-31
+
+# Apply only to the intended approved target; choose a protected checkpoint location.
+python3 scripts/repair-release-stages.py \
+  --management-url http://127.0.0.1:8081 --from 2024-01-01 --to 2026-12-31 \
+  --apply --checkpoint /tmp/current-release-repair.json
+```
+
+Dates scope ordinary discovery replay; they do not restrict the subsequent known-Game
+repair. Windows default to seven days (maximum 31), Game batches to ten (maximum 100).
+The tool then keyset-pages every known typed IGDB Game, including Games with known stages,
+undated releases, or no release remaining in a discovery window. Total work grows with all
+known Games; normal success uses two provider requests per Game, with configured bounded
+retries and release overflow checks. Provider calls happen outside write transactions.
+The indexed cursor orders by internal Game ID; memory follows batch size plus the configured
+per-Game release bound. No provider vocabulary, inferred stale tuple or direct SQL write
+exists in the tool.
+
+Each known Game delegates to ordinary synchronization's validation and atomic
+create/update/delete transaction. Missing typed release references are removed only when
+the complete aggregate is valid and the current evidence is owned exclusively by the IGDB
+Release Date boundary. Local/curated, official, unreferenced and other-provider evidence is
+preserved. Verified conflicting returned evidence retains its identity and value. Stage,
+date/lifecycle, review and verification follow the normal reconciliation rules; stage has
+no new eligibility policy. Content removal advances the existing revision and public
+validators. Dry-run exercises these exact writes and constraints in a rolled-back
+transaction, emits no listing event and changes neither catalogue, revision nor run history.
+Its counters are predicted changes, not applied changes.
+
+A failed/partial/skipped window or Game batch stops without advancing that checkpoint
+cursor. Successful Games already committed remain valid; replay reconciles them idempotently
+while the failing Game preserves its entire last valid state. Unavailable or invalid provider
+evidence is not guessed or deleted. Fix/retry the failure rather than skipping its checkpoint.
+The command is absent from the browser/product port and rejects cross-site writes.
+
+Initial/final summaries count current Unknown releases, references eligible for inspection
+(`repairableUnknown` is not a promise of supported stage evidence), evidence without supported
+references, and known Games. Batch reports contain normal reconciliation counters, including
+`deletedReleases`, and the outcome. Reports written before this counter existed read it as
+zero; malformed existing fields remain errors. A complete checkpoint performs summaries only; use a fresh
+checkpoint to revisit later provider changes. Checkpoints bind the target/options and algorithm
+version; old stage-only checkpoints are rejected and require a fresh checkpoint. Files contain
+no credentials and are written atomically with private permissions. Keep them outside `/tmp`
+when restart durability matters.
+
+The deterministic tool tests are `python3 scripts/test-repair-release-stages.py`; focused
+backend tests cover completeness, ownership, same-reference identity, per-Game rollback,
+idempotence, public evidence/eligibility and private management boundaries. The
+[migration policy](database-migrations.md) owns deployment compatibility. Rolling back only
+the application cannot restore deleted provider records; the existing
+[backup and restore procedure](#backup-integrity-and-isolated-restore) owns recovery of data.
+
 ## Backup, integrity and isolated restore
 
 Owner: [Backup, restore, rollback and host-loss recovery](../../deploy/private-dev/README.md#backup-restore-rollback-and-host-loss-recovery)

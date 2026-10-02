@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.2.0
+  version: 3.3.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -34,7 +34,8 @@ paths:
       description: |
         Reads a bounded page of games from the last valid local catalogue publication. Each
         game appears once with only the releases that match the requested view and active
-        filters; `page.totalItems` counts games, not releases. Platform and region filters are
+        filters, presenting at most one of them per platform (see `ReleaseItem`);
+        `page.totalItems` counts games, not releases. Platform and region filters are
         multi-select: values within one dimension combine with OR and the two dimensions combine
         with AND. `availableFilters` is contextual and faceted: platform options reflect the
         current view/window and the active region selection (never restricted by the active
@@ -46,8 +47,8 @@ paths:
         and unknown (TBA) precision; the precision choice composes with the window and both filter
         dimensions, and the facets reflect it. Empty, stale, review-required, imprecise-date, TBA,
         and fallback-cover results are valid states. PostgreSQL groups by game, applies filters,
-        distinct facet discovery, total ordering, count, limit, and offset before any release page
-        reaches the application.
+        distinct facet discovery, presented-release selection, total ordering, count, limit, and
+        offset before any release page reaches the application.
       security: []
       parameters:
         - $ref: '#/components/parameters/ReleaseView'
@@ -97,6 +98,7 @@ paths:
                             sourceUrl: https://www.igdb.com/games/hollow-knight-silksong
                         releases:
                           - releaseId: release_silksong_ps5_eu
+                            stage: unknown
                             gameId: game_silksong
                             platform: { platformId: platform_ps5, name: PlayStation 5 }
                             region: { regionId: region_europe, name: Europe }
@@ -112,6 +114,7 @@ paths:
                             reviewStatus: not_required
                             freshnessStatus: fresh
                           - releaseId: release_silksong_win_ww
+                            stage: unknown
                             gameId: game_silksong
                             platform: { platformId: platform_win, name: Windows PC }
                             region: { regionId: region_worldwide, name: Worldwide }
@@ -158,6 +161,7 @@ paths:
                             sourceUrl: https://www.igdb.com/games/hollow-knight-silksong
                         releases:
                           - releaseId: release_silksong_ps5_eu
+                            stage: unknown
                             gameId: game_silksong
                             platform: { platformId: platform_ps5, name: PlayStation 5 }
                             region: { regionId: region_europe, name: Europe }
@@ -173,6 +177,7 @@ paths:
                             reviewStatus: not_required
                             freshnessStatus: fresh
                           - releaseId: release_silksong_win_ww
+                            stage: unknown
                             gameId: game_silksong
                             platform: { platformId: platform_win, name: Windows PC }
                             region: { regionId: region_worldwide, name: Worldwide }
@@ -197,6 +202,7 @@ paths:
                           attribution: null
                         releases:
                           - releaseId: release_example_tba_win_ww
+                            stage: unknown
                             gameId: game_example_tba
                             platform: { platformId: platform_win, name: Windows PC }
                             region: { regionId: region_worldwide, name: Worldwide }
@@ -235,6 +241,7 @@ paths:
                           attribution: null
                         releases:
                           - releaseId: release_example_switch_eu
+                            stage: unknown
                             gameId: game_example
                             platform: { platformId: platform_switch, name: Nintendo Switch }
                             region: { regionId: region_europe, name: Europe }
@@ -409,6 +416,7 @@ paths:
                         sourceUrl: https://www.igdb.com/games/example-game
                     releases:
                       - releaseId: release_example_ps5_eu
+                        stage: unknown
                         gameId: game_example
                         platform: { platformId: platform_ps5, name: PlayStation 5 }
                         region: { regionId: region_europe, name: Europe }
@@ -433,6 +441,86 @@ paths:
                       mean: 8.4
                       count: 17
                       distribution: { '1': 0, '2': 0, '3': 0, '4': 1, '5': 1, '6': 2, '7': 3, '8': 3, '9': 5, '10': 2 }
+                severalRecordsForOnePlatform:
+                  summary: Several records for one platform in presentation order
+                  description: |
+                    The exact Worldwide day is presented for PlayStation 5 ahead of an earlier
+                    exact day in Japan and an older year-only Worldwide estimate. Japan stays a
+                    selectable region with its own presented release, and the year-only record is
+                    an additional Worldwide record. Every release is returned and counts for
+                    eligibility.
+                  value:
+                    gameId: game_regional
+                    slug: juego-regional
+                    canonicalTitle: Juego regional
+                    aliases: []
+                    summary:
+                      kind: editorial
+                      text: Un juego con fechas distintas según la región.
+                      language: es
+                    primaryCover:
+                      kind: fallback
+                      url: /assets/covers/fallback.svg
+                      alternativeText: Carátula oficial no disponible
+                      attribution: null
+                    releases:
+                      - releaseId: release_regional_ps5_ww_day
+                        stage: unknown
+                        gameId: game_regional
+                        platform: { platformId: platform_ps5, name: PlayStation 5 }
+                        region: { regionId: region_worldwide, name: Worldwide }
+                        releaseDate: { precision: day, value: '2026-03-12' }
+                        status: released
+                        provenance:
+                          sourceKind: external_provider
+                          sourceName: IGDB
+                          sourceEntityType: release_date
+                        providerUpdatedAt: '2026-02-01T09:00:00Z'
+                        lastSyncedAt: '2026-07-30T05:00:00Z'
+                        verificationLevel: provider_only
+                        reviewStatus: not_required
+                        freshnessStatus: fresh
+                      - releaseId: release_regional_ps5_jp_day
+                        stage: unknown
+                        gameId: game_regional
+                        platform: { platformId: platform_ps5, name: PlayStation 5 }
+                        region: { regionId: region_japan, name: Japan }
+                        releaseDate: { precision: day, value: '2026-02-20' }
+                        status: released
+                        provenance:
+                          sourceKind: external_provider
+                          sourceName: IGDB
+                          sourceEntityType: release_date
+                        providerUpdatedAt: '2026-02-01T09:00:00Z'
+                        lastSyncedAt: '2026-07-30T05:00:00Z'
+                        verificationLevel: provider_only
+                        reviewStatus: not_required
+                        freshnessStatus: fresh
+                      - releaseId: release_regional_ps5_ww_year
+                        stage: unknown
+                        gameId: game_regional
+                        platform: { platformId: platform_ps5, name: PlayStation 5 }
+                        region: { regionId: region_worldwide, name: Worldwide }
+                        releaseDate: { precision: year, value: '2026' }
+                        status: scheduled
+                        provenance:
+                          sourceKind: external_provider
+                          sourceName: IGDB
+                          sourceEntityType: release_date
+                        providerUpdatedAt: '2025-06-01T09:00:00Z'
+                        lastSyncedAt: '2026-07-30T05:00:00Z'
+                        verificationLevel: provider_only
+                        reviewStatus: not_required
+                        freshnessStatus: fresh
+                    ratingEligibility:
+                      eligible: true
+                      reason: ELIGIBLE_RELEASE_FOUND
+                      evaluatedOn: '2026-07-31'
+                    ratingStatistics:
+                      status: available
+                      mean: null
+                      count: 0
+                      distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
                 noRatings:
                   summary: Verified unknown release date and no active ratings
                   value:
@@ -455,6 +543,7 @@ paths:
                       attribution: null
                     releases:
                       - releaseId: release_unknown_date
+                        stage: unknown
                         gameId: game_no_ratings
                         platform: { platformId: platform_windows, name: Windows PC }
                         region: { regionId: region_unknown, name: Unknown }
@@ -496,6 +585,7 @@ paths:
                       attribution: null
                     releases:
                       - releaseId: release_degraded
+                        stage: unknown
                         gameId: game_degraded
                         platform: { platformId: platform_ps5, name: PlayStation 5 }
                         region: { regionId: region_europe, name: Europe }
@@ -1089,9 +1179,21 @@ components:
         - $ref: '#/components/schemas/YearReleaseDate'
         - $ref: '#/components/schemas/UnknownReleaseDate'
       description: Closed date/precision union; missing precision is never invented.
+    ReleaseStage:
+      type: string
+      enum: [full_release, early_access, advance_access, beta, alpha, unknown]
+      description: |
+        Product-owned release stage, independent of lifecycle status, game category and
+        editions. Absent or unsupported source evidence is unknown; dates never imply a
+        stage. Full release is preferred within the active platform/region/view context,
+        after rejecting negative lifecycle candidates. Other stages share the existing
+        evidence ordering. Stage does not change rating eligibility.
     Release:
       type: object
-      required: [releaseId, gameId, platform, region, releaseDate, status, provenance, lastSyncedAt, verificationLevel, reviewStatus, freshnessStatus]
+      description: |
+        Shared full release evidence for discovery and game details. Stage naturally appears
+        in both consumers; compact search release summaries do not expose full evidence.
+      required: [releaseId, gameId, platform, region, releaseDate, status, stage, provenance, lastSyncedAt, verificationLevel, reviewStatus, freshnessStatus]
       properties:
         releaseId: { $ref: '#/components/schemas/ReleaseId' }
         gameId: { $ref: '#/components/schemas/GameId' }
@@ -1101,6 +1203,7 @@ components:
         status:
           type: string
           enum: [announced, scheduled, released, delayed, cancelled, unknown]
+        stage: { $ref: '#/components/schemas/ReleaseStage' }
         provenance: { $ref: '#/components/schemas/Provenance' }
         providerUpdatedAt: { type: string, format: date-time }
         lastSyncedAt: { type: string, format: date-time }
@@ -1228,10 +1331,18 @@ components:
           minItems: 1
           items: { $ref: '#/components/schemas/Release' }
       description: |
-        One game and only the releases of that game that match the requested view and
-        active filters. Each release is preserved independently, so differing
-        platforms, regions, dates, and date precision stay visible. Releases are ordered
-        by the UC-001 release ordering, and the first release drives the game's position.
+        One game and its presented releases: among the releases of that game that match the
+        requested view and active filters, at most one per platform. When several matching
+        releases share a platform, the presentation precedence chooses one: a release that is
+        neither cancelled nor delayed, then a Full Release, then one not pending review, then verified evidence,
+        then the most precise date, then Worldwide before a specific region before an
+        unconfirmed region, then the view's own date order (latest first for recent, soonest
+        first for upcoming), and finally a stable region order and `releaseId`. The other
+        matching releases of that platform are neither merged nor deleted: they stay stored and
+        listed in the game details, and a region filter presents that region's own release.
+        Presented releases keep their own platform, region, date, and date precision. Releases
+        are ordered by the UC-001 release ordering, and the first release drives the game's
+        position.
     ActiveFilters:
       type: object
       required: [platformIds, regionIds]
@@ -1349,6 +1460,16 @@ components:
         primaryCover: { $ref: '#/components/schemas/Cover' }
         releases:
           type: array
+          description: |
+            The game's complete stored release set: no release is merged, rewritten, or omitted,
+            and rating eligibility evaluates all of them. Releases are listed platform by
+            platform, ordering platforms by their earliest known release date (platforms with
+            only unknown dates last), then by name and identifier. Within a platform they follow
+            the `ReleaseItem` presentation precedence with the earliest date first as its date
+            order, so the first release of a platform is presented for that platform and the
+            first release of each platform and region is presented for that combination. Any
+            later release of the same platform and region is an additional record kept as
+            evidence.
           items: { $ref: '#/components/schemas/Release' }
         ratingEligibility: { $ref: '#/components/schemas/RatingEligibility' }
         ratingStatistics: { $ref: '#/components/schemas/RatingStatistics' }

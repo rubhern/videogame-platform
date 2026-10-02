@@ -88,7 +88,8 @@ class GameDetailsServiceTest {
                         Instant.parse("2026-01-01T00:00:00Z"),
                         null,
                         VerificationLevel.PROVIDER_ONLY,
-                        ReviewStatus.NOT_REQUIRED);
+                        ReviewStatus.NOT_REQUIRED,
+                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
         return new GameDetailsReadPort.Game(
                 "game",
                 "game",

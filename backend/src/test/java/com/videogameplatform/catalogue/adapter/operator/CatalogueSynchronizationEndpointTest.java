@@ -23,6 +23,13 @@ class CatalogueSynchronizationEndpointTest {
         var registry = new SimpleMeterRegistry();
         SynchronizeCatalogueUseCase useCase =
                 new SynchronizeCatalogueUseCase() {
+                    @Override
+                    public CatalogueSynchronizationReport repairGames(
+                            java.util.List<String> ids, boolean dryRun) {
+                        throw new UnsupportedOperationException(
+                                "This test exercises date-window delivery");
+                    }
+
                     public Optional<CatalogueSynchronizationReport> lastRun() {
                         return Optional.empty();
                     }
@@ -39,7 +46,7 @@ class CatalogueSynchronizationEndpointTest {
                                 SynchronizationOutcome.SKIPPED,
                                 "SYNCHRONIZATION_DISABLED",
                                 new CatalogueSynchronizationReport.Counters(
-                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+                                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
                     }
                 };
         var endpoint =

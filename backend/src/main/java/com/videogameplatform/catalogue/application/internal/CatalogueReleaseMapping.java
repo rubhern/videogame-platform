@@ -41,7 +41,9 @@ public final class CatalogueReleaseMapping {
                 toVerification(row.verificationLevel()),
                 toReview(row.reviewStatus()),
                 CatalogueReadMapping.toFreshness(
-                        freshnessPolicy.status(row.lastSyncedAt(), evaluatedAt)));
+                        freshnessPolicy.status(row.lastSyncedAt(), evaluatedAt)),
+                com.videogameplatform.catalogue.application.CatalogueReleaseStage.valueOf(
+                        row.stage().name()));
     }
 
     private static BrowseReleasesResult.Source toSource(SourceKind source) {

@@ -5,6 +5,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.PlannedRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.PublishedRelease;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
@@ -42,8 +43,18 @@ public final class ReleaseReconciliationPolicy {
                                 || status == ReleaseStatus.ANNOUNCED
                                         && previous.status() == ReleaseStatus.RELEASED
                                         && !(previous.date() instanceof ReleaseDate.Unknown));
+        // Missing/unsupported evidence cannot erase an established stage. Enriching an
+        // unspecified stage preserves accepted date verification/review; a known conflict does not.
+        ReleaseStage stage =
+                providerRelease.stage() == ReleaseStage.UNKNOWN && previous != null
+                        ? previous.stage()
+                        : providerRelease.stage();
+        boolean stageConflict =
+                previous != null
+                        && previous.stage() != ReleaseStage.UNKNOWN
+                        && stage != previous.stage();
         if (previous != null
-                && !unchanged
+                && (!unchanged || stageConflict)
                 && previous.verificationLevel() == VerificationLevel.VERIFIED) {
             // REL-008/REL-010: provider evidence cannot overwrite previously verified evidence.
             return Optional.empty();
@@ -59,14 +70,17 @@ public final class ReleaseReconciliationPolicy {
                         "release_date",
                         updatedAt,
                         synchronizedAt,
-                        unchanged ? previous.lastVerifiedAt() : null,
-                        unchanged ? previous.verificationLevel() : VerificationLevel.PROVIDER_ONLY,
-                        unchanged
+                        unchanged && !stageConflict ? previous.lastVerifiedAt() : null,
+                        unchanged && !stageConflict
+                                ? previous.verificationLevel()
+                                : VerificationLevel.PROVIDER_ONLY,
+                        unchanged && !stageConflict
                                 ? previous.reviewStatus()
                                 : previous != null
                                                 || providerRelease.date()
                                                         instanceof ReleaseDate.Unknown
                                         ? ReviewStatus.REQUIRED
-                                        : ReviewStatus.NOT_REQUIRED));
+                                        : ReviewStatus.NOT_REQUIRED,
+                        stage));
     }
 }
