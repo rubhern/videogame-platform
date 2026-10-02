@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.1.0
+  version: 3.2.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -41,14 +41,18 @@ paths:
         platform set), region options reflect the current view/window and the active platform
         selection (never restricted by the active region set), and a currently selected valid
         value always stays representable. The application derives the evaluation date and the
-        selected bounded week window in `Europe/Madrid`. Empty, stale, review-required,
-        imprecise-date, TBA, and fallback-cover results are valid states. PostgreSQL groups by
-        game, applies filters, distinct facet discovery, total ordering, count, limit, and offset
-        before any release page reaches the application.
+        selected bounded week window in `Europe/Madrid`. Upcoming discovery returns only releases
+        with an exact day unless `includeApproximateDates=true` also admits month, quarter, year,
+        and unknown (TBA) precision; the precision choice composes with the window and both filter
+        dimensions, and the facets reflect it. Empty, stale, review-required, imprecise-date, TBA,
+        and fallback-cover results are valid states. PostgreSQL groups by game, applies filters,
+        distinct facet discovery, total ordering, count, limit, and offset before any release page
+        reaches the application.
       security: []
       parameters:
         - $ref: '#/components/parameters/ReleaseView'
         - $ref: '#/components/parameters/ReleaseWeeks'
+        - $ref: '#/components/parameters/ReleaseIncludeApproximateDates'
         - $ref: '#/components/parameters/PlatformIdsQuery'
         - $ref: '#/components/parameters/RegionIdsQuery'
         - $ref: '#/components/parameters/Page'
@@ -67,6 +71,68 @@ paths:
               examples:
                 upcoming:
                   summary: One game grouping several matching releases with differing dates
+                  description: Default upcoming discovery returns only releases with an exact day.
+                  value:
+                    view: upcoming
+                    evaluatedOn: '2026-07-31'
+                    window: { from: '2026-07-31', to: '2026-08-07' }
+                    activeFilters: { platformIds: [], regionIds: [] }
+                    availableFilters:
+                      platforms:
+                        - { platformId: platform_ps5, name: PlayStation 5 }
+                        - { platformId: platform_win, name: Windows PC }
+                      regions:
+                        - { regionId: region_europe, name: Europe }
+                        - { regionId: region_worldwide, name: Worldwide }
+                    items:
+                      - gameId: game_silksong
+                        slug: hollow-knight-silksong
+                        canonicalTitle: Hollow Knight Silksong
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp
+                          alternativeText: Carátula de Hollow Knight Silksong
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/hollow-knight-silksong
+                        releases:
+                          - releaseId: release_silksong_ps5_eu
+                            gameId: game_silksong
+                            platform: { platformId: platform_ps5, name: PlayStation 5 }
+                            region: { regionId: region_europe, name: Europe }
+                            releaseDate: { precision: day, value: '2026-08-04' }
+                            status: scheduled
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release
+                            providerUpdatedAt: '2026-07-25T08:10:00Z'
+                            lastSyncedAt: '2026-07-30T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
+                          - releaseId: release_silksong_win_ww
+                            gameId: game_silksong
+                            platform: { platformId: platform_win, name: Windows PC }
+                            region: { regionId: region_worldwide, name: Worldwide }
+                            releaseDate: { precision: day, value: '2026-08-06' }
+                            status: scheduled
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release
+                            providerUpdatedAt: '2026-07-25T08:10:00Z'
+                            lastSyncedAt: '2026-07-30T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
+                    page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
+                upcomingWithApproximateDates:
+                  summary: Opted-in approximate dates keep their real precision
+                  description: |
+                    Requested with `includeApproximateDates=true`. Month, quarter, year, and unknown
+                    (TBA) precision follow exact days in the upcoming order and are never narrowed
+                    to an invented day.
                   value:
                     view: upcoming
                     evaluatedOn: '2026-07-31'
@@ -121,7 +187,31 @@ paths:
                             verificationLevel: provider_only
                             reviewStatus: not_required
                             freshnessStatus: fresh
-                    page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
+                      - gameId: game_example_tba
+                        slug: juego-por-confirmar
+                        canonicalTitle: Juego por confirmar
+                        primaryCover:
+                          kind: fallback
+                          url: /assets/covers/fallback.svg
+                          alternativeText: Carátula oficial no disponible
+                          attribution: null
+                        releases:
+                          - releaseId: release_example_tba_win_ww
+                            gameId: game_example_tba
+                            platform: { platformId: platform_win, name: Windows PC }
+                            region: { regionId: region_worldwide, name: Worldwide }
+                            releaseDate: { precision: unknown, value: null }
+                            status: announced
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release
+                            providerUpdatedAt: '2026-07-25T08:10:00Z'
+                            lastSyncedAt: '2026-07-30T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
+                    page: { number: 1, size: 20, totalItems: 2, totalPages: 1 }
                 staleWithFallback:
                   summary: Last valid stale data remains usable with a fallback cover
                   value:
@@ -725,6 +815,18 @@ components:
       description: Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
       schema: { type: integer, enum: [1, 2, 4], default: 1 }
       example: 2
+    ReleaseIncludeApproximateDates:
+      name: includeApproximateDates
+      in: query
+      required: false
+      description: |
+        Upcoming-only opt-in. Omitted or `false`, `view=upcoming` returns only releases with an
+        exact day (`day` precision). `true` also returns month, quarter, year, and unknown (TBA)
+        precision releases; each keeps its real precision and follows exact days in the upcoming
+        order. Recent discovery is unchanged and always includes known partial periods that have
+        ended, so `true` combined with `view=recent` yields 422 `FILTER_INVALID`.
+      schema: { type: boolean, default: false }
+      example: true
     PlatformIdsQuery:
       name: platformIds
       in: query

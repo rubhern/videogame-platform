@@ -79,10 +79,16 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
     // does not exclude an unmet known date.
     private static final String UPCOMING_KNOWN_PREDICATE =
             "NOT (" + OCCURRED_BY_WINDOW_FROM + ")" + " AND " + KNOWN_PERIOD_OVERLAP;
-    private static final String UPCOMING_PREDICATE =
-            "rs.release_status <> 'cancelled' AND (" + UPCOMING_KNOWN_PREDICATE + ")";
-    // TBA: an unknown date that is neither cancelled nor explicitly released.
-    private static final String UPCOMING_OR_UNKNOWN_PREDICATE =
+    // Default upcoming discovery keeps only an exact day. Precision is a residual filter beside the
+    // period overlap, so the shared period index still bounds the scan to the window.
+    private static final String UPCOMING_EXACT_PREDICATE =
+            "rs.release_status <> 'cancelled' AND rs.date_precision = 'day' AND ("
+                    + UPCOMING_KNOWN_PREDICATE
+                    + ")";
+    // Approximate-date opt-in: known month, quarter and year periods join exact days, and TBA adds
+    // an unknown date that is neither cancelled nor explicitly released. Each row keeps its stored
+    // precision; no exact day is ever derived for a partial date.
+    private static final String UPCOMING_WITH_APPROXIMATE_PREDICATE =
             "rs.release_status <> 'cancelled' AND (("
                     + UPCOMING_KNOWN_PREDICATE
                     + ") OR (rs.release_status <> 'released' AND rs.date_precision = 'unknown'))";
@@ -268,9 +274,9 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 switch (criteria.view()) {
                     case RECENT -> RECENT_PREDICATE;
                     case UPCOMING ->
-                            criteria.includeUnknownUpcomingDates()
-                                    ? UPCOMING_OR_UNKNOWN_PREDICATE
-                                    : UPCOMING_PREDICATE;
+                            criteria.includeApproximateUpcomingDates()
+                                    ? UPCOMING_WITH_APPROXIMATE_PREDICATE
+                                    : UPCOMING_EXACT_PREDICATE;
                 };
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("windowFrom", criteria.window().from());

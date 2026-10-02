@@ -11,7 +11,7 @@ backend API changes, update its tracked requests and assertions in the same chan
 
 | Collection | Covers |
 |---|---|
-| `catalogue-releases` | Recent/upcoming discovery, filters, public headers, weak-validator conditional reads, strict query parameters, pagination, stable validation errors |
+| `catalogue-releases` | Recent/upcoming discovery, the exact-day upcoming default and approximate-date opt-in, filters, public headers, weak-validator conditional reads, strict query parameters, pagination, stable validation errors |
 | `catalogue-search` | Canonical-title and approved-alias matching, diacritic-insensitive prefix matching, ambiguous and zero-result outcomes, deterministic pagination, conditional reads |
 | `game-details` | Public details, release evidence, empty statistics, conditional requests, missing games, strict query rejection |
 | `personal-ratings` | Authenticated read, conditional create/update/delete, strong ETag reuse from the private collection, scoped search and ordering, duplicate/stale-write and CSRF rejection |

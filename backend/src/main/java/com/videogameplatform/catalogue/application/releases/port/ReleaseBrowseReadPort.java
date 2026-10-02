@@ -17,13 +17,17 @@ public interface ReleaseBrowseReadPort {
 
     Optional<Result> findPublishedReleases(Criteria criteria);
 
+    /**
+     * {@code includeApproximateUpcomingDates} applies to the upcoming view only: false keeps
+     * exact-day releases, true also admits month, quarter, year and unknown (TBA) dates.
+     */
     record Criteria(
             BrowseReleasesUseCase.View view,
             Window window,
             List<String> platformIds,
             List<String> regionIds,
             Pagination pagination,
-            boolean includeUnknownUpcomingDates,
+            boolean includeApproximateUpcomingDates,
             int releaseGroupLimit) {
 
         public Criteria {

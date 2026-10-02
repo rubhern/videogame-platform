@@ -46,11 +46,7 @@ class CatalogueModuleConfigurationTest {
                     assertThat(context.getBean(BrowseReleasesUseCase.class))
                             .isInstanceOf(ReleaseCatalogueService.class);
                     assertThat(context.getBean(ReleaseBrowsePolicy.class))
-                            .isEqualTo(
-                                    new ReleaseBrowsePolicy(
-                                            12,
-                                            ReleaseBrowsePolicy.UnknownUpcomingDatePolicy
-                                                    .INCLUDE_AS_TBA));
+                            .isEqualTo(new ReleaseBrowsePolicy(12));
                     assertThat(context.getBean(CatalogueFreshnessPolicy.class))
                             .isEqualTo(new CatalogueFreshnessPolicy(Duration.ofDays(14)));
                     assertThat(context).hasSingleBean(ProviderCoverReferenceResolver.class);

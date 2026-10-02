@@ -194,6 +194,62 @@ test("upcoming keeps its compact layout and keyboard filters on a phone", async 
   await expect(page.getByRole("combobox", { name: /^Región:/ })).toContainText("Mundial");
 });
 
+for (const width of [320, 834, 1320]) {
+  test(`upcoming approximate-date opt-in fits and stays keyboard-operable at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.route("**/api/v1/releases?*", async (route) => {
+      const approximate =
+        new URL(route.request().url()).searchParams.get("includeApproximateDates") === "true";
+      await route.fulfill({ json: releasePage({
+        view: "upcoming",
+        window: { from: "2026-08-13", to: "2026-08-20" },
+        items: approximate
+          ? [{
+              ...pragmata,
+              releases: [{
+                ...pragmataRelease,
+                releaseDate: { precision: "quarter", value: "2026-Q4" },
+                status: "scheduled",
+              }],
+            }]
+          : [],
+        page: approximate
+          ? { number: 1, size: 12, totalItems: 1, totalPages: 1 }
+          : { number: 1, size: 12, totalItems: 0, totalPages: 0 },
+      }) });
+    });
+
+    await page.goto("/?view=upcoming");
+    const optIn = page.getByRole("checkbox", { name: "Incluir fechas aproximadas" });
+    await expect(optIn).toBeVisible();
+    await expect(optIn).not.toBeChecked();
+    await expect(page.getByText(/Ningún lanzamiento con fecha exacta/)).toBeVisible();
+    await expectAccessibleLayout(page);
+
+    const dock = await page.locator(".releases-toolbar").boundingBox();
+    const option = await page.locator(".release-approximate-option").boundingBox();
+    expect(option?.height ?? 0).toBeGreaterThanOrEqual(44);
+    if (width >= 1200) {
+      // Wide screens keep the opt-in on the dock's row.
+      expect(Math.abs((dock?.y ?? 0) + (dock?.height ?? 0) / 2
+        - (option?.y ?? 0) - (option?.height ?? 0) / 2)).toBeLessThan(2);
+    } else {
+      // Narrower screens wrap it below the dock instead of stretching the dock over two rows.
+      expect(option?.y ?? 0).toBeGreaterThanOrEqual((dock?.y ?? 0) + (dock?.height ?? 0));
+    }
+
+    await optIn.focus();
+    await expect(page.locator(".release-approximate-option")).toHaveCSS("outline-style", "solid");
+    await page.keyboard.press("Space");
+    await expect(page).toHaveURL(/view=upcoming&weeks=1&includeApproximateDates=true/);
+    await expect(optIn).toBeChecked();
+    await expect(page.locator(".card-date-badge")).toHaveText("T4 2026");
+    await expect(page.getByText("4.º trimestre de 2026")).toBeAttached();
+    await expectAccessibleLayout(page);
+  });
+}
+
 test("phone search closes cleanly when the layout widens", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));

@@ -261,6 +261,12 @@ the executable values; these constraints hold wherever they are used:
   one row; selected values may truncate visually, but the full value remains
   accessible in the control and list. Controls keep a visible focus indicator.
   Never hard-code the available choices from the mockup.
+- The upcoming window alone adds **Incluir fechas aproximadas** beside the dock: a native
+  labelled checkbox in its own glass pill as tall as the dock, unchecked by default, whose
+  focus ring outlines the pill. It shares the dock's row while it fits, wraps below the
+  dock rather than stretching it over two rows, and spans the column on phones. Toggling
+  it keeps the other selections, resets pagination and lives in the URL; leaving for the
+  recent window drops it. An empty exact-day selection names this opt-in in its notice.
 - Release results show the game total followed by the current page position (for example,
   `99 juegos · Página 1 de 9`). Use spacing between the heading and filters, and between
   results and footer controls, without separator rules.

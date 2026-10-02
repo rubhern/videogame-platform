@@ -10,6 +10,7 @@ import type { ReleaseListItem, ReleasesViewModel } from "./releases-view-model";
 const search: ReleasesSearch = {
   view: "recent",
   weeks: 1,
+  includeApproximateDates: false,
   platformIds: [],
   regionIds: [],
   page: 1,
@@ -165,6 +166,82 @@ describe("releases shell", () => {
     expect(screen.getByRole("combobox", { name: /Región/ })).toHaveTextContent("Todas");
     expect(screen.getByRole("status")).toHaveTextContent("1 juego · Página 1 de 1");
     expect(screen.queryByRole("navigation", { name: "Ventana de lanzamientos" })).not.toBeInTheDocument();
+  });
+
+  it("offers the approximate-date opt-in on upcoming only, reflecting the shared URL", () => {
+    const ready: ReleasesShellState = {
+      status: "ready",
+      model: viewModel(),
+      isRefreshing: false,
+      isPlaceholderData: false,
+    };
+    const { unmount } = renderShell(ready);
+    expect(
+      screen.queryByRole("checkbox", { name: "Incluir fechas aproximadas" }),
+    ).not.toBeInTheDocument();
+    unmount();
+
+    const upcoming = renderShell(
+      { ...ready, model: viewModel({ view: "upcoming" }) },
+      { search: { ...search, view: "upcoming" } },
+    );
+    expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).not.toBeChecked();
+    upcoming.unmount();
+
+    renderShell(
+      { ...ready, model: viewModel({ view: "upcoming" }) },
+      { search: { ...search, view: "upcoming", includeApproximateDates: true } },
+    );
+    expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).toBeChecked();
+  });
+
+  it("keeps the opt-in operable when the read fails because it is URL state", () => {
+    renderShell(
+      {
+        status: "error",
+        message: "No se pudo leer el catálogo local. Inténtalo de nuevo más tarde.",
+        correlationId: null,
+      },
+      { search: { ...search, view: "upcoming" } },
+    );
+
+    expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).toBeEnabled();
+  });
+
+  it("explains an empty exact-day upcoming selection and keeps the choice when clearing filters", () => {
+    const emptyUpcoming: ReleasesShellState = {
+      status: "ready",
+      model: viewModel({
+        view: "upcoming",
+        activePlatformIds: ["platform-ps5"],
+        items: [],
+        page: { number: 1, size: 12, totalItems: 0, totalPages: 0 },
+      }),
+      isRefreshing: false,
+      isPlaceholderData: false,
+    };
+    const exact = renderShell(emptyUpcoming, {
+      search: { ...search, view: "upcoming", platformIds: ["platform-ps5"] },
+    });
+    expect(
+      screen.getByText(/Ningún lanzamiento con fecha exacta coincide con esta ventana y estos filtros\./),
+    ).toHaveTextContent("Activa «Incluir fechas aproximadas»");
+    exact.unmount();
+
+    renderShell(emptyUpcoming, {
+      search: {
+        ...search,
+        view: "upcoming",
+        includeApproximateDates: true,
+        platformIds: ["platform-ps5"],
+      },
+    });
+    expect(
+      screen.getByText("Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."),
+    ).toBeInTheDocument();
+    for (const reset of screen.getAllByRole("link", { name: "Quitar filtros" })) {
+      expect(reset).toHaveAttribute("href", "/?view=upcoming&weeks=1&includeApproximateDates=true");
+    }
   });
 
   it("distinguishes stale local data from a technical failure", () => {

@@ -1,7 +1,9 @@
 package com.videogameplatform.api.delivery.catalogue.release;
 
+import com.videogameplatform.api.delivery.ApiRequestException;
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
 import com.videogameplatform.api.generated.ReleasesApi;
+import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ReleasePage;
 import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
@@ -41,16 +43,24 @@ public class ReleaseController implements ReleasesApi {
     public ResponseEntity<ReleasePage> listReleases(
             ReleaseView view,
             Integer weeks,
+            Boolean includeApproximateDates,
             Set<String> platformIds,
             Set<String> regionIds,
             Integer page,
             Integer pageSize,
             String ifNoneMatch) {
+        // The opt-in widens upcoming discovery only; recent has no exact-only default to widen.
+        boolean approximateDates = Boolean.TRUE.equals(includeApproximateDates);
+        if (approximateDates && view == ReleaseView.recent) {
+            throw new ApiRequestException(
+                    ProblemCode.FILTER_INVALID, "/query/includeApproximateDates");
+        }
         BrowseReleasesResult result =
                 useCase.browse(
                         new BrowseReleasesUseCase.Query(
                                 toApplicationView(view),
                                 weeks,
+                                approximateDates,
                                 toList(platformIds),
                                 toList(regionIds),
                                 page,

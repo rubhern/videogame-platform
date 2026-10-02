@@ -8,7 +8,7 @@
 
 | ID       | Operation                           | Actor                 | Required behaviour                                                                                                                                                                                   |
 |----------|-------------------------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status), then groups the matching releases by game so a result is one game with only its view-and-filter-matching releases, and counts, uniquely orders, and pages games; cancelled is excluded from both views and delayed from recent; TBA upcoming sorts last; stale/empty/fallback are valid states |
+| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status), then groups the matching releases by game so a result is one game with only its view-and-filter-matching releases, and counts, uniquely orders, and pages games; cancelled is excluded from both views and delayed from recent; upcoming shows exact-day releases unless the visitor opts into approximate dates, where TBA sorts last; stale/empty/fallback are valid states |
 | `UC-002` | Search bounded catalogue            | Visitor               | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider                       |
 | `UC-003` | View game details                   | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page                                   |
 | `UC-009` | Synchronize catalogue from provider | Operator              | Synchronize every provider Game in an operator-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
@@ -35,6 +35,17 @@ classification. Changing the horizon resets the page; the URL carries the select
 and the returned evaluated range is shown to the visitor. The range is recalculated on
 each request, so a shared URL describes a moving horizon rather than a fixed historical
 interval.
+
+Post-MVP (#214, implemented): upcoming discovery shows only releases with an exact day
+by default. Month, quarter, year and unknown (TBA) releases stay stored unchanged and
+join, each at its own precision and after exact days in the order above, only when the
+visitor explicitly opts in with **Incluir fechas aproximadas**. The choice exists for
+the upcoming view only; recent keeps classifying partial periods that have ended. It
+composes with the week horizon and both filter dimensions because PostgreSQL applies it
+before facets, count, ordering and pagination, so `availableFilters` and `totalItems`
+describe the chosen precision. Changing it resets the page and the URL carries it.
+Precision is the only rule: no platform lifecycle applies, so a future release with an
+accepted exact day stays visible whatever its platform.
 
 Platform and region filters are multi-select facets: values within one dimension combine
 with `OR` and the two dimensions combine with `AND`. No value selected for a dimension

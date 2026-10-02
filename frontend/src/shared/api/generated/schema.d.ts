@@ -22,10 +22,13 @@ export interface paths {
          *     platform set), region options reflect the current view/window and the active platform
          *     selection (never restricted by the active region set), and a currently selected valid
          *     value always stays representable. The application derives the evaluation date and the
-         *     selected bounded week window in `Europe/Madrid`. Empty, stale, review-required,
-         *     imprecise-date, TBA, and fallback-cover results are valid states. PostgreSQL groups by
-         *     game, applies filters, distinct facet discovery, total ordering, count, limit, and offset
-         *     before any release page reaches the application.
+         *     selected bounded week window in `Europe/Madrid`. Upcoming discovery returns only releases
+         *     with an exact day unless `includeApproximateDates=true` also admits month, quarter, year,
+         *     and unknown (TBA) precision; the precision choice composes with the window and both filter
+         *     dimensions, and the facets reflect it. Empty, stale, review-required, imprecise-date, TBA,
+         *     and fallback-cover results are valid states. PostgreSQL groups by game, applies filters,
+         *     distinct facet discovery, total ordering, count, limit, and offset before any release page
+         *     reaches the application.
          */
         get: operations["listReleases"];
         put?: never;
@@ -779,6 +782,15 @@ export interface components {
          */
         ReleaseWeeks: 1 | 2 | 4;
         /**
+         * @description Upcoming-only opt-in. Omitted or `false`, `view=upcoming` returns only releases with an
+         *     exact day (`day` precision). `true` also returns month, quarter, year, and unknown (TBA)
+         *     precision releases; each keeps its real precision and follows exact days in the upcoming
+         *     order. Recent discovery is unchanged and always includes known partial periods that have
+         *     ended, so `true` combined with `view=recent` yields 422 `FILTER_INVALID`.
+         * @example true
+         */
+        ReleaseIncludeApproximateDates: boolean;
+        /**
          * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
          *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
          *     no platform filter. Values are trimmed and de-duplicated; an unknown value yields 422.
@@ -899,6 +911,15 @@ export interface operations {
                  * @example 2
                  */
                 weeks?: components["parameters"]["ReleaseWeeks"];
+                /**
+                 * @description Upcoming-only opt-in. Omitted or `false`, `view=upcoming` returns only releases with an
+                 *     exact day (`day` precision). `true` also returns month, quarter, year, and unknown (TBA)
+                 *     precision releases; each keeps its real precision and follows exact days in the upcoming
+                 *     order. Recent discovery is unchanged and always includes known partial periods that have
+                 *     ended, so `true` combined with `view=recent` yields 422 `FILTER_INVALID`.
+                 * @example true
+                 */
+                includeApproximateDates?: components["parameters"]["ReleaseIncludeApproximateDates"];
                 /**
                  * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
                  *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for

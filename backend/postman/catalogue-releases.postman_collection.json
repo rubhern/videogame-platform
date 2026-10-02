@@ -235,6 +235,140 @@
       "response": []
     },
     {
+      "name": "Upcoming releases default to exact days",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Only releases with an exact day are returned by default\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.view).to.eql(\"upcoming\");",
+              "    body.items.forEach(function (item) {",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release.releaseDate.precision).to.eql(\"day\");",
+              "        });",
+              "    });",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&weeks=4",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "upcoming"
+            },
+            {
+              "key": "weeks",
+              "value": "4"
+            }
+          ]
+        },
+        "description": "Upcoming discovery lists only exact-day releases unless the visitor opts into approximate dates. Month, quarter, year and TBA releases stay stored and appear only with includeApproximateDates=true."
+      },
+      "response": []
+    },
+    {
+      "name": "Upcoming releases including approximate dates",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Approximate dates keep their real precision and follow exact days\", function () {",
+              "    const body = pm.response.json();",
+              "    const releases = body.items.flatMap(function (item) { return item.releases; });",
+              "    const approximate = releases.filter(function (release) { return release.releaseDate.precision !== \"day\"; });",
+              "    // The deterministic seed always holds one TBA upcoming release, whatever the date.",
+              "    pm.expect(approximate.map(function (release) { return release.releaseDate.precision; })).to.include(\"unknown\");",
+              "    approximate.forEach(function (release) {",
+              "        if (release.releaseDate.precision === \"unknown\") {",
+              "            pm.expect(release.releaseDate.value).to.eql(null);",
+              "        } else {",
+              "            pm.expect(release.releaseDate.value).to.match(/^[0-9]{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$/);",
+              "        }",
+              "    });",
+              "    const firstGamePrecisions = body.items.map(function (item) { return item.releases[0].releaseDate.precision; });",
+              "    const firstApproximate = firstGamePrecisions.findIndex(function (precision) { return precision !== \"day\"; });",
+              "    if (firstApproximate >= 0) {",
+              "        pm.expect(firstGamePrecisions.slice(firstApproximate)).to.not.include(\"day\");",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&weeks=4&includeApproximateDates=true",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "upcoming"
+            },
+            {
+              "key": "weeks",
+              "value": "4"
+            },
+            {
+              "key": "includeApproximateDates",
+              "value": "true"
+            }
+          ]
+        },
+        "description": "Explicit opt-in: month, quarter, year and unknown (TBA) precision releases join the exact days of the same week horizon, ordered after them and never narrowed to an invented day."
+      },
+      "response": []
+    },
+    {
       "name": "Unsupported platform",
       "event": [
         {
@@ -403,6 +537,119 @@
           ]
         },
         "description": "Demonstrates one-based bounded pagination validation."
+      },
+      "response": []
+    },
+    {
+      "name": "Approximate dates are upcoming-only",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/includeApproximateDates\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=recent&includeApproximateDates=true",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "recent"
+            },
+            {
+              "key": "includeApproximateDates",
+              "value": "true"
+            }
+          ]
+        },
+        "description": "Recent discovery already classifies partial periods that have ended, so the opt-in is rejected there instead of being silently ignored."
+      },
+      "response": []
+    },
+    {
+      "name": "Non-canonical approximate-date value",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "",
+              "pm.test(\"Only true and false are accepted\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/includeApproximateDates\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/releases?view=upcoming&includeApproximateDates=yes",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "upcoming"
+            },
+            {
+              "key": "includeApproximateDates",
+              "value": "yes"
+            }
+          ]
+        },
+        "description": "The closed query accepts only the canonical boolean literals true and false."
       },
       "response": []
     },

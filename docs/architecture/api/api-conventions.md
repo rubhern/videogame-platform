@@ -31,8 +31,9 @@ usefully expressed once in the contract.
 - Page/offset remains approved until measured deep-offset/count cost justifies a
   compatibility decision for keyset/cursor semantics.
 - Release windows/evaluation date use application time in `Europe/Madrid`; clients
-  select only the bounded week horizon, never the evaluation date or raw dates.
-  Day/month/quarter/year/unknown remain a closed representation.
+  select only the bounded week horizon and, for upcoming, whether approximate dates are
+  included, never the evaluation date or raw dates. Day/month/quarter/year/unknown
+  remain a closed representation.
 - Catalogue search is trimmed, non-blank, bounded to 100 Unicode code points,
   case/diacritic-insensitive, all-token, non-fuzzy, and searches only canonical title
   plus approved aliases. A token matches a word prefix, never an infix. A query whose
