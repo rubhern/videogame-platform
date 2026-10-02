@@ -88,6 +88,19 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     await expectNoAccessibilityViolations(page);
   });
 
+  await test.step("upcoming lists exact days by default and approximate dates on request", async () => {
+    // The seed's only upcoming game in this horizon has no exact day, so the default is empty.
+    await expect(page.locator(".result-count")).toHaveText("0 juegos");
+    await expect(page.getByText(/Ningún lanzamiento con fecha exacta/)).toBeVisible();
+    const optIn = page.getByRole("checkbox", { name: "Incluir fechas aproximadas" });
+    await expect(optIn).not.toBeChecked();
+    await optIn.focus();
+    await page.keyboard.press("Space");
+    await expect(page).toHaveURL(/view=upcoming&weeks=4&includeApproximateDates=true&pageSize=6/);
+    await expect(optIn).toBeChecked();
+    await expectNoAccessibilityViolations(page);
+  });
+
   await test.step("TBA remains explicit and is grouped as one game", async () => {
     await expect(page.locator(".result-count")).toHaveText("1 juego · Página 1 de 1");
     await expect(releaseTitles(page)).toHaveText(["The Witcher IV"]);
@@ -97,12 +110,12 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   });
 
   await test.step("an out-of-range shared page recovers to the only game", async () => {
-    await page.goto("/?view=upcoming&weeks=1&page=99&pageSize=1");
+    await page.goto("/?view=upcoming&weeks=1&includeApproximateDates=true&page=99&pageSize=1");
     await expect(page.locator(".result-count")).toHaveText(
       "1 juego · La página 99 ya no está disponible",
     );
     await page.getByRole("link", { name: "Ir a la última página" }).click();
-    await expect(page).toHaveURL(/view=upcoming&weeks=1&pageSize=1/);
+    await expect(page).toHaveURL(/view=upcoming&weeks=1&includeApproximateDates=true&pageSize=1/);
     await expect(releaseTitles(page)).toHaveText(["The Witcher IV"]);
     await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
   });

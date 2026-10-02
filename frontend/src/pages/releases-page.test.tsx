@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -6,6 +6,7 @@ import type { components } from "../shared/api/generated/schema";
 import { renderApp } from "../test/render-app";
 
 type ReleasePage = components["schemas"]["ReleasePage"];
+type ReleaseDate = components["schemas"]["ReleaseDate"];
 type Problem = components["schemas"]["Problem"];
 
 const pragmata: ReleasePage["items"][number] = {
@@ -55,6 +56,29 @@ function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
     items: [pragmata],
     page: { number: 1, size: 6, totalItems: 1, totalPages: 1 },
     ...overrides,
+  };
+}
+
+function upcomingGame(id: number, title: string, releaseDate: ReleaseDate): ReleasePage["items"][number] {
+  const gameId = `30000000-0000-4000-8000-${String(id).padStart(12, "0")}`;
+  const [release] = pragmata.releases;
+  if (release === undefined) {
+    throw new Error("The fixture game needs one release.");
+  }
+  return {
+    ...pragmata,
+    gameId,
+    slug: `juego-${id}`,
+    canonicalTitle: title,
+    releases: [
+      {
+        ...release,
+        releaseId: `40000000-0000-4000-8000-${String(id).padStart(12, "0")}`,
+        gameId,
+        releaseDate,
+        status: "scheduled",
+      },
+    ],
   };
 }
 
@@ -219,6 +243,117 @@ describe("releases page", () => {
       expect(requestedQueries(fetchMock).at(-1)?.get("view")).toBe("upcoming"),
     );
     expect(requestedQueries(fetchMock).at(-1)?.get("pageSize")).toBe("12");
+  });
+
+  it("requests exact upcoming days by default and returns to the first page when opting in", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases(() =>
+      Response.json(releasePage({ view: "upcoming", window: { from: "2026-08-13", to: "2026-08-20" } }), {
+        status: 200,
+      }),
+    );
+
+    const { router } = renderApp("/?view=upcoming&platformIds=playstation-5&page=3");
+    const optIn = await screen.findByRole("checkbox", { name: "Incluir fechas aproximadas" });
+    expect(optIn).not.toBeChecked();
+    expect(requestedQueries(fetchMock)[0]?.has("includeApproximateDates")).toBe(false);
+
+    await user.click(optIn);
+
+    await waitFor(() =>
+      expect(requestedQueries(fetchMock).at(-1)?.get("includeApproximateDates")).toBe("true"),
+    );
+    const query = requestedQueries(fetchMock).at(-1);
+    expect(query?.get("page")).toBe("1");
+    expect(query?.getAll("platformIds")).toEqual(["playstation-5"]);
+    expect(router.state.location.search).toBe(
+      "?view=upcoming&weeks=1&includeApproximateDates=true&platformIds=playstation-5",
+    );
+    expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).toBeChecked();
+  });
+
+  it("toggles approximate dates with the keyboard and keeps focus on the control", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases(() =>
+      Response.json(releasePage({ view: "upcoming", window: { from: "2026-08-13", to: "2026-08-20" } }), {
+        status: 200,
+      }),
+    );
+
+    const { router } = renderApp("/?view=upcoming");
+    const optIn = await screen.findByRole("checkbox", { name: "Incluir fechas aproximadas" });
+    optIn.focus();
+    await user.keyboard(" ");
+
+    await waitFor(() =>
+      expect(router.state.location.search).toBe("?view=upcoming&weeks=1&includeApproximateDates=true"),
+    );
+    expect(optIn).toBeChecked();
+    expect(optIn).toHaveFocus();
+
+    await user.keyboard(" ");
+    await waitFor(() => expect(router.state.location.search).toBe("?view=upcoming&weeks=1"));
+    expect(optIn).not.toBeChecked();
+    expect(requestedQueries(fetchMock).at(-1)?.has("includeApproximateDates")).toBe(false);
+  });
+
+  it("shows opted-in approximate dates at their real precision without inventing a day", async () => {
+    stubReleases(() =>
+      Response.json(
+        releasePage({
+          view: "upcoming",
+          window: { from: "2026-08-13", to: "2026-08-20" },
+          items: [
+            upcomingGame(21, "Juego mensual", { precision: "month", value: "2026-10" }),
+            upcomingGame(22, "Juego trimestral", { precision: "quarter", value: "2026-Q4" }),
+            upcomingGame(23, "Juego anual", { precision: "year", value: "2027" }),
+            upcomingGame(24, "Juego sin fecha", { precision: "unknown", value: null }),
+          ],
+          page: { number: 1, size: 12, totalItems: 4, totalPages: 1 },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    renderApp("/?view=upcoming&includeApproximateDates=true");
+
+    const results = within(await screen.findByRole("list", { name: "Próximos lanzamientos" }));
+    // Each card keeps the contract precision in its full wording and in its cover chip.
+    expect(results.getByText("octubre de 2026")).toBeInTheDocument();
+    expect(results.getByText("oct 2026")).toBeInTheDocument();
+    expect(results.getByText("4.º trimestre de 2026")).toBeInTheDocument();
+    expect(results.getByText("T4 2026")).toBeInTheDocument();
+    expect(results.getAllByText("2027")).toHaveLength(2);
+    expect(results.getByText("Fecha por confirmar")).toBeInTheDocument();
+    expect(results.getByText("Por confirmar")).toBeInTheDocument();
+    expect(results.queryByText(/\d{1,2} de octubre de 2026/)).not.toBeInTheDocument();
+  });
+
+  it("leaves the approximate-date opt-in behind when navigating to recent", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubReleases((request) =>
+      Response.json(
+        new URL(request.url).searchParams.get("view") === "upcoming"
+          ? releasePage({ view: "upcoming", window: { from: "2026-08-13", to: "2026-08-20" } })
+          : releasePage(),
+        { status: 200 },
+      ),
+    );
+
+    const { router } = renderApp("/?view=upcoming&includeApproximateDates=true");
+    expect(
+      await screen.findByRole("checkbox", { name: "Incluir fechas aproximadas" }),
+    ).toBeChecked();
+    expect(requestedQueries(fetchMock)[0]?.get("includeApproximateDates")).toBe("true");
+
+    await user.click(screen.getByRole("link", { name: "Recientes" }));
+
+    await waitFor(() => expect(requestedQueries(fetchMock).at(-1)?.get("view")).toBe("recent"));
+    expect(requestedQueries(fetchMock).at(-1)?.has("includeApproximateDates")).toBe(false);
+    expect(router.state.location.search).toBe("?weeks=1");
+    expect(
+      screen.queryByRole("checkbox", { name: "Incluir fechas aproximadas" }),
+    ).not.toBeInTheDocument();
   });
 
   it("changes the week horizon by keyboard, preserves filters, and resets pagination", async () => {

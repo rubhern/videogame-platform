@@ -60,9 +60,14 @@ per-Game state in [ADR-0017](0017-discover-catalogue-members-automatically-from-
 query plans. The accepted 100k-release local run returned 20 Java items: recent
 matched 1,183 rows (about 1.4 ms count, 7.3 ms page) and upcoming matched 2,179 rows
 (about 6.9 ms count, 16.3 ms page), using the intended indexes. These observations are
-historical evidence, not portable latency gates.
+historical evidence, not portable latency gates. The exact-day upcoming default
+([#214](https://github.com/rubhern/videogame-platform/issues/214)) keeps the shared period
+index and filters partial precision as a residual condition: with a fifth of generated
+releases at month, quarter or year precision, the default week at 1M releases read 4,410
+index rows to keep 756 (about 6 ms count, 10 ms page).
 
 Revisit keyset pagination/count strategy for measured high-offset or count problems;
-current-state/index storage for measured growth; intermediary
+current-state/index storage for measured growth, including a day-precision partial index
+once partial-period density makes the exact-day residual filter material; intermediary
 caching for demonstrated public traffic; and replicas or another read store only for
 measured primary-load or query limitations.

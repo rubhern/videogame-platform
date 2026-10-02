@@ -59,6 +59,7 @@ class BrowseReleasesUseCaseTest {
                                 new BrowseReleasesUseCase.Query(
                                         BrowseReleasesUseCase.View.RECENT,
                                         weeks,
+                                        false,
                                         null,
                                         null,
                                         1,
@@ -73,6 +74,7 @@ class BrowseReleasesUseCaseTest {
                         new BrowseReleasesUseCase.Query(
                                         BrowseReleasesUseCase.View.UPCOMING,
                                         weeks,
+                                        false,
                                         null,
                                         null,
                                         1,
@@ -81,8 +83,36 @@ class BrowseReleasesUseCaseTest {
                 .isEqualTo(weeks);
     }
 
+    @Test
+    void letsUpcomingDiscoveryOptIntoApproximateDates() {
+        BrowseReleasesUseCase.Query query =
+                new BrowseReleasesUseCase.Query(
+                        BrowseReleasesUseCase.View.UPCOMING, 1, true, null, null, 1, 20);
+
+        assertThat(query.includeApproximateDates()).isTrue();
+        assertThat(query(BrowseReleasesUseCase.View.UPCOMING, 1, 20).includeApproximateDates())
+                .isFalse();
+    }
+
+    @Test
+    void rejectsApproximateDatesForRecentDiscovery() {
+        assertThatIllegalArgumentException()
+                .isThrownBy(
+                        () ->
+                                new BrowseReleasesUseCase.Query(
+                                        BrowseReleasesUseCase.View.RECENT,
+                                        1,
+                                        true,
+                                        null,
+                                        null,
+                                        1,
+                                        20))
+                .withMessage(
+                        "Approximate release dates can only be included in upcoming discovery");
+    }
+
     private static BrowseReleasesUseCase.Query query(
             BrowseReleasesUseCase.View view, int pageNumber, int pageSize) {
-        return new BrowseReleasesUseCase.Query(view, 1, null, null, pageNumber, pageSize);
+        return new BrowseReleasesUseCase.Query(view, 1, false, null, null, pageNumber, pageSize);
     }
 }

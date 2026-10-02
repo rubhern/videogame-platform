@@ -125,6 +125,11 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
     }
 
     private static Set<String> acceptedValues(Class<?> parameterType) {
+        // Only the canonical boolean literals; Spring's lenient on/yes/1 spellings stay outside
+        // the closed query.
+        if (Boolean.class.equals(parameterType)) {
+            return Set.of("true", "false");
+        }
         if (!parameterType.isEnum()) {
             return Set.of();
         }

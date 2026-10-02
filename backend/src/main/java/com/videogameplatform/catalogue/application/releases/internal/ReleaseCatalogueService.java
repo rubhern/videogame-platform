@@ -61,7 +61,7 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                                         regionIds,
                                         new ReleaseBrowseReadPort.Pagination(
                                                 query.pageNumber(), query.pageSize(), offset),
-                                        browsePolicy.includesUnknownUpcomingDates(),
+                                        query.includeApproximateDates(),
                                         browsePolicy.releaseGroupLimit()))
                         .orElseThrow(CatalogueNotReadyException::new);
 

@@ -5,6 +5,7 @@ import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
 import { CinematicStage } from "../../shared/ui/cinematic-stage";
 import { HeroTitle } from "../../shared/ui/hero-title";
 import { ReleaseCard } from "./release-card";
+import { ReleasesApproximateDates } from "./releases-approximate-dates";
 import { ReleasesFilters } from "./releases-filters";
 import { ReleasesPagination } from "./releases-pagination";
 import { ReleasesWeeks } from "./releases-weeks";
@@ -51,6 +52,13 @@ function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string
     return `${count} · La página ${number} ya no está disponible`;
   }
   return totalPages > 0 ? `${count} · Página ${number} de ${totalPages}` : count;
+}
+
+// Exact-only upcoming can be empty while approximate dates exist, so the notice names the opt-in.
+function emptyExplanation(search: ReleasesSearch): string {
+  return search.view === "upcoming" && !search.includeApproximateDates
+    ? "Ningún lanzamiento con fecha exacta coincide con esta ventana y estos filtros. Activa «Incluir fechas aproximadas» para ver también los anunciados por mes, trimestre, año o sin fecha confirmada."
+    : "Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros.";
 }
 
 function LoadingFilters() {
@@ -108,12 +116,16 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
           </div>
         </div>
 
-        <div className="releases-toolbar">
-          <ReleasesWeeks search={search} />
-          {/* Filter choices come from the response, so a failed read shows none rather than
-              empty placeholders that look like broken controls. */}
-          {state.status === "loading" ? <LoadingFilters /> : null}
-          {model === null ? null : <ReleasesFilters platforms={model.platforms} regions={model.regions} search={search} />}
+        <div className="releases-controls">
+          <div className="releases-toolbar">
+            <ReleasesWeeks search={search} />
+            {/* Filter choices come from the response, so a failed read shows none rather than
+                empty placeholders that look like broken controls. */}
+            {state.status === "loading" ? <LoadingFilters /> : null}
+            {model === null ? null : <ReleasesFilters platforms={model.platforms} regions={model.regions} search={search} />}
+          </div>
+          {/* The precision choice is URL state, so it stays operable whatever the read state. */}
+          {search.view === "upcoming" ? <ReleasesApproximateDates search={search} /> : null}
         </div>
 
         <h2 className="sr-only" ref={resultsHeadingRef} tabIndex={-1}>
@@ -194,7 +206,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
                 <p>
                   {isBeyondLastPage
                     ? "La página solicitada ya no está disponible para estos resultados."
-                    : "Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."}
+                    : emptyExplanation(search)}
                 </p>
                 {hasActiveFilters(search) && state.model.page.totalItems === 0 ? (
                   <Link

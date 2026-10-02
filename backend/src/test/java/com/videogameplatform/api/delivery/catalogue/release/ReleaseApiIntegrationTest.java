@@ -123,24 +123,46 @@ class ReleaseApiIntegrationTest {
 
     @Test
     void supportsFiltersPaginationEmptyPagesAndUnknownDatePrecision() throws Exception {
-        JsonNode upcoming = json(get("/api/v1/releases?view=upcoming&page=1&pageSize=20"));
+        HttpResponse<String> exactResponse =
+                get("/api/v1/releases?view=upcoming&page=1&pageSize=20");
+        OPENAPI.assertJsonResponse(exactResponse, 200, "ReleasePage");
+        JsonNode upcoming = json(exactResponse);
         assertThat(upcoming.path("window").path("from").stringValue()).isEqualTo("2026-08-13");
         assertThat(upcoming.path("window").path("to").stringValue()).isEqualTo("2026-08-20");
-        // TBA remains an upcoming game independent of the selected known-date horizon.
-        assertThat(upcoming.path("items")).hasSize(1);
-        JsonNode lastGameReleases = upcoming.path("items").get(0).path("releases");
+        // Upcoming defaults to exact days: the seed's TBA game is not an exact-day release.
+        assertThat(upcoming.path("items")).isEmpty();
+        assertThat(upcoming.path("page").path("totalItems").asLong()).isZero();
+        assertThat(upcoming.path("availableFilters").path("platforms")).isEmpty();
+
+        HttpResponse<String> approximateResponse =
+                get(
+                        "/api/v1/releases?view=upcoming&includeApproximateDates=true&page=1&pageSize=20");
+        OPENAPI.assertJsonResponse(approximateResponse, 200, "ReleasePage");
+        assertThat(approximateResponse.headers().firstValue("ETag"))
+                .isNotEqualTo(exactResponse.headers().firstValue("ETag"));
+        JsonNode approximate = json(approximateResponse);
+        // Opted in, TBA remains an upcoming game independent of the selected known-date horizon,
+        // with its unknown precision kept explicit.
+        assertThat(approximate.path("items")).hasSize(1);
+        JsonNode lastGameReleases = approximate.path("items").get(0).path("releases");
         JsonNode unknownDate =
                 lastGameReleases.get(lastGameReleases.size() - 1).path("releaseDate");
         assertThat(unknownDate.path("precision").stringValue()).isEqualTo("unknown");
         assertThat(unknownDate.path("value").isNull()).isTrue();
 
-        JsonNode fourWeeks = json(get("/api/v1/releases?view=upcoming&weeks=4&page=1&pageSize=3"));
+        JsonNode fourWeeks =
+                json(
+                        get(
+                                "/api/v1/releases?view=upcoming&weeks=4&includeApproximateDates=true&page=1&pageSize=3"));
         assertThat(fourWeeks.path("window").path("to").stringValue()).isEqualTo("2026-09-10");
         assertThat(fourWeeks.path("page").path("totalItems").asLong())
-                .isGreaterThanOrEqualTo(upcoming.path("page").path("totalItems").asLong());
+                .isGreaterThanOrEqualTo(approximate.path("page").path("totalItems").asLong());
         JsonNode twoWeeks = json(get("/api/v1/releases?view=recent&weeks=2"));
         assertThat(twoWeeks.path("window").path("from").stringValue()).isEqualTo("2026-07-31");
-        JsonNode lastUpcomingPage = json(get("/api/v1/releases?view=upcoming&page=2&pageSize=1"));
+        JsonNode lastUpcomingPage =
+                json(
+                        get(
+                                "/api/v1/releases?view=upcoming&includeApproximateDates=true&page=2&pageSize=1"));
         assertThat(lastUpcomingPage.path("items")).isEmpty();
         assertThat(lastUpcomingPage.path("page").path("totalItems").asLong()).isEqualTo(1);
 
@@ -199,6 +221,28 @@ class ReleaseApiIntegrationTest {
         assertProblem(get("/api/v1/releases?view=recent&pageSize=101"), 422, "PAGINATION_INVALID");
         assertProblem(get("/api/v1/releases?view=recent&view=upcoming"), 422, "FILTER_INVALID");
         assertProblem(get("/api/v1/releases?view=recent&page=1&page=2"), 422, "PAGINATION_INVALID");
+        HttpResponse<String> recentApproximate =
+                get("/api/v1/releases?view=recent&includeApproximateDates=true");
+        assertProblem(recentApproximate, 422, "FILTER_INVALID");
+        assertThat(
+                        OBJECT_MAPPER
+                                .readTree(recentApproximate.body())
+                                .path("violations")
+                                .get(0)
+                                .path("pointer")
+                                .stringValue())
+                .isEqualTo("/query/includeApproximateDates");
+        assertThat(get("/api/v1/releases?view=recent&includeApproximateDates=false").statusCode())
+                .isEqualTo(200);
+        assertProblem(
+                get("/api/v1/releases?view=upcoming&includeApproximateDates=yes"),
+                422,
+                "FILTER_INVALID");
+        assertProblem(
+                get(
+                        "/api/v1/releases?view=upcoming&includeApproximateDates=true&includeApproximateDates=false"),
+                422,
+                "FILTER_INVALID");
         assertProblem(
                 get("/api/v1/releases?view=recent&unexpected=true"),
                 422,

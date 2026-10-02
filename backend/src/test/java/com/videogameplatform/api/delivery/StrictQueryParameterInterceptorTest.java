@@ -84,6 +84,42 @@ class StrictQueryParameterInterceptorTest {
                                         .isEqualTo(ProblemCode.FILTER_INVALID));
     }
 
+    @Test
+    void acceptsOnlyCanonicalBooleanLiteralsForBooleanParameters() {
+        for (String accepted : new String[] {"true", "false"}) {
+            MockHttpServletRequest request =
+                    new MockHttpServletRequest("GET", "/routed-prefix/releases");
+            request.addParameter("view", "upcoming");
+            request.addParameter("includeApproximateDates", accepted);
+
+            assertThatCode(
+                            () ->
+                                    interceptor.preHandle(
+                                            request, new MockHttpServletResponse(), releaseHandler))
+                    .doesNotThrowAnyException();
+        }
+        for (String rejected : new String[] {"yes", "1", "TRUE", ""}) {
+            MockHttpServletRequest request =
+                    new MockHttpServletRequest("GET", "/routed-prefix/releases");
+            request.addParameter("view", "upcoming");
+            request.addParameter("includeApproximateDates", rejected);
+
+            assertThatThrownBy(
+                            () ->
+                                    interceptor.preHandle(
+                                            request, new MockHttpServletResponse(), releaseHandler))
+                    .isInstanceOf(ApiRequestException.class)
+                    .satisfies(
+                            exception -> {
+                                ApiRequestException problem = (ApiRequestException) exception;
+                                org.assertj.core.api.Assertions.assertThat(problem.code())
+                                        .isEqualTo(ProblemCode.FILTER_INVALID);
+                                org.assertj.core.api.Assertions.assertThat(problem.pointer())
+                                        .isEqualTo("/query/includeApproximateDates");
+                            });
+        }
+    }
+
     private static HandlerMethod releaseHandler() {
         try {
             ReleaseController controller = new ReleaseController(null, null, null, null, null);
@@ -93,6 +129,7 @@ class StrictQueryParameterInterceptorTest {
                             "listReleases",
                             ReleaseView.class,
                             Integer.class,
+                            Boolean.class,
                             Set.class,
                             Set.class,
                             Integer.class,

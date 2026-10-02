@@ -19,6 +19,7 @@ describe("releases navigable state", () => {
     expect(read("")).toEqual({
       view: "recent",
       weeks: 1,
+      includeApproximateDates: false,
       platformIds: [],
       regionIds: [],
       page: 1,
@@ -43,6 +44,7 @@ describe("releases navigable state", () => {
     ).toEqual({
       view: "upcoming",
       weeks: 1,
+      includeApproximateDates: false,
       platformIds: ["platform-ps5", "platform-switch"],
       regionIds: ["region-eu"],
       page: 3,
@@ -91,6 +93,35 @@ describe("releases navigable state", () => {
     );
   });
 
+  it("restores approximate upcoming dates only from an explicit opt-in", () => {
+    expect(read("view=upcoming&includeApproximateDates=true").includeApproximateDates).toBe(true);
+    expect(read("view=upcoming").includeApproximateDates).toBe(false);
+    expect(read("view=upcoming&includeApproximateDates=1").includeApproximateDates).toBe(false);
+    expect(read("view=upcoming&includeApproximateDates=TRUE").includeApproximateDates).toBe(false);
+    // Recent has no exact-only default to widen, so it never carries the choice.
+    expect(read("includeApproximateDates=true").includeApproximateDates).toBe(false);
+  });
+
+  it("keeps the opt-in shareable on upcoming, resets the page and drops it for recent", () => {
+    const current = read("view=upcoming&platformIds=platform-ps5&page=4");
+
+    expect(releasesSearchPath(current, { includeApproximateDates: true, page: 1 })).toBe(
+      "/?view=upcoming&weeks=1&includeApproximateDates=true&platformIds=platform-ps5",
+    );
+    const optedIn = read("view=upcoming&includeApproximateDates=true&platformIds=platform-ps5&page=2");
+    expect(writeReleasesSearch(optedIn).toString()).toBe(
+      "view=upcoming&weeks=1&includeApproximateDates=true&platformIds=platform-ps5&page=2",
+    );
+    // Clearing the facets keeps the precision choice; leaving the upcoming window drops it.
+    expect(releasesSearchPath(optedIn, { platformIds: [], regionIds: [], page: 1 })).toBe(
+      "/?view=upcoming&weeks=1&includeApproximateDates=true",
+    );
+    expect(releasesSearchPath(optedIn, { view: "recent", page: 1 })).toBe(
+      "/?weeks=1&platformIds=platform-ps5",
+    );
+    expect(hasActiveFilters(read("view=upcoming&includeApproximateDates=true"))).toBe(false);
+  });
+
   it("toggles a value within a dimension, preserving the other values", () => {
     expect(toggleFilterValue(["a"], "b")).toEqual(["a", "b"]);
     expect(toggleFilterValue(["a", "b"], "a")).toEqual(["b"]);
@@ -103,6 +134,17 @@ describe("releases navigable state", () => {
       page: 2,
       pageSize: DEFAULT_PAGE_SIZE,
     });
+    expect(toReleasesQuery(read("view=upcoming&includeApproximateDates=true"))).toEqual({
+      view: "upcoming",
+      weeks: 1,
+      includeApproximateDates: true,
+      page: 1,
+      pageSize: DEFAULT_PAGE_SIZE,
+    });
+    // A stale opt-in never reaches a recent request, which the contract would reject.
+    expect(
+      toReleasesQuery({ ...read(""), includeApproximateDates: true }),
+    ).not.toHaveProperty("includeApproximateDates");
     expect(toReleasesQuery(read("platformIds=platform-ps5&platformIds=platform-switch"))).toEqual({
       view: "recent",
       weeks: 1,

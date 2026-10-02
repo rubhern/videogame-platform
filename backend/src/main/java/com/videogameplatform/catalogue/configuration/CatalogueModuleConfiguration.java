@@ -9,7 +9,6 @@ import com.videogameplatform.catalogue.application.details.port.GameDetailsReadP
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
-import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy.UnknownUpcomingDatePolicy;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseCatalogueService;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
@@ -35,8 +34,7 @@ class CatalogueModuleConfiguration {
 
     @Bean
     ReleaseBrowsePolicy releaseBrowsePolicy(CatalogueReleaseProperties properties) {
-        return new ReleaseBrowsePolicy(
-                properties.releaseGroupLimit(), UnknownUpcomingDatePolicy.INCLUDE_AS_TBA);
+        return new ReleaseBrowsePolicy(properties.releaseGroupLimit());
     }
 
     @Bean

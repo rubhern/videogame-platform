@@ -74,7 +74,7 @@ class ReleaseCatalogueServiceTest {
         assertThat(captured.get().window().to()).isEqualTo("2026-08-20");
         assertThat(captured.get().pagination().offset()).isEqualTo(40);
         assertThat(captured.get().pagination().pageSize()).isEqualTo(20);
-        assertThat(captured.get().includeUnknownUpcomingDates()).isTrue();
+        assertThat(captured.get().includeApproximateUpcomingDates()).isFalse();
         assertThat(captured.get().releaseGroupLimit()).isEqualTo(25);
         assertThat(page.items()).hasSize(1);
         assertThat(page.page().totalItems()).isEqualTo(10_000);
@@ -94,15 +94,44 @@ class ReleaseCatalogueServiceTest {
 
         service.browse(
                 new BrowseReleasesUseCase.Query(
-                        BrowseReleasesUseCase.View.RECENT, 4, null, null, 1, 20));
+                        BrowseReleasesUseCase.View.RECENT, 4, false, null, null, 1, 20));
         assertThat(captured.get().window().from()).isEqualTo("2026-07-17");
         assertThat(captured.get().window().to()).isEqualTo("2026-08-13");
 
         service.browse(
                 new BrowseReleasesUseCase.Query(
-                        BrowseReleasesUseCase.View.UPCOMING, 4, null, null, 1, 20));
+                        BrowseReleasesUseCase.View.UPCOMING, 4, false, null, null, 1, 20));
         assertThat(captured.get().window().from()).isEqualTo("2026-08-13");
         assertThat(captured.get().window().to()).isEqualTo("2026-09-10");
+    }
+
+    @Test
+    void forwardsTheApproximateDateOptInWithTheSameWindowFiltersAndPage() {
+        AtomicReference<ReleaseBrowseReadPort.Criteria> captured = new AtomicReference<>();
+        var service =
+                service(
+                        criteria -> {
+                            captured.set(criteria);
+                            return Optional.of(result(List.of(), 0));
+                        });
+
+        service.browse(
+                new BrowseReleasesUseCase.Query(
+                        BrowseReleasesUseCase.View.UPCOMING,
+                        2,
+                        true,
+                        List.of("platform-1"),
+                        List.of("region-1"),
+                        3,
+                        20));
+
+        // The precision choice only widens the predicate; window, filters and page are unchanged.
+        assertThat(captured.get().includeApproximateUpcomingDates()).isTrue();
+        assertThat(captured.get().window().from()).isEqualTo("2026-08-13");
+        assertThat(captured.get().window().to()).isEqualTo("2026-08-27");
+        assertThat(captured.get().platformIds()).containsExactly("platform-1");
+        assertThat(captured.get().regionIds()).containsExactly("region-1");
+        assertThat(captured.get().pagination().offset()).isEqualTo(40);
     }
 
     @Test
@@ -156,6 +185,7 @@ class ReleaseCatalogueServiceTest {
                                                 new BrowseReleasesUseCase.Query(
                                                         BrowseReleasesUseCase.View.RECENT,
                                                         1,
+                                                        false,
                                                         List.of("unsupported"),
                                                         List.of(),
                                                         1,
@@ -174,8 +204,7 @@ class ReleaseCatalogueServiceTest {
                 port,
                 new CatalogueCoverPolicy(providerCoverReferenceResolver()),
                 clock,
-                new ReleaseBrowsePolicy(
-                        25, ReleaseBrowsePolicy.UnknownUpcomingDatePolicy.INCLUDE_AS_TBA),
+                new ReleaseBrowsePolicy(25),
                 new CatalogueFreshnessPolicy(Duration.ofDays(7)));
     }
 
@@ -189,7 +218,7 @@ class ReleaseCatalogueServiceTest {
 
     private static BrowseReleasesUseCase.Query query(
             BrowseReleasesUseCase.View view, int page, int pageSize) {
-        return new BrowseReleasesUseCase.Query(view, 1, null, null, page, pageSize);
+        return new BrowseReleasesUseCase.Query(view, 1, false, null, null, page, pageSize);
     }
 
     private static ReleaseBrowseReadPort.Result result(
