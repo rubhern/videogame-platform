@@ -290,3 +290,57 @@ for (const width of [390, 834, 1320]) {
     await expect(page.getByRole("radio", { name: "Mundial" })).toBeChecked();
   });
 }
+
+// #209: on phones nothing animates perpetually beneath the glass, which otherwise redraws every
+// blurred surface each frame, and the fixed ambient field overscans the viewport so Android's
+// moving URL bar never uncovers an edge. Tablet and desktop keep the stage's motion.
+for (const width of [320, 390, 834, 1320]) {
+  test(`decorative layers stay bounded at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.route("**/api/v1/games/*", (route) =>
+      route.fulfill({ json: gameDetailsFixture() }),
+    );
+    await page.goto(gamePath);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Resident Evil Requiem",
+    );
+    // Motion on the stage and the ambient field; small product markers are not measured here.
+    const perpetual = () =>
+      page.evaluate(
+        () =>
+          document.getAnimations().filter((animation) => {
+            const target =
+              animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
+            return (
+              (target?.closest(".cinema") || target?.classList.contains("app-frame")) &&
+              (animation.timeline instanceof ScrollTimeline ||
+                animation.effect?.getTiming().iterations === Infinity)
+            );
+          }).length,
+      );
+    if (width < 620) expect(await perpetual()).toBe(0);
+    else expect(await perpetual()).toBeGreaterThan(0);
+    const ambient = await page.evaluate(() => {
+      const frame = document.querySelector(".app-frame");
+      if (!frame) throw new Error("App frame missing");
+      return ["::before", "::after"].map((pseudo) => {
+        const style = getComputedStyle(frame, pseudo);
+        return {
+          position: style.position,
+          edges: [style.top, style.right, style.bottom, style.left].map(Number.parseFloat),
+        };
+      });
+    });
+    for (const layer of ambient) {
+      expect(layer.position).toBe("fixed");
+      for (const edge of layer.edges) expect(edge).toBeLessThan(0);
+    }
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    expect(await perpetual()).toBe(0);
+  });
+}

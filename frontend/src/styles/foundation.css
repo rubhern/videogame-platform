@@ -138,18 +138,21 @@
     content: "";
   }
 
-  /* Film grain keeps the large dark gradients from banding. */
+  /* Film grain keeps the large dark gradients from banding. Like the aurora it overscans the
+     viewport: a phone resizes fixed layers as its URL bar shows or hides, and a layer cut to the
+     viewport would briefly leave an ungrained, visibly darker strip at the top or bottom edge. */
   .app-frame::after {
     position: fixed;
     z-index: -1;
-    inset: 0;
+    inset: -18vmax;
     opacity: 0.05;
     pointer-events: none;
     background-image: var(--grain);
     content: "";
   }
 
-  @media (prefers-reduced-motion: no-preference) {
+  /* Phones keep the field still for the same reason as the stage (cinema.css). */
+  @media (prefers-reduced-motion: no-preference) and (min-width: 620px) {
     .app-frame::before {
       animation: aurora-drift 46s ease-in-out infinite alternate;
     }
