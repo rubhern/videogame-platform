@@ -515,6 +515,10 @@ class GameDetailsApiIntegrationTest {
 
     @Test
     void noPublicationReturnsNotReadyInsteadOfProviderFallback() throws Exception {
+        UUID publication =
+                admin.queryForObject(
+                        "SELECT publication_id FROM catalogue.catalogue_publication WHERE is_current",
+                        UUID.class);
         admin.update("UPDATE catalogue.catalogue_publication SET is_current = false");
         try {
             var response = get(game.toString());
@@ -523,7 +527,8 @@ class GameDetailsApiIntegrationTest {
                     .isEqualTo("CATALOGUE_NOT_READY");
         } finally {
             admin.update(
-                    "UPDATE catalogue.catalogue_publication SET is_current = true WHERE catalogue_version = 'prototype-catalogue-v1'");
+                    "UPDATE catalogue.catalogue_publication SET is_current = true WHERE publication_id = ?",
+                    publication);
         }
     }
 
