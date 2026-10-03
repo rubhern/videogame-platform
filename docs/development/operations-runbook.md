@@ -241,7 +241,14 @@ full-catalogue or persistent private-dev cleanup.
 
 The [repair tool](../../scripts/repair-release-stages.py) retains its existing filename and
 private `releasestagerepair` command, but now uses complete Game reconciliation for both stage
-and obsolete-reference repair. Keep credentials in the protected application environment,
+and obsolete-reference repair. It also recomputes provider-only review under the
+[domain rule](../architecture/domain/mvp-domain-model.md#boundaries-and-concepts), so known-stage
+Games with stale review requirements are included. Use a fresh checkpoint after a policy
+correction; a completed older checkpoint does not revisit Games. Validate preview, apply and
+second-run idempotence on a disposable database before seeking approval for persistent apply.
+Check that unambiguous review requirements clear while Unknown/conflicting evidence remains
+protected. No Flyway data migration or direct SQL clearing is needed. Keep credentials in the
+protected application environment,
 never CLI arguments or reports. Use loopback management; forward private-dev management
 locally when applicable. Persistent apply requires explicit owner approval after reviewing
 the candidate, preview and recovery plan. The applied stage migration remains unchanged.

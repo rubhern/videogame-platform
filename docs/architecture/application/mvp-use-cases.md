@@ -193,8 +193,10 @@ deliberately outside the product contract.
 ### Explicit current-release repair (UC-009, post-MVP #212)
 
 Ordinary synchronization stores normalized release stage alongside lifecycle evidence.
-Adding stage to otherwise unchanged evidence preserves accepted date verification and
-review; conflicting verified updates are retained. Unknown incoming stage cannot erase a
+Adding stage to otherwise unchanged evidence preserves accepted date verification;
+conflicting verified updates are retained. Provider-only review is recomputed under the
+[domain review rule](../domain/mvp-domain-model.md#boundaries-and-concepts), including clearing
+stale requirements when current evidence is unambiguous. Unknown incoming stage cannot erase a
 known stage. Provider vocabulary remains in the anti-corruption adapter. Stage eligibility
 policy is unchanged.
 

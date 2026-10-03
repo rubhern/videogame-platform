@@ -31,10 +31,13 @@ public final class ReleaseReconciliationPolicy {
         String platformProviderId = providerRelease.platform().providerId();
         String regionProviderId =
                 providerRelease.region().map(ProviderRegion::providerId).orElse(null);
+        boolean taxonomyConflict =
+                previous != null
+                        && (!platformProviderId.equals(previous.platformProviderId())
+                                || !Objects.equals(regionProviderId, previous.regionProviderId()));
         boolean unchanged =
                 previous != null
-                        && platformProviderId.equals(previous.platformProviderId())
-                        && Objects.equals(regionProviderId, previous.regionProviderId())
+                        && !taxonomyConflict
                         && providerRelease.date().equals(previous.date())
                         && (status == previous.status()
                                 // #177 left legacy known-date occurrences persisted as released.
@@ -44,7 +47,7 @@ public final class ReleaseReconciliationPolicy {
                                         && previous.status() == ReleaseStatus.RELEASED
                                         && !(previous.date() instanceof ReleaseDate.Unknown));
         // Missing/unsupported evidence cannot erase an established stage. Enriching an
-        // unspecified stage preserves accepted date verification/review; a known conflict does not.
+        // unspecified stage preserves accepted date verification; a known conflict does not.
         ReleaseStage stage =
                 providerRelease.stage() == ReleaseStage.UNKNOWN && previous != null
                         ? previous.stage()
@@ -59,6 +62,17 @@ public final class ReleaseReconciliationPolicy {
             // REL-008/REL-010: provider evidence cannot overwrite previously verified evidence.
             return Optional.empty();
         }
+        // Provider-only review represents current uncertainty/conflict, never a history of change.
+        // A coherent date refinement or explicit lifecycle signal is not ambiguity. Verified
+        // evidence retains its accepted review state; conflicts above still withhold the write.
+        ReviewStatus review =
+                previous != null && previous.verificationLevel() == VerificationLevel.VERIFIED
+                        ? previous.reviewStatus()
+                        : providerRelease.date() instanceof ReleaseDate.Unknown
+                                        || taxonomyConflict
+                                        || stageConflict
+                                ? ReviewStatus.REQUIRED
+                                : ReviewStatus.NOT_REQUIRED;
         return Optional.of(
                 new PlannedRelease(
                         providerRelease.platform(),
@@ -74,13 +88,7 @@ public final class ReleaseReconciliationPolicy {
                         unchanged && !stageConflict
                                 ? previous.verificationLevel()
                                 : VerificationLevel.PROVIDER_ONLY,
-                        unchanged && !stageConflict
-                                ? previous.reviewStatus()
-                                : previous != null
-                                                || providerRelease.date()
-                                                        instanceof ReleaseDate.Unknown
-                                        ? ReviewStatus.REQUIRED
-                                        : ReviewStatus.NOT_REQUIRED,
+                        review,
                         stage));
     }
 }

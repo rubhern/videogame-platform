@@ -108,8 +108,9 @@ committed. Identical published values do not rewrite snapshots or rotate their
 revision. Existing verified release evidence cannot be overwritten by conflicting
 provider evidence; verification and review remain independent of automatic acquisition. Release stage is
 normalized separately from lifecycle in the provider adapter. Enriching Unknown stage
-on otherwise unchanged date evidence preserves verification/review; missing stage cannot
-erase an established one. Stage has no rating-eligibility effect.
+on otherwise unchanged date evidence preserves verification; review follows the
+[current-evidence domain rule](../architecture/domain/mvp-domain-model.md#boundaries-and-concepts).
+Missing stage cannot erase an established one. Stage has no rating-eligibility effect.
 
 A valid cover is published or replaced automatically. Invalid/missing cover data
 keeps the last valid cover, or the product fallback for a new Game. This applies the

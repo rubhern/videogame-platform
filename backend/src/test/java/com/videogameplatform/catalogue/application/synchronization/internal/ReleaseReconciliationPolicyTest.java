@@ -9,6 +9,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.PublishedRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderReleaseSignal;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
@@ -38,7 +39,7 @@ class ReleaseReconciliationPolicyTest {
                 verification == VerificationLevel.VERIFIED ? NOW : null,
                 verification,
                 ReviewStatus.NOT_REQUIRED,
-                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
+                ReleaseStage.UNKNOWN);
     }
 
     private static Optional<PlannedRelease> plan(
@@ -50,7 +51,7 @@ class ReleaseReconciliationPolicyTest {
                         Optional.of(new ProviderRegion(REGION_REF, "worldwide")),
                         date,
                         ProviderReleaseSignal.NONE,
-                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN),
+                        ReleaseStage.UNKNOWN),
                 old,
                 NOW,
                 NOW,
@@ -67,12 +68,11 @@ class ReleaseReconciliationPolicyTest {
                         Optional.of(new ProviderRegion(REGION_REF, "worldwide")),
                         DATE,
                         ProviderReleaseSignal.NONE,
-                        com.videogameplatform.catalogue.domain.ReleaseStage.FULL_RELEASE);
+                        ReleaseStage.FULL_RELEASE);
         var enriched =
                 ReleaseReconciliationPolicy.reconcile(provider, old, NOW, NOW, "IGDB")
                         .orElseThrow();
-        assertThat(enriched.stage())
-                .isEqualTo(com.videogameplatform.catalogue.domain.ReleaseStage.FULL_RELEASE);
+        assertThat(enriched.stage()).isEqualTo(ReleaseStage.FULL_RELEASE);
         assertThat(enriched.verificationLevel()).isEqualTo(VerificationLevel.VERIFIED);
         assertThat(enriched.reviewStatus()).isEqualTo(old.reviewStatus());
         var known =
@@ -94,7 +94,7 @@ class ReleaseReconciliationPolicyTest {
                         provider.region(),
                         DATE,
                         ProviderReleaseSignal.NONE,
-                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
+                        ReleaseStage.UNKNOWN);
         assertThat(
                         ReleaseReconciliationPolicy.reconcile(absent, known, NOW, NOW, "IGDB")
                                 .orElseThrow()
@@ -107,7 +107,7 @@ class ReleaseReconciliationPolicyTest {
                         provider.region(),
                         DATE,
                         ProviderReleaseSignal.NONE,
-                        com.videogameplatform.catalogue.domain.ReleaseStage.BETA);
+                        ReleaseStage.BETA);
         assertThat(ReleaseReconciliationPolicy.reconcile(conflicting, known, NOW, NOW, "IGDB"))
                 .isEmpty();
     }
@@ -127,13 +127,13 @@ class ReleaseReconciliationPolicyTest {
 
     @ParameterizedTest
     @CsvSource({
-        "PROVIDER_ONLY,NOT_REQUIRED",
-        "VERIFIED,NOT_REQUIRED",
-        "PROVIDER_ONLY,REQUIRED",
-        "VERIFIED,REQUIRED"
+        "PROVIDER_ONLY,NOT_REQUIRED,NOT_REQUIRED",
+        "VERIFIED,NOT_REQUIRED,NOT_REQUIRED",
+        "PROVIDER_ONLY,REQUIRED,NOT_REQUIRED",
+        "VERIFIED,REQUIRED,REQUIRED"
     })
     void aLegacyKnownDateOccurrenceIsNotAProviderEvidenceChange(
-            VerificationLevel verification, ReviewStatus review) {
+            VerificationLevel verification, ReviewStatus review, ReviewStatus expectedReview) {
         var old = previous(verification);
         var legacy =
                 new PublishedRelease(
@@ -146,19 +146,19 @@ class ReleaseReconciliationPolicyTest {
                         old.lastVerifiedAt(),
                         verification,
                         review,
-                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
+                        ReleaseStage.UNKNOWN);
 
         var release = plan(PC_REF, DATE, legacy).orElseThrow();
 
         assertThat(release.status()).isEqualTo(ReleaseStatus.ANNOUNCED);
-        assertThat(release.reviewStatus()).isEqualTo(review);
+        assertThat(release.reviewStatus()).isEqualTo(expectedReview);
         assertThat(release.verificationLevel()).isEqualTo(verification);
         assertThat(release.lastVerifiedAt()).isEqualTo(old.lastVerifiedAt());
     }
 
     @ParameterizedTest
     @CsvSource({"CANCELLED,CANCELLED", "DELAYED,DELAYED"})
-    void aNegativeProviderSignalStillChangesLegacyOccurrenceEvidence(
+    void aNegativeProviderSignalIsExplicitLifecycleEvidenceRatherThanAmbiguity(
             ProviderReleaseSignal signal, ReleaseStatus expected) {
         var old =
                 new PublishedRelease(
@@ -171,7 +171,7 @@ class ReleaseReconciliationPolicyTest {
                         null,
                         VerificationLevel.PROVIDER_ONLY,
                         ReviewStatus.NOT_REQUIRED,
-                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
+                        ReleaseStage.UNKNOWN);
         var release =
                 ReleaseReconciliationPolicy.reconcile(
                                 new ProviderRelease(
@@ -188,7 +188,7 @@ class ReleaseReconciliationPolicyTest {
                                 "IGDB")
                         .orElseThrow();
 
-        assertThat(release.reviewStatus()).isEqualTo(ReviewStatus.REQUIRED);
+        assertThat(release.reviewStatus()).isEqualTo(ReviewStatus.NOT_REQUIRED);
         assertThat(release.status()).isEqualTo(expected);
     }
 
@@ -206,7 +206,7 @@ class ReleaseReconciliationPolicyTest {
                         NOW,
                         VerificationLevel.VERIFIED,
                         ReviewStatus.NOT_REQUIRED,
-                        com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
+                        ReleaseStage.UNKNOWN);
 
         assertThat(plan(PC_REF, unknown, old)).isEmpty();
     }
@@ -223,7 +223,7 @@ class ReleaseReconciliationPolicyTest {
                                 Optional.of(new ProviderRegion(REGION_REF, "Worldwide (renamed)")),
                                 DATE,
                                 ProviderReleaseSignal.NONE,
-                                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN),
+                                ReleaseStage.UNKNOWN),
                         previous(VerificationLevel.VERIFIED),
                         NOW,
                         NOW,
@@ -254,7 +254,7 @@ class ReleaseReconciliationPolicyTest {
     }
 
     @Test
-    void changedDateAndUnknownDateRequireReviewWithoutBlockingAutomaticPublication() {
+    void aCoherentDateCorrectionClearsReviewButANewUnknownDateRequiresReview() {
         assertThat(
                         plan(
                                         PC_REF,
@@ -262,8 +262,102 @@ class ReleaseReconciliationPolicyTest {
                                         previous(VerificationLevel.PROVIDER_ONLY))
                                 .orElseThrow()
                                 .reviewStatus())
-                .isEqualTo(ReviewStatus.REQUIRED);
+                .isEqualTo(ReviewStatus.NOT_REQUIRED);
         assertThat(plan(PC_REF, new ReleaseDate.Unknown(), null).orElseThrow().reviewStatus())
                 .isEqualTo(ReviewStatus.REQUIRED);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"NOT_REQUIRED", "REQUIRED"})
+    void unchangedDayPrecisionFullReleaseRecomputesProviderReviewAndIsIdempotent(
+            ReviewStatus previousReview) {
+        var provider = fullRelease(DATE, ProviderReleaseSignal.NONE);
+        var old = published(provider, previousReview);
+        var corrected = reconcile(provider, old);
+        assertThat(corrected.reviewStatus()).isEqualTo(ReviewStatus.NOT_REQUIRED);
+        assertThat(reconcile(provider, published(provider, corrected.reviewStatus())))
+                .isEqualTo(corrected);
+    }
+
+    @Test
+    void unknownDateRefinementClearsRequiredImmediately() {
+        var unknown = fullRelease(new ReleaseDate.Unknown(), ProviderReleaseSignal.NONE);
+        var old = published(unknown, ReviewStatus.REQUIRED);
+        var refined = fullRelease(DATE, ProviderReleaseSignal.NONE);
+        assertThat(reconcile(refined, old).reviewStatus()).isEqualTo(ReviewStatus.NOT_REQUIRED);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"NONE", "CANCELLED", "DELAYED"})
+    void lifecycleSignalsDoNotDuplicateReviewAndUnknownDatesStillRequireIt(
+            ProviderReleaseSignal signal) {
+        var known = fullRelease(DATE, signal);
+        assertThat(reconcile(known, null).reviewStatus()).isEqualTo(ReviewStatus.NOT_REQUIRED);
+        assertThat(reconcile(known, published(known, ReviewStatus.REQUIRED)).reviewStatus())
+                .isEqualTo(ReviewStatus.NOT_REQUIRED);
+        var unknown = fullRelease(new ReleaseDate.Unknown(), signal);
+        assertThat(reconcile(unknown, null).reviewStatus()).isEqualTo(ReviewStatus.REQUIRED);
+        assertThat(reconcile(unknown, published(unknown, ReviewStatus.REQUIRED)).reviewStatus())
+                .isEqualTo(ReviewStatus.REQUIRED);
+    }
+
+    @Test
+    void knownStageConflictStillRequiresReview() {
+        var full = fullRelease(DATE, ProviderReleaseSignal.NONE);
+        var beta =
+                new ProviderRelease(
+                        full.providerId(),
+                        full.platform(),
+                        full.region(),
+                        full.date(),
+                        full.signal(),
+                        ReleaseStage.BETA);
+        assertThat(reconcile(full, published(beta, ReviewStatus.NOT_REQUIRED)).reviewStatus())
+                .isEqualTo(ReviewStatus.REQUIRED);
+        assertThat(reconcile(full, published(beta, ReviewStatus.REQUIRED)).reviewStatus())
+                .isEqualTo(ReviewStatus.REQUIRED);
+    }
+
+    @Test
+    void changedRegionEvidenceStillRequiresReview() {
+        var full = fullRelease(DATE, ProviderReleaseSignal.NONE);
+        var regional =
+                new ProviderRelease(
+                        full.providerId(),
+                        full.platform(),
+                        Optional.of(new ProviderRegion("1", "Europe")),
+                        full.date(),
+                        full.signal(),
+                        full.stage());
+        assertThat(reconcile(regional, published(full, ReviewStatus.NOT_REQUIRED)).reviewStatus())
+                .isEqualTo(ReviewStatus.REQUIRED);
+    }
+
+    private static ProviderRelease fullRelease(ReleaseDate date, ProviderReleaseSignal signal) {
+        return new ProviderRelease(
+                "10",
+                new ProviderPlatform(PC_REF, "PC", "pc"),
+                Optional.of(new ProviderRegion(REGION_REF, "worldwide")),
+                date,
+                signal,
+                ReleaseStage.FULL_RELEASE);
+    }
+
+    private static PublishedRelease published(ProviderRelease provider, ReviewStatus review) {
+        return new PublishedRelease(
+                UUID.randomUUID(),
+                UUID.randomUUID(),
+                PC_REF,
+                REGION_REF,
+                provider.date(),
+                ReleaseStatusPolicy.persistedStatus(provider.signal()),
+                null,
+                VerificationLevel.PROVIDER_ONLY,
+                review,
+                provider.stage());
+    }
+
+    private static PlannedRelease reconcile(ProviderRelease provider, PublishedRelease old) {
+        return ReleaseReconciliationPolicy.reconcile(provider, old, NOW, NOW, "IGDB").orElseThrow();
     }
 }
