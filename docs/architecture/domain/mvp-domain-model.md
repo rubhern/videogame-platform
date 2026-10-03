@@ -41,6 +41,15 @@ is outside that removal boundary. The product stores current serving state, not 
 provider ledger. No release
 is merged or deleted because it has the same platform, region, or stage as another.
 
+For provider-only evidence, review is recomputed on every reconciliation from current
+uncertainty: an Unknown date or a conflict with the accepted platform/region reference or
+known stage requires review. A coherent known date (including approximate precision) does
+not, even after a date change or a previous review requirement. Cancellation and delay are
+explicit lifecycle evidence; they do not independently imply ambiguity. Review has no
+success-count threshold and is not an absorbing state. Verified evidence retains its accepted
+review state, and conflicting provider updates are withheld. Missing stage continues to
+preserve an established stage; Unknown stage alone does not make a known date uncertain.
+
 ## Rating policies
 
 A game is globally eligible when at least one release has effectively occurred and is

@@ -23,6 +23,9 @@ import com.videogameplatform.catalogue.application.synchronization.port.Synchron
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
+import com.videogameplatform.catalogue.domain.ReleaseStage;
+import com.videogameplatform.catalogue.domain.ReviewStatus;
+import com.videogameplatform.catalogue.domain.VerificationLevel;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.time.Clock;
 import java.time.Duration;
@@ -87,6 +90,157 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         new CoverSelectionPolicy(
                                 "/assets/covers/fallback.svg", "VideoGame Platform"),
                         SynchronizationProgress.NONE);
+    }
+
+    @Test
+    void completeGameRepairClearsRepresentativeStaleReviewButPreservesUnknownAndIsIdempotent() {
+        // Equivalent current evidence from the #151 investigation; no live provider or persistent
+        // DB.
+        provider.rows = List.of(new Row(10, "325602"), new Row(20, "282831"), new Row(30, "102"));
+        provider.works.put(
+                "325602",
+                titledWork(
+                        "325602",
+                        "Onimusha: Way of the Sword",
+                        fullRelease("10", "6", "2026-09-04"),
+                        fullRelease("11", "167", "2026-09-04"),
+                        fullRelease("12", "169", "2026-09-04")));
+        provider.works.put(
+                "282831",
+                titledWork(
+                        "282831",
+                        "The Blood of Dawnwalker",
+                        fullRelease("20", "6", "2026-09-03"),
+                        fullRelease("21", "167", "2026-09-03"),
+                        fullRelease("22", "169", "2026-09-03")));
+        provider.works.put("102", work("102", pr("30", "6", "8", new ReleaseDate.Unknown())));
+        assertThat(service.synchronize(WINDOW).outcome())
+                .isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        jdbc.update("UPDATE catalogue.release_snapshot SET review_status='required'");
+        var before =
+                jdbc.queryForList("SELECT * FROM catalogue.release_snapshot ORDER BY release_id");
+        var onimusha = store.loadGame("325602", 25).orElseThrow();
+        var dawnwalker = store.loadGame("282831", 25).orElseThrow();
+        var uncertain = store.loadGame("102", 25).orElseThrow();
+        var repair =
+                new com.videogameplatform.catalogue.application.synchronization.ReleaseStageRepair(
+                        new JdbcReleaseStageRepairStore(
+                                new NamedParameterJdbcTemplate(jdbc), "IGDB"),
+                        service);
+        var zero = new UUID(0, 0);
+        String revision = version();
+        int runs = count("synchronization_run");
+        provider.fetched.clear();
+        var preview = repair.repair(zero, 3, true);
+        assertThat(preview.complete()).isTrue();
+        assertThat(preview.reconciliation().counters().updatedReleases()).isEqualTo(6);
+        assertThat(provider.fetched).containsExactlyInAnyOrder("325602", "282831", "102");
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT * FROM catalogue.release_snapshot ORDER BY release_id"))
+                .isEqualTo(before);
+        assertThat(version()).isEqualTo(revision);
+        assertThat(count("synchronization_run")).isEqualTo(runs);
+
+        var applied = repair.repair(zero, 3, false);
+        assertThat(applied.complete()).isTrue();
+        assertThat(applied.reconciliation().outcome()).isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(applied.reconciliation().counters().updatedReleases()).isEqualTo(6);
+        assertThat(applied.reconciliation().counters().deletedReleases()).isZero();
+        for (var previous : List.of(onimusha, dawnwalker)) {
+            var corrected =
+                    store.loadGame(previous == onimusha ? "325602" : "282831", 25).orElseThrow();
+            assertThat(corrected.gameId()).isEqualTo(previous.gameId());
+            assertThat(corrected.releases()).hasSameSizeAs(previous.releases());
+            corrected
+                    .releases()
+                    .forEach(
+                            (reference, release) -> {
+                                assertThat(release.releaseId())
+                                        .isEqualTo(previous.releases().get(reference).releaseId());
+                                assertThat(release.date())
+                                        .isEqualTo(previous.releases().get(reference).date());
+                                assertThat(release.stage()).isEqualTo(ReleaseStage.FULL_RELEASE);
+                                assertThat(release.verificationLevel())
+                                        .isEqualTo(VerificationLevel.PROVIDER_ONLY);
+                                assertThat(release.reviewStatus())
+                                        .isEqualTo(ReviewStatus.NOT_REQUIRED);
+                            });
+        }
+        assertThat(store.loadGame("102", 25)).contains(uncertain);
+        assertThat(version()).isNotEqualTo(revision);
+        String correctedRevision = version();
+        var correctedRows =
+                jdbc.queryForList("SELECT * FROM catalogue.release_snapshot ORDER BY release_id");
+        var repeat = repair.repair(zero, 3, false);
+        assertThat(repeat.reconciliation().counters().updatedGames()).isZero();
+        assertThat(repeat.reconciliation().counters().updatedReleases()).isZero();
+        assertThat(repeat.reconciliation().counters().deletedReleases()).isZero();
+        assertThat(version()).isEqualTo(correctedRevision);
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT * FROM catalogue.release_snapshot ORDER BY release_id"))
+                .isEqualTo(correctedRows);
+    }
+
+    @Test
+    void normalSynchronizationRefinesUnknownDateAndClearsReviewInTheSameWrite() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", pr("10", "6", "8", new ReleaseDate.Unknown())));
+        service.synchronize(WINDOW);
+        var unknown = store.loadGame("100", 25).orElseThrow().releases().get("10");
+        assertThat(unknown.reviewStatus()).isEqualTo(ReviewStatus.REQUIRED);
+        provider.works.put("100", work("100", fullRelease("10", "6", "2026-09-04")));
+        var corrected = service.synchronize(WINDOW);
+        assertThat(corrected.counters().updatedReleases()).isEqualTo(1);
+        var release = store.loadGame("100", 25).orElseThrow().releases().get("10");
+        assertThat(release.releaseId()).isEqualTo(unknown.releaseId());
+        assertThat(release.reviewStatus()).isEqualTo(ReviewStatus.NOT_REQUIRED);
+        assertThat(release.date()).isEqualTo(new ReleaseDate.Day(LocalDate.parse("2026-09-04")));
+        String revision = version();
+        assertThat(service.synchronize(WINDOW).counters().updatedReleases()).isZero();
+        assertThat(version()).isEqualTo(revision);
+    }
+
+    @Test
+    void providerStageConflictRequiresReviewAndVerifiedConflictWithholdsTheWrite() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", fullRelease("10", "6", "2026-09-04")));
+        service.synchronize(WINDOW);
+        jdbc.update("UPDATE catalogue.release_snapshot SET release_stage='beta'");
+        assertThat(service.synchronize(WINDOW).counters().updatedReleases()).isEqualTo(1);
+        assertThat(store.loadGame("100", 25).orElseThrow().releases().get("10").reviewStatus())
+                .isEqualTo(ReviewStatus.REQUIRED);
+        jdbc.update(
+                "UPDATE catalogue.release_snapshot SET release_stage='beta',verification_level='verified',last_verified_at=now()");
+        var verified = jdbc.queryForList("SELECT * FROM catalogue.release_snapshot");
+        String revision = version();
+        assertThat(service.synchronize(WINDOW).counters().updatedReleases()).isZero();
+        assertThat(jdbc.queryForList("SELECT * FROM catalogue.release_snapshot"))
+                .isEqualTo(verified);
+        assertThat(version()).isEqualTo(revision);
+    }
+
+    private static ProviderRelease fullRelease(String id, String platformRef, String date) {
+        var r = pr(platformRef, id, date);
+        return new ProviderRelease(
+                r.providerId(),
+                r.platform(),
+                r.region(),
+                r.date(),
+                r.signal(),
+                ReleaseStage.FULL_RELEASE);
+    }
+
+    private static ProviderWork titledWork(String id, String title, ProviderRelease... releases) {
+        return new ProviderWork(
+                id,
+                title,
+                ProviderWorkType.MAIN_GAME,
+                NOW,
+                Optional.empty(),
+                List.of(releases),
+                List.of());
     }
 
     @Test

@@ -339,11 +339,16 @@ class GameDetailsApiIntegrationTest {
                 .isEqualTo("ELIGIBLE_RELEASE_FOUND");
     }
 
-    @Test
-    void resynchronizingTheRequiemReleaseDoesNotInventAReviewBlock() throws Exception {
-        // Private-dev #211 example: IGDB release 752219, PC/worldwide, 2026-02-27.
-        // Reconstruct the accepted pre-#177 representation; the live row already carries
-        // review=required and has no history from which to infer its former review state.
+    @ParameterizedTest
+    @CsvSource({"not_required,347668,752219", "required,347669,752220"})
+    void resynchronizingTheRequiemReleaseRecomputesReviewAndPublicEligibility(
+            String previousReview, String gameReference, String releaseReference) throws Exception {
+        // Private-dev #211/#226 shape: known provider-only evidence, including stale review.
+        // Normal reconciliation must correct the persisted gate rather than bypass its consumer.
+        admin.update(
+                "UPDATE catalogue.release_snapshot SET review_status=? WHERE game_id=?",
+                previousReview,
+                game);
         var date = new ReleaseDate.Day(LocalDate.parse("2026-02-27"));
         admin.update(
                 "UPDATE catalogue.game_snapshot SET canonical_title = 'Resident Evil Requiem' WHERE game_id = ?",
@@ -353,10 +358,12 @@ class GameDetailsApiIntegrationTest {
                 date.date(),
                 game);
         admin.update(
-                "INSERT INTO catalogue.game_external_reference(game_id, provider, provider_entity_type, provider_id) VALUES (?, 'IGDB', 'game', '347668')",
-                game);
+                "INSERT INTO catalogue.game_external_reference(game_id, provider, provider_entity_type, provider_id) VALUES (?, 'IGDB', 'game', ?)",
+                game,
+                gameReference);
         admin.update(
-                "INSERT INTO catalogue.release_external_reference(provider, provider_id, release_id, game_id) SELECT 'IGDB', '752219', release_id, game_id FROM catalogue.release_snapshot WHERE game_id = ?",
+                "INSERT INTO catalogue.release_external_reference(provider, provider_id, release_id, game_id) SELECT 'IGDB', ?, release_id, game_id FROM catalogue.release_snapshot WHERE game_id = ?",
+                releaseReference,
                 game);
 
         var before = get(game.toString());
@@ -366,11 +373,18 @@ class GameDetailsApiIntegrationTest {
                                 .path("ratingEligibility")
                                 .path("eligible")
                                 .asBoolean())
-                .isTrue();
-        var old = synchronizationStore.loadGame("347668", 10).orElseThrow();
+                .isEqualTo(previousReview.equals("not_required"));
+        assertThat(
+                        JSON.readTree(before.body())
+                                .path("releases")
+                                .get(0)
+                                .path("reviewStatus")
+                                .asString())
+                .isEqualTo(previousReview);
+        var old = synchronizationStore.loadGame(gameReference, 10).orElseThrow();
         var evidence =
                 new ProviderRelease(
-                        "752219",
+                        releaseReference,
                         new ProviderPlatform("6", "Windows PC", "windows-pc"),
                         Optional.of(new ProviderRegion("8", "Worldwide")),
                         date,
@@ -380,7 +394,7 @@ class GameDetailsApiIntegrationTest {
         var reconciled =
                 ReleaseReconciliationPolicy.reconcile(
                                 evidence,
-                                old.releases().get("752219"),
+                                old.releases().get(releaseReference),
                                 synchronizedAt,
                                 synchronizedAt,
                                 "IGDB")
@@ -397,15 +411,15 @@ class GameDetailsApiIntegrationTest {
             synchronizationStore.saveGame(
                     run,
                     new GameWrite(
-                            "347668",
+                            gameReference,
                             old.gameId(),
                             false,
                             old.title(),
                             old.slug(),
                             old.cover(),
-                            List.of(new ReleaseWrite("752219", reconciled)),
+                            List.of(new ReleaseWrite(releaseReference, reconciled)),
                             synchronizedAt,
-                            java.util.Set.of("752219"),
+                            java.util.Set.of(releaseReference),
                             10));
         } finally {
             admin.update("DELETE FROM catalogue.synchronization_run WHERE run_id = ?", run);
