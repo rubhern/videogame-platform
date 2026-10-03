@@ -369,11 +369,6 @@
     max-width: 100%;
   }
 
-  .my-rating-score-select {
-    width: 140px;
-    max-width: 100%;
-  }
-
   @media (max-width: 619px) {
     .release-filter-select {
       width: 100%;

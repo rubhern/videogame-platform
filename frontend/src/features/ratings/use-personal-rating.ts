@@ -96,6 +96,9 @@ export function useRatingCommand(gameId: string) {
       // repeated command) so the user sees the winning state before deciding again.
       if (error.kind === "conflict") {
         void queryClient.invalidateQueries({ queryKey: personalKey });
+      }
+      // The personal collection has no manual refresh: re-read it whenever the outcome is unknown.
+      if (error.kind === "conflict" || error.kind === "ambiguous") {
         void queryClient.invalidateQueries({ queryKey: MY_RATINGS_KEY });
       }
       if (error.kind === "authentication" || error.kind === "csrf") {

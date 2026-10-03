@@ -111,19 +111,18 @@
     }
   }
 
-  /* A maintenance row: the game, the personal score it exists for, then its actions. The edit
-     form and any outcome take implicit rows beneath them, so an idle row keeps no empty gap. */
+  /* A maintenance row: the game, then the personal score it exists for. The score opens its
+     editor as a panel over the rows below, so the row itself never grows or moves; the row
+     therefore does not clip, and its cover light is clipped by its own layer instead. */
   .my-rating-card {
     position: relative;
     display: grid;
     grid-template-areas:
       "cover body"
-      "cover score"
-      "actions actions";
+      "score score";
     grid-template-columns: 88px minmax(0, 1fr);
     align-items: start;
     isolation: isolate;
-    overflow: hidden;
     gap: 12px 16px;
     border: 1px solid var(--glass-border);
     border-radius: 24px;
@@ -134,8 +133,22 @@
     backdrop-filter: var(--glass-blur);
   }
 
+  /* An open editor overlays the following rows: lift the row that owns it. */
+  .my-rating-card:has(.my-rating-editor) {
+    z-index: 20;
+  }
+
   /* Each row is washed by its own cover's light from the left edge. */
-  .my-rating-card::before {
+  .my-rating-glow {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    overflow: hidden;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .my-rating-glow::before {
     position: absolute;
     z-index: -1;
     top: -30%;
@@ -150,7 +163,7 @@
 
   @media (prefers-reduced-motion: no-preference) {
     .my-rating-card,
-    .my-rating-card::before {
+    .my-rating-glow::before {
       transition:
         border-color var(--duration-normal) var(--ease-out),
         box-shadow var(--duration-normal) var(--ease-out),
@@ -164,8 +177,8 @@
     box-shadow: var(--glass-highlight), var(--elevation-lift);
   }
 
-  .my-rating-card:hover::before,
-  .my-rating-card:focus-within::before {
+  .my-rating-card:hover .my-rating-glow::before,
+  .my-rating-card:focus-within .my-rating-glow::before {
     opacity: 0.55;
   }
 
@@ -179,19 +192,13 @@
     min-width: 0;
   }
 
-  .my-rating-value,
+  .my-rating-score,
   .skeleton.my-rating-skeleton-score {
     grid-area: score;
   }
 
-  .my-rating-actions {
-    grid-area: actions;
-  }
-
-  .my-rating-edit,
-  .my-rating-pending,
-  .my-rating-feedback {
-    grid-column: 1 / -1;
+  .my-rating-score {
+    min-width: 0;
   }
 
   .my-rating-card .cover-link,
@@ -262,11 +269,12 @@
 
   /* The personal score is the reason this row exists: a Gameómetro reading in the language of
      the game page — the G-meter, the number and its temperature — lit by its own band, so a
-     list of ratings stays one calm column instead of a wall of colour. */
+     list of ratings stays one calm column instead of a wall of colour. The reading is also the
+     row's one maintenance control: a caret marks that it opens the editor. */
   .my-rating-value {
     display: inline-grid;
-    grid-template-areas: "meter label" "meter value";
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: "meter label label" "meter value hint";
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     align-self: start;
     justify-items: start;
@@ -275,8 +283,11 @@
     margin: 0;
     border: 1px solid color-mix(in srgb, var(--thermal) 50%, transparent);
     border-radius: 18px;
-    padding: 8px 16px 9px 8px;
+    padding: 8px 14px 9px 8px;
     color: var(--color-ink);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
     background: linear-gradient(
       120deg,
       color-mix(in srgb, var(--thermal) 16%, var(--color-surface)),
@@ -285,6 +296,66 @@
     box-shadow:
       var(--glass-highlight),
       0 16px 40px -18px color-mix(in srgb, var(--thermal) 90%, transparent);
+  }
+
+  .my-rating-value:hover,
+  .my-rating-value[aria-expanded="true"] {
+    border-color: color-mix(in srgb, var(--thermal) 85%, transparent);
+    box-shadow:
+      var(--glass-highlight),
+      0 0 0 1px color-mix(in srgb, var(--thermal) 35%, transparent),
+      0 18px 44px -16px var(--thermal);
+  }
+
+  .my-rating-value:focus-visible {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 4px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .my-rating-value {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+
+    .my-rating-value:active {
+      transform: scale(0.98);
+    }
+
+    .my-rating-hint::before {
+      transition: transform var(--duration-fast) var(--ease-out);
+    }
+  }
+
+  .my-rating-hint {
+    display: grid;
+    grid-area: hint;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    align-self: center;
+    margin-left: 6px;
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  }
+
+  /* A caret drawn from two borders: down when closed, up when the editor is open. */
+  .my-rating-hint::before {
+    width: 7px;
+    height: 7px;
+    margin-top: -3px;
+    border-right: 2px solid var(--color-muted);
+    border-bottom: 2px solid var(--color-muted);
+    content: "";
+    transform: rotate(45deg);
+  }
+
+  .my-rating-value[aria-expanded="true"] .my-rating-hint::before {
+    margin-top: 3px;
+    transform: rotate(225deg);
   }
 
   .my-rating-meter {
@@ -301,7 +372,7 @@
     stroke-width: 7.6;
   }
 
-  .my-rating-value span {
+  .my-rating-label {
     grid-area: label;
     color: var(--color-muted);
     font-family: var(--font-mono);
@@ -332,32 +403,174 @@
     letter-spacing: -0.03em;
   }
 
-  .my-rating-actions {
+  /* The editor: an anchored glass panel taking the temperature of the pending value. On phones
+     it spans the row beneath the reading; from tablet it hangs from the reading's right edge. */
+  .my-rating-editor {
+    position: absolute;
+    z-index: 1;
+    right: 0;
+    left: 0;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 14px;
+    margin-top: 10px;
+    border: 1px solid color-mix(in srgb, var(--thermal) 45%, var(--glass-border));
+    border-radius: 22px;
+    padding: 16px;
+    background:
+      radial-gradient(
+        120% 70% at 0 0,
+        color-mix(in srgb, var(--thermal) 14%, transparent),
+        transparent 70%
+      ),
+      var(--glass-solid);
+    box-shadow:
+      var(--glass-highlight),
+      var(--elevation-lift),
+      0 24px 60px -30px var(--thermal);
+    container-type: inline-size;
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
   }
 
-  .my-rating-actions .button {
-    padding-inline: 14px;
-    white-space: normal;
-  }
-
-  .my-rating-edit {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: end;
-    gap: 10px 12px;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 34%, transparent);
-    border-radius: 18px;
-    padding: 14px;
-    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  .my-rating-editor:focus-visible {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 3px;
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .my-rating-edit {
-      animation: rise-in 240ms var(--ease-out) both;
+    .my-rating-editor {
+      animation: pop-in 180ms var(--ease-out) both;
+      transition:
+        border-color var(--duration-normal) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out);
     }
+  }
+
+  .my-rating-editor .rating-scale {
+    gap: 10px 6px;
+  }
+
+  .my-rating-editor .rating-thermal-scale {
+    margin-top: -4px;
+  }
+
+  /* Pending reading first, the persisted one named beside it while they differ. */
+  .my-rating-editor-reading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+  }
+
+  .my-rating-editor-meter {
+    width: 48px;
+    height: 48px;
+    flex: none;
+  }
+
+  .my-rating-editor-meter .game-meter-tick {
+    display: none;
+  }
+
+  .my-rating-editor-meter :is(.game-meter-track, .game-meter-trail, .game-meter-head) {
+    stroke-width: 7.6;
+  }
+
+  .my-rating-editor-reading p {
+    display: grid;
+    grid-template-columns: auto auto;
+    align-items: baseline;
+    gap: 2px 8px;
+    margin: 0;
+  }
+
+  .my-rating-editor-reading span {
+    grid-column: 1 / -1;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .my-rating-editor-reading strong {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-stretch: 106%;
+    font-weight: 850;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+
+  .my-rating-editor-reading b {
+    color: var(--thermal);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .my-rating-editor-was {
+    margin-left: auto;
+    border-left: 1px solid var(--glass-border);
+    padding-left: 14px;
+  }
+
+  .my-rating-editor-reading .my-rating-editor-was strong {
+    color: var(--color-muted);
+    font-size: 1.25rem;
+  }
+
+  .my-rating-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .my-rating-editor-actions .button {
+    flex: 1 1 0;
+  }
+
+  /* Deletion is separated from the scale and asks once more before it acts. */
+  .my-rating-editor-danger {
+    display: grid;
+    gap: 10px;
+    border-top: 1px solid var(--glass-border);
+    padding-top: 12px;
+  }
+
+  .my-rating-editor .rating-remove {
+    justify-self: start;
+    color: color-mix(in srgb, var(--color-danger) 80%, var(--color-ink));
+  }
+
+  .my-rating-editor .rating-remove[aria-expanded="true"] {
+    border-color: color-mix(in srgb, var(--color-danger) 70%, transparent);
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  }
+
+  .my-rating-confirm {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+    border-radius: 16px;
+    padding: 12px;
+    background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+  }
+
+  .my-rating-confirm p {
+    flex: 1 1 100%;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .my-rating-confirm .button {
+    flex: 1 1 0;
   }
 
   .my-rating-pending {
@@ -392,10 +605,6 @@
     gap: 12px;
   }
 
-  .my-ratings-refresh {
-    margin-left: auto;
-  }
-
   @media (min-width: 620px) {
     .my-ratings-filters {
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -407,29 +616,26 @@
     }
 
     .my-rating-card {
-      grid-template-areas:
-        "cover body score"
-        "cover actions actions";
+      grid-template-areas: "cover body score";
       grid-template-columns: 104px minmax(0, 1fr) auto;
       gap: 14px 22px;
       padding: 16px;
     }
 
+    .my-rating-score {
+      position: relative;
+      justify-self: end;
+    }
+
     .my-rating-value {
       justify-items: end;
-      justify-self: end;
       min-width: 18rem;
     }
 
-    .my-rating-actions {
-      display: flex;
-      flex-wrap: wrap;
-    }
-
-    .my-rating-edit,
-    .my-rating-pending,
-    .my-rating-feedback {
-      grid-column: 2 / -1;
+    .my-rating-editor {
+      top: 100%;
+      left: auto;
+      width: min(26rem, calc(100vw - 48px));
     }
   }
 
@@ -444,8 +650,8 @@
     }
 
     .my-rating-card {
-      grid-template-areas: "cover body score actions";
-      grid-template-columns: 96px minmax(0, 1fr) auto auto;
+      grid-template-areas: "cover body score";
+      grid-template-columns: 96px minmax(0, 1fr) auto;
       align-items: center;
       gap: 12px 28px;
       padding: 14px 24px 14px 14px;
@@ -458,17 +664,13 @@
     .my-rating-body .card-title {
       font-size: 1.5rem;
     }
-
-    .my-rating-actions {
-      flex-direction: column;
-      align-items: stretch;
-    }
   }
 
   @media (forced-colors: active) {
     .my-ratings-filters,
     .my-rating-card,
-    .my-rating-edit,
+    .my-rating-editor,
+    .my-rating-confirm,
     .my-rating-value {
       border: 1px solid CanvasText;
       color: CanvasText;
@@ -479,11 +681,26 @@
     }
 
     .my-rating-value strong,
-    .my-rating-value b {
+    .my-rating-value b,
+    .my-rating-editor-reading b {
       color: CanvasText;
     }
 
-    .my-rating-card::before {
+    .my-rating-value {
+      border-color: ButtonText;
+      color: ButtonText;
+    }
+
+    .my-rating-value:focus-visible,
+    .my-rating-editor:focus-visible {
+      outline-color: Highlight;
+    }
+
+    .my-rating-hint::before {
+      border-color: ButtonText;
+    }
+
+    .my-rating-glow {
       display: none;
     }
   }

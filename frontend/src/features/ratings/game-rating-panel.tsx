@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { assignLocation } from "../../shared/browser/navigate";
 import { GameMeter } from "../../shared/score/game-meter";
-import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
+import { thermalBand } from "../../shared/score/thermal-band";
 import type { GameDetails } from "../game-details/game-details-api";
 import {
   getPendingRatingIntent,
@@ -12,9 +12,8 @@ import {
 } from "../session/rating-intent";
 import { useSession } from "../session/use-session";
 import type { RatingCommandError } from "./personal-rating-api";
+import { RatingKeypad } from "./rating-keypad";
 import { useRatingCommand, usePersonalRating } from "./use-personal-rating";
-
-const RATING_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
 const ineligibleReasons: Record<
   GameDetails["ratingEligibility"]["reason"],
@@ -86,7 +85,6 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
   const personal = usePersonalRating(game.gameId, authenticated);
   const command = useRatingCommand(game.gameId);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [focused, setFocused] = useState<number | null>(null);
   const scaleRef = useRef<HTMLDivElement>(null);
   const resumedOnce = useRef(false);
 
@@ -179,29 +177,6 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
     void personal.refetch();
   }
 
-  // Roving tabindex: arrows move focus only, so browsing the scale never saves by accident.
-  function moveFocus(event: React.KeyboardEvent<HTMLDivElement>) {
-    const step =
-      event.key === "ArrowRight" || event.key === "ArrowDown"
-        ? 1
-        : event.key === "ArrowLeft" || event.key === "ArrowUp"
-          ? -1
-          : event.key === "Home"
-            ? -10
-            : event.key === "End"
-              ? 10
-              : 0;
-    if (step === 0) return;
-    event.preventDefault();
-    const current = focused ?? selected ?? 1;
-    const next = Math.min(10, Math.max(1, current + step));
-    setFocused(next);
-    scaleRef.current
-      ?.querySelector<HTMLButtonElement>(`button[value="${next}"]`)
-      ?.focus();
-  }
-  const tabStop = focused ?? selected ?? 1;
-
   const subtitle = !eligible
     ? ineligibleReasons[game.ratingEligibility.reason]
     : busy
@@ -238,40 +213,16 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
         </p>
       ) : null}
 
-      <div
+      <RatingKeypad
         ref={scaleRef}
-        className="rating-scale"
-        role="group"
-        aria-label="Nota del 1 al 10"
-        aria-describedby={feedback ? "rating-feedback" : undefined}
-        onKeyDown={moveFocus}
-      >
-        {RATING_VALUES.map((value) => (
-          <button
-            key={value}
-            type="button"
-            className="rating-option"
-            data-thermal={thermalBand(value) ?? undefined}
-            value={value}
-            aria-pressed={selected === value}
-            disabled={!eligible}
-            tabIndex={tabStop === value ? 0 : -1}
-            onFocus={() => setFocused(value)}
-            onClick={() => {
-              setFeedback(null);
-              save(value);
-            }}
-          >
-            {value}
-          </button>
-        ))}
-      </div>
-
-      {/* The scale's key: the keypad runs from ice to fire. */}
-      <p className="rating-thermal-scale">
-        <span data-thermal="freeze">1 · {thermalLabels.freeze}</span>
-        <span data-thermal="burn">10 · {thermalLabels.burn}</span>
-      </p>
+        value={selected}
+        disabled={!eligible}
+        describedBy={feedback ? "rating-feedback" : undefined}
+        onPick={(value) => {
+          setFeedback(null);
+          save(value);
+        }}
+      />
 
       {feedback?.tone === "success" ? (
         // The pressed value already shows the result; announce it without visible text.

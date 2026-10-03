@@ -366,15 +366,32 @@ taglines or background artwork from the reference. List/follow actions remain de
 `Mis puntuaciones` reuses the catalogue shell, page opening, cover treatment, tokens and
 native controls. Present cover-led glass rows, each washed by its own cover's light, with
 game navigation, a clearly personal score and the two rating timestamps; a row reads game,
-score, then its actions, and the edit form and outcomes open beneath them. The personal score
+then score. On phones the score spans the row beneath the cover and title. The personal score
 is a Gameómetro reading — its G-meter, its temperature in words and the number — lit by its
 band in the language of the game page: it is the reason the row exists. The private filters form one glass control bar rather than
-four loose fields, and stay separate from the header's public catalogue search. Direct
-editing expands a labelled native 1–10
-selection with Save/Cancel actions; deletion remains a distinct action. Announce
-outcomes and move focus to the results after maintenance or pagination. A concurrent
-or ambiguous command requires a successful read before another command is enabled.
-Empty ratings, no search matches, an exhausted page and load failure remain distinct.
+four loose fields, and stay separate from the header's public catalogue search. Pages hold
+10 ratings by default, with 10, 20 or 50 to choose from.
+
+Post-MVP (#210), the score reading is the row's only maintenance control: a button with a
+caret that opens an anchored, non-modal glass panel. The panel hangs from the reading's right
+edge from tablet width and spans the row beneath it on phones. It overlays the rows below
+instead of growing its own, so the cover, title and dates never move. The panel holds the
+game page's keypad and its key (one shared component), a G-meter and reading for the pending
+value in its temperature, and the persisted value named beside it while they differ. Then
+come **Cancelar** and **Guardar nota**, and, below a divider, a quiet destructive
+**Eliminar puntuación** that asks once more (**Conservar** / **Sí, eliminar**). Picking a value
+only makes it pending, and arrow keys only move focus inside the keypad, so neither browsing
+nor picking ever sends a command. Opening focuses the pressed value. Escape and Cancel close
+the panel and return focus to the reading; an outside press or moving focus away also closes
+it. Outcomes show inside the panel: one live status while a command runs and one alert for
+rejected, conflicting or ambiguous commands.
+
+There is no manual refresh. The collection is read on entry and on every reload, and again
+automatically after a successful update or deletion and after a conflicting or ambiguous
+command. A concurrent or ambiguous command keeps further commands disabled until such a read
+succeeds; a failed read keeps the existing **Reintentar carga** recovery. Announce outcomes
+and move focus to the results after maintenance or pagination. Empty ratings, no search
+matches, an exhausted page and load failure remain distinct.
 
 ## Server-backed states
 

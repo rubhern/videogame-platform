@@ -1,53 +1,148 @@
-import { useId, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { GameMeter } from "../../shared/score/game-meter";
 import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
-import { AppSelect } from "../../shared/ui/app-select";
 import type { MyRatingItem } from "./my-ratings-api";
 import { useRatingCommand } from "./use-personal-rating";
 import type { RatingCommandError } from "./personal-rating-api";
+import { RatingKeypad } from "./rating-keypad";
 
 const failures: Record<RatingCommandError["kind"], string> = {
   authentication: "Tu sesión ha caducado. Puedes iniciar sesión al puntuar desde la ficha del juego.",
-  csrf: "No se pudo verificar la solicitud. Actualiza la página antes de volver a intentarlo.",
-  conflict: "Tu puntuación cambió en otra sesión. Actualiza los resultados y revisa la nota antes de volver a intentarlo.",
+  csrf: "No se pudo verificar la solicitud. Recarga la página antes de volver a intentarlo.",
+  conflict: "Tu puntuación cambió en otra sesión. Te mostramos la nota actual: revísala antes de volver a intentarlo.",
   validation: "Elige una nota entera del 1 al 10.",
   ineligible: "Este juego ya no admite cambios de nota. Puedes eliminar tu puntuación.",
   "rate-limited": "Espera un momento antes de volver a intentarlo.",
   unavailable: "No se pudo aplicar el cambio. Tu puntuación anterior se conserva.",
-  ambiguous: "No sabemos si se aplicó el cambio. Actualiza los resultados antes de volver a intentarlo.",
+  ambiguous: "No sabemos si se aplicó el cambio. Comprobamos tu nota actual antes de permitir otro cambio.",
 };
+
+/** A failed command and the collection read it was issued against. */
+type Failure = { error: RatingCommandError; readAt: number };
 
 const formatTimestamp = (value: string) => new Intl.DateTimeFormat("es-ES", {
   dateStyle: "medium", timeStyle: "short",
 }).format(new Date(value));
 
-export function MyRatingCard({ item, csrfToken, onChanged }: {
-  item: MyRatingItem; csrfToken: string; onChanged: (message: string) => void;
+/**
+ * One row of the personal collection. Its score reading is the single entry point for
+ * maintenance: pressing it opens an anchored, non-modal panel with the thermal keypad, the
+ * current and pending readings, Save/Cancel and a two-step delete. The panel overlays the rows
+ * below instead of growing this one, so the cover, title and dates never move.
+ *
+ * <p>Picking a value only makes it pending; nothing is sent until Save. Escape, Cancel, an
+ * outside press or moving focus away closes the panel without a command. A concurrent or
+ * ambiguous outcome blocks further commands until the collection has been read again
+ * (`readAt` is the time of the last successful read).
+ */
+export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
+  item: MyRatingItem; csrfToken: string; readAt: number; onChanged: (message: string) => void;
 }) {
   const id = useId();
-  const [editing, setEditing] = useState(false);
+  const editorId = useId();
+  const feedbackId = useId();
+  const confirmId = useId();
+  const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(item.personalRating.value);
-  const [failure, setFailure] = useState<RatingCommandError | null>(null);
-  const editButton = useRef<HTMLButtonElement>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [failure, setFailure] = useState<Failure | null>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const editor = useRef<HTMLDivElement>(null);
+  const keypad = useRef<HTMLDivElement>(null);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  const keepButton = useRef<HTMLButtonElement>(null);
   const command = useRatingCommand(item.game.gameId);
   const { game, personalRating } = item;
-  const band = thermalBand(personalRating.value);
+  const current = personalRating.value;
+  const band = thermalBand(current);
+  const pendingBand = thermalBand(selected);
+  const changed = selected !== current;
+  const busy = command.isPending;
+  const mustRead = failure !== null && failure.readAt === readAt
+    && (failure.error.kind === "ambiguous" || failure.error.kind === "conflict");
   const path = `/games/${game.gameId}/${game.slug}`;
   const cover = "attribution" in game.primaryCover
     ? { ...game.primaryCover, kind: "provider" as const }
     : { ...game.primaryCover, kind: "fallback" as const };
-  const mustRefresh = failure?.kind === "ambiguous" || failure?.kind === "conflict";
-  function finishEditing() {
-    setEditing(false);
-    editButton.current?.focus();
+
+  function openEditor() {
+    if (!mustRead) setFailure(null);
+    setSelected(current);
+    setConfirmingDelete(false);
+    setOpen(true);
   }
-  // The row reads left to right: the game, then the personal score it exists for, then its
-  // maintenance actions. The edit form and any outcome open beneath them.
+
+  function close(returnFocus: boolean) {
+    if (busy) return;
+    setOpen(false);
+    setConfirmingDelete(false);
+    if (returnFocus) trigger.current?.focus();
+  }
+
+  function fail(error: RatingCommandError) {
+    setConfirmingDelete(false);
+    setFailure({ error, readAt });
+    // The pressed control may now be gone or disabled: keep focus in the panel with its alert.
+    editor.current?.focus();
+  }
+
+  // Opening lands on the pressed value, so arrows browse the scale from the current rating.
+  useEffect(() => {
+    if (open) keypad.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus();
+  }, [open]);
+
+  useEffect(() => {
+    if (confirmingDelete) keepButton.current?.focus();
+  }, [confirmingDelete]);
+
+  useEffect(() => {
+    if (!open || busy) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      setConfirmingDelete(false);
+      trigger.current?.focus();
+    }
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target as Node;
+      if (!editor.current?.contains(target) && !trigger.current?.contains(target)) {
+        setOpen(false);
+        setConfirmingDelete(false);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open, busy]);
+
+  function save() {
+    if (busy || mustRead || !changed) return;
+    setFailure(null);
+    setConfirmingDelete(false);
+    command.mutate({ type: "save", value: selected, csrfToken, currentRating: personalRating }, {
+      onSuccess: () => { setOpen(false); onChanged(`Puntuación de ${game.canonicalTitle} guardada: ${selected}/10.`); },
+      onError: fail,
+    });
+  }
+
+  function remove() {
+    if (busy || mustRead) return;
+    setFailure(null);
+    command.mutate({ type: "delete", csrfToken, currentRating: personalRating }, {
+      onSuccess: () => { setOpen(false); onChanged(`Puntuación de ${game.canonicalTitle} eliminada.`); },
+      onError: fail,
+    });
+  }
+
   // The row is washed by its own cover's light.
   const coverLight = { "--cover-art": `url(${JSON.stringify(game.primaryCover.url)})` } as CSSProperties;
-  return <article className="my-rating-card" aria-labelledby={id} aria-busy={command.isPending} style={coverLight}>
+  return <article className="my-rating-card" aria-labelledby={id} aria-busy={busy} style={coverLight}>
+    <span className="my-rating-glow" aria-hidden="true" />
     <CatalogueCover cover={cover} to={path} />
     <div className="my-rating-body">
       <h2 className="card-title" id={id}>{game.canonicalTitle}</h2>
@@ -60,53 +155,66 @@ export function MyRatingCard({ item, csrfToken, onChanged }: {
         <span aria-hidden="true">Ver ficha →</span>
       </Link>
     </div>
-    <p className="my-rating-value" data-thermal={band ?? undefined}>
-      <GameMeter className="my-rating-meter" value={personalRating.value} />
-      <span>Tu puntuación {band ? <b>{thermalLabels[band]}</b> : null}</span>
-      <strong>{personalRating.value}/10</strong>
-    </p>
-    <div className="my-rating-actions">
-      <button className="button" ref={editButton} type="button" disabled={command.isPending || mustRefresh}
-        aria-expanded={editing} onClick={() => { setSelected(personalRating.value); setEditing(true); }}>
-        Editar puntuación
-      </button>
-      <button className="button rating-remove" type="button" disabled={command.isPending || mustRefresh}
-        onClick={() => {
-          setFailure(null);
-          command.mutate({ type: "delete", csrfToken, currentRating: personalRating }, {
-            onSuccess: () => onChanged(`Puntuación de ${game.canonicalTitle} eliminada.`),
-            onError: setFailure,
-          });
-        }}>Eliminar puntuación</button>
-    </div>
-    {editing ? <form className="my-rating-edit" onSubmit={(event) => {
-      event.preventDefault();
-      if (command.isPending || mustRefresh) return;
-      setFailure(null);
-      command.mutate({ type: "save", value: selected, csrfToken, currentRating: personalRating }, {
-        onSuccess: () => { finishEditing(); onChanged(`Puntuación de ${game.canonicalTitle} guardada.`); },
-        onError: setFailure,
-      });
+    <div className="my-rating-score" onBlur={(event) => {
+      const next = event.relatedTarget;
+      if (open && next instanceof Node && !event.currentTarget.contains(next)) close(false);
     }}>
-      <AppSelect
-        autoFocus
-        className="my-rating-score-select"
-        disabled={command.isPending || mustRefresh}
-        icon="rating"
-        label="Nueva puntuación"
-        onChange={(value) => setSelected(Number(value))}
-        options={Array.from({ length: 10 }, (_, index) => ({
-          value: String(index + 1), label: `${index + 1}/10`,
-        }))}
-        value={String(selected)}
-      />
-      <button className="button button-primary" disabled={command.isPending || mustRefresh}>Guardar cambios</button>
-      <button className="button" type="button" disabled={command.isPending} onClick={finishEditing}>Cancelar</button>
-    </form> : null}
-    {command.isPending ? <p className="my-rating-pending" role="status">Guardando cambio…</p> : null}
-    {failure ? <div className="game-rating-feedback game-rating-feedback-error my-rating-feedback" role="alert">
-      <p>{failures[failure.kind]}</p>
-      {failure.correlationId ? <p className="game-rating-footnote">Referencia: {failure.correlationId}</p> : null}
-    </div> : null}
+      {/* The name follows the visible reading, without its decorative separator, then the action. */}
+      <button ref={trigger} type="button" className="my-rating-value" data-thermal={band ?? undefined}
+        aria-label={`Tu puntuación ${band ? `${thermalLabels[band]} ` : ""}${current}/10. Cambiar o eliminar`}
+        aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? editorId : undefined}
+        onClick={() => { if (open) close(false); else openEditor(); }}>
+        <GameMeter className="my-rating-meter" value={current} />
+        <span className="my-rating-label">Tu puntuación {band ? <b>{thermalLabels[band]}</b> : null}</span>
+        <strong>{current}/10</strong>
+        <span className="my-rating-hint" aria-hidden="true" />
+      </button>
+      {open ? <div ref={editor} id={editorId} className="my-rating-editor" role="dialog"
+        aria-label={`Tu puntuación de ${game.canonicalTitle}`} tabIndex={-1}
+        data-thermal={pendingBand ?? undefined}>
+        <div className="my-rating-editor-reading">
+          {/* The panel's meter swings to the pending value; the persisted one stays named beside it. */}
+          <GameMeter className="my-rating-editor-meter" value={selected} />
+          <p>
+            <span>{changed ? "Nueva nota" : "Nota actual"}</span>
+            <strong>{selected}/10</strong>
+            {pendingBand ? <b>{thermalLabels[pendingBand]}</b> : null}
+          </p>
+          {changed ? <p className="my-rating-editor-was" data-thermal={band ?? undefined}>
+            <span>Nota actual</span>
+            <strong>{current}/10</strong>
+            {band ? <b>{thermalLabels[band]}</b> : null}
+          </p> : null}
+        </div>
+        <RatingKeypad ref={keypad} value={selected} onPick={setSelected} disabled={busy}
+          describedBy={failure ? feedbackId : undefined} />
+        {busy ? <p className="my-rating-pending" role="status">
+          {command.variables?.type === "delete" ? "Eliminando puntuación…" : "Guardando cambio…"}
+        </p> : null}
+        {failure ? <div id={feedbackId} className="game-rating-feedback game-rating-feedback-error" role="alert">
+          <p>{failures[failure.error.kind]}</p>
+          {failure.error.correlationId ? <p className="game-rating-footnote">Referencia: {failure.error.correlationId}</p> : null}
+        </div> : null}
+        <div className="my-rating-editor-actions">
+          <button className="button" type="button" disabled={busy} onClick={() => close(true)}>Cancelar</button>
+          <button className="button button-primary" type="button" disabled={busy || mustRead || !changed}
+            onClick={save}>Guardar nota</button>
+        </div>
+        <div className="my-rating-editor-danger">
+          <button ref={deleteButton} className="button rating-remove" type="button" disabled={busy || mustRead}
+            aria-expanded={confirmingDelete} onClick={() => setConfirmingDelete(value => !value)}>
+            Eliminar puntuación
+          </button>
+          {confirmingDelete ? <div className="my-rating-confirm" role="group" aria-labelledby={confirmId}>
+            <p id={confirmId}>¿Eliminar tu nota de {current}/10? Se borrará de tu colección.</p>
+            <button ref={keepButton} className="button" type="button" disabled={busy}
+              onClick={() => { setConfirmingDelete(false); deleteButton.current?.focus(); }}>Conservar</button>
+            <button className="button button-danger" type="button" disabled={busy || mustRead} onClick={remove}>
+              Sí, eliminar
+            </button>
+          </div> : null}
+        </div>
+      </div> : null}
+    </div>
   </article>;
 }

@@ -119,13 +119,14 @@ test.describe("real Keycloak rating journey", () => {
     await expect(page.getByText("No hay puntuaciones que coincidan con tu búsqueda")).toBeVisible();
     await page.getByRole("button", { name: "Limpiar búsqueda" }).click();
     await expect(page.getByText("8/10", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Editar puntuación" }).focus();
+    const score = page.getByRole("button", { name: /^Tu puntuación/ });
+    await score.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("combobox", { name: /^Nueva puntuación/ })).toBeFocused();
-    await page.getByRole("combobox", { name: /^Nueva puntuación/ }).click();
-    await page.getByRole("option", { name: "9/10" }).click();
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
-    await expect(page.locator(".my-rating-value")).toContainText("9/10");
+    const editor = page.getByRole("dialog", { name: /^Tu puntuación de / });
+    await expect(editor.getByRole("button", { name: "8", exact: true })).toBeFocused();
+    await editor.getByRole("button", { name: "9", exact: true }).click();
+    await editor.getByRole("button", { name: "Guardar nota" }).click();
+    await expect(score).toHaveAccessibleName(/^Tu puntuación Ardiendo 9\/10/);
 
     // Another request in the same real authenticated session wins before this page writes.
     const session = await (await context.request.get("/api/v1/session")).json() as { csrfToken: string };
@@ -134,13 +135,16 @@ test.describe("real Keycloak rating journey", () => {
     const winner = await context.request.put(ratingUrl, { data: { value: 6 },
       headers: { "If-Match": current.entityTag, "X-CSRF-Token": session.csrfToken, "Origin": new URL(page.url()).origin } });
     expect(winner.status()).toBe(200);
-    await page.getByRole("button", { name: "Eliminar puntuación" }).click();
-    await expect(page.getByRole("alert")).toContainText("cambió en otra sesión");
-    await expect(page.getByText("6/10", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Eliminar puntuación" })).toBeDisabled();
-    await page.getByRole("button", { name: "Actualizar resultados" }).click();
-    await expect(page.getByRole("button", { name: "Eliminar puntuación" })).toBeEnabled();
-    await page.getByRole("button", { name: "Eliminar puntuación" }).click();
+    await score.click();
+    await editor.getByRole("button", { name: "Eliminar puntuación" }).click();
+    await editor.getByRole("button", { name: "Sí, eliminar" }).click();
+    await expect(editor.getByRole("alert")).toContainText("cambió en otra sesión");
+    // The collection re-reads itself after the conflict; no refresh action exists.
+    await expect(score).toHaveAccessibleName(/^Tu puntuación Templado 6\/10/);
+    await expect(page.getByRole("button", { name: "Actualizar resultados" })).toHaveCount(0);
+    await expect(editor.getByRole("button", { name: "Eliminar puntuación" })).toBeEnabled();
+    await editor.getByRole("button", { name: "Eliminar puntuación" }).click();
+    await editor.getByRole("button", { name: "Sí, eliminar" }).click();
     await expect(page.getByText("Todavía no has puntuado ningún juego")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Resultados de mis puntuaciones" })).toBeFocused();
     expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })))
