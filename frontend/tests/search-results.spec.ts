@@ -25,7 +25,7 @@ function result(index: number, overrides: Partial<GameSummary> = {}): GameSummar
     // A long release sample must never reach the card: only the compact summary does.
     releaseContext: Array.from({ length: 4 }, () => ({
       platform: pc,
-      region: { regionId: "20000000-0000-4000-8000-000000000002", name: "Europe" },
+      region: { regionId: "20000000-0000-4000-8000-000000000002", name: "Europa" },
       releaseDate: { precision: "day", value: "2026-02-27" },
       status: "released",
       freshnessStatus: "stale",

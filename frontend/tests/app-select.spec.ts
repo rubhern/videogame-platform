@@ -17,7 +17,7 @@ test("release filters open from the full trigger and show tinted platform icons"
         { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" },
         { platformId: "10000000-0000-4000-8000-000000000004", name: "Xbox Series X|S" },
       ],
-      regions: [{ regionId: "worldwide", name: "Worldwide" }],
+      regions: [{ regionId: "worldwide", name: "Mundial" }],
     },
   }) }));
 

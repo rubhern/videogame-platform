@@ -24,7 +24,7 @@ function release(
     stage: "unknown",
     gameId: "30000000-0000-4000-8000-000000000006",
     platform: { platformId: "playstation-5", name: "PlayStation 5" },
-    region: { regionId: "worldwide", name: "Worldwide" },
+    region: { regionId: "worldwide", name: "Mundial" },
     releaseDate: { precision: "day", value: "2026-09-24" },
     status: "released",
     provenance,
@@ -102,7 +102,7 @@ describe("release group projection", () => {
           releaseId: "r-switch",
           stage: "unknown",
           platform: { platformId: "nintendo-switch-2", name: "Nintendo Switch 2" },
-          region: { regionId: "europe", name: "Europe" },
+          region: { regionId: "europe", name: "Europa" },
           releaseDate: { precision: "quarter", value: "2026-Q4" },
         }),
       ]),
@@ -132,13 +132,13 @@ describe("release group projection", () => {
         release({
           releaseId: "r-eu",
           stage: "unknown",
-          region: { regionId: "europe", name: "Europe" },
+          region: { regionId: "europe", name: "Europa" },
           releaseDate: { precision: "quarter", value: "2026-Q4" },
         }),
         release({
           releaseId: "r-jp",
           stage: "unknown",
-          region: { regionId: "japan", name: "Japan" },
+          region: { regionId: "japan", name: "Japón" },
           releaseDate: { precision: "year", value: "2027" },
         }),
       ]),
@@ -163,7 +163,7 @@ const upcomingPage = page(
       stage: "unknown",
       gameId: "30000000-0000-4000-8000-000000000008",
       platform: { platformId: "windows-pc", name: "Windows PC" },
-      region: { regionId: "unknown", name: "Unknown" },
+      region: { regionId: "unknown", name: "Sin región confirmada" },
       releaseDate: { precision: "unknown", value: null },
       status: "announced",
       reviewStatus: "required",
@@ -176,7 +176,7 @@ const upcomingPage = page(
     activeFilters: { platformIds: ["windows-pc"], regionIds: [] },
     availableFilters: {
       platforms: [{ platformId: "windows-pc", name: "Windows PC" }],
-      regions: [{ regionId: "unknown", name: "Unknown" }],
+      regions: [{ regionId: "unknown", name: "Sin región confirmada" }],
     },
     items: [
       {
@@ -190,7 +190,7 @@ const upcomingPage = page(
             stage: "unknown",
             gameId: "30000000-0000-4000-8000-000000000008",
             platform: { platformId: "windows-pc", name: "Windows PC" },
-            region: { regionId: "unknown", name: "Unknown" },
+            region: { regionId: "unknown", name: "Sin región confirmada" },
             releaseDate: { precision: "unknown", value: null },
             status: "announced",
             reviewStatus: "required",
@@ -221,6 +221,18 @@ describe("releases view model", () => {
     expect(model.activePlatformIds).toEqual(["windows-pc"]);
     expect(model.activeRegionIds).toEqual([]);
     expect(model.page).toEqual({ number: 2, size: 12, totalItems: 13, totalPages: 2 });
+  });
+
+  it("presents the catalogue's region label as is, identically in cards and filters", () => {
+    const newZealand = { regionId: "region-new-zealand", name: "Nueva Zelanda" };
+    const model = toReleasesViewModel(
+      page([release({ region: newZealand })], {
+        availableFilters: { platforms: [], regions: [newZealand] },
+      }),
+    );
+
+    expect(model.items[0]?.releaseGroups[0]?.region).toBe("Nueva Zelanda");
+    expect(model.regions).toEqual([{ id: "region-new-zealand", name: "Nueva Zelanda" }]);
   });
 
   it("keeps stale and review information explicit per group", () => {

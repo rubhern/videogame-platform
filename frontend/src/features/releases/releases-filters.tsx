@@ -70,7 +70,7 @@ export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersP
               }),
             );
           }}
-          options={toOptions(regions, (region) => regionIcon(region.id))}
+          options={toOptions(regions, (region) => regionIcon(region.id, region.name))}
           selected={search.regionIds}
         />
         {hasActiveFilters(search) ? (

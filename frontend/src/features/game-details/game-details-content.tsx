@@ -5,7 +5,6 @@ import {
   formatCalendarDay,
   formatReleaseDate,
 } from "../../shared/catalogue/release-date";
-import { regionLabel } from "../../shared/catalogue/region-label";
 import { platformIcon, regionIcon } from "../../shared/catalogue/taxonomy-icons";
 import { GameMeter } from "../../shared/score/game-meter";
 import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
@@ -332,7 +331,7 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
               {platform && region
                 ? contextAnnouncement(
                     platform.name,
-                    regionLabel(region.name),
+                    region.name,
                     additional.length,
                   )
                 : "No hay lanzamientos comerciales registrados."}
@@ -380,8 +379,8 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
                         }}
                       />
                       <span>
-                        <SelectIcon name={regionIcon(r.regionId)} />
-                        {regionLabel(r.name)}
+                        <SelectIcon name={regionIcon(r.regionId, r.name)} />
+                        {r.name}
                       </span>
                     </label>
                   ))}

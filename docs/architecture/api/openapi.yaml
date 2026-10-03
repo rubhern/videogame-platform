@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.3.0
+  version: 3.3.1
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, bounded-catalogue
@@ -83,8 +83,8 @@ paths:
                         - { platformId: platform_ps5, name: PlayStation 5 }
                         - { platformId: platform_win, name: Windows PC }
                       regions:
-                        - { regionId: region_europe, name: Europe }
-                        - { regionId: region_worldwide, name: Worldwide }
+                        - { regionId: region_europe, name: Europa }
+                        - { regionId: region_worldwide, name: Mundial }
                     items:
                       - gameId: game_silksong
                         slug: hollow-knight-silksong
@@ -101,7 +101,7 @@ paths:
                             stage: unknown
                             gameId: game_silksong
                             platform: { platformId: platform_ps5, name: PlayStation 5 }
-                            region: { regionId: region_europe, name: Europe }
+                            region: { regionId: region_europe, name: Europa }
                             releaseDate: { precision: day, value: '2026-08-04' }
                             status: scheduled
                             provenance:
@@ -117,7 +117,7 @@ paths:
                             stage: unknown
                             gameId: game_silksong
                             platform: { platformId: platform_win, name: Windows PC }
-                            region: { regionId: region_worldwide, name: Worldwide }
+                            region: { regionId: region_worldwide, name: Mundial }
                             releaseDate: { precision: day, value: '2026-08-06' }
                             status: scheduled
                             provenance:
@@ -146,8 +146,8 @@ paths:
                         - { platformId: platform_ps5, name: PlayStation 5 }
                         - { platformId: platform_win, name: Windows PC }
                       regions:
-                        - { regionId: region_europe, name: Europe }
-                        - { regionId: region_worldwide, name: Worldwide }
+                        - { regionId: region_europe, name: Europa }
+                        - { regionId: region_worldwide, name: Mundial }
                     items:
                       - gameId: game_silksong
                         slug: hollow-knight-silksong
@@ -164,7 +164,7 @@ paths:
                             stage: unknown
                             gameId: game_silksong
                             platform: { platformId: platform_ps5, name: PlayStation 5 }
-                            region: { regionId: region_europe, name: Europe }
+                            region: { regionId: region_europe, name: Europa }
                             releaseDate: { precision: day, value: '2026-08-04' }
                             status: scheduled
                             provenance:
@@ -180,7 +180,7 @@ paths:
                             stage: unknown
                             gameId: game_silksong
                             platform: { platformId: platform_win, name: Windows PC }
-                            region: { regionId: region_worldwide, name: Worldwide }
+                            region: { regionId: region_worldwide, name: Mundial }
                             releaseDate: { precision: month, value: 2026-08 }
                             status: scheduled
                             provenance:
@@ -205,7 +205,7 @@ paths:
                             stage: unknown
                             gameId: game_example_tba
                             platform: { platformId: platform_win, name: Windows PC }
-                            region: { regionId: region_worldwide, name: Worldwide }
+                            region: { regionId: region_worldwide, name: Mundial }
                             releaseDate: { precision: unknown, value: null }
                             status: announced
                             provenance:
@@ -229,7 +229,7 @@ paths:
                       platforms:
                         - { platformId: platform_switch, name: Nintendo Switch }
                       regions:
-                        - { regionId: region_europe, name: Europe }
+                        - { regionId: region_europe, name: Europa }
                     items:
                       - gameId: game_example
                         slug: juego-de-ejemplo
@@ -244,7 +244,7 @@ paths:
                             stage: unknown
                             gameId: game_example
                             platform: { platformId: platform_switch, name: Nintendo Switch }
-                            region: { regionId: region_europe, name: Europe }
+                            region: { regionId: region_europe, name: Europa }
                             releaseDate: { precision: day, value: '2026-07-28' }
                             status: released
                             provenance:
@@ -269,7 +269,7 @@ paths:
                       platforms:
                         - { platformId: platform_ps5, name: PlayStation 5 }
                       regions:
-                        - { regionId: region_europe, name: Europe }
+                        - { regionId: region_europe, name: Europa }
                     items: []
                     page: { number: 1, size: 20, totalItems: 0, totalPages: 0 }
         '304': { $ref: '#/components/responses/PublicNotModified' }
@@ -325,7 +325,7 @@ paths:
                             sourceUrl: https://www.igdb.com/games/resident-evil-4
                         releaseContext:
                           - platform: { platformId: platform_gamecube, name: Nintendo GameCube }
-                            region: { regionId: region_europe, name: Europe }
+                            region: { regionId: region_europe, name: Europa }
                             releaseDate: { precision: day, value: '2005-03-18' }
                             status: released
                             freshnessStatus: fresh
@@ -348,7 +348,7 @@ paths:
                           attribution: null
                         releaseContext:
                           - platform: { platformId: platform_ps5, name: PlayStation 5 }
-                            region: { regionId: region_europe, name: Europe }
+                            region: { regionId: region_europe, name: Europa }
                             releaseDate: { precision: year, value: '2023' }
                             status: released
                             freshnessStatus: stale
@@ -419,7 +419,7 @@ paths:
                         stage: unknown
                         gameId: game_example
                         platform: { platformId: platform_ps5, name: PlayStation 5 }
-                        region: { regionId: region_europe, name: Europe }
+                        region: { regionId: region_europe, name: Europa }
                         releaseDate: { precision: day, value: '2025-06-26' }
                         status: released
                         provenance:
@@ -468,7 +468,7 @@ paths:
                         stage: unknown
                         gameId: game_regional
                         platform: { platformId: platform_ps5, name: PlayStation 5 }
-                        region: { regionId: region_worldwide, name: Worldwide }
+                        region: { regionId: region_worldwide, name: Mundial }
                         releaseDate: { precision: day, value: '2026-03-12' }
                         status: released
                         provenance:
@@ -484,7 +484,7 @@ paths:
                         stage: unknown
                         gameId: game_regional
                         platform: { platformId: platform_ps5, name: PlayStation 5 }
-                        region: { regionId: region_japan, name: Japan }
+                        region: { regionId: region_japan, name: Japón }
                         releaseDate: { precision: day, value: '2026-02-20' }
                         status: released
                         provenance:
@@ -500,7 +500,7 @@ paths:
                         stage: unknown
                         gameId: game_regional
                         platform: { platformId: platform_ps5, name: PlayStation 5 }
-                        region: { regionId: region_worldwide, name: Worldwide }
+                        region: { regionId: region_worldwide, name: Mundial }
                         releaseDate: { precision: year, value: '2026' }
                         status: scheduled
                         provenance:
@@ -546,7 +546,7 @@ paths:
                         stage: unknown
                         gameId: game_no_ratings
                         platform: { platformId: platform_windows, name: Windows PC }
-                        region: { regionId: region_unknown, name: Unknown }
+                        region: { regionId: region_unknown, name: Sin región confirmada }
                         releaseDate: { precision: unknown, value: null }
                         status: released
                         provenance:
@@ -588,7 +588,7 @@ paths:
                         stage: unknown
                         gameId: game_degraded
                         platform: { platformId: platform_ps5, name: PlayStation 5 }
-                        region: { regionId: region_europe, name: Europe }
+                        region: { regionId: region_europe, name: Europa }
                         releaseDate: { precision: year, value: '2027' }
                         status: delayed
                         provenance:
@@ -1125,7 +1125,13 @@ components:
       required: [regionId, name]
       properties:
         regionId: { $ref: '#/components/schemas/RegionId' }
-        name: { type: string, minLength: 1 }
+        name:
+          type: string
+          minLength: 1
+          description: |
+            Catalogue-owned Spanish display label, presented as is (for example `Mundial`,
+            `Europa` or `Nueva Zelanda`). It is presentation only: never an identifier, a filter
+            value or a provider token, so clients select and filter by `regionId`.
     Provenance:
       type: object
       required: [sourceKind, sourceName, sourceEntityType]

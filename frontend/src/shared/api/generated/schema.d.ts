@@ -216,6 +216,11 @@ export interface components {
         };
         Region: {
             regionId: components["schemas"]["RegionId"];
+            /**
+             * @description Catalogue-owned Spanish display label, presented as is (for example `Mundial`,
+             *     `Europa` or `Nueva Zelanda`). It is presentation only: never an identifier, a filter
+             *     value or a provider token, so clients select and filter by `regionId`.
+             */
             name: string;
         };
         /** @description Normalized provenance without provider IDs or raw provider records. */

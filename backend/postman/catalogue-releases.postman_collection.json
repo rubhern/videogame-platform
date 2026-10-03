@@ -189,6 +189,13 @@
               "    pm.expect(body.activeFilters.regionIds).to.include.members([\"20000000-0000-4000-8000-000000000001\"]);",
               "    pm.expect(body.availableFilters.platforms).to.be.an(\"array\").and.not.empty;",
               "    pm.expect(body.availableFilters.regions).to.be.an(\"array\").and.not.empty;",
+              "});",
+              "",
+              "pm.test(\"Region options carry catalogue-owned labels for their stable IDs\", function () {",
+              "    const regions = pm.response.json().availableFilters.regions;",
+              "    const worldwide = regions.find(region => region.regionId === \"20000000-0000-4000-8000-000000000001\");",
+              "    pm.expect(worldwide.name).to.eql(\"Mundial\");",
+              "    regions.forEach(region => pm.expect(region.name).not.to.include(\"_\"));",
               "});"
             ],
             "type": "text/javascript",

@@ -23,7 +23,7 @@ const resultPage = {
       releaseContext: [
         {
           platform: { platformId: "platform-ps5", name: "PlayStation 5" },
-          region: { regionId: "region-europe", name: "Europe" },
+          region: { regionId: "region-europe", name: "Europa" },
           releaseDate: { precision: "year", value: "2027" },
           status: "announced",
           freshnessStatus: "fresh",

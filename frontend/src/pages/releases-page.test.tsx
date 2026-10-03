@@ -25,7 +25,7 @@ const pragmata: ReleasePage["items"][number] = {
       stage: "unknown",
       gameId: "30000000-0000-4000-8000-000000000006",
       platform: { platformId: "windows-pc", name: "Windows PC" },
-      region: { regionId: "worldwide", name: "Worldwide" },
+      region: { regionId: "worldwide", name: "Mundial" },
       releaseDate: { precision: "quarter", value: "2026-Q2" },
       status: "released",
       provenance: {
@@ -52,7 +52,7 @@ function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
         { platformId: "playstation-5", name: "PlayStation 5" },
         { platformId: "windows-pc", name: "Windows PC" },
       ],
-      regions: [{ regionId: "worldwide", name: "Worldwide" }],
+      regions: [{ regionId: "worldwide", name: "Mundial" }],
     },
     items: [pragmata],
     page: { number: 1, size: 6, totalItems: 1, totalPages: 1 },
@@ -220,6 +220,36 @@ describe("releases page", () => {
     expect(router.state.location.search).toBe(
       "?weeks=1&platformIds=playstation-5&platformIds=windows-pc&regionIds=worldwide",
     );
+  });
+
+  it("marks region options with supplied icons, including regions acquired after the seed", async () => {
+    const user = userEvent.setup();
+    stubReleases(() =>
+      Response.json(
+        releasePage({
+          availableFilters: {
+            platforms: [],
+            regions: [
+              // Acquired regions carry identities created per environment; only the label is shared.
+              { regionId: "637c2274-1a20-41a9-8237-e0ea70eb146d", name: "Asia" },
+              { regionId: "21aec642-4a0e-4e44-b204-2cf0a04ac968", name: "China" },
+              { regionId: "20000000-0000-4000-8000-000000000005", name: "Japón" },
+            ],
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    renderApp("/");
+    await user.click(await screen.findByRole("combobox", { name: /Región/ }));
+    const mark = (name: string) =>
+      screen.getByRole("option", { name }).querySelector("[class*='app-select-icon-']")?.className;
+
+    expect(mark("Asia")).toContain("app-select-icon-asia");
+    expect(mark("Japón")).toContain("app-select-icon-japan");
+    // A region without a supplied mark keeps the generic location marker.
+    expect(mark("China")).toBeUndefined();
   });
 
   it("switches to the upcoming window through navigation", async () => {

@@ -20,7 +20,7 @@ export function gameDetailsFixture(): GameDetails {
         stage: "unknown",
         gameId: "30000000-0000-4000-8000-000000000005",
         platform: { platformId: "playstation-5", name: "PlayStation 5" },
-        region: { regionId: "europe", name: "Europe" },
+        region: { regionId: "europe", name: "Europa" },
         releaseDate: { precision: "day", value: "2026-02-27" },
         status: "released",
         provenance: {

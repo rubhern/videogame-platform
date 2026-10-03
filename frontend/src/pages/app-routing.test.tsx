@@ -28,7 +28,7 @@ const releasesResponse = {
           stage: "unknown",
           gameId: "30000000-0000-4000-8000-000000000006",
           platform: { platformId: "windows-pc", name: "Windows PC" },
-          region: { regionId: "worldwide", name: "Worldwide" },
+          region: { regionId: "worldwide", name: "Mundial" },
           releaseDate: { precision: "quarter", value: "2026-Q2" },
           status: "released",
           provenance: {

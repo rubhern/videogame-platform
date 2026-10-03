@@ -61,8 +61,10 @@ New platforms and regions appear automatically as accepted releases introduce th
 with stable product identity across runs. The serving path stays provider-independent
 and never calls IGDB. Release filtering and available-filter discovery remain
 PostgreSQL-side over this taxonomy. A newly acquired platform or region has no
-frontend icon until one is added; the frontend resolves icons by stable product ID
-with an accessible generic fallback, so acquisition never breaks the UI. Broad
+frontend icon until one is added. The frontend resolves an icon by stable product ID
+for the seeded taxonomy, or by catalogue label for acquired taxonomy, whose product ID
+differs per environment, with an accessible generic fallback, so acquisition never
+breaks the UI. Broad
 provider master-data reconciliation and a taxonomy administration backoffice remain
 out of scope.
 

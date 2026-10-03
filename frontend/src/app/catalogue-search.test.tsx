@@ -22,7 +22,7 @@ function game(title: string, index: number, overrides: Partial<GameSummary> = {}
     releaseContext: [
       {
         platform: { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" },
-        region: { regionId: "region-europe", name: "Europe" },
+        region: { regionId: "region-europe", name: "Europa" },
         releaseDate: { precision: "day", value: "2026-03-18" },
         status: "released",
         freshnessStatus: "fresh",

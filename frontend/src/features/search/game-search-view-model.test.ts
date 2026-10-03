@@ -20,7 +20,7 @@ const providerCover = {
 const releaseContext = [
   {
     platform: { platformId: "platform-ps5", name: "PlayStation 5" },
-    region: { regionId: "region-europe", name: "Europe" },
+    region: { regionId: "region-europe", name: "Europa" },
     releaseDate: { precision: "day", value: "2026-02-27" },
     status: "released",
     freshnessStatus: "stale",

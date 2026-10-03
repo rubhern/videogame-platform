@@ -1,12 +1,14 @@
 import type { SelectIconName } from "../ui/select-icon";
 
 /**
- * Platform and region icons are frontend presentation only, selected by stable product taxonomy
- * label. Provider identifiers never reach the browser; the label is the product presentation
- * value returned by the API. A platform or region acquired dynamically (or any unknown label)
- * falls back to an accessible generic marker, so new taxonomy never breaks the filter UI (#178).
- * Worldwide is a globe, the owner-supplied Japan mark is explicit, concrete areas otherwise
- * share a neutral location marker, and the unconfirmed-region sentinel has its own fallback.
+ * Platform and region icons are frontend presentation only. A seeded platform or region is
+ * recognized by its stable product ID. One acquired from releases later has an identity created
+ * per environment, so it is recognized by its catalogue label, the product presentation value the
+ * API returns (CAT-008 for regions). Provider identifiers never reach the browser, and anything
+ * unrecognized falls back to an accessible generic marker, so new taxonomy never breaks the UI
+ * (#178). Worldwide is a globe; Japan, Europe, North America, Asia, Korea, New Zealand, Brazil and
+ * Australia use owner-supplied marks; other concrete areas share a neutral location marker; and
+ * the unconfirmed-region sentinel has its own fallback.
  */
 const platformIconById: Readonly<Record<string, SelectIconName>> = {
   "10000000-0000-4000-8000-000000000001": "playstation-5",
@@ -54,6 +56,19 @@ export function platformIcon(platformId: string, platformName: string): SelectIc
   return platformIconById[platformId] ?? platformIconByName[platformName.toLocaleLowerCase()] ?? "platform";
 }
 
-export function regionIcon(regionId: string): SelectIconName {
-  return regionIconById[regionId] ?? "region-area";
+const regionIconByLabel: Readonly<Record<string, SelectIconName>> = {
+  mundial: "worldwide",
+  europa: "europe",
+  norteamérica: "north-america",
+  japón: "japan",
+  "sin región confirmada": "region-unknown",
+  asia: "asia",
+  corea: "korea",
+  "nueva zelanda": "new-zealand",
+  brasil: "brazil",
+  australia: "australia",
+};
+
+export function regionIcon(regionId: string, regionName: string): SelectIconName {
+  return regionIconById[regionId] ?? regionIconByLabel[regionName.toLocaleLowerCase()] ?? "region-area";
 }

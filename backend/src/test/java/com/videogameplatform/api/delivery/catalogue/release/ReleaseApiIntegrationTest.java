@@ -186,6 +186,14 @@ class ReleaseApiIntegrationTest {
                 .contains(PLATFORM_PS5);
         assertThat(ids(empty.path("availableFilters").path("regions"), "regionId"))
                 .contains(REGION_JAPAN);
+        // A filter option reads the product label of its stable region identity.
+        assertThat(empty.path("availableFilters").path("regions"))
+                .anySatisfy(
+                        region -> {
+                            assertThat(region.path("regionId").stringValue())
+                                    .isEqualTo(REGION_JAPAN);
+                            assertThat(region.path("name").stringValue()).isEqualTo("Japón");
+                        });
 
         // Multi-select accepts several repeated values in one dimension (OR); the strict-query
         // convention no longer rejects the repetition, and the response echoes both.
@@ -251,6 +259,9 @@ class ReleaseApiIntegrationTest {
                 get("/api/v1/releases?view=recent&platformIds=not-supported"),
                 422,
                 "PLATFORM_NOT_SUPPORTED");
+        // Regions are filtered by stable identity only: a display label is not a filter value.
+        assertProblem(
+                get("/api/v1/releases?view=recent&regionIds=Mundial"), 422, "REGION_NOT_SUPPORTED");
 
         JsonNode meters = managementJson("/actuator/metrics");
         assertThat(textValues(meters.path("names")))

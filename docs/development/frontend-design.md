@@ -256,7 +256,11 @@ the executable values; these constraints hold wherever they are used:
   becomes a two-row panel. The entire control opens its
   list, and every option has a decorative icon. Recognized platforms use the owner-provided
   PlayStation, Nintendo Switch, Windows and Xbox marks tinted with the product accent;
-  unknown platforms retain a generic gamepad. Other application dropdowns share the same
+  unknown platforms retain a generic gamepad. Mundial is a globe; Europa, Norteamérica, Japón,
+  Asia, Corea, Nueva Zelanda, Brasil and Australia use owner-provided marks; any other region
+  keeps a generic location marker, and the unconfirmed region its own. A seeded platform or
+  region is recognized by its stable identifier, and one acquired later by its catalogue label,
+  because its identifier differs per environment. Other application dropdowns share the same
   control styling and keyboard behaviour. Selections preserve their existing state owner
   and reset pagination where applicable. On phones, keep both compact selectors on
   one row; selected values may truncate visually, but the full value remains
@@ -271,9 +275,10 @@ the executable values; these constraints hold wherever they are used:
 - Release results show the game total followed by the current page position (for example,
   `99 juegos · Página 1 de 9`). Use spacing between the heading and filters, and between
   results and footer controls, without separator rules.
-- Translate established region display names into Spanish only in the presentation projection:
-  Europa, Japón, Norteamérica, Mundial and Sin región confirmada. Preserve region identifiers,
-  requests and OpenAPI values, and show an unfamiliar API label unchanged.
+- Show a region name exactly as the API returns it. The catalogue owns the Spanish display
+  label ([`CAT-008`](../architecture/domain/mvp-domain-model.md)), so the frontend never
+  translates, reformats or maps region names. It selects, filters and keys regions by
+  identifier, never by label; only a decorative region mark may follow the label.
 - Keep native links for navigation and buttons for actions. Use `aria-current` for the active
   route or filter, visible `:focus-visible`, the skip link and explicit focus movement after
   route and pagination changes. A cover may be pointer-accessible, but each card keeps one
@@ -308,7 +313,8 @@ a game without releases. This presentation selection does not change the global
 game eligibility or community aggregate.
 
 The release-context panel holds the platform/region selectors — on phones each group is
-one swipeable rail of chips with platform and region icons — and then the card of the
+one swipeable rail of chips with platform and region icons, the same marks the release
+filters use — and then the card of the
 selection's presented release. Further records of the same selection stay whole, one card
 each, in a closed native disclosure, `Otras fechas registradas (N)`, whose summary carries
 the review notice when any of them is pending review; the status line counts them as
