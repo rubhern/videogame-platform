@@ -131,7 +131,10 @@
     mix-blend-mode: overlay;
   }
 
-  @media (prefers-reduced-motion: no-preference) {
+  /* Phones hold the stage still, as reduced motion does: under the glass panels, any perpetual
+     motion here makes every blurred, blended and masked surface redraw each frame, which a
+     high-density phone cannot keep up with while it scrolls. */
+  @media (prefers-reduced-motion: no-preference) and (min-width: 620px) {
     .cinema-art::before {
       animation: stage-push 38s ease-in-out infinite alternate;
     }

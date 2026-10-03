@@ -177,7 +177,8 @@ the executable values; these constraints hold wherever they are used:
 
 - The canvas carries one fixed ambient field: slowly drifting low-opacity aurora washes plus a
   generated grain tile that keeps large dark gradients from banding. It never scrolls with the
-  content, never sits above it, and nothing readable depends on it.
+  content, never sits above it, and nothing readable depends on it. Both of its layers overscan
+  the viewport, so a phone's URL bar showing or hiding never uncovers an edge.
 - Every primary page opens on a cinematic stage anchored to the top of the document, so it
   runs behind the header: the product-owned night art for the release windows, search (a
   castle-and-moon crop), `Mis puntuaciones` (a warmer valley crop), the not-found route and a
@@ -202,6 +203,10 @@ the executable values; these constraints hold wherever they are used:
   embers. Declare it inside
   `@media (prefers-reduced-motion: no-preference)` instead of disabling it afterwards, so
   reduced motion is the default and nothing animates or transitions there.
+- Below 620px the ambient field and the stage hold still, exactly as under reduced motion:
+  perpetual motion beneath glass makes every blurred, blended and masked surface redraw each
+  frame, which flickers on high-density phones while they scroll (#209). Wider layouts keep the
+  stage's push-in, mist, motes and parallax and the field's drift.
 - Composition a browser check measures — the page openings' title block and filter dock, and
   the detail cover, title and score panels — uses an opacity-only entrance, never a transform.
 - Forced colours drop every wash, scrim, gradient, shadow, blur and rail mask and return to
