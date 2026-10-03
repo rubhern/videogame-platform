@@ -33,11 +33,10 @@ export function MyRatingsPage() {
   const session = useSession();
   const csrfToken = session.data?.authenticated === true ? session.data.csrfToken : null;
   // Personal search and sort are transient; they never enter browser storage or navigation history.
-  const [params, setParams] = useState<MyRatingsQuery>({ page: 1, pageSize: 20 });
+  const [params, setParams] = useState<MyRatingsQuery>({ page: 1, pageSize: 10 });
   const [search, setSearch] = useState("");
   const [inputError, setInputError] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const [revision, setRevision] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
   const query = useQuery<MyRatingsPage, MyRatingsError>({
     queryKey: [...MY_RATINGS_KEY, params],
@@ -46,11 +45,6 @@ export function MyRatingsPage() {
   });
   function change(next: MyRatingsQuery) {
     setMessage(""); setParams(next); heading.current?.focus();
-  }
-  function refresh() {
-    void query.refetch().then(result => {
-      if (result.isSuccess) setRevision(value => value + 1);
-    });
   }
   function changed(notice: string) {
     setMessage(notice);
@@ -131,7 +125,7 @@ export function MyRatingsPage() {
               icon="page-size"
               label="Por página"
               onChange={(pageSize) => change({ ...params, pageSize: Number(pageSize), page: 1 })}
-              options={[20, 50, 100].map((size) => ({ value: String(size), label: String(size) }))}
+              options={[10, 20, 50].map((size) => ({ value: String(size), label: String(size) }))}
               value={String(params.pageSize)}
             />
           </form>
@@ -143,7 +137,7 @@ export function MyRatingsPage() {
             <span className="notice-symbol notice-symbol-danger" aria-hidden="true">×</span>
             <p className="notice-kicker">Error de carga</p>
             <p>No se pudieron cargar tus puntuaciones. Inténtalo de nuevo.</p>
-            <button className="button button-danger" onClick={refresh}>Reintentar carga</button>
+            <button className="button button-danger" onClick={() => { void query.refetch(); }}>Reintentar carga</button>
           </div> : null}
           {query.isPending ? <MyRatingsLoading />
             : data ? <>
@@ -157,8 +151,10 @@ export function MyRatingsPage() {
                 }}>Limpiar búsqueda</button>
                   : <Link className="button button-primary" to="/search">Explorar el catálogo</Link>}
               </div> : <div className="my-ratings-list">
-                {data.items.map(item => <MyRatingCard key={`${item.game.gameId}:${revision}`} item={item} csrfToken={csrfToken} onChanged={changed} />)}
+                {data.items.map(item => <MyRatingCard key={item.game.gameId} item={item} csrfToken={csrfToken}
+                  readAt={query.dataUpdatedAt} onChanged={changed} />)}
               </div>}
+              {data.page.number > 1 || data.page.number < data.page.totalPages ?
               <nav className="pagination my-ratings-pagination" aria-label="Paginación de mis puntuaciones">
                 {data.page.number > 1 ? <button className="button view-action view-action-back" onClick={() =>
                   change({ ...params, page: Math.max(1, Math.min(data.page.number - 1, data.page.totalPages)) })}>
@@ -168,8 +164,7 @@ export function MyRatingsPage() {
                   change({ ...params, page: data.page.number + 1 })}>
                   Página siguiente <span aria-hidden="true">→</span>
                 </button> : null}
-                <button className="button my-ratings-refresh" onClick={refresh} disabled={query.isFetching}>Actualizar resultados</button>
-              </nav>
+              </nav> : null}
             </> : null}
         </>}
     </div>
