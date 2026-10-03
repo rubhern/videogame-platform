@@ -651,6 +651,55 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
     }
 
     @Test
+    void acquiredRegionsReadAsProductLabelsThatAProviderRenameNeverChanges() {
+        var date = new ReleaseDate.Day(LocalDate.parse("2026-05-01"));
+        provider.rows =
+                List.of(
+                        new Row(10, "100"),
+                        new Row(11, "100"),
+                        new Row(12, "100"),
+                        new Row(13, "100"));
+        provider.works.put(
+                "100",
+                work(
+                        "100",
+                        inRegion("10", "8", "worldwide", date),
+                        inRegion("11", "4", "new_zealand", date),
+                        inRegion("12", "7", "asia", date),
+                        inRegion("13", "7777", "middle_east", date)));
+
+        assertThat(service.synchronize(WINDOW).outcome())
+                .isEqualTo(SynchronizationOutcome.SUCCEEDED);
+
+        // The seeded Worldwide identity is reused and reads its product label, not the descriptor.
+        assertThat(regionIdFor("8"))
+                .isEqualTo(UUID.fromString("20000000-0000-4000-8000-000000000001"));
+        assertThat(regionLabel("8")).isEqualTo("Mundial");
+        // Newly acquired regions: an approved Spanish label, a lowercase descriptor made readable,
+        // and an unmapped descriptor degraded to readable words instead of a technical token.
+        assertThat(regionLabel("4")).isEqualTo("Nueva Zelanda");
+        assertThat(regionLabel("7")).isEqualTo("Asia");
+        assertThat(regionLabel("7777")).isEqualTo("Middle East");
+        UUID newZealand = regionIdFor("4");
+        int regions = count("region");
+
+        // A provider rename reuses the product region and leaves its product label alone.
+        provider.works.put(
+                "100",
+                work(
+                        "100",
+                        inRegion("10", "8", "worldwide", date),
+                        inRegion("11", "4", "aotearoa_new_zealand", date),
+                        inRegion("12", "7", "asia", date),
+                        inRegion("13", "7777", "middle_east", date)));
+        assertThat(service.synchronize(WINDOW).outcome())
+                .isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(regionIdFor("4")).isEqualTo(newZealand);
+        assertThat(regionLabel("4")).isEqualTo("Nueva Zelanda");
+        assertThat(count("region")).isEqualTo(regions);
+    }
+
+    @Test
     void changedReleaseTupleKeepsIdentityAndDistinctReferencesAreNotMerged() {
         provider.rows = List.of(new Row(10, "100"));
         provider.works.put("100", work("100", release("10", "2026-10-01")));
@@ -711,6 +760,25 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 .stream()
                 .findFirst()
                 .orElse(null);
+    }
+
+    private String regionLabel(String providerId) {
+        return jdbc.queryForObject(
+                "SELECT display_name FROM catalogue.region WHERE region_id=?",
+                String.class,
+                regionIdFor(providerId));
+    }
+
+    /** A PlayStation 5 release in the provider region, described as the real IGDB catalogue does. */
+    private static ProviderRelease inRegion(
+            String id, String regionRef, String regionDescriptor, ReleaseDate date) {
+        return new ProviderRelease(
+                id,
+                new ProviderPlatform("167", "PlayStation 5", "ps5"),
+                Optional.of(new ProviderRegion(regionRef, regionDescriptor)),
+                date,
+                ProviderReleaseSignal.NONE,
+                com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
     }
 
     private static ProviderRelease acquired(

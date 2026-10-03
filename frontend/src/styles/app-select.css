@@ -202,6 +202,31 @@
     -webkit-mask-image: url("/assets/regions/north-america.png");
   }
 
+  .app-select-icon-asia {
+    mask-image: url("/assets/regions/asia.png");
+    -webkit-mask-image: url("/assets/regions/asia.png");
+  }
+
+  .app-select-icon-korea {
+    mask-image: url("/assets/regions/korea.png");
+    -webkit-mask-image: url("/assets/regions/korea.png");
+  }
+
+  .app-select-icon-new-zealand {
+    mask-image: url("/assets/regions/new-zealand.png");
+    -webkit-mask-image: url("/assets/regions/new-zealand.png");
+  }
+
+  .app-select-icon-brazil {
+    mask-image: url("/assets/regions/brazil.png");
+    -webkit-mask-image: url("/assets/regions/brazil.png");
+  }
+
+  .app-select-icon-australia {
+    mask-image: url("/assets/regions/australia.png");
+    -webkit-mask-image: url("/assets/regions/australia.png");
+  }
+
   .app-select-options {
     position: absolute;
     z-index: 40;

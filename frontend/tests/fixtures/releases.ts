@@ -7,7 +7,7 @@ export const pragmataRelease: components["schemas"]["Release"] = {
   stage: "unknown",
   gameId: "30000000-0000-4000-8000-000000000006",
   platform: { platformId: "windows-pc", name: "Windows PC" },
-  region: { regionId: "worldwide", name: "Worldwide" },
+  region: { regionId: "worldwide", name: "Mundial" },
   releaseDate: { precision: "quarter", value: "2026-Q2" },
   status: "released",
   provenance: {
@@ -45,7 +45,7 @@ export function releasePage(overrides: Partial<ReleasePage> = {}): ReleasePage {
         { platformId: "playstation-5", name: "PlayStation 5" },
         { platformId: "windows-pc", name: "Windows PC" },
       ],
-      regions: [{ regionId: "worldwide", name: "Worldwide" }],
+      regions: [{ regionId: "worldwide", name: "Mundial" }],
     },
     items: [pragmata],
     page: { number: 1, size: 6, totalItems: 1, totalPages: 1 },

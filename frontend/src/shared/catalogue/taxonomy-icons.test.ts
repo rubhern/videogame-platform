@@ -34,15 +34,33 @@ describe("taxonomy icons", () => {
     expect(platformIcon("99999999-9999-4999-8999-999999999999", "Unknown")).toBe("platform");
   });
 
-  it("gives regions semantically appropriate icons without assuming a flag", () => {
-    expect(regionIcon("20000000-0000-4000-8000-000000000001")).toBe("worldwide");
-    expect(regionIcon("20000000-0000-4000-8000-000000000002")).toBe("europe");
-    expect(regionIcon("20000000-0000-4000-8000-000000000004")).toBe("north-america");
-    expect(regionIcon("20000000-0000-4000-8000-000000000003")).toBe("region-unknown");
-    expect(regionIcon("20000000-0000-4000-8000-000000000005")).toBe("japan");
+  it("gives the seeded region identities semantically appropriate icons without assuming a flag", () => {
+    expect(regionIcon("20000000-0000-4000-8000-000000000001", "Other")).toBe("worldwide");
+    expect(regionIcon("20000000-0000-4000-8000-000000000002", "Other")).toBe("europe");
+    expect(regionIcon("20000000-0000-4000-8000-000000000004", "Other")).toBe("north-america");
+    expect(regionIcon("20000000-0000-4000-8000-000000000003", "Other")).toBe("region-unknown");
+    expect(regionIcon("20000000-0000-4000-8000-000000000005", "Other")).toBe("japan");
   });
 
-  it("falls back to a generic geographic marker for an unknown or newly acquired region", () => {
-    expect(regionIcon("99999999-9999-4999-8999-999999999999")).toBe("region-area");
+  it("selects supplied marks for acquired regions by their catalogue label", () => {
+    // Acquired regions have an identity created per environment, so only the label is shared.
+    expect(regionIcon("637c2274-1a20-41a9-8237-e0ea70eb146d", "Asia")).toBe("asia");
+    expect(regionIcon("9f1d6ef3-e678-4974-a499-c1382336f7b6", "Corea")).toBe("korea");
+    expect(regionIcon("de236094-c50d-40d2-b37d-3074043d1e6c", "Nueva Zelanda")).toBe("new-zealand");
+    expect(regionIcon("cc21a890-2709-4561-bde7-b7775aa83978", "Brasil")).toBe("brazil");
+    expect(regionIcon("1ca4ed64-a29f-4cce-a4f7-e6a34ea86bb5", "Australia")).toBe("australia");
+  });
+
+  it("recognizes the seeded regions by label where the context carries no seeded identity", () => {
+    expect(regionIcon("worldwide", "Mundial")).toBe("worldwide");
+    expect(regionIcon("europe", "Europa")).toBe("europe");
+    expect(regionIcon("north-america", "Norteamérica")).toBe("north-america");
+    expect(regionIcon("japan", "Japón")).toBe("japan");
+    expect(regionIcon("unknown", "Sin región confirmada")).toBe("region-unknown");
+  });
+
+  it("falls back to a generic geographic marker for a region without a supplied mark", () => {
+    expect(regionIcon("99999999-9999-4999-8999-999999999999", "China")).toBe("region-area");
+    expect(regionIcon("99999999-9999-4999-8999-999999999999", "Middle East")).toBe("region-area");
   });
 });

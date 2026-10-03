@@ -21,14 +21,14 @@ function suggestion(gameId: string, slug: string, title: string): GameSearchPage
     releaseContext: [
       {
         platform: { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" },
-        region: { regionId: "20000000-0000-4000-8000-000000000002", name: "Europe" },
+        region: { regionId: "20000000-0000-4000-8000-000000000002", name: "Europa" },
         releaseDate: { precision: "day", value: "2026-02-27" },
         status: "released",
         freshnessStatus: "fresh",
       },
       {
         platform: { platformId: "10000000-0000-4000-8000-000000000001", name: "PlayStation 5" },
-        region: { regionId: "20000000-0000-4000-8000-000000000002", name: "Europe" },
+        region: { regionId: "20000000-0000-4000-8000-000000000002", name: "Europa" },
         releaseDate: { precision: "year", value: "2024" },
         status: "released",
         freshnessStatus: "fresh",

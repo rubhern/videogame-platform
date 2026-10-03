@@ -4,7 +4,6 @@ import {
   formatReleaseDate,
   formatReleaseDateShort,
 } from "../../shared/catalogue/release-date";
-import { regionLabel } from "../../shared/catalogue/region-label";
 import type { ReleasePage } from "./releases-api";
 import type { ReleaseView } from "./releases-search";
 
@@ -165,7 +164,7 @@ function toReleaseContextGroups(releases: readonly Release[]): ReleaseContextGro
         key,
         date,
         shortDate: formatReleaseDateShort(release.releaseDate),
-        region: regionLabel(release.region.name),
+        region: release.region.name,
         platforms: [],
         isStale: false,
         review: false,
@@ -218,7 +217,7 @@ export function toReleasesViewModel(page: ReleasePage): ReleasesViewModel {
     })),
     regions: page.availableFilters.regions.map((region) => ({
       id: region.regionId,
-      name: regionLabel(region.name),
+      name: region.name,
     })),
     activePlatformIds: page.activeFilters.platformIds,
     activeRegionIds: page.activeFilters.regionIds,

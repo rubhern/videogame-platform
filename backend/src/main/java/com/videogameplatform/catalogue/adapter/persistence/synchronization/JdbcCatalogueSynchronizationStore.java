@@ -9,6 +9,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
+import com.videogameplatform.catalogue.domain.RegionLabel;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
@@ -486,7 +487,9 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
 
     /**
      * Resolves a provider release region to product identity. An absent region maps to the product
-     * 'unknown' sentinel; a present one reuses or creates the product region and its reference.
+     * 'unknown' sentinel; a present one reuses or creates the product region and its reference. A
+     * created region reads its product label (CAT-008), never the raw provider descriptor, and a
+     * reused one keeps its label whatever the provider now calls it.
      */
     private UUID resolveRegion(Optional<ProviderRegion> region) {
         if (region.isEmpty()) {
@@ -516,7 +519,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                         "code",
                         uniqueCode("catalogue.region", "region", value.name(), value),
                         "name",
-                        displayName(value.name(), null, "region", value)));
+                        RegionLabel.fromDescriptor(value.name()).value()));
         jdbc.update(
                 "INSERT INTO catalogue.region_external_reference(provider, provider_id, region_id)"
                         + " VALUES(:provider, :pid, CAST(:id AS uuid))",

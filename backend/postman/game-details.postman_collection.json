@@ -64,7 +64,8 @@
               "const releases = pm.response.json().releases;",
               "pm.test(\"Every stored record is returned unmerged\", () => { pm.expect(releases).to.have.lengthOf(2); pm.expect(new Set(releases.map(r => r.region.regionId)).size).to.eql(2); });",
               "pm.test(\"Releases are listed platform by platform\", () => { const platforms = releases.map(r => r.platform.platformId); platforms.forEach((platform, index) => { if (index > 0 && platform !== platforms[index - 1]) pm.expect(platforms.slice(index)).not.to.include(platforms[index - 1]); }); });",
-              "pm.test(\"The presented record leads its platform\", () => pm.expect(releases[0].region.name).to.eql(\"Europe\"));"
+              "pm.test(\"The presented record leads its platform\", () => pm.expect(releases[0].region.name).to.eql(\"Europa\"));",
+              "pm.test(\"Regions read as catalogue-owned Spanish labels\", () => pm.expect(releases.map(r => r.region.name)).to.have.members([\"Europa\", \"Japón\"]));"
             ]
           }
         }

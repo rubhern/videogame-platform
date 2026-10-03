@@ -5,6 +5,11 @@ export type SelectIconName =
   | "japan"
   | "europe"
   | "north-america"
+  | "asia"
+  | "korea"
+  | "new-zealand"
+  | "brazil"
+  | "australia"
   | "region-area"
   | "region-unknown"
   | "playstation"
@@ -33,7 +38,7 @@ export type SelectIconName =
 const maskedAssetIcons: readonly SelectIconName[] = [
   "playstation", "nintendo-switch", "nintendo-switch-2", "android", "ios", "linux", "macos", "meta-quest",
   "playstation-4", "playstation-5", "playstation-vr2", "windows", "xbox", "xbox-one", "xbox-series-x-s", "steamvr",
-  "japan", "europe", "north-america",
+  "japan", "europe", "north-america", "asia", "korea", "new-zealand", "brazil", "australia",
 ];
 
 export function SelectIcon({ name }: { name: SelectIconName }) {

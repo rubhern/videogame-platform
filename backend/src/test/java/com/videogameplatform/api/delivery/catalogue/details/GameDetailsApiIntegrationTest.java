@@ -255,6 +255,8 @@ class GameDetailsApiIntegrationTest {
         assertThat(release.path("platform").path("platformId").asString())
                 .isEqualTo("playstation-5");
         assertThat(release.path("region").path("regionId").asString()).isEqualTo("europe");
+        // The same product label the release filters serve, never a provider or seed name.
+        assertThat(release.path("region").path("name").asString()).isEqualTo("Europa");
         assertThat(release.path("stage").asString()).isEqualTo("unknown");
         assertThat(release.path("provenance").path("sourceKind").asString())
                 .isEqualTo("official_source");

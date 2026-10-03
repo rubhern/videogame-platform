@@ -158,7 +158,7 @@ describe("public game details", () => {
         releaseId: "pc-world",
         stage: "unknown",
         platform: { platformId: "pc", name: "Windows PC" },
-        region: { regionId: "worldwide", name: "Worldwide" },
+        region: { regionId: "worldwide", name: "Mundial" },
         releaseDate: { precision: "quarter", value: "2027-Q2" },
         status: "scheduled",
         provenance: { ...original.provenance, sourceName: "PC source" },
@@ -195,6 +195,32 @@ describe("public game details", () => {
       screen.queryByRole("radio", { name: "Mundial" }),
     ).not.toBeInTheDocument();
     expect(gameRequests()).toHaveLength(1);
+  });
+  it("marks each region choice with its region icon, as each platform choice has its platform icon", async () => {
+    const game = gameDetailsFixture();
+    const original = game.releases[0];
+    if (!original) throw new Error("Fixture needs a release");
+    game.releases.push(
+      { ...original, releaseId: "ps5-asia", region: { regionId: "asia", name: "Asia" } },
+      { ...original, releaseId: "ps5-nz", region: { regionId: "new-zealand", name: "Nueva Zelanda" } },
+      { ...original, releaseId: "ps5-cn", region: { regionId: "china", name: "China" } },
+    );
+    serve(game);
+    renderApp(path);
+    await screen.findByRole("heading", { level: 1, name: game.canonicalTitle });
+    // Marks are decorative, so they are read from the choice's own label.
+    const mark = (name: string) =>
+      screen
+        .getByRole("radio", { name })
+        .closest("label")
+        ?.querySelector("[class*='app-select-icon-']")?.className;
+
+    expect(mark("PlayStation 5")).toContain("app-select-icon-playstation-5");
+    expect(mark("Europa")).toContain("app-select-icon-europe");
+    expect(mark("Asia")).toContain("app-select-icon-asia");
+    expect(mark("Nueva Zelanda")).toContain("app-select-icon-new-zealand");
+    // A region without a supplied mark keeps the generic location marker.
+    expect(mark("China")).toBeUndefined();
   });
   it("shows stages on primary and additional dates with a keyboard-accessible disclosure", async () => {
     const user = userEvent.setup();

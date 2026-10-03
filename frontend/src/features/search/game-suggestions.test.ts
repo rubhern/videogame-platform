@@ -15,7 +15,7 @@ type ReleaseDate = components["schemas"]["ReleaseDate"];
 function release(platformId: string, name: string, releaseDate: ReleaseDate): ReleaseSummary {
   return {
     platform: { platformId, name },
-    region: { regionId: "region-europe", name: "Europe" },
+    region: { regionId: "region-europe", name: "Europa" },
     releaseDate,
     status: "released",
     freshnessStatus: "fresh",
