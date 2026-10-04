@@ -29,6 +29,7 @@ class JdbcGameSearchReadAdapterIntegrationTest {
     private static JdbcTemplate jdbcTemplate;
     private static final String BROAD_QUERY = "b";
     private static JdbcGameSearchReadAdapter adapter;
+    private static String publicationVersion;
 
     @BeforeAll
     static void prepareDatabase() throws Exception {
@@ -47,6 +48,10 @@ class JdbcGameSearchReadAdapterIntegrationTest {
                                 PostgreSqlTestDatabase.adminUrl(DATABASE_NAME),
                                 PostgreSqlTestDatabase.adminUsername(),
                                 PostgreSqlTestDatabase.adminPassword()));
+        publicationVersion =
+                admin.queryForObject(
+                        "SELECT catalogue_version FROM catalogue.catalogue_publication WHERE is_current",
+                        String.class);
         seedRankingCases(admin);
         seedReleaseSummaryCases(admin);
         DataSource runtimeDataSource =
@@ -155,7 +160,7 @@ class JdbcGameSearchReadAdapterIntegrationTest {
 
         assertThat(result.totalItems()).isZero();
         assertThat(result.items()).isEmpty();
-        assertThat(result.publicationVersion()).isEqualTo("prototype-catalogue-v1");
+        assertThat(result.publicationVersion()).isEqualTo(publicationVersion);
     }
 
     @Test

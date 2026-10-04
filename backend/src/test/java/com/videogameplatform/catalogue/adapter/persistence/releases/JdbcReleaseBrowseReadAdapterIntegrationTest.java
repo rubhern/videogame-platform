@@ -101,7 +101,11 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                 adapter.findPublishedReleases(criteria(BrowseReleasesUseCase.View.RECENT, 2, 1))
                         .orElseThrow();
 
-        assertThat(firstPage.publicationVersion()).isEqualTo("prototype-catalogue-v1");
+        assertThat(firstPage.publicationVersion())
+                .isEqualTo(
+                        adminJdbcTemplate.queryForObject(
+                                "SELECT catalogue_version FROM catalogue.catalogue_publication WHERE is_current",
+                                String.class));
         // Five games match the recent window even though eight releases do; count and paging are
         // over games.
         assertThat(firstPage.totalItems()).isEqualTo(5);
