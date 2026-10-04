@@ -2,16 +2,22 @@ package com.videogameplatform.catalogue.adapter.provider.igdb;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbGamePayload;
+import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbImagePayload;
 import com.videogameplatform.catalogue.adapter.provider.igdb.model.IgdbReleaseDatePayload;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderCallStatistics;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderFailureCode;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderMappingFailure;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException;
+import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import tools.jackson.core.JacksonException;
@@ -34,10 +40,24 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
     /** The provider's own ceiling for one response. */
     private static final int MAX_ROWS_PER_REQUEST = 500;
 
+    /** Half the ceiling, so a request's overflow sentinel row always fits under it. */
+    private static final int LOGO_GAMES_PER_REQUEST = 250;
+
+    /**
+     * Logos are read by game in pages of the provider's row ceiling. A page's Games rarely hold more
+     * than one or two logos each; past this many full pages the answer is not trusted.
+     */
+    private static final int MAX_LOGO_PAGES_PER_REQUEST_GROUP = 4;
+
+    /** Larger than any real image; a bigger stated dimension is not plausible metadata. */
+    private static final int MAX_IMAGE_DIMENSION = 30_000;
+
     private static final Pattern COVER_REFERENCE = Pattern.compile("[A-Za-z0-9_-]+");
     private static final String ATTRIBUTION_PREFIX = "https://www.igdb.com/games/";
     private static final TypeReference<List<IgdbGamePayload>> GAME_LIST = new TypeReference<>() {};
     private static final TypeReference<List<IgdbReleaseDatePayload>> RELEASE_LIST =
+            new TypeReference<>() {};
+    private static final TypeReference<List<IgdbImagePayload>> IMAGE_LIST =
             new TypeReference<>() {};
 
     private final IgdbApiClient apiClient;
@@ -168,6 +188,75 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
         return new ProviderWorkBatch(works, statistics);
     }
 
+    /**
+     * Reads the logos of a page's Games in bounded requests, each group of Games paged by logo
+     * identity. Any inconsistent answer fails the whole lookup, so the caller keeps every last valid
+     * logo rather than publishing a partial picture; an unusable logo alone is ignored.
+     */
+    @Override
+    public LogoBatch logos(List<String> providerIds) {
+        if (providerIds.size() > MAX_ROWS_PER_REQUEST) {
+            throw new IllegalArgumentException("Too many provider Game IDs");
+        }
+        List<String> distinct = List.copyOf(new java.util.LinkedHashSet<>(providerIds));
+        ProviderCallStatistics statistics = ProviderCallStatistics.none();
+        Map<String, List<ProviderImage>> logos = new LinkedHashMap<>();
+        boolean unusable = false;
+        for (int from = 0; from < distinct.size(); from += LOGO_GAMES_PER_REQUEST) {
+            List<String> group =
+                    distinct.subList(
+                            from, Math.min(distinct.size(), from + LOGO_GAMES_PER_REQUEST));
+            java.util.Set<String> requested = java.util.Set.copyOf(group);
+            long after = 0;
+            for (int page = 1; ; page++) {
+                if (page > MAX_LOGO_PAGES_PER_REQUEST_GROUP) {
+                    throw new ProviderRequestException(
+                            ProviderFailureCode.PROVIDER_RESPONSE_INVALID, statistics);
+                }
+                IgdbApiClient.ApiResponse response;
+                try {
+                    response =
+                            query(
+                                    CatalogueSynchronizationMetrics.OPERATION_LOGOS,
+                                    IgdbQueries.LOGOS_ENDPOINT,
+                                    IgdbQueries.logosForGames(group, after, MAX_ROWS_PER_REQUEST));
+                } catch (ProviderRequestException failure) {
+                    throw new ProviderRequestException(
+                            failure.code(), statistics.plus(failure.statistics()));
+                }
+                statistics = statistics.plus(response.statistics());
+                List<IgdbImagePayload> rows = read(response.body(), IMAGE_LIST, statistics);
+                for (IgdbImagePayload row : rows) {
+                    // Logo identities must rise strictly and belong to a requested Game; anything
+                    // else means the answer is not the page that was asked for.
+                    if (row == null
+                            || row.id() == null
+                            || row.id() <= after
+                            || row.game() == null
+                            || !requested.contains(Long.toString(row.game()))) {
+                        throw new ProviderRequestException(
+                                ProviderFailureCode.PROVIDER_RESPONSE_INVALID, statistics);
+                    }
+                    after = row.id();
+                    Optional<ProviderImage> logo = image(row, ImageKind.LOGO);
+                    if (logo.isPresent()) {
+                        logos.computeIfAbsent(Long.toString(row.game()), game -> new ArrayList<>())
+                                .add(logo.orElseThrow());
+                    } else {
+                        unusable = true;
+                    }
+                }
+                if (rows.size() < MAX_ROWS_PER_REQUEST) {
+                    break;
+                }
+            }
+        }
+        if (unusable) {
+            metrics.recordMappingFailures(List.of(ProviderMappingFailure.IMAGE_REFERENCE_INVALID));
+        }
+        return new LogoBatch(logos, statistics);
+    }
+
     private ProviderWork toWork(IgdbGamePayload game, List<IgdbReleaseDatePayload> releaseDates) {
         List<ProviderRelease> releases = new ArrayList<>();
         List<ProviderMappingFailure> failures = new ArrayList<>();
@@ -182,6 +271,14 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
         if (cover.isEmpty() && game.cover() != null) {
             failures.add(ProviderMappingFailure.COVER_REFERENCE_INVALID);
         }
+        List<IgdbImagePayload> offered = new ArrayList<>();
+        List<ProviderImage> images = new ArrayList<>();
+        images.addAll(images(game.artworks(), ImageKind.ARTWORK, offered));
+        images.addAll(images(game.screenshots(), ImageKind.SCREENSHOT, offered));
+        if (images.size() < offered.size()) {
+            failures.add(ProviderMappingFailure.IMAGE_REFERENCE_INVALID);
+        }
+        var featured = featuredEvidence(game, failures);
         metrics.recordMappingFailures(failures);
 
         return new ProviderWork(
@@ -190,8 +287,108 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
                 IgdbWorkTypeMapper.map(game.gameType() == null ? null : game.gameType().value()),
                 game.updatedAt() == null ? null : Instant.ofEpochSecond(game.updatedAt()),
                 cover,
+                images,
+                Optional.ofNullable(attributionUrl(game.url())),
                 releases,
-                failures);
+                failures,
+                featured);
+    }
+
+    private static Optional<ProviderFeaturedEvidence> featuredEvidence(
+            IgdbGamePayload game, List<ProviderMappingFailure> failures) {
+        if ((game.hypes() != null && game.hypes().signum() < 0)
+                || (game.versionParent() != null && game.versionParent() <= 0)) {
+            failures.add(ProviderMappingFailure.FEATURED_EVIDENCE_INVALID);
+            return Optional.empty();
+        }
+        try {
+            Optional<java.time.LocalDate> first =
+                    Optional.ofNullable(game.firstReleaseDate())
+                            .map(
+                                    value ->
+                                            Instant.ofEpochSecond(value)
+                                                    .atZone(java.time.ZoneOffset.UTC)
+                                                    .toLocalDate());
+            if (first.isPresent()
+                    && (first.orElseThrow().getYear() < 1
+                            || first.orElseThrow().getYear() > 9999)) {
+                failures.add(ProviderMappingFailure.FEATURED_EVIDENCE_INVALID);
+                return Optional.empty();
+            }
+            return Optional.of(
+                    new ProviderFeaturedEvidence(
+                            first,
+                            game.versionParent() != null,
+                            Optional.ofNullable(game.hypes())
+                                    .map(java.math.BigDecimal::longValueExact)
+                                    .filter(value -> value > 0)));
+        } catch (java.time.DateTimeException | ArithmeticException failure) {
+            failures.add(ProviderMappingFailure.FEATURED_EVIDENCE_INVALID);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * The usable images of one kind in the provider's stable order (rising image identity), which
+     * keeps the featured-media selection deterministic. Every offered image is recorded in
+     * {@code offered} so the caller can tell when one was ignored. An artwork the provider labels
+     * as a cover, a game logo or an icon is not landscape art, so it is never offered at all.
+     */
+    private static List<ProviderImage> images(
+            List<IgdbImagePayload> payloads, ImageKind kind, List<IgdbImagePayload> offered) {
+        if (payloads == null) {
+            return List.of();
+        }
+        List<IgdbImagePayload> art =
+                payloads.stream()
+                        .filter(payload -> kind != ImageKind.ARTWORK || !labelledNonArt(payload))
+                        .toList();
+        offered.addAll(art);
+        return art.stream()
+                .filter(payload -> payload != null && payload.id() != null)
+                .sorted(Comparator.comparing(IgdbImagePayload::id))
+                .map(payload -> image(payload, kind))
+                .flatMap(Optional::stream)
+                .toList();
+    }
+
+    /** ADR-0001: only an opaque image identifier with plausible dimensions is usable. */
+    private static Optional<ProviderImage> image(IgdbImagePayload payload, ImageKind kind) {
+        if (payload.imageId() == null
+                || !COVER_REFERENCE.matcher(payload.imageId()).matches()
+                || !plausibleDimension(payload.width())
+                || !plausibleDimension(payload.height())) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                new ProviderImage(
+                        kind,
+                        payload.imageId(),
+                        payload.width(),
+                        payload.height(),
+                        Boolean.TRUE.equals(payload.alphaChannel()),
+                        Boolean.TRUE.equals(payload.animated()),
+                        kind == ImageKind.ARTWORK
+                                && payload.imageType() != null
+                                && "Key art with logo"
+                                        .equalsIgnoreCase(payload.imageType().name())));
+    }
+
+    /**
+     * IGDB's undocumented artwork labels include covers ("Alternative cover", "Square cover",
+     * "Historical cover"), game logos ("Game logo (color)") and icons ("Icon", "Historical
+     * icon"). A missing or other label stays art and gets no preference.
+     */
+    private static boolean labelledNonArt(IgdbImagePayload payload) {
+        if (payload == null || payload.imageType() == null || payload.imageType().name() == null) {
+            return false;
+        }
+        String label = payload.imageType().name().strip().toLowerCase(Locale.ROOT);
+        return label.endsWith("cover") || label.startsWith("game logo") || label.endsWith("icon");
+    }
+
+    private static boolean plausibleDimension(Integer pixels) {
+        return pixels != null && pixels > 0 && pixels <= MAX_IMAGE_DIMENSION;
     }
 
     private IgdbApiClient.ApiResponse query(String operation, String endpoint, String query) {

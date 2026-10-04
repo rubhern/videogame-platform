@@ -21,7 +21,8 @@ behaviour and is never a runtime dependency or an instruction source.
   navigation, integrated catalogue search and the server-owned account control. It floats
   over the page's stage on a soft scrim rather than a solid bar; navigation is a glass
   segmented control whose current item carries the aurora fill, and search and account are
-  glass pills. The account
+  glass pills. Post-MVP (#151), the navigation is named **Lanzamientos** and holds
+  **Destacados**, **Recientes** and **Próximos**; Destacados is the landing route. The account
   control provides `Mi cuenta`, `Mis puntuaciones` and CSRF-protected logout for an
   authenticated session. Post-MVP (#162), anonymous browsing also exposes primary
   `Iniciar sesión` and secondary `Crear cuenta` links that start BFF/OIDC navigation
@@ -29,21 +30,23 @@ behaviour and is never a runtime dependency or an instruction source.
   discovery stays anonymous and the inline rating authentication boundary remains available.
   Keep catalogue search prominent within the
   header and omit the explanatory context strip. On phones below 620px, the compact mark,
-  recent/upcoming navigation, search and account icons share one row. Search opens the
+  the three release sections, search and account icons share one row from 360px; below
+  360px the sections take a full-width glass row of their own under that row. Search opens the
   existing catalogue search in a keyboard-accessible dialog; the account icon opens
   either the two anonymous entry links or the authenticated account actions in a
   keyboard-accessible panel. Keep their accessible names and visible focus. On tablet, identity, navigation and
   the account control share the first row, with navigation beside the identity, and search
-  spans the next row; below 720px the identity is the compact mark, so the account control
-  never wraps onto a row of its own.
+  spans the next row; below 720px the identity is the compact mark and the sections and
+  entry links tighten, so the account control never wraps onto a row of its own. The
+  single desktop row keeps the compact mark until 1180px for the same reason.
 - Align header and main content to the shared `page-container`, capped at 1320px with 28px
   desktop, 24px tablet and 16px phone gutters. Both release windows use the same cinematic
   stage, title, glass filter dock, cover-led catalogue grid and closing dock. The dock places
   the result total on the left and the pager on the right, with both pager links on one row
   on phones; it omits a repeated page position and is absent without results. Switching
-  between the release windows belongs to the main navigation only.
-- Keep the current release view as the only `h1`: **Lanzamientos recientes** or **Próximos
-  lanzamientos**. Show the API-derived release window beside **Ya disponibles** or **En
+  between Destacados and the release windows belongs to the main navigation only.
+- Keep the current release view as the only `h1`: **Lanzamientos recientes**, **Próximos
+  lanzamientos**, or **Lanzamientos del mes** on Destacados. Show the API-derived release window beside **Ya disponibles** or **En
   calendario** above the title; omit the redundant evaluation-date label. Never replace API
   dates with a hard-coded relative period.
   On phones, keep the kicker and the API-derived period on one row and show both
@@ -52,8 +55,9 @@ behaviour and is never a runtime dependency or an instruction source.
   from 320px. The catalogue uses six compact columns at desktop, about four at tablet and two
   at phone widths. Do not allow page-level horizontal overflow; the filter and navigation
   rails may scroll horizontally on narrow screens.
-- Do not add a featured release, ranking, editorial description, publisher, studio, new
-  release window or destination solely because it appears in the reference.
+- Beyond the approved featured releases ([below](#featured-releases)), do not add a ranking,
+  editorial description, publisher, studio, new release window or destination solely
+  because it appears in a reference.
 - Both release windows use the product-owned night stage, two selectors for platform and
   region, and twelve results per default page so six columns form two rows on wide desktop.
   Keep the hero short enough that the first row of covers is fully visible at 1320×900. Its
@@ -291,6 +295,85 @@ the executable values; these constraints hold wherever they are used:
   cards.
 - Keep reduced-motion and forced-colour support. Do not require hover, animation, a fixed
   desktop width or a sticky header that can obscure focus.
+
+## Featured releases
+
+Post-MVP (#151), **Destacados** follows the owner's approved featured-releases reference
+within this language. It opens on the release windows' night stage. The kicker
+**Selección del mes** shares a row with the month selector, one glass pill holding the
+previous-month link, the represented month beside a calendar mark and the next-month
+link; the current month is the landing route itself, and on the narrowest phones the
+pill wraps under the kicker. The selector offers only the months of the current calendar
+year, which the API's trusted date states: January's previous step and December's next
+step stay in place as disabled links (dimmed, announced as unavailable, outside the tab
+order), and the pill waits as a placeholder until a response states the current month. A
+requested month the API rejects, malformed or of another year, returns to the landing
+route; another year's selection is never presented. The only `h1`, **Lanzamientos _del mes_**, is set larger than
+the list titles, and beside it, after a hairline, a lit spark states the rule:
+"Selección automática según atención actual", or the date attention was last observed
+when the ranking is stale. Popularity is attention: never call a selection the best, a
+winner or a quality judgement, never show its value, and badge it with the spark, never
+a crown, trophy or medal.
+
+Every featured frame is landscape and shows the item's `featuredImage` as the contract
+says: a `fill` image is cropped to the frame, while a `contain` image, such as a portrait
+cover, is shown whole as a poster with its own corners, ring and glow over its own light,
+blown up and blurred. An image is never stretched, and a portrait cover is never cropped
+to landscape. When an image fails to load, a card's frame steps down to the provider
+cover shown whole, then to the product-owned landscape fallback; the hero steps down to
+the designed fallback and keeps its cover, shown whole, only as the last resort. The
+composition never breaks. Provider images are never resampled or stored.
+
+The hero is the month's featured release, cinematic. Key art keeps its subject clear of
+the logo space at its left, so the copy takes the hero's left and the landscape image
+spans the rest to the right edge, filling its frame without stretching, with a crop
+weighted toward the upper part of the frame, where key art keeps faces. The image fades
+in behind the copy without a hard panel edge and carries a light grade (a touch of
+contrast, a faint grain, shade at the top and the bottom, a soft vignette), so a bright
+illustration reads as lit key art and dark art keeps its detail. The whole card is lit by
+the same image, blurred and dimmed. On phones the art sits above the copy, and the badge
+and the title settle over its faded lower edge. Keep the rounded frame, quiet border and
+glow. A hero without landscape media shows the designed fallback, lit by the game's own
+cover, never the cover itself.
+
+The copy holds the **Lanzamiento del mes** badge, then always the canonical title as
+Gameómetro's own wordmark, never a provider logo. The name is set in Mona Sans' widest
+heavy cut, in capitals, cast in moonlit silver with a glint. The hero's image may tint
+that metal only through a blend that keeps every channel light, under a restrained
+shadow and lilac glow. A subtitle that the canonical title introduces with a colon or a
+spaced dash follows in the lit serif of the page's accents; the lockup drops that
+delimiter visually, while the heading's text and accessible name keep the canonical title
+exactly. The wordmark's size follows the name, so its longest word fits one line and the
+whole name three lines within a fixed range, with balanced and emergency wrapping. Then one
+meta row (the presented release's compact date, its platforms as marks separated by dots,
+with an unrecognized platform keeping its name, and its region), chips for that release's
+lifecycle and any known stage on their own row, the overflow control for further releases,
+then the hero's one action, **Ver ficha**, at its usual size; **Ver todos los
+lanzamientos** below opens the release lists. A reference's description and genres have no
+contract data and stay omitted.
+
+**Otros lanzamientos _destacados_** follows, with **Ver todos los lanzamientos** (Recientes)
+and up to five wide artwork cards straight on the stage, not inside glass. Each card's
+landscape frame carries the date chip and context-selected media under `FEAT-003` in the
+[domain model](../architecture/domain/mvp-domain-model.md). A screenshot may carry the
+game's existing decorative logo; artwork is shown as it is. Keep the overlay restrained
+and centered cover cropping stable across breakpoints. Beneath the frame come the title on one line (its full text stays the link and
+its tooltip) as the only keyboard stop, then one release line with up to three platform
+marks, the exact `+N` and the region, and the overflow control. Fewer games mean fewer
+cards. An unranked or empty month replaces the hero and the row with an informational or
+empty notice that names the month and links to Recientes.
+
+From 1024px the copy and the art share the hero, sized so the hero and the whole row open
+within 1320×900, and the row of cards has five columns. Tablets keep both sides with the
+art starting further right, so the title never sits on its brightest part, space the meta
+row instead of dividing it, and lay the row in three columns. Phones stack the 16:9 art
+over the copy, with the badge and the title over its faded edge, and give **Ver ficha** the
+full width. Their meta row sets the date, the platforms and the region as three groups
+spread across one row whenever they fit, the platforms in the cards' compact form (the
+first two marks and the exact `+N`, every name still announced); a group that cannot fit
+moves whole to a second row, so no group ever breaks or shrinks. Below 480px each card
+takes the full column. Forced colours keep the art beside or above the copy, never behind
+it.
 
 ## Public game details
 

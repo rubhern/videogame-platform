@@ -1,0 +1,471 @@
+{
+  "info": {
+    "_postman_id": "5a1f2b9c-1510-4e1a-9f0d-151151151151",
+    "name": "VideoGame Platform Backend - Featured Releases",
+    "description": "Executable examples for the OpenAPI GET /api/v1/featured-releases contract implemented through the Maven-generated FeaturedReleasesApi interface and a bounded PostgreSQL ranking. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Current month featured releases",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response follows the reviewed featured-releases contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"selection\", \"items\");",
+              "    pm.expect(body.month).to.match(/^[0-9]{4}-(0[1-9]|1[0-2])$/);",
+              "    pm.expect(body.window.from).to.eql(body.month + \"-01\");",
+              "    pm.expect(body.window.to.slice(0, 7)).to.eql(body.month);",
+              "    pm.expect([\"ranked\", \"popularity_unavailable\", \"no_qualifying_releases\"]).to.include(body.selection.status);",
+              "    pm.expect(body.items).to.be.an(\"array\");",
+              "    pm.expect(body.items.length).to.be.at.most(6);",
+              "    if (body.selection.status === \"ranked\") {",
+              "        pm.expect(body.items).to.not.be.empty;",
+              "        pm.expect([\"fresh\", \"stale\"]).to.include(body.selection.popularityFreshness);",
+              "        pm.expect(body.selection.popularityObservedAt).to.be.a(\"string\").and.not.empty;",
+              "    } else {",
+              "        pm.expect(body.items).to.be.empty;",
+              "    }",
+              "});",
+              "pm.test(\"Each featured game presents only qualifying releases inside the month, one per platform\", function () {",
+              "    const body = pm.response.json();",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"featuredImage\", \"releases\");",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect([\"day\", \"month\"]).to.include(release.releaseDate.precision);",
+              "            pm.expect(release.releaseDate.value.slice(0, 7)).to.eql(body.month);",
+              "            pm.expect([\"cancelled\", \"delayed\"]).to.not.include(release.status);",
+              "            pm.expect(release.reviewStatus).to.eql(\"not_required\");",
+              "        });",
+              "    });",
+              "});",
+              "pm.test(\"The popularity value itself is never exposed\", function () {",
+              "    pm.expect(pm.response.text()).to.not.include(\"visits\");",
+              "    pm.expect(pm.response.text()).to.not.include(\"hypes\");",
+              "    pm.expect(pm.response.text()).to.not.include(\"version_parent\");",
+              "});",
+              "pm.test(\"Public cache and correlation headers are present\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
+              "});",
+              "pm.collectionVariables.set(\"featuredEtag\", pm.response.headers.get(\"ETag\"));",
+              "pm.test(\"Each featured game presents a landscape image and an optional logo honestly\", function () {",
+              "    pm.response.json().items.forEach(function (item) {",
+              "        const image = item.featuredImage;",
+              "        pm.expect([\"artwork\", \"screenshot\", \"cover\", \"fallback\"]).to.include(image.kind);",
+              "        pm.expect([\"fill\", \"contain\"]).to.include(image.presentation);",
+              "        if (image.kind === \"fallback\") {",
+              "            pm.expect(image.url).to.match(/^\\/assets\\/featured\\//);",
+              "            pm.expect(image.attribution).to.eql(null);",
+              "        } else {",
+              "            pm.expect(image.url).to.match(/^https:\\/\\/images\\.igdb\\.com\\/igdb\\/image\\/upload\\//);",
+              "            pm.expect(image.compactUrl).to.match(/^https:\\/\\/images\\.igdb\\.com\\/igdb\\/image\\/upload\\//);",
+              "            pm.expect(image.attribution.sourceUrl).to.match(/^https:\\/\\/www\\.igdb\\.com\\/games\\//);",
+              "        }",
+              "        if (image.kind === \"artwork\" || image.kind === \"screenshot\") {",
+              "            pm.expect(image.presentation).to.eql(\"fill\");",
+              "            pm.expect(image.compactUrl).to.match(/\\/t_720p\\//);",
+              "        }",
+              "        if (image.kind === \"cover\") {",
+              "            pm.expect(image.presentation).to.eql(\"contain\");",
+              "        }",
+              "        if (item.logo !== undefined) {",
+              "            pm.expect(item.logo.url).to.match(/^https:\\/\\/images\\.igdb\\.com\\/igdb\\/image\\/upload\\/t_720p\\/.*\\.png$/);",
+              "            pm.expect(item.logo.alternativeText).to.eql(item.canonicalTitle);",
+              "        }",
+              "    });",
+              "});",
+              "pm.test(\"The month's featured release never presents its cover\", function () {",
+              "    const items = pm.response.json().items;",
+              "    if (items.length > 0) {",
+              "        pm.expect([\"artwork\", \"screenshot\", \"fallback\"]).to.include(items[0].featuredImage.kind);",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ]
+        },
+        "description": "Reads the automatic selection of the current Europe/Madrid calendar month from local PostgreSQL state. The first item is the month's featured release and up to five more follow, ranked by the locally stored IGDB Hypes count with gameId ascending as the tie-breaker; only distinct accepted products first released in the month with a qualifying Full Release and positive Hypes participate. No provider is called."
+      },
+      "response": []
+    },
+    {
+      "name": "Conditional featured releases with a weak validator",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Equivalent weak validator returns 304\", function () {",
+              "    pm.response.to.have.status(304);",
+              "    pm.expect(pm.response.text()).to.eql(\"\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"featuredEtag\"));",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "If-None-Match",
+            "value": "W/{{featuredEtag}}",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ]
+        },
+        "description": "Reuses the preceding response validator. Run the collection in order."
+      },
+      "response": []
+    },
+    {
+      "name": "Featured releases of another month",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "// Featured months stay within the current calendar year in Europe/Madrid.",
+              "const year = new Intl.DateTimeFormat(\"en\", { timeZone: \"Europe/Madrid\", year: \"numeric\" }).format(new Date());",
+              "pm.collectionVariables.set(\"featuredYear\", year);"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response follows the reviewed featured-releases contract\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"selection\", \"items\");",
+              "    pm.expect(body.month).to.match(/^[0-9]{4}-(0[1-9]|1[0-2])$/);",
+              "    pm.expect(body.window.from).to.eql(body.month + \"-01\");",
+              "    pm.expect(body.window.to.slice(0, 7)).to.eql(body.month);",
+              "    pm.expect([\"ranked\", \"popularity_unavailable\", \"no_qualifying_releases\"]).to.include(body.selection.status);",
+              "    pm.expect(body.items).to.be.an(\"array\");",
+              "    pm.expect(body.items.length).to.be.at.most(6);",
+              "    if (body.selection.status === \"ranked\") {",
+              "        pm.expect(body.items).to.not.be.empty;",
+              "        pm.expect([\"fresh\", \"stale\"]).to.include(body.selection.popularityFreshness);",
+              "        pm.expect(body.selection.popularityObservedAt).to.be.a(\"string\").and.not.empty;",
+              "    } else {",
+              "        pm.expect(body.items).to.be.empty;",
+              "    }",
+              "});",
+              "pm.test(\"Each featured game presents only qualifying releases inside the month, one per platform\", function () {",
+              "    const body = pm.response.json();",
+              "    body.items.forEach(function (item) {",
+              "        pm.expect(item).to.include.all.keys(\"gameId\", \"slug\", \"canonicalTitle\", \"primaryCover\", \"featuredImage\", \"releases\");",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect([\"day\", \"month\"]).to.include(release.releaseDate.precision);",
+              "            pm.expect(release.releaseDate.value.slice(0, 7)).to.eql(body.month);",
+              "            pm.expect([\"cancelled\", \"delayed\"]).to.not.include(release.status);",
+              "            pm.expect(release.reviewStatus).to.eql(\"not_required\");",
+              "        });",
+              "    });",
+              "});",
+              "pm.test(\"The popularity value itself is never exposed\", function () {",
+              "    pm.expect(pm.response.text()).to.not.include(\"visits\");",
+              "    pm.expect(pm.response.text()).to.not.include(\"hypes\");",
+              "    pm.expect(pm.response.text()).to.not.include(\"version_parent\");",
+              "});",
+              "pm.test(\"Public cache and correlation headers are present\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
+              "});",
+              "pm.test(\"The requested month is the represented month\", function () {",
+              "    const month = pm.collectionVariables.get(\"featuredYear\") + \"-10\";",
+              "    pm.expect(pm.response.json().month).to.eql(month);",
+              "    pm.expect(pm.response.json().window).to.eql({ from: month + \"-01\", to: month + \"-31\" });",
+              "});",
+              "pm.test(\"Each featured game presents a landscape image and an optional logo honestly\", function () {",
+              "    pm.response.json().items.forEach(function (item) {",
+              "        const image = item.featuredImage;",
+              "        pm.expect([\"artwork\", \"screenshot\", \"cover\", \"fallback\"]).to.include(image.kind);",
+              "        pm.expect([\"fill\", \"contain\"]).to.include(image.presentation);",
+              "        if (image.kind === \"fallback\") {",
+              "            pm.expect(image.url).to.match(/^\\/assets\\/featured\\//);",
+              "            pm.expect(image.attribution).to.eql(null);",
+              "        } else {",
+              "            pm.expect(image.url).to.match(/^https:\\/\\/images\\.igdb\\.com\\/igdb\\/image\\/upload\\//);",
+              "            pm.expect(image.compactUrl).to.match(/^https:\\/\\/images\\.igdb\\.com\\/igdb\\/image\\/upload\\//);",
+              "            pm.expect(image.attribution.sourceUrl).to.match(/^https:\\/\\/www\\.igdb\\.com\\/games\\//);",
+              "        }",
+              "        if (image.kind === \"cover\") {",
+              "            pm.expect(image.presentation).to.eql(\"contain\");",
+              "        }",
+              "        if (item.logo !== undefined) {",
+              "            pm.expect(item.logo.url).to.match(/^https:\\/\\/images\\.igdb\\.com\\/igdb\\/image\\/upload\\/t_720p\\/.*\\.png$/);",
+              "            pm.expect(item.logo.alternativeText).to.eql(item.canonicalTitle);",
+              "        }",
+              "    });",
+              "});",
+              "pm.test(\"The month's featured release never presents its cover\", function () {",
+              "    const items = pm.response.json().items;",
+              "    if (items.length > 0) {",
+              "        pm.expect([\"artwork\", \"screenshot\", \"fallback\"]).to.include(items[0].featuredImage.kind);",
+              "    }",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?month={{featuredYear}}-10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "month",
+              "value": "{{featuredYear}}-10"
+            }
+          ]
+        },
+        "description": "A visitor may select another month of the current calendar year in Europe/Madrid, here October; it is ranked with the same current local popularity evidence because no popularity history is kept. With the development seed, October 2026 features Crimson Desert."
+      },
+      "response": []
+    },
+    {
+      "name": "Malformed month",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/month\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?month=2026-13",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "month",
+              "value": "2026-13"
+            }
+          ]
+        },
+        "description": "A month outside YYYY-MM from 0001-01 through 9999-12 is rejected before any work."
+      },
+      "response": []
+    },
+    {
+      "name": "Month outside the current year",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/month\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?month=2000-01",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "month",
+              "value": "2000-01"
+            }
+          ]
+        },
+        "description": "A well-formed month outside the current calendar year in Europe/Madrid fails the same filter validation as a malformed one; historical years are never featured."
+      },
+      "response": []
+    },
+    {
+      "name": "Unknown query parameter",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "pm.test(\"Shared strict-query convention returns a stable error\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/view\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?view=featured",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "view",
+              "value": "featured"
+            }
+          ]
+        },
+        "description": "The browser view state lives in the frontend URL only; the API rejects parameters outside its contract instead of ignoring them."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "featuredEtag",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "featuredYear",
+      "value": ""
+    }
+  ]
+}

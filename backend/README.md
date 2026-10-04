@@ -34,7 +34,8 @@ bash scripts/analyze-release-browse.sh
 ```
 
 The two `analyze-*` scripts write representative-scale query plans under ignored
-`backend/target/query-plans/`; ADR-0015 and ADR-0016 record the accepted evidence.
+`backend/target/query-plans/`; ADR-0015, ADR-0016 and ADR-0021 record the accepted
+evidence.
 Dependency and plugin versions are authoritative in the root and backend Maven POMs.
 
 ## Run locally
@@ -114,7 +115,11 @@ curl --fail http://localhost:8081/actuator/cataloguesync
 ```
 
 One POST paginates internally until every IGDB Game with a release date in the
-interval has been reconciled; there is no total Game limit. The GET reports the last
+interval has been reconciled; there is no total Game limit. Each provider page reads
+its Games' logos; each Game request carries Hypes, first-release
+and edition evidence along with artwork and screenshot metadata for featured discovery
+(`UC-010`); the report counts signals observed, cleared and kept unavailable,
+and featured images and logos observed. The GET reports the last
 run or `never_run`. Apply the Flyway schema before enabling the command. Without
 `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` it reports `SYNCHRONIZATION_DISABLED` and
 changes nothing, which is how CI and a normal local run behave; automated provider

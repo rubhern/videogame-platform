@@ -40,7 +40,7 @@ for (const width of [320, 390, 834, 1320]) {
         page: { number: Number(query.get("page") ?? 1), size: 6, totalItems: 8, totalPages: 2 },
       }) });
     });
-    await page.goto("/?pageSize=6");
+    await page.goto("/?view=recent&pageSize=6");
     await expect(page.getByRole("link", { name: "Pragmata", exact: true })).toBeVisible();
     await expect(page.locator(".releases-heading")).toHaveCSS("border-bottom-width", "0px");
     await expect(page.locator(".releases-footer")).toHaveCSS("border-top-width", "0px");
@@ -84,12 +84,20 @@ for (const width of [320, 390, 834, 1320]) {
     await expectAccessibleLayout(page);
     if (width < 620) {
       const logo = await page.getByRole("link", { name: "Gameómetro · Inicio" }).boundingBox();
+      const featured = await page.getByRole("link", { name: "Destacados", exact: true }).boundingBox();
       const recent = await page.getByRole("link", { name: "Recientes" }).boundingBox();
       const upcoming = await page.getByRole("link", { name: "Próximos", exact: true }).boundingBox();
       const search = await page.getByRole("button", { name: "Buscar juegos" }).boundingBox();
-      expect(logo?.y).toBe(recent?.y);
+      expect(featured?.y).toBe(recent?.y);
       expect(recent?.y).toBe(upcoming?.y);
-      expect(upcoming?.y).toBe(search?.y);
+      expect(logo?.y).toBe(search?.y);
+      // The three release sections share the identity's row from 360px; narrower phones give
+      // them a full-width row of their own under the identity and both icons.
+      if (width >= 360) {
+        expect(logo?.y).toBe(recent?.y);
+      } else {
+        expect(recent?.y ?? 0).toBeGreaterThan((logo?.y ?? 0) + (logo?.height ?? 0));
+      }
       await page.getByRole("button", { name: "Buscar juegos" }).click();
       await expect(page.getByRole("dialog", { name: "Buscar juegos" })).toBeVisible();
       await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toBeFocused();
@@ -134,7 +142,7 @@ test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
     }) });
   });
 
-  await page.goto(view === "recent" ? "/" : "/?view=upcoming");
+  await page.goto(view === "recent" ? "/?view=recent" : "/?view=upcoming");
   await expect(page.locator(".release-grid > li")).toHaveCount(12);
   expect(await page.locator(".release-grid").evaluate((grid) =>
     getComputedStyle(grid).gridTemplateColumns.split(" ").length,
@@ -254,7 +262,7 @@ for (const width of [320, 834, 1320]) {
 test("phone search closes cleanly when the layout widens", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
-  await page.goto("/");
+  await page.goto("/?view=recent");
   await page.getByRole("button", { name: "Buscar juegos" }).click();
   await expect(page.getByRole("dialog", { name: "Buscar juegos" })).toBeVisible();
 
@@ -278,7 +286,7 @@ for (const state of ["loading", "empty", "not-ready", "error"] as const) {
         category: "dependency", correlationId: "visual-check-reference",
       } });
     });
-  await page.goto("/?platformIds=windows-pc");
+  await page.goto("/?view=recent&platformIds=windows-pc");
     if (state === "loading") {
       await expect(page.getByRole("status")).toHaveText("Cargando lanzamientos…");
       await expect(page.getByRole("article")).toHaveCount(0);

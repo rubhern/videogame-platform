@@ -4,6 +4,7 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
+import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
@@ -55,10 +56,14 @@ public interface CatalogueSynchronizationStore {
             List<ReleaseWrite> releases,
             Instant synchronizedAt,
             java.util.Set<String> returnedReleaseReferences,
-            int maxReleases) {
+            int maxReleases,
+            FeaturedEvidenceWrite featuredEvidence,
+            FeaturedMediaWrite media) {
         public GameWrite {
             releases = List.copyOf(releases);
             returnedReleaseReferences = java.util.Set.copyOf(returnedReleaseReferences);
+            java.util.Objects.requireNonNull(featuredEvidence, "featuredEvidence");
+            java.util.Objects.requireNonNull(media, "media");
             if (maxReleases < 1 || returnedReleaseReferences.size() > maxReleases) {
                 throw new IllegalArgumentException(
                         "A Game write requires a complete bounded reference set");
@@ -73,6 +78,86 @@ public interface CatalogueSynchronizationStore {
     }
 
     record ReleaseWrite(String providerId, PlannedRelease release) {}
+
+    /** Complete normalized featured evidence, or last-valid-state preservation on mapping failure. */
+    sealed interface FeaturedEvidenceWrite {
+        FeaturedEvidenceWrite KEEP = new Keep();
+
+        record Observe(
+                Optional<java.time.LocalDate> firstReleaseDate,
+                boolean eligibleProduct,
+                Optional<Long> hypes)
+                implements FeaturedEvidenceWrite {
+            public Observe {
+                java.util.Objects.requireNonNull(firstReleaseDate, "firstReleaseDate");
+                java.util.Objects.requireNonNull(hypes, "hypes");
+                if (hypes.isPresent() && hypes.orElseThrow() <= 0) {
+                    throw new IllegalArgumentException("An attention count must be positive");
+                }
+            }
+        }
+
+        record Keep() implements FeaturedEvidenceWrite {}
+    }
+
+    /**
+     * The hero image, card image and optional secondary-card logo a Game write records. Each is either a newer valid
+     * selection, which replaces the stored one, or kept: missing, invalid or unavailable provider
+     * media never degrade the last valid selection.
+     */
+    record FeaturedMediaWrite(MediaWrite image, MediaWrite cardImage, MediaWrite logo) {
+
+        public static final FeaturedMediaWrite KEEP =
+                new FeaturedMediaWrite(MediaWrite.KEEP, MediaWrite.KEEP, MediaWrite.KEEP);
+
+        public FeaturedMediaWrite {
+            java.util.Objects.requireNonNull(image, "image");
+            java.util.Objects.requireNonNull(cardImage, "cardImage");
+            if (cardImage instanceof MediaWrite.Observe observed
+                    && observed.kind() == FeaturedMediaPolicy.ImageKind.LOGO) {
+                throw new IllegalArgumentException("A card image cannot be a logo");
+            }
+            java.util.Objects.requireNonNull(logo, "logo");
+            if (image instanceof MediaWrite.Observe observed
+                    && observed.kind() == FeaturedMediaPolicy.ImageKind.LOGO) {
+                throw new IllegalArgumentException("A featured image cannot be a logo");
+            }
+            if (logo instanceof MediaWrite.Observe observed
+                    && observed.kind() != FeaturedMediaPolicy.ImageKind.LOGO) {
+                throw new IllegalArgumentException("A title logo must be a logo");
+            }
+        }
+    }
+
+    sealed interface MediaWrite {
+
+        MediaWrite KEEP = new Keep();
+
+        /** A selected provider image with its attribution page, observed at the write's time. */
+        record Observe(
+                FeaturedMediaPolicy.ImageKind kind,
+                String reference,
+                int width,
+                int height,
+                boolean transparent,
+                String sourceUrl)
+                implements MediaWrite {
+            public Observe {
+                java.util.Objects.requireNonNull(kind, "kind");
+                if (reference == null || reference.isBlank()) {
+                    throw new IllegalArgumentException("An observed image requires a reference");
+                }
+                if (width <= 0 || height <= 0) {
+                    throw new IllegalArgumentException("An observed image requires its dimensions");
+                }
+                if (sourceUrl == null || sourceUrl.isBlank()) {
+                    throw new IllegalArgumentException("An observed image requires attribution");
+                }
+            }
+        }
+
+        record Keep() implements MediaWrite {}
+    }
 
     record WriteResult(
             boolean createdGame,

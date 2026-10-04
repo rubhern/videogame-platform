@@ -33,7 +33,7 @@ async function gameWithMean(page: Page, mean: number) {
 test("the browser names the product Gameómetro and shows its icons", async ({ page }) => {
   await anonymous(page);
   await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
-  await page.goto("/");
+  await page.goto("/?view=recent");
 
   await expect(page).toHaveTitle("Gameómetro");
   for (const [selector, type] of [
@@ -52,7 +52,7 @@ for (const width of [320, 390, 834, 1320]) {
     await page.setViewportSize({ width, height: 900 });
     await anonymous(page);
     await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
-    await page.goto("/");
+    await page.goto("/?view=recent");
 
     const brand = page.getByRole("link", { name: "Gameómetro · Inicio" });
     await expect(brand).toBeVisible();

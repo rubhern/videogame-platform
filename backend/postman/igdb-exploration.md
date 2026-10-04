@@ -99,14 +99,16 @@ for complete field definitions.
 | `game_modes`, `multiplayer_modes` | Play capabilities | useful | Modes, co-op limits |
 | `involved_companies`, `companies` | Credits | useful | Developer/publisher roles |
 | `collections`, `franchises` | Series/universe | useful | Membership context |
-| `screenshots`, `artworks`, `game_videos` | Rich media | future | Images, trailers |
+| `artworks`, `screenshots` | Featured media | core (metadata) | Image identifier, dimensions, transparency, animation |
+| `logos` | Featured title logo | core (metadata) | Read by game; identifier, dimensions, transparency |
+| `game_videos` | Rich media | future | Trailers |
 | `game_localizations`, `regions` | Regional presentation | future | Titles, localized covers |
 | `language_supports`, `languages`, `language_support_types` | Language evidence | future | Audio/subtitle/interface support |
 | `age_ratings`, `age_rating_organizations`, `age_rating_categories` | Age classifications | future | PEGI/ESRB labels |
 | `game_time_to_beats` | Duration evidence | future | Estimates, sample count |
 | `websites`, `website_types` | External links | useful | Official/community/store sites |
 | `external_games`, `external_game_sources` | Provider mappings | future | External source and UID |
-| `popularity_types`, `popularity_primitives` | Discovery signals | future | Signal value, calculation time |
+| `popularity_types`, `popularity_primitives` | Discovery signals | core (Visits) | Signal value, calculation time |
 | `search` | Cross-resource discovery | future | Mixed game/series results |
 | `multiquery` | Batch exploration | useful | Independent evidence bundles |
 
@@ -134,10 +136,18 @@ Potential uses to evaluate:
   evidence against the approved scope; provider fields do not guarantee local delivery.
 - **Richer detail:** credits, genres/themes, language support, age labels and duration
   need coverage and user-value evidence before adoption.
-- **Discovery/recommendations:** series, similar games and popularity are candidate
-  signals; none proves personalized relevance or demand.
-- **Multimedia:** screenshots, artwork, trailers and regional covers need separate
-  licensing, attribution and presentation decisions.
+- **Discovery/recommendations:** series and similar games are candidate signals; none
+  proves personalized relevance or demand. The Visits primitive alone ranks featured
+  releases ([ADR-0021](../../docs/decisions/0021-rank-monthly-featured-releases-by-local-igdb-hypes.md));
+  other primitives remain exploration.
+- **Multimedia:** featured discovery uses the metadata of artworks, screenshots and logos
+  under the amended [ADR-0001](../../docs/decisions/0001-reference-igdb-cover-images.md);
+  `artwork_type` is deprecated in favour of `image_type`, whose values are not documented.
+  Observed labels include `Artwork`, `Key art with logo`, `Key art without logo`,
+  `Historical artwork`, covers (`Alternative cover`, `Square cover`, `Historical cover`),
+  `Game logo (color|black|white)` and icons; FEAT-003 reads only title key art and the
+  cover, logo and icon labels. Trailers and regional covers still need separate licensing,
+  attribution and presentation decisions.
 - **Statistics/popularity:** compare signal types and timestamps; provider critic/user
   scores are distinct from product-owned personal ratings and aggregates.
 - **Future capabilities:** co-op filters and external store mapping require validation;

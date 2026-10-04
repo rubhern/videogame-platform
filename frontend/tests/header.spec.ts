@@ -35,7 +35,7 @@ for (const width of [320, 390, 834, 1320]) {
         : { authenticated: false } });
     });
     await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
-    await page.goto("/");
+    await page.goto("/?view=recent");
 
     const trigger = page.getByRole("button", { name: "Mi cuenta" });
     await expect(trigger).toBeVisible();
@@ -43,11 +43,18 @@ for (const width of [320, 390, 834, 1320]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
     // The account never takes a row of its own: it shares the first row with the identity and
     // navigation, and on phones with the search entry too, so the header is one row there.
+    const releases = page.getByRole("navigation", { name: "Lanzamientos" });
     await expectOnFirstRow(page, [
       trigger,
-      page.getByRole("navigation", { name: "Secciones principales" }),
+      ...(width >= 360 ? [releases] : []),
       ...(width < 620 ? [page.getByRole("button", { name: "Buscar juegos" })] : []),
     ]);
+    if (width < 360) {
+      // Below 360px the three release sections take a full-width row of their own.
+      const row = await releases.boundingBox();
+      expect(row?.width ?? 0).toBeGreaterThan(width - 40);
+      expect(await rowCentre(releases)).toBeGreaterThan(await rowCentre(trigger));
+    }
 
     await trigger.focus();
     await page.keyboard.press("Enter");
@@ -74,14 +81,14 @@ for (const width of [620, 667, 834]) {
     await page.setViewportSize({ width, height: 900 });
     await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: false } }));
     await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
-    await page.goto("/");
+    await page.goto("/?view=recent");
 
     const signin = page.getByRole("link", { name: "Iniciar sesión", exact: true });
     await expect(signin).toBeVisible();
     await expectOnFirstRow(page, [
       signin,
       page.getByRole("link", { name: "Crear cuenta", exact: true }),
-      page.getByRole("navigation", { name: "Secciones principales" }),
+      page.getByRole("navigation", { name: "Lanzamientos" }),
     ]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(0);
   });

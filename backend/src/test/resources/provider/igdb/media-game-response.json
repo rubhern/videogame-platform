@@ -1,0 +1,27 @@
+[
+  {
+    "id": 116530,
+    "name": "Ghost of Yotei",
+    "url": "https://www.igdb.com/games/ghost-of-yotei",
+    "updated_at": 1751000000,
+    "cover": {
+      "image_id": "co9x1z"
+    },
+    "game_type": {
+      "type": "main_game"
+    },
+    "artworks": [
+      { "id": 31, "image_id": "arlater", "width": 1920, "height": 1080, "alpha_channel": false, "animated": false },
+      { "id": 30, "image_id": "arfirst", "width": 3840, "height": 2160, "image_type": {"name": "Key art with logo"} },
+      { "id": 32, "image_id": "not an id!", "width": 1920, "height": 1080 },
+      { "id": 33, "image_id": "arnowidth", "height": 1080 },
+      { "id": 34, "image_id": "arcover", "width": 1920, "height": 1080, "image_type": {"name": "Alternative cover"} },
+      { "id": 35, "image_id": "arlogo", "width": 1920, "height": 1080, "image_type": {"name": "Game logo (color)"} },
+      { "id": 36, "image_id": "aricon", "width": 1024, "height": 576, "image_type": {"name": "Historical icon"} },
+      { "id": 37, "image_id": "arbanner", "width": 3840, "height": 1240, "image_type": {"name": "Key art without logo"} }
+    ],
+    "screenshots": [
+      { "id": 40, "image_id": "scmoving", "width": 1280, "height": 720, "alpha_channel": true, "animated": true }
+    ]
+  }
+]

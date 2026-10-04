@@ -3,13 +3,17 @@ package com.videogameplatform.catalogue.configuration;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
+import com.videogameplatform.catalogue.application.cover.port.ProviderImageReferenceResolver;
 import com.videogameplatform.catalogue.application.details.GetGameDetailsUseCase;
 import com.videogameplatform.catalogue.application.details.internal.GameDetailsService;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
+import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.internal.FeaturedReleaseService;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseCatalogueService;
+import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchPolicy;
@@ -47,8 +51,9 @@ class CatalogueModuleConfiguration {
         return new CatalogueSearchPolicy(properties.releaseContextLimit());
     }
 
+    /** One IGDB resolver applies ADR-0001 to covers and to featured images alike. */
     @Bean
-    ProviderCoverReferenceResolver providerCoverReferenceResolver() {
+    IgdbCoverReferenceResolver providerCoverReferenceResolver() {
         return new IgdbCoverReferenceResolver();
     }
 
@@ -66,6 +71,18 @@ class CatalogueModuleConfiguration {
             CatalogueFreshnessPolicy freshnessPolicy) {
         return new ReleaseCatalogueService(
                 readPort, coverPolicy, clock, browsePolicy, freshnessPolicy);
+    }
+
+    @Bean
+    BrowseFeaturedReleasesUseCase browseFeaturedReleasesUseCase(
+            FeaturedReleaseReadPort readPort,
+            CatalogueCoverPolicy coverPolicy,
+            ProviderImageReferenceResolver imageResolver,
+            Clock clock,
+            ReleaseBrowsePolicy browsePolicy,
+            CatalogueFreshnessPolicy freshnessPolicy) {
+        return new FeaturedReleaseService(
+                readPort, coverPolicy, imageResolver, clock, browsePolicy, freshnessPolicy);
     }
 
     @Bean

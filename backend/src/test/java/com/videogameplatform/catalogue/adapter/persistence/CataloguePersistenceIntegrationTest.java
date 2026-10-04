@@ -43,7 +43,7 @@ class CataloguePersistenceIntegrationTest {
         var migrationResult = flyway.migrate();
         flyway.validate();
 
-        assertThat(migrationResult.migrationsExecuted).isEqualTo(19);
+        assertThat(migrationResult.migrationsExecuted).isEqualTo(25);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -61,7 +61,7 @@ class CataloguePersistenceIntegrationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(19);
+                    .isEqualTo(25);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
                     .isEqualTo(12);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.release_snapshot"))

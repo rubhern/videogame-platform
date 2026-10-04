@@ -14,6 +14,11 @@ public record CatalogueSynchronizationReport(
         SynchronizationOutcome outcome,
         String outcomeCode,
         Counters counters) {
+    /**
+     * The popularity counters count committed Games by what happened to their popularity signal:
+     * observed and recorded, absent because the provider reports zero or no Hypes, or kept unchanged because
+     * featured evidence was unavailable or invalid.
+     */
     public record Counters(
             long inspectedReleaseDates,
             long createdGames,
@@ -27,5 +32,11 @@ public record CatalogueSynchronizationReport(
             long providerRequests,
             long providerRetries,
             long providerLatencyMillis,
-            long deletedReleases) {}
+            long deletedReleases,
+            long popularityObservedGames,
+            long popularityClearedGames,
+            long popularityUnavailableGames,
+            long featuredImageObservedGames,
+            long logoObservedGames,
+            long logoUnavailableGames) {}
 }

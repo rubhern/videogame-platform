@@ -16,14 +16,19 @@ sequenceDiagram
         Adapter->>IGDB: Query release_dates with bounded page size
         IGDB-->>Adapter: Release-date rows ordered by Game ID
         Adapter-->>Sync: Deduplicated Game IDs for this page
+        Sync->>Adapter: Logos of the page's Games
+        Adapter->>IGDB: Query logos by Game in bounded pages
+        IGDB-->>Adapter: Logo metadata, complete for every requested Game
+        Adapter-->>Sync: Logo candidates, or unavailable so every Game keeps its last one
 
         loop Each Game ID once
             Sync->>Adapter: Fetch current Game and all bounded Releases
-            Adapter->>IGDB: Query Game and release_dates by Game ID
+            Adapter->>IGDB: Query Game with Hypes, first release, edition and image metadata, and release_dates
             IGDB-->>Adapter: Current provider aggregate
-            Adapter-->>Sync: Normalized Game, Releases and cover
+            Adapter-->>Sync: Normalized Game, Releases, featured evidence, cover and image candidates
+            Sync->>Sync: Select featured image and logo from metadata
             Sync->>DB: Resolve Game external reference
-            Sync->>DB: Create or reconcile Game and stable Release references atomically
+            Sync->>DB: Create or reconcile Game, stable Release references, featured evidence and media atomically
             Note over Sync,DB: Invalid input preserves the Game's last valid state
         end
     end

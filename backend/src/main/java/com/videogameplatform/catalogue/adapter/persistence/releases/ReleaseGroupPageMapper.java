@@ -55,7 +55,8 @@ final class ReleaseGroupPageMapper {
         return items.values().stream().map(MutableItem::toItem).toList();
     }
 
-    private static ReleaseRow releaseRow(ResultSet resultSet, String gameId) throws SQLException {
+    /** One release column set, shared with the featured-release page. */
+    static ReleaseRow releaseRow(ResultSet resultSet, String gameId) throws SQLException {
         return new ReleaseRow(
                 resultSet.getString("release_id"),
                 gameId,
@@ -75,7 +76,7 @@ final class ReleaseGroupPageMapper {
                 ReleaseStage.fromValue(resultSet.getString("release_stage")));
     }
 
-    private static Instant instant(ResultSet resultSet, String column) throws SQLException {
+    static Instant instant(ResultSet resultSet, String column) throws SQLException {
         OffsetDateTime value = resultSet.getObject(column, OffsetDateTime.class);
         return value == null ? null : value.toInstant();
     }

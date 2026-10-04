@@ -28,6 +28,7 @@ const pragmata: ReleaseListItem = {
       shortDate: "T2 2026",
       region: "Mundial",
       platforms: ["Windows PC"],
+      platformIds: ["windows-pc"],
       isStale: false,
       review: false,
       releaseCount: 1,
@@ -148,7 +149,7 @@ describe("releases shell", () => {
     expect(
       screen.getByText("Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."),
     ).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Quitar filtros" })[0]).toHaveAttribute("href", "/?weeks=1");
+    expect(screen.getAllByRole("link", { name: "Quitar filtros" })[0]).toHaveAttribute("href", "/?view=recent&weeks=1");
   });
 
   it("gives upcoming the same hero, selectors and closing bar", () => {
@@ -287,7 +288,7 @@ describe("releases shell", () => {
 
     const alert = within(screen.getByRole("alert"));
     expect(alert.getByRole("heading", { name: "Filtro no admitido" })).toBeInTheDocument();
-    expect(alert.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/?weeks=1");
+    expect(alert.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/?view=recent&weeks=1");
   });
 
   it("reports a generic failure with its support reference", () => {
@@ -330,11 +331,11 @@ describe("releases shell", () => {
     expect(pagination.queryByText("Página 2 de 3")).not.toBeInTheDocument();
     expect(pagination.getByRole("link", { name: "Página anterior" })).toHaveAttribute(
       "href",
-      "/?weeks=1&platformIds=platform-ps5",
+      "/?view=recent&weeks=1&platformIds=platform-ps5",
     );
     expect(pagination.getByRole("link", { name: "Página siguiente" })).toHaveAttribute(
       "href",
-      "/?weeks=1&platformIds=platform-ps5&page=3",
+      "/?view=recent&weeks=1&platformIds=platform-ps5&page=3",
     );
   });
 
@@ -365,7 +366,7 @@ describe("releases shell", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ir a la última página" })).toHaveAttribute(
       "href",
-      "/?weeks=1&page=2",
+      "/?view=recent&weeks=1&page=2",
     );
   });
 

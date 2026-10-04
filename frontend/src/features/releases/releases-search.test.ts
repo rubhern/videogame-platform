@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PAGE_SIZE,
   hasActiveFilters,
+  readDiscoveryView,
   readReleasesSearch,
   releasesSearchPath,
   toggleFilterValue,
@@ -30,7 +31,9 @@ describe("releases navigable state", () => {
   it("uses twelve releases for both windows and preserves explicit page sizes", () => {
     expect(read("view=upcoming").pageSize).toBe(DEFAULT_PAGE_SIZE);
     expect(releasesSearchPath(read(""), { view: "upcoming", page: 1 })).toBe("/?view=upcoming&weeks=1");
-    expect(releasesSearchPath(read("view=upcoming"), { view: "recent", page: 1 })).toBe("/?weeks=1");
+    expect(releasesSearchPath(read("view=upcoming"), { view: "recent", page: 1 })).toBe(
+      "/?view=recent&weeks=1",
+    );
     expect(releasesSearchPath(read("?pageSize=24"), { view: "upcoming", page: 1 })).toBe(
       "/?view=upcoming&weeks=1&pageSize=24",
     );
@@ -71,7 +74,8 @@ describe("releases navigable state", () => {
   });
 
   it("omits defaults and repeats each selected value so a shared URL stays readable", () => {
-    expect(writeReleasesSearch(read("")).toString()).toBe("weeks=1");
+    // The view is always named: without it the landing route shows the featured releases.
+    expect(writeReleasesSearch(read("")).toString()).toBe("view=recent&weeks=1");
     expect(
       writeReleasesSearch(
         read("view=upcoming&platformIds=platform-ps5&platformIds=platform-switch&page=2"),
@@ -117,7 +121,7 @@ describe("releases navigable state", () => {
       "/?view=upcoming&weeks=1&includeApproximateDates=true",
     );
     expect(releasesSearchPath(optedIn, { view: "recent", page: 1 })).toBe(
-      "/?weeks=1&platformIds=platform-ps5",
+      "/?view=recent&weeks=1&platformIds=platform-ps5",
     );
     expect(hasActiveFilters(read("view=upcoming&includeApproximateDates=true"))).toBe(false);
   });
@@ -152,6 +156,14 @@ describe("releases navigable state", () => {
       page: 1,
       pageSize: DEFAULT_PAGE_SIZE,
     });
+  });
+
+  it("opens the featured releases unless the URL names a release list", () => {
+    expect(readDiscoveryView(new URLSearchParams(""))).toBe("featured");
+    expect(readDiscoveryView(new URLSearchParams("month=2026-10"))).toBe("featured");
+    expect(readDiscoveryView(new URLSearchParams("view=sideways"))).toBe("featured");
+    expect(readDiscoveryView(new URLSearchParams("view=recent&weeks=1"))).toBe("recent");
+    expect(readDiscoveryView(new URLSearchParams("view=upcoming"))).toBe("upcoming");
   });
 
   it("reports whether any filter is active", () => {

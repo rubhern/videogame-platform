@@ -165,8 +165,8 @@ owns the date interval, paging and partial-failure decisions.
 
 | Failure                       | Required behaviour                                                                                           |
 |-------------------------------|--------------------------------------------------------------------------------------------------------------|
-| IGDB unavailable/rate-limited | Continue local reads; sync records failure                                                                   |
-| Cover CDN unavailable         | Use product fallback; keep game visible                                                                      |
+| IGDB unavailable/rate-limited | Continue local reads; sync records failure; featured releases keep the last valid popularity signals and media |
+| Image CDN unavailable         | Use product fallback (a featured card first tries the cover shown whole); keep game visible                  |
 | No valid catalogue            | `CATALOGUE_NOT_READY`; no request-path provider call                                                         |
 | Migration failure             | Do not activate new application                                                                              |
 | Readiness/smoke failure       | Record deployment failure; recover by the assessed rollback or forward fix, never by reverting an applied migration |

@@ -38,6 +38,8 @@ export type ReleaseContextGroup = {
   shortDate: string;
   region: string;
   platforms: string[];
+  /** Stable identifiers of `platforms`, in the same order, for presentation such as icons. */
+  platformIds: string[];
   isStale: boolean;
   review: boolean;
   releaseCount: number;
@@ -166,6 +168,7 @@ function toReleaseContextGroups(releases: readonly Release[]): ReleaseContextGro
         shortDate: formatReleaseDateShort(release.releaseDate),
         region: release.region.name,
         platforms: [],
+        platformIds: [],
         isStale: false,
         review: false,
         releaseCount: 0,
@@ -174,6 +177,7 @@ function toReleaseContextGroups(releases: readonly Release[]): ReleaseContextGro
       groups.push(group);
     }
     group.platforms.push(release.platform.name);
+    group.platformIds.push(release.platform.platformId);
     group.releaseCount += 1;
     group.isStale = group.isStale || release.freshnessStatus === "stale";
     group.review = group.review || release.reviewStatus === "required";
@@ -181,24 +185,27 @@ function toReleaseContextGroups(releases: readonly Release[]): ReleaseContextGro
   return groups;
 }
 
+/** One game and its presented releases, shared by the release lists and the featured releases. */
+export function toReleaseListItem(item: ReleaseItem): ReleaseListItem {
+  const releaseGroups = toReleaseContextGroups(item.releases);
+  const hiddenReleaseCount = releaseGroups
+    .slice(1)
+    .reduce((total, group) => total + group.releaseCount, 0);
+  return {
+    gameId: item.gameId,
+    slug: item.slug,
+    title: item.canonicalTitle,
+    releaseGroups,
+    hiddenReleaseCount,
+    isStale: releaseGroups.some((group) => group.isStale),
+    // Owner-provided previews are an opt-in Vite development overlay. The API cover
+    // remains authoritative in tests and production builds.
+    cover: localCoverPreview(item.slug, item.canonicalTitle) ?? toCover(item.primaryCover),
+  };
+}
+
 export function toReleaseListItems(page: ReleasePage): ReleaseListItem[] {
-  return page.items.map((item) => {
-    const releaseGroups = toReleaseContextGroups(item.releases);
-    const hiddenReleaseCount = releaseGroups
-      .slice(1)
-      .reduce((total, group) => total + group.releaseCount, 0);
-    return {
-      gameId: item.gameId,
-      slug: item.slug,
-      title: item.canonicalTitle,
-      releaseGroups,
-      hiddenReleaseCount,
-      isStale: releaseGroups.some((group) => group.isStale),
-      // Owner-provided previews are an opt-in Vite development overlay. The API cover
-      // remains authoritative in tests and production builds.
-      cover: localCoverPreview(item.slug, item.canonicalTitle) ?? toCover(item.primaryCover),
-    };
-  });
+  return page.items.map(toReleaseListItem);
 }
 
 export function toReleasesViewModel(page: ReleasePage): ReleasesViewModel {

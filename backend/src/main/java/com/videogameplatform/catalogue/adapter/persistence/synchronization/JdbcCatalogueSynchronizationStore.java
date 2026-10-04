@@ -7,6 +7,8 @@ import com.videogameplatform.catalogue.application.synchronization.Synchronizati
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.MediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
 import com.videogameplatform.catalogue.domain.RegionLabel;
@@ -419,6 +421,10 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                 unchanged++;
             }
         }
+        writeFeaturedEvidence(w);
+        writeFeaturedMedia(w);
+        // Popularity and featured media serve featured discovery only, so they never advance the
+        // catalogue revision; that read's validators hash its actual response instead.
         boolean changed = gameChanges > 0 || created > 0 || updated > 0 || !missing.isEmpty();
         if (changed) {
             jdbc.update(
@@ -447,6 +453,81 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                 updated,
                 unchanged,
                 missing.size());
+    }
+
+    /** Updates complete evidence in the Game transaction; mapping failure keeps its last valid state. */
+    private void writeFeaturedEvidence(GameWrite w) {
+        switch (w.featuredEvidence()) {
+            case FeaturedEvidenceWrite.Observe observed ->
+                    jdbc.update(
+                            """
+                    INSERT INTO catalogue.game_featured_evidence(
+                        game_id, hypes, first_release_date, eligible_product, source_name, observed_at)
+                    VALUES (:game, :hypes, :firstRelease, :eligible, :source, :observedAt)
+                    ON CONFLICT (game_id) DO UPDATE SET
+                        hypes = EXCLUDED.hypes,
+                        first_release_date = EXCLUDED.first_release_date,
+                        eligible_product = EXCLUDED.eligible_product,
+                        source_name = EXCLUDED.source_name,
+                        observed_at = EXCLUDED.observed_at
+                    WHERE game_featured_evidence.observed_at <= EXCLUDED.observed_at
+                    """,
+                            new MapSqlParameterSource()
+                                    .addValue("game", w.gameId())
+                                    .addValue("hypes", observed.hypes().orElse(null))
+                                    .addValue(
+                                            "firstRelease",
+                                            observed.firstReleaseDate().orElse(null))
+                                    .addValue("eligible", observed.eligibleProduct())
+                                    .addValue("source", provider)
+                                    .addValue("observedAt", timestamp(w.synchronizedAt())));
+            case FeaturedEvidenceWrite.Keep _ -> {}
+        }
+    }
+
+    /**
+     * Records a newer featured image or title logo inside the Game's own transaction, so a
+     * rolled-back Game keeps its last valid selection. A kept slot is never touched: missing,
+     * invalid or unavailable provider media never degrade the stored selection.
+     */
+    private void writeFeaturedMedia(GameWrite w) {
+        writeMedia(w, "image", w.media().image());
+        writeMedia(w, "card_image", w.media().cardImage());
+        writeMedia(w, "logo", w.media().logo());
+    }
+
+    private void writeMedia(GameWrite w, String role, MediaWrite media) {
+        if (!(media instanceof MediaWrite.Observe observed)) {
+            return;
+        }
+        jdbc.update(
+                """
+                INSERT INTO catalogue.game_featured_media(
+                    game_id, media_role, media_kind, image_reference, width, height, transparent,
+                    source_name, source_url, observed_at)
+                VALUES (:game, :role, :kind, :reference, :width, :height, :transparent,
+                        :source, :sourceUrl, :observedAt)
+                ON CONFLICT (game_id, media_role) DO UPDATE SET
+                    media_kind = EXCLUDED.media_kind,
+                    image_reference = EXCLUDED.image_reference,
+                    width = EXCLUDED.width,
+                    height = EXCLUDED.height,
+                    transparent = EXCLUDED.transparent,
+                    source_name = EXCLUDED.source_name,
+                    source_url = EXCLUDED.source_url,
+                    observed_at = EXCLUDED.observed_at
+                """,
+                new MapSqlParameterSource()
+                        .addValue("game", w.gameId())
+                        .addValue("role", role)
+                        .addValue("kind", observed.kind().name().toLowerCase(Locale.ROOT))
+                        .addValue("reference", observed.reference())
+                        .addValue("width", observed.width())
+                        .addValue("height", observed.height())
+                        .addValue("transparent", observed.transparent())
+                        .addValue("source", provider)
+                        .addValue("sourceUrl", observed.sourceUrl())
+                        .addValue("observedAt", timestamp(w.synchronizedAt())));
     }
 
     /** Product-only sentinel for a release whose provider states no region; it has no reference. */
@@ -645,17 +726,30 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                             : SynchronizationOutcome.FAILED,
                                     rs.getString("outcome_code"),
                                     new CatalogueSynchronizationReport.Counters(
-                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)));
+                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                            0)));
                 });
     }
 
     private CatalogueSynchronizationReport readReport(String stored) {
         var tree = json.readTree(stored);
-        // Reports written before current-set reconciliation have no deletion counter.
-        // Default only that absent field; keep strict validation of all existing data.
-        if (tree.get("counters") instanceof tools.jackson.databind.node.ObjectNode counters
-                && !counters.has("deletedReleases")) {
-            counters.put("deletedReleases", 0L);
+        // Reports written before current-set reconciliation have no deletion counter, and those
+        // written before popularity and media acquisition have no counters for them. Default only
+        // those absent fields; keep strict validation of all existing data.
+        if (tree.get("counters") instanceof tools.jackson.databind.node.ObjectNode counters) {
+            for (String field :
+                    List.of(
+                            "deletedReleases",
+                            "popularityObservedGames",
+                            "popularityClearedGames",
+                            "popularityUnavailableGames",
+                            "featuredImageObservedGames",
+                            "logoObservedGames",
+                            "logoUnavailableGames")) {
+                if (!counters.has(field)) {
+                    counters.put(field, 0L);
+                }
+            }
         }
         return json.treeToValue(tree, CatalogueSynchronizationReport.class);
     }

@@ -4,6 +4,17 @@ export type ReleaseView = ReleasesQuery["view"];
 export type ReleaseWeeks = NonNullable<ReleasesQuery["weeks"]>;
 
 /**
+ * The release-discovery section the landing route shows. Destacados is the landing view (#151),
+ * so an absent or unknown `view` means featured; the release lists always name their view.
+ */
+export type DiscoveryView = "featured" | ReleaseView;
+
+export function readDiscoveryView(params: URLSearchParams): DiscoveryView {
+  const view = params.get("view");
+  return view === "recent" || view === "upcoming" ? view : "featured";
+}
+
+/**
  * Navigable release-discovery state.
  *
  * It lives in the URL so a filtered page stays shareable and survives browser
@@ -90,12 +101,13 @@ function includesApproximateDates(search: ReleasesSearch): boolean {
   return search.view === "upcoming" && search.includeApproximateDates;
 }
 
-/** Serializes navigable state, omitting defaults so shared URLs stay readable. */
+/**
+ * Serializes navigable state, omitting defaults so shared URLs stay readable. The view is always
+ * written: without it the landing route shows the featured releases instead of a list.
+ */
 export function writeReleasesSearch(search: ReleasesSearch): URLSearchParams {
   const params = new URLSearchParams();
-  if (search.view !== defaultSearch.view) {
-    params.set("view", search.view);
-  }
+  params.set("view", search.view);
   params.set("weeks", String(search.weeks));
   if (includesApproximateDates(search)) {
     params.set("includeApproximateDates", "true");

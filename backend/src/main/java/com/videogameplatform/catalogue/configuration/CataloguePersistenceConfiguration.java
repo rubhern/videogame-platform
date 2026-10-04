@@ -1,8 +1,10 @@
 package com.videogameplatform.catalogue.configuration;
 
+import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcFeaturedReleaseReadAdapter;
 import com.videogameplatform.catalogue.adapter.persistence.releases.JdbcReleaseBrowseReadAdapter;
 import com.videogameplatform.catalogue.adapter.persistence.search.JdbcGameSearchReadAdapter;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
+import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
 import javax.sql.DataSource;
@@ -46,6 +48,12 @@ class CataloguePersistenceConfiguration {
     @Bean
     ReleaseBrowseReadPort releaseBrowseReadPort(CatalogueReadExecution execution) {
         return new JdbcReleaseBrowseReadAdapter(
+                execution.jdbcOperations(), execution.readTransaction());
+    }
+
+    @Bean
+    FeaturedReleaseReadPort featuredReleaseReadPort(CatalogueReadExecution execution) {
+        return new JdbcFeaturedReleaseReadAdapter(
                 execution.jdbcOperations(), execution.readTransaction());
     }
 

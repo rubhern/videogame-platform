@@ -1,10 +1,12 @@
 package com.videogameplatform.catalogue.application.synchronization.port;
 
+import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -29,6 +31,15 @@ public interface CatalogueProviderPort {
 
     /** Complete bounded provider state for the specified games; missing works remain missing. */
     ProviderWorkBatch fetchWorks(List<String> providerIds);
+
+    /**
+     * The game logos of up to one provider page of Games, in the provider's stable order.
+     *
+     * <p>The answer is complete for every requested reference or the call fails as a whole with
+     * {@link ProviderRequestException}; a Game without a usable logo is absent. Only metadata
+     * crosses: never an image binary.
+     */
+    LogoBatch logos(List<String> providerIds);
 
     record ReleasePage(
             List<String> gameIds,
@@ -59,10 +70,40 @@ public interface CatalogueProviderPort {
             ProviderWorkType type,
             Instant providerUpdatedAt,
             Optional<ProviderCover> cover,
+            List<ProviderImage> images,
+            Optional<String> attributionUrl,
             List<ProviderRelease> releases,
-            List<ProviderMappingFailure> mappingFailures) {
+            List<ProviderMappingFailure> mappingFailures,
+            Optional<ProviderFeaturedEvidence> featuredEvidence) {
+
+        public ProviderWork(
+                String providerId,
+                String title,
+                ProviderWorkType type,
+                Instant providerUpdatedAt,
+                Optional<ProviderCover> cover,
+                List<ProviderImage> images,
+                Optional<String> attributionUrl,
+                List<ProviderRelease> releases,
+                List<ProviderMappingFailure> mappingFailures) {
+            this(
+                    providerId,
+                    title,
+                    type,
+                    providerUpdatedAt,
+                    cover,
+                    images,
+                    attributionUrl,
+                    releases,
+                    mappingFailures,
+                    Optional.empty());
+        }
 
         public ProviderWork {
+            featuredEvidence =
+                    java.util.Objects.requireNonNull(featuredEvidence, "featuredEvidence");
+            images = List.copyOf(images);
+            attributionUrl = java.util.Objects.requireNonNull(attributionUrl, "attributionUrl");
             releases = List.copyOf(releases);
             mappingFailures = List.copyOf(mappingFailures);
         }
@@ -124,4 +165,59 @@ public interface CatalogueProviderPort {
 
     /** A provider cover reference that already satisfies the approved ADR-0001 shape. */
     record ProviderCover(String reference, String sourceUrl) {}
+
+    /**
+     * One provider artwork, screenshot or logo as metadata only: an opaque image reference that
+     * already satisfies the approved ADR-0001 shape, its pixel dimensions, and whether it is
+     * transparent or animated. The featured-media policy chooses among them; the binary is never
+     * fetched.
+     */
+    record ProviderImage(
+            FeaturedMediaPolicy.ImageKind kind,
+            String reference,
+            int width,
+            int height,
+            boolean transparent,
+            boolean animated,
+            boolean titleArtwork)
+            implements FeaturedMediaPolicy.Image {
+        public ProviderImage(
+                FeaturedMediaPolicy.ImageKind kind,
+                String reference,
+                int width,
+                int height,
+                boolean transparent,
+                boolean animated) {
+            this(kind, reference, width, height, transparent, animated, false);
+        }
+
+        public ProviderImage {
+            java.util.Objects.requireNonNull(kind, "kind");
+            if (reference == null || reference.isBlank()) {
+                throw new IllegalArgumentException("A provider image requires a reference");
+            }
+            if (width <= 0 || height <= 0) {
+                throw new IllegalArgumentException("A provider image requires its dimensions");
+            }
+        }
+    }
+
+    /** Logos keyed by the requested provider Game reference; absent means none is usable. */
+    record LogoBatch(Map<String, List<ProviderImage>> logos, ProviderCallStatistics statistics) {
+        public LogoBatch {
+            logos = Map.copyOf(logos);
+        }
+    }
+
+    /** Normalized evidence for monthly featured eligibility; no provider parent identity escapes. */
+    record ProviderFeaturedEvidence(
+            Optional<LocalDate> firstReleaseDate, boolean edition, Optional<Long> hypes) {
+        public ProviderFeaturedEvidence {
+            java.util.Objects.requireNonNull(firstReleaseDate, "firstReleaseDate");
+            java.util.Objects.requireNonNull(hypes, "hypes");
+            if (hypes.isPresent() && hypes.orElseThrow() <= 0) {
+                throw new IllegalArgumentException("An attention count must be positive");
+            }
+        }
+    }
 }

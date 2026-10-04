@@ -8,6 +8,9 @@
 | Release | Commercial release of a game for one platform and region, with explicit date precision/status |
 | Presented release | The one release a discovery card or game-page selection shows for a platform when several are stored; the others stay stored and reachable |
 | Availability | Subscription, promotion, or rotating-catalogue access; never a commercial release |
+| Featured releases (`Destacados`) | Automatic selection of a calendar month's releases by provider-observed attention; its first game is the month's featured release (`Lanzamiento del mes`). Never a quality judgement, award or editorial pick |
+| Popularity signal | A game's locally stored, provider-observed attention (currently IGDB Hypes) that ranks featured releases; never shown and never invented |
+| Featured media | The context-selected landscape image and optional secondary-card logo a featured release presents, chosen from provider image metadata; a portrait cover is only shown whole, never stretched or cropped |
 | Date precision | `day`, `month`, `quarter`, `year`, or `unknown`; never infer missing precision |
 | Catalogue | Accepted visible games with product-owned identity; a provider result joins it only through the explicit import policy |
 | Import policy | Product rule deciding which provider work types become a game; unsupported types are deferred, not failed |

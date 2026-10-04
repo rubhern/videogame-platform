@@ -14,6 +14,7 @@ backend API changes, update its tracked requests and assertions in the same chan
 | Collection | Covers |
 |---|---|
 | `catalogue-releases` | Recent/upcoming discovery, at most one presented release per platform, the exact-day upcoming default and approximate-date opt-in, filters, public headers, weak-validator conditional reads, strict query parameters, pagination, stable validation errors |
+| `featured-releases` | Automatic monthly featured releases: the current Madrid month by default and a requested month of the current year (another year's month is rejected), the bounded ranking, one qualifying release per platform inside the month, no exposed popularity value, a featured release of the month that never presents its cover, public headers, weak-validator conditional reads, malformed-month and strict-query rejection |
 | `catalogue-search` | Canonical-title and approved-alias matching, diacritic-insensitive prefix matching, ambiguous and zero-result outcomes, deterministic pagination, conditional reads |
 | `game-details` | Public details, release evidence listed platform by platform with each presented record first, empty statistics, conditional requests, missing games, strict query rejection |
 | `personal-ratings` | Authenticated read, conditional create/update/delete, strong ETag reuse from the private collection, scoped search and ordering, duplicate/stale-write and CSRF rejection |
@@ -45,8 +46,8 @@ values to these tracked files.
    ```
 
 2. Import the environment and the collections, select the
-   **VideoGame Platform - Local** environment, and run the catalogue, game-details,
-   actuator, and (while signed out) session collections.
+   **VideoGame Platform - Local** environment, and run the catalogue, featured-releases,
+   game-details, actuator, and (while signed out) session collections.
 
 ## Authenticated personal-rating run
 

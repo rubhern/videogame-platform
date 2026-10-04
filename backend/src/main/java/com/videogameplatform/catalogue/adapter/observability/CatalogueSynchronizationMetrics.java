@@ -13,6 +13,7 @@ public final class CatalogueSynchronizationMetrics {
     public static final String OPERATION_WINDOW = "window";
     public static final String OPERATION_WORKS = "works";
     public static final String OPERATION_RELEASE_DATES = "release_dates";
+    public static final String OPERATION_LOGOS = "logos";
     private final MeterRegistry registry;
 
     public CatalogueSynchronizationMetrics(MeterRegistry registry) {
@@ -35,6 +36,12 @@ public final class CatalogueSynchronizationMetrics {
         record("unchanged_releases", c.unchangedReleases());
         record("deferred_games", c.deferredGames());
         record("failed_games", c.failedGames());
+        record("popularity_observed_games", c.popularityObservedGames());
+        record("popularity_cleared_games", c.popularityClearedGames());
+        record("popularity_unavailable_games", c.popularityUnavailableGames());
+        record("featured_image_observed_games", c.featuredImageObservedGames());
+        record("logo_observed_games", c.logoObservedGames());
+        record("logo_unavailable_games", c.logoUnavailableGames());
     }
 
     private void record(String kind, long count) {

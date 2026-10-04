@@ -1,0 +1,1185 @@
+/* Destacados (#151): the month's featured releases. The page opens on the release windows' night
+   stage, names the month in a glass selector, then presents one cinematic hero and a row of wide
+   artwork cards. Landscape media fill their frames with controlled cropping; a cover fallback
+   keeps its proportions over its own blurred light. */
+
+@layer components {
+  /* ---------------------------------------------------------------- Page opening */
+
+  .featured-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .featured-heading {
+      animation: fade-in 760ms var(--ease-out) both;
+    }
+  }
+
+  .featured-kicker-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+  }
+
+  .featured-icon {
+    display: block;
+    width: 18px;
+    height: 18px;
+    flex: none;
+  }
+
+  /* One glass pill: the previous month, the represented month and the next month. */
+  .featured-month {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 3px;
+    background: var(--glass);
+    box-shadow: var(--glass-highlight);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  .featured-month-skeleton {
+    width: 236px;
+  }
+
+  .featured-month-step {
+    display: inline-flex;
+    width: 38px;
+    height: 38px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: var(--color-muted);
+  }
+
+  .featured-month-step:not(.featured-month-step-disabled):hover {
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-ink) 9%, transparent);
+  }
+
+  .featured-month-step:focus-visible {
+    border-radius: 50%;
+    outline-offset: 1px;
+  }
+
+  /* January and December end the current year: the step stays in place, dimmed and inert. */
+  .featured-month-step-disabled {
+    cursor: default;
+    opacity: 0.35;
+  }
+
+  .featured-month-label {
+    display: inline-flex;
+    min-height: 30px;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    border-inline: 1px solid var(--glass-border);
+    padding: 0 18px 0 16px;
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .featured-month-label .featured-icon {
+    width: 17px;
+    height: 17px;
+    color: var(--color-accent-hover);
+  }
+
+  /* The title and the selection's rule share one row, divided by a hairline of light. */
+  .featured-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 34px;
+  }
+
+  .featured-page .hero-title {
+    margin-top: 0;
+    font-size: clamp(2.375rem, 4.2vw, 4rem);
+    line-height: 1.02;
+  }
+
+  .featured-page .hero-title .title-accent {
+    font-size: 1.04em;
+  }
+
+  .featured-note {
+    display: flex;
+    max-width: 14rem;
+    align-items: center;
+    gap: 14px;
+    margin: 0;
+    border-left: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
+    padding: 4px 0 4px 26px;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    text-shadow: 0 1px 12px var(--color-canvas);
+  }
+
+  .featured-note .featured-icon {
+    width: 20px;
+    height: 20px;
+    color: var(--color-aurora);
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--color-aurora) 70%, transparent));
+  }
+
+  /* ---------------------------------------------------------------- Featured frames */
+
+  /* A landscape frame. A fill image covers it; a contained one is shown whole over its own light,
+     blown up and blurred, so a portrait cover reads as a deliberate poster, never a crop. */
+  .featured-art {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: var(--color-canvas);
+  }
+
+  .featured-art-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .featured-art-fill .featured-art-image {
+    object-fit: cover;
+    object-position: 50% 50%;
+  }
+
+  .featured-art-contain::before {
+    position: absolute;
+    inset: -18%;
+    background: var(--art) center / cover no-repeat;
+    content: "";
+    filter: blur(34px) saturate(1.5) brightness(0.72);
+  }
+
+  /* The image keeps its own proportions, so the poster gets its own corners and ring. */
+  .featured-art-contain .featured-art-image {
+    inset: 7% auto auto 50%;
+    width: auto;
+    max-width: 92%;
+    height: 86%;
+    border-radius: 10px;
+    object-fit: contain;
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--color-ink) 16%, transparent),
+      0 24px 40px -18px #000,
+      0 0 46px -14px color-mix(in srgb, var(--color-aurora) 45%, transparent);
+    transform: translateX(-50%);
+  }
+
+  /* ---------------------------------------------------------------- Hero */
+
+  /* The month's featured release, cinematic. Key art keeps its subject clear of the logo space at
+     its left, so the copy takes that side; the landscape image spans the rest, fades in behind the
+     copy and is graded into the night, and the whole card is lit by the same image, blurred. */
+  .featured-hero {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    min-height: clamp(340px, 27vw, 392px);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.86fr);
+    overflow: hidden;
+    isolation: isolate;
+    margin-top: 16px;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+    border-radius: 26px;
+    background: color-mix(in srgb, var(--color-canvas) 90%, transparent);
+    box-shadow:
+      var(--glass-highlight),
+      0 0 0 1px color-mix(in srgb, var(--color-aurora) 12%, transparent),
+      0 0 46px -12px color-mix(in srgb, var(--color-aurora) 50%, transparent),
+      var(--elevation-lift);
+  }
+
+  .featured-hero-light {
+    position: absolute;
+    z-index: -2;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* The light is dimmed so even a bright illustration only warms the night behind the copy. */
+  .featured-hero-light::before {
+    position: absolute;
+    inset: -30%;
+    background: var(--art) center / cover no-repeat;
+    content: "";
+    filter: blur(64px) saturate(1.3) brightness(0.55);
+    opacity: 0.8;
+  }
+
+  .featured-hero-light::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-canvas) 94%, transparent) 0%,
+      color-mix(in srgb, var(--color-canvas) 80%, transparent) 40%,
+      transparent 74%
+    );
+    content: "";
+  }
+
+  /* The art spans the right of the hero and fades in behind the copy, so the wordmark sits on the
+     art's own logo space without a hard panel edge. The crop favours the upper part of the frame,
+     where key art keeps its characters' faces. */
+  .featured-hero-visual {
+    position: absolute;
+    z-index: -1;
+    inset: 0 0 0 24%;
+    display: block;
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.3) 24%, #000 58%);
+    mask-image: linear-gradient(90deg, transparent 0%, rgb(0 0 0 / 0.3) 24%, #000 58%);
+  }
+
+  .featured-hero-visual .featured-art {
+    background: transparent;
+  }
+
+  /* A light grade sinks the art into the night without dulling dark art: a touch of contrast, a
+     faint film grain, shade at the top and the bottom and a soft vignette, so a bright
+     illustration reads as lit key art rather than a flat panel. */
+  .featured-hero .featured-art-fill .featured-art-image {
+    object-position: 50% 30%;
+    filter: saturate(0.94) contrast(1.05) brightness(0.95);
+  }
+
+  .featured-hero .featured-art::after {
+    position: absolute;
+    inset: 0;
+    background: var(--grain);
+    content: "";
+    mix-blend-mode: overlay;
+    opacity: 0.12;
+    pointer-events: none;
+  }
+
+  .featured-hero-visual::after {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-canvas) 28%, transparent) 0%,
+        transparent 22%,
+        transparent 64%,
+        color-mix(in srgb, var(--color-canvas) 60%, transparent) 100%
+      ),
+      radial-gradient(
+        130% 120% at 66% 36%,
+        transparent 56%,
+        color-mix(in srgb, var(--color-canvas) 44%, transparent) 100%
+      );
+    content: "";
+    pointer-events: none;
+  }
+
+  /* The designed fallback lets the light of the game's own cover glow through its night. */
+  .featured-hero [data-art-kind="fallback"] .featured-art-image {
+    opacity: 0.84;
+  }
+
+  .featured-hero-body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    justify-content: center;
+    grid-column: 1;
+    gap: 14px;
+    padding: 28px 8px 28px 46px;
+    container-type: inline-size;
+  }
+
+  .featured-badge {
+    display: inline-flex;
+    align-items: center;
+    align-self: flex-start;
+    gap: 9px;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--color-aurora) 58%, transparent);
+    border-radius: 999px;
+    padding: 6px 15px 6px 11px;
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-aurora) 16%, color-mix(in srgb, var(--color-canvas) 70%, transparent));
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
+      0 0 26px -8px color-mix(in srgb, var(--color-aurora) 70%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+
+  .featured-badge .featured-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--color-aurora);
+  }
+
+  /* The canonical title as Gameómetro's own wordmark. The heading keeps the full title as text; the
+     size follows the name so its longest word fits one line and the whole name three, within the
+     wordmark's range. */
+  .featured-hero-title {
+    display: flex;
+    flex-direction: column;
+    gap: 0.14em;
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: clamp(1.75rem, 3.2vw, 3.25rem);
+    line-height: 0.92;
+    overflow-wrap: anywhere;
+  }
+
+  /* Without container units the title keeps a plain responsive size instead of computing to unset. */
+  @supports (width: 1cqi) {
+    .featured-hero-title {
+      font-size: clamp(
+        1.75rem,
+        min(100cqi / (var(--title-word, 10) * 0.86), 300cqi / (var(--title-length, 20) * 0.86)),
+        4rem
+      );
+    }
+  }
+
+  /* The name in the widest heavy cut, cast in moonlit silver with a glint. The art tints that metal
+     through an overlay, which never takes a channel below twice the metal's value minus one: the
+     letters stay bright on any art while taking its palette, most below the metal's horizon. */
+  .featured-wordmark-main {
+    display: block;
+    padding-bottom: 0.05em;
+    color: transparent;
+    background-image:
+      linear-gradient(162deg, transparent 36%, rgb(255 255 255 / 0.55) 45%, transparent 54%),
+      var(--art, none),
+      linear-gradient(180deg, #ffffff 0%, #f6f5fb 38%, #d9d6e6 57%, #ece9f6 100%);
+    background-position: 0 0, 50% 30%, 0 0;
+    background-size: 100% 100%, cover, 100% 100%;
+    background-blend-mode: screen, overlay, normal;
+    -webkit-background-clip: text;
+    background-clip: text;
+    font-stretch: 125%;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+    text-wrap: balance;
+    filter:
+      drop-shadow(0 1px 0 rgb(255 255 255 / 0.12))
+      drop-shadow(0 10px 24px rgb(0 0 0 / 0.6))
+      drop-shadow(0 0 32px color-mix(in srgb, var(--color-aurora) 30%, transparent));
+  }
+
+  /* The lockup drops the delimiter, but only visually: an inline zero-size glyph takes no room and
+     paints nothing, while the heading's text and accessible name keep the canonical title with no
+     added space, which an out-of-flow visually hidden span would insert. */
+  .featured-wordmark-delimiter {
+    font-size: 0;
+  }
+
+  /* A subtitle the canonical title names follows in the lit serif of the page's accents. */
+  .featured-wordmark-sub {
+    display: block;
+    padding-right: 0.08em;
+    color: transparent;
+    background: var(--aurora);
+    -webkit-background-clip: text;
+    background-clip: text;
+    font-family: var(--font-serif);
+    font-size: max(1.125rem, 0.46em);
+    font-style: italic;
+    font-weight: 400;
+    line-height: 1.04;
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+  }
+
+  .featured-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 0;
+    margin: 0;
+    padding: 0;
+    color: var(--color-ink);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    list-style: none;
+  }
+
+  .featured-hero-meta > li {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 9px;
+    padding-inline: 16px;
+  }
+
+  .featured-hero-meta > li:first-child {
+    padding-left: 0;
+  }
+
+  .featured-hero-meta > li + li {
+    border-left: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
+  }
+
+  .featured-hero-meta .featured-icon,
+  .featured-hero-meta .app-select-icon {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    color: color-mix(in srgb, var(--color-ink) 82%, var(--color-accent));
+  }
+
+  /* Platform marks keep their ratio at the row height, like the search results' marks. */
+  .featured-platform-marks {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .featured-platform-marks li {
+    display: inline-flex;
+    min-height: 22px;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Marks read as one list, "PS5 · Xbox · PC", like the release row's names. */
+  .featured-platform-marks li + li::before {
+    margin-right: 8px;
+    color: var(--color-subtle);
+    content: "·";
+  }
+
+  .featured-platform-marks .app-select-icon-playstation-5,
+  .featured-platform-marks .app-select-icon-playstation-4 {
+    width: 44px;
+    height: 13px;
+  }
+
+  .featured-platform-marks .app-select-icon-xbox-series-x-s,
+  .featured-platform-marks .app-select-icon-nintendo-switch-2 {
+    width: 32px;
+    height: 16px;
+  }
+
+  /* The count of the marks a phone leaves out; wider layouts show every mark instead. */
+  .featured-platform-more {
+    display: none;
+  }
+
+  .featured-hero-date {
+    font-family: var(--font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .featured-hero-facts {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .featured-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .featured-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 4px 13px;
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .featured-hero .release-overflow {
+    margin-top: 0;
+  }
+
+  .featured-hero .release-overflow-popover {
+    min-width: 240px;
+  }
+
+  /* One action closes the copy: Ver ficha, at its usual size, anchored to the copy's edge. */
+  .featured-hero-actions {
+    display: flex;
+    margin-top: 8px;
+  }
+
+  .featured-cta {
+    min-height: 52px;
+    padding: 12px 28px;
+    font-size: 0.9375rem;
+  }
+
+  .featured-cta.button-primary {
+    min-width: 12.5rem;
+  }
+
+  /* ---------------------------------------------------------------- Other featured releases */
+
+  .featured-others {
+    margin-top: 22px;
+  }
+
+  .featured-others-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+  }
+
+  .featured-others-title {
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: clamp(1.5rem, 2.5vw, 2.125rem);
+    font-stretch: 112%;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+  }
+
+  .featured-others-title .title-accent {
+    font-size: 1.1em;
+  }
+
+  .featured-all-link {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .featured-all-link:hover {
+    color: var(--color-accent-hover);
+  }
+
+  /* Five wide artwork cards: a landscape frame, then the title and one release line beneath it,
+     straight on the stage rather than inside a glass card. */
+  .featured-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 12px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .featured-card {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .featured-card-frame {
+    position: relative;
+  }
+
+  .featured-card-frame .card-date-badge {
+    top: 10px;
+    left: 10px;
+  }
+
+  .featured-card-media {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    aspect-ratio: 16 / 9.4;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 14%, transparent);
+    border-radius: 14px;
+    background: var(--color-canvas);
+    box-shadow:
+      0 18px 36px -24px #000,
+      0 0 0 1px color-mix(in srgb, var(--color-canvas) 60%, transparent);
+  }
+
+  /* A restrained floor of shadow keeps the optional screenshot logo legible. */
+  .featured-card-media::after {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 52%, rgb(0 0 0 / 0.42) 100%);
+    content: "";
+    pointer-events: none;
+  }
+
+  .featured-card-logo {
+    position: absolute;
+    z-index: 1;
+    bottom: 9%;
+    left: 50%;
+    width: auto;
+    max-width: 76%;
+    height: auto;
+    max-height: 36%;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 14px rgb(0 0 0 / 0.75));
+    transform: translateX(-50%);
+  }
+
+  .featured-card-body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+    padding-inline: 2px;
+  }
+
+  .featured-card-title {
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-stretch: 104%;
+    font-weight: 700;
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+  }
+
+  /* One line, like the reference; the full title stays the link's text and its tooltip. */
+  .featured-card-title a {
+    display: block;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .featured-card-title a:hover {
+    color: var(--color-accent-hover);
+  }
+
+  .featured-card:hover .featured-card-media {
+    border-color: color-mix(in srgb, var(--color-accent) 46%, transparent);
+  }
+
+  .featured-card:focus-within .featured-card-media {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 3px;
+  }
+
+  /* One release line: up to three platform marks, the exact count of further ones, the region. */
+  .featured-card-release {
+    display: flex;
+    min-height: 22px;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+  }
+
+  .featured-card-marks {
+    display: inline-flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+  }
+
+  .featured-card-marks > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .featured-card-marks > span + span::before {
+    color: var(--color-subtle);
+    content: "·";
+  }
+
+  .featured-card-marks .app-select-icon {
+    width: 18px;
+    height: 18px;
+    color: color-mix(in srgb, var(--color-ink) 82%, var(--color-muted));
+  }
+
+  .featured-card-marks .app-select-icon-playstation-5,
+  .featured-card-marks .app-select-icon-playstation-4 {
+    width: 40px;
+    height: 12px;
+  }
+
+  .featured-card-marks .app-select-icon-xbox-series-x-s,
+  .featured-card-marks .app-select-icon-nintendo-switch-2 {
+    width: 28px;
+    height: 14px;
+  }
+
+  .featured-card-marks .featured-card-more {
+    flex: none;
+    white-space: nowrap;
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    padding: 1px 7px;
+    color: var(--color-muted);
+    background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+  }
+
+  .featured-card-more::before {
+    content: none !important;
+  }
+
+  /* The region closes the line, after the marks, as in "PS5 · Xbox · Mundial". */
+  .featured-card-region {
+    display: inline-flex;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .featured-card-region::before {
+    color: var(--color-subtle);
+    content: "·";
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .featured-hero,
+    .featured-row > li {
+      animation: rise-in 560ms var(--ease-out) both;
+    }
+
+    .featured-row > :nth-child(2) {
+      animation-delay: 40ms;
+    }
+    .featured-row > :nth-child(3) {
+      animation-delay: 80ms;
+    }
+    .featured-row > :nth-child(4) {
+      animation-delay: 120ms;
+    }
+    .featured-row > :nth-child(5) {
+      animation-delay: 160ms;
+    }
+
+    .featured-card-media .featured-art-image {
+      transition: transform 420ms var(--ease-out);
+    }
+
+    .featured-card:hover .featured-art-fill .featured-art-image {
+      transform: scale(1.035);
+    }
+  }
+
+  /* ---------------------------------------------------------------- Loading */
+
+  .featured-hero-placeholder {
+    pointer-events: none;
+  }
+
+  .featured-skeleton-art {
+    display: block;
+    aspect-ratio: 16 / 9.4;
+    border-radius: 14px;
+  }
+
+  .featured-hero-placeholder .featured-skeleton-art {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    border-radius: 0;
+  }
+
+  .featured-skeleton-badge {
+    width: 210px;
+    height: 30px;
+    border-radius: 999px;
+  }
+
+  .featured-skeleton-title {
+    width: 82%;
+    height: 40px;
+  }
+
+  .featured-skeleton-title-short {
+    width: 54%;
+  }
+
+  .featured-skeleton-actions {
+    width: 60%;
+    height: 52px;
+    border-radius: 999px;
+  }
+
+  .featured-skeleton-heading {
+    display: block;
+    width: 380px;
+    max-width: 80%;
+    height: 32px;
+  }
+
+  /* ---------------------------------------------------------------- Responsive */
+
+  /* Narrow phones give each landscape card the full column instead of two small thumbnails. */
+  @media (max-width: 479px) {
+    .featured-row {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (min-width: 620px) {
+    .featured-row {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px 14px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .featured-row {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 22px 16px;
+    }
+  }
+
+  /* Tablet keeps the hero's two sides; the art yields more of the width to the copy. */
+  @media (min-width: 620px) and (max-width: 1023px) {
+    .featured-hero {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    }
+
+    .featured-hero-visual {
+      inset: 0 0 0 32%;
+    }
+
+    .featured-hero-body {
+      padding: 26px 0 26px 28px;
+    }
+
+    /* The meta row wraps here, so its items are spaced rather than divided: a wrapped line never
+       starts with a divider. */
+    .featured-hero-meta {
+      gap: 8px 18px;
+    }
+
+    .featured-hero-meta > li,
+    .featured-hero-meta > li:first-child {
+      padding: 0;
+    }
+
+    .featured-hero-meta > li + li {
+      border-left: 0;
+    }
+
+    .featured-cta {
+      min-height: 48px;
+      padding-inline: 22px;
+    }
+  }
+
+  /* Phones stack the hero: the image in a 16:9 frame, then the copy and both actions at full
+     width. */
+  @media (max-width: 619px) {
+    /* The kicker and the month share a row while they fit; the narrowest phones wrap the month
+       under the kicker instead of overflowing. */
+    .featured-kicker-row {
+      width: 100%;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .featured-month {
+      min-height: 40px;
+      padding: 2px;
+    }
+
+    .featured-month-step {
+      width: 34px;
+      height: 34px;
+    }
+
+    .featured-month-label {
+      gap: 7px;
+      padding-inline: 8px;
+      font-size: 0.75rem;
+    }
+
+    .featured-month-label .featured-icon {
+      display: none;
+    }
+
+    .featured-page .hero-title {
+      font-size: clamp(1.75rem, 9vw, 2.375rem);
+    }
+
+    .featured-title-row {
+      gap: 10px;
+    }
+
+    .featured-note {
+      max-width: none;
+      border-left: 0;
+      padding: 0;
+      font-size: 0.75rem;
+    }
+
+    .featured-hero {
+      min-height: 0;
+      grid-template-columns: minmax(0, 1fr);
+      margin-top: 16px;
+      border-radius: 22px;
+    }
+
+    .featured-hero-light::after {
+      background: linear-gradient(
+        180deg,
+        transparent 30%,
+        color-mix(in srgb, var(--color-canvas) 86%, transparent) 56%
+      );
+    }
+
+    .featured-hero-visual {
+      position: relative;
+      z-index: 0;
+      inset: auto;
+      aspect-ratio: 16 / 9;
+      -webkit-mask-image: linear-gradient(180deg, #000 56%, transparent 100%);
+      mask-image: linear-gradient(180deg, #000 56%, transparent 100%);
+    }
+
+    .featured-hero-visual::after {
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-canvas) 30%, transparent) 0%,
+        transparent 26%,
+        transparent 50%,
+        color-mix(in srgb, var(--color-canvas) 70%, transparent) 100%
+      );
+    }
+
+    /* The badge and the wordmark settle over the art's faded lower edge, as a lockup on key art. */
+    .featured-hero-body {
+      position: relative;
+      z-index: 1;
+      grid-column: 1;
+      gap: 12px;
+      margin-top: -46px;
+      padding: 0 18px 22px;
+    }
+
+    .featured-badge {
+      font-size: 0.6875rem;
+      letter-spacing: 0.12em;
+    }
+
+    .featured-hero-title {
+      font-size: clamp(1.375rem, 7vw, 2.25rem);
+    }
+
+    @supports (width: 1cqi) {
+      .featured-hero-title {
+        font-size: clamp(
+          1.375rem,
+          min(100cqi / (var(--title-word, 10) * 0.86), 300cqi / (var(--title-length, 20) * 0.86)),
+          2.625rem
+        );
+      }
+    }
+
+    /* Date, platforms and region share one row across the width whenever they fit. Each group
+       keeps to one line, so a group that cannot fit moves whole to a second row instead of
+       breaking or shrinking. The platforms keep the cards' compact marks: the first two and the
+       exact count of the rest, every name still announced. */
+    .featured-hero-meta {
+      justify-content: space-between;
+      gap: 6px 9px;
+      font-size: 0.8125rem;
+    }
+
+    .featured-hero-meta > li,
+    .featured-hero-meta > li:first-child {
+      flex: none;
+      gap: 6px;
+      padding: 0;
+      white-space: nowrap;
+    }
+
+    .featured-hero-meta > li + li {
+      border-left: 0;
+    }
+
+    .featured-hero-date {
+      letter-spacing: 0.01em;
+    }
+
+    .featured-hero-meta .featured-icon,
+    .featured-hero-meta .app-select-icon {
+      width: 16px;
+      height: 16px;
+    }
+
+    .featured-platform-marks {
+      flex-wrap: nowrap;
+      gap: 6px;
+    }
+
+    .featured-platform-marks li + li::before {
+      margin-right: 6px;
+    }
+
+    .featured-platform-marks .app-select-icon-playstation-5,
+    .featured-platform-marks .app-select-icon-playstation-4 {
+      width: 40px;
+      height: 12px;
+    }
+
+    .featured-platform-marks .app-select-icon-xbox-series-x-s,
+    .featured-platform-marks .app-select-icon-nintendo-switch-2 {
+      width: 28px;
+      height: 14px;
+    }
+
+    .featured-platform-marks li:nth-child(n + 3),
+    .featured-platform-name {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .featured-platform-more {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--glass-border);
+      border-radius: 999px;
+      padding: 1px 5px;
+      color: var(--color-muted);
+      background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+    }
+
+    .featured-hero-actions {
+      flex-direction: column;
+    }
+
+    .featured-cta,
+    .featured-cta.button-primary {
+      width: 100%;
+      min-width: 0;
+      min-height: 48px;
+      padding-inline: 16px;
+      white-space: nowrap;
+    }
+
+    .featured-others {
+      margin-top: 26px;
+    }
+
+    .featured-others-heading {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .featured-all-link {
+      min-height: 40px;
+    }
+
+    .featured-card-title {
+      font-size: 0.9375rem;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .featured-month,
+    .featured-hero,
+    .featured-badge,
+    .featured-chip,
+    .featured-card-media {
+      border-color: ButtonText;
+      color: CanvasText;
+      background: Canvas;
+      box-shadow: none;
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+
+    .featured-hero-light,
+    .featured-hero-visual::after,
+    .featured-note .featured-icon {
+      display: none;
+    }
+
+    /* Without its mask the art keeps clear of the copy: beside it, or above it on phones. */
+    .featured-hero-visual {
+      -webkit-mask-image: none;
+      mask-image: none;
+    }
+
+    .featured-wordmark-main,
+    .featured-wordmark-sub {
+      color: CanvasText;
+      background: none;
+      filter: none;
+    }
+
+    /* A masked platform mark paints with its background, which forced colours turn into Canvas;
+       on the hero's plain copy side it keeps the system text colour instead. */
+    .featured-platform-marks span.app-select-icon {
+      forced-color-adjust: none;
+      background-color: CanvasText;
+    }
+
+    .featured-note {
+      text-shadow: none;
+    }
+  }
+
+  @media (forced-colors: active) and (min-width: 620px) {
+    .featured-hero-visual {
+      left: 56%;
+    }
+  }
+
+  @media (forced-colors: active) and (max-width: 619px) {
+    .featured-hero-body {
+      margin-top: 0;
+      padding-top: 16px;
+    }
+  }
+}

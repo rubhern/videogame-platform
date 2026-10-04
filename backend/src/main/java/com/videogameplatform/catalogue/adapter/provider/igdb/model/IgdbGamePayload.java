@@ -9,7 +9,12 @@ public record IgdbGamePayload(
         String url,
         Long createdAt,
         Long updatedAt,
+        java.math.BigDecimal hypes,
+        Long firstReleaseDate,
+        Long versionParent,
         IgdbCoverPayload cover,
+        List<IgdbImagePayload> artworks,
+        List<IgdbImagePayload> screenshots,
         IgdbNamedValuePayload gameType,
         IgdbNamedValuePayload gameStatus,
         List<IgdbReleaseDatePayload> releaseDates) {}

@@ -68,6 +68,14 @@ class GameImportPolicyTest {
 
     private static ProviderWork work(ProviderWorkType type, String title) {
         return new ProviderWork(
-                "1", title, type, Instant.EPOCH, Optional.empty(), List.of(), List.of());
+                "1",
+                title,
+                type,
+                Instant.EPOCH,
+                Optional.empty(),
+                List.of(),
+                Optional.empty(),
+                List.of(),
+                List.of());
     }
 }

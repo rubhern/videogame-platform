@@ -12,6 +12,7 @@
 | `UC-002` | Search bounded catalogue            | Visitor               | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider                       |
 | `UC-003` | View game details                   | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page                                   |
 | `UC-009` | Synchronize catalogue from provider | Operator              | Synchronize every provider Game in an operator-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
+| `UC-010` | Browse monthly featured releases    | Visitor               | Application derives evaluation date and the current calendar month (or validates a selected month); PostgreSQL selects the qualifying releases inside the month, ranks their games by the local popularity signal with a unique tie-breaker, limits the ranking to six and presents at most one release per platform; unranked, empty, stale and fallback are valid states; never call provider |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
 of the releases matching the requested view and active filters, only the presented
@@ -77,6 +78,52 @@ selected valid value always stays representable. A future or historical platform
 region therefore does not appear in an unrelated current window merely because it exists.
 The wire shape of these parameters and the response lives in
 [`openapi.yaml`](../api/openapi.yaml).
+
+Post-MVP (#151, implemented): `UC-010` is the landing view of release discovery,
+**Destacados**, beside Recientes and Próximos. It represents one calendar month: the
+current one in `Europe/Madrid` by default, or another month of the current calendar year
+the visitor selects; the URL carries the selection. A month of another year is rejected
+as an invalid filter, so historical years are never browsed. A release qualifies for the month when its known date lies
+inside it (an exact day of the month, or month precision equal to the month; quarter,
+year and unknown dates never do) and it is neither cancelled, delayed nor pending
+review, the same negative evidence that blocks rating eligibility. Only Full Release
+qualifies. A candidate also satisfies `FEAT-001`: an accepted import type, no edition
+parent, its own known first release in the month, and positive Hypes. These gates affect
+only featured discovery; normal catalogue, recent and upcoming discovery remain unchanged.
+Candidates are ranked by the locally stored popularity signal, currently IGDB Hypes, highest first,
+with the unique `gameId` as the only tie-breaker. A candidate without a signal is not
+ranked and nothing is invented for it; it remains a normal catalogue and discovery
+result. The first ranked game is the month's featured release (*Lanzamiento del mes*)
+and up to five more follow; fewer are shown rather than filling slots. Each presents,
+of its qualifying releases in the month, at most one per platform under the shared
+presented-release precedence with the earliest date first. The selection states why it
+holds what it holds: ranked, popularity unavailable (qualifying releases without any
+signal) or no qualifying releases. A ranked selection carries the freshness of its
+oldest signal under the catalogue freshness policy; a stale ranking is still the last
+valid local one. Another month is ranked with the same current local signals, because
+no popularity history is kept. Popularity measures provider-observed attention, never
+quality, a rating or an editorial recommendation, and its value is not exposed. Work is
+bounded by the month's releases and request memory by the six ranked games and their
+bounded release groups; the popularity table is never scanned. Each ranked game presents
+its stored context-selected landscape image and optional secondary-card logo
+(`FEAT-003`, `FEAT-004`); the hero always renders the canonical title as product-owned text.
+Without a suitable stored image a card shows its cover whole, and without a provider cover the
+product-owned landscape fallback; the hero goes straight to that designed fallback and never
+presents a cover, so no frame ever stretches or crops a portrait cover.
+
+`UC-009` acquires Hypes, the first-release date and edition evidence with the existing
+Game request. The adapter normalizes the count and UTC calendar date and replaces the
+provider parent identity with a boolean. The application combines that boolean with
+its existing import allowlist into product eligibility. Inside each Game transaction,
+a valid answer replaces complete featured evidence, including absent Hypes or first
+release; a mapping failure or failed Game keeps the last valid state. No Visits lookup
+or provider calculation timestamp remains. Current-release repair also receives this
+evidence with the Game. Hero and card media are selected independently under `FEAT-003`:
+artworks and screenshots arrive with the Game, logos use a bounded page lookup, and missing or
+invalid media keep the last valid selection. Featured evidence and media do not advance
+the catalogue revision. Explicit repair has no logo lookup.
+[ADR-0021](../../decisions/0021-rank-monthly-featured-releases-by-local-igdb-hypes.md)
+records the decision.
 
 `UC-002` normalizes the query and the searchable catalogue text with one rule, so
 matching is case- and diacritic-insensitive without ever rewriting a display title.
@@ -176,7 +223,7 @@ context, or returns a personal/account page to the landing page.
 
 | Category               | Principal codes / guarantees                                                                                                                                                                                                          |
 |------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Validation             | `SEARCH_QUERY_INVALID`, `FILTER_INVALID`, `PLATFORM_NOT_SUPPORTED`, `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`; do not execute invalid work                                                                       |
+| Validation             | `SEARCH_QUERY_INVALID`, `FILTER_INVALID` (including a malformed featured month), `PLATFORM_NOT_SUPPORTED`, `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`; do not execute invalid work                                  |
 | Authentication/replay  | `AUTHENTICATION_REQUIRED/FAILED/CANCELLED`, `RETURN_CONTEXT_INVALID/EXPIRED/REPLAYED`; no duplicate logical command                                                                                                                   |
 | Domain/conflict        | `GAME_NOT_FOUND`, `RATING_NOT_ELIGIBLE`, `RATING_ALREADY_EXISTS`, `RATING_NOT_FOUND`, `RATING_WRITE_CONFLICT`, `RELEASE_DATA_REVIEW_REQUIRED`; preserve valid state                                                                   |
 | Local reads            | `CATALOGUE_NOT_READY`, `CATALOGUE_READ_FAILED`, `RATING_STATISTICS_READ_FAILED`, `PERSONAL_RATINGS_READ_FAILED`; never request-path provider fallback or cross-user partial data                                                      |

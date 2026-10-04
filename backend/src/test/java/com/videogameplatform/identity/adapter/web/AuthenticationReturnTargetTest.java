@@ -12,6 +12,8 @@ class AuthenticationReturnTargetTest {
             strings = {
                 "/",
                 "/?view=upcoming&weeks=4&platformIds=pc",
+                "/?month=2026-10",
+                "/?view=recent&weeks=1",
                 "/search?q=Final+Fantasy&page=2",
                 "/mis-puntuaciones",
                 "/games/game-1/a-game?platformId=pc&regionId=europe"
