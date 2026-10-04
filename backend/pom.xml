@@ -7,7 +7,7 @@
   <parent>
     <groupId>com.videogameplatform</groupId>
     <artifactId>videogame-platform</artifactId>
-    <version>0.23.0-SNAPSHOT</version>
+    <version>0.23.1-SNAPSHOT</version>
   </parent>
 
   <artifactId>videogame-platform-backend</artifactId>
@@ -153,6 +153,12 @@
                 <useSpringBuiltInValidation>true</useSpringBuiltInValidation>
                 <hideGenerationTimestamp>true</hideGenerationTimestamp>
                 <openApiNullable>false</openApiNullable>
+                <!-- Preserve optional-field omission and deserialization defaults across
+                     generator upgrades without suppressing required nulls or empty arrays. -->
+                <generateJsonIncludeAnnotations>true</generateJsonIncludeAnnotations>
+                <optionalNonNullPropertyJsonInclude>NON_NULL</optionalNonNullPropertyJsonInclude>
+                <generateJsonSetterNullsAnnotations>true</generateJsonSetterNullsAnnotations>
+                <optionalNonNullPropertyJsonSetterNulls>SKIP</optionalNonNullPropertyJsonSetterNulls>
                 <documentationProvider>none</documentationProvider>
                 <annotationLibrary>none</annotationLibrary>
               </configOptions>
