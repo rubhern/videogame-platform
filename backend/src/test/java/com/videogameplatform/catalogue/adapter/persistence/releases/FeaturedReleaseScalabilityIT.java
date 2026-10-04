@@ -91,9 +91,7 @@ class FeaturedReleaseScalabilityIT {
                         "game_snapshot",
                         "game_featured_evidence",
                         "game_featured_media");
-        assertThat(sequentialScans(plan))
-                .filteredOn(unboundedTables::contains)
-                .isEmpty();
+        assertThat(sequentialScans(plan)).filteredOn(unboundedTables::contains).isEmpty();
     }
 
     private static void seed(JdbcTemplate jdbc, int rows) {
