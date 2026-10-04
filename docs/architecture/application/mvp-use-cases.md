@@ -40,9 +40,9 @@ region order and the unique `releaseId`. Discovery applies it to the matching re
 the view's date order (latest first for recent, soonest first for upcoming), so a region
 filter presents that region's own release, while facets and `totalItems` still come from
 every matching release. The game page applies it with the earliest date first to each
-platform and to each platform and region: a platform opens on its presented release's
-region, a selected combination shows its presented release, and any further records of
-that combination stay whole behind a disclosure. Presentation never deletes, merges or
+platform and to each platform and region: it lists the presented release of every platform
+and region together (#233), and any further records of a combination stay whole behind one
+disclosure. Presentation never deletes, merges or
 rewrites a release and never changes rating eligibility, which still evaluates every
 current release.
 
@@ -177,6 +177,23 @@ date and release context; Ratings evaluates eligibility and reads its own aggreg
 No rating contribution returns an empty aggregate; an isolated statistics failure
 returns an explicit unavailable aggregate while preserving the game page. Personal
 rating reads and writes are outside this public operation.
+
+Post-MVP (#233, data phase and game-page redesign implemented): `UC-009`
+acquires each Game's summary, developer and publisher credits, genres and game modes with
+the existing Game request, and `UC-003` serves them from PostgreSQL only. The adapter
+keeps only the developer and publisher roles of the provider's company credits, so a
+company holding both appears in both lists and other credited roles never cross the port.
+Companies, genres and game modes resolve through typed external references to product
+identity, created on first sight; a company name follows the latest valid answer, while
+genre and game-mode labels are set on first acquisition like platform taxonomy. A valid
+answer replaces the provider-owned summary and every credit, genre and game-mode link in
+the Game transaction, including clearing what the provider no longer states, and a content
+change advances the catalogue revision. An incoherent answer keeps the Game's last valid
+details while the rest of the Game still synchronizes; a failed Game keeps everything.
+A product editorial summary or a summary from another source is never replaced. Without a
+summary the read returns the product's editorial notice that none exists yet, and empty
+lists for missing credits, genres or modes; nothing is invented. The read bounds each list
+and fails rather than truncating.
 
 ## Identity and ratings
 

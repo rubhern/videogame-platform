@@ -17,12 +17,21 @@ final class IgdbQueries {
     /** Only the image metadata the featured-media policy reads; never the binary. */
     private static final String IMAGE_FIELDS = "image_id,width,height,alpha_channel,animated";
 
+    /** Genre and game-mode identity plus the descriptive fields that seed a product entity. */
+    private static final String TERM_FIELDS = "id,name,slug";
+
     private static final String WORK_FIELDS =
             "fields id,name,url,created_at,updated_at,hypes,first_release_date,version_parent,game_type.type,game_status.status,"
                     + "cover.image_id,"
                     + nested("artworks", IMAGE_FIELDS + ",image_type.name")
                     + ","
                     + nested("screenshots", IMAGE_FIELDS)
+                    + ",summary,"
+                    + nested("involved_companies", "developer,publisher,company.id,company.name")
+                    + ","
+                    + nested("genres", TERM_FIELDS)
+                    + ","
+                    + nested("game_modes", TERM_FIELDS)
                     + ";";
 
     private IgdbQueries() {}

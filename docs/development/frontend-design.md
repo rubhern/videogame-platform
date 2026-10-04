@@ -377,72 +377,96 @@ it.
 
 ## Public game details
 
-The game page is a premium game hub built only from the contract's data. It opens on a
-stage lit by the cover this page already displays — blown up, blurred and graded, never
-resampled or stored — so it adds no request, no asset and no licence surface beyond that
-cover; every readable panel keeps its own glass background. From tablet width the large
-cover, in the shared frame with its own glow beneath it, stands beside the title and both
-score panels, which form one block on the cover's baseline; the release context and the
-summary span the page below. On phones the order is cover, title, both scores, then the
-release context. The scores belong to the game, so they never sit after the evidence. The
-title is the display cut at poster scale, stepping down for long titles, and aliases follow in
-the lit serif. For a mouse, the cover leans toward the pointer and catches a glare; touch,
-pen, reduced motion and forced colours keep it still. Card-level ratings on release and
-search results are not part of the approved MVP screens until an owner decision schedules
-that work.
+The game page is a premium, editorial game hub built only from the contract's data (#233). It
+opens on a stage lit by the cover this page already displays — blown up, blurred and graded,
+never resampled or stored — and from tablet width the same artwork returns as a soft echo behind
+the title, under a reading shade that keeps the copy set on the stage legible over the brightest
+cover. It adds no request, no asset and no licence surface beyond that cover. Title and summary
+read directly on this shaded stage; scores and structured facts keep restrained glass surfaces.
+The opening carries the identity and the readings; one information card closes the page with
+metadata followed by the calendar. Each company role is stated separately, even when its value
+matches another role.
 
-Platform and region are native labelled radio groups derived from the game's
-returned release tuples, in the API's presented-release order: a platform opens on the
-region of its presented release. Selection is URL-backed and updates the visible evidence;
-changing platform retains the region only when that combination exists. Unsupported
-saved selections fall back to a real combination. A selected combination shows its
-presented release; never merge or drop its further records. No selector is invented for
-a game without releases. This presentation selection does not change the global
-game eligibility or community aggregate.
+From 1024px the large cover, in the shared frame with its own glow beneath it, stands at the
+left, immediately above the community reading and the compact personal reading. The right
+column opens with **Ficha del catálogo**, the canonical title and the summary as editorial
+content, without a separate summary card or visible repeated heading. **Información del juego**
+follows within that column as one card at its natural height, with no empty rows, forced
+stretching or sticky facts. Its **Fechas y plataformas** subsection uses the card's full width
+below the metadata. Tablets keep the cover beside the title and summary, then give the two
+readings a shared row with comfortable
+widths before the unified information card spans the page below. Phones open with the title,
+then cover, both readings, summary and information, with the calendar nested last. Source order
+follows this phone reading order, so keyboard navigation never jumps back to the identity after
+the summary. The title uses the wide display cut at a restrained scale,
+following both the available editorial width and the viewport, stepping down twice for long
+names and wrapping even an unbroken word. Normal titles retain their display scale where space
+allows. Aliases follow in the lit serif. For a mouse, the cover leans toward the pointer and
+catches a glare; touch, pen, reduced
+motion and forced colours keep it still. Card-level ratings on release and search results are
+not part of the approved MVP screens until an owner decision schedules that work.
 
-The release-context panel holds the platform/region selectors — on phones each group is
-one swipeable rail of chips with platform and region icons, the same marks the release
-filters use — and then the card of the
-selection's presented release. Further records of the same selection stay whole, one card
-each, in a closed native disclosure, `Otras fechas registradas (N)`, whose summary carries
-the review notice when any of them is pending review; the status line counts them as
-additional dates. Each card retains date precision, status, provenance, verification, review,
-freshness and available evidence timestamps. Each record leads with its own date, its
-normalized Spanish release stage as quiet secondary text under that date, and a status
-chip that states the status in words; the remaining evidence follows as a quieter
-grid of monospaced labels, and a warning value keeps a non-colour marker. The summary sits in
-its own panel beside the context from desktop width. Keep summary language and source.
-There is no separate bottom release/evidence section. Display the community mean and
-count prominently, or an equally prominent “Sin nota todavía” / “Nota no disponible”
-state in the same position. The distribution remains a backend/API capability and
-is not rendered on this page. The community panel and the personal-rating panel are two
-glass panels lit by the temperature of their reading: the community score is the G-meter
-beside the large mean, its temperature in words and the count (a resting meter for the
-no-score states); **Tu puntuación** carries its own G-meter and the inline 1-10 scale as a
-keypad of two rows of five, or one row of ten once its panel keeps every target at least 44px,
-with a key naming its ends (`1 · Congelado`, `10 · Ardiendo`). The scale is a
-labelled group of ten circular buttons; pressing a value saves it
-immediately (create or update through the conditional contract), so there is no separate
-confirm action. The current rating is the one pressed value (filled with its temperature,
-ring and glow, not colour alone), and the values below it keep a ring of their own
-temperature so the scale reads as a thermometer; the subtitle never restates it. Arrow keys only move focus inside the
-scale, so browsing never saves by accident, and a quiet **Eliminar puntuación** action
-appears once a rating exists. Eligibility is expressed by the control itself: an
-ineligible game keeps the scale disabled and states the reason in the panel subtitle.
-There is no separate eligibility block, no "Contexto personal" kicker and no permanent
-authentication explanation. The rating belongs to the game: the platform/region
-selection never changes personal or community state. Command outcomes use one live
-status for the panel subtitle and a visually hidden success announcement, and one alert for rejected,
-conflicting or ambiguous commands; the last valid personal and community state stays
-visible and nothing is retried automatically. An anonymous press starts authentication
-with that value; after returning, the recovered value is persisted once automatically
-(no command when it equals the existing rating) and any failure surfaces like any other
-command.
+The community reading is the most prominent: the G-meter beside the large mean, its temperature
+in words and `Basada en N puntuaciones`. “Sin nota todavía” keeps its place with a smaller meter
+and tighter spacing, giving the empty reading less prominence; an unavailable reading retains
+room for its explanation. The distribution remains a backend/API capability and is
+not rendered on this page. **Tu puntuación** stays secondary to it: one compact reading in the
+language of `Mis puntuaciones` — its G-meter, the label, the band in words and the value, or
+`Puntuar` without one — is a button with a caret that opens an anchored, non-modal glass panel
+overlaying what follows, so nothing below moves. The panel holds the prompt, the shared keypad
+and its key (`1 · Congelado`, `10 · Ardiendo`), and a quiet **Eliminar puntuación** once a rating
+exists. The scale is a labelled group of ten circular buttons; picking a value saves it at once
+(create or update through the conditional contract) and closes the panel, returning focus to the
+reading, so there is no separate confirm action; picking the current value only closes it.
+Opening focuses the pressed value or the scale's stop, and a disabled scale hands focus to the
+delete action. Arrow keys only move focus inside the scale, so browsing never saves by accident;
+Escape, an outside press or moving focus away close the panel without a command. The current
+rating is the one pressed value (filled with its temperature, ring and glow, not colour alone),
+and the values below it keep a ring of their own temperature so the scale reads as a thermometer.
+Eligibility is expressed by the reading itself: an ineligible game without a rating keeps it
+unavailable — still focusable, so focus is never dropped, and described by the reason stated
+beside it — while an existing rating still opens a disabled scale with its delete action. There is no separate eligibility block, no "Contexto personal" kicker and
+no permanent authentication explanation. Command outcomes stay beside the reading, whether or not
+the panel is open: one live status (the reason, saving, deleting, checking or a failed read), a
+visually hidden success announcement, and one alert for rejected, conflicting or ambiguous
+commands; the last valid personal and community state stays visible and nothing is retried
+automatically. An anonymous pick starts authentication with that value; after returning, the
+recovered value is persisted once automatically (no command when it equals the existing rating)
+and any failure surfaces like any other command.
 
-Genre, developer and publisher are absent from the current approved detail contract
-and local model, so omit them. Adding them requires a separate scoped contract-first
-change with local persistence and provenance. Do not invent companies, genre, marketing
-taglines or background artwork from the reference. List/follow actions remain deferred.
+The summary has a comfortable reading measure below the title: up to eight lines on desktop
+and six on narrower screens, with a native **Leer más** / **Mostrar menos** button only when the
+text overflows. Its accessible heading remains available to assistive technology, and expansion
+keeps the full text recoverable without changing the cover's dimensions or stretching the cards.
+It keeps its language for assistive technology and is never translated here; a sourced summary credits its
+source and names a language other than Spanish (`Texto original en inglés · Fuente: IGDB`),
+while the catalogue's own editorial text, including the notice that no summary exists yet, needs
+no credit.
+
+**Información del juego** states **Desarrollador** and **Publisher** as distinct fields, even
+when the same companies hold both roles. Each role can list several companies. **Géneros** and
+**Modos de juego** follow as scannable chips carrying the catalogue's names exactly as served.
+The metadata uses two columns when the card has enough space, with company roles above taxonomy;
+narrow cards use a natural single column. Spacing and typography separate fields without inner
+cards. Unknown facts are omitted, never filled; when no metadata is known, the card proceeds
+directly to its calendar subsection without empty placeholders.
+
+**Fechas y plataformas** is a lower-level heading inside the information card, separated from
+known metadata by spacing and one divider, with no separate glass surface. It lists the
+presented release of every platform and region, in the API's presented-release order, so a
+visitor reads every date without choosing anything first; no
+selector is invented and none is needed. Each row reads across one line where it fits and in two
+on phones: the platform mark and name, the region mark and name, the date at its own precision
+with its known normalized Spanish stage as quiet secondary text beneath it (an unknown stage is
+left unstated), and a status chip that states the status in words. A pending review and stale
+local data are flagged on their row with a warning marker that does not rely on colour, and
+verified evidence is credited there. Rows are a list whose values are named for assistive
+technology, never a table. Further records of the same platform and region stay whole, one row
+each, in a closed native disclosure, `Otras fechas registradas (N)`, whose summary carries the
+review notice when any of them is pending review. The block closes with its attribution: the
+release sources and the latest synchronization day. Further provenance timestamps and the
+provider-only verification default stay out of the primary hierarchy. A game without releases
+says “No hay lanzamientos comerciales registrados.”.
 
 ## Personal ratings collection
 

@@ -215,12 +215,19 @@
     filter: blur(48px) saturate(1.7) brightness(0.72);
   }
 
+  /* A reading shade sits under the title block, so a bright cover never washes out the copy
+     set directly on the stage. */
   .cinema-cover .cinema-art::after {
     background:
       radial-gradient(
         60% 70% at 24% 30%,
-        color-mix(in srgb, #fff 8%, transparent),
+        color-mix(in srgb, #fff 6%, transparent),
         transparent 60%
+      ),
+      radial-gradient(
+        64rem 36rem at 68% 30%,
+        color-mix(in srgb, var(--color-canvas) 82%, transparent),
+        transparent 85%
       ),
       radial-gradient(
         120% 90% at 50% 20%,
@@ -234,6 +241,32 @@
         color-mix(in srgb, var(--color-canvas) 30%, transparent) 62%,
         var(--color-canvas) 100%
       );
+  }
+
+  /* The cover's echo: the same artwork, larger and softly blurred, rising behind the title and
+     fading into the dark side, the floor and the header, so the stage reads as the game's world
+     rather than a colour field. Phones keep the colour field alone. */
+  .cinema-echo {
+    display: none;
+  }
+
+  @media (min-width: 620px) {
+    .cinema-echo {
+      position: absolute;
+      display: block;
+      inset: 0 0 0 30%;
+      background: var(--hero-art) 50% 40% / cover no-repeat;
+      filter: blur(22px) saturate(1.35) brightness(0.48);
+      opacity: 0.65;
+      -webkit-mask-image:
+        linear-gradient(90deg, transparent, #000 42%),
+        linear-gradient(180deg, transparent, #000 18%, #000 52%, transparent 92%);
+      -webkit-mask-composite: source-in;
+      mask-image:
+        linear-gradient(90deg, transparent, #000 42%),
+        linear-gradient(180deg, transparent, #000 18%, #000 52%, transparent 92%);
+      mask-composite: intersect;
+    }
   }
 
   /* Over a cover the motes are cool dust in the light, not embers. */

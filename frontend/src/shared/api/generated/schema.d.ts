@@ -234,6 +234,15 @@ export interface components {
         PlatformId: string;
         /** @example region_europe */
         RegionId: string;
+        /**
+         * @description Opaque, provider-independent company identifier.
+         * @example company_example_studio
+         */
+        CompanyId: string;
+        /** @example genre_adventure */
+        GenreId: string;
+        /** @example game_mode_single_player */
+        GameModeId: string;
         /** @example correlation-opaque */
         CorrelationId: string;
         /**
@@ -252,6 +261,18 @@ export interface components {
         };
         Platform: {
             platformId: components["schemas"]["PlatformId"];
+            name: string;
+        };
+        Company: {
+            companyId: components["schemas"]["CompanyId"];
+            name: string;
+        };
+        Genre: {
+            genreId: components["schemas"]["GenreId"];
+            name: string;
+        };
+        GameMode: {
+            gameModeId: components["schemas"]["GameModeId"];
             name: string;
         };
         Region: {
@@ -608,7 +629,30 @@ export interface components {
             slug: string;
             canonicalTitle: string;
             aliases: string[];
+            /**
+             * @description A summary acquired from the catalogue provider is `sourced`, in the provider's
+             *     language and with its provenance. Without any summary, the product's editorial
+             *     notice that none is available yet is returned; no summary text is invented.
+             */
             summary: components["schemas"]["GameSummaryText"];
+            /**
+             * @description Companies credited with developing the game, ordered by case-insensitive name and
+             *     then `companyId`. Empty when no developer is known; a company can also appear in
+             *     `publishers`.
+             */
+            developers: components["schemas"]["Company"][];
+            /**
+             * @description Companies credited with publishing the game, in the same order as `developers`.
+             *     Empty when no publisher is known.
+             */
+            publishers: components["schemas"]["Company"][];
+            /** @description Genres ordered by case-insensitive name, then `genreId`; empty when none is known. */
+            genres: components["schemas"]["Genre"][];
+            /**
+             * @description Ways to play the game, such as single player, multiplayer or co-operative, ordered
+             *     by case-insensitive name, then `gameModeId`; empty when none is known.
+             */
+            gameModes: components["schemas"]["GameMode"][];
             primaryCover: components["schemas"]["Cover"];
             /**
              * @description The game's complete stored release set: no release is merged, rewritten, or omitted,

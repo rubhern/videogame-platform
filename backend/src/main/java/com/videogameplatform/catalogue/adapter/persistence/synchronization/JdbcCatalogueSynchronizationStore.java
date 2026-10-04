@@ -4,9 +4,13 @@ import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderCompany;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderSummary;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderTerm;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.DetailsWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.MediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
@@ -423,9 +427,16 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
         }
         writeFeaturedEvidence(w);
         writeFeaturedMedia(w);
+        int detailChanges = writeDetails(publication, w);
         // Popularity and featured media serve featured discovery only, so they never advance the
-        // catalogue revision; that read's validators hash its actual response instead.
-        boolean changed = gameChanges > 0 || created > 0 || updated > 0 || !missing.isEmpty();
+        // catalogue revision; that read's validators hash its actual response instead. Game
+        // details are catalogue content, so a detail change does.
+        boolean changed =
+                gameChanges > 0
+                        || created > 0
+                        || updated > 0
+                        || !missing.isEmpty()
+                        || detailChanges > 0;
         if (changed) {
             jdbc.update(
                     """
@@ -529,6 +540,259 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                         .addValue("sourceUrl", observed.sourceUrl())
                         .addValue("observedAt", timestamp(w.synchronizedAt())));
     }
+
+    /**
+     * The product's explicit "no summary yet" editorial notice, installed as the summary default by
+     * V20260906_120000. It is the stored representation of an absent summary, never provider text.
+     */
+    static final String NO_SUMMARY_TEXT = "Todavía no hay un resumen curado para este juego.";
+
+    private static final String NO_SUMMARY_LANGUAGE = "es";
+
+    /** Provider entity type recorded as summary provenance. */
+    static final String SUMMARY_ENTITY_TYPE = "game_summary";
+
+    /**
+     * Replaces the Game's provider-acquired details with one complete valid answer, inside the Game
+     * transaction, and returns how many stored rows changed. A kept answer touches nothing, so an
+     * invalid or failed answer preserves the last valid details.
+     */
+    private int writeDetails(String publication, GameWrite w) {
+        if (!(w.details() instanceof DetailsWrite.Observe(var details))) {
+            return 0;
+        }
+        int changes = writeSummary(publication, w.gameId(), details.summary());
+        changes += replaceCompanies(w.gameId(), "developer", details.developers());
+        changes += replaceCompanies(w.gameId(), "publisher", details.publishers());
+        changes +=
+                replaceLinks(
+                        "catalogue.game_genre",
+                        "genre_id",
+                        w.gameId(),
+                        details.genres().stream().map(this::resolveGenre).toList());
+        changes +=
+                replaceLinks(
+                        "catalogue.game_game_mode",
+                        "game_mode_id",
+                        w.gameId(),
+                        details.gameModes().stream().map(this::resolveGameMode).toList());
+        return changes;
+    }
+
+    /**
+     * Records the provider summary, or the explicit no-summary notice when the provider states none.
+     * Only an absent summary or one this provider wrote may change: product editorial text and
+     * summaries of any other source stay outside synchronization ownership.
+     */
+    private int writeSummary(String publication, UUID gameId, Optional<ProviderSummary> summary) {
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("publication", UUID.fromString(publication))
+                        .addValue("game", gameId)
+                        .addValue("provider", provider)
+                        .addValue("noSummaryText", NO_SUMMARY_TEXT)
+                        .addValue("noSummaryLanguage", NO_SUMMARY_LANGUAGE);
+        if (summary.isPresent()) {
+            parameters
+                    .addValue("kind", "sourced")
+                    .addValue("text", summary.orElseThrow().text())
+                    .addValue("language", summary.orElseThrow().language())
+                    .addValue("sourceKind", "external_provider")
+                    .addValue("sourceName", provider)
+                    .addValue("entityType", SUMMARY_ENTITY_TYPE);
+        } else {
+            parameters
+                    .addValue("kind", "editorial")
+                    .addValue("text", NO_SUMMARY_TEXT)
+                    .addValue("language", NO_SUMMARY_LANGUAGE)
+                    .addValue("sourceKind", null)
+                    .addValue("sourceName", null)
+                    .addValue("entityType", null);
+        }
+        return jdbc.update(
+                """
+                UPDATE catalogue.game_snapshot
+                SET summary_kind = CAST(:kind AS varchar),
+                    summary_text = CAST(:text AS varchar),
+                    summary_language = CAST(:language AS varchar),
+                    summary_source_kind = CAST(:sourceKind AS varchar),
+                    summary_source_name = CAST(:sourceName AS varchar),
+                    summary_source_entity_type = CAST(:entityType AS varchar)
+                WHERE publication_id = :publication AND game_id = :game
+                  AND ((summary_kind = 'editorial' AND summary_text = :noSummaryText
+                          AND summary_language = :noSummaryLanguage)
+                       OR (summary_kind = 'sourced' AND summary_source_kind = 'external_provider'
+                          AND summary_source_name = :provider))
+                  AND (summary_kind, summary_text, summary_language, summary_source_kind,
+                       summary_source_name, summary_source_entity_type)
+                      IS DISTINCT FROM
+                      (CAST(:kind AS varchar), CAST(:text AS varchar), CAST(:language AS varchar),
+                       CAST(:sourceKind AS varchar), CAST(:sourceName AS varchar),
+                       CAST(:entityType AS varchar))
+                """,
+                parameters);
+    }
+
+    private int replaceCompanies(UUID gameId, String role, List<ProviderCompany> companies) {
+        int changes = 0;
+        List<UUID> ids = new java.util.ArrayList<>();
+        for (ProviderCompany company : companies) {
+            Resolved resolved = resolveCompany(company);
+            ids.add(resolved.id());
+            changes += resolved.changes();
+        }
+        MapSqlParameterSource parameters =
+                new MapSqlParameterSource()
+                        .addValue("game", gameId)
+                        .addValue("role", role)
+                        .addValue("ids", ids.isEmpty() ? List.of(new UUID(0, 0)) : ids);
+        changes +=
+                jdbc.update(
+                        """
+                DELETE FROM catalogue.game_company
+                WHERE game_id = :game AND company_role = :role AND company_id NOT IN (:ids)
+                """,
+                        parameters);
+        for (UUID id : ids) {
+            changes +=
+                    jdbc.update(
+                            """
+                    INSERT INTO catalogue.game_company (game_id, company_role, company_id)
+                    VALUES (:game, :role, :id)
+                    ON CONFLICT DO NOTHING
+                    """,
+                            Map.of("game", gameId, "role", role, "id", id));
+        }
+        return changes;
+    }
+
+    /** Makes the Game's links in {@code table} exactly {@code ids}; table and column are constants. */
+    private int replaceLinks(String table, String column, UUID gameId, List<Resolved> resolved) {
+        int changes = resolved.stream().mapToInt(Resolved::changes).sum();
+        List<UUID> ids = resolved.stream().map(Resolved::id).toList();
+        changes +=
+                jdbc.update(
+                        "DELETE FROM "
+                                + table
+                                + " WHERE game_id = :game AND "
+                                + column
+                                + " NOT IN (:ids)",
+                        Map.of(
+                                "game",
+                                gameId,
+                                "ids",
+                                ids.isEmpty() ? List.of(new UUID(0, 0)) : ids));
+        for (UUID id : ids) {
+            changes +=
+                    jdbc.update(
+                            "INSERT INTO "
+                                    + table
+                                    + " (game_id, "
+                                    + column
+                                    + ") VALUES (:game, :id) ON CONFLICT DO NOTHING",
+                            Map.of("game", gameId, "id", id));
+        }
+        return changes;
+    }
+
+    /** A resolved product identity and the stored rows its resolution changed. */
+    private record Resolved(UUID id, int changes) {}
+
+    /**
+     * Resolves a provider company to product identity through its typed reference, creating the
+     * company on first sight. Its name is provider evidence, so a known company follows the latest
+     * valid name; names never resolve or merge companies.
+     */
+    private Resolved resolveCompany(ProviderCompany company) {
+        List<UUID> existing =
+                jdbc.query(
+                        "SELECT company_id FROM catalogue.company_external_reference"
+                                + " WHERE provider=:provider AND provider_id=:id",
+                        Map.of("provider", provider, "id", company.providerId()),
+                        (rs, row) -> rs.getObject(1, UUID.class));
+        if (!existing.isEmpty()) {
+            UUID id = existing.getFirst();
+            int renamed =
+                    jdbc.update(
+                            "UPDATE catalogue.company SET display_name=:name"
+                                    + " WHERE company_id=:id AND display_name<>:name",
+                            Map.of("id", id, "name", company.name()));
+            return new Resolved(id, renamed);
+        }
+        UUID id = UUID.randomUUID();
+        jdbc.update(
+                "INSERT INTO catalogue.company(company_id, display_name) VALUES(:id, :name)",
+                Map.of("id", id, "name", company.name()));
+        jdbc.update(
+                "INSERT INTO catalogue.company_external_reference(provider, provider_id, company_id)"
+                        + " VALUES(:provider, :pid, :id)",
+                Map.of("provider", provider, "pid", company.providerId(), "id", id));
+        return new Resolved(id, 1);
+    }
+
+    private Resolved resolveGenre(ProviderTerm genre) {
+        return resolveTerm("catalogue.genre", "genre_id", "genre", genre);
+    }
+
+    private Resolved resolveGameMode(ProviderTerm mode) {
+        return resolveTerm("catalogue.game_mode", "game_mode_id", "game-mode", mode);
+    }
+
+    /**
+     * Resolves a provider genre or game mode like platform taxonomy (ADR-0020): the typed reference
+     * is identity; a new product entity takes a readable code and display name from the provider's
+     * descriptors once, and a later provider rename does not change it. {@code table},
+     * {@code column} and {@code kind} are constants.
+     */
+    private Resolved resolveTerm(String table, String column, String kind, ProviderTerm term) {
+        String references = table + "_external_reference";
+        List<UUID> existing =
+                jdbc.query(
+                        "SELECT "
+                                + column
+                                + " FROM "
+                                + references
+                                + " WHERE provider=:provider AND provider_id=:id",
+                        Map.of("provider", provider, "id", term.providerId()),
+                        (rs, row) -> rs.getObject(1, UUID.class));
+        if (!existing.isEmpty()) {
+            return new Resolved(existing.getFirst(), 0);
+        }
+        UUID id = UUID.randomUUID();
+        String descriptor =
+                term.slug() == null || term.slug().isBlank() ? term.name() : term.slug();
+        String base = slugify(descriptor);
+        if (base.length() > MAX_TERM_CODE_BASE) {
+            base = base.substring(0, MAX_TERM_CODE_BASE).replaceAll("-+$", "");
+        }
+        if (base.isEmpty()) {
+            base = kind + "-" + term.providerId();
+        }
+        String code =
+                codeExists(table, base)
+                        ? (codeExists(table, base + "-" + term.providerId())
+                                ? kind + "-" + term.providerId()
+                                : base + "-" + term.providerId())
+                        : base;
+        jdbc.update(
+                "INSERT INTO "
+                        + table
+                        + "("
+                        + column
+                        + ", code, display_name) VALUES(:id, :code, :name)",
+                Map.of("id", id, "code", code, "name", term.name()));
+        jdbc.update(
+                "INSERT INTO "
+                        + references
+                        + "(provider, provider_id, "
+                        + column
+                        + ") VALUES(:provider, :pid, :id)",
+                Map.of("provider", provider, "pid", term.providerId(), "id", id));
+        return new Resolved(id, 1);
+    }
+
+    /** Leaves room for a provider-reference suffix inside the 100-character code column. */
+    private static final int MAX_TERM_CODE_BASE = 60;
 
     /** Product-only sentinel for a release whose provider states no region; it has no reference. */
     private static final String UNKNOWN_REGION_CODE = "unknown";
@@ -726,7 +990,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                             : SynchronizationOutcome.FAILED,
                                     rs.getString("outcome_code"),
                                     new CatalogueSynchronizationReport.Counters(
-                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                             0)));
                 });
     }
@@ -745,7 +1009,8 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                             "popularityUnavailableGames",
                             "featuredImageObservedGames",
                             "logoObservedGames",
-                            "logoUnavailableGames")) {
+                            "logoUnavailableGames",
+                            "detailsUnavailableGames")) {
                 if (!counters.has(field)) {
                     counters.put(field, 0L);
                 }

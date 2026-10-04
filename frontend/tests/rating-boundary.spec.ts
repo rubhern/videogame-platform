@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
 
@@ -7,6 +7,17 @@ const gamePath =
 
 const username = process.env.OIDC_TEST_USERNAME;
 const password = process.env.OIDC_TEST_PASSWORD;
+
+const reading = (page: Page) => page.getByRole("button", { name: /^Tu puntuación/ });
+
+/** Opens the keypad from the compact reading and picks a value. */
+async function pick(page: Page, value: number) {
+  await reading(page).click();
+  await page
+    .getByRole("dialog", { name: /^Tu puntuación de / })
+    .getByRole("button", { name: String(value), exact: true })
+    .click();
+}
 
 test("anonymous browsing offers account entry and preserves the rating boundary", async ({
   page,
@@ -23,12 +34,16 @@ test("anonymous browsing offers account entry and preserves the rating boundary"
     page.getByRole("button", { name: "Cerrar sesión" }),
   ).toHaveCount(0);
 
-  // The inline, accessible rating scale is present and enabled for an eligible game.
+  // The compact reading opens an accessible, enabled scale for an eligible game.
+  await expect(reading(page)).toBeEnabled();
+  await reading(page).click();
   await expect(
     page.getByRole("group", { name: "Nota del 1 al 10" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "8", exact: true })).toBeEnabled();
-  await expect(page.getByRole("button", { name: /Puntuar|Actualizar/ })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /^(Puntuar|Actualizar|Guardar nota)$/ }),
+  ).toHaveCount(0);
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });
 
@@ -45,7 +60,7 @@ test.describe("real Keycloak rating journey", () => {
     page,
   }) => {
     await page.goto(gamePath);
-    await page.getByRole("button", { name: "8", exact: true }).click();
+    await pick(page, 8);
 
     // Authentication is hosted by Keycloak, not a product login page.
     await expect(page).toHaveURL(
@@ -59,32 +74,29 @@ test.describe("real Keycloak rating journey", () => {
     // contract, and personal and community state update together.
     await expect(page).toHaveURL(new RegExp(gamePath));
     await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 8/10." })).toHaveCount(1);
-    await expect(
-      page.getByRole("button", { name: "8", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
     await expect(page.getByText("Mi cuenta")).toBeVisible();
     const community = page.getByRole("region", {
-      name: "Puntuaciones de la comunidad",
+      name: "Puntuación de la comunidad",
     });
     await expect(community.getByLabel(/Nota media: 8,0 de 10/)).toBeVisible();
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
 
     // A reload reads the persisted rating back with a fresh ETag and resumes nothing.
     await page.reload();
-    await expect(
-      page.getByRole("button", { name: "8", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
     await expect(page.getByText(/Puntuación guardada/)).toHaveCount(0);
 
-    // Update with the current ETag by pressing another value.
-    await page.getByRole("button", { name: "9", exact: true }).click();
+    // Update with the current ETag by picking another value.
+    await pick(page, 9);
     await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 9/10." })).toHaveCount(1);
     await expect(community.getByLabel(/Nota media: 9,0 de 10/)).toBeVisible();
 
     // Delete with the new ETag.
+    await reading(page).click();
     await page.getByRole("button", { name: "Eliminar puntuación" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Puntuación eliminada." })).toHaveCount(1);
-    await expect(page.getByText("Selecciona una nota")).toBeVisible();
+    await expect(reading(page)).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar");
     await expect(community.getByText("Sin nota todavía")).toBeVisible();
 
     // Logout returns the header to the anonymous state and clears the session cookie.
@@ -97,11 +109,11 @@ test.describe("real Keycloak rating journey", () => {
 
   test("Mis puntuaciones supports search, direct maintenance and a real concurrent ETag conflict", async ({ page, context }, testInfo) => {
     await page.goto(gamePath);
-    await page.getByRole("button", { name: "8", exact: true }).click();
+    await pick(page, 8);
     await page.getByLabel("Usuario", { exact: true }).fill(username ?? "");
     await page.locator("#password").fill(password ?? "");
     await page.getByRole("button", { name: "Iniciar sesión", exact: true }).click();
-    await expect(page.getByRole("button", { name: "8", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
     await page.getByRole("button", { name: "Mi cuenta" }).click();
     await page.getByRole("link", { name: "Mis puntuaciones", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Mis puntuaciones", exact: true })).toBeVisible();
@@ -156,7 +168,7 @@ test.describe("real Keycloak rating journey", () => {
     page,
   }) => {
     await page.goto(gamePath);
-    await page.getByRole("button", { name: "7", exact: true }).click();
+    await pick(page, 7);
 
     // Keycloak hosts registration; the product exposes no registration page.
     await expect(page).toHaveURL(
@@ -176,9 +188,7 @@ test.describe("real Keycloak rating journey", () => {
     // First-time registration completes authentication and persists the chosen value.
     await expect(page).toHaveURL(new RegExp(gamePath));
     await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 7/10." })).toHaveCount(1);
-    await expect(
-      page.getByRole("button", { name: "7", exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
     await expect(page.getByText("Mi cuenta")).toBeVisible();
   });
 });

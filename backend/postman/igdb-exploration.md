@@ -95,9 +95,11 @@ for complete field definitions.
 | `platforms` | Platform lookup | core | Name, abbreviation |
 | `game_types`, `game_statuses` | Work classification | core | Type/status references |
 | `alternative_names` | Alias evidence | core | Name, explanatory comment |
-| `genres`, `themes` | Classification | useful | Labels |
-| `game_modes`, `multiplayer_modes` | Play capabilities | useful | Modes, co-op limits |
-| `involved_companies`, `companies` | Credits | useful | Developer/publisher roles |
+| `genres` | Classification | core (#233, expanded on `games`) | Genre labels |
+| `themes` | Classification | useful | Labels |
+| `game_modes` | Play capabilities | core (#233, expanded on `games`) | Modes |
+| `multiplayer_modes` | Play capabilities | useful | Co-op limits |
+| `involved_companies`, `companies` | Credits | core (#233, expanded on `games`) | Developer/publisher roles |
 | `collections`, `franchises` | Series/universe | useful | Membership context |
 | `artworks`, `screenshots` | Featured media | core (metadata) | Image identifier, dimensions, transparency, animation |
 | `logos` | Featured title logo | core (metadata) | Read by game; identifier, dimensions, transparency |
@@ -134,8 +136,9 @@ Potential uses to evaluate:
 
 - **Current product:** inspect identity, aliases, cover and per-platform/region release
   evidence against the approved scope; provider fields do not guarantee local delivery.
-- **Richer detail:** credits, genres/themes, language support, age labels and duration
-  need coverage and user-value evidence before adoption.
+- **Richer detail:** the summary, developer/publisher credits, genres and game modes are
+  acquired since #233; themes, language support, age labels and duration still need
+  coverage and user-value evidence before adoption.
 - **Discovery/recommendations:** series and similar games are candidate signals; none
   proves personalized relevance or demand. The Visits primitive alone ranks featured
   releases ([ADR-0021](../../docs/decisions/0021-rank-monthly-featured-releases-by-local-igdb-hypes.md));

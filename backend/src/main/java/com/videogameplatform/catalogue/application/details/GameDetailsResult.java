@@ -12,6 +12,10 @@ public record GameDetailsResult(
         String canonicalTitle,
         List<String> aliases,
         Summary summary,
+        List<Company> developers,
+        List<Company> publishers,
+        List<Term> genres,
+        List<Term> gameModes,
         CatalogueCover primaryCover,
         List<BrowseReleasesResult.Release> releases,
         LocalDate evaluatedOn) {
@@ -20,4 +24,10 @@ public record GameDetailsResult(
             String text,
             String language,
             BrowseReleasesResult.Provenance provenance) {}
+
+    /** A credited company: its product identity and current name. */
+    public record Company(String companyId, String name) {}
+
+    /** A genre or game mode: its stable product code and display name. */
+    public record Term(String code, String name) {}
 }

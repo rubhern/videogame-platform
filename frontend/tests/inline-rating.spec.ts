@@ -149,8 +149,16 @@ class ScriptedBackend {
 
 const note = (page: Page, value: number) =>
   page.getByRole("button", { name: String(value), exact: true });
+const reading = (page: Page) => page.getByRole("button", { name: /^Tu puntuación/ });
+const keypad = (page: Page) => page.getByRole("dialog", { name: /^Tu puntuación de / });
 
-test("anonymous press, authentication return, automatic create, update and delete stay in game-page context", async ({
+/** Opens the keypad from the compact reading, the rating's one entry point. */
+async function openScale(page: Page) {
+  await reading(page).click();
+  await expect(keypad(page)).toBeVisible();
+}
+
+test("anonymous pick, authentication return, automatic create, update and delete stay in game-page context", async ({
   page,
 }) => {
   const backend = new ScriptedBackend(page);
@@ -158,13 +166,18 @@ test("anonymous press, authentication return, automatic create, update and delet
   await page.goto(gamePath);
 
   const community = page.getByRole("region", {
-    name: "Puntuaciones de la comunidad",
+    name: "Puntuación de la comunidad",
   });
   await expect(community.getByText("Sin nota todavía")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Puntuar|Actualizar/ })).toHaveCount(0);
+  // A pick is the command: there is no separate submit action.
+  await expect(
+    page.getByRole("button", { name: /^(Puntuar|Actualizar|Guardar nota)$/ }),
+  ).toHaveCount(0);
 
-  // Arrow keys only move focus inside the labelled scale; Enter on a value starts authentication.
-  await note(page, 1).focus();
+  // The reading opens the scale from the keyboard; arrow keys only move focus inside it.
+  await reading(page).focus();
+  await page.keyboard.press("Enter");
+  await expect(note(page, 1)).toBeFocused();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ArrowRight");
   await expect(note(page, 3)).toBeFocused();
@@ -174,10 +187,10 @@ test("anonymous press, authentication return, automatic create, update and delet
   // Back on the same game: the chosen value is persisted once, automatically.
   await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 8/10." })).toHaveCount(1);
   await expect(page).toHaveURL(new RegExp(`${gamePath}$`));
-  await expect(note(page, 8)).toHaveAttribute("aria-pressed", "true");
+  await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
   await expect(page.getByText("Mi cuenta")).toBeVisible();
   await expect(community.getByLabel("Nota media: 8,0 de 10")).toBeVisible();
-  await expect(community.getByText("1 puntuación")).toBeVisible();
+  await expect(community.getByText(/^Basada en 1 puntuación$/)).toBeVisible();
   expect(backend.commands).toHaveLength(1);
   expect(backend.commands[0]?.headers["if-none-match"]).toBe("*");
   expect(backend.commands[0]?.headers["if-match"]).toBeUndefined();
@@ -185,23 +198,27 @@ test("anonymous press, authentication return, automatic create, update and delet
 
   // A reload resumes nothing (single-use context) and keeps the persisted rating.
   await page.reload();
-  await expect(note(page, 8)).toHaveAttribute("aria-pressed", "true");
+  await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
   expect(backend.commands).toHaveLength(1);
 
-  // Pressing another value updates with the current strong ETag.
+  // Picking another value updates with the current strong ETag and closes the panel.
+  await openScale(page);
+  await expect(note(page, 8)).toHaveAttribute("aria-pressed", "true");
   await note(page, 9).click();
+  await expect(keypad(page)).toBeHidden();
   await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 9/10." })).toHaveCount(1);
   expect(backend.commands[1]?.headers["if-match"]).toBe('"rating-version-1"');
   await expect(community.getByLabel("Nota media: 9,0 de 10")).toBeVisible();
 
-  // Delete with the ETag returned by the update; focus stays inside the scale.
+  // Delete with the ETag returned by the update; focus returns to the reading.
+  await openScale(page);
   await page.getByRole("button", { name: "Eliminar puntuación" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Puntuación eliminada." })).toHaveCount(1);
   expect(backend.commands[2]?.method).toBe("DELETE");
   expect(backend.commands[2]?.headers["if-match"]).toBe('"rating-version-2"');
   await expect(community.getByText("Sin nota todavía")).toBeVisible();
-  await expect(note(page, 1)).toBeFocused();
-  await expect(page.getByRole("button", { pressed: true })).toHaveCount(0);
+  await expect(reading(page)).toBeFocused();
+  await expect(reading(page)).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar");
   expect(backend.commands).toHaveLength(3);
 });
 
@@ -220,16 +237,17 @@ test("a stale ETag conflict shows the winning state and never retries the comman
   };
   await backend.install();
   await page.goto(gamePath);
-  await expect(note(page, 7)).toHaveAttribute("aria-pressed", "true");
+  await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
 
   // Another session wins before this one submits.
   backend.rating = { ...backend.rating, value: 5, entityTag: '"rating-version-2"' };
+  await openScale(page);
   await note(page, 9).click();
 
   await expect(page.getByRole("alert")).toContainText(
     "Tu nota cambió desde otra sesión",
   );
-  await expect(note(page, 5)).toHaveAttribute("aria-pressed", "true");
+  await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Templado 5\/10/);
   expect(backend.commands).toHaveLength(1);
   expect(backend.commands[0]?.headers["if-match"]).toBe('"rating-version-1"');
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
@@ -250,28 +268,30 @@ test("rejected and ambiguous commands preserve the previous valid state", async 
   };
   await backend.install();
   await page.goto(gamePath);
-  await expect(note(page, 7)).toHaveAttribute("aria-pressed", "true");
+  await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
 
   // Eligibility rejection.
   backend.putOverride = (route) => problem(route, 422, "RATING_NOT_ELIGIBLE");
+  await openScale(page);
   await note(page, 2).click();
   await expect(page.getByRole("alert")).toContainText("ya no admite nuevas puntuaciones");
-  await expect(note(page, 7)).toHaveAttribute("aria-pressed", "true");
+  await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
 
   // Ambiguous transport failure: no automatic retry, explicit re-read on request.
   backend.putOverride = (route) => route.abort("connectionreset");
+  await openScale(page);
   await note(page, 3).click();
   const alert = page.getByRole("alert");
   await expect(alert).toContainText("No sabemos si el cambio se aplicó");
-  await expect(note(page, 7)).toHaveAttribute("aria-pressed", "true");
+  await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
   expect(backend.commands).toHaveLength(2);
   await alert.getByRole("button", { name: "Comprobar mi nota" }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
-  await expect(note(page, 7)).toHaveAttribute("aria-pressed", "true");
+  await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
   expect(backend.commands).toHaveLength(2);
 });
 
-test("an ineligible game keeps the scale disabled and stays accessible", async ({
+test("an ineligible game keeps the reading disabled and stays accessible", async ({
   page,
 }) => {
   const game = gameDetailsFixture();
@@ -285,7 +305,7 @@ test("an ineligible game keeps the scale disabled and stays accessible", async (
     route.fulfill({ json: { authenticated: false } }),
   );
   await page.goto(gamePath);
-  await expect(note(page, 8)).toBeDisabled();
+  await expect(reading(page)).toBeDisabled();
   await expect(page.getByText("el lanzamiento aún no ha ocurrido")).toBeVisible();
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });

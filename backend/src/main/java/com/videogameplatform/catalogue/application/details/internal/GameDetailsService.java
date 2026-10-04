@@ -40,6 +40,10 @@ public final class GameDetailsService implements GetGameDetailsUseCase {
                 game.canonicalTitle(),
                 game.aliases(),
                 game.summary(),
+                game.developers(),
+                game.publishers(),
+                game.genres(),
+                game.gameModes(),
                 covers.resolve(game.cover()),
                 game.releases().stream()
                         .map(r -> CatalogueReleaseMapping.map(r, now, evaluatedOn, freshness))

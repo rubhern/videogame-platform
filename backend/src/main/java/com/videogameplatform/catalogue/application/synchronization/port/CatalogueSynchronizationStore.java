@@ -2,6 +2,7 @@ package com.videogameplatform.catalogue.application.synchronization.port;
 
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderGameDetails;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy;
@@ -58,8 +59,41 @@ public interface CatalogueSynchronizationStore {
             java.util.Set<String> returnedReleaseReferences,
             int maxReleases,
             FeaturedEvidenceWrite featuredEvidence,
-            FeaturedMediaWrite media) {
+            FeaturedMediaWrite media,
+            DetailsWrite details) {
+
+        /** A write that keeps the Game's last valid details. */
+        public GameWrite(
+                String providerId,
+                UUID gameId,
+                boolean creating,
+                String title,
+                String slug,
+                CoverSelection cover,
+                List<ReleaseWrite> releases,
+                Instant synchronizedAt,
+                java.util.Set<String> returnedReleaseReferences,
+                int maxReleases,
+                FeaturedEvidenceWrite featuredEvidence,
+                FeaturedMediaWrite media) {
+            this(
+                    providerId,
+                    gameId,
+                    creating,
+                    title,
+                    slug,
+                    cover,
+                    releases,
+                    synchronizedAt,
+                    returnedReleaseReferences,
+                    maxReleases,
+                    featuredEvidence,
+                    media,
+                    DetailsWrite.KEEP);
+        }
+
         public GameWrite {
+            java.util.Objects.requireNonNull(details, "details");
             releases = List.copyOf(releases);
             returnedReleaseReferences = java.util.Set.copyOf(returnedReleaseReferences);
             java.util.Objects.requireNonNull(featuredEvidence, "featuredEvidence");
@@ -78,6 +112,26 @@ public interface CatalogueSynchronizationStore {
     }
 
     record ReleaseWrite(String providerId, PlannedRelease release) {}
+
+    /**
+     * The Game's complete detail metadata from one valid provider answer, or last-valid-state
+     * preservation when the answer was invalid. An observed answer replaces the provider-owned
+     * summary and every developer, publisher, genre and game-mode link, including clearing what the
+     * provider no longer states; product-owned editorial or other-source summaries are never
+     * replaced. Companies, genres and game modes are typed provider references the store resolves to
+     * product identity, reusing a known reference or creating the product entity in this write.
+     */
+    sealed interface DetailsWrite {
+        DetailsWrite KEEP = new Keep();
+
+        record Observe(ProviderGameDetails details) implements DetailsWrite {
+            public Observe {
+                java.util.Objects.requireNonNull(details, "details");
+            }
+        }
+
+        record Keep() implements DetailsWrite {}
+    }
 
     /** Complete normalized featured evidence, or last-valid-state preservation on mapping failure. */
     sealed interface FeaturedEvidenceWrite {

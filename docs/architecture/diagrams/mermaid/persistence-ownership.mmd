@@ -22,6 +22,14 @@ erDiagram
     }
     platform["catalogue.platform"]
     region["catalogue.region"]
+    company["catalogue.company"]
+    genre["catalogue.genre"]
+    game_mode["catalogue.game_mode"]
+    game_company["catalogue.game_company"] {
+        varchar company_role "developer or publisher"
+    }
+    game_genre["catalogue.game_genre"]
+    game_game_mode["catalogue.game_game_mode"]
     synchronization_run["catalogue.synchronization_run"] {
         jsonb report "bounded run history, one active run, no catalogue content"
     }
@@ -40,6 +48,12 @@ erDiagram
     game_release ||--o{ release_external_reference : "provider identity"
     platform ||--o{ release_snapshot : classifies
     region ||--o{ release_snapshot : classifies
+    game ||--o{ game_company : "credited, replaced with the Game"
+    company ||--o{ game_company : credits
+    game ||--o{ game_genre : "classified, replaced with the Game"
+    genre ||--o{ game_genre : classifies
+    game ||--o{ game_game_mode : "playable as, replaced with the Game"
+    game_mode ||--o{ game_game_mode : classifies
 
     game ||--o{ rating : "rated by users (FK only, never read across modules)"
     game_listing ||--o{ game_listing_alias : "searchable as"

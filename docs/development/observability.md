@@ -51,13 +51,15 @@ with a dedicated short statement timeout; health details remain hidden.
   Releases, deferred Games and failed Games, and, for committed Games, popularity
   signals observed, absent for zero/missing Hypes, and kept because featured evidence
   was unavailable or invalid,
-  featured images observed, and logos observed or kept because the logo lookup was
-  unavailable. Deferral is import policy, not failure.
+  featured images observed, logos observed or kept because the logo lookup was
+  unavailable, and Games whose summary, credits, genres and game modes were kept because
+  that detail metadata was invalid. Deferral is import policy, not failure.
 - Provider meters use `catalogue.synchronization.provider.request{operation,outcome}`,
   `.request.duration{operation}`, `.retry{operation}` and `.mapping.failure{reason}`.
   Operations are the closed `window`, `works`, `release_dates`, `logos`
   vocabulary. An artwork, screenshot or logo that does not satisfy ADR-0001 or states no
-  usable dimensions is ignored and counted as `image_reference_invalid`.
+  usable dimensions is ignored and counted as `image_reference_invalid`. Incoherent game
+  detail metadata is counted as `details_invalid` and never fails the Game.
 - Durable run reports hold the requested window, provider request/retry/latency
   totals and aggregate counters. The synchronization log adds lifecycle, progress and
   per-Game failure stage/reason; it never contains titles, raw payloads or provider

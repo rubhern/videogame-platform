@@ -8,6 +8,10 @@ export function gameDetailsFixture(): GameDetails {
     canonicalTitle: "Resident Evil Requiem",
     aliases: ["RE Requiem"],
     summary: { kind: "editorial", text: "Resumen de prueba del catálogo.", language: "es" },
+    developers: [],
+    publishers: [],
+    genres: [],
+    gameModes: [],
     primaryCover: {
       kind: "fallback",
       url: "/assets/covers/fallback.svg",

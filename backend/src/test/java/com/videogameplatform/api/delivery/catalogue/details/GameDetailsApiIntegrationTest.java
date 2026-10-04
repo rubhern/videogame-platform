@@ -6,10 +6,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.videogameplatform.api.delivery.OpenApiResponseContract;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.internal.ReleaseReconciliationPolicy;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderCompany;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderGameDetails;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderSummary;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderTerm;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.DetailsWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedMediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameWrite;
@@ -51,7 +56,15 @@ import tools.jackson.databind.ObjectMapper;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = {"management.server.port=0", "catalogue.releases.freshness-threshold=P1D"})
+        properties = {
+            "management.server.port=0",
+            "catalogue.releases.freshness-threshold=P1D",
+            // Configured but unreachable: a public read that called the provider could not succeed.
+            "catalogue.synchronization.provider.client-id=unreachable-client",
+            "catalogue.synchronization.provider.client-secret=unreachable-secret",
+            "catalogue.synchronization.provider.token-uri=http://127.0.0.1:9/oauth2/token",
+            "catalogue.synchronization.provider.api-base-uri=http://127.0.0.1:9/v4/"
+        })
 @Import(GameDetailsApiIntegrationTest.FixedClock.class)
 @Execution(ExecutionMode.SAME_THREAD)
 class GameDetailsApiIntegrationTest {
@@ -569,6 +582,110 @@ class GameDetailsApiIntegrationTest {
         assertThat(body.path("primaryCover").path("attribution").path("label").asString())
                 .isEqualTo("IGDB");
         assertThat(body.toString()).doesNotContain("providerId", "externalReference");
+    }
+
+    @Test
+    void servesSynchronizedDetailMetadataFromPostgreSqlWithoutCallingTheProvider()
+            throws Exception {
+        admin.update(
+                "INSERT INTO catalogue.game_external_reference(game_id,provider,provider_entity_type,provider_id) VALUES (?,'IGDB','game','900002')",
+                game);
+        var previous = synchronizationStore.loadGame("900002", 10).orElseThrow();
+        var at = Instant.parse("2026-08-13T08:00:00Z");
+        var run =
+                synchronizationStore
+                        .beginRun(
+                                "IGDB",
+                                new CatalogueSynchronizationRequest(
+                                        LocalDate.parse("2026-08-13"),
+                                        LocalDate.parse("2026-08-13")),
+                                at,
+                                Duration.ofMinutes(30))
+                        .orElseThrow();
+        try {
+            var studio = new ProviderCompany("3045", "Sucker Punch Productions");
+            synchronizationStore.saveGame(
+                    run,
+                    new GameWrite(
+                            "900002",
+                            game,
+                            false,
+                            previous.title(),
+                            previous.slug(),
+                            previous.cover(),
+                            List.of(),
+                            at,
+                            java.util.Set.of(),
+                            10,
+                            FeaturedEvidenceWrite.KEEP,
+                            FeaturedMediaWrite.KEEP,
+                            new DetailsWrite.Observe(
+                                    new ProviderGameDetails(
+                                            Optional.of(
+                                                    new ProviderSummary(
+                                                            "A lone warrior seeks revenge.", "en")),
+                                            List.of(studio),
+                                            List.of(
+                                                    new ProviderCompany(
+                                                            "10100",
+                                                            "Sony Interactive Entertainment"),
+                                                    studio),
+                                            List.of(
+                                                    new ProviderTerm(
+                                                            "31", "Adventure", "adventure"),
+                                                    new ProviderTerm(
+                                                            "12",
+                                                            "Role-playing (RPG)",
+                                                            "role-playing-rpg")),
+                                            List.of(
+                                                    new ProviderTerm(
+                                                            "1", "Single player", "single-player"),
+                                                    new ProviderTerm(
+                                                            "3",
+                                                            "Co-operative",
+                                                            "co-operative"))))));
+        } finally {
+            admin.update("DELETE FROM catalogue.synchronization_run WHERE run_id=?", run);
+        }
+
+        var response = get(game.toString());
+
+        CONTRACT.assertJsonResponse(response, 200, "GameDetails");
+        var body = JSON.readTree(response.body());
+        assertThat(body.path("summary").path("kind").asString()).isEqualTo("sourced");
+        assertThat(body.path("summary").path("text").asString())
+                .isEqualTo("A lone warrior seeks revenge.");
+        assertThat(body.path("summary").path("language").asString()).isEqualTo("en");
+        assertThat(body.path("summary").path("provenance").path("sourceName").asString())
+                .isEqualTo("IGDB");
+        assertThat(body.path("developers").findValuesAsString("name"))
+                .containsExactly("Sucker Punch Productions");
+        assertThat(body.path("publishers").findValuesAsString("name"))
+                .containsExactly("Sony Interactive Entertainment", "Sucker Punch Productions");
+        assertThat(body.path("developers").get(0).path("companyId").asString())
+                .isEqualTo(body.path("publishers").get(1).path("companyId").asString())
+                .doesNotContain("3045");
+        assertThat(body.path("genres").findValuesAsString("genreId"))
+                .containsExactly("adventure", "role-playing-rpg");
+        assertThat(body.path("gameModes").findValuesAsString("gameModeId"))
+                .containsExactly("co-operative", "single-player");
+        assertThat(body.toString()).doesNotContain("10100", "providerId", "involved");
+        assertThat(metrics.find("catalogue.synchronization.provider.request").counters()).isEmpty();
+    }
+
+    @Test
+    void aGameWithoutDetailMetadataStaysCoherentWithoutInventedValues() throws Exception {
+        var response = get(game.toString());
+
+        CONTRACT.assertJsonResponse(response, 200, "GameDetails");
+        var body = JSON.readTree(response.body());
+        assertThat(body.path("summary").path("kind").asString()).isEqualTo("editorial");
+        assertThat(body.path("summary").path("text").asString())
+                .isEqualTo("Todavía no hay un resumen curado para este juego.");
+        for (String field : List.of("developers", "publishers", "genres", "gameModes")) {
+            assertThat(body.path(field).isArray()).as(field).isTrue();
+            assertThat(body.path(field).size()).as(field).isZero();
+        }
     }
 
     @Test

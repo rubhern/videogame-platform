@@ -4,9 +4,12 @@ import com.videogameplatform.api.delivery.ConditionalRequestSupport;
 import com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper;
 import com.videogameplatform.api.delivery.catalogue.release.ReleaseApiMapper;
 import com.videogameplatform.api.generated.model.AvailableRatingStatistics;
+import com.videogameplatform.api.generated.model.Company;
 import com.videogameplatform.api.generated.model.EditorialSummary;
 import com.videogameplatform.api.generated.model.GameDetails;
+import com.videogameplatform.api.generated.model.GameMode;
 import com.videogameplatform.api.generated.model.GameSummaryText;
+import com.videogameplatform.api.generated.model.Genre;
 import com.videogameplatform.api.generated.model.Provenance;
 import com.videogameplatform.api.generated.model.RatingDistribution;
 import com.videogameplatform.api.generated.model.RatingEligibility;
@@ -18,6 +21,10 @@ import com.videogameplatform.catalogue.application.details.GetGameDetailsUseCase
 import com.videogameplatform.ratings.application.GetRatingContextUseCase;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
@@ -67,6 +74,10 @@ public final class GameDetailsEndpoint {
                         game.canonicalTitle(),
                         new LinkedHashSet<>(game.aliases()),
                         summary(game.summary()),
+                        companies(game.developers()),
+                        companies(game.publishers()),
+                        ordered(game.genres(), term -> new Genre(term.code(), term.name())),
+                        ordered(game.gameModes(), term -> new GameMode(term.code(), term.name())),
                         covers.toResponse(game.primaryCover()),
                         game.releases().stream().map(releases::toRelease).toList(),
                         new RatingEligibility(
@@ -81,6 +92,15 @@ public final class GameDetailsEndpoint {
             return ResponseEntity.status(304).header("Cache-Control", cache).eTag(etag).build();
         }
         return ResponseEntity.ok().header("Cache-Control", cache).eTag(etag).body(body);
+    }
+
+    private static Set<Company> companies(List<GameDetailsResult.Company> companies) {
+        return ordered(companies, company -> new Company(company.companyId(), company.name()));
+    }
+
+    /** Keeps the application order; the contract's unique arrays are ordered sets here. */
+    private static <S, T> Set<T> ordered(List<S> values, Function<S, T> mapping) {
+        return values.stream().map(mapping).collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private static GameSummaryText summary(GameDetailsResult.Summary summary) {

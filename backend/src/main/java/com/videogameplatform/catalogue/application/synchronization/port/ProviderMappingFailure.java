@@ -8,6 +8,11 @@ package com.videogameplatform.catalogue.application.synchronization.port;
  */
 public enum ProviderMappingFailure {
     FEATURED_EVIDENCE_INVALID,
+    /**
+     * The summary, company credits, genres or game modes were not coherent; the Game keeps its last
+     * valid details and is otherwise synchronized.
+     */
+    DETAILS_INVALID,
     /** Date value and precision did not form one valid closed variant (REL-003). */
     RELEASE_DATE_INVALID,
     /** The cover reference did not satisfy the approved ADR-0001 shape. */

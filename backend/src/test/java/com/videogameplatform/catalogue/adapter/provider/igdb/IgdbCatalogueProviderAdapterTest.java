@@ -4,10 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderCompany;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderGameDetails;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderSummary;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderTerm;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWork;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderFailureCode;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderMappingFailure;
@@ -567,6 +571,149 @@ class IgdbCatalogueProviderAdapterTest {
                                                     ? ProviderReleaseSignal.CANCELLED
                                                     : ProviderReleaseSignal.NONE);
                         });
+    }
+
+    @Test
+    void requestsOnlyTheApprovedDetailFieldsWithTheGame() {
+        fetchWorkFixture("details-game-response.json");
+
+        assertThat(server.requests())
+                .filteredOn(r -> r.path().equals("/v4/games"))
+                .singleElement()
+                .extracting(IgdbFixtureServer.RecordedRequest::body)
+                .asString()
+                .contains(
+                        ",summary,",
+                        "involved_companies.developer,involved_companies.publisher,"
+                                + "involved_companies.company.id,involved_companies.company.name",
+                        "genres.id,genres.name,genres.slug",
+                        "game_modes.id,game_modes.name,game_modes.slug")
+                .doesNotContain("themes", "franchise", "age_rating", "websites", "videos");
+    }
+
+    /**
+     * IGDB credits companies through company-credit records with role flags. Only developer and
+     * publisher become product vocabulary: porting-only and supporting-only credits are dropped, a
+     * company holding both roles is listed in both, and a repeated credit is one company.
+     */
+    @Test
+    void separatesDevelopersFromPublishersAndNormalizesMultipleGenresAndModes() {
+        ProviderWork work = fetchWorkFixture("details-game-response.json");
+
+        assertThat(work.mappingFailures()).doesNotContain(ProviderMappingFailure.DETAILS_INVALID);
+        assertThat(work.details())
+                .hasValueSatisfying(
+                        details -> {
+                            assertThat(details.summary())
+                                    .contains(
+                                            new ProviderSummary(
+                                                    "A lone warrior seeks revenge in the lands"
+                                                            + " around Mount Yotei.\nSecond line.",
+                                                    "en"));
+                            assertThat(details.developers())
+                                    .containsExactly(
+                                            new ProviderCompany("3045", "Sucker Punch Productions"),
+                                            new ProviderCompany("5050", "Self Made Games"));
+                            assertThat(details.publishers())
+                                    .containsExactly(
+                                            new ProviderCompany(
+                                                    "10100", "Sony Interactive Entertainment"),
+                                            new ProviderCompany("5050", "Self Made Games"));
+                            assertThat(details.genres())
+                                    .containsExactly(
+                                            new ProviderTerm("31", "Adventure", "adventure"),
+                                            new ProviderTerm(
+                                                    "12", "Role-playing (RPG)", "role-playing-rpg"),
+                                            new ProviderTerm(
+                                                    "25",
+                                                    "Hack and slash/Beat 'em up",
+                                                    "hack-and-slash-beat-em-up"));
+                            assertThat(details.gameModes())
+                                    .extracting(ProviderTerm::providerId)
+                                    .containsExactly("1", "2", "3");
+                        });
+    }
+
+    @Test
+    void treatsMissingDetailMetadataAsValidEmptyEvidence() {
+        ProviderWork work = fetchWorkFixture("game-response.json");
+
+        assertThat(work.mappingFailures()).doesNotContain(ProviderMappingFailure.DETAILS_INVALID);
+        assertThat(work.details())
+                .hasValueSatisfying(
+                        details -> {
+                            assertThat(details.summary()).isEmpty();
+                            assertThat(details.developers()).isEmpty();
+                            assertThat(details.publishers()).isEmpty();
+                            assertThat(details.genres()).isEmpty();
+                            assertThat(details.gameModes()).isEmpty();
+                        });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "\"summary\":\"   \",\"genres\":[]",
+                "\"summary\":null,\"involved_companies\":[{\"id\":1,\"company\":{\"id\":2,\"name\":\"\"},\"porting\":true}]"
+            })
+    void blankSummaryAndUncreditedRolesAreAbsenceNotFailure(String fields) {
+        var work = fetchInlineWork(fields);
+        assertThat(work.details())
+                .hasValueSatisfying(
+                        details -> {
+                            assertThat(details.summary()).isEmpty();
+                            assertThat(details.developers()).isEmpty();
+                        });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "\"involved_companies\":[{\"id\":1,\"developer\":true}]",
+                "\"involved_companies\":[{\"id\":1,\"company\":{\"id\":2,\"name\":\" \"},\"publisher\":true}]",
+                "\"involved_companies\":[null]",
+                "\"genres\":[{\"name\":\"Adventure\"}]",
+                "\"game_modes\":[{\"id\":1,\"name\":\"\"}]",
+                "\"genres\":[null]",
+                "\"summary\":\"bad\\u0000text\""
+            })
+    void incoherentDetailMetadataYieldsNoDetailsButKeepsTheWorkUsable(String fields) {
+        var work = fetchInlineWork(fields);
+
+        assertThat(work.details()).isEmpty();
+        assertThat(work.mappingFailures()).contains(ProviderMappingFailure.DETAILS_INVALID);
+        assertThat(work.title()).isEqualTo("Game");
+    }
+
+    @Test
+    void rejectsImplausiblyLargeDetailListsAsAWhole() {
+        String genres =
+                java.util.stream.IntStream.rangeClosed(1, ProviderGameDetails.MAX_ENTRIES + 1)
+                        .mapToObj(id -> "{\"id\":" + id + ",\"name\":\"Genre " + id + "\"}")
+                        .collect(java.util.stream.Collectors.joining(",", "\"genres\":[", "]"));
+        String summary = "\"summary\":\"" + "x".repeat(ProviderSummary.MAX_LENGTH + 1) + "\"";
+
+        assertThat(fetchInlineWork(genres).details()).isEmpty();
+        assertThat(fetchInlineWork(summary).details()).isEmpty();
+    }
+
+    private ProviderWork fetchInlineWork(String fields) {
+        if (server != null) {
+            server.close();
+        }
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/games",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                "[{\"id\":100,\"name\":\"Game\"," + fields + "}]"),
+                                "/v4/release_dates", IgdbFixtureServer.always(200, "[]")));
+        return adapter().fetchWorks(List.of("100")).works().getFirst();
     }
 
     private ProviderWork fetchWorkFixture(String gameFixture) {

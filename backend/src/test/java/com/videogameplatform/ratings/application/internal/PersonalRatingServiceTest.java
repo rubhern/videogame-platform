@@ -158,6 +158,10 @@ class PersonalRatingServiceTest {
                 "Game",
                 List.of(),
                 new GameDetailsResult.Summary("editorial", "Summary", "en", null),
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of(),
                 new CatalogueCover.Product("/cover.svg", "Cover"),
                 List.of(release),
                 LocalDate.of(2026, 8, 13));

@@ -121,6 +121,19 @@ function renderPanel(initialPath = basePath, game = gameDetailsFixture()) {
   return { router, queryClient };
 }
 
+type User = ReturnType<typeof userEvent.setup>;
+
+/** The compact reading: the panel's one entry point. */
+const reading = () => screen.getByRole("button", { name: /^Tu puntuación/ });
+const scale = () => screen.queryByRole("dialog", { name: /^Tu puntuación de / });
+
+async function openScale(user: User) {
+  await user.click(reading());
+  const dialog = scale();
+  if (dialog === null) throw new Error("The keypad panel did not open");
+  return dialog;
+}
+
 const note = (value: number) =>
   screen.getByRole("button", { name: String(value) });
 const pressed = (value: number) =>
@@ -130,8 +143,8 @@ const nonePressed = () =>
     screen.queryByRole("button", { pressed: true }),
   ).not.toBeInTheDocument();
 
-describe("inline personal rating", () => {
-  it("is a labelled scale where arrows only move focus and an anonymous press starts authentication", async () => {
+describe("compact personal rating", () => {
+  it("opens a labelled scale from the reading; arrows only move focus and an anonymous pick starts authentication", async () => {
     const user = userEvent.setup();
     serve({});
     renderPanel();
@@ -139,20 +152,27 @@ describe("inline personal rating", () => {
     expect(
       screen.getByRole("region", { name: "Tu puntuación" }),
     ).toBeInTheDocument();
-    const group = screen.getByRole("group", { name: "Nota del 1 al 10" });
+    await waitFor(() =>
+      expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar"),
+    );
+    // The scale waits behind the reading: nothing to browse until it is opened.
+    expect(reading()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("group", { name: "Nota del 1 al 10" })).not.toBeInTheDocument();
+
+    const dialog = await openScale(user);
+    expect(reading()).toHaveAttribute("aria-expanded", "true");
+    const group = within(dialog).getByRole("group", { name: "Nota del 1 al 10" });
     expect(within(group).getAllByRole("button")).toHaveLength(10);
+    expect(within(dialog).getByText("Selecciona una nota")).toBeVisible();
     // The scale names its temperature in words, not only in colour.
     expect(screen.getByText("1 · Congelado")).toBeVisible();
     expect(screen.getByText("10 · Ardiendo")).toBeVisible();
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Selecciona una nota"),
-    );
+    // No separate confirmation: a pick is the command.
     expect(
-      screen.queryByRole("button", { name: /Puntuar|Actualizar/ }),
+      within(dialog).queryByRole("button", { name: /Guardar|Puntuar|Actualizar/ }),
     ).not.toBeInTheDocument();
 
-    // One tab stop; arrows browse without saving or starting authentication.
-    await user.tab();
+    // Opening lands on the scale's single tab stop; arrows browse without saving.
     expect(note(1)).toHaveFocus();
     await user.keyboard("{ArrowRight}{ArrowRight}{End}{ArrowLeft}");
     expect(note(9)).toHaveFocus();
@@ -165,7 +185,29 @@ describe("inline personal rating", () => {
     );
   });
 
-  it("disables the scale when the game is not eligible and explains why in place", async () => {
+  it("closes on Escape or an outside press without a command and lands on the current rating when reopened", async () => {
+    const user = userEvent.setup();
+    const server = serve({ session: authenticated, read: () => Response.json(rating(7, 1)) });
+    renderPanel();
+
+    await waitFor(() =>
+      expect(reading()).toHaveAccessibleName("Tu puntuación Caliente 7/10. Cambiar o eliminar"),
+    );
+    await openScale(user);
+    pressed(7);
+    expect(note(7)).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    expect(scale()).not.toBeInTheDocument();
+    expect(reading()).toHaveFocus();
+
+    await openScale(user);
+    await user.click(document.body);
+    expect(scale()).not.toBeInTheDocument();
+    expect(server.commands()).toHaveLength(0);
+  });
+
+  it("keeps the reading disabled when the game is not eligible and explains why in place", async () => {
     serve({});
     const game = gameDetailsFixture();
     game.ratingEligibility = {
@@ -175,14 +217,55 @@ describe("inline personal rating", () => {
     };
     renderPanel(basePath, game);
 
-    expect(note(8)).toBeDisabled();
+    // Unavailable, not removed from the tab order: the reason is read with the control.
+    expect(reading()).toHaveAttribute("aria-disabled", "true");
+    expect(reading()).toHaveAccessibleName(/No disponible$/);
+    expect(reading()).toHaveAccessibleDescription(/el lanzamiento aún no ha ocurrido/);
     expect(screen.getByRole("status")).toHaveTextContent(
       "el lanzamiento aún no ha ocurrido",
     );
+    await userEvent.setup().click(reading());
+    expect(scale()).not.toBeInTheDocument();
     expect(screen.queryByText(/Disponible para puntuar/)).not.toBeInTheDocument();
   });
 
+  it("still lets an existing rating be deleted when the game is no longer eligible", async () => {
+    const user = userEvent.setup();
+    const server = serve({
+      session: authenticated,
+      read: () => Response.json(rating(6, 1)),
+      remove: () =>
+        Response.json({ personalRating: null, ratingStatistics: statistics(null, 0) }),
+    });
+    const game = gameDetailsFixture();
+    game.ratingEligibility = {
+      eligible: false,
+      reason: "RELEASE_REVIEW_REQUIRED",
+      evaluatedOn: "2026-08-13",
+    };
+    renderPanel(basePath, game);
+
+    await waitFor(() =>
+      expect(reading()).toHaveAccessibleName("Tu puntuación Templado 6/10. Eliminar"),
+    );
+    const dialog = await openScale(user);
+    expect(within(dialog).getByText(/pendiente de revisión\.$/)).toBeVisible();
+    expect(note(8)).toBeDisabled();
+    pressed(6);
+    // A disabled scale hands focus to the action the panel still offers.
+    const remove = within(dialog).getByRole("button", { name: "Eliminar puntuación" });
+    expect(remove).toHaveFocus();
+
+    await user.click(remove);
+    expect(await screen.findByText("Puntuación eliminada.")).toHaveClass("sr-only");
+    expect(server.commands()[0]?.method).toBe("DELETE");
+    // The reading becomes unavailable without dropping the focus it just received.
+    expect(reading()).toHaveAttribute("aria-disabled", "true");
+    expect(reading()).toHaveFocus();
+  });
+
   it("persists the recovered value once after authentication with If-None-Match: *", async () => {
+    const user = userEvent.setup();
     const server = serve({
       session: authenticated,
       intent: () => Response.json({ gameId, slug: "resident-evil-requiem", value: 8 }),
@@ -194,24 +277,27 @@ describe("inline personal rating", () => {
     });
     const { router, queryClient } = renderPanel(`${basePath}?rating-intent=resumed`);
 
-    // Announced to assistive technology only: the pressed value already shows the result.
+    // Announced to assistive technology only: the reading already shows the result.
     expect(await screen.findByText("Puntuación guardada: 8/10.")).toHaveClass("sr-only");
     const [put] = server.commands();
     expect(put?.headers.get("If-None-Match")).toBe("*");
     expect(put?.headers.get("If-Match")).toBeNull();
     expect(put?.headers.get("X-CSRF-Token")).toBe("opaque-token");
     expect(server.commands()).toHaveLength(1);
-    pressed(8);
-    expect(screen.queryByText(/Tu nota actual/)).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Eliminar puntuación" }),
-    ).toBeEnabled();
+    expect(reading()).toHaveAccessibleName("Tu puntuación Caliente 8/10. Cambiar o eliminar");
+    // The automatic save never opens the panel or moves focus.
+    expect(scale()).not.toBeInTheDocument();
+    expect(reading()).not.toHaveFocus();
     // The aggregate context comes from the command response, not a new public read.
     expect(
       queryClient.getQueryData(gameDetailsQueryKey(gameId)),
     ).toMatchObject({ ratingStatistics: { mean: 8, count: 1 } });
     // The single-use return marker is consumed with the command.
     expect(router.state.location.search).toBe("");
+
+    const dialog = await openScale(user);
+    pressed(8);
+    expect(within(dialog).getByRole("button", { name: "Eliminar puntuación" })).toBeEnabled();
   });
 
   it("does not repeat a command when the recovered value equals the existing rating", async () => {
@@ -223,11 +309,11 @@ describe("inline personal rating", () => {
     const { router } = renderPanel(`${basePath}?rating-intent=resumed`);
 
     await waitFor(() => expect(router.state.location.search).toBe(""));
-    pressed(8);
+    expect(reading()).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
     expect(server.commands()).toHaveLength(0);
   });
 
-  it("updates on a press with the current If-Match and deletes with the new one, keeping focus in the scale", async () => {
+  it("saves a pick with the current If-Match, closes the panel and deletes with the new tag", async () => {
     const user = userEvent.setup();
     const server = serve({
       session: authenticated,
@@ -242,34 +328,39 @@ describe("inline personal rating", () => {
     });
     renderPanel();
 
-    await waitFor(() => pressed(7));
-    expect(screen.queryByText(/Tu nota actual/)).not.toBeInTheDocument();
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/));
 
-    // Pressing the current value is a no-op.
+    // Picking the current value closes the panel without a command.
+    await openScale(user);
     await user.click(note(7));
+    expect(scale()).not.toBeInTheDocument();
     expect(server.commands()).toHaveLength(0);
 
+    await openScale(user);
     await user.click(note(9));
 
-    // Announced to assistive technology only: the pressed value already shows the result.
+    // The pick commits: the panel closes, focus returns to the reading, the outcome is announced.
+    expect(scale()).not.toBeInTheDocument();
+    expect(reading()).toHaveFocus();
     expect(await screen.findByText("Puntuación guardada: 9/10.")).toHaveClass("sr-only");
     expect(server.commands()[0]?.headers.get("If-Match")).toBe('"rating-version-1"');
     expect(server.commands()[0]?.headers.get("If-None-Match")).toBeNull();
-    pressed(9);
+    expect(reading()).toHaveAccessibleName("Tu puntuación Ardiendo 9/10. Cambiar o eliminar");
 
-    await user.click(screen.getByRole("button", { name: "Eliminar puntuación" }));
+    const dialog = await openScale(user);
+    await user.click(within(dialog).getByRole("button", { name: "Eliminar puntuación" }));
 
-    // Announced to assistive technology only: the pressed value already shows the result.
     expect(await screen.findByText("Puntuación eliminada.")).toHaveClass("sr-only");
     const remove = server.commands()[1];
     expect(remove?.method).toBe("DELETE");
     expect(remove?.headers.get("If-Match")).toBe('"rating-version-2"');
-    expect(screen.getByText("Selecciona una nota")).toBeVisible();
+    expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar");
+    expect(reading()).toHaveFocus();
+    await openScale(user);
     nonePressed();
     expect(
       screen.queryByRole("button", { name: "Eliminar puntuación" }),
     ).not.toBeInTheDocument();
-    expect(note(1)).toHaveFocus();
   });
 
   it("shows the winning state after a stale-ETag conflict without retrying the command", async () => {
@@ -285,13 +376,15 @@ describe("inline personal rating", () => {
     });
     renderPanel();
 
-    await waitFor(() => pressed(7));
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/7\/10/));
+    await openScale(user);
     await user.click(note(9));
 
+    // The alert stays beside the reading, whether or not the panel is open.
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Tu nota cambió desde otra sesión",
     );
-    await waitFor(() => pressed(5));
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/^Tu puntuación Templado 5\/10/));
     expect(server.commands()).toHaveLength(1);
     expect(server.ratingReads()).toHaveLength(2);
     expect(screen.getByText("Referencia para soporte: corr-1")).toBeVisible();
@@ -306,19 +399,20 @@ describe("inline personal rating", () => {
     });
     renderPanel();
 
-    await waitFor(() => pressed(7));
+    await waitFor(() => expect(reading()).toHaveAccessibleName(/7\/10/));
+    await openScale(user);
     await user.click(note(9));
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("No sabemos si el cambio se aplicó");
     expect(server.commands()).toHaveLength(1);
-    pressed(7);
+    expect(reading()).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
 
     await user.click(within(alert).getByRole("button", { name: "Comprobar mi nota" }));
 
     await waitFor(() => expect(server.ratingReads()).toHaveLength(2));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    pressed(7);
+    expect(reading()).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
     expect(server.commands()).toHaveLength(1);
   });
 
@@ -337,11 +431,12 @@ describe("inline personal rating", () => {
       });
       renderPanel();
 
-      await waitFor(() => pressed(7));
+      await waitFor(() => expect(reading()).toHaveAccessibleName(/7\/10/));
+      await openScale(user);
       await user.click(note(3));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(message);
-      pressed(7);
+      expect(reading()).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
       expect(server.commands()).toHaveLength(1);
     },
   );
@@ -359,11 +454,14 @@ describe("inline personal rating", () => {
     });
     renderPanel();
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("Selecciona una nota"));
+    await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar"));
+    await openScale(user);
     await user.click(note(6));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Tu sesión ha caducado");
-    await waitFor(() => nonePressed());
+    await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar"));
+    await openScale(user);
+    nonePressed();
     await user.click(note(6));
     expect(assignLocation).toHaveBeenCalledWith(
       expect.stringContaining("value=6"),
@@ -384,6 +482,7 @@ describe("inline personal rating", () => {
         "No se pudo comprobar si ya tenías una nota",
       ),
     );
+    await openScale(user);
     await user.click(note(4));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -400,6 +499,6 @@ describe("inline personal rating", () => {
     expect(
       await screen.findByText(/no se completó el inicio de sesión/i),
     ).toBeVisible();
-    nonePressed();
+    await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar"));
   });
 });

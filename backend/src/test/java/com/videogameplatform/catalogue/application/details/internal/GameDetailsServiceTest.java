@@ -55,6 +55,20 @@ class GameDetailsServiceTest {
     }
 
     @Test
+    void returnsStoredDetailMetadataUnchangedAndKeepsAbsentCreditsEmpty() {
+        var game = service(id -> Optional.of(game()), "2026-08-13T10:00:00Z").get("game");
+
+        assertThat(game.developers())
+                .containsExactly(new GameDetailsResult.Company("studio-id", "Studio"));
+        assertThat(game.publishers()).isEmpty();
+        assertThat(game.genres())
+                .extracting(GameDetailsResult.Term::code)
+                .containsExactly("adventure", "puzzle");
+        assertThat(game.gameModes())
+                .containsExactly(new GameDetailsResult.Term("single-player", "Single player"));
+    }
+
+    @Test
     void keepsMissingDistinctAndDoesNotAskAProvider() {
         var details = service(id -> Optional.empty(), "2026-08-13T10:00:00Z");
         assertThatThrownBy(() -> details.get("unknown")).isInstanceOf(GameNotFoundException.class);
@@ -96,6 +110,12 @@ class GameDetailsServiceTest {
                 "Game",
                 List.of("Alias"),
                 new GameDetailsResult.Summary("editorial", "Editorial summary", "en", null),
+                List.of(new GameDetailsResult.Company("studio-id", "Studio")),
+                List.of(),
+                List.of(
+                        new GameDetailsResult.Term("adventure", "Adventure"),
+                        new GameDetailsResult.Term("puzzle", "Puzzle")),
+                List.of(new GameDetailsResult.Term("single-player", "Single player")),
                 cover,
                 List.of(tuple));
     }

@@ -34,7 +34,11 @@ export function CinematicStage(props: CinematicStageProps) {
 
   return (
     <div aria-hidden="true" className={`cinema cinema-${props.variant}`} style={style}>
-      <div className="cinema-art" />
+      <div className="cinema-art">
+        {/* Over a cover, the same artwork returns as a soft echo behind the title, between the
+            colour field and the grade, so the scrims that keep copy readable cover it too. */}
+        {props.variant === "cover" ? <div className="cinema-echo" /> : null}
+      </div>
       <div className="cinema-fog" />
       <div className="cinema-fog" />
       <div className="cinema-motes">
