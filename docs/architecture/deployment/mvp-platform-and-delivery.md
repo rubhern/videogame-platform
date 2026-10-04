@@ -46,12 +46,15 @@ owns local startup and reset procedures.
 ## Private dev runtime boundary
 
 The default stack starts PostgreSQL, Keycloak and one internal OpenTelemetry
-Collector, Prometheus and Grafana. The application is profile-gated and receives only runtime database
+Collector, Prometheus, Grafana, Alloy and single-instance Loki. The application is profile-gated and receives only runtime database
 credentials; the deployment profile adds a one-shot migration actor and a browser
 smoke runner. Repository configuration never selects or deploys an application digest
 by itself.
 
-PostgreSQL, Prometheus and the collector publish no host port. Grafana binds only
+PostgreSQL, Prometheus, Loki and the collector publish no host port.
+Alloy accepts Docker syslog only on host IPv4 loopback UDP through a separate
+ingress bridge, without joining the product edge network; its HTTP interface
+is container-loopback only. Grafana binds only
 to IPv4 loopback and is reached through the owner's SSH tunnel; it has no Tailscale
 Serve route. The product and Keycloak HTTP
 ports bind only to host IPv4 loopback, where Tailscale Serve terminates HTTPS on
@@ -99,9 +102,39 @@ limits and provisioning. The two added containers are an approved, reversible
 private-dev cost (#158), not approval for distributed monitoring. Measure idle and
 representative use on the host; limits alone do not demonstrate capacity.
 
-Telemetry, metrics storage and dashboards are never application startup/readiness
-or request dependencies. Log aggregation, trace storage, alerting and remote export
-remain deferred.
+Post-MVP #159 adds application console → Docker syslog → Alloy → Loki → existing
+Grafana. [ADR-0021](../../decisions/0021-collect-private-dev-logs-with-alloy-and-loki.md)
+records the proposed collection/security decision for owner review. The dedicated
+internal logs network includes only Alloy, Loki and Grafana; the application has no
+Loki connection. Only application stdout/stderr is aggregated. No daemon socket,
+container discovery, identity/database logs or host journal is granted.
+
+Loki retains short-lived disposable diagnostic history with filesystem TSDB and
+compactor retention; its WAL/index/chunks and persistent compactor markers share a
+separate named volume. Compose and [Loki configuration](../../../deploy/private-dev/loki/config.yaml)
+own the exact resource, ingestion/query and retention bounds. The initial operator
+budget is **4 GiB for Loki**, with **at least 2 GiB free host disk** before rollout
+and during use. These are stop/review thresholds, not enforced filesystem quotas.
+The configured rate permits roughly 0.85 GiB of uncompressed input per day; burst,
+WAL/index, compaction and asynchronous deletion add overhead and retention lag.
+Do not infer a hard disk maximum from the retention period. If measured usage crosses
+either threshold, stop only logging ingestion/storage, preserve product/database
+state and review volume growth before resuming. Host disk quota isolation remains a
+revisit trigger if manual checks cannot protect the shared filesystem.
+
+Alloy has no durable spool: bounded retries and memory intentionally trade delivery
+for application independence. UDP/queue overflow/restarts and oversized records can
+lose logs; Docker dual caching is also best effort. Prior Docker history is not
+backfilled. The two new container memory ceilings add 576 MiB; total steady runtime
+ceilings are approximately 5.6 GiB before host/daemon, disk cache and deployment
+actors. Review headroom under representative load rather than treating ceilings as
+capacity evidence. Logs are excluded from the irreplaceable PostgreSQL backup set.
+
+Telemetry, metrics/log storage and Grafana are never application startup/readiness
+or request dependencies. Trace storage, alerting and remote export remain deferred.
+The [logs operator procedure](../../../deploy/private-dev/README.md#log-aggregation-and-exploration)
+owns rollout, disk-pressure handling and recovery; the runbook distinguishes
+repository configuration from host evidence.
 
 ## Artefact and delivery
 

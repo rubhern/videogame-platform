@@ -1,0 +1,12 @@
+apiVersion: 1
+# Do not prune here: the shared metrics datasource file owns pruning.
+datasources:
+  - name: Platform logs
+    uid: private-dev-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      timeout: 15
+      maxLines: 1000

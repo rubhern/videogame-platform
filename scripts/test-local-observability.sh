@@ -25,10 +25,12 @@ run() {
   PATH="$temporary_directory/bin:$PATH" bash "$fixture/scripts/local-dependencies.sh" "$@" >/dev/null
 }
 run up
+run application
 [[ ! -e "$fixture/.local-secrets" ]]
 ! grep -q 'compose.observability.yaml' "$LOCAL_METRICS_COMMAND_LOG"
 initial_env="$(sha256sum "$fixture/.env" "$fixture/backend/.env")"
 run observability
+grep -q "up --detach telemetry prometheus grafana alloy loki" "$LOCAL_METRICS_COMMAND_LOG"
 [[ -s "$fixture/.local-secrets/grafana-admin-password" ]]
 [[ "$(stat -c %a "$fixture/.local-secrets")" == 700 ]]
 [[ "$(stat -c %a "$fixture/.local-secrets/grafana-admin-password")" == 644 ]]
@@ -48,12 +50,22 @@ if run reset --yes 2>/dev/null; then
   printf 'Local reset accepted an unrelated Compose project.\n' >&2
   exit 1
 fi
-printf 'Local metrics lifecycle, opt-in, secret preservation and reset boundary passed.\n'
+printf 'Local observability lifecycle, opt-in, secret preservation and reset boundary passed.\n'
 [[ "${1:-}" == --lifecycle-only ]] && exit 0
 
 # Real Compose rendering, no Docker daemon or containers required.
 cp "$fixture/.env" "$temporary_directory/local.env"
 sed -i 's/COMPOSE_PROJECT_NAME=other-project/COMPOSE_PROJECT_NAME=videogame-platform/' "$temporary_directory/local.env"
+APPLICATION_VERSION=validation docker compose --env-file "$temporary_directory/local.env" \
+  --file "$repository_root/compose.yaml" --profile full config --format json >"$temporary_directory/default.json"
+python3 - "$temporary_directory/default.json" <<'PYTHON'
+import json, pathlib, sys
+services = json.loads(pathlib.Path(sys.argv[1]).read_text())['services']
+assert set(services) == {'postgres', 'keycloak', 'application'}
+assert services['application'].get('logging', {}).get('driver') != 'syslog'
+assert services['application']['environment']['SPRING_PROFILES_ACTIVE'] == 'oidc'
+print('Default application topology excludes optional observability and syslog transport.')
+PYTHON
 APPLICATION_VERSION=validation docker compose --env-file "$temporary_directory/local.env" \
   --file "$repository_root/compose.yaml" --file "$repository_root/compose.observability.yaml" \
   --profile full --profile observability config --format json >"$temporary_directory/local.json"
@@ -64,9 +76,9 @@ import sys
 config = json.loads(pathlib.Path(sys.argv[1]).read_text())
 root = pathlib.Path(sys.argv[2])
 services = config['services']
-assert set(services) == {'postgres', 'keycloak', 'application', 'telemetry', 'prometheus', 'grafana'}
+assert set(services) == {'postgres', 'keycloak', 'application', 'telemetry', 'prometheus', 'grafana', 'alloy', 'loki'}
 assert config['networks']['telemetry']['internal']
-for name in ('telemetry', 'prometheus', 'grafana'):
+for name in ('telemetry', 'prometheus', 'grafana', 'alloy', 'loki'):
     service = services[name]
     assert '@sha256:' in service['image']
     assert int(service['mem_limit']) > 0 and float(service['cpus']) > 0 and int(service['pids_limit']) > 0
@@ -77,10 +89,24 @@ for name in ('telemetry', 'prometheus', 'grafana'):
             assert pathlib.Path(volume['source']).exists(), volume['source']
             assert volume['read_only']
 assert 'ports' not in services['prometheus']
+assert 'ports' not in services['loki']
+assert config['networks']['logs']['internal']
+assert services['alloy']['environment']['LOG_DEPLOYMENT_ENVIRONMENT'] == 'local'
+assert services['alloy']['ports'][0]['host_ip'] == '127.0.0.1'
+assert services['alloy']['ports'][0]['protocol'] == 'udp'
+assert int(services['alloy']['ports'][0]['published']) == 1514
+assert set(services['alloy']['networks']) == {'logs', 'log-ingress'}
+assert set(services['loki']['networks']) == {'logs'}
+assert services['application']['logging']['driver'] == 'syslog'
+assert services['application']['logging']['options']['tag'] == 'application'
+assert services['application']['logging']['options']['mode'] == 'non-blocking'
+assert 'logs' in services['grafana']['networks']
+assert any(v['target'].endswith('/loki.yaml') for v in services['grafana']['volumes'])
 for name, port in [('telemetry', 4318), ('grafana', 3000)]:
     ports = services[name]['ports']
     assert len(ports) == 1
     assert ports[0]['host_ip'] == '127.0.0.1' and int(ports[0]['published']) == port
+assert services['application']['environment']['SPRING_PROFILES_ACTIVE'] == 'oidc,structured'
 assert services['application']['environment']['TELEMETRY_OTLP_METRICS_ENABLED'] == 'true'
 assert services['application']['environment']['TELEMETRY_OTLP_METRICS_ENDPOINT'] == 'http://telemetry:4318/v1/metrics'
 assert set(services['application']['depends_on']) == {'postgres', 'keycloak'}
@@ -89,7 +115,7 @@ assert services['grafana']['environment']['GF_AUTH_ANONYMOUS_ENABLED'] == 'false
 assert pathlib.Path(config['secrets']['grafana_admin_password']['file']) == root / '.local-secrets/grafana-admin-password'
 assert '--storage.tsdb.retention.time=7d' in services['prometheus']['command']
 assert '--storage.tsdb.retention.size=512MiB' in services['prometheus']['command']
-assert set(config['volumes']) == {'postgres-data', 'prometheus-data', 'grafana-data'}
+assert set(config['volumes']) == {'postgres-data', 'prometheus-data', 'grafana-data', 'loki-data'}
 print('Local Compose inheritance, mounts, isolation, OTLP wiring and retention passed.')
 PY
 

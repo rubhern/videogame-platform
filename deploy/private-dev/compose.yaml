@@ -132,10 +132,24 @@ services:
       file: ./compose.observability.yaml
       service: prometheus
 
+  alloy:
+    extends:
+      file: ./compose.logs.yaml
+      service: alloy
+
+  loki:
+    extends:
+      file: ./compose.logs.yaml
+      service: loki
+
   grafana:
     extends:
       file: ./compose.observability.yaml
       service: grafana
+    volumes:
+      - ./grafana/logs-provisioning/loki.yaml:/etc/grafana/provisioning/datasources/loki.yaml:ro
+    networks:
+      - logs
 
   application:
     profiles: ["application"]
@@ -215,7 +229,17 @@ services:
     cpus: 1.5
     pids_limit: 384
     init: true
-    logging: *bounded-logging
+    logging:
+      driver: syslog
+      options:
+        syslog-address: udp://127.0.0.1:${PRIVATE_DEV_SYSLOG_PORT:-1514}
+        syslog-format: rfc5424micro
+        tag: application
+        mode: non-blocking
+        max-buffer-size: 1m
+        cache-disabled: "false"
+        cache-max-size: 10m
+        cache-max-file: "3"
 
   migration:
     profiles: ["deployment"]
@@ -320,6 +344,7 @@ volumes:
   prometheus-data:
   grafana-data:
   postgres-data:
+  loki-data:
 
 networks:
   edge:
@@ -327,3 +352,7 @@ networks:
     internal: true
   telemetry:
     internal: true
+  logs:
+    internal: true
+  # Separate non-internal bridge for loopback publishing; Alloy cannot join product edge.
+  log-ingress:

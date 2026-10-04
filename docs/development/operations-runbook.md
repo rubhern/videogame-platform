@@ -14,7 +14,7 @@ and recorded the outcome in the linked issue or pull request. Anything else is m
 `scripts/test-private-dev-backup-recovery.sh`) proves logic, not host behaviour.
 
 The MVP is private, single-host and zero-cost. Nothing here claims public production,
-high availability, automatic recovery or alerting. Retained private-dev metrics are
+high availability, automatic recovery or alerting. Retained private-dev metrics and aggregated logs are
 disposable operational history.
 
 ## Environment responsibilities
@@ -129,6 +129,30 @@ failure isolates the handoff; absent application series with a healthy scrape ca
 mean an OTLP export failure. Never recover telemetry by exposing Actuator or changing
 product readiness. Follow the linked procedure for recreation and recovery without
 touching PostgreSQL volumes.
+
+## Log aggregation and search
+
+Owner: [Log aggregation and exploration](../../deploy/private-dev/README.md#log-aggregation-and-exploration)
+for rollout, disk checks, persistence, outage, rollback and narrowly targeted
+history recovery; [observability](observability.md#private-dev-log-exploration) for
+Explore queries and interpretation.
+
+**Not exercised on `vgpdev` for #159.** The repository adds a disposable logging
+smoke with known ECS events, exact label checks, authenticated Grafana queries and
+recreation/outage checks. Passing it does not prove private-host delivery, security,
+capacity or eventual retention deletion. Record host outcomes in
+[#159](https://github.com/rubhern/videogame-platform/issues/159) before marking those
+procedures proven; do not infer them from the existing metrics or deployment evidence.
+
+Host acceptance remains: reviewed application recreation with its current immutable
+digest, real correlated events searchable through the owner tunnel, bounded local
+cache inspection, no public IPv4/IPv6 receiver/API, Loki history surviving recreation,
+product readiness/reads during logging outage, and representative idle/load/disk
+measurements plus eventual compactor deletion. Follow the linked procedure for disk
+pressure or corrupt disposable history. Query absence alone is insufficient evidence
+of physical deletion, and collector/UDP availability is insufficient evidence of
+lossless collection. No audit-log, alerting, AI diagnostic or retained-trace capability
+is claimed.
 
 ## Deploying an immutable digest
 

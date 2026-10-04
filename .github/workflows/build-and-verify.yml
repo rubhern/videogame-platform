@@ -258,6 +258,9 @@ jobs:
           bash scripts/validate-private-dev-runtime.sh
           bash scripts/validate-private-dev-runtime.sh --telemetry-smoke
 
+      - name: Validate disposable structured log collection and search
+        run: python3 scripts/private-dev-logs-check.py --smoke
+
       - name: Set up pinned ARM64 emulation
         uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
         with:

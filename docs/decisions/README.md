@@ -32,6 +32,10 @@ historical decision.
 - [ADR-0020: Acquire platform and region taxonomy from accepted releases](0020-acquire-platform-and-region-taxonomy-from-releases.md)
 - [ADR-0021: Rank monthly featured releases by locally stored IGDB Hypes](0021-rank-monthly-featured-releases-by-local-igdb-hypes.md)
 
+## Proposed
+
+- [ADR-0021: Collect private-dev logs with Alloy and Loki](0021-collect-private-dev-logs-with-alloy-and-loki.md) — #159 implementation awaiting owner review and host acceptance.
+
 ## Superseded
 
 - [ADR-0005: Host private dev on OCI Always Free](0005-host-private-dev-on-oci-always-free.md) — OCI Always Free A1 abandoned and torn down; superseded by ADR-0019.

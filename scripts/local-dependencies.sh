@@ -22,7 +22,7 @@ Commands:
   up             Create the ignored infrastructure/backend env files when absent,
                  then start PostgreSQL and Keycloak.
   application    Build and run the complete packaged application topology.
-  observability  Start only Collector, Prometheus and Grafana (for host/IDE runs).
+  observability  Start only Collector, Prometheus, Grafana, Alloy and Loki.
   verify-observability  Check provisioning, authentication and metrics queries.
 
   down           Stop containers without deleting local data.
@@ -32,7 +32,7 @@ Commands:
   verify-images  Verify linux/amd64 and linux/arm64 in both image manifests.
   reset [--yes]  Delete only this Compose project's disposable containers and volumes.
 
-Add --observability to up or application to include the metrics stack.
+Add --observability to up or application to include the metrics and logs stack.
 Grafana: http://127.0.0.1:3000 (owner; .local-secrets/grafana-admin-password).
 EOF
 }
@@ -378,7 +378,7 @@ case "$command_name" in
     create_backend_env_if_missing
     prepare_local_metrics_secret
     with_observability=true
-    compose up --detach telemetry prometheus grafana
+    compose up --detach telemetry prometheus grafana alloy loki
     printf 'Grafana: http://127.0.0.1:3000; user: owner; password file: .local-secrets/grafana-admin-password\n'
     ;;
   verify-observability)
@@ -426,7 +426,7 @@ case "$command_name" in
     require_env
     if [[ "${2:-}" != "--yes" ]]; then
       printf 'This deletes only containers and named volumes in Compose project %s.\n' "$(env_value COMPOSE_PROJECT_NAME)"
-      read -r -p 'Delete disposable local PostgreSQL, Keycloak and metrics data? [y/N] ' confirmation
+      read -r -p 'Delete disposable local PostgreSQL, Keycloak, metrics and logs data? [y/N] ' confirmation
       [[ "$confirmation" == "y" || "$confirmation" == "Y" ]] || die "Reset cancelled"
     fi
     compose down --volumes --remove-orphans
