@@ -23,7 +23,18 @@ public record GameDetailsResult(
             String kind,
             String text,
             String language,
-            BrowseReleasesResult.Provenance provenance) {}
+            BrowseReleasesResult.Provenance provenance,
+            Translation translation) {
+        public Summary(
+                String kind,
+                String text,
+                String language,
+                BrowseReleasesResult.Provenance provenance) {
+            this(kind, text, language, provenance, null);
+        }
+    }
+
+    public record Translation(String sourceText, String sourceLanguage, boolean current) {}
 
     /** A credited company: its product identity and current name. */
     public record Company(String companyId, String name) {}

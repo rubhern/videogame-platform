@@ -278,6 +278,11 @@ jobs:
       - name: Verify dependency platforms
         run: bash scripts/local-dependencies.sh verify-images
 
+      - name: Check and build the private localization helper for both platforms
+        run: |
+          docker build --check tools/catalogue-localization
+          docker buildx build --platform linux/amd64,linux/arm64 tools/catalogue-localization
+
       - name: Build, inspect, run and scan both application platforms
         env:
           SOURCE_REVISION: ${{ github.sha }}
@@ -329,6 +334,9 @@ jobs:
           cache-dependency-path: |
             pom.xml
             backend/pom.xml
+
+      - name: Test catalogue localization helper and operator boundaries
+        run: python3 -m unittest discover -s tools/catalogue-localization -p 'test_*.py'
 
       - name: Compile, test and package the backend
         run: ./mvnw -Dsource.revision="${GITHUB_SHA}" clean verify

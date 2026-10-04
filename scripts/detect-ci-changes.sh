@@ -154,11 +154,11 @@ for path in "${changed_paths[@]}"; do
       enable documentation build browser backend identity container
       matched=true
       ;;
-    scripts/local-dependencies.sh | scripts/test-local-observability.sh)
+    scripts/local-dependencies.sh | scripts/test-local-observability.sh | scripts/test-local-localization.sh)
       enable documentation build backend migrations identity container
       matched=true
       ;;
-    compose.yaml | compose.observability.yaml)
+    compose.yaml | compose.observability.yaml | compose.localization.yaml)
       enable build container identity migrations backend
       matched=true
       ;;
@@ -209,6 +209,14 @@ for path in "${changed_paths[@]}"; do
       ;;
     backend/src/main/* | backend/src/test/*)
       enable backend sonar codeql_java
+      matched=true
+      ;;
+    tools/catalogue-localization/*requirements.txt | tools/catalogue-localization/models.json)
+      enable backend container dependencies codeql_java
+      matched=true
+      ;;
+    tools/catalogue-localization/* | scripts/localize-catalogue.py)
+      enable backend container codeql_java
       matched=true
       ;;
     tools/igdb-poc/pom.xml)

@@ -23,6 +23,7 @@ Operator (management port, never the product port)
               -> public reads, including the monthly featured releases (ADR-0021)
 
 External boundaries:
+  optional private catalogue translation helper (acquisition/backfill only; ADR-0022)
   Keycloak (authentication)
   IGDB API (bounded synchronization only)
   IGDB image CDN (approved direct cover delivery)
@@ -139,6 +140,12 @@ bounded experiment justifies it.
 - A provider failure serves the last valid local snapshot; no snapshot returns
   `CATALOGUE_NOT_READY`. Cover failure uses fallback. Failed migration/deployment does
   not activate an incompatible application.
+
+Post-MVP (#235, architecture approved; implementation awaiting review): Catalogue
+localization is acquisition enrichment under [ADR-0022](../decisions/0022-localize-catalogue-content-during-acquisition.md).
+Its application-owned translation port has a private runtime adapter. No catalogue
+read, API delivery or readiness path depends on the helper. PostgreSQL remains the
+only serving and concurrency authority.
 
 ## Evolution rule
 

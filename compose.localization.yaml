@@ -1,0 +1,15 @@
+# Optional workstation topology; shared helper mechanics remain with private dev.
+services:
+  catalogue-localizer:
+    extends:
+      file: ./deploy/private-dev/compose.localization.yaml
+      service: catalogue-localizer
+    # Host/IDE acquisition can reach the loaded model through IPv4 loopback only.
+    ports:
+      - "127.0.0.1:8092:8092"
+    networks: !override [default]
+
+  application:
+    environment:
+      # Container address instead of the host/IDE loopback default.
+      CATALOGUE_TRANSLATION_ENDPOINT: http://catalogue-localizer:8092/translate

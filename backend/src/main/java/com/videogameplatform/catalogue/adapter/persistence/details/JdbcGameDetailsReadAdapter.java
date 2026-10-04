@@ -75,8 +75,13 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
         var games =
                 jdbc.query(
                         """
-            SELECT * FROM catalogue.game_snapshot
-            WHERE publication_id = :publication AND game_id = :game
+            SELECT g.*, c.translated_text, l.fingerprint=catalogue.spanish_source_fingerprint(g.summary_text) AS translation_current
+            FROM catalogue.game_snapshot g
+            LEFT JOIN catalogue.game_summary_translation l ON l.game_id=g.game_id
+            LEFT JOIN catalogue.content_translation c ON c.fingerprint=l.fingerprint
+              AND g.summary_kind='sourced' AND g.summary_language='en'
+              AND g.summary_source_kind='external_provider' AND g.summary_source_name='IGDB'
+            WHERE g.publication_id = :publication AND g.game_id = :game
             """,
                         params,
                         (rs, row) ->
@@ -212,15 +217,23 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
         String source = rs.getString("summary_source_kind");
         return new GameDetailsResult.Summary(
                 rs.getString("summary_kind"),
-                rs.getString("summary_text"),
-                rs.getString("summary_language"),
+                rs.getString("translated_text") == null
+                        ? rs.getString("summary_text")
+                        : rs.getString("translated_text"),
+                rs.getString("translated_text") == null ? rs.getString("summary_language") : "es",
                 source == null
                         ? null
                         : new BrowseReleasesResult.Provenance(
                                 BrowseReleasesResult.Source.valueOf(
                                         source.toUpperCase(Locale.ROOT)),
                                 rs.getString("summary_source_name"),
-                                rs.getString("summary_source_entity_type")));
+                                rs.getString("summary_source_entity_type")),
+                rs.getString("translated_text") == null
+                        ? null
+                        : new GameDetailsResult.Translation(
+                                rs.getString("summary_text"),
+                                rs.getString("summary_language"),
+                                rs.getBoolean("translation_current")));
     }
 
     private static ReleaseBrowseReadPort.ReleaseRow release(ResultSet rs, int row)

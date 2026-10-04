@@ -1,0 +1,14 @@
+{
+  "default": "tcbig",
+  "standard": {
+    "repository": "Helsinki-NLP/opus-mt-en-es",
+    "revision": "5bc4493d463cf000c1f0b50f8d56886a392ed4ab",
+    "license": "Apache-2.0"
+  },
+  "tcbig": {
+    "repository": "Helsinki-NLP/opus-mt-tc-big-en-es",
+    "url": "https://object.pouta.csc.fi/Tatoeba-MT-models/eng-spa/opusTCv20210807+bt_transformer-big_2022-03-13.zip",
+    "sha256": "cd49c94629c84c424b2c310552b9058bf95f531269c91e72fded668b0d5084cf",
+    "license": "CC-BY-4.0"
+  }
+}

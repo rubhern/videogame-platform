@@ -741,7 +741,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
     /**
      * Resolves a provider genre or game mode like platform taxonomy (ADR-0020): the typed reference
      * is identity; a new product entity takes a readable code and display name from the provider's
-     * descriptors once, and a later provider rename does not change it. {@code table},
+     * descriptors; its Spanish label and separate source wording follow localization ownership. {@code table},
      * {@code column} and {@code kind} are constants.
      */
     private Resolved resolveTerm(String table, String column, String kind, ProviderTerm term) {
@@ -756,7 +756,9 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                         Map.of("provider", provider, "id", term.providerId()),
                         (rs, row) -> rs.getObject(1, UUID.class));
         if (!existing.isEmpty()) {
-            return new Resolved(existing.getFirst(), 0);
+            return new Resolved(
+                    existing.getFirst(),
+                    localizeTermSource(table, column, existing.getFirst(), term));
         }
         UUID id = UUID.randomUUID();
         String descriptor =
@@ -788,7 +790,47 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                         + column
                         + ") VALUES(:provider, :pid, :id)",
                 Map.of("provider", provider, "pid", term.providerId(), "id", id));
-        return new Resolved(id, 1);
+        return new Resolved(id, 1 + localizeTermSource(table, column, id, term));
+    }
+
+    private int localizeTermSource(String table, String column, UUID id, ProviderTerm term) {
+        var labels =
+                jdbc.query(
+                        "SELECT spanish_label FROM catalogue.curated_taxonomy_label"
+                                + " WHERE taxonomy=:kind AND provider=:provider AND provider_id=:pid",
+                        Map.of(
+                                "kind",
+                                table.substring("catalogue.".length()),
+                                "provider",
+                                provider,
+                                "pid",
+                                term.providerId()),
+                        (rs, row) -> rs.getString(1));
+        var parameters =
+                new MapSqlParameterSource().addValue("id", id).addValue("source", term.name());
+        String assignments = "source_label=:source";
+        String comparison = "source_label IS DISTINCT FROM :source";
+        if (!labels.isEmpty()) {
+            parameters.addValue("label", labels.getFirst());
+            assignments +=
+                    ", display_name=:label, label_origin='curated', translation_fingerprint=NULL";
+            comparison += " OR display_name IS DISTINCT FROM :label OR label_origin <> 'curated'";
+        } else {
+            // Until first valid translation, the explicit serving fallback tracks the source.
+            assignments +=
+                    ", display_name=CASE WHEN label_origin='source' THEN :source ELSE display_name END";
+        }
+        return jdbc.update(
+                "UPDATE "
+                        + table
+                        + " SET "
+                        + assignments
+                        + " WHERE "
+                        + column
+                        + "=:id AND ("
+                        + comparison
+                        + ")",
+                parameters);
     }
 
     /** Leaves room for a provider-reference suffix inside the 100-character code column. */

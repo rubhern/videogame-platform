@@ -585,6 +585,45 @@ class GameDetailsApiIntegrationTest {
     }
 
     @Test
+    void servesDerivedSpanishWithOriginalProvenanceAndAnUnavailableTranslator() throws Exception {
+        admin.update(
+                "UPDATE catalogue.game_snapshot SET summary_kind='sourced', summary_text='Original source.', summary_language='en', summary_source_kind='external_provider', summary_source_name='IGDB', summary_source_entity_type='game_summary' WHERE game_id=?",
+                game);
+        admin.update(
+                "INSERT INTO catalogue.content_translation(fingerprint,source_text,translated_text,runtime_revision,translated_at) VALUES(catalogue.spanish_source_fingerprint('Original source.'),'Original source.','Resumen en español.','fixture-v1',clock_timestamp()) ON CONFLICT DO NOTHING");
+        admin.update(
+                "INSERT INTO catalogue.game_summary_translation(game_id,fingerprint) VALUES(?,catalogue.spanish_source_fingerprint('Original source.'))",
+                game);
+        var response = get(game.toString());
+        CONTRACT.assertJsonResponse(response, 200, "GameDetails");
+        var summary = JSON.readTree(response.body()).path("summary");
+        assertThat(summary.path("text").asString()).isEqualTo("Resumen en español.");
+        assertThat(summary.path("language").asString()).isEqualTo("es");
+        assertThat(summary.path("translation").path("sourceText").asString())
+                .isEqualTo("Original source.");
+        assertThat(summary.path("translation").path("kind").asString())
+                .isEqualTo("machine_translation");
+        assertThat(summary.path("translation").path("current").asBoolean()).isTrue();
+        assertThat(summary.path("provenance").path("sourceName").asString()).isEqualTo("IGDB");
+        assertThat(response.body())
+                .doesNotContain("OPUS", "CTranslate", "runtime_revision", "fingerprint");
+        admin.update(
+                "UPDATE catalogue.game_snapshot SET summary_text='Changed source.' WHERE game_id=?",
+                game);
+        var after = get(game.toString());
+        CONTRACT.assertJsonResponse(after, 200, "GameDetails");
+        assertThat(
+                        JSON.readTree(after.body())
+                                .path("summary")
+                                .path("translation")
+                                .path("current")
+                                .asBoolean())
+                .isFalse();
+        assertThat(after.headers().firstValue("ETag"))
+                .isNotEqualTo(response.headers().firstValue("ETag"));
+    }
+
+    @Test
     void servesSynchronizedDetailMetadataFromPostgreSqlWithoutCallingTheProvider()
             throws Exception {
         admin.update(

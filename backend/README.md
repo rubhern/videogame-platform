@@ -146,3 +146,41 @@ scripts, Dockerfile, Compose file, and CI workflow.
 The private management command `releasestagerepair` supports explicit enrichment of
 stored Unknown release stages after deployment. The validated procedure and residual
 evidence boundary are owned by the [operations runbook](../docs/development/operations-runbook.md#current-provider-release-repair).
+
+## Catalogue translation runtime and models
+
+The acquisition-only runtime is optional. [ADR-0022](../docs/decisions/0022-localize-catalogue-content-during-acquisition.md)
+owns the model decision and evidence; the application keeps serving source/last-valid
+Spanish content when it is stopped. Installation/conversion is an operator action,
+never application startup or a visitor request. From the repository root:
+
+```bash
+python3 -m venv .local-secrets/catalogue-model-conversion
+source .local-secrets/catalogue-model-conversion/bin/activate
+pip install torch==2.11.0 --index-url https://download.pytorch.org/whl/cpu
+pip install -r tools/catalogue-localization/conversion-requirements.txt
+python tools/catalogue-localization/install_model.py --variant tcbig \
+  --output .local-secrets/catalogue-models/tcbig-initial
+```
+
+The commands install CPU-only PyTorch before the remaining conversion requirements. Conversion dependencies do
+not enter the runtime image. The installer verifies the pinned archive checksum or
+repository revision, copies tokenizers/licence, converts INT8 and writes an artifact
+manifest and immutable runtime revision. Never commit weights, model caches or
+provider samples. Keep the model directory readable by the runtime's non-root UID.
+
+For host/IDE and packaged local backends, use the
+[local translation startup](../docs/development/local-setup.md#local-catalogue-translations),
+which starts the same bounded container as private dev with loopback access and
+an optional flag combinable with observability. For private dev use the
+[optional container procedure](../deploy/private-dev/README.md#catalogue-localization-helper).
+The helper retains one model and accepts only fixed EN→ES acquisition work. Its
+request/response/token/CPU/memory bounds are owned by code/configuration.
+`backend/.env.example` and `application.yaml` own endpoint and timeout settings.
+
+Update runtime requirements and the model lock only after the same focused quality
+and resource comparison. Install into a new directory, verify its manifest, then
+switch the mount and recreate the helper. Keep the old directory for rollback.
+Installing a new model never invalidates unchanged successful translations; it affects
+future missing/changed sources. The [operations runbook](../docs/development/operations-runbook.md#catalogue-localization)
+owns backfill/retry and host acceptance.

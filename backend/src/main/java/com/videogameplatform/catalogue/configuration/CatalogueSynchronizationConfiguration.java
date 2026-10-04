@@ -135,9 +135,11 @@ class CatalogueSynchronizationConfiguration {
             Clock clock,
             SynchronizationPolicy policy,
             CoverSelectionPolicy coverPolicy,
-            SynchronizationProgress progress) {
+            SynchronizationProgress progress,
+            com.videogameplatform.catalogue.application.localization.LocalizeCatalogueUseCase
+                    localization) {
         return new CatalogueSynchronizationService(
-                store, provider, clock, policy, coverPolicy, progress);
+                store, provider, clock, policy, coverPolicy, progress, localization);
     }
 
     @Bean

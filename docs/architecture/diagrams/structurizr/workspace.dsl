@@ -36,6 +36,11 @@ workspace "VideoGame Platform" "C4 model for the approved private learning MVP t
                 technology "PostgreSQL 18"
                 tags "Database"
             }
+
+            catalogueLocalizer = container "Catalogue Localizer (optional)" {
+                description "Keeps one EN to ES model loaded for acquisition enrichment; no public port, data store or visitor-read dependency."
+                technology "Python 3.12, CTranslate2 CPU INT8, OPUS-MT TC-big"
+            }
         }
 
         identityProvider = softwareSystem "Identity Provider" {
@@ -76,6 +81,7 @@ workspace "VideoGame Platform" "C4 model for the approved private learning MVP t
         webFrontend -> igdbImageCdn "Loads approved cover images" "HTTPS"
 
         applicationBackend -> applicationDatabase "Reads and writes product state" "JDBC"
+        applicationBackend -> catalogueLocalizer "Enriches committed catalogue sources" "Private HTTP/JSON"
         applicationBackend -> identityProvider "Exchanges authorization codes and validates identity" "HTTPS/OIDC"
         applicationBackend -> igdbApi "Synchronizes bounded catalogue metadata" "HTTPS"
         applicationBackend -> telemetryPlatform "Exports logs, metrics and traces" "OTLP"

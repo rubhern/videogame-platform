@@ -439,7 +439,10 @@ and six on narrower screens, with a native **Leer más** / **Mostrar menos** but
 text overflows. Its accessible heading remains available to assistive technology, and expansion
 keeps the full text recoverable without changing the cover's dimensions or stretching the cards.
 It keeps its language for assistive technology and is never translated here; a sourced summary credits its
-source and names a language other than Spanish (`Texto original en inglés · Fuente: IGDB`),
+source and names a language other than Spanish (`Texto original en inglés · Fuente: IGDB`).
+Post-MVP (#235), derived Spanish summaries instead state `Traducción automática de
+Gameómetro · Fuente del original: IGDB`; a last-valid translation of older source also
+states `Traducción pendiente de actualizar`. The text's `lang` is the served language,
 while the catalogue's own editorial text, including the notice that no summary exists yet, needs
 no credit.
 

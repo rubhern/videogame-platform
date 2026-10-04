@@ -16,8 +16,8 @@ a decision only in a drawing.
 | `mermaid/persistence-ownership.mmd` | Which module owns which tables and how they relate | Flyway SQL |
 | `mermaid/delivery-pipeline.mmd` | How a merged change becomes a validated deployment or a recorded failure | Platform design, private-dev README |
 
-All views describe implemented behaviour at `v0.1.0`; a view of approved-but-unbuilt
-behaviour must say so in its title.
+Views describe implemented behaviour, including post-MVP catalogue acquisition
+and localization. A view of approved-but-unbuilt behaviour must say so in its title.
 
 ## Edit and render
 

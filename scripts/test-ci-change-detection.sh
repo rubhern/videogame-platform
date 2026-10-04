@@ -42,6 +42,9 @@ run_case() {
   printf 'PASS %-24s\n' "$name"
 }
 
+run_case "catalogue localization" "tools/catalogue-localization/helper.py" "backend,container,codeql_java" "frontend,identity,browser"
+run_case "localization dependencies" "tools/catalogue-localization/runtime-requirements.txt" "backend,container,dependencies,codeql_java" "frontend,identity,browser"
+
 run_case docs-only \
   'docs/product/product-brief.md' \
   'documentation' \
@@ -111,6 +114,11 @@ run_case local-observability \
   'compose.observability.yaml' \
   'backend,migrations,identity,container,build' \
   'documentation,openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case local-localization \
+  $'compose.localization.yaml\nscripts/test-local-localization.sh' \
+  'documentation,backend,migrations,identity,container,build' \
+  'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case private-dev-runtime \
   $'scripts/private-dev-metrics-check.py\nscripts/private-dev-logs-check.py\ndeploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py' \

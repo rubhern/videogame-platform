@@ -16,7 +16,8 @@ function languageName(tag: string): string | null {
 /**
  * Resumen: editorial text below the title, compact until expanded. The text keeps its language for
  * assistive technology, and a sourced summary names its source and, when it is not Spanish, the
- * language it is in; nothing is translated. The catalogue's own editorial text needs no credit.
+ * language it is in; product-derived text explicitly credits its translation. The catalogue's own
+ * editorial text needs no credit.
  */
 export function GameSummary({ summary }: { summary: GameDetails["summary"] }) {
   const textId = useId();
@@ -67,8 +68,17 @@ export function GameSummary({ summary }: { summary: GameDetails["summary"] }) {
       ) : null}
       {"provenance" in summary ? (
         <p className="game-panel-source">
-          {language === null ? null : `Texto original en ${language} · `}
-          Fuente: {summary.provenance.sourceName}
+          {"translation" in summary && summary.translation ? (
+            <>
+              Traducción automática de Gameómetro · Fuente del original: {summary.provenance.sourceName}
+              {summary.translation.current ? null : " · Traducción pendiente de actualizar"}
+            </>
+          ) : (
+            <>
+              {language === null ? null : `Texto original en ${language} · `}
+              Fuente: {summary.provenance.sourceName}
+            </>
+          )}
         </p>
       ) : null}
     </section>
