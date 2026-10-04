@@ -164,12 +164,16 @@ def parse_private_https_origin(value, label, expected_port):
 
 config = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 services = config["services"]
+syslog_port = int(services["alloy"]["ports"][0]["published"])
+assert 1024 <= syslog_port <= 65535, "unprivileged syslog port"
 expected_services = {
     "postgres",
     "keycloak",
     "telemetry",
     "prometheus",
     "grafana",
+    "alloy",
+    "loki",
     "application",
     "migration",
     "deployment-smoke",
@@ -187,6 +191,8 @@ expected_secret_access = {
     "telemetry": set(),
     "prometheus": set(),
     "grafana": {"grafana_admin_password"},
+    "alloy": set(),
+    "loki": set(),
     "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"},
     "migration": {"application_migration_db_password"},
     "deployment-smoke": {"oidc_smoke_username", "oidc_smoke_password"},
@@ -198,7 +204,16 @@ for service_name, service in services.items():
     assert int(service.get("mem_limit", 0)) > 0, f"{service_name} memory limit"
     assert float(service.get("cpus", 0)) > 0, f"{service_name} CPU limit"
     assert int(service.get("pids_limit", 0)) > 0, f"{service_name} PID limit"
-    assert service["logging"] == {"driver": "local", "options": {"max-size": "10m", "max-file": "3"}}, f"{service_name} bounded logs"
+    if service_name == "application":
+        options = service["logging"]["options"]
+        assert service["logging"]["driver"] == "syslog"
+        assert options == {
+            "syslog-address": f"udp://127.0.0.1:{syslog_port}", "syslog-format": "rfc5424micro",
+            "tag": "application", "mode": "non-blocking", "max-buffer-size": "1m",
+            "cache-disabled": "false", "cache-max-size": "10m", "cache-max-file": "3",
+        }, "application bounded socket-free forwarding"
+    else:
+        assert service["logging"] == {"driver": "local", "options": {"max-size": "10m", "max-file": "3"}}, f"{service_name} bounded logs"
     actual_secrets = {secret["source"] for secret in service.get("secrets") or []}
     assert actual_secrets == expected_secret_access[service_name], f"{service_name} secret grants"
     environment = service.get("environment") or {}
@@ -223,6 +238,7 @@ for service_name, service in services.items():
     for port in service.get("ports") or []:
         published.append((service_name, port.get("host_ip"), int(port["published"]), int(port["target"])))
 assert sorted(published) == [
+    ("alloy", "127.0.0.1", syslog_port, 1514),
     ("application", "127.0.0.1", 8080, 8080),
     ("grafana", "127.0.0.1", 3000, 3000),
     ("keycloak", "127.0.0.1", 8180, 8080),
@@ -233,6 +249,16 @@ assert all(host_ip == "127.0.0.1" for _, host_ip, _, _ in published), (
 
 assert config["networks"]["data"]["internal"] is True
 assert config["networks"]["telemetry"]["internal"] is True
+assert config["networks"]["logs"]["internal"] is True
+assert services["loki"]["networks"] == {"logs": None}
+assert set(services["alloy"]["networks"]) == {"logs", "log-ingress"}
+assert "logs" in services["grafana"]["networks"]
+assert services["alloy"]["ports"][0]["protocol"] == "udp"
+assert "ports" not in services["loki"]
+for name, service in services.items():
+    for mount in service.get("volumes") or []:
+        assert "docker.sock" not in mount.get("source", ""), f"{name} Docker daemon access"
+        assert mount.get("target") not in {"/var/lib/docker", "/var/log", "/"}, f"{name} broad host discovery"
 assert "ports" not in services["postgres"]
 assert "ports" not in services["telemetry"]
 assert "ports" not in services["prometheus"]
@@ -331,11 +357,11 @@ realm_source, realm_target = next(iter(keycloak_imports))
 assert realm_source.endswith("/docker/keycloak/import/videogame-platform-realm.json")
 assert realm_target == "/opt/keycloak/data/import/videogame-platform-realm.json"
 
-for service_name in ("keycloak", "telemetry", "prometheus", "grafana", "application", "migration", "deployment-smoke"):
+for service_name in ("keycloak", "telemetry", "prometheus", "grafana", "alloy", "loki", "application", "migration", "deployment-smoke"):
     assert services[service_name].get("read_only") is True, f"{service_name} root filesystem"
     assert services[service_name].get("cap_drop") == ["ALL"], f"{service_name} capabilities"
 
-for service_name in ("postgres", "telemetry", "prometheus", "grafana"):
+for service_name in ("postgres", "telemetry", "prometheus", "grafana", "alloy", "loki"):
     assert "@sha256:" in services[service_name]["image"], f"{service_name} image is not digest-pinned"
 for service_name in ("application", "migration"):
     assert "@sha256:" in services[service_name]["image"], f"{service_name} image is not digest-pinned"
@@ -358,6 +384,7 @@ print("Private-dev Compose topology, isolation, secret grants, limits and restar
 PY
 
 python3 "$repository_root/scripts/private-dev-metrics-check.py" --static
+python3 "$repository_root/scripts/private-dev-logs-check.py" --static
 
 grep -q 'verbosity: basic' "$repository_root/deploy/private-dev/otel/collector.yaml"
 grep -q 'send_batch_max_size: 1024' "$repository_root/deploy/private-dev/otel/collector.yaml"
@@ -458,7 +485,7 @@ if [[ "$live" == false ]]; then
 fi
 
 compose=(docker compose --env-file "$runtime_env" --file "$compose_file")
-required_services=(postgres keycloak telemetry prometheus grafana)
+required_services=(postgres keycloak telemetry prometheus grafana alloy loki)
 for service_name in "${required_services[@]}"; do
   container_id="$("${compose[@]}" ps --quiet "$service_name")"
   [[ -n "$container_id" ]] || {
@@ -535,9 +562,16 @@ assert_ipv4_loopback_only() {
 assert_ipv4_loopback_only "${KEYCLOAK_LOOPBACK_PORT:-8180}" true
 assert_ipv4_loopback_only "${APPLICATION_LOOPBACK_PORT:-8080}" false
 assert_ipv4_loopback_only 3000 true
-for unpublished_port in 5432 4317 4318 8081 9000 9090 9464; do
+for unpublished_port in 5432 4317 4318 8081 9000 9090 9464 3100 9095 12345; do
   assert_no_host_listener "$unpublished_port"
 done
+syslog_port="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["services"]["alloy"]["ports"][0]["published"])' "$rendered_config")"
+udp_listener="$(ss -H -4 -lnu "sport = :$syslog_port")"
+[[ -n "$udp_listener" ]] && awk -v port="$syslog_port" '$4 != "127.0.0.1:" port { exit 1 }' <<<"$udp_listener" || {
+  printf 'Syslog must listen only on IPv4 loopback UDP.\n' >&2
+  exit 1
+}
+[[ -z "$(ss -H -6 -lnu "sport = :$syslog_port")" ]] || exit 1
 printf '\nTailscale Serve state (must say available within the tailnet):\n'
 tailscale serve status
 printf '\nPrivate-dev live inspection passed. Router/Internet isolation and reboot persistence still require external manual evidence.\n'

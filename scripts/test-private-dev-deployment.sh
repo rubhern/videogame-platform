@@ -205,7 +205,13 @@ services = {
     "grafana": service("unless-stopped", ("grafana_admin_password",),
         {"GF_AUTH_ANONYMOUS_ENABLED": "false", "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/grafana_admin_password"},
         image="grafana/grafana@sha256:" + "4" * 64, read_only=True, cap_drop=["ALL"],
+        networks={"logs": None},
         ports=[{"host_ip": "127.0.0.1", "published": 3000, "target": 3000}]),
+    "alloy": service("unless-stopped", image="grafana/alloy@sha256:" + "5" * 64,
+        networks={"logs": None, "log-ingress": None}, read_only=True, cap_drop=["ALL"],
+        ports=[{"host_ip": "127.0.0.1", "published": 1514, "target": 1514, "protocol": "udp"}]),
+    "loki": service("unless-stopped", image="grafana/loki@sha256:" + "6" * 64,
+        networks={"logs": None}, read_only=True, cap_drop=["ALL"]),
     "application": service(
         "unless-stopped",
         ("application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"),
@@ -227,6 +233,11 @@ services = {
             "TELEMETRY_SERVICE_VERSION": "0.15.0-SNAPSHOT",
         },
         image=image,
+        logging={"driver": "syslog", "options": {
+            "syslog-address": "udp://127.0.0.1:1514", "syslog-format": "rfc5424micro",
+            "tag": "application", "mode": "non-blocking", "max-buffer-size": "1m",
+            "cache-disabled": "false", "cache-max-size": "10m", "cache-max-file": "3",
+        }},
         depends_on={"postgres": {}, "keycloak": {}},
         ports=[{"host_ip": "127.0.0.1", "published": 8080, "target": 8080}],
         read_only=True,
@@ -263,7 +274,7 @@ services = {
 json.dump(
     {
         "services": services,
-        "networks": {"data": {"internal": True}, "telemetry": {"internal": True}},
+        "networks": {"data": {"internal": True}, "telemetry": {"internal": True}, "logs": {"internal": True}},
         "secrets": secret_files,
     },
     sys.stdout,

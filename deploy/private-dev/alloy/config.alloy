@@ -1,0 +1,69 @@
+// Only a fixed Docker syslog tag is accepted. Header identifiers never reach Loki.
+logging {
+  level = "warn"
+}
+
+// Syslog's header relabel hook maps metadata but does not enforce keep/drop.
+// Enforce collection scope in the downstream relabel component instead.
+loki.relabel "headers" {
+  forward_to = []
+  rule {
+    source_labels = ["__syslog_message_app_name"]
+    target_label  = "service_name"
+  }
+}
+
+loki.relabel "application" {
+  max_cache_size = 64
+  forward_to = [loki.process.bounded.receiver]
+  rule {
+    source_labels = ["service_name"]
+    regex         = "application"
+    action        = "keep"
+  }
+  rule {
+    action = "labelkeep"
+    regex  = "service_name|environment"
+  }
+}
+
+loki.source.syslog "docker" {
+  listener {
+    address                = "0.0.0.0:1514"
+    protocol               = "udp"
+    syslog_format          = "rfc5424"
+    max_message_length     = 65536
+    use_incoming_timestamp = true
+    label_structured_data  = false
+    labels                 = { environment = sys.env("LOG_DEPLOYMENT_ENVIRONMENT") }
+  }
+  relabel_rules = loki.relabel.headers.rules
+  forward_to    = [loki.relabel.application.receiver]
+}
+
+// Docker splits long console lines; admit only complete ECS JSON below its split size.
+loki.process "bounded" {
+  stage.drop {
+    longer_than         = "15KB"
+    drop_counter_reason = "oversized_line"
+  }
+  stage.json {
+    expressions    = { log_level = "\"log.level\"" }
+    drop_malformed = true
+  }
+  forward_to = [loki.write.private_dev.receiver]
+}
+
+// No disk spool/WAL: bounded retries and process memory, with explicit loss on outage.
+loki.write "private_dev" {
+  max_streams = 1
+  endpoint {
+    url                 = "http://loki:3100/loki/api/v1/push"
+    batch_size          = "64KiB"
+    batch_wait          = "1s"
+    remote_timeout      = "5s"
+    min_backoff_period  = "500ms"
+    max_backoff_period  = "2s"
+    max_backoff_retries = 3
+  }
+}

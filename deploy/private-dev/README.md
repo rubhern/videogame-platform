@@ -18,7 +18,7 @@ Local use of the same provisioned metrics stack is documented in
 - `compose.yaml` defines digest-pinned PostgreSQL, a locally optimized Keycloak image
   built from a digest-pinned upstream, the bounded OpenTelemetry collector, Prometheus and Grafana, the
   digest-selected application, a one-shot migration actor and a one-shot browser
-  smoke runner. Only PostgreSQL, Keycloak and the metrics stack start without an explicit
+  smoke runner. Only PostgreSQL, Keycloak and the observability stack start without an explicit
   profile or service selection; the application runtime receives `videogame_app`
   credentials and cannot migrate, and the migration actor receives only
   `videogame_app_migrator` credentials on the internal data network.
@@ -119,11 +119,11 @@ dedicated Playwright container, so Node.js is not a host prerequisite.
 
    ```bash
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml pull postgres telemetry prometheus grafana
+     --file deploy/private-dev/compose.yaml pull postgres telemetry prometheus grafana alloy loki
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
      --file deploy/private-dev/compose.yaml build --pull keycloak
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml up --detach postgres keycloak telemetry prometheus grafana
+     --file deploy/private-dev/compose.yaml up --detach postgres keycloak telemetry prometheus grafana alloy loki
    ```
 
 4. Keep Tailscale Funnel and router forwarding disabled. Confirm the owner-only
@@ -229,6 +229,115 @@ Collector handoff or Prometheus IPv4/IPv6 listener, representative real-data pan
 retained samples after recreation, and continued readiness/product reads during a
 bounded metrics-stack outage. Record measured idle/load CPU, memory and PIDs plus
 metrics-volume disk usage in #158; the repository smoke does not prove host capacity.
+
+## Log aggregation and exploration
+
+Post-MVP #159 is prepared in the repository; rollout/acceptance on `vgpdev` is not
+implied. Review [ADR-0021](../../docs/decisions/0021-collect-private-dev-logs-with-alloy-and-loki.md)
+and the [platform storage/capacity policy](../../docs/architecture/deployment/mvp-platform-and-delivery.md)
+before changing the host. [Observability](../../docs/development/observability.md#private-dev-log-exploration)
+owns log interpretation and queries. Compose, Alloy, Loki and provisioning files
+own executable settings. No new secret, paid resource or external service is needed.
+
+First run the static runtime validator and the independent logging smoke:
+
+```bash
+bash scripts/validate-private-dev-runtime.sh --env-file /etc/videogame-platform/dev/runtime.env
+python3 scripts/private-dev-logs-check.py --smoke
+```
+
+The smoke generates its own project, credentials, volumes, loopback UDP port and
+structured fixtures. It never consumes the host runtime file or starts application,
+identity or database services. It proves configuration and synthetic behaviour only.
+Do not run concurrent heavy validation/deployment work on the constrained host.
+
+### Reviewed rollout
+
+1. Check the storage/capacity stop thresholds before pulling or starting anything.
+   Review `free -h`, `df -h /`, `docker stats --no-stream` and `docker system df -v`.
+   Keep the existing application digest and full source revision: this configuration
+   change needs no new product image or migration.
+2. From the reviewed checkout, pull/start only logging and recreate Grafana to load
+   its additional datasource; the shared metrics datasource and dashboards remain:
+
+   ```bash
+   docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+     --file deploy/private-dev/compose.yaml pull alloy loki
+   docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+     --file deploy/private-dev/compose.yaml up --detach --no-deps alloy loki grafana
+   ```
+
+3. The application logging driver changes only when its container is recreated.
+   Use the existing owner-triggered deployment procedure with the **same reviewed
+   deployed digest and matching source revision**, or defer collection until the
+   next approved deployment. This does not authorize selecting a different image.
+   That controlled recreation runs the established migration/readiness/smoke and
+   evidence checks; do not recreate with runtime placeholders. Earlier local logs
+   are not backfilled and disappear with the removed application container.
+4. Use the existing Grafana SSH tunnel, select **Platform logs** in Explore and
+   search a known normal request correlation ID. Inspect the unmodified ECS body,
+   WARN/ERROR/event searches and the two indexed labels. Complete JSON only is
+   aggregated; inspect plain pre-logger output with Docker. Keep DEBUG disabled. Check
+   `docker compose ... logs application` still supplies bounded local inspection.
+5. Run `validate-private-dev-runtime.sh --env-file <runtime.env> --live` for the
+   existing static/live isolation and resource snapshot checks. Independently inspect
+   the UDP listener with `ss -4 -lnu` and `ss -6 -lnu`, Docker port mappings, and
+   external IPv4/IPv6 reachability: no public syslog receiver or Loki/Alloy API.
+   Leave the two existing Tailscale HTTPS routes, Funnel and router policy unchanged.
+
+### Capacity, retention and failure evidence
+
+Get the real Loki storage path without assuming Docker's data root:
+
+```bash
+logging_container=$(docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+  --file deploy/private-dev/compose.yaml ps --quiet loki)
+logging_storage=$(docker inspect --format \
+  '{{range .Mounts}}{{if eq .Destination "/loki"}}{{.Source}}{{end}}{{end}}' "$logging_container")
+[[ -n "$logging_storage" ]] && sudo du -sh -- "$logging_storage"
+df -h /
+docker stats --no-stream
+```
+
+Inspect usage at idle, during normal browsing and an owner-triggered bounded sync,
+and again after the retention period plus index/compactor deletion lag. Record in
+#159 how usage changes, container CPU/memory/PIDs, source/send failures and rejected
+lines/ingestion. Retention is asynchronous: confirm eventual physical deletion from
+volume use and compactor behaviour, not just absence from queries (lookback hides
+expired entries). Do not shorten production retention or inject artificial samples
+into live Loki to manufacture evidence. No automatic capacity alert is added.
+
+If either platform disk threshold is crossed, stop **only Alloy and Loki** before
+further ingestion; do not stop product/database services or prune Docker globally.
+Diagnose Loki/Alloy logs, host free space and the exact Loki volume. Reclaim unrelated
+storage only through its owner's procedure. Resume with the reviewed configuration
+only after restoring headroom; unexpectedly fast growth requires a retention/rate
+review. A hard filesystem quota is not present in this initial configuration.
+
+For persistence, note a recent query timestamp/body, recreate only Loki/Grafana with
+`up --detach --no-deps --force-recreate loki grafana`, then search that same timestamp.
+For independence, stop Alloy briefly while making a normal product read and checking
+readiness, then start it again and verify new events arrive. Loss during the outage
+is expected; restart does not replay missed Docker logs. Collector health alone does
+not prove successful delivery. Docker's remote-driver errors can also prevent local
+cache writes, so the cache is not an independent durable audit copy.
+
+### Rollback and safe history recovery
+
+For configuration rollback, restore the previously reviewed checkout/configuration
+and deploy the same compatible application digest through the existing procedure to
+restore its prior local logging driver. Stop Alloy/Loki and recreate Grafana from the
+prior provisioning. Keep metrics and PostgreSQL running; no product schema change is
+involved. Logging configuration changes apply on recreation, not restart.
+
+If Loki history is corrupt or disposable history must be purged, first stop Alloy
+and Loki, inspect the Loki container's mounts, and explicitly review the exact
+`loki-data` volume target. Remove only the Loki container, then only that verified
+volume; let `up --detach --no-deps loki alloy` recreate it. Never run private-dev
+`down --volumes`, `docker volume prune`, delete a guessed host path or touch
+PostgreSQL, Prometheus or Grafana volumes. Lost log history has no backup and cannot
+be recovered; source logs survive only within their own remaining cache/container.
+Record the action and the absence of an automatic recovery claim in #159.
 
 ## Owner-triggered deployment
 

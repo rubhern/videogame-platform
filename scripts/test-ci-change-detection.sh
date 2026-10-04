@@ -113,7 +113,7 @@ run_case local-observability \
   'documentation,openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case private-dev-runtime \
-  $'scripts/private-dev-metrics-check.py\ndeploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py' \
+  $'scripts/private-dev-metrics-check.py\nscripts/private-dev-logs-check.py\ndeploy/private-dev/compose.yaml\ndeploy/private-dev/otel/collector.yaml\ndeploy/private-dev/bin/deploy-private-dev\ndeploy/private-dev/bin/provision-oidc-smoke-user\nscripts/validate-private-dev-runtime.sh\nscripts/test-private-dev-deployment.sh\nscripts/test-private-dev-oidc-provisioning.py\nscripts/test-private-dev-oidc-provisioning-keycloak.py' \
   'documentation,build,backend,migrations,identity,container' \
   'openapi,frontend,browser,provider_fixtures,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 

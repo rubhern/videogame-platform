@@ -23,8 +23,8 @@ diagnostics rather than maintaining a parallel checklist here.
 
 The default Compose topology provides loopback-only PostgreSQL and Keycloak. The
 `full` profile adds the packaged application; the frontend is embedded, not a
-separate container. The optional observability overlay adds the same bounded metrics
-stack and provisioned dashboards used by private dev, with independent local volumes
+separate container. The optional observability overlay adds the same bounded metrics and logs
+stack and provisioned Grafana datasources/dashboards used by private dev, with independent local volumes
 and credentials.
 
 | Service | Address | Notes |
@@ -53,7 +53,7 @@ and the Compose `application` service (`env_file`). Compose adds explicit
 (container addresses, internal OIDC endpoints, management bind address, the `oidc`
 profile, packaged Flyway execution); `environment` overrides `env_file`, so a
 container-specific value always wins. Explicit `--observability` startup also enables
-metrics export for that packaged invocation, without changing `backend/.env`. The packaged application publishes its
+metrics export and ECS JSON logs for that packaged invocation, without changing `backend/.env`. The packaged application publishes its
 management port only on host loopback (`127.0.0.1:8081`).
 
 ## Start, verify, and stop
@@ -90,18 +90,21 @@ For separate development loops, use the commands in the
 [backend README](../../backend/README.md) and
 [frontend README](../../frontend/README.md).
 
-## Local metrics and dashboards
+## Local metrics and logs
 
 The overlay extends the [shared service definitions](../../deploy/private-dev/compose.observability.yaml),
 so images, bounds, retention, Collector/Prometheus configuration and Grafana
-provisioning have one executable owner. It adds only the local application wiring
-and loopback OTLP ingress. Local metrics and credentials never use private-dev state.
+provisioning have one executable owner. Alloy/Loki extend the
+[shared log service definitions](../../deploy/private-dev/compose.logs.yaml), including
+resource and retention bounds. The overlay adds local application wiring, loopback
+OTLP/syslog ingress and the fixed `environment="local"` log label. Local telemetry
+and credentials never use private-dev state; no Docker socket is mounted.
 
-### Packaged application with metrics
+### Packaged application with metrics and logs
 
 1. Start Docker Desktop with integration enabled for the WSL distribution, then run
    the prerequisite check above from the repository under `/home`.
-2. Start the complete application and metrics stack:
+2. Start the complete application and observability stack:
 
    ```bash
    bash scripts/local-dependencies.sh application --observability
@@ -109,6 +112,7 @@ and loopback OTLP ingress. Local metrics and credentials never use private-dev s
 
    This creates missing ignored environment files and a Grafana password, builds the
    packaged application and runs the stack in the foreground. Keep the terminal open.
+   The opt-in overlay enables the existing ECS structured logging profile.
    Existing backend settings and secrets are preserved. No IGDB synchronization or
    data seeding is triggered by enabling observability.
 3. Open the application at `http://localhost:8080` and Grafana at
@@ -129,6 +133,27 @@ and loopback OTLP ingress. Local metrics and credentials never use private-dev s
    Synchronization panels need a real, explicitly initiated synchronization; they
    may legitimately be empty. See [dashboard interpretation](observability.md#private-dev-dashboards)
    for counter, caching and product-learning limitations.
+   To generate safe request-completion logs without catalogue fixtures, run:
+
+   ```bash
+   for n in 1 2 3; do
+     curl --silent --output /dev/null --write-out '%{http_code}\n' \
+       -H "X-Correlation-ID: local-log-check-$n" \
+       http://localhost:8080/api/v1/session
+   done
+   ```
+
+   In Grafana **Explore**, select **Platform logs**, choose **Last 15 minutes**, and run:
+
+   ```logql
+   {environment="local",service_name="application"} |= "HTTP request completed"
+   {environment="local",service_name="application"} | json | correlationId="local-log-check-1"
+   ```
+
+   Expand a line to inspect its ECS fields. IDs remain fields, never indexed labels.
+   Allow a few seconds for ingestion. See [log exploration and loss limits](observability.md)
+   for filtering, retention and best-effort delivery. Only the packaged application
+   stdout/stderr is forwarded; IDE/Maven process logs are not collected by this overlay.
 5. Stop the foreground command with Ctrl+C, then stop/remove the local containers
    while retaining their volumes:
 
@@ -137,13 +162,17 @@ and loopback OTLP ingress. Local metrics and credentials never use private-dev s
    ```
 
    Start again with the same command in step 2. Grafana provisioning and retained
-   metrics survive normal stop/start. Do not delete or regenerate the password file:
+   metrics and Loki history survive normal stop/start. Do not delete or regenerate the password file:
    Grafana's initialized database retains the original password.
+
+   For a disposable reset, `bash scripts/local-dependencies.sh reset --yes` removes
+   this local project's containers and volumes, including database, identity, metrics
+   and Loki history. Ignored environment files and the Grafana password are preserved.
 
 ### Backend from an IDE or Maven
 
-Start dependencies plus metrics with `bash scripts/local-dependencies.sh up --observability`,
-or add just the metrics stack to already-running dependencies with
+Start dependencies plus observability with `bash scripts/local-dependencies.sh up --observability`,
+or add just the observability stack to already-running dependencies with
 `bash scripts/local-dependencies.sh observability`.
 
 For the existing [backend development command](../../backend/README.md), load
@@ -154,8 +183,8 @@ migration and identity settings, as documented by the backend README. The packag
 application uses the internal Collector hostname automatically; host execution uses
 loopback. Do not run both backends on port 8080 simultaneously.
 
-Local `down`, `status` and `reset` include the optional metrics services. Port 3000 or
-4318 already occupied means the local startup must resolve that conflict; it must
+Local `down`, `status` and `reset` include all optional observability services. Port 3000,
+1514/UDP or 4318 already occupied means the local startup must resolve that conflict; it must
 never silently fall back to a public bind. Access on private dev still uses the
 [owner SSH tunnel](../../deploy/private-dev/README.md#metrics-dashboards).
 
@@ -171,7 +200,7 @@ bash scripts/local-dependencies.sh reset
 
 `reset --yes` is reserved for an explicitly disposable non-interactive environment.
 The wrapper validates the fixed Compose project name and removes only that project's
-containers, networks, PostgreSQL volume and optional metrics/Grafana volumes; it does
+containers, networks, PostgreSQL volume and optional metrics/Grafana/Loki volumes; it does
 not delete repository files, images, `.env` files, `.local-secrets`, unrelated volumes
 or remote data.
 

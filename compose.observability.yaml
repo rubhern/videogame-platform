@@ -24,10 +24,40 @@ services:
       file: ./deploy/private-dev/compose.observability.yaml
       service: grafana
     profiles: [observability]
+    volumes:
+      - ./deploy/private-dev/grafana/logs-provisioning/loki.yaml:/etc/grafana/provisioning/datasources/loki.yaml:ro
+    networks:
+      - logs
+
+  alloy:
+    extends:
+      file: ./deploy/private-dev/compose.logs.yaml
+      service: alloy
+    profiles: [observability]
+    environment:
+      LOG_DEPLOYMENT_ENVIRONMENT: local
+
+  loki:
+    extends:
+      file: ./deploy/private-dev/compose.logs.yaml
+      service: loki
+    profiles: [observability]
 
   application:
+    logging:
+      driver: syslog
+      options:
+        syslog-address: udp://127.0.0.1:${PRIVATE_DEV_SYSLOG_PORT:-1514}
+        syslog-format: rfc5424micro
+        tag: application
+        mode: non-blocking
+        max-buffer-size: 1m
+        cache-disabled: "false"
+        cache-max-size: 10m
+        cache-max-file: "3"
     environment:
       # Explicit --observability opt-in; do not rewrite the owner's backend/.env.
+      SPRING_PROFILES_ACTIVE: oidc,structured
       TELEMETRY_OTLP_METRICS_ENABLED: "true"
       TELEMETRY_OTLP_METRICS_ENDPOINT: http://telemetry:4318/v1/metrics
       TELEMETRY_OTLP_TRACES_ENDPOINT: http://telemetry:4318/v1/traces
@@ -49,9 +79,13 @@ secrets:
 volumes:
   prometheus-data:
   grafana-data:
+  loki-data:
 
 networks:
   default:
   edge:
   telemetry:
     internal: true
+  logs:
+    internal: true
+  log-ingress:

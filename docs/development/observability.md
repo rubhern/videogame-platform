@@ -311,6 +311,52 @@ not Games, releases or the selected browsing window. To diagnose a suspicious fu
 Game, inspect every effective release and the API eligibility, then the raw counter;
 do not fix a domain error by filtering the chart.
 
+## Private-dev log exploration
+
+Post-MVP #159 provisions **Platform logs** in the existing authenticated Grafana.
+Use Explore, or the built-in Logs Drilldown if available; no plugin installation or
+custom log dashboard is required. The [operator procedure](../../deploy/private-dev/README.md#log-aggregation-and-exploration)
+owns access and checks. [ADR-0021](../decisions/0021-collect-private-dev-logs-with-alloy-and-loki.md)
+records the collection/security rationale; [platform design](../architecture/deployment/mvp-platform-and-delivery.md)
+owns topology, retention and loss policy.
+
+Collection is limited to complete JSON records from application stdout/stderr,
+including its structured startup/runtime and journey events. Docker can split long
+console lines before forwarding; Alloy drops oversized and malformed fragments rather
+than reconstructing or showing truncated ECS. Pre-logger JVM/plain console output
+stays outside aggregation and is inspected through Docker. Keycloak, PostgreSQL, migration actors, host
+journals and arbitrary containers are outside this slice. The two indexed labels
+are fixed `environment` and `service_name`; Loki may return `detected_level` as
+non-indexed structured metadata for built-in exploration. Level, event, correlation/trace/request/
+game/user identifiers remain ECS fields. Alloy strips the syslog envelope without
+rewriting the body. Loki time uses the Docker envelope timestamp; `@timestamp` stays
+available as the application's event timestamp. Do not infer request completion from
+arrival time alone.
+
+Choose a short time range first and expand within retention only when needed:
+
+```logql
+{environment="private-dev",service_name="application"}
+{service_name="application"} |= "http.request.completed"
+{service_name="application"} | json level="[\"log.level\"]" | level="ERROR"
+{service_name="application"} | json | correlationId="<effective-correlation-id>"
+{service_name="application"} | json | traceId="<effective-trace-id>"
+```
+
+Expand a log line to inspect parsed fields such as `http.route`, `http.status_code`,
+`error.code` and synchronization stage/reason. Use JSON extraction for exact field
+matching; a body-text match may also match the repeated message. A correlation ID
+can connect a request completion and technical failure without becoming a label.
+A trace ID search finds logged context; it does not imply a retained trace backend.
+
+Empty results can mean no event, a wrong time range/field, expired data, transport
+loss, line-size rejection or collector/storage failure. This is best-effort private
+diagnostics, not audit evidence. Retention deletion is asynchronous; the query
+lookback can hide older records before physical deletion completes. Preserve the
+[application log privacy rules](#application-logs) and the exclusions above; neither
+Loki nor Alloy sanitizes arbitrary secret-bearing source text. Do not enable DEBUG
+or broaden collection to investigate an empty result without a reviewed need.
+
 ## Application logs
 
 One event model serves both renderings. Each event carries bounded key-values, and its

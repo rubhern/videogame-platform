@@ -1,0 +1,63 @@
+# Shared private-dev/local log services. No Docker daemon, container metadata or host-log discovery access.
+x-logging: &bounded-logging
+  driver: local
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  alloy:
+    image: grafana/alloy:v1.20.1@sha256:2aa2099af76c0098d4af7a4d6e48f86cb66dc1a000222ad927a1c67c6542d13f
+    user: "473:473"
+    environment:
+      GOMEMLIMIT: 160MiB
+      LOG_DEPLOYMENT_ENVIRONMENT: private-dev
+    command:
+      - run
+      - --server.http.listen-addr=127.0.0.1:12345
+      - --storage.path=/tmp/alloy
+      - --disable-reporting
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy/config.alloy:/etc/alloy/config.alloy:ro
+    # Docker's logging driver runs on the host, not the application network.
+    # UDP permits application creation even with Alloy absent; delivery is best effort.
+    ports:
+      - "127.0.0.1:${PRIVATE_DEV_SYSLOG_PORT:-1514}:1514/udp"
+    networks:
+      - logs
+      - log-ingress
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,uid=473,gid=473
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    stop_grace_period: 15s
+    mem_limit: 192m
+    cpus: 0.25
+    pids_limit: 128
+    logging: *bounded-logging
+
+  loki:
+    image: grafana/loki:3.7.8@sha256:1107dd5274e0ada47e42472b7a7e71f3b2a2fe878878108f3e2f9e51528f0193
+    user: "10001:10001"
+    environment:
+      GOMEMLIMIT: 300MiB
+    command: ["-config.file=/etc/loki/config.yaml", "-target=all"]
+    volumes:
+      - ./loki/config.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - logs
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m,uid=10001,gid=10001
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 128
+    logging: *bounded-logging

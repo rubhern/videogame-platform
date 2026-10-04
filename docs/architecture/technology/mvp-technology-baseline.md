@@ -15,7 +15,7 @@ the lock file, Dockerfile, and Compose file.
 | Frontend | Node.js 24/npm 11; React 19.2; strict TypeScript; Vite 8.1; React Router; TanStack Query; Tailwind CSS 4; openapi-typescript/openapi-fetch |
 | Identity | Keycloak 26.7 via same-origin server-side OIDC BFF |
 | Testing/quality | JUnit/AssertJ, Spring tests, Modulith/ArchUnit, Vitest/RTL, Playwright/axe, Spotless, JaCoCo evidence, Sonar, CodeQL, dependency/secret/image checks |
-| Observability | Actuator, Micrometer, W3C tracing, OpenTelemetry-compatible optional export; private-dev and optional local Collector → Prometheus 3 LTS → Grafana 13 |
+| Observability | Actuator, Micrometer, W3C tracing, OpenTelemetry-compatible optional export; private-dev and optional local Collector → Prometheus 3 LTS → Grafana 13; private-dev logging with Alloy 1 → single-instance Loki 3 → existing Grafana (#159, owner review pending) |
 | Delivery | GitHub Actions/GHCR; non-root multi-architecture OCI image; local Docker Compose |
 
 ## Policies
