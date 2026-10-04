@@ -84,12 +84,16 @@ class FeaturedReleaseScalabilityIT {
         assertThat(result.items()).allSatisfy(item -> assertThat(item.releases()).hasSize(1));
         assertThat(indexNames(plan)).contains("ix_release_browse_period");
         assertThat(result.items()).allSatisfy(item -> assertThat(item.image()).isPresent());
-        assertThat(sequentialScans(plan))
-                .doesNotContain(
+        // No sequential scans is valid; only scans of these growing tables violate the bound.
+        var unboundedTables =
+                List.of(
                         "release_snapshot",
                         "game_snapshot",
                         "game_featured_evidence",
                         "game_featured_media");
+        assertThat(sequentialScans(plan))
+                .filteredOn(unboundedTables::contains)
+                .isEmpty();
     }
 
     private static void seed(JdbcTemplate jdbc, int rows) {
