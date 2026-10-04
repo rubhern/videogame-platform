@@ -31,6 +31,8 @@ run application
 initial_env="$(sha256sum "$fixture/.env" "$fixture/backend/.env")"
 run observability
 grep -q "up --detach telemetry prometheus grafana alloy loki" "$LOCAL_METRICS_COMMAND_LOG"
+run observability --recreate
+grep -q 'up --detach --no-deps --force-recreate telemetry prometheus grafana alloy loki' "$LOCAL_METRICS_COMMAND_LOG"
 [[ -s "$fixture/.local-secrets/grafana-admin-password" ]]
 [[ "$(stat -c %a "$fixture/.local-secrets")" == 700 ]]
 [[ "$(stat -c %a "$fixture/.local-secrets/grafana-admin-password")" == 644 ]]
@@ -126,6 +128,8 @@ cat >"$temporary_directory/secret.yaml" <<YAML
 secrets:
   grafana_admin_password:
     file: $fixture/.local-secrets/grafana-admin-password
+  grafana_database_password:
+    file: $fixture/.local-secrets/grafana-database-password
 YAML
 smoke_compose=(docker compose --env-file "$temporary_directory/local.env"
   --project-name "vgp-local-metrics-smoke-$$"
@@ -157,5 +161,5 @@ done
 [[ "$received" == true ]] || { printf 'Local loopback OTLP did not reach Prometheus.\n' >&2; exit 1; }
 [[ "$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 5 http://127.0.0.1:3000/api/search)" == 401 ]]
 python3 "$repository_root/scripts/private-dev-metrics-check.py" --local \
-  --env-file "$temporary_directory/local.env" --config "$temporary_directory/smoke.json"
+  --env-file "$temporary_directory/local.env" --config "$temporary_directory/smoke.json" --synthetic --compose-override "$temporary_directory/secret.yaml"
 printf 'Local loopback OTLP, Prometheus receipt and authenticated Grafana provisioning smoke passed.\n'

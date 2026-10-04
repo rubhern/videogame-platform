@@ -1,384 +1,1851 @@
 {
   "uid": "vgp-runtime",
-  "title": "VideoGame Platform \u00b7 Runtime and HTTP",
-  "description": "Application HTTP and JVM/pool pressure. OTLP gauges are sampled once per minute; brief spikes can be missed. No universal warning thresholds or product readiness dependency.",
-  "schemaVersion": 39,
-  "version": 1,
-  "editable": false,
+  "title": "VideoGame Platform \u00b7 Runtime / Resources",
+  "description": "Resource pressure and telemetry delivery. No product HTTP metrics. Scrape availability is not application readiness; process metrics expire if OTLP stops.",
   "tags": [
-    "videogame-platform"
+    "videogame-platform",
+    "private-dev"
   ],
-  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
+  "editable": false,
+  "timezone": "Europe/Madrid",
   "refresh": "1m",
   "time": {
-    "from": "now-6h",
+    "from": "now-1h",
     "to": "now"
   },
-  "panels": [
-    {
-      "title": "Product requests by route and method",
-      "type": "timeseries",
-      "description": "Estimated requests/second by bounded route template and method over the rate window. Zero means no observed increments in that window, not no requests since startup. Cached browser responses need not reach the application.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (uri, method) (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"/api/v1/.*\"}[$__rate_interval]))",
-          "legendFormat": "{{method}} {{uri}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 1,
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Product request outcome proportion",
-      "type": "timeseries",
-      "description": "Fraction of observed product requests by HTTP outcome. CLIENT_ERROR includes the contracted GET rating-absence 404; Journey separates it. REDIRECTION includes cache revalidation 304. No traffic yields no finite proportion.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (outcome) (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"/api/v1/.*\"}[$__rate_interval])) / ignoring(outcome) group_left sum(rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"/api/v1/.*\"}[$__rate_interval]))",
-          "legendFormat": "{{outcome}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 2,
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Product HTTP p95 by route / method",
-      "type": "timeseries",
-      "description": "Approximate 95th-percentile latency in milliseconds, per route and method, from existing histogram buckets over the rate window. Higher values mean slower observed requests. Sparse/no recent traffic gives unstable or absent percentiles; no latency SLO is implied.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le, uri, method) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\",uri=~\"/api/v1/.*\"}[$__rate_interval])))",
-          "legendFormat": "{{method}} {{uri}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 3,
-      "gridPos": {
-        "x": 0,
-        "y": 9,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Heap used / reported max",
-      "type": "timeseries",
-      "description": "Used heap divided by the sum of positive JVM-reported heap pool maxima. Unsupported maxima (-1) are excluded; no positive maximum gives no ratio. Near the reported maximum leaves less allocation headroom, but observe the trend and post-GC recovery. This is heap, not total container memory or RSS.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (instance) (jvm_memory_used_bytes{job=\"application-otlp\",area=\"heap\"}) / (sum by (instance) (jvm_memory_max_bytes{job=\"application-otlp\",area=\"heap\"} > 0) > 0)",
-          "legendFormat": "heap occupancy",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 4,
-      "gridPos": {
-        "x": 12,
-        "y": 9,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Process CPU consumed (cores)",
-      "type": "timeseries",
-      "description": "Rate of the existing cumulative JVM process CPU time, converted from nanoseconds to CPU-seconds/second (cores). Compare with the actual assigned Compose CPU quota; this is not host utilization or a universal 100% scale. Sustained usage near the quota can indicate CPU pressure; correlate with latency and docker stats. The rate window smooths short bursts.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "suffix:cores"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "rate(process_cpu_time_nanoseconds_total{job=\"application-otlp\"}[$__rate_interval]) / 1000000000",
-          "legendFormat": "process cores",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 5,
-      "gridPos": {
-        "x": 0,
-        "y": 18,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "JVM live threads",
-      "type": "timeseries",
-      "description": "Live JVM platform threads at export time. Growth without returning to a stable level warrants investigation; thread count alone is not a saturation measure. It does not count every virtual task and there is no universal safe count.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "jvm_threads_live{job=\"application-otlp\"}",
-          "legendFormat": "live threads",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 6,
-      "gridPos": {
-        "x": 12,
-        "y": 18,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Hikari active / max",
-      "type": "timeseries",
-      "description": "Active borrowed database connections divided by the configured maximum, per pool. Approaching 100% leaves little borrowing headroom; correlate with sustained pending borrowers and query/acquisition latency. One-minute samples can miss short contention.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "hikaricp_connections_active{job=\"application-otlp\"} / (hikaricp_connections_max{job=\"application-otlp\"} > 0)",
-          "legendFormat": "{{pool}} utilization",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 7,
-      "gridPos": {
-        "x": 0,
-        "y": 27,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Collector scrape availability",
-      "type": "timeseries",
-      "description": "Prometheus-created scrape health: 1 means the Collector exporter answered the latest scrape, 0 means the scrape failed. A healthy scrape does not prove fresh OTLP receipt or product readiness. Collector application series expire after five minutes without fresh delivery.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "up{job=\"application-otlp\"}",
-          "legendFormat": "scrape",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 8,
-      "gridPos": {
-        "x": 12,
-        "y": 27,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Heap used and reported max",
-      "type": "timeseries",
-      "description": "Absolute companion to heap occupancy: total used heap and positive pool maxima in bytes. Compare the gap and GC recovery over time. Non-heap memory, stacks, native allocations and other processes consume additional container memory.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "bytes"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (instance) (jvm_memory_used_bytes{job=\"application-otlp\",area=\"heap\"})",
-          "legendFormat": "used heap",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        },
-        {
-          "refId": "B",
-          "expr": "sum by (instance) (jvm_memory_max_bytes{job=\"application-otlp\",area=\"heap\"} > 0)",
-          "legendFormat": "reported heap max",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 9,
-      "gridPos": {
-        "x": 0,
-        "y": 36,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Hikari pending borrowers",
-      "type": "timeseries",
-      "description": "Threads waiting to borrow a database connection, per pool, at export time. Sustained values above zero indicate pool pressure; correlate with active/max and slow queries. Zero means no wait at the sampling instant and does not rule out brief spikes.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "hikaricp_connections_pending{job=\"application-otlp\"}",
-          "legendFormat": "{{pool}} pending",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
-        }
-      ],
-      "id": 10,
-      "gridPos": {
-        "x": 12,
-        "y": 36,
-        "w": 12,
-        "h": 9
-      }
-    }
-  ],
+  "timepicker": {
+    "refresh_intervals": [
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
   "templating": {
     "list": []
   },
-  "annotations": {
-    "list": []
-  }
+  "links": [
+    {
+      "title": "Resources",
+      "url": "/d/vgp-runtime",
+      "type": "link",
+      "keepTime": false
+    },
+    {
+      "title": "Application",
+      "url": "/d/vgp-application",
+      "type": "link",
+      "keepTime": false
+    },
+    {
+      "title": "Synchronization",
+      "url": "/d/vgp-synchronization",
+      "type": "link",
+      "keepTime": false
+    },
+    {
+      "title": "Product",
+      "url": "/d/vgp-product",
+      "type": "link",
+      "keepTime": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Now \u00b7 process and resource headroom",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Process uptime",
+      "type": "stat",
+      "description": "Time since this process started; absent during missing exports, not a liveness probe.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "process_uptime_seconds{job=\"application-otlp\"}",
+          "legendFormat": "Process uptime",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 2,
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "title": "Heap occupancy",
+      "type": "gauge",
+      "description": "Heap used / positive reported heap maximum; maximum is the meaningful capacity.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum (jvm_memory_used_bytes{job=\"application-otlp\",area=\"heap\"})) / ((sum (jvm_memory_max_bytes{job=\"application-otlp\",area=\"heap\"} > 0)) > 0)",
+          "legendFormat": "Heap occupancy",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "id": 3,
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "title": "Pool occupancy",
+      "type": "gauge",
+      "description": "Active / configured Hikari maximum. One means every pool slot is occupied; inspect pending borrowers.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(hikaricp_connections_active{job=\"application-otlp\"}) / ((hikaricp_connections_max{job=\"application-otlp\"}) > 0)",
+          "legendFormat": "Pool occupancy",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "title": "OTLP handoff scrape",
+      "type": "stat",
+      "description": "Prometheus can scrape the Collector exporter. A 1 does not prove the application is exporting or ready.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "up{job=\"application-otlp\"}",
+          "legendFormat": "OTLP handoff scrape",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 5,
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 6,
+      "title": "Pressure over time \u00b7 CPU, memory and collection",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Process CPU consumed",
+      "type": "timeseries",
+      "description": "CPU seconds per wall second, measured in cores; do not compare to host-wide CPU without container capacity.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (rate(process_cpu_time_nanoseconds_total{job=\"application-otlp\"}[$__rate_interval])) / 1000000000",
+          "legendFormat": "Process CPU consumed",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cores",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7,
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Process / system CPU",
+      "type": "timeseries",
+      "description": "Reported utilization fractions; visibility depends on JVM/container accounting. No universal pressure threshold.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "process_cpu_usage{job=\"application-otlp\"}",
+          "legendFormat": "Process",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "system_cpu_usage{job=\"application-otlp\"}",
+          "legendFormat": "System",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Heap \u00b7 used / committed / maximum",
+      "type": "timeseries",
+      "description": "Heap maximum excludes undefined pool maxima (-1).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (jvm_memory_used_bytes{job=\"application-otlp\",area=\"heap\"})",
+          "legendFormat": "Used",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (jvm_memory_committed_bytes{job=\"application-otlp\",area=\"heap\"})",
+          "legendFormat": "Committed",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (jvm_memory_max_bytes{job=\"application-otlp\",area=\"heap\"} > 0)",
+          "legendFormat": "Positive maximum",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Non-heap by memory pool",
+      "type": "timeseries",
+      "description": "Used memory by bounded JVM pool; many pools have no defined maximum.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "jvm_memory_used_bytes{job=\"application-otlp\",area=\"nonheap\"}",
+          "legendFormat": "{{id}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "GC pause load",
+      "type": "timeseries",
+      "description": "Total reported stop-the-world pause seconds per wall second; not a fabricated percentile.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (rate(jvm_gc_pause_milliseconds_sum{job=\"application-otlp\"}[$__rate_interval])) / 1000",
+          "legendFormat": "GC pause load",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 11,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "GC collections",
+      "type": "timeseries",
+      "description": "Collections per second, separated by bounded cause/action.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (action,cause) (rate(jvm_gc_pause_milliseconds_count{job=\"application-otlp\"}[$__rate_interval]))",
+          "legendFormat": "{{action}} \u00b7 {{cause}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "x": 8,
+        "y": 22,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Mean GC pause",
+      "type": "timeseries",
+      "description": "Weighted mean pause in the rate window; empty if there were no collections.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum (rate(jvm_gc_pause_milliseconds_sum{job=\"application-otlp\"}[$__rate_interval]))) / ((sum (rate(jvm_gc_pause_milliseconds_count{job=\"application-otlp\"}[$__rate_interval]))) > 0)",
+          "legendFormat": "Mean GC pause",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 13,
+      "gridPos": {
+        "x": 16,
+        "y": 22,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "id": 14,
+      "title": "Concurrency and database access",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "JVM threads",
+      "type": "timeseries",
+      "description": "Platform-thread binder counts; these are not the configured container PID ceiling.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "jvm_threads_live{job=\"application-otlp\"}",
+          "legendFormat": "Live",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "jvm_threads_daemon{job=\"application-otlp\"}",
+          "legendFormat": "Daemon",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "jvm_threads_peak{job=\"application-otlp\"}",
+          "legendFormat": "Peak",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 15,
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Thread states",
+      "type": "timeseries",
+      "description": "Bounded JVM thread-state vocabulary.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "jvm_threads_states{job=\"application-otlp\"}",
+          "legendFormat": "{{state}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 16,
+      "gridPos": {
+        "x": 12,
+        "y": 31,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Hikari connections",
+      "type": "timeseries",
+      "description": "Configured pool slots, not whole PostgreSQL server connections.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "hikaricp_connections_active{job=\"application-otlp\"}",
+          "legendFormat": "Active",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "hikaricp_connections_idle{job=\"application-otlp\"}",
+          "legendFormat": "Idle",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "hikaricp_connections_max{job=\"application-otlp\"}",
+          "legendFormat": "Maximum",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 17,
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Waiting borrowers",
+      "type": "timeseries",
+      "description": "Threads waiting for an available database connection; sustained waiting warrants investigation.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "hikaricp_connections_pending{job=\"application-otlp\"}",
+          "legendFormat": "Waiting borrowers",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 18,
+      "gridPos": {
+        "x": 12,
+        "y": 39,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Mean connection acquisition",
+      "type": "timeseries",
+      "description": "Weighted mean time to acquire a connection during the rate window.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum (rate(hikaricp_connections_acquire_milliseconds_sum{job=\"application-otlp\"}[$__rate_interval]))) / ((sum (rate(hikaricp_connections_acquire_milliseconds_count{job=\"application-otlp\"}[$__rate_interval]))) > 0)",
+          "legendFormat": "Mean connection acquisition",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 19,
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 8,
+        "h": 5
+      }
+    },
+    {
+      "title": "Connection timeouts \u00b7 range",
+      "type": "stat",
+      "description": "Estimated events in the selected range via increase(); resets handled where observed. The first event before a baseline export may be missed; fractional values reflect extrapolation.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (increase(hikaricp_connections_timeout_total{job=\"application-otlp\"}[$__range]))",
+          "legendFormat": "Connection timeouts \u00b7 range",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 20,
+      "gridPos": {
+        "x": 8,
+        "y": 47,
+        "w": 8,
+        "h": 5
+      }
+    },
+    {
+      "title": "Database connections",
+      "type": "stat",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Application database count vs whole-server max_connections, not a utilization ratio.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT connections, server_connection_limit FROM public.observability_database",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "connections"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "App DB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "server_connection_limit"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Server limit"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto",
+        "text": {
+          "titleSize": 14,
+          "valueSize": 42
+        }
+      },
+      "id": 21,
+      "gridPos": {
+        "x": 16,
+        "y": 47,
+        "w": 8,
+        "h": 5
+      }
+    },
+    {
+      "id": 22,
+      "title": "Telemetry \u00b7 distinguish an exporter outage from no activity",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Telemetry scrape availability",
+      "type": "timeseries",
+      "description": "Availability of each internal Collector endpoint, not readiness.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "up{job=~\"application-otlp|collector\"}",
+          "legendFormat": "{{job}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 23,
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Application metric sample age",
+      "type": "timeseries",
+      "description": "Age of latest Prometheus sample for uptime, not original OTLP timestamp. Can look fresh for up to five minutes after export stops.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "time() - max(timestamp(process_uptime_seconds{job=\"application-otlp\"}))",
+          "legendFormat": "Application metric sample age",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 24,
+      "gridPos": {
+        "x": 12,
+        "y": 53,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Collector accepted / refused metric points",
+      "type": "timeseries",
+      "description": "Collector internal receiver points per second; refusal is ingestion pressure.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum(rate(otelcol_receiver_accepted_metric_points_total{job=\"collector\"}[$__rate_interval]))",
+          "legendFormat": "Accepted",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum(rate(otelcol_receiver_refused_metric_points_total{job=\"collector\"}[$__rate_interval]))",
+          "legendFormat": "Refused",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 25,
+      "gridPos": {
+        "x": 0,
+        "y": 61,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Collector receiver failures",
+      "type": "timeseries",
+      "description": "Receiver internal processing failures per second, using the Collector\u2019s exported counter. Refusals are shown separately; this is not a count of application failures or exporter delivery guarantees.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum(rate(otelcol_receiver_failed_metric_points_total{job=\"collector\"}[$__rate_interval]))",
+          "legendFormat": "Collector receiver failures",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 26,
+      "gridPos": {
+        "x": 8,
+        "y": 61,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Database cumulative diagnostics",
+      "type": "table",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Deadlocks/temp bytes are cumulative since stats_reset, not range events.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT deadlocks, temp_bytes, stats_reset FROM public.observability_database",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "deadlocks"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Deadlocks"
+              },
+              {
+                "id": "custom.width",
+                "value": 85
+              },
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "temp_bytes"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Temp bytes"
+              },
+              {
+                "id": "custom.width",
+                "value": 95
+              },
+              {
+                "id": "unit",
+                "value": "bytes"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "stats_reset"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Stats reset"
+              },
+              {
+                "id": "custom.width",
+                "value": 145
+              },
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 27,
+      "gridPos": {
+        "x": 16,
+        "y": 61,
+        "w": 8,
+        "h": 8
+      }
+    }
+  ]
 }

@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+# Provisioning substitutes the secret from the process environment, never from Compose.
+GRAFANA_ANALYTICS_PASSWORD="$(cat /run/secrets/grafana_database_password)"
+[ -n "$GRAFANA_ANALYTICS_PASSWORD" ] || { echo 'Grafana database secret is empty' >&2; exit 1; }
+export GRAFANA_ANALYTICS_PASSWORD
+exec /run.sh

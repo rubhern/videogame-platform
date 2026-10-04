@@ -15,8 +15,20 @@ scrape_configs:
     metric_relabel_configs:
       # Drop target_info/resource metadata and unrelated meter families before storage.
       - source_labels: [__name__]
-        regex: '(http_server_requests_.*|jvm_.*|process_.*|system_cpu_.*|jdbc_connections_.*|hikaricp_.*|catalogue_.*|issue43_synthetic_receipt.*)'
+        regex: '(http_server_requests_.*|jvm_.*|process_.*|system_cpu_.*|jdbc_connections_.*|hikaricp_.*|catalogue_.*|platform_http_errors_.*|issue43_synthetic_receipt.*)'
         action: keep
       # id denotes a bounded JVM pool/buffer name, never a product identifier.
-      - regex: '__name__|job|instance|uri|method|status|outcome|exception|error|le|area|id|action|cause|state|pool|name|view|eligibility|aggregate|kind|operation|reason'
+      - regex: '__name__|job|instance|uri|method|status|outcome|exception|error|le|area|id|action|cause|state|pool|name|view|eligibility|aggregate|kind|operation|reason|code|freshness|month|lead_image'
+        action: labelkeep
+
+  - job_name: collector
+    static_configs:
+      - targets: [telemetry:8888]
+    sample_limit: 1000
+    body_size_limit: 2MB
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'otelcol_(receiver_(accepted|refused|failed)_metric_points.*|exporter_(sent|send_failed)_metric_points.*|process_uptime.*)'
+        action: keep
+      - regex: '__name__|job|instance|receiver|exporter|transport'
         action: labelkeep

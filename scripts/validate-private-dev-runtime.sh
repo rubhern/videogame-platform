@@ -30,8 +30,9 @@ Usage:
   validate-private-dev-runtime.sh --env-file <protected-runtime.env> [--live]
 
 Without arguments, validates the reviewed configuration with disposable placeholder
-inputs and does not start containers. --telemetry-smoke starts only a disposable
-metrics stack, checks OTLP receipt, queries and provisioning, then removes it.
+inputs and does not start containers. --telemetry-smoke starts a disposable
+metrics stack and PostgreSQL read-model fixture, checks OTLP receipt, queries and
+provisioning, then removes it.
 --live inspects an already-started host stack using temporary HTTP probes; it never
 recreates, restarts, or removes runtime services.
 EOF
@@ -88,7 +89,8 @@ if [[ -z "$runtime_env" ]]; then
     igdb-client-secret \
     oidc-smoke-username \
     oidc-smoke-password \
-    grafana-admin-password; do
+    grafana-admin-password \
+    grafana-database-password; do
     printf 'static-validation-%s\n' "$name" >"$secrets_directory/$name"
     chmod 0644 "$secrets_directory/$name"
   done
@@ -190,7 +192,7 @@ expected_secret_access = {
     "keycloak": {"keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"},
     "telemetry": set(),
     "prometheus": set(),
-    "grafana": {"grafana_admin_password"},
+    "grafana": {"grafana_admin_password", "grafana_database_password"},
     "alloy": set(),
     "loki": set(),
     "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"},

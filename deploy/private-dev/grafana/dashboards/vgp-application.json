@@ -1,0 +1,1321 @@
+{
+  "uid": "vgp-application",
+  "title": "VideoGame Platform \u00b7 Application / HTTP",
+  "description": "Product API traffic, HTTP outcomes, latency and stable errors. Expected unrated-game reads are separated. Counts estimate server calls, not visits or users.",
+  "tags": [
+    "videogame-platform",
+    "private-dev"
+  ],
+  "schemaVersion": 39,
+  "version": 2,
+  "editable": false,
+  "timezone": "Europe/Madrid",
+  "refresh": "1m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "route",
+        "label": "Route",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "private-dev-prometheus"
+        },
+        "query": "label_values(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"/api/v1/.*\"}, uri)",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": "/api/v1/.*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "options": []
+      },
+      {
+        "name": "method",
+        "label": "Method",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "private-dev-prometheus"
+        },
+        "query": "label_values(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"/api/v1/.*\"}, method)",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "sort": 1,
+        "options": []
+      }
+    ]
+  },
+  "links": [
+    {
+      "title": "Resources",
+      "url": "/d/vgp-runtime",
+      "type": "link",
+      "keepTime": false
+    },
+    {
+      "title": "Application",
+      "url": "/d/vgp-application",
+      "type": "link",
+      "keepTime": false
+    },
+    {
+      "title": "Synchronization",
+      "url": "/d/vgp-synchronization",
+      "type": "link",
+      "keepTime": false
+    },
+    {
+      "title": "Product",
+      "url": "/d/vgp-product",
+      "type": "link",
+      "keepTime": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Selected range \u00b7 volume, status and actionable failures",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "API requests \u00b7 range",
+      "type": "stat",
+      "description": "Estimated events in the selected range via increase(); resets handled where observed. The first event before a baseline export may be missed; fractional values reflect extrapolation.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (increase(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__range]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 2,
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "title": "Throughput",
+      "type": "stat",
+      "description": "Requests per second in the rate window, filtered by route and method.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 3
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 3,
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "title": "Successful 2xx / 3xx share",
+      "type": "stat",
+      "description": "HTTP success + conditional/cache redirects / all requests in the rate window.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"2..|3..\"}[$__rate_interval]))) / ((sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))) > 0)",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 4,
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "title": "4xx / 5xx rejection rate",
+      "type": "stat",
+      "description": "Client rejections and server failures are diagnostic categories; the exact GET personal-rating 404 is excluded. No project SLO threshold.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"4..|5..\"}[$__rate_interval]) unless rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=\"/api/v1/me/ratings/{gameId}\",method=\"GET\",status=\"404\"}[$__rate_interval]))) / ((sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))) > 0)",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 5,
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 4
+      }
+    },
+    {
+      "id": 6,
+      "title": "Traffic and response latency",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Request throughput by route / method",
+      "type": "timeseries",
+      "description": "Template routes and bounded methods; never raw URLs.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (uri,method) (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))",
+          "legendFormat": "{{method}} {{uri}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 7,
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Status classes",
+      "type": "timeseries",
+      "description": "Raw HTTP outcomes include expected GET personal-rating 404; see separate panels below.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"2..\"}[$__rate_interval]))",
+          "legendFormat": "2xx",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"3..\"}[$__rate_interval]))",
+          "legendFormat": "3xx",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"4..\"}[$__rate_interval]))",
+          "legendFormat": "4xx",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"5..\"}[$__rate_interval]))",
+          "legendFormat": "5xx",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 8,
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "API latency \u00b7 p50 / p95 / p99",
+      "type": "timeseries",
+      "description": "Percentiles from pooled HTTP histogram buckets, not averages of endpoint percentiles. Micrometer OTLP timers use milliseconds.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval])))",
+          "legendFormat": "p50",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval])))",
+          "legendFormat": "p95",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval])))",
+          "legendFormat": "p99",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Slowest routes \u00b7 p95",
+      "type": "bargauge",
+      "description": "Top ten route/method combinations by histogram p95 in the rate window. No observations means no percentile.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "topk(10, histogram_quantile(0.95, sum by (le,uri,method) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))))",
+          "legendFormat": "{{method}} {{uri}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 10,
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "id": 11,
+      "title": "Composition \u00b7 selected range",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Requests by method",
+      "type": "piechart",
+      "description": "Estimated events in the selected range via increase(); resets handled where observed. The first event before a baseline export may be missed; fractional values reflect extrapolation.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (method) (increase(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__range]))",
+          "legendFormat": "{{method}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "displayLabels": [
+          "name",
+          "percent"
+        ],
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value"
+          ]
+        },
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      },
+      "id": 12,
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Requests by route",
+      "type": "bargauge",
+      "description": "Estimated events in the selected range via increase(); resets handled where observed. The first event before a baseline export may be missed; fractional values reflect extrapolation.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (uri) (increase(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__range]))",
+          "legendFormat": "{{uri}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 13,
+      "gridPos": {
+        "x": 8,
+        "y": 23,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Responses by status",
+      "type": "bargauge",
+      "description": "Estimated events in the selected range via increase(); resets handled where observed. The first event before a baseline export may be missed; fractional values reflect extrapolation.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (status) (increase(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__range]))",
+          "legendFormat": "{{status}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 14,
+      "gridPos": {
+        "x": 16,
+        "y": 23,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "id": 15,
+      "title": "Failures, contractual absences and functional signals",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Client rejections / server failures",
+      "type": "timeseries",
+      "description": "HTTP 4xx/5xx rate excluding only the contractual GET rating absence. Client rejections are not automatically application defects.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (status) (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"4..|5..\"}[$__rate_interval]) unless rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=\"/api/v1/me/ratings/{gameId}\",method=\"GET\",status=\"404\"}[$__rate_interval]))",
+          "legendFormat": "{{status}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 16,
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Expected unrated-game reads \u00b7 range",
+      "type": "stat",
+      "description": "Estimated events in the selected range via increase(); resets handled where observed. The first event before a baseline export may be missed; fractional values reflect extrapolation. Routine rating absence; this panel always shows that exact route independent of filters.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (increase(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=\"/api/v1/me/ratings/{gameId}\",method=\"GET\",status=\"404\"}[$__range]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 17,
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Stable error codes \u00b7 observed process",
+      "type": "table",
+      "description": "Observed process totals; reset on application restart. Missing is not zero. Collector series can survive a restart for up to five minutes. All routes, independent of route/method filters. Only closed codes; UNCLASSIFIED covers unknown codes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (code,kind) (platform_http_errors_total{job=\"application-otlp\"})",
+          "legendFormat": "{{kind}} \u00b7 {{code}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Code"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 320
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Classification"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Process errors"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Process errors",
+            "desc": true
+          }
+        ]
+      },
+      "id": 18,
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 6
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "code": "Code",
+              "kind": "Classification",
+              "Value": "Process errors"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "title": "Detail aggregate degradation \u00b7 range",
+      "type": "stat",
+      "description": "Estimated events in the selected range via increase(); resets handled where observed. The first event before a baseline export may be missed; fractional values reflect extrapolation. Successful detail API reads where rating statistics could not be read; an empty healthy aggregate is available. Independent of route/method filters.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum (increase(catalogue_game_details_total{job=\"application-otlp\",aggregate=\"unavailable\"}[$__range]))",
+          "legendFormat": "",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 19,
+      "gridPos": {
+        "x": 0,
+        "y": 46,
+        "w": 12,
+        "h": 4
+      }
+    },
+    {
+      "title": "Search outcomes \u00b7 range",
+      "type": "bargauge",
+      "description": "Estimated events in the selected range via increase(); resets handled where observed. The first event before a baseline export may be missed; fractional values reflect extrapolation. Successful search calls only; independent of route/method filters.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (outcome) (increase(catalogue_search_result_outcome_total{job=\"application-otlp\"}[$__range]))",
+          "legendFormat": "{{outcome}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 20,
+      "gridPos": {
+        "x": 12,
+        "y": 46,
+        "w": 12,
+        "h": 4
+      }
+    }
+  ]
+}

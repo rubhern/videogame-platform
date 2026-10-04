@@ -1,27 +1,107 @@
 {
   "uid": "vgp-synchronization",
-  "title": "VideoGame Platform \u00b7 Catalogue synchronization",
-  "description": "Manual, sparse synchronization events. Instant totals and means are the latest observed application-process accumulation, not totals in the selected range or one run. The history panel shows retained cumulative samples. Use the management last-run report for an individual run; missing is not zero. After restart, previous lazy outcome meters may remain at the Collector for up to five minutes until expiry.",
-  "schemaVersion": 39,
-  "version": 1,
-  "editable": false,
+  "title": "VideoGame Platform \u00b7 Catalogue Synchronization",
+  "description": "Manual date-window imports: retained SQL runs and current inventory; process provider diagnostics from OTLP. No scheduled-job assumptions. SQL history is limited by retained-runs policy, not Prometheus retention.",
   "tags": [
-    "videogame-platform"
+    "videogame-platform",
+    "private-dev"
   ],
-  "timezone": "browser",
-  "refresh": "1m",
+  "schemaVersion": 39,
+  "version": 2,
+  "editable": false,
+  "timezone": "Europe/Madrid",
+  "refresh": "5m",
   "time": {
-    "from": "now-7d",
+    "from": "now-30d",
     "to": "now"
   },
+  "timepicker": {
+    "refresh_intervals": [
+      "1m",
+      "5m",
+      "15m"
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "Resources",
+      "url": "/d/vgp-runtime",
+      "type": "link",
+      "keepTime": false
+    },
+    {
+      "title": "Application",
+      "url": "/d/vgp-application",
+      "type": "link",
+      "keepTime": false
+    },
+    {
+      "title": "Synchronization",
+      "url": "/d/vgp-synchronization",
+      "type": "link",
+      "keepTime": false
+    },
+    {
+      "title": "Product",
+      "url": "/d/vgp-product",
+      "type": "link",
+      "keepTime": false
+    }
+  ],
   "panels": [
     {
-      "title": "Runs by outcome \u00b7 observed process totals",
+      "id": 1,
+      "title": "Selected range \u00b7 durable manual executions",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Recorded runs \u00b7 range",
       "type": "stat",
-      "description": "Exact observed cumulative completed/skipped run count by outcome since the application process started. Includes the first exported event; does not extrapolate an integer count. An outcome without a meter is absent, not an invented zero. This is not a total for the selected seven-day range.",
+      "description": "Exact retained runs whose start is in the selected range; includes running/abandoned, excludes skipped commands.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT count(*) AS runs FROM catalogue.observability_runs WHERE $__timeFilter(started_at)",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
           "decimals": 0
         },
         "overrides": []
@@ -32,83 +112,58 @@
             "lastNotNull"
           ],
           "fields": "",
-          "values": false
+          "values": true
         },
-        "textMode": "value_and_name",
         "colorMode": "none",
-        "graphMode": "none"
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (outcome) (catalogue_synchronization_run_total{job=\"application-otlp\"})",
-          "legendFormat": "{{outcome}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          },
-          "instant": true,
-          "range": false
-        }
-      ],
-      "id": 1,
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Mean reported run duration \u00b7 process",
-      "type": "stat",
-      "description": "Cumulative timer sum divided by completed/skipped run count, per outcome, since process start. A single observation gives that run duration; several give their weighted mean. Use the durable last-run report for one execution. Skipped commands may be very short; no percentile is available. Skipped commands have a response/log but do not replace the durable last-run report.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value_and_name",
-        "colorMode": "none",
-        "graphMode": "none"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (outcome) (catalogue_synchronization_run_duration_milliseconds_sum{job=\"application-otlp\"}) / (sum by (outcome) (catalogue_synchronization_run_duration_milliseconds_count{job=\"application-otlp\"}) > 0)",
-          "legendFormat": "{{outcome}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          },
-          "instant": true,
-          "range": false
-        }
-      ],
       "id": 2,
       "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 12,
-        "h": 9
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 4
       }
     },
     {
-      "title": "Catalogue work by kind \u00b7 process totals",
+      "title": "Completed outcomes \u00b7 range",
       "type": "stat",
-      "description": "Exact accumulated record amounts reported after completed/skipped runs. Summary sum counts records; summary count counts reports. A recorded zero (for example no created records on an unchanged rerun) is valid. A missing series means no report for that kind has been exported; not in-flight progress or one run.",
+      "description": "Exact counts in retained SQL history. Empty may mean none in the range or history already pruned.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT outcome, count(*) AS runs FROM catalogue.observability_runs WHERE $__timeFilter(started_at) AND completed_at IS NOT NULL GROUP BY outcome ORDER BY outcome",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
           "decimals": 0
         },
         "overrides": []
@@ -119,40 +174,58 @@
             "lastNotNull"
           ],
           "fields": "",
-          "values": false
+          "values": true
         },
-        "textMode": "value_and_name",
         "colorMode": "none",
-        "graphMode": "none"
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (kind) (catalogue_synchronization_run_records_sum{job=\"application-otlp\"})",
-          "legendFormat": "{{kind}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          },
-          "instant": true,
-          "range": false
-        }
-      ],
       "id": 3,
       "gridPos": {
-        "x": 0,
-        "y": 9,
-        "w": 12,
-        "h": 9
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 4
       }
     },
     {
-      "title": "Provider requests \u00b7 process totals",
+      "title": "Games reconciled \u00b7 range",
       "type": "stat",
-      "description": "Exact observed cumulative logical provider calls by closed operation/outcome, including work in progress. One call can include retries; retry attempts are separate. Failure outcomes absent from the registry mean none has been observed in this process, not a fabricated zero or proof of delivery health.",
+      "description": "Committed Game reconciliations in retained runs, not distinct Games. Deferred/failed shown separately. No runs means no value.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT sum(created_games + updated_games + unchanged_games) AS reconciled FROM catalogue.observability_runs WHERE $__timeFilter(started_at)",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
           "decimals": 0
         },
         "overrides": []
@@ -163,40 +236,59 @@
             "lastNotNull"
           ],
           "fields": "",
-          "values": false
+          "values": true
         },
-        "textMode": "value_and_name",
         "colorMode": "none",
-        "graphMode": "none"
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (operation, outcome) (catalogue_synchronization_provider_request_total{job=\"application-otlp\"})",
-          "legendFormat": "{{operation}} {{outcome}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          },
-          "instant": true,
-          "range": false
-        }
-      ],
       "id": 4,
       "gridPos": {
         "x": 12,
-        "y": 9,
-        "w": 12,
-        "h": 9
+        "y": 1,
+        "w": 6,
+        "h": 4
       }
     },
     {
-      "title": "Mean provider call duration \u00b7 process",
+      "title": "Current catalogue",
       "type": "stat",
-      "description": "Cumulative elapsed time divided by logical provider call count, per operation, since process start. Includes failed calls and adapter work/retry waits within the timed call. A high mean suggests slow calls; it is not the last call or a percentile. No calls means no mean.",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT games, releases FROM catalogue.observability_inventory",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "unit": "ms"
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
         },
         "overrides": []
       },
@@ -206,132 +298,76 @@
             "lastNotNull"
           ],
           "fields": "",
-          "values": false
+          "values": true
         },
-        "textMode": "value_and_name",
         "colorMode": "none",
-        "graphMode": "none"
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
       },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (operation) (catalogue_synchronization_provider_request_duration_milliseconds_sum{job=\"application-otlp\"}) / (sum by (operation) (catalogue_synchronization_provider_request_duration_milliseconds_count{job=\"application-otlp\"}) > 0)",
-          "legendFormat": "{{operation}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          },
-          "instant": true,
-          "range": false
-        }
-      ],
       "id": 5,
       "gridPos": {
-        "x": 0,
-        "y": 18,
-        "w": 12,
-        "h": 9
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 4
       }
     },
     {
-      "title": "Provider retries \u00b7 process totals",
-      "type": "stat",
-      "description": "Exact cumulative extra attempts by operation. The adapter registers a retry counter even for a successful call with zero retries, so a present zero is meaningful. A missing operation means no corresponding call metric has arrived. Increasing retries suggest transient provider/rate-limit trouble; inspect the run report/logs.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value_and_name",
-        "colorMode": "none",
-        "graphMode": "none"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "expr": "sum by (operation) (catalogue_synchronization_provider_retry_total{job=\"application-otlp\"})",
-          "legendFormat": "{{operation}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          },
-          "instant": true,
-          "range": false
-        }
-      ],
       "id": 6,
+      "title": "Execution history \u00b7 range and latest run",
+      "type": "row",
+      "collapsed": false,
       "gridPos": {
-        "x": 12,
-        "y": 18,
-        "w": 12,
-        "h": 9
-      }
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
     },
     {
-      "title": "Mapping failures \u00b7 process totals",
-      "type": "stat",
-      "description": "Exact cumulative rejected provider mappings by bounded reason. These meters are registered lazily only when a mapping failure occurs. No series is legitimate when none has occurred, provided OTLP/scrape health is verified. Do not replace absence with zero; deferrals and persistence failures are different signals.",
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "decimals": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value_and_name",
-        "colorMode": "none",
-        "graphMode": "none"
+      "title": "Manual run durations",
+      "type": "timeseries",
+      "description": "One point per completed retained run; duration in seconds. The selected window filters run start, not its completion.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (reason) (catalogue_synchronization_provider_mapping_failure_total{job=\"application-otlp\"})",
-          "legendFormat": "{{reason}}",
           "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
           },
-          "instant": true,
-          "range": false
+          "rawSql": "SELECT started_at AS time, duration_seconds AS \"Duration (s)\" FROM catalogue.observability_runs WHERE $__timeFilter(started_at) AND completed_at IS NOT NULL ORDER BY started_at, ordering_key",
+          "format": "time_series",
+          "editorMode": "code",
+          "rawQuery": true
         }
       ],
-      "id": 7,
-      "gridPos": {
-        "x": 0,
-        "y": 27,
-        "w": 12,
-        "h": 9
-      }
-    },
-    {
-      "title": "Retained run-counter observations",
-      "type": "timeseries",
-      "description": "Historical cumulative counter samples in the selected range, not a count of runs in that range. Stair steps show observed increments; restarts reset counters and may leave a gap. A first event may precede the first sample. Old samples survive in Prometheus, but cannot reconstruct exact lifetime/per-run totals across unseen resets. Latest totals above use instant queries.",
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
-          "decimals": 0,
+          "unit": "s",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "stepAfter",
+            "lineWidth": 0,
+            "fillOpacity": 0,
+            "showPoints": "always",
             "spanNulls": false
           }
         },
@@ -339,34 +375,1627 @@
       },
       "options": {
         "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
         }
+      },
+      "id": 7,
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Runs per day / outcome",
+      "type": "timeseries",
+      "description": "Recorded manual activity; gaps are days without retained runs, not missed scheduled jobs.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (outcome) (catalogue_synchronization_run_total{job=\"application-otlp\"})",
-          "legendFormat": "{{outcome}}",
           "datasource": {
-            "type": "prometheus",
-            "uid": "private-dev-prometheus"
-          }
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT date_trunc('day', started_at) AS time, count(*)::double precision AS value, outcome AS metric FROM catalogue.observability_runs WHERE $__timeFilter(started_at) GROUP BY 1, outcome ORDER BY 1, outcome",
+          "format": "time_series",
+          "editorMode": "code",
+          "rawQuery": true
         }
       ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 0,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
       "id": 8,
       "gridPos": {
         "x": 12,
-        "y": 27,
+        "y": 6,
         "w": 12,
-        "h": 9
+        "h": 8
+      }
+    },
+    {
+      "title": "Latest recorded run \u00b7 all time",
+      "type": "table",
+      "description": "Latest retained recorded run regardless of selected range. Running status and heartbeat diagnose in-flight work; no periodic freshness claim.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT window_from::text || ' \u2192 ' || window_to::text AS \"Window\", started_at AS \"Started\", outcome AS \"Outcome\", outcome_code AS \"Code\", duration_seconds AS \"Duration\", heartbeat_at AS \"Heartbeat\" FROM catalogue.observability_runs ORDER BY started_at DESC, ordering_key DESC LIMIT 1",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Window"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 240
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Started"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Heartbeat"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Code"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 240
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Outcome"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 9,
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 5
+      }
+    },
+    {
+      "title": "Recent runs \u00b7 selected range",
+      "type": "table",
+      "description": "At most 20 retained runs; deterministic ordering. Counters become available when a report is completed.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT started_at AS \"Started\", window_from::text || ' \u2192 ' || window_to::text AS \"Window\", outcome AS \"Outcome\", duration_seconds AS \"Duration\", created_games AS \"Created\", updated_games AS \"Updated\", unchanged_games AS \"Unchanged\", deferred_games AS \"Deferred\", failed_games AS \"Failed\" FROM catalogue.observability_runs WHERE $__timeFilter(started_at) ORDER BY started_at DESC, ordering_key DESC LIMIT 20",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Window"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 240
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Started"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Heartbeat"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Code"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 240
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Outcome"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Created"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Updated"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Unchanged"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Deferred"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 10,
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 8
+      }
+    },
+    {
+      "id": 11,
+      "title": "Work composition \u00b7 retained runs in selected range",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Game results",
+      "type": "bargauge",
+      "description": "Exact summed report counters. Deferral is import policy, not a failure.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT sum(created_games) AS \"created games\", sum(updated_games) AS \"updated games\", sum(unchanged_games) AS \"unchanged games\", sum(deferred_games) AS \"deferred games\", sum(failed_games) AS \"failed games\" FROM catalogue.observability_runs WHERE $__timeFilter(started_at)",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 12,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Release reconciliation",
+      "type": "bargauge",
+      "description": "Exact report totals; inspections and durable reconciliations are different boundaries.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT sum(created_releases) AS \"created releases\", sum(updated_releases) AS \"updated releases\", sum(unchanged_releases) AS \"unchanged releases\", sum(deleted_releases) AS \"deleted releases\" FROM catalogue.observability_runs WHERE $__timeFilter(started_at)",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 13,
+      "gridPos": {
+        "x": 8,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Inspected provider release dates",
+      "type": "stat",
+      "description": "Inspected provider evidence across retained completed reports; not current Release count.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT sum(inspected_release_dates) AS \"inspected release dates\" FROM catalogue.observability_runs WHERE $__timeFilter(started_at)",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 14,
+      "gridPos": {
+        "x": 16,
+        "y": 28,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "id": 15,
+      "title": "Current catalogue quality \u00b7 independent of selected range",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Release provider evidence",
+      "type": "bargauge",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Persisted provider evidence, not effective date-derived RELEASED/SCHEDULED.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT provider_status, count(*) AS releases FROM catalogue.observability_release_quality GROUP BY provider_status ORDER BY provider_status",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 16,
+      "gridPos": {
+        "x": 0,
+        "y": 37,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Review / verification",
+      "type": "bargauge",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT review_status || ' \u00b7 ' || verification_level AS quality, count(*) AS releases FROM catalogue.observability_release_quality GROUP BY 1 ORDER BY 1",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 17,
+      "gridPos": {
+        "x": 8,
+        "y": 37,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Date precision",
+      "type": "bargauge",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT date_precision, count(*) AS releases FROM catalogue.observability_release_quality GROUP BY date_precision ORDER BY date_precision",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 18,
+      "gridPos": {
+        "x": 16,
+        "y": 37,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Release evidence age bands",
+      "type": "bargauge",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Age of last changed synchronized evidence. Unchanged records are not timestamp-refreshed; this is not time since last successful provider verification. Bands are descriptive, not alerts.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT CASE WHEN last_synchronized_at > now() THEN 'future timestamp' WHEN last_synchronized_at >= now() - interval '7 days' THEN '0\u20137 days' WHEN last_synchronized_at >= now() - interval '30 days' THEN '7\u201330 days' ELSE '30+ days' END AS evidence_age, count(*) AS releases FROM catalogue.observability_release_quality GROUP BY 1 ORDER BY 1",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 19,
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Cover sources",
+      "type": "bargauge",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Stored approved provider references vs product-owned fallback; neither proves CDN reachability. Rejected references are diagnosed through mapping failures.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT provider_covers, fallback_covers FROM catalogue.observability_inventory",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 20,
+      "gridPos": {
+        "x": 8,
+        "y": 45,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Oldest evidence timestamps",
+      "type": "table",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Null verification timestamps do not mean verification happened.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT min(last_synchronized_at) AS oldest_synchronized, max(last_synchronized_at) AS newest_synchronized, min(last_verified_at) AS oldest_verified, count(last_verified_at) AS verified_timestamps FROM catalogue.observability_release_quality",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 21,
+      "gridPos": {
+        "x": 16,
+        "y": 45,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "id": 22,
+      "title": "Provider \u00b7 bounded process diagnostics",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Logical calls \u00b7 observed process",
+      "type": "bargauge",
+      "description": "Observed process totals; reset on application restart. Missing is not zero. Collector series can survive a restart for up to five minutes. A logical call may include multiple HTTP attempts, authentication and retries.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (operation,outcome) (catalogue_synchronization_provider_request_total{job=\"application-otlp\"})",
+          "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 23,
+      "gridPos": {
+        "x": 0,
+        "y": 54,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Retries \u00b7 observed process",
+      "type": "bargauge",
+      "description": "Observed process totals; reset on application restart. Missing is not zero. Collector series can survive a restart for up to five minutes. Extra provider attempts; rate-limit exhaustion appears as a stable provider failure outcome.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (operation) (catalogue_synchronization_provider_retry_total{job=\"application-otlp\"})",
+          "legendFormat": "{{operation}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 24,
+      "gridPos": {
+        "x": 8,
+        "y": 54,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Mapping rejections \u00b7 observed process",
+      "type": "bargauge",
+      "description": "Observed process totals; reset on application restart. Missing is not zero. Collector series can survive a restart for up to five minutes. Closed mapper reasons; not persistence failures or policy deferrals.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (reason) (catalogue_synchronization_provider_mapping_failure_total{job=\"application-otlp\"})",
+          "legendFormat": "{{reason}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 25,
+      "gridPos": {
+        "x": 16,
+        "y": 54,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Provider mean duration \u00b7 observed process",
+      "type": "bargauge",
+      "description": "Observed process totals; reset on application restart. Missing is not zero. Collector series can survive a restart for up to five minutes. Weighted duration sum/count, including auth/retry waits. Useful for sparse calls; not a percentile.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum by (operation) (catalogue_synchronization_provider_request_duration_milliseconds_sum{job=\"application-otlp\"})) / ((sum by (operation) (catalogue_synchronization_provider_request_duration_milliseconds_count{job=\"application-otlp\"})) > 0)",
+          "legendFormat": "{{operation}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 26,
+      "gridPos": {
+        "x": 0,
+        "y": 62,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Provider p95 during activity",
+      "type": "timeseries",
+      "description": "Actual histogram percentile in the rate window; no percentile when no provider calls occurred. Includes auth/retry waits.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le,operation) (rate(catalogue_synchronization_provider_request_duration_milliseconds_bucket{job=\"application-otlp\"}[$__rate_interval])))",
+          "legendFormat": "{{operation}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 27,
+      "gridPos": {
+        "x": 8,
+        "y": 62,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Command outcomes \u00b7 observed process",
+      "type": "bargauge",
+      "description": "Observed process totals; reset on application restart. Missing is not zero. Collector series can survive a restart for up to five minutes. Includes skipped commands which are absent from the durable run ledger. Running is read from SQL instead.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (outcome) (catalogue_synchronization_run_total{job=\"application-otlp\"})",
+          "legendFormat": "{{outcome}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 28,
+      "gridPos": {
+        "x": 16,
+        "y": 62,
+        "w": 8,
+        "h": 8
+      }
+    },
+    {
+      "title": "Provider calls over retained metric history",
+      "type": "timeseries",
+      "description": "Cumulative samples in Prometheus retention (seven days initially), not a durable event count over this dashboard\u2019s 30-day range. Restarts reset totals.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (operation,outcome) (catalogue_synchronization_provider_request_total{job=\"application-otlp\"})",
+          "legendFormat": "{{operation}} \u00b7 {{outcome}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 29,
+      "gridPos": {
+        "x": 0,
+        "y": 70,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Reported provider work \u00b7 selected range",
+      "type": "table",
+      "description": "Durable report totals; attempts include the client boundary, unlike logical-call counters. Latency column is a summed millisecond duration, not p95.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT sum(provider_attempts) AS \"provider attempts\", sum(provider_retries) AS \"provider retries\", sum(provider_latency_millis) AS \"provider latency millis\" FROM catalogue.observability_runs WHERE $__timeFilter(started_at)",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 30,
+      "gridPos": {
+        "x": 12,
+        "y": 70,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Enrichment results \u00b7 observed process",
+      "type": "bargauge",
+      "description": "Reported per-run record sums since process start for popularity, featured image, logo and detail-metadata evidence. Categories may overlap; these are not independent Games or a pie composition. Missing is not zero.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (kind) (catalogue_synchronization_run_records_sum{job=\"application-otlp\",kind=~\"popularity_.*|featured_image_.*|logo_.*|details_.*\"})",
+          "legendFormat": "{{kind}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 31,
+      "gridPos": {
+        "x": 0,
+        "y": 78,
+        "w": 24,
+        "h": 8
       }
     }
-  ],
-  "templating": {
-    "list": []
-  },
-  "annotations": {
-    "list": []
-  }
+  ]
 }

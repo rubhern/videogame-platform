@@ -28,6 +28,7 @@ services:
       - ./deploy/private-dev/grafana/logs-provisioning/loki.yaml:/etc/grafana/provisioning/datasources/loki.yaml:ro
     networks:
       - logs
+      - default
 
   alloy:
     extends:
@@ -73,6 +74,8 @@ services:
     profiles: [metrics-validation]
 
 secrets:
+  grafana_database_password:
+    file: ./.local-secrets/grafana-database-password
   grafana_admin_password:
     file: ./.local-secrets/grafana-admin-password
 

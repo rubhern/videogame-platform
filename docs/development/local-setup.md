@@ -158,16 +158,31 @@ and credentials never use private-dev state; no Docker socket is mounted.
    bash scripts/local-dependencies.sh application --observability
    ```
 
-   This creates missing ignored environment files and a Grafana password, builds the
-   packaged application and runs the stack in the foreground. Keep the terminal open.
+   This creates missing ignored environment files and separate Grafana admin/database
+   passwords, builds the packaged application and runs the stack in the foreground. Keep the terminal open.
    The opt-in overlay enables the existing ECS structured logging profile.
    Existing backend settings and secrets are preserved. No IGDB synchronization or
    data seeding is triggered by enabling observability.
 3. Open the application at `http://localhost:8080` and Grafana at
    `http://127.0.0.1:3000`. Sign in to Grafana as `owner`, reading the password from
    `.local-secrets/grafana-admin-password` in a local editor. Do not paste it into
-   issues or commit the file. Open the **VideoGame Platform** folder; the datasource
-   and all three dashboards are already provisioned.
+   issues or commit the file. Open the **VideoGame Platform** folder; both datasources
+   and all four dashboards are already provisioned. After application migrations
+   complete, enable SQL view access in a second terminal:
+
+   ```bash
+   bash scripts/provision-grafana-reader.sh --local .env
+   ```
+   When upgrading an already running observability stack, or when Docker Desktop
+   reports a missing `/run/desktop/.../docker-desktop-bind-mounts/...` source after
+   restarting WSL/Desktop, refresh the configuration mounts without deleting data:
+
+   ```bash
+   bash scripts/local-dependencies.sh observability --recreate
+   ```
+
+   This recreates only the five observability services and retains their named
+   volumes and credentials. Then run the application command again.
 4. Generate normal application traffic and wait a few export/scrape intervals. In a
    second terminal, check the stack:
 

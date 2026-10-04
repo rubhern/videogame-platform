@@ -1,11 +1,13 @@
 package com.videogameplatform.platform.observability;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
@@ -48,17 +50,57 @@ final class CorrelationIdFilter extends OncePerRequestFilter {
             Pattern.compile("[A-Za-z0-9][A-Za-z0-9._-]{0,63}");
     private static final Pattern SAFE_ERROR_CODE = Pattern.compile("[A-Z][A-Z0-9_]{0,63}");
 
+    private static final Set<String> METRIC_CODES =
+            Set.of(
+                    "REQUEST_MALFORMED",
+                    "REQUEST_PROPERTY_UNKNOWN",
+                    "REQUEST_PARAMETER_UNKNOWN",
+                    "PAGINATION_INVALID",
+                    "PRECONDITION_REQUIRED",
+                    "CSRF_VALIDATION_FAILED",
+                    "REQUEST_TOO_LARGE",
+                    "MEDIA_TYPE_UNSUPPORTED",
+                    "REPRESENTATION_NOT_ACCEPTABLE",
+                    "METHOD_NOT_ALLOWED",
+                    "INTERNAL_ERROR",
+                    "AUTHENTICATION_REQUIRED",
+                    "GAME_NOT_FOUND",
+                    "RATING_NOT_FOUND",
+                    "RATING_VALUE_INVALID",
+                    "RATING_NOT_ELIGIBLE",
+                    "RELEASE_DATA_REVIEW_REQUIRED",
+                    "SEARCH_QUERY_INVALID",
+                    "FILTER_INVALID",
+                    "PLATFORM_NOT_SUPPORTED",
+                    "REGION_NOT_SUPPORTED",
+                    "SORT_INVALID",
+                    "RATING_ALREADY_EXISTS",
+                    "RATING_WRITE_CONFLICT",
+                    "CATALOGUE_NOT_READY",
+                    "CATALOGUE_READ_FAILED",
+                    "RATING_STATISTICS_READ_FAILED",
+                    "PERSONAL_RATINGS_READ_FAILED",
+                    "RATING_WRITE_FAILED",
+                    "AUTHENTICATION_CANCELLED",
+                    "AUTHENTICATION_FAILED");
+    private final MeterRegistry registry;
     private final RouteTemplateResolver unmatchedRoutes;
 
     @Autowired
     CorrelationIdFilter(
             @Qualifier("requestMappingHandlerMapping")
-                    ObjectProvider<RequestMappingHandlerMapping> handlerMappings) {
-        this(new HandlerMappingRouteTemplateResolver(handlerMappings));
+                    ObjectProvider<RequestMappingHandlerMapping> handlerMappings,
+            MeterRegistry registry) {
+        this(new HandlerMappingRouteTemplateResolver(handlerMappings), registry);
     }
 
     CorrelationIdFilter(RouteTemplateResolver unmatchedRoutes) {
+        this(unmatchedRoutes, null);
+    }
+
+    CorrelationIdFilter(RouteTemplateResolver unmatchedRoutes, MeterRegistry registry) {
         this.unmatchedRoutes = unmatchedRoutes;
+        this.registry = registry;
     }
 
     @Override
@@ -107,6 +149,7 @@ final class CorrelationIdFilter extends OncePerRequestFilter {
         String route = routeTemplate(request);
         String outcome = outcome(status);
         Optional<String> errorCode = errorCode(request);
+        recordError(status, method, route, errorCode.orElse("UNCLASSIFIED"));
         // Expected client errors stay at INFO; only server failures are operational warnings. The
         // cause of a technical failure is logged once, at ERROR, by the boundary that handled it.
         LoggingEventBuilder event =
@@ -125,6 +168,26 @@ final class CorrelationIdFilter extends OncePerRequestFilter {
                 outcome,
                 errorCode.map(code -> " code=" + code).orElse(""),
                 durationMillis);
+    }
+
+    private void recordError(int status, String method, String route, String reportedCode) {
+        if (registry == null || status < 400) {
+            return;
+        }
+        String code = METRIC_CODES.contains(reportedCode) ? reportedCode : "UNCLASSIFIED";
+        String kind = status >= 500 ? "server_failure" : "client_rejection";
+        if (status == 404
+                && "GET".equals(method)
+                && "/api/v1/me/ratings/{gameId}".equals(route)
+                && "RATING_NOT_FOUND".equals(code)) {
+            kind = "expected_absence";
+        }
+        try {
+            registry.counter("platform.http.errors", "code", code, "kind", kind).increment();
+        } catch (RuntimeException unavailable) {
+            // A replaceable telemetry sink must never change the product response.
+            LOGGER.warn("HTTP error metrics unavailable");
+        }
     }
 
     private static String correlationId(String candidate) {
