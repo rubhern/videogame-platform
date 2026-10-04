@@ -12,7 +12,7 @@ public final class AuthenticationReturnTarget {
     private static final Pattern GAME_PATH =
             Pattern.compile("/games/[a-z0-9-]{1,100}(?:/[a-z0-9-]{1,200})?");
     private static final Set<String> BROWSE_QUERY =
-            Set.of("view", "weeks", "platformIds", "regionIds", "page", "pageSize");
+            Set.of("view", "month", "weeks", "platformIds", "regionIds", "page", "pageSize");
     private static final Set<String> SEARCH_QUERY = Set.of("q", "page", "pageSize");
     private static final Set<String> GAME_QUERY = Set.of("platformId", "regionId");
 

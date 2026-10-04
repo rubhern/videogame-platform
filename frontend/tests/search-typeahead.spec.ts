@@ -65,7 +65,7 @@ for (const width of [1320, 390]) {
   test(`typeahead opens a game from the keyboard at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await scriptCatalogue(page);
-    await page.goto("/");
+    await page.goto("/?view=recent");
 
     if (width < 620) {
       await page.getByRole("button", { name: "Buscar juegos" }).click();

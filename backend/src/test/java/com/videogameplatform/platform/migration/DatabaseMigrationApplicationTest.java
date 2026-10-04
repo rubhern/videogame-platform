@@ -53,7 +53,7 @@ class DatabaseMigrationApplicationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(15);
+                    .isEqualTo(19);
             assertThat(
                             singleString(
                                     statement,
@@ -64,6 +64,59 @@ class DatabaseMigrationApplicationTest {
         try (Connection connection = PostgreSqlTestDatabase.runtimeConnection(databaseName);
                 Statement statement = connection.createStatement()) {
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game")).isZero();
+        }
+    }
+
+    @Test
+    void forwardCorrectionRemovesVisitsAndPreservesGamesAndSelectedMedia() throws SQLException {
+        String database = PostgreSqlTestDatabase.isolatedDatabaseName("featured_upgrade");
+        PostgreSqlTestDatabase.createDatabase(database);
+        org.flywaydb.core.Flyway.configure()
+                .dataSource(
+                        PostgreSqlTestDatabase.adminUrl(database),
+                        PostgreSqlTestDatabase.migratorUsername(),
+                        PostgreSqlTestDatabase.migratorPassword())
+                .locations("classpath:db/migration")
+                .target("20261003.160000")
+                .load()
+                .migrate();
+        try (var connection = PostgreSqlTestDatabase.adminConnection(database);
+                var statement = connection.createStatement()) {
+            statement.execute(
+                    "INSERT INTO catalogue.game VALUES ('30000000-0000-4000-8000-000000000151', now())");
+            statement.execute(
+                    "INSERT INTO catalogue.game_popularity VALUES ('30000000-0000-4000-8000-000000000151', 0.1, 'IGDB', NULL, now())");
+            statement.execute(
+                    "INSERT INTO catalogue.game_featured_media VALUES ('30000000-0000-4000-8000-000000000151', 'image', 'artwork', 'arupgrade', 1920, 1080, false, 'IGDB', 'https://www.igdb.com/games/upgrade', now())");
+        }
+        org.flywaydb.core.Flyway.configure()
+                .dataSource(
+                        PostgreSqlTestDatabase.adminUrl(database),
+                        PostgreSqlTestDatabase.migratorUsername(),
+                        PostgreSqlTestDatabase.migratorPassword())
+                .locations("classpath:db/migration")
+                .load()
+                .migrate();
+        try (var connection = PostgreSqlTestDatabase.runtimeConnection(database);
+                var statement = connection.createStatement()) {
+            assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game")).isEqualTo(1);
+            assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_featured_media"))
+                    .isEqualTo(2);
+            assertThat(
+                            singleString(
+                                    statement,
+                                    "SELECT image_reference FROM catalogue.game_featured_media WHERE media_role = 'card_image'"))
+                    .isEqualTo("arupgrade");
+            assertThat(
+                            singleInt(
+                                    statement,
+                                    "SELECT count(*) FROM catalogue.game_featured_evidence"))
+                    .isZero();
+            assertThat(
+                            singleString(
+                                    statement,
+                                    "SELECT to_regclass('catalogue.game_popularity')::text"))
+                    .isNull();
         }
     }
 

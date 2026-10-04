@@ -13,6 +13,7 @@ function group(overrides: Partial<ReleaseContextGroup> = {}): ReleaseContextGrou
     shortDate: "24 sep 2026",
     region: "Mundial",
     platforms: ["PlayStation 5"],
+    platformIds: ["playstation-5"],
     isStale: false,
     review: false,
     releaseCount: 1,

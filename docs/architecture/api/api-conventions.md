@@ -32,7 +32,9 @@ usefully expressed once in the contract.
   compatibility decision for keyset/cursor semantics.
 - Release windows/evaluation date use application time in `Europe/Madrid`; clients
   select only the bounded week horizon and, for upcoming, whether approximate dates are
-  included, never the evaluation date or raw dates. Day/month/quarter/year/unknown
+  included, never the evaluation date or raw dates. Featured releases default to the
+  current calendar month; a client may select another calendar month (`YYYY-MM`), never a
+  day or the evaluation date. Day/month/quarter/year/unknown
   remain a closed representation.
 - Catalogue search is trimmed, non-blank, bounded to 100 Unicode code points,
   case/diacritic-insensitive, all-token, non-fuzzy, and searches only canonical title

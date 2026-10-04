@@ -12,6 +12,6 @@ case "$rows" in
 esac
 
 ./mvnw -pl backend \
-  -Dtest=ReleaseBrowseScalabilityIT \
+  -Dtest='ReleaseBrowseScalabilityIT,FeaturedReleaseScalabilityIT' \
   -Drelease.scale.rows="$rows" \
   test

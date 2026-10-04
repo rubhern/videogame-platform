@@ -25,6 +25,7 @@ source may substantiate real behaviour, demand, retention, or product–market f
 | A-008 | Spanish-first platform/region context is meaningfully clearer | Medium | Accepted risk | Competitor evidence suggests the opportunity; validate comprehension and value |
 | A-009 | IGDB use is compatible with the current release mode | High | Supported | [Provider spike](../research/game-data-providers-spike.md) and ADR-0001; reopen for public/commercial/copied/stored/redistributed use |
 | A-010 | Separate aggregate and personal scores plus inline 1–10 interaction are understandable | High | Supported | [Synthetic synthesis](../research/simulated-round-synthesis.md); not real-user evidence |
+| A-011 | IGDB Hypes among distinct new Full Releases surfaces a month's relevant launches (#151) | Medium | Accepted risk | Owner-approved after real September/October comparison; keep observing eligible launches and coverage, without bypassing review/evidence rules (#226); [ADR-0021](../decisions/0021-rank-monthly-featured-releases-by-local-igdb-hypes.md) |
 
 ## Resolved questions
 
@@ -34,7 +35,7 @@ source may substantiate real behaviour, demand, retention, or product–market f
 | Q-002 | Priority user: release-aware Spanish-speaking multiplatform player who already tracks games | Evidence supports a materially different first segment |
 | Q-003 | First problem: fragmented release research plus lost personal rating continuity, accepted as a hypothesis | Real evidence rejects or reframes the problem |
 | Q-004 | Value: Spanish-first platform/region clarity plus complete personal rating loop, not catalogue breadth or professional score | A different differentiator gains evidence |
-| Q-005 | IGDB for bounded private learning use, with explicit provenance/review state on uncertain dates, product-owned Spanish aliases, local normalized data, attributed direct CDN covers, no copied binaries/external scores | Public/monetized release, copied/stored/redistributed data/images, acquisition beyond the bounded synchronization of [ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md), or material terms change |
+| Q-005 | IGDB for bounded private learning use, with explicit provenance/review state on uncertain dates, product-owned Spanish aliases, local normalized data, attributed direct CDN covers and, for featured discovery, artworks, screenshots and logos ([ADR-0001](../decisions/0001-reference-igdb-cover-images.md), amended 2026-10-03), no copied binaries/external scores | Public/monetized release, copied/stored/redistributed data/images, acquisition beyond the bounded synchronization of [ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md), or material terms change |
 | Q-006 | One active integer 1–10 rating per user/released game; inline edit/delete; aggregate and personal values separate; decimal comma; no `/10` | Usability or domain evidence contradicts the model |
 | Q-007 | One part-time human owner, no fixed beta date, no recurring paid commitment | Capacity, ownership, schedule, or budget changes |
 | Q-008 | Current initiative is learning-only, not commercial | A commercial/public release is proposed |

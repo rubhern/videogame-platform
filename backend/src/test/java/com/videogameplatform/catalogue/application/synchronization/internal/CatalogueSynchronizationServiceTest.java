@@ -8,6 +8,8 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -16,12 +18,18 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.LogoBatch;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWork;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWorkBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ReleasePage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.CoverSelection;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedMediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameState;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.MediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.WriteResult;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderCallStatistics;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderFailureCode;
@@ -32,6 +40,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Synchron
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException.Reason;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
+import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -56,6 +65,7 @@ class CatalogueSynchronizationServiceTest {
     private static final UUID BOUNDED_GAME =
             UUID.fromString("20000000-0000-4000-8000-000000000008");
     private static final ProviderCallStatistics ONE_REQUEST = new ProviderCallStatistics(1, 0, 5L);
+    private static final String SOURCE = "https://www.igdb.com/games/featured-game";
 
     private final CatalogueSynchronizationStore store = mock(CatalogueSynchronizationStore.class);
     private final CatalogueProviderPort provider = mock(CatalogueProviderPort.class);
@@ -235,10 +245,232 @@ class CatalogueSynchronizationServiceTest {
         assertThat(String.join(" ", progress.events)).doesNotContain("private-host");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+        "MAIN_GAME,false,true",
+        "REMAKE,false,true",
+        "REMASTER,false,true",
+        "STANDALONE_EXPANSION,false,true",
+        "MAIN_GAME,true,false",
+        "REMAKE,true,false",
+        "ADD_ON,false,false"
+    })
+    void featuredEvidenceUsesExistingImportTypesAndExcludesEditionsOnlyFromFeatured(
+            ProviderWorkType type, boolean edition, boolean eligible) {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("2"), 1, 2L, true, ONE_REQUEST));
+        known("2", KNOWN_GAME);
+        var work =
+                new ProviderWork(
+                        "2",
+                        "Existing game",
+                        type,
+                        Instant.parse("2026-10-03T00:00:00Z"),
+                        Optional.empty(),
+                        List.of(),
+                        Optional.empty(),
+                        List.of(),
+                        List.of(),
+                        Optional.of(
+                                new CatalogueProviderPort.ProviderFeaturedEvidence(
+                                        Optional.of(java.time.LocalDate.of(2026, 10, 1)),
+                                        edition,
+                                        Optional.of(292L))));
+        when(provider.fetchWorks(List.of("2")))
+                .thenReturn(new ProviderWorkBatch(List.of(work), ONE_REQUEST));
+        List<GameWrite> writes = recordWrites();
+        service.synchronize(REQUEST);
+        assertThat(writes)
+                .singleElement()
+                .satisfies(
+                        w ->
+                                assertThat(w.featuredEvidence())
+                                        .isEqualTo(
+                                                new FeaturedEvidenceWrite.Observe(
+                                                        Optional.of(
+                                                                java.time.LocalDate.of(
+                                                                        2026, 10, 1)),
+                                                        eligible,
+                                                        Optional.of(292L))));
+    }
+
+    @Test
+    void selectsTheFeaturedImageAndTheLogoInsideEachGameWrite() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1"), 1, 1L, true, ONE_REQUEST));
+        workWithMedia(
+                "1",
+                List.of(
+                        image(ImageKind.SCREENSHOT, "shot", 1920, 1080, false),
+                        image(ImageKind.ARTWORK, "portrait", 1000, 1500, false),
+                        image(ImageKind.ARTWORK, "keyart", 2560, 1440, false)),
+                Optional.of(SOURCE));
+        when(provider.logos(List.of("1")))
+                .thenReturn(
+                        new LogoBatch(
+                                Map.of(
+                                        "1",
+                                        List.of(
+                                                image(ImageKind.LOGO, "boxed", 800, 300, false),
+                                                image(ImageKind.LOGO, "clear", 900, 320, true))),
+                                ONE_REQUEST));
+        List<GameWrite> writes = recordWrites();
+
+        var report = service.synchronize(REQUEST);
+
+        // The wide artwork wins over the earlier wide screenshot; only a transparent logo can
+        // stand over artwork without a box around it.
+        assertThat(writes.getFirst().media())
+                .isEqualTo(
+                        new FeaturedMediaWrite(
+                                new MediaWrite.Observe(
+                                        ImageKind.ARTWORK, "keyart", 2560, 1440, false, SOURCE),
+                                new MediaWrite.Observe(
+                                        ImageKind.SCREENSHOT, "shot", 1920, 1080, false, SOURCE),
+                                new MediaWrite.Observe(
+                                        ImageKind.LOGO, "clear", 900, 320, true, SOURCE)));
+        assertThat(report.counters().featuredImageObservedGames()).isEqualTo(1);
+        assertThat(report.counters().logoObservedGames()).isEqualTo(1);
+        assertThat(report.counters().logoUnavailableGames()).isZero();
+    }
+
+    @Test
+    void missingUnusableOrUnattributedMediaKeepTheLastValidSelection() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1", "2", "3"), 3, 3L, true, ONE_REQUEST));
+        workWithMedia("1", List.of(), Optional.of(SOURCE));
+        workWithMedia(
+                "2",
+                List.of(image(ImageKind.ARTWORK, "animated", 1920, 1080, false, true)),
+                Optional.of(SOURCE));
+        workWithMedia(
+                "3",
+                List.of(image(ImageKind.ARTWORK, "unattributed", 1920, 1080, false)),
+                Optional.empty());
+        when(provider.logos(any()))
+                .thenReturn(
+                        new LogoBatch(
+                                Map.of(
+                                        "3",
+                                        List.of(image(ImageKind.LOGO, "clear", 900, 320, true))),
+                                ONE_REQUEST));
+        List<GameWrite> writes = recordWrites();
+
+        var report = service.synchronize(REQUEST);
+
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(writes).extracting(GameWrite::media).containsOnly(FeaturedMediaWrite.KEEP);
+        assertThat(report.counters().featuredImageObservedGames()).isZero();
+        assertThat(report.counters().logoObservedGames()).isZero();
+        assertThat(report.counters().logoUnavailableGames()).isZero();
+    }
+
+    @Test
+    void anUnavailableLogoAnswerKeepsEveryLogoAndNeverFailsAGame() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1", "2"), 2, 2L, true, ONE_REQUEST));
+        workWithMedia(
+                "1",
+                List.of(image(ImageKind.ARTWORK, "keyart", 2560, 1440, false)),
+                Optional.of(SOURCE));
+        workWithMedia("2", List.of(), Optional.of(SOURCE));
+        when(provider.logos(any()))
+                .thenThrow(
+                        new ProviderRequestException(
+                                ProviderFailureCode.PROVIDER_UNAVAILABLE, ONE_REQUEST));
+        List<GameWrite> writes = recordWrites();
+
+        var report = service.synchronize(REQUEST);
+
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(report.counters().createdGames()).isEqualTo(2);
+        assertThat(writes).extracting(write -> write.media().logo()).containsOnly(MediaWrite.KEEP);
+        // The image comes with the work itself, so a failed logo lookup never holds it back.
+        assertThat(writes.getFirst().media().image()).isInstanceOf(MediaWrite.Observe.class);
+        assertThat(report.counters().featuredImageObservedGames()).isEqualTo(1);
+        assertThat(report.counters().logoUnavailableGames()).isEqualTo(2);
+        assertThat(progress.events)
+                .containsSubsequence(
+                        "pageFetched:1:2",
+                        "pageLookupUnavailable:1:2:PROVIDER_LOGOS:PROVIDER_UNAVAILABLE",
+                        "gameSucceeded:1/1:CREATED",
+                        "gameSucceeded:1/2:CREATED");
+    }
+
+    @Test
+    void repairNeverAsksForPageLookupsAndKeepsUnavailableEvidenceAndLogo() {
+        startRun();
+        work("2", ProviderWorkType.MAIN_GAME, "Repaired game", List.of());
+        known("2", KNOWN_GAME);
+        List<GameWrite> writes = recordWrites();
+
+        var report = service.repairGames(List.of("2"), false);
+
+        assertThat(writes)
+                .extracting(GameWrite::featuredEvidence)
+                .containsExactly(FeaturedEvidenceWrite.KEEP);
+        assertThat(writes).extracting(GameWrite::media).containsExactly(FeaturedMediaWrite.KEEP);
+        assertThat(report.counters().popularityUnavailableGames()).isEqualTo(1);
+        assertThat(report.counters().logoUnavailableGames()).isZero();
+        verify(provider, never()).logos(any());
+    }
+
+    private List<GameWrite> recordWrites() {
+        List<GameWrite> writes = new ArrayList<>();
+        when(store.saveGame(eq(RUN), any()))
+                .thenAnswer(
+                        invocation -> {
+                            GameWrite write = invocation.getArgument(1);
+                            writes.add(write);
+                            return new WriteResult(write.creating(), false, 0, 0, 0, 0);
+                        });
+        return writes;
+    }
+
     private void startRun() {
         when(provider.isConfigured()).thenReturn(true);
         when(provider.providerName()).thenReturn("IGDB");
         when(store.beginRun(any(), any(), any(), any())).thenReturn(Optional.of(RUN));
+        when(provider.logos(any()))
+                .thenReturn(new LogoBatch(Map.of(), ProviderCallStatistics.none()));
+    }
+
+    private void workWithMedia(
+            String providerId, List<ProviderImage> images, Optional<String> attributionUrl) {
+        when(provider.fetchWorks(List.of(providerId)))
+                .thenReturn(
+                        new ProviderWorkBatch(
+                                List.of(
+                                        new ProviderWork(
+                                                providerId,
+                                                "Game " + providerId,
+                                                ProviderWorkType.MAIN_GAME,
+                                                Instant.parse("2026-05-01T00:00:00Z"),
+                                                Optional.empty(),
+                                                images,
+                                                attributionUrl,
+                                                List.of(),
+                                                List.of())),
+                                ONE_REQUEST));
+    }
+
+    private static ProviderImage image(
+            ImageKind kind, String reference, int width, int height, boolean transparent) {
+        return image(kind, reference, width, height, transparent, false);
+    }
+
+    private static ProviderImage image(
+            ImageKind kind,
+            String reference,
+            int width,
+            int height,
+            boolean transparent,
+            boolean animated) {
+        return new ProviderImage(kind, reference, width, height, transparent, animated);
     }
 
     private void work(
@@ -255,6 +487,8 @@ class CatalogueSynchronizationServiceTest {
                                                 title,
                                                 type,
                                                 Instant.parse("2026-05-01T00:00:00Z"),
+                                                Optional.empty(),
+                                                List.of(),
                                                 Optional.empty(),
                                                 List.of(),
                                                 failures)),
@@ -297,6 +531,21 @@ class CatalogueSynchronizationServiceTest {
                 @Override
                 public void pageFetched(int page, int games, Counters counters) {
                     observe("pageFetched:" + page + ":" + games, counters);
+                }
+
+                @Override
+                public void pageLookupUnavailable(
+                        int page, int games, Failure failure, Counters counters) {
+                    observe(
+                            "pageLookupUnavailable:"
+                                    + page
+                                    + ":"
+                                    + games
+                                    + ":"
+                                    + failure.stage()
+                                    + ":"
+                                    + failure.reason(),
+                            counters);
                 }
 
                 @Override

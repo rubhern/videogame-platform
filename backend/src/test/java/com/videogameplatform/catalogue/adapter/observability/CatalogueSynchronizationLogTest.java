@@ -101,6 +101,36 @@ class CatalogueSynchronizationLogTest {
     }
 
     @Test
+    void anUnavailablePageLookupIsOneBoundedWarningTalliedInTheFinalEvent() {
+        Run run = log.started(RUN, REQUEST, STARTED, 500);
+        run.pageFetched(1, 3, counters(0, 0));
+        run.pageLookupUnavailable(
+                1, 3, Failure.of(Stage.PROVIDER_LOGOS, "PROVIDER_RATE_LIMITED"), counters(0, 0));
+        run.pageLookupUnavailable(
+                1, 3, Failure.of(Stage.PROVIDER_LOGOS, "PROVIDER_UNAVAILABLE"), counters(0, 0));
+        run.finished(report(SynchronizationOutcome.SUCCEEDED, "SYNCHRONIZATION_COMPLETED", 0));
+
+        ILoggingEvent warning = at(Level.WARN).getFirst();
+        assertThat(keyValue(warning, "sync.failure.stage")).isEqualTo("provider_logos");
+        assertThat(keyValue(warning, "sync.failure.reason")).isEqualTo("PROVIDER_RATE_LIMITED");
+        assertThat(keyValue(warning, "sync.page_games")).isEqualTo(3);
+        assertThat(warning.getFormattedMessage())
+                .contains("page lookup unavailable", "page=1", "games=3", "kept");
+        assertThat(keyValue(at(Level.WARN).get(1), "sync.failure.stage"))
+                .isEqualTo("provider_logos");
+        ILoggingEvent finished = at(Level.INFO).getLast();
+        assertThat(keyValue(finished, "sync.failures"))
+                .isEqualTo(
+                        "provider_logos/PROVIDER_RATE_LIMITED=1,"
+                                + "provider_logos/PROVIDER_UNAVAILABLE=1");
+        assertThat(finished.getFormattedMessage())
+                .contains(
+                        "popularity[observed=3 cleared=0 unavailable=0]",
+                        "media[images=3 logos=0 logos_unavailable=0]");
+        assertThat(keyValue(finished, "sync.media.images_observed")).isEqualTo(3L);
+    }
+
+    @Test
     void progressIsThrottledRatherThanEmittedPerGame() {
         Run run = log.started(RUN, REQUEST, STARTED, 500);
         run.pageFetched(1, 500, counters(0, 0));
@@ -284,7 +314,26 @@ class CatalogueSynchronizationLogTest {
     }
 
     private static Counters counters(long created, long failed) {
-        return new Counters(created * 2, created, 0, 0, 0, 0, 0, 0, failed, created * 2, 0, 10, 0);
+        return new Counters(
+                created * 2,
+                created,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                failed,
+                created * 2,
+                0,
+                10,
+                0,
+                created,
+                0,
+                0,
+                created,
+                0,
+                0);
     }
 
     private static CatalogueSynchronizationReport report(

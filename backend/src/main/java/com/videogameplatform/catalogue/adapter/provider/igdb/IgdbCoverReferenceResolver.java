@@ -2,11 +2,16 @@ package com.videogameplatform.catalogue.adapter.provider.igdb;
 
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
+import com.videogameplatform.catalogue.application.cover.port.ProviderImageReferenceResolver;
 import java.net.URI;
 import java.util.regex.Pattern;
 
-/** Applies the approved IGDB direct-CDN cover policy from ADR-0001. */
-public final class IgdbCoverReferenceResolver implements ProviderCoverReferenceResolver {
+/**
+ * Applies the approved IGDB direct-CDN policy of ADR-0001 to covers and to the featured artworks,
+ * screenshots and logos: one class holds the whole allowlist of host, sizes and extensions.
+ */
+public final class IgdbCoverReferenceResolver
+        implements ProviderCoverReferenceResolver, ProviderImageReferenceResolver {
 
     private static final String PROVIDER = "IGDB";
 
@@ -18,27 +23,57 @@ public final class IgdbCoverReferenceResolver implements ProviderCoverReferenceR
     private static final String COVER_BASE =
             "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/";
 
+    private static final String IMAGE_BASE = "https://images.igdb.com/igdb/image/upload/";
+
     private static final Pattern IMAGE_ID = Pattern.compile("[A-Za-z0-9_-]+");
 
     @Override
     public ResolvedProviderCover resolve(String provider, String reference, String sourceUrl) {
         try {
-            if (!PROVIDER.equalsIgnoreCase(provider)) {
-                throw new IllegalArgumentException("Unsupported published cover provider");
-            }
-            if (!IMAGE_ID.matcher(reference).matches()) {
-                throw new IllegalArgumentException("Invalid IGDB cover reference");
-            }
-            URI attributionUrl = URI.create(sourceUrl);
-            if (!"https".equals(attributionUrl.getScheme())
-                    || !"www.igdb.com".equalsIgnoreCase(attributionUrl.getHost())
-                    || !attributionUrl.getPath().startsWith("/games/")) {
-                throw new IllegalArgumentException("Invalid IGDB attribution URL");
-            }
+            URI attributionUrl = approved(provider, reference, sourceUrl);
             return new ResolvedProviderCover(
                     URI.create(COVER_BASE + reference + ".webp"), PROVIDER, attributionUrl);
         } catch (IllegalArgumentException | NullPointerException exception) {
             throw new CatalogueDataInvalidException(exception);
         }
+    }
+
+    /**
+     * Fit sizes preserve source proportions so only the browser applies landscape cropping.
+     * Secondary-card logos use a fit PNG rendition that preserves their transparency.
+     */
+    @Override
+    public ResolvedProviderImage resolve(
+            String provider, String reference, String sourceUrl, Rendition rendition) {
+        try {
+            URI attributionUrl = approved(provider, reference, sourceUrl);
+            String rendered =
+                    switch (rendition) {
+                        case LANDSCAPE -> "t_1080p/" + reference + ".webp";
+                        case LANDSCAPE_COMPACT -> "t_720p/" + reference + ".webp";
+                        case CONTAINED -> "t_720p/" + reference + ".webp";
+                        case LOGO -> "t_720p/" + reference + ".png";
+                    };
+            return new ResolvedProviderImage(
+                    URI.create(IMAGE_BASE + rendered), PROVIDER, attributionUrl);
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new CatalogueDataInvalidException(exception);
+        }
+    }
+
+    private static URI approved(String provider, String reference, String sourceUrl) {
+        if (!PROVIDER.equalsIgnoreCase(provider)) {
+            throw new IllegalArgumentException("Unsupported published image provider");
+        }
+        if (!IMAGE_ID.matcher(reference).matches()) {
+            throw new IllegalArgumentException("Invalid IGDB image reference");
+        }
+        URI attributionUrl = URI.create(sourceUrl);
+        if (!"https".equals(attributionUrl.getScheme())
+                || !"www.igdb.com".equalsIgnoreCase(attributionUrl.getHost())
+                || !attributionUrl.getPath().startsWith("/games/")) {
+            throw new IllegalArgumentException("Invalid IGDB attribution URL");
+        }
+        return attributionUrl;
     }
 }

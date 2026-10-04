@@ -1390,6 +1390,23 @@
     .brand-wordmark {
       display: none;
     }
+
+    /* Three release sections and both entry links still share the first row. */
+    .header-layout {
+      column-gap: 10px;
+    }
+
+    .nav-link {
+      padding-inline: 10px;
+    }
+
+    .account-entry-links {
+      gap: 6px;
+    }
+
+    .account-entry-links a {
+      padding-inline: 10px;
+    }
   }
 
   @media (min-width: 1024px) {
@@ -1399,7 +1416,7 @@
 
     .header-layout {
       display: grid;
-      grid-template-columns: auto auto minmax(240px, 680px) minmax(0, 1fr) auto;
+      grid-template-columns: auto max-content minmax(240px, 680px) minmax(0, 1fr) auto;
       gap: 22px;
       padding-block: 16px;
     }
@@ -1505,12 +1522,12 @@
       overflow: visible;
     }
 
-    /* The narrower width axis keeps identity, both windows and the search icon on one row
-       down to 320px. */
+    /* The narrower width axis keeps identity, the three release sections and the search icon
+       on one row down to 360px. */
     .nav-link {
       min-height: 44px;
-      padding: 10px 6px;
-      font-size: 0.71875rem;
+      padding: 10px 5px;
+      font-size: 0.6875rem;
       font-stretch: 90%;
     }
 
@@ -1599,6 +1616,50 @@
 
     .account-control {
       order: 4;
+    }
+  }
+
+  /* Below 360px the three release sections no longer fit beside the identity and both icons:
+     they take a full-width glass row of their own under them. */
+  @media (max-width: 359px) {
+    .header-layout {
+      flex-wrap: wrap;
+    }
+
+    .catalogue-search-control {
+      margin-left: auto;
+    }
+
+    .primary-nav {
+      order: 5;
+      flex: 1 1 100%;
+      margin: 0;
+      border: 1px solid var(--glass-border);
+      border-radius: 999px;
+      padding: 3px;
+      background: var(--glass);
+      box-shadow: var(--glass-highlight);
+      -webkit-backdrop-filter: var(--glass-blur);
+      backdrop-filter: var(--glass-blur);
+    }
+
+    .nav-link {
+      min-height: 40px;
+      flex: 1 1 0;
+      justify-content: center;
+    }
+  }
+
+  /* With three release sections the single desktop row is tight until 1180px: the compact mark
+     keeps the identity there, so the account entry never overflows. */
+  @media (min-width: 1024px) and (max-width: 1179px) {
+    .brand {
+      min-width: 44px;
+      justify-content: center;
+    }
+
+    .brand-wordmark {
+      display: none;
     }
   }
 

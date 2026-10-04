@@ -50,7 +50,9 @@ historical decision aids, not provider facts or a current procurement score.
 ## Release-mode boundary
 
 Approved only for local normalized metadata, direct attributed CDN cover references,
-and no external ratings in a private non-commercial learning release. Before public,
+and no external ratings in a private non-commercial learning release. The owner later
+extended the same reference mode to featured artworks, screenshots and logos in the
+2026-10-03 amendment of [ADR-0001](../decisions/0001-reference-igdb-cover-images.md). Before public,
 monetized, copied-image, application-storage, redistribution, or broad unattended
 use, recheck current provider terms and partnership, attribution, retained-data, and
 image requirements. Historical terms in this spike are not an evergreen legal or

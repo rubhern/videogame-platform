@@ -49,7 +49,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     return url.pathname === "/api/v1/releases" && url.searchParams.get("view") === "recent";
   });
 
-  await page.goto("/?pageSize=6");
+  await page.goto("/?view=recent&pageSize=6");
   const releasesResponse = await releasesResponsePromise;
   expect(releasesResponse.status()).toBe(200);
   expect(releasesResponse.request().resourceType()).toBe("fetch");
@@ -151,7 +151,7 @@ test("the packaged releases page stays usable from phone to desktop", async ({ p
   for (const viewport of viewports) {
     await test.step(`${viewport.name} (${viewport.width}px)`, async () => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
-      await page.goto("/?pageSize=6");
+      await page.goto("/?view=recent&pageSize=6");
 
       await expect(
         page.getByRole("heading", { level: 1, name: "Lanzamientos recientes" }),

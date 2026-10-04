@@ -141,6 +141,28 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
             checkpointIfDue(counters, PROGRESS_INTERVAL);
         }
 
+        /** One WARN per affected page: its Games still reconcile and keep their last signal. */
+        @Override
+        public void pageLookupUnavailable(int page, int games, Failure failure, Counters counters) {
+            failures.merge(key(failure), 1L, Long::sum);
+            LOGGER.atWarn()
+                    .addKeyValue(RUN_ID, runId)
+                    .addKeyValue(PAGE, page)
+                    .addKeyValue("sync.page_games", games)
+                    .addKeyValue("sync.failure.stage", stage(failure))
+                    .addKeyValue("sync.failure.reason", failure.reason())
+                    .log(
+                            "Catalogue synchronization page lookup unavailable: run={} stage={}"
+                                    + " reason={} page={} games={}; their last valid evidence of"
+                                    + " that kind is kept",
+                            runId,
+                            stage(failure),
+                            failure.reason(),
+                            page,
+                            games);
+            checkpointIfDue(counters, PROGRESS_INTERVAL);
+        }
+
         @Override
         public void gameSucceeded(int page, int position, GameResult result, Counters counters) {
             this.position = position;
@@ -265,6 +287,12 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                     .addKeyValue("sync.releases.updated", c.updatedReleases())
                     .addKeyValue("sync.releases.deleted", c.deletedReleases())
                     .addKeyValue("sync.releases.unchanged", c.unchangedReleases())
+                    .addKeyValue("sync.popularity.observed", c.popularityObservedGames())
+                    .addKeyValue("sync.popularity.cleared", c.popularityClearedGames())
+                    .addKeyValue("sync.popularity.unavailable", c.popularityUnavailableGames())
+                    .addKeyValue("sync.media.images_observed", c.featuredImageObservedGames())
+                    .addKeyValue("sync.media.logos_observed", c.logoObservedGames())
+                    .addKeyValue("sync.media.logos_unavailable", c.logoUnavailableGames())
                     .addKeyValue("sync.provider.latency_ms", c.providerLatencyMillis())
                     .addKeyValue("sync.failures", failureSummary)
                     .log(
@@ -272,6 +300,8 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                                     + " window={}..{} pages={} elapsed_s={} games[created={}"
                                     + " updated={} unchanged={} deferred={} failed={}]"
                                     + " releases[created={} updated={} unchanged={}]"
+                                    + " popularity[observed={} cleared={} unavailable={}]"
+                                    + " media[images={} logos={} logos_unavailable={}]"
                                     + " release_dates_inspected={} provider[requests={}"
                                     + " retries={} latency_ms={}] failures={}",
                             runId,
@@ -289,6 +319,12 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                             c.createdReleases(),
                             c.updatedReleases(),
                             c.unchangedReleases(),
+                            c.popularityObservedGames(),
+                            c.popularityClearedGames(),
+                            c.popularityUnavailableGames(),
+                            c.featuredImageObservedGames(),
+                            c.logoObservedGames(),
+                            c.logoUnavailableGames(),
                             c.inspectedReleaseDates(),
                             c.providerRequests(),
                             c.providerRetries(),

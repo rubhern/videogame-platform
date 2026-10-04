@@ -19,8 +19,8 @@ Browser
 Operator (management port, never the product port)
   -> single catalogue synchronization use case
       -> IGDB adapter -> normalize/validate -> import or update
-          -> atomic current Game state + catalogue revision in PostgreSQL
-              -> public reads
+          -> atomic current Game state, featured evidence + catalogue revision in PostgreSQL
+              -> public reads, including the monthly featured releases (ADR-0021)
 
 External boundaries:
   Keycloak (authentication)

@@ -54,6 +54,35 @@ The reference mode, the allowlisted host, the fallback rule and the prohibition 
 describing provider artwork as product-owned are unchanged, and the API still delivers the
 attribution with every provider cover.
 
+## Amendment 2026-10-03
+
+Owner decision ([#151](https://github.com/rubhern/videogame-platform/issues/151)): featured
+discovery may also use IGDB artworks, screenshots and game logos, under the same
+`provider_cdn_reference` mode, so that its landscape frames never stretch or crudely crop
+a portrait cover:
+
+- persist only the metadata of the hero image, card image and optional secondary-card logo
+  selected per game (provider
+  image identity, pixel dimensions, transparency, the game's IGDB page, source and
+  observation time), never the image binary, and never every candidate;
+- construct their URLs from the same template and allowlisted host, with one allowlisted
+  size per rendition: `t_1080p` at hero scale and `t_720p` at card or contained scale;
+  these fit renditions preserve source proportions for controlled browser cover cropping,
+  avoiding a provider crop followed by another browser crop. Use `t_720p` PNG for a secondary-card logo; the fit rendition preserves its
+  transparency, including sources rendered as an opaque box by the logo-specific token.
+  Other featured images use `webp`;
+- keep the attribution rule of the 2026-09-20 amendment: every featured image and logo
+  links to the game detail page, which shows the IGDB attribution and source link, and the
+  API delivers the attribution with each of them;
+- keep the product-owned fallback, now with a landscape variant for featured frames, and
+  fall back in the browser whenever an image fails to load. It is the last step everywhere
+  except the featured hero, which tries it before its cover and keeps that cover, shown
+  whole, only as the last resort.
+
+Covers keep every rule above. Selection is deterministic and uses metadata only; the
+featured-media rules are FEAT-003 and FEAT-004 in the
+[domain model](../architecture/domain/mvp-domain-model.md).
+
 ## Reconsider when
 
 Reopen before a public or commercial release, monetization, binary copying or

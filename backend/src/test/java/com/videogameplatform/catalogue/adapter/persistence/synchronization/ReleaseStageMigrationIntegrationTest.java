@@ -31,7 +31,8 @@ class ReleaseStageMigrationIntegrationTest {
         var before =
                 jdbc.queryForList(
                         "SELECT release_id,release_status,date_precision,exact_date FROM catalogue.release_snapshot ORDER BY release_id");
-        configuration.target("latest").load().migrate();
+        // Verify this expansion before later development seeds supply known release stages.
+        configuration.target("20261002.120000").load().migrate();
         assertThat(
                         jdbc.queryForList(
                                 "SELECT release_id,release_status,date_precision,exact_date FROM catalogue.release_snapshot ORDER BY release_id"))

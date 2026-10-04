@@ -1,12 +1,12 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.3.1
+  version: 3.4.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
-    Provider-independent, same-origin contract for release discovery, bounded-catalogue
-    search, public game details, BFF session discovery, and the authenticated user's
-    ratings. It contains only the nine approved method/path operations.
+    Provider-independent, same-origin contract for release discovery, monthly featured
+    releases, bounded-catalogue search, public game details, BFF session discovery, and the
+    authenticated user's ratings. It contains only the ten approved method/path operations.
 
     Authentication navigation under `/auth` and catalogue synchronization are separate
     BFF and operational boundaries and are intentionally not exposed here. Provider
@@ -18,6 +18,8 @@ servers:
 tags:
   - name: Releases
     description: Public recent and upcoming release discovery.
+  - name: Featured releases
+    description: Public automatic selection of a calendar month's featured releases.
   - name: Catalogue
     description: Public reads from the bounded local catalogue.
   - name: Ratings
@@ -277,6 +279,229 @@ paths:
         '405': { $ref: '#/components/responses/MethodNotAllowed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '422': { $ref: '#/components/responses/ReleaseValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/CatalogueUnavailable' }
+
+  /featured-releases:
+    get:
+      tags: [Featured releases]
+      operationId: getFeaturedReleases
+      summary: Read the automatic featured releases of one calendar month
+      description: |
+        Reads the automatic selection of one calendar month from the last valid local catalogue.
+        Candidates are the games with a qualifying commercial release inside the month: its known
+        date lies inside the month (an exact day of the month, or month precision equal to the
+        month) and it is neither cancelled, delayed, nor pending review. Only Full Release
+        participates. A candidate must be an accepted import type, not an edition, with its
+        own known first release in this month and positive locally stored IGDB Hypes.
+        Candidates rank by Hypes descending, then `gameId` ascending. A
+        game without a usable popularity signal stays a normal catalogue and discovery result but
+        is not ranked, and no popularity value is ever invented. The first item is the month's
+        featured release and up to five more follow; fewer items are returned rather than filling
+        slots. Popularity measures provider-observed attention, never quality, a rating, or an
+        editorial recommendation, and the signal value itself is not exposed. The application
+        derives the evaluation date and the default month, the current calendar month, in
+        `Europe/Madrid`. Another month of the current calendar year may be selected; it is ranked
+        with the same current local popularity evidence, because no popularity history is kept.
+        A month of another year is never featured. PostgreSQL selects the
+        qualifying releases, ranks and limits the games, and presents at most one release per
+        platform before anything reaches the application. Each item also carries the landscape
+        context-selected image and optional decorative secondary-card logo,
+        chosen from locally stored provider media metadata and delivered as approved direct CDN
+        references (ADR-0001). No provider is called.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/FeaturedMonth'
+        - $ref: '#/components/parameters/PublicIfNoneMatch'
+      responses:
+        '200':
+          description: The month's featured selection, possibly empty.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+            ETag: { $ref: '#/components/headers/PublicEntityTag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FeaturedReleases' }
+              examples:
+                ranked:
+                  summary: A featured release of the month followed by another featured release
+                  description: |
+                    The current month in `Europe/Madrid`. Up to five other featured releases may
+                    follow the first item; this example shows one. The first game presents a wide
+                    artwork and optional logo metadata (the hero title stays text); the second has no usable artwork or screenshot, so its
+                    provider cover is shown whole.
+                  value:
+                    month: 2026-10
+                    evaluatedOn: '2026-10-03'
+                    window: { from: '2026-10-01', to: '2026-10-31' }
+                    selection:
+                      status: ranked
+                      popularityFreshness: fresh
+                      popularityObservedAt: '2026-10-02T05:00:00Z'
+                    items:
+                      - gameId: game_featured_example
+                        slug: juego-destacado-de-ejemplo
+                        canonicalTitle: Juego destacado de ejemplo
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp
+                          alternativeText: Carátula de Juego destacado de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/juego-destacado-de-ejemplo
+                        featuredImage:
+                          kind: artwork
+                          presentation: fill
+                          url: https://images.igdb.com/igdb/image/upload/t_1080p/arexample.webp
+                          compactUrl: https://images.igdb.com/igdb/image/upload/t_720p/arexample.webp
+                          alternativeText: Arte de Juego destacado de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/juego-destacado-de-ejemplo
+                        logo:
+                          url: https://images.igdb.com/igdb/image/upload/t_720p/loexample.png
+                          alternativeText: Juego destacado de ejemplo
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/juego-destacado-de-ejemplo
+                        releases:
+                          - releaseId: release_featured_ps5_ww
+                            stage: full_release
+                            gameId: game_featured_example
+                            platform: { platformId: platform_ps5, name: PlayStation 5 }
+                            region: { regionId: region_worldwide, name: Mundial }
+                            releaseDate: { precision: day, value: '2026-10-15' }
+                            status: scheduled
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release_date
+                            providerUpdatedAt: '2026-09-30T08:10:00Z'
+                            lastSyncedAt: '2026-10-02T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
+                          - releaseId: release_featured_win_ww
+                            stage: full_release
+                            gameId: game_featured_example
+                            platform: { platformId: platform_win, name: Windows PC }
+                            region: { regionId: region_worldwide, name: Mundial }
+                            releaseDate: { precision: day, value: '2026-10-15' }
+                            status: scheduled
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release_date
+                            providerUpdatedAt: '2026-09-30T08:10:00Z'
+                            lastSyncedAt: '2026-10-02T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
+                      - gameId: game_featured_month
+                        slug: lanzamiento-de-mes-aproximado
+                        canonicalTitle: Lanzamiento de mes aproximado
+                        primaryCover:
+                          kind: provider
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/comonth.webp
+                          alternativeText: Carátula de Lanzamiento de mes aproximado
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/lanzamiento-de-mes-aproximado
+                        featuredImage:
+                          kind: cover
+                          presentation: contain
+                          url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/comonth.webp
+                          compactUrl: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/comonth.webp
+                          alternativeText: Carátula de Lanzamiento de mes aproximado
+                          attribution:
+                            label: IGDB
+                            sourceUrl: https://www.igdb.com/games/lanzamiento-de-mes-aproximado
+                        releases:
+                          - releaseId: release_featured_month_switch_eu
+                            stage: unknown
+                            gameId: game_featured_month
+                            platform: { platformId: platform_switch, name: Nintendo Switch }
+                            region: { regionId: region_europe, name: Europa }
+                            releaseDate: { precision: month, value: 2026-10 }
+                            status: scheduled
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release_date
+                            providerUpdatedAt: '2026-09-12T08:10:00Z'
+                            lastSyncedAt: '2026-10-02T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: fresh
+                stalePopularity:
+                  summary: The last valid local ranking with stale popularity evidence
+                  description: |
+                    A visitor selected September 2026. The ranking is still served from the last
+                    valid local popularity evidence, whose oldest acquisition is older than the
+                    catalogue freshness policy.
+                  value:
+                    month: 2026-09
+                    evaluatedOn: '2026-10-03'
+                    window: { from: '2026-09-01', to: '2026-09-30' }
+                    selection:
+                      status: ranked
+                      popularityFreshness: stale
+                      popularityObservedAt: '2026-09-02T05:00:00Z'
+                    items:
+                      - gameId: game_example
+                        slug: juego-de-ejemplo
+                        canonicalTitle: Juego de ejemplo
+                        primaryCover:
+                          kind: fallback
+                          url: /assets/covers/fallback.svg
+                          alternativeText: Carátula oficial no disponible
+                          attribution: null
+                        featuredImage:
+                          kind: fallback
+                          presentation: fill
+                          url: /assets/featured/fallback.svg
+                          compactUrl: /assets/featured/fallback.svg
+                          alternativeText: Imagen destacada no disponible de Juego de ejemplo
+                          attribution: null
+                        releases:
+                          - releaseId: release_example_switch_eu
+                            stage: unknown
+                            gameId: game_example
+                            platform: { platformId: platform_switch, name: Nintendo Switch }
+                            region: { regionId: region_europe, name: Europa }
+                            releaseDate: { precision: day, value: '2026-09-18' }
+                            status: released
+                            provenance:
+                              sourceKind: external_provider
+                              sourceName: IGDB
+                              sourceEntityType: release_date
+                            providerUpdatedAt: '2026-08-20T09:00:00Z'
+                            lastSyncedAt: '2026-09-02T05:00:00Z'
+                            verificationLevel: provider_only
+                            reviewStatus: not_required
+                            freshnessStatus: stale
+                popularityUnavailable:
+                  summary: Qualifying releases exist but none has a popularity signal
+                  value:
+                    month: 2026-11
+                    evaluatedOn: '2026-10-03'
+                    window: { from: '2026-11-01', to: '2026-11-30' }
+                    selection: { status: popularity_unavailable }
+                    items: []
+                noQualifyingReleases:
+                  summary: The local catalogue holds no qualifying release in the month
+                  value:
+                    month: 2026-12
+                    evaluatedOn: '2026-10-03'
+                    window: { from: '2026-12-01', to: '2026-12-31' }
+                    selection: { status: no_qualifying_releases }
+                    items: []
+        '304': { $ref: '#/components/responses/PublicNotModified' }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '405': { $ref: '#/components/responses/MethodNotAllowed' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/FeaturedReleaseValidationFailed' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/CatalogueUnavailable' }
 
@@ -917,6 +1142,16 @@ components:
         ended, so `true` combined with `view=recent` yields 422 `FILTER_INVALID`.
       schema: { type: boolean, default: false }
       example: true
+    FeaturedMonth:
+      name: month
+      in: query
+      required: false
+      description: |
+        Calendar month to feature as `YYYY-MM`, a month of the current calendar year in
+        `Europe/Madrid`. Omitted, it is the current calendar month. A malformed month, or a month
+        of another year, yields 422 `FILTER_INVALID` for `/query/month`.
+      schema: { $ref: '#/components/schemas/CalendarMonth' }
+      example: 2026-10
     PlatformIdsQuery:
       name: platformIds
       in: query
@@ -1381,6 +1616,146 @@ components:
       properties:
         from: { type: string, format: date }
         to: { type: string, format: date }
+    CalendarMonth:
+      type: string
+      pattern: '^(?!0000)[0-9]{4}-(0[1-9]|1[0-2])$'
+      description: A calendar month as `YYYY-MM`, from `0001-01` through `9999-12`.
+      examples: [2026-10]
+    FeaturedSelection:
+      type: object
+      required: [status]
+      description: |
+        Why the featured selection holds what it holds. `ranked`: at least one game with a
+        qualifying release in the month has a usable popularity signal, `items` holds the ranking,
+        and both popularity fields are present. `popularity_unavailable`: the month has qualifying
+        releases but none of their games has a usable popularity signal, so nothing is ranked.
+        `no_qualifying_releases`: the local catalogue holds no qualifying release inside the month.
+        A stale selection is still the last valid local ranking.
+      properties:
+        status:
+          type: string
+          enum: [ranked, popularity_unavailable, no_qualifying_releases]
+        popularityFreshness:
+          type: string
+          enum: [fresh, stale]
+          description: |
+            Freshness of the oldest popularity evidence among the ranked games under the catalogue
+            freshness policy.
+        popularityObservedAt:
+          type: string
+          format: date-time
+          description: |
+            The oldest local acquisition of popularity evidence among the ranked games; the ranking
+            is at least this current.
+    FeaturedReleases:
+      type: object
+      required: [month, evaluatedOn, window, selection, items]
+      properties:
+        month: { $ref: '#/components/schemas/CalendarMonth' }
+        evaluatedOn: { type: string, format: date }
+        window:
+          $ref: '#/components/schemas/ReleaseWindow'
+          description: The first and the last day of the month, inclusive.
+        selection: { $ref: '#/components/schemas/FeaturedSelection' }
+        items:
+          type: array
+          maxItems: 6
+          description: |
+            Ranked games, highest popularity first. The first item is the month's featured release
+            and up to five other featured releases follow. Each item holds only the game's
+            qualifying releases inside the month, at most one per platform, chosen by the
+            `ReleaseItem` presentation precedence with the earliest date first; an exact day comes
+            before month precision, then the earlier date. Empty unless `selection.status` is
+            `ranked`.
+          items: { $ref: '#/components/schemas/FeaturedReleaseItem' }
+    FeaturedReleaseItem:
+      type: object
+      required: [gameId, slug, canonicalTitle, primaryCover, featuredImage, releases]
+      description: |
+        One ranked game of the month: the `ReleaseItem` fields, holding the game's qualifying
+        presented releases inside the month, plus the landscape image and the optional title
+        logo featured discovery presents.
+      properties:
+        gameId: { $ref: '#/components/schemas/GameId' }
+        slug: { type: string, minLength: 1 }
+        canonicalTitle: { type: string, minLength: 1 }
+        primaryCover: { $ref: '#/components/schemas/Cover' }
+        featuredImage: { $ref: '#/components/schemas/FeaturedImage' }
+        logo: { $ref: '#/components/schemas/FeaturedLogo' }
+        releases:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/Release' }
+    FeaturedImage:
+      description: |
+        The landscape image of a featured game, chosen deterministically from image metadata
+        alone for its ranked position. Artwork the provider labels as a cover, a logo or an icon
+        is never featured media. The first item uses the hero policy, and the hero sets the
+        canonical title itself: high-quality landscape artwork without a provider-declared title,
+        then a high-quality screenshot, then high-quality title artwork, then the same order among
+        the other accepted landscape media, each step preferring the least crop to the wide 8:3
+        hero frame. Without suitable landscape media the first item uses the product fallback,
+        never the provider cover. Other items use the card policy: aspect/crop suitability and
+        delivered resolution across artworks and screenshots; on equal suitability prefer
+        provider-declared title key art, then screenshots, then ordinary artwork; without
+        suitable landscape media, the game's provider cover in a designed treatment, then the
+        product fallback. A `fill` image may be cropped to fill a landscape frame; a `contain`
+        image is shown whole inside a designed treatment and never stretched or cropped. `url`
+        suits the featured release of the month and `compactUrl` the other featured releases. A
+        provider image carries its mandatory attribution (ADR-0001).
+      oneOf:
+        - $ref: '#/components/schemas/ProviderFeaturedImage'
+        - $ref: '#/components/schemas/FallbackFeaturedImage'
+    ProviderFeaturedImage:
+      type: object
+      required: [kind, presentation, url, compactUrl, alternativeText, attribution]
+      properties:
+        kind: { type: string, enum: [artwork, screenshot, cover] }
+        presentation: { type: string, enum: [fill, contain] }
+        url:
+          type: string
+          format: uri
+          pattern: '^https://images\.igdb\.com/igdb/image/upload/'
+        compactUrl:
+          type: string
+          format: uri
+          pattern: '^https://images\.igdb\.com/igdb/image/upload/'
+        alternativeText: { type: string, minLength: 1 }
+        attribution: { $ref: '#/components/schemas/Attribution' }
+      unevaluatedProperties: false
+    FallbackFeaturedImage:
+      type: object
+      required: [kind, presentation, url, compactUrl, alternativeText, attribution]
+      properties:
+        kind: { type: string, enum: [fallback] }
+        presentation: { type: string, enum: [fill] }
+        url:
+          type: string
+          format: uri-reference
+          pattern: '^/assets/featured/'
+        compactUrl:
+          type: string
+          format: uri-reference
+          pattern: '^/assets/featured/'
+        alternativeText: { type: string, minLength: 1 }
+        attribution: { type: 'null' }
+      unevaluatedProperties: false
+    FeaturedLogo:
+      type: object
+      required: [url, alternativeText, attribution]
+      description: |
+        A transparent provider game logo for an optional secondary screenshot-card overlay;
+        the hero always renders the canonical title as product-owned text. Its alternative
+        text is the canonical title. Absent when the game has no suitable logo; the card's
+        canonical title link remains beneath its image.
+      properties:
+        url:
+          type: string
+          format: uri
+          pattern: '^https://images\.igdb\.com/igdb/image/upload/'
+        alternativeText: { type: string, minLength: 1 }
+        attribution: { $ref: '#/components/schemas/Attribution' }
+      unevaluatedProperties: false
     ReleasePage:
       type: object
       required: [view, evaluatedOn, window, activeFilters, availableFilters, items, page]
@@ -1758,6 +2133,19 @@ components:
             platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
             regionNotSupported: { $ref: '#/components/examples/RegionNotSupported' }
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
+            parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    FeaturedReleaseValidationFailed:
+      description: |
+        The requested month is malformed or outside the current calendar year, or a request
+        parameter is invalid.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     SearchValidationFailed:
       description: Search, pagination, or request parameters are invalid.

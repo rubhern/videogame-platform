@@ -5,6 +5,7 @@ import {
   formatCalendarDay,
   formatReleaseDate,
 } from "../../shared/catalogue/release-date";
+import { releaseStages, releaseStatuses } from "../../shared/catalogue/release-labels";
 import { platformIcon, regionIcon } from "../../shared/catalogue/taxonomy-icons";
 import { GameMeter } from "../../shared/score/game-meter";
 import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
@@ -13,27 +14,6 @@ import { CinematicStage } from "../../shared/ui/cinematic-stage";
 import { SelectIcon } from "../../shared/ui/select-icon";
 import { GameRatingPanel } from "../ratings/game-rating-panel";
 import type { GameDetails } from "./game-details-api";
-
-const releaseStages: Record<GameDetails["releases"][number]["stage"], string> = {
-  full_release: "Lanzamiento completo",
-  early_access: "Acceso anticipado",
-  advance_access: "Acceso previo",
-  beta: "Beta",
-  alpha: "Alfa",
-  unknown: "Tipo no especificado",
-};
-
-const releaseStatuses: Record<
-  GameDetails["releases"][number]["status"],
-  string
-> = {
-  announced: "Anunciado",
-  scheduled: "Programado",
-  released: "Publicado",
-  delayed: "Retrasado",
-  cancelled: "Cancelado",
-  unknown: "Estado sin confirmar",
-};
 
 /** Tone of a release status chip; the chip always states the status in words as well. */
 const statusTones: Record<GameDetails["releases"][number]["status"], string> = {

@@ -37,6 +37,7 @@ required_files=(
   "backend/postman/actuator.postman_collection.json"
   "backend/postman/catalogue-releases.postman_collection.json"
   "backend/postman/catalogue-search.postman_collection.json"
+  "backend/postman/featured-releases.postman_collection.json"
   "backend/postman/game-details.postman_collection.json"
   "backend/postman/personal-ratings.postman_collection.json"
   "backend/postman/session.postman_collection.json"
@@ -257,6 +258,7 @@ json_documents = (
     "backend/postman/actuator.postman_collection.json",
     "backend/postman/catalogue-releases.postman_collection.json",
     "backend/postman/catalogue-search.postman_collection.json",
+    "backend/postman/featured-releases.postman_collection.json",
     "backend/postman/game-details.postman_collection.json",
     "backend/postman/personal-ratings.postman_collection.json",
     "backend/postman/session.postman_collection.json",

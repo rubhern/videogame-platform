@@ -220,6 +220,26 @@ its timeout and retries. The event model and levels are in
 and a local probe only; it is not yet proven on `vgpdev`. The
 `catalogue.synchronization.*` meters remain the aggregate signal.
 
+Featured releases (#151) rank each month by the IGDB Hypes signal that this same run
+acquires with the existing Game request, together with first-release and distinct-product
+evidence, for every Game it reconciles. Nothing
+refreshes it between runs, so keep the current month's interval synchronized (for
+example `from` the first and `to` the last day of the month) when Destacados should
+reflect current attention. Signals older than `CATALOGUE_RELEASES_FRESHNESS_THRESHOLD`
+make the selection stale: it stays served and says when attention was last observed.
+The same run selects each Game's featured image from the artworks and screenshots of its
+work request and its logo from one bounded logo lookup per page; nothing is fetched
+between runs, and images are never downloaded. The finished line reports
+`popularity[observed cleared unavailable]` and `media[images logos logos_unavailable]`;
+a `page lookup unavailable` line names the provider failure of a logo lookup. Invalid
+featured evidence keeps its last valid state; a valid missing/zero Hypes or missing first
+release excludes a Game from ranking. The forward migration removes Visits data, so
+re-synchronize the desired months after upgrading; it never converts Visits to Hypes.
+`catalogue.featured.selection{freshness="stale"}` or `{status="popularity_unavailable"}`
+on reads means the next run should cover that month, and a high `lead_image="fallback"`
+share means its Games have no usable artwork or screenshot yet. Explicit
+current-release repair refreshes featured evidence with each Game but does not look up logos.
+
 PostgreSQL allows one active run; an abandoned
 worker is fenced after `CATALOGUE_SYNC_ABANDON_RUN_AFTER` before a successor can
 write. Provider failure never deletes local Games, Releases or covers; the previous

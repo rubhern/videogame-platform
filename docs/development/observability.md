@@ -33,6 +33,14 @@ with a dedicated short statement timeout; health details remain hidden.
   percentile histogram supports latency analysis without defining an SLO.
 - `catalogue.releases.result.count{view}` is the one release-specific meter and
   records successful page yield for the closed `recent`/`upcoming` vocabulary.
+- `catalogue.featured.selection{status,freshness,month,lead_image}` counts successful
+  featured reads (#151): `status` is `ranked`, `popularity_unavailable` or
+  `no_qualifying_releases`; `freshness` is `fresh`, `stale` or `none`; `month` is
+  `current` or `requested`; `lead_image` is the featured release's image kind,
+  `artwork`, `screenshot`, `fallback` or `none`, because the hero never presents a cover. A
+  rising `stale` or `popularity_unavailable` share means popularity acquisition is behind,
+  and a rising `fallback` share means media acquisition is; no game, month, image or
+  popularity value is a tag.
 - `catalogue.game.details{eligibility,aggregate}` counts successful detail reads,
   including conditional responses. Eligibility uses the six contract reason codes;
   aggregate uses only `available`/`unavailable`. This distinguishes a degraded rating
@@ -40,10 +48,16 @@ with a dedicated short statement timeout; health details remain hidden.
 - Synchronization run meters are `catalogue.synchronization.run{outcome}`,
   `.run.duration{outcome}` and `.run.records{kind}`. The record kinds count
   inspected release dates, created/updated/unchanged Games and
-  Releases, deferred Games and failed Games. Deferral is import policy, not failure.
+  Releases, deferred Games and failed Games, and, for committed Games, popularity
+  signals observed, absent for zero/missing Hypes, and kept because featured evidence
+  was unavailable or invalid,
+  featured images observed, and logos observed or kept because the logo lookup was
+  unavailable. Deferral is import policy, not failure.
 - Provider meters use `catalogue.synchronization.provider.request{operation,outcome}`,
   `.request.duration{operation}`, `.retry{operation}` and `.mapping.failure{reason}`.
-  Operations are the closed `window`, `works`, `release_dates` vocabulary.
+  Operations are the closed `window`, `works`, `release_dates`, `logos`
+  vocabulary. An artwork, screenshot or logo that does not satisfy ADR-0001 or states no
+  usable dimensions is ignored and counted as `image_reference_invalid`.
 - Durable run reports hold the requested window, provider request/retry/latency
   totals and aggregate counters. The synchronization log adds lifecycle, progress and
   per-Game failure stage/reason; it never contains titles, raw payloads or provider
@@ -176,6 +190,7 @@ not application readiness dependencies.
 | [IGDB adapter](../../backend/src/main/java/com/videogameplatform/catalogue/adapter/provider/igdb/IgdbCatalogueProviderAdapter.java) → same metrics adapter around each logical provider call                                                                                                                                                | `catalogue.synchronization.provider.request`, `.retry`, `.mapping.failure`, **Counter**; `.request.duration`, **Timer** | Request: `operation,outcome`; duration/retry: `operation`; mapping: `reason` | `catalogue_synchronization_provider_request_total`, `...request_duration_milliseconds_{sum,count}`, `...retry_total`, `...mapping_failure_total` |
 | [GameSearchApiMetrics](../../backend/src/main/java/com/videogameplatform/api/delivery/catalogue/search/GameSearchApiMetrics.java), successful search response                                                                                                                                                                               | `catalogue.search.result.outcome`, **Counter**, pre-registered                                                          | `outcome=results                                                             | zero_results`                                                                                                                                    | `catalogue_search_result_outcome_total` |
 | [ReleaseController](../../backend/src/main/java/com/videogameplatform/api/delivery/catalogue/release/ReleaseController.java) → [ReleaseApiMetrics](../../backend/src/main/java/com/videogameplatform/api/delivery/catalogue/release/ReleaseApiMetrics.java), HTTP 200 page only                                                             | `catalogue.releases.result.count`, **DistributionSummary**, pre-registered                                              | `view=recent                                                                 | upcoming` on successful calls                                                                                                                    | `catalogue_releases_result_count_{sum,count}` |
+| [FeaturedReleaseController](../../backend/src/main/java/com/videogameplatform/api/delivery/catalogue/release/FeaturedReleaseController.java) → [FeaturedReleaseApiMetrics](../../backend/src/main/java/com/videogameplatform/api/delivery/catalogue/release/FeaturedReleaseApiMetrics.java), HTTP 200 only                                 | `catalogue.featured.selection`, **Counter**, registered lazily                                                          | `status`, `freshness`, `month=current\|requested`, `lead_image`              | `catalogue_featured_selection_total`                                                                                                             |
 | [GameDetailsEndpoint](../../backend/src/main/java/com/videogameplatform/api/delivery/catalogue/details/GameDetailsEndpoint.java), after catalogue/ratings context read, before conditional 304 response                                                                                                                                     | `catalogue.game.details`, **Counter**, registered lazily                                                                | Six contract `eligibility` reasons; `aggregate=available                     | unavailable`                                                                                                                                     | `catalogue_game_details_total` |
 
 ### Runtime panel queries and interpretation
@@ -328,6 +343,7 @@ Catalogue synchronization (`CatalogueSynchronizationLog`):
 | Progress checkpoint         | `INFO`                                           | run, phase, page, game position, elapsed, Game/release/provider counters                       |
 | Game reconciled or deferred | `DEBUG`                                          | run, page, position, result                                                                    |
 | Game failed                 | `WARN` for the first 20 of a run, then `DEBUG`   | run, page, position, stage, reason, failed count, identity (below)                             |
+| Page lookup unavailable     | `WARN`, once per affected lookup and page        | run, page, page Games, `provider_logos` stage, provider failure code  |
 | Run failure                 | `WARN`                                           | run, phase, page, stage, reason, exception class when unexpected                               |
 | Finished                    | `INFO` succeeded, `WARN` partial, `ERROR` failed | outcome, stable code, window, pages, elapsed, all counters, failures tallied by `stage/reason` |
 | Skipped                     | `INFO`                                           | `SYNCHRONIZATION_DISABLED` or `SYNCHRONIZATION_ALREADY_RUNNING`, window                        |
@@ -337,7 +353,10 @@ Catalogue synchronization (`CatalogueSynchronizationLog`):
 While events keep arriving, a checkpoint is written at least every 60 seconds and at
 provider-page completion, but never less than 10 seconds after the previous one.
 Spacing uses a monotonic source, not the product clock. Stages are `provider_page`,
-`provider_game`, `validation`, `reconciliation`, `persistence` and `run`. Reasons come
+`provider_game`, `provider_logos`, `validation`,
+`reconciliation`, `persistence` and `run`. A `provider_logos`
+failure never fails a Game: the page's Games still reconcile and keep their last valid
+logo. Reasons come
 from `ProviderFailureCode`, `ProviderMappingFailure`, `SynchronizationWriteException.Reason`
 and the service constants (`WORK_NOT_RETURNED`, `TITLE_MISSING`,
 `RELEASE_LIMIT_EXCEEDED`, `DUPLICATE_RELEASE_REFERENCE`, `RECORD_REJECTED`,

@@ -1,7 +1,8 @@
 # VideoGame Platform frontend
 
 The frontend is a client-rendered React/TypeScript SPA for the approved same-origin
-BFF/API. It implements the complete MVP journey: `UC-001` release discovery,
+BFF/API. It implements the complete MVP journey: `UC-001` release discovery, `UC-010` monthly
+featured releases on the landing route,
 `UC-002` bounded catalogue search, `UC-003` public game details, the `UC-004`
 same-origin authentication boundary (direct BFF/OIDC navigation to hosted identity screens,
 anonymous account entry,
@@ -69,8 +70,9 @@ transport types do not spread through components. Follow the
 
 React Router owns navigation. TanStack Query owns server state, caching, loading, and
 invalidation. Component state owns transient interaction state; URL parameters own
-navigable/shareable state when safe (release view and filters, search query and
-page, the selected platform/region on a game page). Values outside the contract shape
+navigable/shareable state when safe (the featured month, release view and filters,
+search query and page, the selected platform/region on a game page). The landing route
+`/` shows the featured releases; the release lists always name their `view`. Values outside the contract shape
 fall back to a safe default before reaching the API. Personal filters live only in
 component state and personal query data is discarded when the page unmounts. OAuth
 tokens and personal responses are never stored in browser storage; same-origin

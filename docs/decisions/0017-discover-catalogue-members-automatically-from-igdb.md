@@ -11,6 +11,8 @@
 - **Superseded in part:** [ADR-0020](0020-acquire-platform-and-region-taxonomy-from-releases.md)
   (platform and region taxonomy is now acquired from accepted releases through typed
   provider references, not installed by migration)
+- **Extended by:** [ADR-0021](0021-rank-monthly-featured-releases-by-local-igdb-hypes.md)
+  (the same per-page, per-Game synchronization also acquires the popularity signal)
 
 ## Context
 

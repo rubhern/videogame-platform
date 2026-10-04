@@ -12,6 +12,14 @@ erDiagram
     game_release["catalogue.game_release"]
     release_snapshot["catalogue.release_snapshot"]
     release_external_reference["catalogue.release_external_reference"]
+    game_featured_evidence["catalogue.game_featured_evidence"] {
+        bigint hypes "positive current attention or absent; featured only"
+        date first_release_date "known own first release or absent"
+        boolean eligible_product "accepted import type and not an edition"
+    }
+    game_featured_media["catalogue.game_featured_media"] {
+        varchar image_reference "selected hero/card image or secondary-card logo; CDN reference, never a binary"
+    }
     platform["catalogue.platform"]
     region["catalogue.region"]
     synchronization_run["catalogue.synchronization_run"] {
@@ -26,6 +34,8 @@ erDiagram
     game ||--o{ game_alias : "searchable as"
     game ||--o{ game_external_reference : "provider identity"
     game ||--o{ game_release : owns
+    game ||--o| game_featured_evidence : "current popularity signal, written with the Game"
+    game ||--o{ game_featured_media : "at most one hero image, card image and card logo, written with the Game"
     game_release ||--o| release_snapshot : "current state"
     game_release ||--o{ release_external_reference : "provider identity"
     platform ||--o{ release_snapshot : classifies

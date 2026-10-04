@@ -40,6 +40,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/featured-releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the automatic featured releases of one calendar month
+         * @description Reads the automatic selection of one calendar month from the last valid local catalogue.
+         *     Candidates are the games with a qualifying commercial release inside the month: its known
+         *     date lies inside the month (an exact day of the month, or month precision equal to the
+         *     month) and it is neither cancelled, delayed, nor pending review. Only Full Release
+         *     participates. A candidate must be an accepted import type, not an edition, with its
+         *     own known first release in this month and positive locally stored IGDB Hypes.
+         *     Candidates rank by Hypes descending, then `gameId` ascending. A
+         *     game without a usable popularity signal stays a normal catalogue and discovery result but
+         *     is not ranked, and no popularity value is ever invented. The first item is the month's
+         *     featured release and up to five more follow; fewer items are returned rather than filling
+         *     slots. Popularity measures provider-observed attention, never quality, a rating, or an
+         *     editorial recommendation, and the signal value itself is not exposed. The application
+         *     derives the evaluation date and the default month, the current calendar month, in
+         *     `Europe/Madrid`. Another month of the current calendar year may be selected; it is ranked
+         *     with the same current local popularity evidence, because no popularity history is kept.
+         *     A month of another year is never featured. PostgreSQL selects the
+         *     qualifying releases, ranks and limits the games, and presents at most one release per
+         *     platform before anything reaches the application. Each item also carries the landscape
+         *     context-selected image and optional decorative secondary-card logo,
+         *     chosen from locally stored provider media metadata and delivered as approved direct CDN
+         *     references (ADR-0001). No provider is called.
+         */
+        get: operations["getFeaturedReleases"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/games": {
         parameters: {
             query?: never;
@@ -403,6 +443,120 @@ export interface components {
             /** Format: date */
             to: string;
         };
+        /**
+         * @description A calendar month as `YYYY-MM`, from `0001-01` through `9999-12`.
+         * @example 2026-10
+         */
+        CalendarMonth: string;
+        /**
+         * @description Why the featured selection holds what it holds. `ranked`: at least one game with a
+         *     qualifying release in the month has a usable popularity signal, `items` holds the ranking,
+         *     and both popularity fields are present. `popularity_unavailable`: the month has qualifying
+         *     releases but none of their games has a usable popularity signal, so nothing is ranked.
+         *     `no_qualifying_releases`: the local catalogue holds no qualifying release inside the month.
+         *     A stale selection is still the last valid local ranking.
+         */
+        FeaturedSelection: {
+            /** @enum {string} */
+            status: "ranked" | "popularity_unavailable" | "no_qualifying_releases";
+            /**
+             * @description Freshness of the oldest popularity evidence among the ranked games under the catalogue
+             *     freshness policy.
+             * @enum {string}
+             */
+            popularityFreshness?: "fresh" | "stale";
+            /**
+             * Format: date-time
+             * @description The oldest local acquisition of popularity evidence among the ranked games; the ranking
+             *     is at least this current.
+             */
+            popularityObservedAt?: string;
+        };
+        FeaturedReleases: {
+            month: components["schemas"]["CalendarMonth"];
+            /** Format: date */
+            evaluatedOn: string;
+            /** @description The first and the last day of the month, inclusive. */
+            window: components["schemas"]["ReleaseWindow"];
+            selection: components["schemas"]["FeaturedSelection"];
+            /**
+             * @description Ranked games, highest popularity first. The first item is the month's featured release
+             *     and up to five other featured releases follow. Each item holds only the game's
+             *     qualifying releases inside the month, at most one per platform, chosen by the
+             *     `ReleaseItem` presentation precedence with the earliest date first; an exact day comes
+             *     before month precision, then the earlier date. Empty unless `selection.status` is
+             *     `ranked`.
+             */
+            items: components["schemas"]["FeaturedReleaseItem"][];
+        };
+        /**
+         * @description One ranked game of the month: the `ReleaseItem` fields, holding the game's qualifying
+         *     presented releases inside the month, plus the landscape image and the optional title
+         *     logo featured discovery presents.
+         */
+        FeaturedReleaseItem: {
+            gameId: components["schemas"]["GameId"];
+            slug: string;
+            canonicalTitle: string;
+            primaryCover: components["schemas"]["Cover"];
+            featuredImage: components["schemas"]["FeaturedImage"];
+            logo?: components["schemas"]["FeaturedLogo"];
+            releases: components["schemas"]["Release"][];
+        };
+        /**
+         * @description The landscape image of a featured game, chosen deterministically from image metadata
+         *     alone for its ranked position. Artwork the provider labels as a cover, a logo or an icon
+         *     is never featured media. The first item uses the hero policy, and the hero sets the
+         *     canonical title itself: high-quality landscape artwork without a provider-declared title,
+         *     then a high-quality screenshot, then high-quality title artwork, then the same order among
+         *     the other accepted landscape media, each step preferring the least crop to the wide 8:3
+         *     hero frame. Without suitable landscape media the first item uses the product fallback,
+         *     never the provider cover. Other items use the card policy: aspect/crop suitability and
+         *     delivered resolution across artworks and screenshots; on equal suitability prefer
+         *     provider-declared title key art, then screenshots, then ordinary artwork; without
+         *     suitable landscape media, the game's provider cover in a designed treatment, then the
+         *     product fallback. A `fill` image may be cropped to fill a landscape frame; a `contain`
+         *     image is shown whole inside a designed treatment and never stretched or cropped. `url`
+         *     suits the featured release of the month and `compactUrl` the other featured releases. A
+         *     provider image carries its mandatory attribution (ADR-0001).
+         */
+        FeaturedImage: components["schemas"]["ProviderFeaturedImage"] | components["schemas"]["FallbackFeaturedImage"];
+        ProviderFeaturedImage: {
+            /** @enum {string} */
+            kind: "artwork" | "screenshot" | "cover";
+            /** @enum {string} */
+            presentation: "fill" | "contain";
+            /** Format: uri */
+            url: string;
+            /** Format: uri */
+            compactUrl: string;
+            alternativeText: string;
+            attribution: components["schemas"]["Attribution"];
+        };
+        FallbackFeaturedImage: {
+            /** @enum {string} */
+            kind: "fallback";
+            /** @enum {string} */
+            presentation: "fill";
+            /** Format: uri-reference */
+            url: string;
+            /** Format: uri-reference */
+            compactUrl: string;
+            alternativeText: string;
+            attribution: null;
+        };
+        /**
+         * @description A transparent provider game logo for an optional secondary screenshot-card overlay;
+         *     the hero always renders the canonical title as product-owned text. Its alternative
+         *     text is the canonical title. Absent when the game has no suitable logo; the card's
+         *     canonical title link remains beneath its image.
+         */
+        FeaturedLogo: {
+            /** Format: uri */
+            url: string;
+            alternativeText: string;
+            attribution: components["schemas"]["Attribution"];
+        };
         ReleasePage: {
             view: components["schemas"]["ReleaseView"];
             /** Format: date */
@@ -695,6 +849,20 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
+        /**
+         * @description The requested month is malformed or outside the current calendar year, or a request
+         *     parameter is invalid.
+         */
+        FeaturedReleaseValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
         /** @description Search, pagination, or request parameters are invalid. */
         SearchValidationFailed: {
             headers: {
@@ -829,6 +997,13 @@ export interface components {
          * @example true
          */
         ReleaseIncludeApproximateDates: boolean;
+        /**
+         * @description Calendar month to feature as `YYYY-MM`, a month of the current calendar year in
+         *     `Europe/Madrid`. Omitted, it is the current calendar month. A malformed month, or a month
+         *     of another year, yields 422 `FILTER_INVALID` for `/query/month`.
+         * @example 2026-10
+         */
+        FeaturedMonth: components["schemas"]["CalendarMonth"];
         /**
          * @description Repeatable multi-select platform filter (`platformIds=a&platformIds=b`). Values in this
          *     dimension combine with OR; the platform and region dimensions combine with AND. Omit it for
@@ -1017,6 +1192,50 @@ export interface operations {
             405: components["responses"]["MethodNotAllowed"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["ReleaseValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["CatalogueUnavailable"];
+        };
+    };
+    getFeaturedReleases: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Calendar month to feature as `YYYY-MM`, a month of the current calendar year in
+                 *     `Europe/Madrid`. Omitted, it is the current calendar month. A malformed month, or a month
+                 *     of another year, yields 422 `FILTER_INVALID` for `/query/month`.
+                 * @example 2026-10
+                 */
+                month?: components["parameters"]["FeaturedMonth"];
+            };
+            header?: {
+                /**
+                 * @description Opaque public representation tag for a conditional read.
+                 * @example "catalogue-version-opaque"
+                 */
+                "If-None-Match"?: components["parameters"]["PublicIfNoneMatch"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The month's featured selection, possibly empty. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["PublicCacheControl"];
+                    ETag: components["headers"]["PublicEntityTag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeaturedReleases"];
+                };
+            };
+            304: components["responses"]["PublicNotModified"];
+            400: components["responses"]["MalformedRequest"];
+            405: components["responses"]["MethodNotAllowed"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["FeaturedReleaseValidationFailed"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["CatalogueUnavailable"];
         };

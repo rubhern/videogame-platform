@@ -10,6 +10,8 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedMediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ReleaseWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderReleaseSignal;
@@ -177,7 +179,9 @@ class GameDetailsApiIntegrationTest {
                                                             .orElseThrow())),
                                     at,
                                     java.util.Set.of("2001"),
-                                    10));
+                                    10,
+                                    FeaturedEvidenceWrite.KEEP,
+                                    FeaturedMediaWrite.KEEP));
             assertThat(result.deletedReleases()).isEqualTo(1);
             var after = get(game.toString());
             CONTRACT.assertJsonResponse(after, 200, "GameDetails");
@@ -208,7 +212,9 @@ class GameDetailsApiIntegrationTest {
                             List.of(),
                             at,
                             java.util.Set.of(),
-                            10));
+                            10,
+                            FeaturedEvidenceWrite.KEEP,
+                            FeaturedMediaWrite.KEEP));
             var empty = JSON.readTree(get(game.toString()).body());
             assertThat(empty.path("releases").size()).isZero();
             assertThat(empty.path("ratingEligibility").path("eligible").asBoolean()).isFalse();
@@ -420,7 +426,9 @@ class GameDetailsApiIntegrationTest {
                             List.of(new ReleaseWrite(releaseReference, reconciled)),
                             synchronizedAt,
                             java.util.Set.of(releaseReference),
-                            10));
+                            10,
+                            FeaturedEvidenceWrite.KEEP,
+                            FeaturedMediaWrite.KEEP));
         } finally {
             admin.update("DELETE FROM catalogue.synchronization_run WHERE run_id = ?", run);
         }

@@ -21,7 +21,7 @@ test("release filters open from the full trigger and show tinted platform icons"
     },
   }) }));
 
-  await page.goto("/");
+  await page.goto("/?view=recent");
   const trigger = page.getByRole("combobox", { name: /^Plataforma:/ });
   await expect(trigger).toBeVisible();
   const box = await trigger.boundingBox();

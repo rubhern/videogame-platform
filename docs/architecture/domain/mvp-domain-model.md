@@ -22,6 +22,9 @@ eligibility, and aggregate calculation. Identity supplies only authenticated
 | `ReleaseStage` | Semantic type of a release date: Full Release, Early Access, Advance Access, Beta, Alpha, or Unknown. Distinct from lifecycle status, work category, and edition; never inferred from dates. |
 | `ReleaseDate` | Closed day, month, quarter, year, or unknown value; precision is never invented |
 | `ExternalReference` | Typed provider/entity/provider-ID link; never product identity |
+| Popularity signal | One game's current provider-observed attention (IGDB Hypes) with its source and acquisition time; ranks featured releases, never measures quality |
+| Featured releases | A calendar month's automatic selection: its qualifying-release games ranked by popularity signal, the first being the month's featured release |
+| Featured media | Context-selected hero and card landscape images and an optional secondary-card logo, kept as approved CDN references, never binaries |
 | Verification / review / freshness | Independent evidence, ambiguity, and time-policy states |
 | `Rating` | One active integer 1–10 identified by `UserId + GameId` |
 | `RatingStatistics` | Unweighted mean, count, and 1–10 distribution from active ratings |
@@ -126,6 +129,13 @@ Downstream documents may reference these IDs but must not redefine them.
 | `EXT-002` | Provider taxonomy does not become the public product contract. |
 | `EXT-003` | Provider failure preserves last valid local data. |
 | `EXT-004` | A typed external reference maps to at most one internal concept. |
+| `POP-001` | A popularity signal is provider-observed attention: it never states quality, a rating, an award or an editorial recommendation, and its value is not product presentation. |
+| `POP-002` | A popularity signal is never invented: a game without one is not ranked and remains a normal catalogue and discovery member. |
+| `POP-003` | A valid provider answer records a game's positive signal, or clears it when the provider states zero attention, with that game's accepted state; a game the answer does not mention, an unavailable or invalid answer, or a failed game preserves the last valid signal. |
+| `FEAT-001` | A featured candidate has a Full Release inside the month (an exact day of it, or month precision equal to it), neither cancelled, delayed nor pending review; it is an accepted import type and a distinct product rather than an edition, its own known first release is in that month, and its current Hypes count is positive. Remakes and remasters follow the same rule. Missing evidence never becomes eligibility. |
+| `FEAT-002` | Featured ranking orders candidates by Hypes descending, then unique `GameId` ascending; it shows up to six games and never fills a slot artificially. |
+| `FEAT-003` | The hero sets the title itself, so hero media prefer high-quality artwork without a provider-declared title, then high-quality screenshot, then high-quality title artwork, then the same three among the other accepted landscape media. Accepted media are opaque, still, at least 640×360 and between 3:2 and 16:5, and never artwork the provider labels as a cover, a game logo or an icon; high quality for the hero means covering a 1280×480 frame. Within each hero step prefer less crop to the 8:3 hero frame, then larger pixel area, then stable image reference ASC. Secondary cards select across both media types: the same accepted gate plus at least 80% retained area at 16:9.4; order by least crop, largest usable pixel area capped at 1280×720, provider-declared title key art before screenshot before ordinary artwork on equal suitability, then stable reference ASC. The provider adapter normalizes the optional image-type label: title key art into a boolean, covers, logos and icons out of the candidates; missing/unknown labels receive no preference. Without a suitable image the hero uses the designed product fallback, which its cover may only light; a card uses an intentional cover treatment, then product fallback. A portrait cover is never distorted to landscape. |
+| `FEAT-004` | The hero always renders the canonical title as product-owned text. The first transparent, still logo of at least 160×40 may decorate a secondary screenshot card only. Synchronization stores separate hero and card selections and optional card logo; newer valid evidence replaces each slot independently, while missing, invalid or unavailable media preserve last valid evidence. Reads reject unsuitable legacy selections and use the designed fallback until synchronization replaces them. |
 | `RAT-001` | Rating value is an integer 1–10. |
 | `RAT-002` | At most one active rating exists per user/game. |
 | `RAT-003` | Create requires authentication. |

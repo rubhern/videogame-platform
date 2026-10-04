@@ -9,9 +9,12 @@ import com.videogameplatform.catalogue.application.cover.port.ProviderCoverRefer
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
 import com.videogameplatform.catalogue.application.details.port.GameListingReadPort;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
+import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.internal.FeaturedReleaseService;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseCatalogueService;
+import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
 import com.videogameplatform.catalogue.application.search.internal.CatalogueSearchPolicy;
@@ -47,6 +50,8 @@ class CatalogueModuleConfigurationTest {
                             .isInstanceOf(ReleaseCatalogueService.class);
                     assertThat(context.getBean(ReleaseBrowsePolicy.class))
                             .isEqualTo(new ReleaseBrowsePolicy(12));
+                    assertThat(context.getBean(BrowseFeaturedReleasesUseCase.class))
+                            .isInstanceOf(FeaturedReleaseService.class);
                     assertThat(context.getBean(CatalogueFreshnessPolicy.class))
                             .isEqualTo(new CatalogueFreshnessPolicy(Duration.ofDays(14)));
                     assertThat(context).hasSingleBean(ProviderCoverReferenceResolver.class);
@@ -88,6 +93,11 @@ class CatalogueModuleConfigurationTest {
 
         @Bean
         ReleaseBrowseReadPort releaseBrowseReadPort() {
+            return criteria -> Optional.empty();
+        }
+
+        @Bean
+        FeaturedReleaseReadPort featuredReleaseReadPort() {
             return criteria -> Optional.empty();
         }
 

@@ -120,7 +120,8 @@ try {
     return url.pathname === "/api/v1/releases" && response.request().resourceType() === "fetch";
   });
 
-  await page.goto("/", { waitUntil: "domcontentloaded" });
+  // The landing route shows the featured releases (#151); the release list names its view.
+  await page.goto("/?view=recent", { waitUntil: "domcontentloaded" });
   const renderedReleases = await releasesResponse;
   const renderedReleasesOutcome = await releasesOutcome(renderedReleases, "releases API");
   await page.locator("h1").waitFor({ state: "visible" });

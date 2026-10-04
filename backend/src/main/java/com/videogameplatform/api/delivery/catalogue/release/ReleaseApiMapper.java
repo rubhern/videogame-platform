@@ -65,7 +65,8 @@ public final class ReleaseApiMapper {
                         result.page().totalPages()));
     }
 
-    private ReleaseItem toItem(BrowseReleasesResult.Item item) {
+    /** One game with its presented releases; shared by discovery and the featured selection. */
+    ReleaseItem toItem(BrowseReleasesResult.Item item) {
         List<Release> releases = item.releases().stream().map(this::toRelease).toList();
         return new ReleaseItem(
                 item.gameId(),

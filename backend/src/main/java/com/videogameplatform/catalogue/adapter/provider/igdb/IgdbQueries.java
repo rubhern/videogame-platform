@@ -10,11 +10,20 @@ final class IgdbQueries {
 
     static final String GAMES_ENDPOINT = "games";
     static final String RELEASE_DATES_ENDPOINT = "release_dates";
+    static final String LOGOS_ENDPOINT = "logos";
 
     private static final Pattern PROVIDER_ID = Pattern.compile("[0-9]{1,19}");
+
+    /** Only the image metadata the featured-media policy reads; never the binary. */
+    private static final String IMAGE_FIELDS = "image_id,width,height,alpha_channel,animated";
+
     private static final String WORK_FIELDS =
-            "fields id,name,url,created_at,updated_at,game_type.type,game_status.status,"
-                    + "cover.image_id;";
+            "fields id,name,url,created_at,updated_at,hypes,first_release_date,version_parent,game_type.type,game_status.status,"
+                    + "cover.image_id,"
+                    + nested("artworks", IMAGE_FIELDS + ",image_type.name")
+                    + ","
+                    + nested("screenshots", IMAGE_FIELDS)
+                    + ";";
 
     private IgdbQueries() {}
 
@@ -52,6 +61,29 @@ final class IgdbQueries {
                 + " sort id asc; limit "
                 + limit
                 + ";";
+    }
+
+    /**
+     * The logos of the given games after {@code afterLogoId}, in logo order. Logos are not a field of
+     * a game, so they are read by game; a full page means more may follow.
+     */
+    static String logosForGames(List<String> providerIds, long afterLogoId, int limit) {
+        return "fields game,"
+                + IMAGE_FIELDS
+                + ";"
+                + " where game = ("
+                + identifierList(providerIds)
+                + ") & id > "
+                + afterLogoId
+                + ";"
+                + " sort id asc; limit "
+                + limit
+                + ";";
+    }
+
+    private static String nested(String field, String fields) {
+        return String.join(
+                ",", java.util.Arrays.stream(fields.split(",")).map(f -> field + "." + f).toList());
     }
 
     private static String identifierList(List<String> providerIds) {

@@ -61,6 +61,12 @@ public interface SynchronizationProgress {
                     }
 
                     @Override
+                    public void pageLookupUnavailable(
+                            int page, int games, Failure failure, Counters counters) {
+                        // Discards the event.
+                    }
+
+                    @Override
                     public void gameSucceeded(
                             int page, int position, GameResult result, Counters counters) {
                         // Discards the event.
@@ -97,6 +103,12 @@ public interface SynchronizationProgress {
 
         /** The provider page listed {@code games} Games to reconcile. */
         void pageFetched(int page, int games, Counters counters);
+
+        /**
+         * A page-level lookup, named by the failure's stage, could not be read for the page's
+         * {@code games} Games; they still reconcile and keep their last valid evidence of that kind.
+         */
+        void pageLookupUnavailable(int page, int games, Failure failure, Counters counters);
 
         /** One Game was reconciled, or deferred by import policy, at a one-based page position. */
         void gameSucceeded(int page, int position, GameResult result, Counters counters);
@@ -138,6 +150,8 @@ public interface SynchronizationProgress {
         PROVIDER_PAGE,
         /** Fetching one Game and its releases. */
         PROVIDER_GAME,
+        /** Reading the logos of a page's Games; it never fails a Game. */
+        PROVIDER_LOGOS,
         /** The normalized provider record is not publishable. */
         VALIDATION,
         /** Reconciling the record against the published Game. */

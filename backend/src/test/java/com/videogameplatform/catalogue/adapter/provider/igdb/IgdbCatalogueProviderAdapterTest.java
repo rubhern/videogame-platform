@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
@@ -13,6 +14,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Provider
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderReleaseSignal;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderWorkType;
+import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.net.http.HttpClient;
@@ -238,6 +240,235 @@ class IgdbCatalogueProviderAdapterTest {
                                         .isIn("/oauth2/token", "/v4/games", "/v4/release_dates"));
     }
 
+    @Test
+    void readsTheImageMetadataOfAWorkInProviderOrderAndIgnoresUnusableImages() {
+        ProviderWork work = fetchWorkFixture("media-game-response.json");
+
+        // Rising image identity is the provider's stable order; only metadata ever crosses. Artwork
+        // labelled as a cover, a game logo or an icon is not landscape art: it is never offered,
+        // and leaving it out is not a mapping failure. Any other label stays untitled art.
+        assertThat(work.images())
+                .containsExactly(
+                        new ProviderImage(
+                                ImageKind.ARTWORK, "arfirst", 3840, 2160, false, false, true),
+                        new ProviderImage(ImageKind.ARTWORK, "arlater", 1920, 1080, false, false),
+                        new ProviderImage(ImageKind.ARTWORK, "arbanner", 3840, 1240, false, false),
+                        new ProviderImage(ImageKind.SCREENSHOT, "scmoving", 1280, 720, true, true));
+        assertThat(work.attributionUrl()).contains("https://www.igdb.com/games/ghost-of-yotei");
+        assertThat(work.mappingFailures())
+                .containsOnlyOnce(ProviderMappingFailure.IMAGE_REFERENCE_INVALID);
+        assertThat(server.requests())
+                .filteredOn(request -> "/v4/games".equals(request.path()))
+                .singleElement()
+                .satisfies(
+                        request ->
+                                assertThat(request.body())
+                                        .contains(
+                                                "artworks.image_id,artworks.width,artworks.height,"
+                                                        + "artworks.alpha_channel,artworks.animated",
+                                                "screenshots.image_id,screenshots.width,"
+                                                        + "screenshots.height,"
+                                                        + "screenshots.alpha_channel,"
+                                                        + "screenshots.animated"));
+    }
+
+    @Test
+    void readsLogosByGameInPagesOfRisingLogoIdentityAndIgnoresAnUnusableLogo() {
+        StringBuilder fullPage = new StringBuilder("[");
+        for (int id = 1; id <= 500; id++) {
+            fullPage.append(id == 1 ? "" : ",")
+                    .append("{\"id\":")
+                    .append(id)
+                    .append(",\"game\":100,\"image_id\":\"lo")
+                    .append(id)
+                    .append("\",\"width\":900,\"height\":320,\"alpha_channel\":true}");
+        }
+        fullPage.append("]");
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                IgdbFixtureServer.always(
+                                        200, IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/logos",
+                                IgdbFixtureServer.sequence(
+                                        new IgdbFixtureServer.Response(200, fullPage.toString()),
+                                        new IgdbFixtureServer.Response(
+                                                200,
+                                                "[{\"id\":501,\"game\":101,\"image_id\":"
+                                                        + "\"lolast\",\"width\":600,"
+                                                        + "\"height\":200},"
+                                                        + "{\"id\":502,\"game\":101,"
+                                                        + "\"image_id\":\"lonosize\"}]"))));
+        var registry = new SimpleMeterRegistry();
+
+        var batch = adapter(registry).logos(List.of("100", "101", "102"));
+
+        assertThat(batch.logos()).containsOnlyKeys("100", "101");
+        assertThat(batch.logos().get("100")).hasSize(500);
+        assertThat(batch.logos().get("100").getFirst())
+                .isEqualTo(new ProviderImage(ImageKind.LOGO, "lo1", 900, 320, true, false));
+        assertThat(batch.logos().get("101"))
+                .containsExactly(
+                        new ProviderImage(ImageKind.LOGO, "lolast", 600, 200, false, false));
+        assertThat(batch.statistics().requests()).isEqualTo(3);
+        assertThat(
+                        registry.get("catalogue.synchronization.provider.mapping.failure")
+                                .tag("reason", "image_reference_invalid")
+                                .counter()
+                                .count())
+                .isEqualTo(1.0);
+        assertThat(server.requests())
+                .filteredOn(request -> "/v4/logos".equals(request.path()))
+                .extracting(IgdbFixtureServer.RecordedRequest::body)
+                .containsExactly(
+                        "fields game,image_id,width,height,alpha_channel,animated;"
+                                + " where game = (100,101,102) & id > 0; sort id asc; limit 500;",
+                        "fields game,image_id,width,height,alpha_channel,animated;"
+                                + " where game = (100,101,102) & id > 500; sort id asc; limit 500;");
+    }
+
+    @Test
+    void stopsReadingLogosPastTheirBoundedNumberOfPages() {
+        IgdbFixtureServer.Response[] pages = new IgdbFixtureServer.Response[5];
+        for (int page = 0; page < pages.length; page++) {
+            StringBuilder body = new StringBuilder("[");
+            for (int row = 1; row <= 500; row++) {
+                int id = page * 500 + row;
+                body.append(row == 1 ? "" : ",")
+                        .append("{\"id\":")
+                        .append(id)
+                        .append(",\"game\":100,\"image_id\":\"lo")
+                        .append(id)
+                        .append("\",\"width\":900,\"height\":320,\"alpha_channel\":true}");
+            }
+            pages[page] = new IgdbFixtureServer.Response(200, body.append("]").toString());
+        }
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                IgdbFixtureServer.always(
+                                        200, IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/logos",
+                                IgdbFixtureServer.sequence(pages)));
+
+        assertThatThrownBy(() -> adapter().logos(List.of("100")))
+                .isInstanceOf(ProviderRequestException.class)
+                .hasMessage("PROVIDER_RESPONSE_INVALID");
+        assertThat(server.requests())
+                .filteredOn(request -> "/v4/logos".equals(request.path()))
+                .hasSize(4);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "null",
+                "[null]",
+                "[{\"game\":100,\"image_id\":\"lo\",\"width\":900,\"height\":320}]",
+                "[{\"id\":7,\"game\":999,\"image_id\":\"lo\",\"width\":900," + "\"height\":320}]",
+                "[{\"id\":7,\"image_id\":\"lo\",\"width\":900,\"height\":320}]",
+                "[{\"id\":7,\"game\":100,\"image_id\":\"lo\",\"width\":900,\"height\":320},"
+                        + "{\"id\":7,\"game\":100,\"image_id\":\"lo2\",\"width\":900,"
+                        + "\"height\":320}]"
+            })
+    void rejectsAnInconsistentLogoAnswerAsAWholeSoNoLogoIsGuessed(String payload) {
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                IgdbFixtureServer.always(
+                                        200, IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/logos",
+                                IgdbFixtureServer.always(200, payload)));
+
+        assertThatThrownBy(() -> adapter().logos(List.of("100", "101")))
+                .isInstanceOf(ProviderRequestException.class)
+                .hasMessage("PROVIDER_RESPONSE_INVALID");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", ",\"hypes\":0", ",\"hypes\":292"})
+    void acquiresHypesAndEligibilityWithTheWorkWithoutAPopularityRequest(String hypes) {
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/games",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                "[{\"id\":100,\"name\":\"New Game\",\"first_release_date\":1790812800"
+                                                        + hypes
+                                                        + "}]"),
+                                "/v4/release_dates", IgdbFixtureServer.always(200, "[]")));
+        var work = adapter().fetchWorks(List.of("100")).works().getFirst();
+        assertThat(work.featuredEvidence())
+                .hasValueSatisfying(
+                        e -> {
+                            assertThat(e.firstReleaseDate()).contains(LocalDate.of(2026, 10, 1));
+                            assertThat(e.edition()).isFalse();
+                            if (hypes.endsWith("292")) assertThat(e.hypes()).contains(292L);
+                            else assertThat(e.hypes()).isEmpty();
+                        });
+        assertThat(server.requests()).noneMatch(r -> r.path().contains("popularity"));
+        assertThat(server.requests())
+                .filteredOn(r -> r.path().equals("/v4/games"))
+                .allSatisfy(
+                        r ->
+                                assertThat(r.body())
+                                        .contains("hypes,first_release_date,version_parent"));
+    }
+
+    @Test
+    void normalizesEditionToABooleanWithoutLeakingItsParentIdentity() {
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/games",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                "[{\"id\":100,\"name\":\"Premium Edition\",\"hypes\":10,\"version_parent\":99}]"),
+                                "/v4/release_dates", IgdbFixtureServer.always(200, "[]")));
+        assertThat(adapter().fetchWorks(List.of("100")).works().getFirst().featuredEvidence())
+                .hasValueSatisfying(
+                        e -> {
+                            assertThat(e.edition()).isTrue();
+                            assertThat(e.firstReleaseDate()).isEmpty();
+                        });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"-1", "1.5", "9223372036854775808"})
+    void invalidFeaturedEvidenceKeepsTheWorkUsableAndReportsABoundedMappingFailure(
+            String invalidHypes) {
+        server =
+                IgdbFixtureServer.start(
+                        Map.of(
+                                "/oauth2/token",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                IgdbFixtureServer.fixture("token-response.json")),
+                                "/v4/games",
+                                        IgdbFixtureServer.always(
+                                                200,
+                                                "[{\"id\":100,\"name\":\"Game\",\"hypes\":"
+                                                        + invalidHypes
+                                                        + "}]"),
+                                "/v4/release_dates", IgdbFixtureServer.always(200, "[]")));
+        var work = adapter().fetchWorks(List.of("100")).works().getFirst();
+        assertThat(work.featuredEvidence()).isEmpty();
+        assertThat(work.mappingFailures())
+                .contains(ProviderMappingFailure.FEATURED_EVIDENCE_INVALID);
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(
             strings = {
@@ -358,6 +589,10 @@ class IgdbCatalogueProviderAdapterTest {
     }
 
     private IgdbCatalogueProviderAdapter adapter() {
+        return adapter(new SimpleMeterRegistry());
+    }
+
+    private IgdbCatalogueProviderAdapter adapter(SimpleMeterRegistry registry) {
         IgdbApiSettings settings = settings();
         ObjectMapper mapper =
                 JsonMapper.builder()
@@ -368,7 +603,7 @@ class IgdbCatalogueProviderAdapterTest {
                 new IgdbApiClient(HttpClient.newHttpClient(), mapper, settings),
                 mapper,
                 settings,
-                new CatalogueSynchronizationMetrics(new SimpleMeterRegistry()));
+                new CatalogueSynchronizationMetrics(registry));
     }
 
     private IgdbApiSettings settings() {

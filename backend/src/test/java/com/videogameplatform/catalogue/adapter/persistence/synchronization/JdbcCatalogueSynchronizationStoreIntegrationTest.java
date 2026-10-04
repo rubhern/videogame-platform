@@ -9,7 +9,9 @@ import com.videogameplatform.catalogue.application.synchronization.internal.Cata
 import com.videogameplatform.catalogue.application.synchronization.internal.CoverSelectionPolicy;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.LogoBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderCover;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
@@ -22,6 +24,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Provider
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationProgress;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
+import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
@@ -239,6 +242,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 ProviderWorkType.MAIN_GAME,
                 NOW,
                 Optional.empty(),
+                List.of(),
+                Optional.empty(),
                 List.of(releases),
                 List.of());
     }
@@ -393,6 +398,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         ProviderWorkType.MAIN_GAME,
                         NOW,
                         Optional.empty(),
+                        List.of(),
+                        Optional.empty(),
                         List.of(release("20", "2026-10-02")),
                         List.of(
                                 com.videogameplatform.catalogue.application.synchronization.port
@@ -425,6 +432,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         NOW,
                         Optional.of(
                                 new ProviderCover("new_cover", "https://www.igdb.com/games/game")),
+                        List.of(),
+                        Optional.empty(),
                         List.of(release("20", "2026-10-02"), release("21", "2026-10-02")),
                         List.of()));
         provider.works.put("101", work("101", release("30", "2026-10-03")));
@@ -434,6 +443,189 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         assertThat(store.loadGame("100", 25)).contains(before);
         assertThat(store.loadGame("101", 25)).isPresent();
         assertThat(count("game_release")).isEqualTo(2);
+    }
+
+    @Test
+    void featuredEvidenceIsAtomicIdempotentAndDistinguishesMissingFromInvalid() {
+        provider.rows = List.of(new Row(10, "100"));
+        ProviderWork original = work("100", release("10", "2026-10-02"));
+        provider.works.put(
+                "100",
+                withEvidence(
+                        original,
+                        Optional.of(292L),
+                        Optional.of(LocalDate.of(2026, 10, 2)),
+                        false));
+        service.synchronize(WINDOW);
+        assertThat(popularity("100"))
+                .containsEntry("hypes", 292L)
+                .containsEntry("eligible_product", true);
+        String revision = version();
+        serviceAt(NOW.plusSeconds(1)).synchronize(WINDOW);
+        assertThat(version()).isEqualTo(revision);
+        assertThat(popularity("100")).containsEntry("observed_at", NOW.plusSeconds(1));
+        // A mapping failure keeps complete last-valid evidence.
+        provider.works.put("100", original);
+        serviceAt(NOW.plusSeconds(2)).synchronize(WINDOW);
+        assertThat(popularity("100"))
+                .containsEntry("hypes", 292L)
+                .containsEntry("observed_at", NOW.plusSeconds(1));
+        // A valid answer with no Hypes or first-release evidence removes eligibility without
+        // deleting the Game.
+        provider.works.put("100", withEvidence(original, Optional.empty(), Optional.empty(), true));
+        serviceAt(NOW.plusSeconds(3)).synchronize(WINDOW);
+        assertThat(popularity("100"))
+                .containsEntry("hypes", null)
+                .containsEntry("first_release_date", null)
+                .containsEntry("eligible_product", false);
+        assertThat(count("game")).isEqualTo(1);
+        assertThat(count("game_release")).isEqualTo(1);
+        assertThat(version()).isEqualTo(revision);
+    }
+
+    @Test
+    void failedGameWriteKeepsLastValidFeaturedEvidence() {
+        provider.rows = List.of(new Row(10, "100"));
+        ProviderWork original = work("100", release("10", "2026-10-02"));
+        provider.works.put(
+                "100",
+                withEvidence(
+                        original,
+                        Optional.of(292L),
+                        Optional.of(LocalDate.of(2026, 10, 2)),
+                        false));
+        service.synchronize(WINDOW);
+        // Duplicate release references invalidate the complete aggregate before it can publish new
+        // evidence.
+        provider.works.put(
+                "100",
+                withEvidence(
+                        work("100", release("10", "2026-10-02"), release("10", "2026-10-02")),
+                        Optional.of(999L),
+                        Optional.of(LocalDate.of(2026, 10, 2)),
+                        false));
+        serviceAt(NOW.plusSeconds(1)).synchronize(WINDOW);
+        assertThat(popularity("100"))
+                .containsEntry("hypes", 292L)
+                .containsEntry("observed_at", NOW);
+    }
+
+    private static ProviderWork withEvidence(
+            ProviderWork w, Optional<Long> hypes, Optional<LocalDate> first, boolean edition) {
+        return new ProviderWork(
+                w.providerId(),
+                w.title(),
+                w.type(),
+                w.providerUpdatedAt(),
+                w.cover(),
+                w.images(),
+                w.attributionUrl(),
+                w.releases(),
+                w.mappingFailures(),
+                Optional.of(
+                        new CatalogueProviderPort.ProviderFeaturedEvidence(first, edition, hypes)));
+    }
+
+    @Test
+    void featuredMediaStillRefreshAndKeepTheirLastValidSelectionWithoutARevision() {
+        provider.rows = List.of(new Row(10, "100"));
+        var artwork = image(ImageKind.ARTWORK, "artest", 1920, 1080, false);
+        var logo = image(ImageKind.LOGO, "lotest", 900, 300, true);
+        provider.works.put("100", mediaWork("100", List.of(artwork), release("10", "2026-10-02")));
+        provider.logos.put("100", List.of(logo));
+        var first = service.synchronize(WINDOW);
+        assertThat(first.counters().featuredImageObservedGames()).isEqualTo(1);
+        assertThat(first.counters().logoObservedGames()).isEqualTo(1);
+        assertThat(media("100", "image")).containsEntry("image_reference", "artest");
+        assertThat(media("100", "logo")).containsEntry("image_reference", "lotest");
+        assertThat(media("100", "card_image")).containsEntry("image_reference", "artest");
+        String revision = version();
+        provider.works.put("100", mediaWork("100", List.of(), release("10", "2026-10-02")));
+        provider.logos.clear();
+        var savedCardImage = media("100", "card_image");
+        serviceAt(NOW.plusSeconds(1)).synchronize(WINDOW);
+        assertThat(media("100", "image"))
+                .containsEntry("image_reference", "artest")
+                .containsEntry("observed_at", NOW);
+        assertThat(media("100", "card_image")).isEqualTo(savedCardImage);
+        assertThat(media("100", "logo"))
+                .containsEntry("image_reference", "lotest")
+                .containsEntry("observed_at", NOW);
+        assertThat(version()).isEqualTo(revision);
+    }
+
+    @Test
+    void theDatabaseRejectsFeaturedMediaOutsideTheApprovedReferenceShape() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-10-02")));
+        service.synchronize(WINDOW);
+        String game =
+                jdbc.queryForObject(
+                        "SELECT game_id::text FROM catalogue.game_external_reference"
+                                + " WHERE provider_id='100'",
+                        String.class);
+        String insert =
+                "INSERT INTO catalogue.game_featured_media(game_id, media_role, media_kind,"
+                        + " image_reference, width, height, transparent, source_name, source_url,"
+                        + " observed_at) VALUES (CAST(? AS uuid), ?, ?, ?, ?, ?, false, ?, ?, now())";
+        for (Object[] invalid :
+                List.of(
+                        new Object[] {"image", "logo", "ar", 10, 10, "IGDB", ATTRIBUTION},
+                        new Object[] {"logo", "artwork", "lo", 10, 10, "IGDB", ATTRIBUTION},
+                        new Object[] {"image", "artwork", "../ar", 10, 10, "IGDB", ATTRIBUTION},
+                        new Object[] {"image", "artwork", "ar", 0, 10, "IGDB", ATTRIBUTION},
+                        new Object[] {"image", "artwork", "ar", 10, 10, "Other", ATTRIBUTION},
+                        new Object[] {
+                            "image", "artwork", "ar", 10, 10, "IGDB", "https://example.com/games/x"
+                        })) {
+            Object[] arguments = new Object[invalid.length + 1];
+            arguments[0] = game;
+            System.arraycopy(invalid, 0, arguments, 1, invalid.length);
+            assertThatThrownBy(() -> jdbc.update(insert, arguments))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        }
+        jdbc.update(insert, game, "image", "artwork", "ar", 10, 10, "IGDB", ATTRIBUTION);
+        // One selection per Game and role.
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        insert,
+                                        game,
+                                        "image",
+                                        "screenshot",
+                                        "sc",
+                                        10,
+                                        10,
+                                        "IGDB",
+                                        ATTRIBUTION))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void theDatabaseRejectsAnInventedOrUnattributedPopularitySignal() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-10-02")));
+        service.synchronize(WINDOW);
+        String game =
+                jdbc.queryForObject(
+                        "SELECT game_id::text FROM catalogue.game_external_reference"
+                                + " WHERE provider_id='100'",
+                        String.class);
+        for (String invalid :
+                List.of(
+                        "INSERT INTO catalogue.game_featured_evidence (game_id,hypes,source_name,first_release_date,eligible_product,observed_at) VALUES (CAST(? AS uuid), 0,"
+                                + " 'IGDB', NULL, true, now())",
+                        "INSERT INTO catalogue.game_featured_evidence (game_id,hypes,source_name,first_release_date,eligible_product,observed_at) VALUES (CAST(? AS uuid), 1,"
+                                + " ' ', NULL, true, now())")) {
+            assertThatThrownBy(() -> jdbc.update(invalid, game))
+                    .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+        }
+        assertThatThrownBy(
+                        () ->
+                                jdbc.update(
+                                        "INSERT INTO catalogue.game_featured_evidence VALUES"
+                                                + " (gen_random_uuid(), 1, NULL, true, 'IGDB', now())"))
+                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
     }
 
     @Test
@@ -583,6 +775,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         NOW,
                         Optional.of(
                                 new ProviderCover("new_cover", "https://www.igdb.com/games/game")),
+                        List.of(),
+                        Optional.empty(),
                         List.of(release("10", "2026-10-01"), release("11", "2026-11-01")),
                         List.of()));
         var changed = service.synchronize(WINDOW);
@@ -664,6 +858,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         "x".repeat(301),
                         ProviderWorkType.MAIN_GAME,
                         NOW,
+                        Optional.empty(),
+                        List.of(),
                         Optional.empty(),
                         List.of(release("10", "2026-05-01")),
                         List.of()));
@@ -957,6 +1153,76 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 "SELECT catalogue_version FROM catalogue.catalogue_publication", String.class);
     }
 
+    private CatalogueSynchronizationService serviceAt(Instant instant) {
+        return new CatalogueSynchronizationService(
+                store,
+                provider,
+                Clock.fixed(instant, ZoneId.of("Europe/Madrid")),
+                new SynchronizationPolicy(2, 25, 50, Duration.ofMinutes(30)),
+                new CoverSelectionPolicy("/assets/covers/fallback.svg", "VideoGame Platform"),
+                SynchronizationProgress.NONE);
+    }
+
+    private static final String ATTRIBUTION = "https://www.igdb.com/games/featured-game";
+
+    private static ProviderWork mediaWork(
+            String id, List<ProviderImage> images, ProviderRelease... releases) {
+        return new ProviderWork(
+                id,
+                "Game " + id,
+                ProviderWorkType.MAIN_GAME,
+                NOW,
+                Optional.empty(),
+                images,
+                Optional.of(ATTRIBUTION),
+                List.of(releases),
+                List.of());
+    }
+
+    private static ProviderImage image(
+            ImageKind kind, String reference, int width, int height, boolean transparent) {
+        return new ProviderImage(kind, reference, width, height, transparent, false);
+    }
+
+    /** The stored featured media of one role for a provider Game, timestamps as instants. */
+    private Map<String, Object> media(String providerGameId, String role) {
+        Map<String, Object> row =
+                new HashMap<>(
+                        jdbc.queryForMap(
+                                "SELECT m.media_kind, m.image_reference, m.width, m.height,"
+                                        + " m.transparent, m.source_name, m.source_url,"
+                                        + " m.observed_at FROM catalogue.game_featured_media m"
+                                        + " JOIN catalogue.game_external_reference r"
+                                        + " ON r.game_id = m.game_id"
+                                        + " WHERE r.provider_id = ? AND m.media_role = ?",
+                                providerGameId,
+                                role));
+        row.replaceAll(
+                (column, value) ->
+                        value instanceof java.sql.Timestamp timestamp
+                                ? timestamp.toInstant()
+                                : value);
+        return row;
+    }
+
+    /** The stored signal of a provider Game, with timestamps as instants. */
+    private Map<String, Object> popularity(String providerGameId) {
+        Map<String, Object> row =
+                new HashMap<>(
+                        jdbc.queryForMap(
+                                "SELECT p.hypes, p.source_name, p.first_release_date, p.eligible_product,"
+                                        + " p.observed_at FROM catalogue.game_featured_evidence p"
+                                        + " JOIN catalogue.game_external_reference r"
+                                        + " ON r.game_id = p.game_id WHERE r.provider_id = ?",
+                                providerGameId));
+        row.replaceAll(
+                (column, value) ->
+                        value instanceof java.sql.Timestamp timestamp
+                                ? timestamp.toInstant()
+                                : value);
+        return row;
+    }
+
     private static ProviderRelease release(String id, String date) {
         return pr("6", id, date);
     }
@@ -985,6 +1251,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 ProviderWorkType.MAIN_GAME,
                 NOW,
                 Optional.empty(),
+                List.of(),
+                Optional.empty(),
                 List.of(releases),
                 List.of());
     }
@@ -998,6 +1266,9 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         Map<String, ProviderWork> works = new HashMap<>();
         List<Integer> pageLimits = new ArrayList<>();
         List<String> fetched = new ArrayList<>();
+        Map<String, List<ProviderImage>> logos = new HashMap<>();
+        com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException
+                logoFailure;
 
         public String providerName() {
             return "IGDB";
@@ -1031,6 +1302,15 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
             return new ProviderWorkBatch(
                     ids.stream().map(works::get).filter(Objects::nonNull).toList(),
                     ProviderCallStatistics.none());
+        }
+
+        public LogoBatch logos(List<String> ids) {
+            if (logoFailure != null) {
+                throw logoFailure;
+            }
+            Map<String, List<ProviderImage>> answer = new HashMap<>();
+            ids.stream().filter(logos::containsKey).forEach(id -> answer.put(id, logos.get(id)));
+            return new LogoBatch(answer, ProviderCallStatistics.none());
         }
     }
 }

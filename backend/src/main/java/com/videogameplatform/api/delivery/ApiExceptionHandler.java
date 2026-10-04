@@ -8,6 +8,7 @@ import com.videogameplatform.api.generated.model.Violation;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.details.GameNotFoundException;
+import com.videogameplatform.catalogue.application.releases.FeaturedMonthOutOfRangeException;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
 import com.videogameplatform.ratings.application.PersonalRatingReadException;
@@ -267,6 +268,13 @@ public class ApiExceptionHandler {
                             "/query/regionIds",
                             "Use a supported region identifier.");
         };
+    }
+
+    /** A month outside the current year fails the same filter validation as a malformed one. */
+    @ExceptionHandler(FeaturedMonthOutOfRangeException.class)
+    ResponseEntity<Problem> featuredMonthOutOfRange(HttpServletResponse response) {
+        return requestInvalid(
+                new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/month"), response);
     }
 
     @ExceptionHandler(SearchQueryInvalidException.class)

@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Link, Outlet, useLocation } from "react-router-dom";
 
-import { readReleasesSearch, releasesSearchPath } from "../features/releases/releases-search";
+import {
+  readDiscoveryView,
+  readReleasesSearch,
+  releasesSearchPath,
+} from "../features/releases/releases-search";
 import { BrandMark, BrandWordmark } from "../shared/brand/brand-logo";
 import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
@@ -21,7 +25,8 @@ export function AppShell() {
     mainContentRef.current?.focus();
   }, [location.pathname]);
 
-  const onReleases = location.pathname === "/";
+  const discoveryView =
+    location.pathname === "/" ? readDiscoveryView(new URLSearchParams(location.search)) : null;
 
   return (
     <div className="app-frame">
@@ -48,16 +53,24 @@ export function AppShell() {
             <BrandWordmark className="brand-wordmark" />
           </Link>
 
-          <nav aria-label="Secciones principales" className="primary-nav">
+          {/* One Lanzamientos navigation holds the three release sections (#151). */}
+          <nav aria-label="Lanzamientos" className="primary-nav">
             <Link
-              aria-current={onReleases && releaseSearch.view === "recent" ? "page" : undefined}
+              aria-current={discoveryView === "featured" ? "page" : undefined}
+              className="nav-link"
+              to="/"
+            >
+              Destacados
+            </Link>
+            <Link
+              aria-current={discoveryView === "recent" ? "page" : undefined}
               className="nav-link"
               to={releasesSearchPath(releaseSearch, { view: "recent", page: 1 })}
             >
               Recientes
             </Link>
             <Link
-              aria-current={onReleases && releaseSearch.view === "upcoming" ? "page" : undefined}
+              aria-current={discoveryView === "upcoming" ? "page" : undefined}
               className="nav-link"
               to={releasesSearchPath(releaseSearch, { view: "upcoming", page: 1 })}
             >
