@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.adapter.observability;
 
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderCallStatistics;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderMappingFailure;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -18,6 +19,30 @@ public final class CatalogueSynchronizationMetrics {
 
     public CatalogueSynchronizationMetrics(MeterRegistry registry) {
         this.registry = registry;
+        for (var outcome : SynchronizationOutcome.values()) {
+            if (outcome == SynchronizationOutcome.RUNNING) {
+                continue;
+            }
+            String tag = outcome.name().toLowerCase(Locale.ROOT);
+            registry.counter("catalogue.synchronization.run", "outcome", tag);
+            registry.timer("catalogue.synchronization.run.duration", "outcome", tag);
+        }
+        for (String operation :
+                List.of(
+                        OPERATION_WINDOW,
+                        OPERATION_WORKS,
+                        OPERATION_RELEASE_DATES,
+                        OPERATION_LOGOS)) {
+            registry.timer(
+                    "catalogue.synchronization.provider.request.duration", "operation", operation);
+            registry.counter("catalogue.synchronization.provider.retry", "operation", operation);
+        }
+        for (var reason : ProviderMappingFailure.values()) {
+            registry.counter(
+                    "catalogue.synchronization.provider.mapping.failure",
+                    "reason",
+                    reason.name().toLowerCase(Locale.ROOT));
+        }
     }
 
     public void recordRun(CatalogueSynchronizationReport report) {

@@ -114,6 +114,7 @@ management:
     distribution:
       percentiles-histogram:
         http.server.requests: true
+        catalogue.synchronization.provider.request.duration: true
   info:
     env:
       enabled: false

@@ -40,7 +40,7 @@ deferred.
 Local development can opt into the same metrics services and provisioning with
 independent credentials and volumes. Only local development publishes loopback OTLP
 for a host/IDE backend; private-dev Collector and Prometheus remain internal. The
-[local setup guide](../../development/local-setup.md#local-metrics-and-dashboards)
+[local setup guide](../../development/local-setup.md#local-metrics-and-logs)
 owns local startup and reset procedures.
 
 ## Private dev runtime boundary
@@ -98,12 +98,14 @@ Prometheus retains local operational history with the approved initial seven-day
 free disk: this threshold is not a filesystem quota. Metrics history is disposable,
 not part of the irreplaceable PostgreSQL backup set.
 
-Grafana provisions its datasource and three dashboards from Git, with anonymous
-access and self-registration disabled. Its admin password comes from the protected
+Grafana provisions four dashboards and its metrics/read-model datasources from Git,
+with anonymous access and self-registration disabled. Its admin password comes from the protected
 secret directory; the persistent Grafana database retains that credential, so file
 replacement alone does not rotate it. Prometheus data and Grafana state survive
-container recreation through separate named volumes. Compose and the configuration
-under `deploy/private-dev` own pinned images, CPU/memory/PID/log bounds, scrape/query
+container recreation through separate named volumes. Grafana also joins the internal
+data network for dedicated read-only PostgreSQL views; the separate reader has no
+base-table/write/identity access. [Observability](../../development/observability.md#private-dev-dashboards)
+owns read-model semantics and limitations. No additional service or database is added. Compose and the configuration under `deploy/private-dev` own pinned images, CPU/memory/PID/log bounds, scrape/query
 limits and provisioning. The two added containers are an approved, reversible
 private-dev cost (#158), not approval for distributed monitoring. Measure idle and
 representative use on the host; limits alone do not demonstrate capacity.

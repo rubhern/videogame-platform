@@ -62,6 +62,7 @@ def smoke():
             port = reservation.getsockname()[1]
         password = secrets.token_urlsafe(32)
         (temp / 'grafana-admin-password').write_text(password)
+        (temp / 'grafana-database-password').write_text(password)
         timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z')
         events = []
         for level in ('INFO', 'WARN', 'ERROR'):
@@ -100,7 +101,7 @@ def smoke():
                         'cache-max-size': '10m', 'cache-max-file': '3'}}}},
             'networks': {'logs': {'internal': True}, 'edge': {}, 'log-ingress': {}, 'telemetry': {'internal': True}},
             'volumes': {'loki-data': {}, 'grafana-data': {}},
-            'secrets': {'grafana_admin_password': {'file': str(temp / 'grafana-admin-password')}}}
+            'secrets': {'grafana_admin_password': {'file': str(temp / 'grafana-admin-password')}, 'grafana_database_password': {'file': str(temp / 'grafana-database-password')}}}
         source = temp / 'source.json'
         source.write_text(json.dumps(definition))
         prefix = ['docker', 'compose', '--env-file', str(temp / 'runtime.env'), '--project-name', project]

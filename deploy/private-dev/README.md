@@ -9,7 +9,7 @@ procedures have been proven on the host, their evidence boundary, and day-two
 operations (synchronization on `dev`, incident handling).
 
 Local use of the same provisioned metrics stack is documented in
-[local setup](../../docs/development/local-setup.md#local-metrics-and-dashboards).
+[local setup](../../docs/development/local-setup.md#local-metrics-and-logs).
 `compose.observability.yaml` owns shared metrics service definitions; this directory's
 `compose.yaml` and the root local overlay own environment-specific wiring.
 
@@ -187,12 +187,27 @@ owns dashboard interpretation and gaps; Compose, Collector, Prometheus and Grafa
 files here own all configuration. No dashboard UI setup is required.
 
 For an existing host, rerun `bin/prepare-secrets` with the protected directory and
-runtime group above; it preserves populated files and creates the Grafana admin
-secret. Validate, pull and start only `telemetry prometheus grafana` from the reviewed
-checkout using the dependency commands above. The application image is unaffected.
-Do not print the secret or put it in `runtime.env`, command arguments or a URL.
-Grafana reads it from its granted file at first database initialization; subsequent
-secret-file changes do not rotate the stored password.
+runtime group above; it preserves populated files and creates separate Grafana admin
+and database-reader secrets. Roll out the reviewed application migrations before
+starting the new SQL panels, then provision the view-only role from the checkout:
+
+```bash
+bash scripts/provision-grafana-reader.sh --private-dev /etc/videogame-platform/dev/runtime.env
+```
+
+Validate, pull and start `telemetry prometheus grafana` using the dependency commands
+above, alongside the reviewed application image that supplies the new instrumentation.
+Recreate those metrics services with `--no-deps --force-recreate` when their mounted
+Collector/Prometheus/datasource configuration changes; a normal `up` does not reload
+that configuration. Dashboard JSON alone is watched by Grafana’s file provider.
+Keep the named volumes so metric history and Grafana state survive.
+The role procedure is idempotent and aligns the database password with its protected
+file; restart Grafana after rotating that file. Do not print either secret or put it
+in `runtime.env`, command arguments or a URL. Grafana reads its admin secret at first
+database initialization; replacing that file does not rotate the stored admin password.
+SQL unavailable before migration/role setup means unavailable panels, not empty data.
+To recover, restore prior Grafana provisioning and stop using the reader; the additive
+views can remain until a separately reviewed forward removal. Product data is unchanged.
 
 From the owner's workstation, open an SSH tunnel over the existing private path:
 
@@ -204,7 +219,7 @@ Open `http://127.0.0.1:3000`, sign in as `owner` using the protected Grafana adm
 secret, and select the provisioned **VideoGame Platform** folder. The loopback HTTP hop is
 inside the SSH tunnel; do not add a public bind, Tailscale Serve route or Funnel.
 
-Run `validate-private-dev-runtime.sh --telemetry-smoke` for disposable configuration,
+Run `validate-private-dev-runtime.sh --telemetry-smoke` for disposable configuration and a PostgreSQL read-model fixture,
 OTLP handoff, authenticated datasource/panel queries, anonymous denial, clean
 provisioning and recreation/persistence checks. Synthetic samples never go into the
 live project, even when an environment file is supplied. Run the existing validator

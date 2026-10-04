@@ -41,6 +41,76 @@ class CorrelationIdFilterTest {
     }
 
     @Test
+    void countsOnlyClosedCodesAndSeparatesTheExactExpectedRatingAbsence() throws Exception {
+        var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+        var metered = new CorrelationIdFilter(request -> Optional.empty(), registry);
+        for (String method : new String[] {"GET", "PUT", "DELETE"}) {
+            var request = new MockHttpServletRequest(method, "/api/v1/me/ratings/private-game");
+            request.setAttribute(
+                    HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/api/v1/me/ratings/{gameId}");
+            metered.doFilter(
+                    request,
+                    new MockHttpServletResponse(),
+                    (req, res) -> {
+                        req.setAttribute(
+                                CorrelationIdFilter.ERROR_CODE_ATTRIBUTE, "RATING_NOT_FOUND");
+                        ((MockHttpServletResponse) res).setStatus(404);
+                    });
+        }
+        var request = new MockHttpServletRequest("GET", "/api/v1/games/private-game");
+        metered.doFilter(
+                request,
+                new MockHttpServletResponse(),
+                (req, res) -> {
+                    req.setAttribute(
+                            CorrelationIdFilter.ERROR_CODE_ATTRIBUTE, "UNBOUNDED_ATTACKER_CODE");
+                    ((MockHttpServletResponse) res).setStatus(503);
+                });
+        assertThat(
+                        registry.get("platform.http.errors")
+                                .tags("code", "RATING_NOT_FOUND", "kind", "expected_absence")
+                                .counter()
+                                .count())
+                .isEqualTo(1);
+        assertThat(
+                        registry.get("platform.http.errors")
+                                .tags("code", "RATING_NOT_FOUND", "kind", "client_rejection")
+                                .counter()
+                                .count())
+                .isEqualTo(2);
+        assertThat(
+                        registry.get("platform.http.errors")
+                                .tags("code", "UNCLASSIFIED", "kind", "server_failure")
+                                .counter()
+                                .count())
+                .isEqualTo(1);
+        assertThat(registry.getMeters())
+                .allSatisfy(meter -> assertThat(meter.getId().getTags()).hasSize(2));
+    }
+
+    @Test
+    void metricSinkFailureDoesNotChangeTheHttpResponse() throws Exception {
+        var registry = org.mockito.Mockito.mock(io.micrometer.core.instrument.MeterRegistry.class);
+        org.mockito.Mockito.when(
+                        registry.counter(
+                                org.mockito.ArgumentMatchers.anyString(),
+                                org.mockito.ArgumentMatchers.<String[]>any()))
+                .thenThrow(new IllegalStateException("private-sink-detail"));
+        var metered = new CorrelationIdFilter(request -> Optional.empty(), registry);
+        var response = new MockHttpServletResponse();
+        metered.doFilter(
+                new MockHttpServletRequest("GET", "/api/v1/games"),
+                response,
+                (req, res) -> ((MockHttpServletResponse) res).setStatus(503));
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(appender.list)
+                .allSatisfy(
+                        event ->
+                                assertThat(event.getFormattedMessage())
+                                        .doesNotContain("private-sink-detail"));
+    }
+
+    @Test
     void preservesAValidCorrelationIdAndRestoresThePreviousMdcValue() throws Exception {
         String correlationId = "valid-correlation_23";
         var request = request(correlationId);

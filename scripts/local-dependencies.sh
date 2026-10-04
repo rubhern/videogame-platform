@@ -11,6 +11,7 @@ localization_compose_file="$repository_root/compose.localization.yaml"
 with_observability=false
 with_localization=false
 reset_confirmed=false
+recreate_observability=false
 source "$repository_root/scripts/backend-artifact.sh"
 
 readonly postgres_image="postgres:18.4-bookworm"
@@ -39,6 +40,7 @@ Commands:
 
 Add --observability to up or application to include the metrics and logs stack.
 Add --localization to up or application to include catalogue translation.
+Add --recreate to observability to repair stale Docker Desktop bind mounts, preserving data.
 Both flags can be combined. Install the pinned model using backend/README.md first.
 Grafana: http://127.0.0.1:3000 (owner; .local-secrets/grafana-admin-password).
 EOF
@@ -177,16 +179,16 @@ create_backend_env_if_missing() {
 
 prepare_local_metrics_secret() {
   local directory="$repository_root/.local-secrets"
-  local secret="$directory/grafana-admin-password"
-  [[ ! -L "$directory" && ! -L "$secret" ]] || die "Refusing a symlink for local metrics credentials"
+  [[ ! -L "$directory" ]] || die "Refusing a symlink for local metrics credentials"
   mkdir -p "$directory"
   chmod 700 "$directory"
-  if [[ ! -s "$secret" ]]; then
-    (umask 077; random_secret >"$secret")
-  fi
-  # The protected directory owns host access; the non-root Grafana container reads
-  # only its granted file (the same transport as private dev).
-  chmod 644 "$secret"
+  local secret
+  for name in grafana-admin-password grafana-database-password; do
+    secret="$directory/$name"
+    [[ ! -L "$secret" ]] || die "Refusing a symlink for local metrics credentials"
+    if [[ ! -s "$secret" ]]; then (umask 077; random_secret >"$secret"); fi
+    chmod 644 "$secret"
+  done
 }
 
 local_model_directory() {
@@ -384,7 +386,10 @@ for option in "$@"; do
     reset:--yes)
       [[ "$reset_confirmed" == false ]] || die "Duplicate --yes"
       reset_confirmed=true ;;
-    *) die "Unsupported arguments; use up/application --observability --localization or reset --yes" ;;
+    observability:--recreate)
+      [[ "$recreate_observability" == false ]] || die "Duplicate --recreate"
+      recreate_observability=true ;;
+    *) die "Unsupported arguments; use up/application --observability --localization, observability --recreate or reset --yes" ;;
   esac
 done
 
@@ -422,7 +427,11 @@ case "$command_name" in
     create_backend_env_if_missing
     prepare_local_metrics_secret
     with_observability=true
-    compose up --detach telemetry prometheus grafana alloy loki
+    observability_options=()
+    if [[ "$recreate_observability" == true ]]; then
+      observability_options+=(--no-deps --force-recreate)
+    fi
+    compose up --detach "${observability_options[@]}" telemetry prometheus grafana alloy loki
     printf 'Grafana: http://127.0.0.1:3000; user: owner; password file: .local-secrets/grafana-admin-password\n'
     ;;
   verify-observability)

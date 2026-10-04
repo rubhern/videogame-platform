@@ -98,7 +98,7 @@ Interpretation:
 
 Owner: [Metrics dashboards](../../deploy/private-dev/README.md#metrics-dashboards).
 The optional local startup is owned by
-[local setup](local-setup.md#local-metrics-and-dashboards); local lifecycle tests prove
+[local setup](local-setup.md#local-metrics-and-logs); local lifecycle tests prove
 argument handling and secret/reset boundaries. The disposable local smoke
 (`bash scripts/test-local-observability.sh --smoke`, requiring free local ports)
 also proved loopback OTLP receipt, Prometheus queries, authenticated Grafana

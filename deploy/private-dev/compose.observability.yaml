@@ -58,6 +58,7 @@ services:
     logging: *bounded-logging
 
   grafana:
+    entrypoint: ["/bin/sh", "/etc/grafana/start"]
     image: grafana/grafana:13.2.2@sha256:ac461fb352abc50da10a51c7d02462e9c05488f11f53f14b3ad79a8145f638a0
     environment:
       GF_SECURITY_ADMIN_USER: owner
@@ -75,7 +76,10 @@ services:
       GF_LOG_MODE: console
     secrets:
       - grafana_admin_password
+      - grafana_database_password
     volumes:
+      - ./grafana/bin/start:/etc/grafana/start:ro
+      - ./grafana/provisioning/datasources/postgres.yaml:/etc/grafana/provisioning/datasources/postgres.yaml:ro
       - ./grafana/provisioning/datasources/prometheus.yaml:/etc/grafana/provisioning/datasources/prometheus.yaml:ro
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro

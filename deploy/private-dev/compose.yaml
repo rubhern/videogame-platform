@@ -150,6 +150,7 @@ services:
       - ./grafana/logs-provisioning/loki.yaml:/etc/grafana/provisioning/datasources/loki.yaml:ro
     networks:
       - logs
+      - data
 
   application:
     profiles: ["application"]
@@ -317,6 +318,8 @@ services:
     logging: *bounded-logging
 
 secrets:
+  grafana_database_password:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/grafana-database-password
   grafana_admin_password:
     file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/grafana-admin-password
   postgres_admin_password:

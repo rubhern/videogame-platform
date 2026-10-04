@@ -42,7 +42,8 @@ for name in \
   igdb-client-secret \
   oidc-smoke-username \
   oidc-smoke-password \
-  grafana-admin-password; do
+  grafana-admin-password \
+  grafana-database-password; do
   printf 'test-%s\n' "$name" >"$secrets_directory/$name"
 done
 cat >"$runtime_env" <<EOF
@@ -153,6 +154,7 @@ secret_files = {
         "oidc-smoke-username",
         "oidc-smoke-password",
         "grafana-admin-password",
+        "grafana-database-password",
     )
 }
 
@@ -202,7 +204,7 @@ services = {
     "prometheus": service("unless-stopped", image="prom/prometheus@sha256:" + "3" * 64,
         networks={"telemetry": None}, read_only=True, cap_drop=["ALL"],
         command=["--storage.tsdb.retention.time=7d", "--storage.tsdb.retention.size=512MiB"]),
-    "grafana": service("unless-stopped", ("grafana_admin_password",),
+    "grafana": service("unless-stopped", ("grafana_admin_password", "grafana_database_password"),
         {"GF_AUTH_ANONYMOUS_ENABLED": "false", "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/grafana_admin_password"},
         image="grafana/grafana@sha256:" + "4" * 64, read_only=True, cap_drop=["ALL"],
         networks={"logs": None},
