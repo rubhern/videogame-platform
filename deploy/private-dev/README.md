@@ -496,3 +496,32 @@ sufficient:
    and readiness checks pass.
 4. Record the recovery decision, backup id, image digest, migration version and
    outcomes from the generated evidence records.
+
+## Catalogue localization helper
+
+#235 adds an optional private acquisition container; its implementation is awaiting
+owner review and host acceptance. Apply the normal migration/application deployment
+first. Convert/install the selected immutable model using the
+[backend model procedure](../../backend/README.md#catalogue-translation-runtime-and-models).
+Set `CATALOGUE_TRANSLATION_MODEL_DIR` to its absolute host directory in protected
+`runtime.env`; retain the existing pinned application image and version entries.
+
+```bash
+docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+  -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.localization.yaml \
+  --profile application --profile localization up -d --build catalogue-localizer application
+```
+
+The overlay sets the application's private helper address. It uses the existing
+internal data network, publishes no port, mounts weights read-only, and runs as a
+non-root user with explicit resource limits. It needs no secret or persistent volume.
+The normal application rollout does not build/start it implicitly. Do not add it to
+Tailscale Serve, the browser edge, application readiness or the database backup set.
+
+For update/rollback, select the new/previous immutable model directory and recreate
+`catalogue-localizer` through the same overlay. To suspend inference, stop only that
+service; local reads and valid synchronization keep working, and missing/outdated
+content remains eligible for a later backfill. Recreate the application from the base
+Compose file to remove its helper override. Preserve model manifests/licences with
+installed weights. The [operations runbook](../../docs/development/operations-runbook.md#catalogue-localization)
+owns retry commands, diagnostics and the unexecuted host acceptance.

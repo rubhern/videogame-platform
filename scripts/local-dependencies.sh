@@ -7,7 +7,10 @@ env_file="$repository_root/.env"
 backend_env_file="$repository_root/backend/.env"
 compose_file="$repository_root/compose.yaml"
 metrics_compose_file="$repository_root/compose.observability.yaml"
+localization_compose_file="$repository_root/compose.localization.yaml"
 with_observability=false
+with_localization=false
+reset_confirmed=false
 source "$repository_root/scripts/backend-artifact.sh"
 
 readonly postgres_image="postgres:18.4-bookworm"
@@ -24,6 +27,8 @@ Commands:
   application    Build and run the complete packaged application topology.
   observability  Start only Collector, Prometheus, Grafana, Alloy and Loki.
   verify-observability  Check provisioning, authentication and metrics queries.
+  localization   Build and start only the optional catalogue translation helper.
+  verify-localization  Check the loaded model/helper readiness.
 
   down           Stop containers without deleting local data.
   status         Show container and health status.
@@ -33,6 +38,8 @@ Commands:
   reset [--yes]  Delete only this Compose project's disposable containers and volumes.
 
 Add --observability to up or application to include the metrics and logs stack.
+Add --localization to up or application to include catalogue translation.
+Both flags can be combined. Install the pinned model using backend/README.md first.
 Grafana: http://127.0.0.1:3000 (owner; .local-secrets/grafana-admin-password).
 EOF
 }
@@ -72,6 +79,7 @@ create_env_if_missing() {
     printf 'KEYCLOAK_BFF_CLIENT_SECRET=%s\n' "$(random_secret)"
     printf 'LOCAL_TEST_USER_USERNAME=local-user\n'
     printf 'LOCAL_TEST_USER_PASSWORD=%s\n' "$(random_secret)"
+    printf 'CATALOGUE_TRANSLATION_MODEL_DIR=.local-secrets/catalogue-models/tcbig-initial\n'
   } >"$env_file"
 
   printf 'Created ignored local configuration at %s with generated credentials.\n' "$env_file"
@@ -154,6 +162,8 @@ create_backend_env_if_missing() {
     printf 'CATALOGUE_RELEASES_FRESHNESS_THRESHOLD=P7D\n'
     printf 'CATALOGUE_RELEASES_CACHE_CONTROL="public, max-age=60, stale-while-revalidate=300"\n'
     printf 'RATINGS_JDBC_OPERATION_TIMEOUT=5s\n'
+    printf 'CATALOGUE_TRANSLATION_ENDPOINT=http://127.0.0.1:8092/translate\n'
+    printf 'CATALOGUE_TRANSLATION_TIMEOUT=30s\n'
     printf 'TELEMETRY_OTLP_TRACES_ENABLED=false\n'
     printf 'TELEMETRY_OTLP_TRACES_ENDPOINT=http://localhost:4318/v1/traces\n'
     printf 'TELEMETRY_OTLP_METRICS_ENABLED=false\n'
@@ -179,6 +189,20 @@ prepare_local_metrics_secret() {
   chmod 644 "$secret"
 }
 
+local_model_directory() {
+  local directory="${CATALOGUE_TRANSLATION_MODEL_DIR:-$(env_value CATALOGUE_TRANSLATION_MODEL_DIR)}"
+  directory="${directory:-.local-secrets/catalogue-models/tcbig-initial}"
+  [[ "$directory" == /* ]] || directory="$repository_root/$directory"
+  printf '%s\n' "$directory"
+}
+
+require_local_model() {
+  local directory
+  directory="$(local_model_directory)"
+  [[ -f "$directory/manifest.json" && -f "$directory/revision.txt" ]] \
+    || die "Install the pinned catalogue model using backend/README.md, then set CATALOGUE_TRANSLATION_MODEL_DIR to its immutable directory"
+}
+
 compose() {
   local application_version
   application_version="$(backend_reactor_version)" \
@@ -188,7 +212,11 @@ compose() {
   if [[ "$with_observability" == true ]]; then
     files+=(--file "$metrics_compose_file" --profile observability)
   fi
+  if [[ "$with_localization" == true ]]; then
+    files+=(--file "$localization_compose_file" --profile localization)
+  fi
   APPLICATION_VERSION="$application_version" \
+    CATALOGUE_TRANSLATION_MODEL_DIR="$(local_model_directory)" \
     docker compose --env-file "$env_file" "${files[@]}" "$@"
 }
 
@@ -344,12 +372,21 @@ SQL
 }
 
 command_name="${1:-}"
-
-if [[ "${2:-}" == --observability && ( "$command_name" == up || "$command_name" == application ) && $# == 2 ]]; then
-  with_observability=true
-elif (($# > 1)) && ! [[ "$command_name" == reset && "${2:-}" == --yes && $# == 2 ]]; then
-  die "Unsupported arguments; use up/application --observability or reset --yes"
-fi
+if (($#)); then shift; fi
+for option in "$@"; do
+  case "$command_name:$option" in
+    up:--observability | application:--observability)
+      [[ "$with_observability" == false ]] || die "Duplicate --observability"
+      with_observability=true ;;
+    up:--localization | application:--localization)
+      [[ "$with_localization" == false ]] || die "Duplicate --localization"
+      with_localization=true ;;
+    reset:--yes)
+      [[ "$reset_confirmed" == false ]] || die "Duplicate --yes"
+      reset_confirmed=true ;;
+    *) die "Unsupported arguments; use up/application --observability --localization or reset --yes" ;;
+  esac
+done
 
 case "$command_name" in
   up)
@@ -357,9 +394,15 @@ case "$command_name" in
     create_env_if_missing
     require_env
     create_backend_env_if_missing
+    localization_wait_options=()
+    if [[ "$with_localization" == true ]]; then
+      require_local_model
+      compose build catalogue-localizer
+      localization_wait_options+=(--wait-timeout 600)
+    fi
     if [[ "$with_observability" == true ]]; then prepare_local_metrics_secret; fi
     compose config --quiet
-    compose up --detach --wait
+    compose up --detach --wait "${localization_wait_options[@]}"
     printf 'PostgreSQL is available on 127.0.0.1:%s.\n' "$(env_value POSTGRES_PORT)"
     printf 'Keycloak is available at %s.\n' "$(env_value KEYCLOAK_HOSTNAME)"
     ;;
@@ -368,6 +411,7 @@ case "$command_name" in
     create_env_if_missing
     require_env
     create_backend_env_if_missing
+    if [[ "$with_localization" == true ]]; then require_local_model; fi
     if [[ "$with_observability" == true ]]; then prepare_local_metrics_secret; fi
     compose --profile full up --build
     ;;
@@ -392,14 +436,33 @@ case "$command_name" in
       python3 "$repository_root/scripts/private-dev-metrics-check.py" \
         --local --env-file "$env_file" --config "$metrics_config"
     ;;
+  localization)
+    ensure_compose_available
+    create_env_if_missing
+    require_env
+    create_backend_env_if_missing
+    require_local_model
+    with_localization=true
+    compose up --build --detach --wait --wait-timeout 120 catalogue-localizer
+    printf 'Catalogue translation helper: http://127.0.0.1:8092; host backend endpoint uses loopback.\n'
+    ;;
+  verify-localization)
+    ensure_compose_available
+    require_env
+    with_localization=true
+    compose exec -T catalogue-localizer python -c \
+      'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8092/ready", timeout=2).close(); print("Catalogue translation model/helper ready.")'
+    ;;
   down)
     with_observability=true
+    with_localization=true
     ensure_compose_available
     require_env
     compose down --remove-orphans
     ;;
   status)
     with_observability=true
+    with_localization=true
     ensure_compose_available
     require_env
     compose ps
@@ -422,9 +485,10 @@ case "$command_name" in
     ;;
   reset)
     with_observability=true
+    with_localization=true
     ensure_compose_available
     require_env
-    if [[ "${2:-}" != "--yes" ]]; then
+    if [[ "$reset_confirmed" == false ]]; then
       printf 'This deletes only containers and named volumes in Compose project %s.\n' "$(env_value COMPOSE_PROJECT_NAME)"
       read -r -p 'Delete disposable local PostgreSQL, Keycloak, metrics and logs data? [y/N] ' confirmation
       [[ "$confirmation" == "y" || "$confirmation" == "Y" ]] || die "Reset cancelled"

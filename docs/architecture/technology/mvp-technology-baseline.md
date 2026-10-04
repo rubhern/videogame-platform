@@ -13,6 +13,7 @@ the lock file, Dockerfile, and Compose file.
 | Persistence | PostgreSQL 18; Flyway Community SQL-first immutable migrations; JPA/Hibernate only in adapters; explicit JDBC/SQL read models where clearer; Testcontainers PostgreSQL |
 | API | OpenAPI 3.1.2; Redocly validation/reference; Maven OpenAPI Generator interfaces/models; manual delivery mapping |
 | Frontend | Node.js 24/npm 11; React 19.2; strict TypeScript; Vite 8.1; React Router; TanStack Query; Tailwind CSS 4; openapi-typescript/openapi-fetch |
+| Catalogue localization | Product-curated Spanish taxonomy labels; OPUS-MT EN→ES / CTranslate2 CPU; Python 3.12 private acquisition helper under [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md); PyTorch/Transformers for model conversion only |
 | Identity | Keycloak 26.7 via same-origin server-side OIDC BFF |
 | Testing/quality | JUnit/AssertJ, Spring tests, Modulith/ArchUnit, Vitest/RTL, Playwright/axe, Spotless, JaCoCo evidence, Sonar, CodeQL, dependency/secret/image checks |
 | Observability | Actuator, Micrometer, W3C tracing, OpenTelemetry-compatible optional export; private-dev and optional local Collector → Prometheus 3 LTS → Grafana 13; private-dev logging with Alloy 1 → single-instance Loki 3 → existing Grafana (#159, owner review pending) |

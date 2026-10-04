@@ -25,6 +25,9 @@ erDiagram
     company["catalogue.company"]
     genre["catalogue.genre"]
     game_mode["catalogue.game_mode"]
+    content_translation["catalogue.content_translation"]
+    game_summary_translation["catalogue.game_summary_translation"]
+    curated_taxonomy_label["catalogue.curated_taxonomy_label"]
     game_company["catalogue.game_company"] {
         varchar company_role "developer or publisher"
     }
@@ -54,6 +57,12 @@ erDiagram
     genre ||--o{ game_genre : classifies
     game ||--o{ game_game_mode : "playable as, replaced with the Game"
     game_mode ||--o{ game_game_mode : classifies
+    game ||--o| game_summary_translation : "last valid derived summary"
+    content_translation ||--o{ game_summary_translation : "reused by normalized source"
+    content_translation |o--o{ genre : "automatic fallback only"
+    content_translation |o--o{ game_mode : "automatic fallback only"
+    curated_taxonomy_label }o..o{ genre : "stable provider reference, application-resolved"
+    curated_taxonomy_label }o..o{ game_mode : "stable provider reference, application-resolved"
 
     game ||--o{ rating : "rated by users (FK only, never read across modules)"
     game_listing ||--o{ game_listing_alias : "searchable as"

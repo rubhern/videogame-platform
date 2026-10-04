@@ -6,6 +6,8 @@ sequenceDiagram
     participant Adapter as IGDB adapter / ACL
     participant IGDB as IGDB API
     participant DB as PostgreSQL
+    participant Localization as Catalogue localization
+    participant Helper as Private OPUS-MT helper (optional)
     participant Telemetry
 
     Operator->>Sync: POST(from, to)
@@ -30,6 +32,14 @@ sequenceDiagram
             Sync->>DB: Resolve Game external reference
             Sync->>DB: Create or reconcile Game, stable Release references, featured evidence and media atomically
             Note over Sync,DB: Invalid input preserves the Game's last valid state
+            Sync->>Localization: Enrich committed Game and taxonomy sources
+            Localization->>DB: Reuse completed content or reserve normalized source
+            opt Source fingerprint needs inference
+                Localization->>Helper: Fixed EN to ES inference, outside database transaction
+                Helper-->>Localization: Valid Spanish content or bounded failure
+                Localization->>DB: Publish only if source is still current, keep last valid on failure
+            end
+            Localization-->>Sync: Enrichment outcome, heartbeat between targets
         end
     end
 
@@ -37,4 +47,4 @@ sequenceDiagram
     Sync->>Telemetry: Record bounded-label run and provider metrics
     Sync-->>Operator: Complete report for from..to
 
-    Note over Operator,Telemetry: No mode, candidate queue or persistent checkpoint. IGDB never serves a public request
+    Note over Operator,Telemetry: No synchronization mode or candidate queue. IGDB and inference never serve a public request

@@ -13,6 +13,27 @@ import com.tngtech.archunit.lang.ArchRule;
 class HexagonalArchitectureTest {
 
     @ArchTest
+    static final ArchRule CATALOGUE_READS_NEVER_ACQUIRE_TRANSLATION =
+            noClasses()
+                    .that()
+                    .resideInAnyPackage(
+                            "..catalogue.application..",
+                            "..catalogue.adapter.persistence..",
+                            "..api.delivery..")
+                    .and()
+                    .resideOutsideOfPackages(
+                            "..application.localization..",
+                            "..application.synchronization..",
+                            "..adapter.persistence.localization..",
+                            "..adapter.persistence.synchronization..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "..application.localization..",
+                            "..adapter.translation..",
+                            "..adapter.persistence.localization..");
+
+    @ArchTest
     static final ArchRule DOMAIN_IS_FRAMEWORK_AND_INFRASTRUCTURE_INDEPENDENT =
             noClasses()
                     .that()

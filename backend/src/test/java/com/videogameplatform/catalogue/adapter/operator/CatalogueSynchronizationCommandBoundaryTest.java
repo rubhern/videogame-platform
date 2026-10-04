@@ -51,6 +51,48 @@ class CatalogueSynchronizationCommandBoundaryTest {
     }
 
     @Test
+    void localizationIsPrivateBoundedAndRejectsCrossSiteCommands() throws Exception {
+        assertThat(get(port, "/actuator/cataloguelocalize").statusCode()).isEqualTo(404);
+        assertThat(post(port, "/actuator/cataloguelocalize", "{}").statusCode()).isNotEqualTo(200);
+        assertThat(
+                        post(managementPort, "/actuator/cataloguelocalize", "{\"limit\":0}")
+                                .statusCode())
+                .isEqualTo(400);
+        assertThat(
+                        post(
+                                        managementPort,
+                                        "/actuator/cataloguelocalize",
+                                        "{\"afterKind\":\"invalid\"}")
+                                .statusCode())
+                .isEqualTo(400);
+        assertThat(
+                        post(
+                                        managementPort,
+                                        "/actuator/cataloguelocalize",
+                                        "{\"afterId\":\"invalid\"}")
+                                .statusCode())
+                .isEqualTo(400);
+        assertThat(
+                        send(HttpRequest.newBuilder(
+                                                uri(managementPort, "/actuator/cataloguelocalize"))
+                                        .header("Content-Type", "application/json")
+                                        .header("Origin", "https://attacker.example")
+                                        .POST(HttpRequest.BodyPublishers.ofString("{}"))
+                                        .build())
+                                .statusCode())
+                .isEqualTo(403);
+        // A cursor beyond every UUID performs no inference, including with the helper absent.
+        assertThat(
+                        post(
+                                        managementPort,
+                                        "/actuator/cataloguelocalize",
+                                        "{\"afterKind\":\"SUMMARY\",\"afterId\":\"ffffffff-ffff-ffff-ffff-ffffffffffff\",\"limit\":1}")
+                                .body())
+                .contains("\"completed\":true")
+                .contains("\"inspected\":0");
+    }
+
+    @Test
     void offersTheCommandOnlyOnTheManagementPort() throws Exception {
         assertThat(get(port, "/actuator/cataloguesync").statusCode()).isEqualTo(404);
         // The product port has no such handler at all; its BFF chain rejects the write before

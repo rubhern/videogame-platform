@@ -415,6 +415,22 @@ describe("public game details", () => {
       screen.queryByRole("link", { name: "IGDB" }),
     ).not.toBeInTheDocument();
   });
+  it("credits Spanish text as a product translation and keeps last-valid status explicit", async () => {
+    const game = gameDetailsFixture();
+    game.summary = {
+      kind: "sourced", text: "Un guerrero explora el mundo.", language: "es",
+      provenance: { sourceKind: "external_provider", sourceName: "IGDB", sourceEntityType: "game_summary" },
+      translation: { kind: "machine_translation", sourceText: "A warrior explores the world.", sourceLanguage: "en", current: false },
+    };
+    serve(game);
+    renderApp(path);
+    expect(await screen.findByText("Un guerrero explora el mundo.")).toHaveAttribute("lang", "es");
+    const summary = screen.getByRole("region", { name: "Resumen" });
+    expect(within(summary).getByText(/Traducción automática de Gameómetro/)).toHaveTextContent(
+      "Traducción automática de Gameómetro · Fuente del original: IGDB · Traducción pendiente de actualizar",
+    );
+    expect(within(summary).queryByText(/Fuente: IGDB/)).not.toBeInTheDocument();
+  });
   it("keeps the catalogue's own editorial text without a source credit", async () => {
     serve();
     renderApp(path);

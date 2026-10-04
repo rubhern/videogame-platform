@@ -44,6 +44,9 @@ server:
         path: /
 
 catalogue:
+  localization:
+    endpoint: ${CATALOGUE_TRANSLATION_ENDPOINT:http://127.0.0.1:8092/translate}
+    timeout: ${CATALOGUE_TRANSLATION_TIMEOUT:30s}
   jdbc:
     read-timeout: ${CATALOGUE_JDBC_READ_TIMEOUT:5s}
   releases:
@@ -106,7 +109,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,cataloguesync,releasestagerepair
+        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize
   metrics:
     distribution:
       percentiles-histogram:

@@ -34,7 +34,9 @@ class CatalogueSynchronizationConfigurationTest {
     private final ApplicationContextRunner contextRunner =
             new ApplicationContextRunner()
                     .withUserConfiguration(
-                            CatalogueSynchronizationConfiguration.class, TestDependencies.class)
+                            CatalogueSynchronizationConfiguration.class,
+                            CatalogueLocalizationConfiguration.class,
+                            TestDependencies.class)
                     .withPropertyValues(
                             "catalogue.synchronization.provider-page-size=500",
                             "catalogue.releases.release-group-limit=25",

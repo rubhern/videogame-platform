@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.5.0
+  version: 3.6.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -638,11 +638,11 @@ paths:
                       - { companyId: company_example_publisher, name: Example Publishing }
                       - { companyId: company_example_studio, name: Example Studio }
                     genres:
-                      - { genreId: genre_adventure, name: Adventure }
-                      - { genreId: genre_role_playing, name: Role-playing (RPG) }
+                      - { genreId: genre_adventure, name: Aventura }
+                      - { genreId: genre_role_playing, name: Rol (RPG) }
                     gameModes:
-                      - { gameModeId: game_mode_co_operative, name: Co-operative }
-                      - { gameModeId: game_mode_single_player, name: Single player }
+                      - { gameModeId: game_mode_co_operative, name: Cooperativo }
+                      - { gameModeId: game_mode_single_player, name: Un jugador }
                     primaryCover:
                       kind: provider
                       url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1234.webp
@@ -698,9 +698,9 @@ paths:
                       - { companyId: company_regional_studio, name: Regional Studio }
                     publishers: []
                     genres:
-                      - { genreId: genre_platform, name: Platform }
+                      - { genreId: genre_platform, name: Plataformas }
                     gameModes:
-                      - { gameModeId: game_mode_single_player, name: Single player }
+                      - { gameModeId: game_mode_single_player, name: Un jugador }
                     primaryCover:
                       kind: fallback
                       url: /assets/covers/fallback.svg
@@ -773,12 +773,17 @@ paths:
                     aliases: []
                     summary:
                       kind: sourced
-                      text: Source-language summary retained with provenance.
-                      language: en
+                      text: Resumen traducido al español con la procedencia original conservada.
+                      language: es
                       provenance:
                         sourceKind: external_provider
                         sourceName: IGDB
                         sourceEntityType: game_summary
+                      translation:
+                        kind: machine_translation
+                        sourceText: Source-language summary retained with provenance.
+                        sourceLanguage: en
+                        current: true
                     developers: []
                     publishers: []
                     genres: []
@@ -1578,6 +1583,23 @@ components:
         text: { type: string, minLength: 1 }
         language: { type: string, minLength: 2 }
         provenance: { $ref: '#/components/schemas/Provenance' }
+        translation: { $ref: '#/components/schemas/SummaryTranslation' }
+      description: |
+        Source provenance always credits the author of the original. When `translation`
+        is present, `text` is Spanish content derived by Gameómetro, never provider-authored
+        Spanish. Otherwise `text` retains the source language.
+      unevaluatedProperties: false
+    SummaryTranslation:
+      type: object
+      required: [kind, sourceText, sourceLanguage, current]
+      properties:
+        kind: { type: string, pattern: '^machine_translation$' }
+        sourceText: { type: string, minLength: 1 }
+        sourceLanguage: { type: string, pattern: '^en$' }
+        current:
+          type: boolean
+          description: False when the last valid translation predates the current source.
+      description: Product-derived automatic Spanish translation; original content is preserved.
       unevaluatedProperties: false
     GameSummaryText:
       oneOf:
@@ -1902,8 +1924,9 @@ components:
         summary:
           $ref: '#/components/schemas/GameSummaryText'
           description: |
-            A summary acquired from the catalogue provider is `sourced`, in the provider's
-            language and with its provenance. Without any summary, the product's editorial
+            A summary acquired from the catalogue provider is `sourced`, with original provenance.
+            Spanish derived content is served when available and marked with `translation`;
+            otherwise the source text and language are served. Without any summary, the product's editorial
             notice that none is available yet is returned; no summary text is invented.
         developers:
           type: array

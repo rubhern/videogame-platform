@@ -53,7 +53,7 @@ class DatabaseMigrationApplicationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(20);
+                    .isEqualTo(21);
             assertThat(
                             singleString(
                                     statement,
@@ -118,6 +118,89 @@ class DatabaseMigrationApplicationTest {
                                     "SELECT to_regclass('catalogue.game_popularity')::text"))
                     .isNull();
         }
+    }
+
+    @Test
+    void localizationUpgradeCuratesStableReferencesAndPreservesOriginalsWithoutInference()
+            throws SQLException {
+        String database = PostgreSqlTestDatabase.isolatedDatabaseName("localization_upgrade");
+        PostgreSqlTestDatabase.createDatabase(database);
+        var configuration =
+                org.flywaydb.core.Flyway.configure()
+                        .dataSource(
+                                PostgreSqlTestDatabase.adminUrl(database),
+                                PostgreSqlTestDatabase.migratorUsername(),
+                                PostgreSqlTestDatabase.migratorPassword())
+                        .locations("classpath:db/migration", "classpath:db/dev-seed");
+        configuration.target("20261004.120000").load().migrate();
+        var jdbc =
+                new org.springframework.jdbc.core.JdbcTemplate(
+                        new org.springframework.jdbc.datasource.DriverManagerDataSource(
+                                PostgreSqlTestDatabase.runtimeUrl(database),
+                                PostgreSqlTestDatabase.runtimeUsername(),
+                                PostgreSqlTestDatabase.runtimePassword()));
+        jdbc.update(
+                "INSERT INTO catalogue.genre(genre_id,code,display_name) VALUES ('10000000-0000-0000-0000-000000000001','igdb-12','Role-playing (RPG)'),('10000000-0000-0000-0000-000000000002','igdb-999','Unknown genre')");
+        jdbc.update(
+                "INSERT INTO catalogue.genre_external_reference(provider,provider_id,genre_id) VALUES ('IGDB','12','10000000-0000-0000-0000-000000000001'),('IGDB','999','10000000-0000-0000-0000-000000000002')");
+        jdbc.update(
+                "INSERT INTO catalogue.game_mode(game_mode_id,code,display_name) VALUES ('20000000-0000-0000-0000-000000000001','igdb-1','Single player')");
+        jdbc.update(
+                "INSERT INTO catalogue.game_mode_external_reference(provider,provider_id,game_mode_id) VALUES ('IGDB','1','20000000-0000-0000-0000-000000000001')");
+        jdbc.update(
+                "UPDATE catalogue.game_snapshot SET summary_kind='sourced',summary_text='Original English summary.',summary_language='en',summary_source_kind='external_provider',summary_source_name='IGDB',summary_source_entity_type='games' WHERE slug='death-stranding-2-on-the-beach'");
+        var sources =
+                jdbc.queryForList(
+                        "SELECT game_id,summary_text,summary_language,summary_source_name FROM catalogue.game_snapshot ORDER BY game_id");
+        var identities =
+                jdbc.queryForList(
+                        "SELECT * FROM catalogue.genre_external_reference ORDER BY provider_id");
+        var revision =
+                jdbc.queryForObject(
+                        "SELECT catalogue_version FROM catalogue.catalogue_publication",
+                        String.class);
+
+        configuration.target("latest").load().migrate();
+
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT game_id,summary_text,summary_language,summary_source_name FROM catalogue.game_snapshot ORDER BY game_id"))
+                .isEqualTo(sources);
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT * FROM catalogue.genre_external_reference ORDER BY provider_id"))
+                .isEqualTo(identities);
+        assertThat(
+                        jdbc.queryForMap(
+                                "SELECT display_name,source_label,label_origin FROM catalogue.genre WHERE code='igdb-12'"))
+                .containsEntry("display_name", "Rol (RPG)")
+                .containsEntry("source_label", "Role-playing (RPG)")
+                .containsEntry("label_origin", "curated");
+        assertThat(
+                        jdbc.queryForMap(
+                                "SELECT display_name,source_label,label_origin FROM catalogue.genre WHERE code='igdb-999'"))
+                .containsEntry("display_name", "Unknown genre")
+                .containsEntry("source_label", "Unknown genre")
+                .containsEntry("label_origin", "source");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT display_name FROM catalogue.game_mode", String.class))
+                .isEqualTo("Un jugador");
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM catalogue.content_translation",
+                                Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM catalogue.game_summary_translation",
+                                Integer.class))
+                .isZero();
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT catalogue_version FROM catalogue.catalogue_publication",
+                                String.class))
+                .isNotEqualTo(revision);
     }
 
     @Test

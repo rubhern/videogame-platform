@@ -384,11 +384,25 @@ export interface components {
             text: string;
             language: string;
         };
+        /**
+         * @description Source provenance always credits the author of the original. When `translation`
+         *     is present, `text` is Spanish content derived by Gameómetro, never provider-authored
+         *     Spanish. Otherwise `text` retains the source language.
+         */
         SourcedSummary: {
             kind: string;
             text: string;
             language: string;
             provenance: components["schemas"]["Provenance"];
+            translation?: components["schemas"]["SummaryTranslation"];
+        };
+        /** @description Product-derived automatic Spanish translation; original content is preserved. */
+        SummaryTranslation: {
+            kind: string;
+            sourceText: string;
+            sourceLanguage: string;
+            /** @description False when the last valid translation predates the current source. */
+            current: boolean;
         };
         GameSummaryText: components["schemas"]["EditorialSummary"] | components["schemas"]["SourcedSummary"];
         /**
@@ -630,8 +644,9 @@ export interface components {
             canonicalTitle: string;
             aliases: string[];
             /**
-             * @description A summary acquired from the catalogue provider is `sourced`, in the provider's
-             *     language and with its provenance. Without any summary, the product's editorial
+             * @description A summary acquired from the catalogue provider is `sourced`, with original provenance.
+             *     Spanish derived content is served when available and marked with `translation`;
+             *     otherwise the source text and language are served. Without any summary, the product's editorial
              *     notice that none is available yet is returned; no summary text is invented.
              */
             summary: components["schemas"]["GameSummaryText"];

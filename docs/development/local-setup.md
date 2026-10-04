@@ -25,7 +25,8 @@ The default Compose topology provides loopback-only PostgreSQL and Keycloak. The
 `full` profile adds the packaged application; the frontend is embedded, not a
 separate container. The optional observability overlay adds the same bounded metrics and logs
 stack and provisioned Grafana datasources/dashboards used by private dev, with independent local volumes
-and credentials.
+and credentials. The optional localization overlay shares the private-dev translation
+helper, adding loopback access for a host/IDE backend and container wiring for `full`.
 
 | Service | Address | Notes |
 |---|---|---|
@@ -36,10 +37,12 @@ and credentials.
 | Application management | `127.0.0.1:8081` | Local Actuator health, info, and metrics |
 | Grafana (optional) | `http://127.0.0.1:3000` | Authenticated dashboards; no SSH tunnel needed locally |
 | Collector OTLP HTTP (optional) | `127.0.0.1:4318` | Host/IDE backend export only; Prometheus and the scrape handoff remain internal |
+| Catalogue localizer (optional) | `127.0.0.1:8092` | Acquisition/backfill only; one loaded, locally installed model |
 
 Exact images, health checks, ports, resources, and wiring are authoritative in
 [`compose.yaml`](../../compose.yaml) and its optional
-[observability overlay](../../compose.observability.yaml). `.env.example` and `backend/.env.example` own
+[observability overlay](../../compose.observability.yaml) and
+[localization overlay](../../compose.localization.yaml). `.env.example` and `backend/.env.example` own
 configuration names and safe placeholders.
 
 ### Configuration sources
@@ -54,7 +57,9 @@ and the Compose `application` service (`env_file`). Compose adds explicit
 profile, packaged Flyway execution); `environment` overrides `env_file`, so a
 container-specific value always wins. Explicit `--observability` startup also enables
 metrics export and ECS JSON logs for that packaged invocation, without changing `backend/.env`. The packaged application publishes its
-management port only on host loopback (`127.0.0.1:8081`).
+management port only on host loopback (`127.0.0.1:8081`). The root environment also
+selects the immutable model mount; `--localization` overrides only the packaged
+backend's helper address, preserving the host endpoint and the owner's files.
 
 ## Start, verify, and stop
 
@@ -89,6 +94,49 @@ synthetic account; additional self-registered accounts do not invalidate that ch
 For separate development loops, use the commands in the
 [backend README](../../backend/README.md) and
 [frontend README](../../frontend/README.md).
+
+## Local catalogue translations
+
+First install the pinned model using the
+[backend model procedure](../../backend/README.md#catalogue-translation-runtime-and-models).
+`CATALOGUE_TRANSLATION_MODEL_DIR` selects its immutable directory through the root
+`.env` or a process environment override. The wrapper resolves relative mounts from
+the repository, checks that installation exists and lets the helper verify its
+checksums on startup. Startup never downloads models or launches a catalogue backfill.
+
+For a backend running on the host/IDE, start just the helper:
+
+```bash
+bash scripts/local-dependencies.sh localization
+bash scripts/local-dependencies.sh verify-localization
+```
+
+The helper is available through IPv4 loopback, matching the endpoint in
+`backend/.env.example`. Keep using the normal backend development command and local
+management backfill procedure in the
+[operations runbook](operations-runbook.md#catalogue-localization).
+`up --localization` also starts PostgreSQL and Keycloak for that development loop.
+
+For the packaged application, include translation explicitly; it uses the helper's
+container address. Both optional stacks can run together:
+
+```bash
+bash scripts/local-dependencies.sh application --localization
+# Or include metrics and logs in the same foreground invocation:
+bash scripts/local-dependencies.sh application --observability --localization
+```
+
+The overlay extends the [shared helper definition](../../deploy/private-dev/compose.localization.yaml),
+so build, loaded-model health check and resource/security bounds have one executable
+owner. It retains the model mount read-only and publishes the helper only on
+loopback. Helper health does not participate in application readiness; serving stays
+PostgreSQL-only when the helper is stopped. An occupied helper port is a startup
+conflict, never a reason to publish it elsewhere.
+
+Default startup excludes the helper. `status`, `down` and `reset` include it even
+when the selected model is absent. Normal stop/reset preserves installed weights,
+manifests and ignored environment files. Update/rollback the model through the
+backend procedure, then run `localization` again to rebuild/recreate the helper.
 
 ## Local metrics and logs
 

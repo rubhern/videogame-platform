@@ -444,3 +444,17 @@ from another site is rejected. Local direct execution binds that port to loopbac
 container profiles bind it only inside the private container network and do not
 publish it on the product port. Routine liveness/readiness probes do not emit
 application access logs; their status remains available from Actuator.
+
+## Catalogue localization
+
+`catalogue.localization.content` counts bounded `kind` (`summary`, `genre`,
+`game_mode`) and `outcome` (`translated`, `reused`, `skipped`, `failed`, `busy`,
+`fallback`). Fallback is an additional taxonomy event, not another translated item.
+`catalogue.localization.backfill` counts `progress`, `completed` and `retry` batches.
+No game, provider, fingerprint or request identity is a metric tag.
+
+Batch logs report inspected/translated/reused/skipped/failed counts and the checkpoint
+cursor. The helper logs outcome and duration without source text. Adapter failures
+separate timeout from unavailable/invalid runtime responses; durable pending state and
+last-valid links support diagnosis and retries through the [operations runbook](operations-runbook.md#catalogue-localization).
+Helper failure never participates in liveness/readiness.

@@ -483,3 +483,91 @@ synchronization, alerting, OS and Docker update cadence, pinned-image refresh, d
 pruning and hardware monitoring cadence. The
 [infrastructure review](../research/mvp-closeout-review/infrastructure-review.md)
 lists these as proposals; none has an exercised procedure yet.
+
+## Catalogue localization
+
+**Local implementation evidence, 2026-10-04 (#235):** real IGDB sample inference with
+both approved OPUS candidates, PostgreSQL source/derived persistence, idempotency,
+claim fencing, last-valid preservation, bounded/restartable backfill, timeout/invalid
+output and PostgreSQL-only Spanish HTTP responses. Private `vgpdev` installation,
+shared-host resources and owner translation-quality acceptance are **not exercised**.
+[ADR-0022](../decisions/0022-localize-catalogue-content-during-acquisition.md) owns the
+comparison evidence and resource extrapolation. [Backend README](../../backend/README.md#catalogue-translation-runtime-and-models)
+owns model/runtime installation; [private-dev README](../../deploy/private-dev/README.md#catalogue-localization-helper)
+owns helper activation/update/rollback.
+
+Normal synchronization commits provider source first, then attempts localization
+through the narrow acquisition boundary. Known taxonomy references receive curated
+Spanish labels without inference. Unknown taxonomy sources and English IGDB summaries
+reuse an unchanged normalized fingerprint or request translation. Failed translation
+never fails an otherwise valid Game. Source and provenance remain local; last-valid
+Spanish content is retained and explicitly marked when its source changed. Editorial
+and other-source summaries are outside enrichment ownership.
+
+On a local backend, or an existing private management tunnel (never a product/public
+route), start/restart a bounded backfill:
+
+```bash
+python3 scripts/localize-catalogue.py \
+  --checkpoint .local-secrets/catalogue-localization-checkpoint.json \
+  --batch-size 10 --max-batches 100
+```
+
+Use `--url` for the existing management forwarding procedure. Private dev keeps
+Actuator container-internal; use the same management tunnel/container namespace as
+current-release repair. A POST to `/actuator/cataloguelocalize` accepts `afterKind`,
+`afterId` and `limit` (1–100); omitted cursor begins a fresh sweep. It returns the last
+cursor, inspection/outcome counts and `completed`. The CLI saves acknowledged cursors
+atomically, stops at its batch budget or first failed/busy batch and resumes with the
+same checkpoint. Checkpoints bind the target URL and format; a different target
+requires a fresh checkpoint. Interrupted requests replay safely. Failed batches retain their
+original cursor, so successes are skipped on retry. A completed checkpoint stays
+completed; start a fresh checkpoint for later source changes. No provider request,
+scheduler, broker or complete-catalogue load occurs. A sweep's total database work
+scales with visited targets; application memory stays proportional to the batch.
+
+Inspect `catalogue.localization.*` and application/helper logs. A timeout is ambiguous:
+the helper may still be computing, so its database reservation survives for up to five
+minutes. Other failed/invalid work releases its reservation for retry; a crashed worker
+is also recoverable after expiry. An expired worker cannot overwrite a successor.
+The current source is rechecked under the publication/target locks before publication.
+
+For source-preserving diagnosis, inspect a bounded set of pending rows rather than
+printing the full catalogue or raw provider payloads:
+
+```sql
+SELECT g.game_id, t.claimed_until, t.translated_at
+FROM catalogue.game_snapshot g
+LEFT JOIN catalogue.game_summary_translation l ON l.game_id=g.game_id
+LEFT JOIN catalogue.content_translation t
+  ON t.fingerprint=catalogue.spanish_source_fingerprint(g.summary_text)
+WHERE g.summary_kind='sourced' AND g.summary_language='en'
+  AND g.summary_source_kind='external_provider' AND g.summary_source_name='IGDB'
+  AND l.fingerprint IS DISTINCT FROM catalogue.spanish_source_fingerprint(g.summary_text)
+ORDER BY g.game_id LIMIT 50;
+```
+
+A missing helper, bad model/tokenizer checksum, wrong non-root mount permissions,
+invalid output or an exceeded source/output/token bound preserves the source and
+last-valid content. Correct the configuration/model and replay; do not erase catalogue
+state to clear a translation error. A source beyond the runtime's explicit bound is
+preserved without truncation and needs operator investigation. Successful translations
+persist across model/runtime restarts and upgrades.
+
+Before owner acceptance on `vgpdev`:
+
+1. Install the pinned model/runtime, verify the manifest/licence and run a small
+   representative backfill using actual local source. Review short/long translations,
+   proper nouns and game terminology; accept or reject the quality limitation.
+2. Measure inference and end-to-end batch throughput with the application, PostgreSQL,
+   identity and telemetry running. Capture steady/peak RSS and CPU, verify limits and
+   estimate historical backfill duration from that host's observed sample distribution.
+   `tools/catalogue-localization/measure.py --model <dir> --samples <IGDB-json> --output <ignored-path>`
+   repeats the bounded native model comparison; arrays are capped at 20 samples.
+3. Interrupt/resume the same checkpoint and repeat a completed-content sweep; unchanged
+   content must consume no new inference. Change a controlled source in a disposable
+   copy, confirm refresh, and stop the helper to verify last-valid/new-source behavior.
+4. With the helper stopped, read translated game details through the private browser
+   HTTP boundary and verify source attribution, last-valid status and cache validators.
+5. Record host evidence on #235. Full affected-area CI, owner diff review and this
+   private-host acceptance remain gates before closing the issue.

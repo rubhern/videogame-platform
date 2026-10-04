@@ -41,9 +41,9 @@ run up --observability
 [[ "$(sha256sum "$fixture/.env" "$fixture/backend/.env")" == "$initial_env" ]]
 [[ "$(sha256sum "$fixture/.local-secrets/grafana-admin-password")" == "$initial_secret" ]]
 run down
-grep -q 'compose.observability.yaml --profile observability down --remove-orphans' "$LOCAL_METRICS_COMMAND_LOG"
+grep -q 'compose.observability.yaml --profile observability .* down --remove-orphans' "$LOCAL_METRICS_COMMAND_LOG"
 run reset --yes
-grep -q 'compose.observability.yaml --profile observability down --volumes --remove-orphans' "$LOCAL_METRICS_COMMAND_LOG"
+grep -q 'compose.observability.yaml --profile observability .* down --volumes --remove-orphans' "$LOCAL_METRICS_COMMAND_LOG"
 [[ -s "$fixture/.local-secrets/grafana-admin-password" ]]
 sed -i 's/COMPOSE_PROJECT_NAME=videogame-platform/COMPOSE_PROJECT_NAME=other-project/' "$fixture/.env"
 if run reset --yes 2>/dev/null; then

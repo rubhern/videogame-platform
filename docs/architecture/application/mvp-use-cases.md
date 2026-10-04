@@ -185,7 +185,7 @@ keeps only the developer and publisher roles of the provider's company credits, 
 company holding both appears in both lists and other credited roles never cross the port.
 Companies, genres and game modes resolve through typed external references to product
 identity, created on first sight; a company name follows the latest valid answer, while
-genre and game-mode labels are set on first acquisition like platform taxonomy. A valid
+genre and game-mode labels follow the source/localization ownership below. A valid
 answer replaces the provider-owned summary and every credit, genre and game-mode link in
 the Game transaction, including clearing what the provider no longer states, and a content
 change advances the catalogue revision. An incoherent answer keeps the Game's last valid
@@ -194,6 +194,23 @@ A product editorial summary or a summary from another source is never replaced. 
 summary the read returns the product's editorial notice that none exists yet, and empty
 lists for missing credits, genres or modes; nothing is invented. The read bounds each list
 and fails rather than truncating.
+
+Post-MVP (#235, architecture approved; implementation awaiting review): after each valid
+Game commits, acquisition localizes its English summary and unknown genres/game modes.
+Known typed references receive curated Spanish labels immediately. Source wording is
+kept separately, and a rename never overwrites curation. Unchanged normalized content
+reuses the durable translation; changed source requests a new derivation, with failure
+preserving the last valid Spanish content and the new source. A summary absent from a
+valid answer retains the existing explicit no-summary behavior. Editorial and other-source
+summaries stay outside enrichment ownership. `UC-003` serves Spanish when available,
+marks it as product-derived, and retains source language/provenance; missing translation
+serves the source, while stale last-valid content has explicit status. No read calls inference.
+
+The operator localization command pages taxonomy and stored summary targets by
+`(kind, internal UUID)` with a maximum of 100 per batch, skips current/curated content,
+and retains a failed batch's cursor for safe replay. Successful PostgreSQL state is the
+durable progress. It uses no IGDB request or distributed job framework. [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md)
+owns the runtime and concurrency decision.
 
 ## Identity and ratings
 

@@ -108,14 +108,25 @@ public final class GameDetailsEndpoint {
             return new EditorialSummary("editorial", summary.text(), summary.language());
         }
         var source = summary.provenance();
-        return new SourcedSummary(
-                "sourced",
-                summary.text(),
-                summary.language(),
-                new Provenance(
-                        Provenance.SourceKindEnum.valueOf(source.sourceKind().name()),
-                        source.sourceName(),
-                        source.sourceEntityType()));
+        var result =
+                new SourcedSummary(
+                        "sourced",
+                        summary.text(),
+                        summary.language(),
+                        new Provenance(
+                                Provenance.SourceKindEnum.valueOf(source.sourceKind().name()),
+                                source.sourceName(),
+                                source.sourceEntityType()));
+        if (summary.translation() != null) {
+            var translation = summary.translation();
+            result.setTranslation(
+                    new com.videogameplatform.api.generated.model.SummaryTranslation(
+                            "machine_translation",
+                            translation.sourceText(),
+                            translation.sourceLanguage(),
+                            translation.current()));
+        }
+        return result;
     }
 
     private static RatingStatistics statistics(

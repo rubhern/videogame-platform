@@ -26,6 +26,7 @@ Secret scanning remains applicable to every pull request.
 | Packaged browser | `bash scripts/validate-browser.sh` |
 | Real OIDC/BFF session and Keycloak rating journey | `bash scripts/validate-identity.sh` |
 | Private-dev runtime/deployment | `bash scripts/validate-private-dev-runtime.sh`, then `bash scripts/validate-private-dev-runtime.sh --telemetry-smoke` and `python3 scripts/private-dev-logs-check.py --smoke` |
+| Local translation lifecycle/topology | `bash scripts/test-local-localization.sh`; optional `--smoke` with an installed model |
 | OCI image | `bash scripts/validate-container-image.sh` |
 | IGDB PoC fixtures | `./mvnw -f tools/igdb-poc/pom.xml clean verify` |
 
@@ -52,3 +53,8 @@ table above is the parity catalogue; record why the broader evidence is needed.
 
 Green remote checks are evidence only for the commit they tested. Update/rebase a
 stale branch and use the new run instead of compensating with unrelated local suites.
+
+Catalogue localization adds deterministic Python helper/operator boundary tests to the
+backend gate and a private-helper image check/build to the container gate. CI never
+downloads model weights or requires live IGDB credentials; native quality/resource
+acceptance belongs to the [operations runbook](operations-runbook.md#catalogue-localization).

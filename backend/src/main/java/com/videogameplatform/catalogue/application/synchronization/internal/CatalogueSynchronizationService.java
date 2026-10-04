@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 /**
@@ -73,6 +74,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
     private final SynchronizationPolicy policy;
     private final CoverSelectionPolicy covers;
     private final SynchronizationProgress progress;
+    private final BiConsumer<UUID, Runnable> localization;
 
     public CatalogueSynchronizationService(
             CatalogueSynchronizationStore store,
@@ -81,12 +83,26 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
             SynchronizationPolicy policy,
             CoverSelectionPolicy covers,
             SynchronizationProgress progress) {
+        this(store, provider, clock, policy, covers, progress, null);
+    }
+
+    public CatalogueSynchronizationService(
+            CatalogueSynchronizationStore store,
+            CatalogueProviderPort provider,
+            Clock clock,
+            SynchronizationPolicy policy,
+            CoverSelectionPolicy covers,
+            SynchronizationProgress progress,
+            com.videogameplatform.catalogue.application.localization.LocalizeCatalogueUseCase
+                    localization) {
         this.store = store;
         this.provider = provider;
         this.clock = clock;
         this.policy = policy;
         this.covers = covers;
         this.progress = progress;
+        this.localization =
+                localization == null ? (gameId, heartbeat) -> {} : localization::localizeGame;
     }
 
     @Override
@@ -535,6 +551,10 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                                 .<DetailsWrite>map(DetailsWrite.Observe::new)
                                 .orElse(DetailsWrite.KEEP));
         WriteResult result = dryRun ? store.previewGame(write) : store.saveGame(runId, write);
+        if (!dryRun) {
+            localization.accept(gameId, () -> store.heartbeat(runId));
+            store.heartbeat(runId);
+        }
         evidence.count(write, counts);
         switch (write.featuredEvidence()) {
             case FeaturedEvidenceWrite.Observe observed -> {

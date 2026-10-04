@@ -1,0 +1,31 @@
+# Optional acquisition helper. No published ports, no database, no product readiness dependency.
+services:
+  application:
+    environment:
+      CATALOGUE_TRANSLATION_ENDPOINT: http://catalogue-localizer:8092/translate
+  catalogue-localizer:
+    profiles: ["localization"]
+    build:
+      context: ../../tools/catalogue-localization
+    image: videogame-platform/catalogue-localizer:1.0.0
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8092/ready', timeout=2).close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    volumes:
+      - ${CATALOGUE_TRANSLATION_MODEL_DIR:?Set an immutable converted-model directory}:/model:ro
+    networks: [data]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 768m
+    cpus: 2.0
+    pids_limit: 64
+    restart: unless-stopped
+    logging:
+      driver: local
+      options:
+        max-size: 10m
+        max-file: "3"

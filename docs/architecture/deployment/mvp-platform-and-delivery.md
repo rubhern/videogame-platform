@@ -51,6 +51,12 @@ credentials; the deployment profile adds a one-shot migration actor and a browse
 smoke runner. Repository configuration never selects or deploys an application digest
 by itself.
 
+The optional #235 localization overlay adds a private acquisition helper on the
+existing internal data network, with a read-only immutable model mount and explicit
+CPU/RAM/process limits. It publishes no port, owns no durable state and is not an
+application readiness or deployment prerequisite. [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md)
+owns the decision; the private-dev README owns activation and rollback commands.
+
 PostgreSQL, Prometheus, Loki and the collector publish no host port.
 Alloy accepts Docker syslog only on host IPv4 loopback UDP through a separate
 ingress bridge, without joining the product edge network; its HTTP interface
