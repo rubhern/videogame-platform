@@ -14,6 +14,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ReleasePage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.CoverSelection;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.DetailsWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedMediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameState;
@@ -529,8 +530,10 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                         new FeaturedMediaWrite(
                                 featuredImage(work),
                                 cardImage(work),
-                                evidence.logos()
-                                        .forGame(work.providerId(), work.attributionUrl())));
+                                evidence.logos().forGame(work.providerId(), work.attributionUrl())),
+                        work.details()
+                                .<DetailsWrite>map(DetailsWrite.Observe::new)
+                                .orElse(DetailsWrite.KEEP));
         WriteResult result = dryRun ? store.previewGame(write) : store.saveGame(runId, write);
         evidence.count(write, counts);
         switch (write.featuredEvidence()) {
@@ -539,6 +542,9 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                 else counts.popularityCleared++;
             }
             case FeaturedEvidenceWrite.Keep _ -> counts.popularityUnavailable++;
+        }
+        if (write.details() instanceof DetailsWrite.Keep) {
+            counts.detailsUnavailable++;
         }
         GameResult gameResult;
         if (result.createdGame()) {
@@ -610,7 +616,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                 c.popularityUnavailable,
                 c.featuredImageObserved,
                 c.logoObserved,
-                c.logoUnavailable);
+                c.logoUnavailable,
+                c.detailsUnavailable);
     }
 
     /**
@@ -738,6 +745,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         long featuredImageObserved;
         long logoObserved;
         long logoUnavailable;
+        long detailsUnavailable;
         ProviderCallStatistics statistics = ProviderCallStatistics.none();
     }
 }

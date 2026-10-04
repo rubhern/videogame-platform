@@ -293,6 +293,7 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                     .addKeyValue("sync.media.images_observed", c.featuredImageObservedGames())
                     .addKeyValue("sync.media.logos_observed", c.logoObservedGames())
                     .addKeyValue("sync.media.logos_unavailable", c.logoUnavailableGames())
+                    .addKeyValue("sync.details.unavailable", c.detailsUnavailableGames())
                     .addKeyValue("sync.provider.latency_ms", c.providerLatencyMillis())
                     .addKeyValue("sync.failures", failureSummary)
                     .log(
@@ -302,6 +303,7 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                                     + " releases[created={} updated={} unchanged={}]"
                                     + " popularity[observed={} cleared={} unavailable={}]"
                                     + " media[images={} logos={} logos_unavailable={}]"
+                                    + " details[unavailable={}]"
                                     + " release_dates_inspected={} provider[requests={}"
                                     + " retries={} latency_ms={}] failures={}",
                             runId,
@@ -325,6 +327,7 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                             c.featuredImageObservedGames(),
                             c.logoObservedGames(),
                             c.logoUnavailableGames(),
+                            c.detailsUnavailableGames(),
                             c.inspectedReleaseDates(),
                             c.providerRequests(),
                             c.providerRetries(),

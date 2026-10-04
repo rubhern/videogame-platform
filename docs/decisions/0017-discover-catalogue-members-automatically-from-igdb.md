@@ -13,6 +13,10 @@
   provider references, not installed by migration)
 - **Extended by:** [ADR-0021](0021-rank-monthly-featured-releases-by-local-igdb-hypes.md)
   (the same per-page, per-Game synchronization also acquires the popularity signal)
+- **Extended:** 2026-10-04, #233: the same Game request also acquires game details (summary,
+  developer and publisher credits, genres and game modes) under the per-Game atomicity and
+  last-valid-state rules below; [use cases](../architecture/application/mvp-use-cases.md)
+  and `CAT-009` own the behaviour
 
 ## Context
 

@@ -279,6 +279,10 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
             failures.add(ProviderMappingFailure.IMAGE_REFERENCE_INVALID);
         }
         var featured = featuredEvidence(game, failures);
+        var details = IgdbGameDetailsMapper.map(game);
+        if (details.isEmpty()) {
+            failures.add(ProviderMappingFailure.DETAILS_INVALID);
+        }
         metrics.recordMappingFailures(failures);
 
         return new ProviderWork(
@@ -291,7 +295,8 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
                 Optional.ofNullable(attributionUrl(game.url())),
                 releases,
                 failures,
-                featured);
+                featured,
+                details);
     }
 
     private static Optional<ProviderFeaturedEvidence> featuredEvidence(

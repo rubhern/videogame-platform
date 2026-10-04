@@ -7,6 +7,7 @@ public record IgdbGamePayload(
         Long id,
         String name,
         String url,
+        String summary,
         Long createdAt,
         Long updatedAt,
         java.math.BigDecimal hypes,
@@ -17,4 +18,7 @@ public record IgdbGamePayload(
         List<IgdbImagePayload> screenshots,
         IgdbNamedValuePayload gameType,
         IgdbNamedValuePayload gameStatus,
-        List<IgdbReleaseDatePayload> releaseDates) {}
+        List<IgdbReleaseDatePayload> releaseDates,
+        List<IgdbInvolvedCompanyPayload> involvedCompanies,
+        List<IgdbTermPayload> genres,
+        List<IgdbTermPayload> gameModes) {}

@@ -17,7 +17,9 @@ public record CatalogueSynchronizationReport(
     /**
      * The popularity counters count committed Games by what happened to their popularity signal:
      * observed and recorded, absent because the provider reports zero or no Hypes, or kept unchanged because
-     * featured evidence was unavailable or invalid.
+     * featured evidence was unavailable or invalid. {@code detailsUnavailableGames} counts committed
+     * Games that kept their last valid summary, credits, genres and game modes because the provider's
+     * detail metadata was invalid.
      */
     public record Counters(
             long inspectedReleaseDates,
@@ -38,5 +40,6 @@ public record CatalogueSynchronizationReport(
             long popularityUnavailableGames,
             long featuredImageObservedGames,
             long logoObservedGames,
-            long logoUnavailableGames) {}
+            long logoUnavailableGames,
+            long detailsUnavailableGames) {}
 }

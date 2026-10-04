@@ -42,6 +42,7 @@ public final class CatalogueSynchronizationMetrics {
         record("featured_image_observed_games", c.featuredImageObservedGames());
         record("logo_observed_games", c.logoObservedGames());
         record("logo_unavailable_games", c.logoUnavailableGames());
+        record("details_unavailable_games", c.detailsUnavailableGames());
     }
 
     private void record(String kind, long count) {

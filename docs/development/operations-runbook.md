@@ -264,6 +264,12 @@ on reads means the next run should cover that month, and a high `lead_image="fal
 share means its Games have no usable artwork or screenshot yet. Explicit
 current-release repair refreshes featured evidence with each Game but does not look up logos.
 
+The same Game request also acquires the summary, developer and publisher credits, genres and
+game modes that the game page serves (#233). A valid answer replaces them, including clearing
+what the provider no longer states; `details[unavailable]` on the finished line counts Games
+that kept their last valid details because that metadata was invalid. Existing Games gain
+these details only when a run or repair reconciles them again.
+
 PostgreSQL allows one active run; an abandoned
 worker is fenced after `CATALOGUE_SYNC_ABANDON_RUN_AFTER` before a successor can
 write. Provider failure never deletes local Games, Releases or covers; the previous

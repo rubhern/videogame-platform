@@ -1,0 +1,28 @@
+[
+  {
+    "id": 116530,
+    "name": "Ghost of Yotei",
+    "url": "https://www.igdb.com/games/ghost-of-yotei",
+    "updated_at": 1751000000,
+    "summary": "  A lone warrior seeks revenge in the lands around Mount Yotei.\r\nSecond line.  ",
+    "game_type": { "type": "main_game" },
+    "involved_companies": [
+      { "id": 9001, "company": { "id": 3045, "name": "Sucker Punch Productions" }, "developer": true, "publisher": false, "porting": false, "supporting": false },
+      { "id": 9002, "company": { "id": 10100, "name": "Sony Interactive Entertainment" }, "developer": false, "publisher": true, "porting": false, "supporting": false },
+      { "id": 9003, "company": { "id": 777, "name": "Nixxes Software" }, "developer": false, "publisher": false, "porting": true, "supporting": false },
+      { "id": 9004, "company": { "id": 888, "name": "Support Studio" }, "developer": false, "publisher": false, "porting": false, "supporting": true },
+      { "id": 9005, "company": { "id": 5050, "name": " Self Made Games " }, "developer": true, "publisher": true, "porting": false, "supporting": false },
+      { "id": 9006, "company": { "id": 3045, "name": "Sucker Punch Productions" }, "developer": true, "publisher": false, "porting": false, "supporting": false }
+    ],
+    "genres": [
+      { "id": 31, "name": "Adventure", "slug": "adventure" },
+      { "id": 12, "name": "Role-playing (RPG)", "slug": "role-playing-rpg" },
+      { "id": 25, "name": "Hack and slash/Beat 'em up", "slug": "hack-and-slash-beat-em-up" }
+    ],
+    "game_modes": [
+      { "id": 1, "name": "Single player", "slug": "single-player" },
+      { "id": 2, "name": "Multiplayer", "slug": "multiplayer" },
+      { "id": 3, "name": "Co-operative", "slug": "co-operative" }
+    ]
+  }
+]

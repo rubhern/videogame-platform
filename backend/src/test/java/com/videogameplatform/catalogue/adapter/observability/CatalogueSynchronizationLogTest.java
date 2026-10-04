@@ -333,6 +333,7 @@ class CatalogueSynchronizationLogTest {
                 0,
                 created,
                 0,
+                0,
                 0);
     }
 

@@ -74,7 +74,34 @@ public interface CatalogueProviderPort {
             Optional<String> attributionUrl,
             List<ProviderRelease> releases,
             List<ProviderMappingFailure> mappingFailures,
-            Optional<ProviderFeaturedEvidence> featuredEvidence) {
+            Optional<ProviderFeaturedEvidence> featuredEvidence,
+            Optional<ProviderGameDetails> details) {
+
+        /** A work whose detail metadata was not usable; the Game keeps its last valid details. */
+        public ProviderWork(
+                String providerId,
+                String title,
+                ProviderWorkType type,
+                Instant providerUpdatedAt,
+                Optional<ProviderCover> cover,
+                List<ProviderImage> images,
+                Optional<String> attributionUrl,
+                List<ProviderRelease> releases,
+                List<ProviderMappingFailure> mappingFailures,
+                Optional<ProviderFeaturedEvidence> featuredEvidence) {
+            this(
+                    providerId,
+                    title,
+                    type,
+                    providerUpdatedAt,
+                    cover,
+                    images,
+                    attributionUrl,
+                    releases,
+                    mappingFailures,
+                    featuredEvidence,
+                    Optional.empty());
+        }
 
         public ProviderWork(
                 String providerId,
@@ -96,12 +123,14 @@ public interface CatalogueProviderPort {
                     attributionUrl,
                     releases,
                     mappingFailures,
+                    Optional.empty(),
                     Optional.empty());
         }
 
         public ProviderWork {
             featuredEvidence =
                     java.util.Objects.requireNonNull(featuredEvidence, "featuredEvidence");
+            details = java.util.Objects.requireNonNull(details, "details");
             images = List.copyOf(images);
             attributionUrl = java.util.Objects.requireNonNull(attributionUrl, "attributionUrl");
             releases = List.copyOf(releases);
@@ -206,6 +235,91 @@ public interface CatalogueProviderPort {
     record LogoBatch(Map<String, List<ProviderImage>> logos, ProviderCallStatistics statistics) {
         public LogoBatch {
             logos = Map.copyOf(logos);
+        }
+    }
+
+    /**
+     * The complete detail metadata of one valid provider answer: the summary, the companies credited
+     * as developer or publisher, and the genres and game modes. Empty values are the provider stating
+     * none, never a failure; nothing is invented to fill them. Provider company-credit records, their
+     * other roles and provider enumerations never cross this port.
+     */
+    record ProviderGameDetails(
+            Optional<ProviderSummary> summary,
+            List<ProviderCompany> developers,
+            List<ProviderCompany> publishers,
+            List<ProviderTerm> genres,
+            List<ProviderTerm> gameModes) {
+
+        /** Bound per list; a larger answer is not plausible metadata and is rejected upstream. */
+        public static final int MAX_ENTRIES = 50;
+
+        public ProviderGameDetails {
+            java.util.Objects.requireNonNull(summary, "summary");
+            developers = distinctBounded(developers, ProviderCompany::providerId);
+            publishers = distinctBounded(publishers, ProviderCompany::providerId);
+            genres = distinctBounded(genres, ProviderTerm::providerId);
+            gameModes = distinctBounded(gameModes, ProviderTerm::providerId);
+        }
+
+        private static <T> List<T> distinctBounded(
+                List<T> values, java.util.function.Function<T, String> identity) {
+            List<T> copy = List.copyOf(values);
+            if (copy.size() > MAX_ENTRIES) {
+                throw new IllegalArgumentException("Too many detail entries");
+            }
+            if (copy.stream().map(identity).distinct().count() != copy.size()) {
+                throw new IllegalArgumentException("A detail entry must not repeat its reference");
+            }
+            return copy;
+        }
+    }
+
+    /** Provider-authored summary text with the language the provider writes it in. */
+    record ProviderSummary(String text, String language) {
+        /** The product's summary storage bound. */
+        public static final int MAX_LENGTH = 10_000;
+
+        public ProviderSummary {
+            if (text == null || text.isBlank() || text.length() > MAX_LENGTH) {
+                throw new IllegalArgumentException("A summary requires bounded, non-blank text");
+            }
+            if (language == null || language.isBlank()) {
+                throw new IllegalArgumentException("A summary requires its language");
+            }
+        }
+    }
+
+    /**
+     * A typed provider company reference. {@code providerId} is the stable identity; {@code name} is
+     * the provider's current company name, descriptive only.
+     */
+    record ProviderCompany(String providerId, String name) {
+        public ProviderCompany {
+            if (providerId == null || providerId.isBlank()) {
+                throw new IllegalArgumentException(
+                        "A company reference requires an external identity");
+            }
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("A company reference requires a name");
+            }
+        }
+    }
+
+    /**
+     * A typed provider genre or game-mode reference. {@code providerId} is the stable identity;
+     * {@code name} and {@code slug} only seed the product display name and code when the product
+     * entity is first acquired.
+     */
+    record ProviderTerm(String providerId, String name, String slug) {
+        public ProviderTerm {
+            if (providerId == null || providerId.isBlank()) {
+                throw new IllegalArgumentException(
+                        "A term reference requires an external identity");
+            }
+            if (name == null || name.isBlank()) {
+                throw new IllegalArgumentException("A term reference requires a name");
+            }
         }
     }
 

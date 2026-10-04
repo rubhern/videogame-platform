@@ -25,6 +25,9 @@ eligibility, and aggregate calculation. Identity supplies only authenticated
 | Popularity signal | One game's current provider-observed attention (IGDB Hypes) with its source and acquisition time; ranks featured releases, never measures quality |
 | Featured releases | A calendar month's automatic selection: its qualifying-release games ranked by popularity signal, the first being the month's featured release |
 | Featured media | Context-selected hero and card landscape images and an optional secondary-card logo, kept as approved CDN references, never binaries |
+| Game details | A game's summary, the companies credited as its developers and publishers, its genres and its game modes; current provider-acquired state that may be empty |
+| `Company` | A product entity credited with developing or publishing games; one company may hold both roles for one game |
+| `Genre` / `GameMode` | Product taxonomy classifying a game's style and ways to play, acquired like platform taxonomy |
 | Verification / review / freshness | Independent evidence, ambiguity, and time-policy states |
 | `Rating` | One active integer 1–10 identified by `UserId + GameId` |
 | `RatingStatistics` | Unweighted mean, count, and 1–10 distribution from active ratings |
@@ -94,6 +97,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `CAT-006` | A provider work type the product does not model is deferred, not imported and not a failure. |
 | `CAT-007` | Platform and region taxonomy is acquired from accepted releases: a provider entity is resolved through a typed external reference, reusing the known product entity or creating it as accepted state, never merged by name/slug ([ADR-0020](../../decisions/0020-acquire-platform-and-region-taxonomy-from-releases.md)). |
 | `CAT-008` | A region's display label is catalogue-owned presentation, set when the region is first acquired: the approved Spanish label for its provider descriptor, otherwise a readable form of that descriptor, never a raw technical token. A label never identifies, merges, filters, or resolves a region, and a provider rename does not change it. |
+| `CAT-009` | Game details are acquired with the Game through typed external references, never merged by name, and are never invented: a missing value stays absent. A valid provider answer replaces the provider-owned details as a whole; an invalid answer or failed Game preserves the last valid details; product editorial and other-source summaries are outside synchronization ownership. |
 | `GAME-001` | Every game uses a provider-independent `GameId`. |
 | `GAME-002` | Canonical title is non-blank. |
 | `GAME-003` | Slug is navigation, not identity. |

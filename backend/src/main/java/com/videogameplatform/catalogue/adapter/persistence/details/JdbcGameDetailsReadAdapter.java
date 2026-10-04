@@ -86,6 +86,10 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                                         rs.getString("canonical_title"),
                                         List.of(),
                                         summary(rs),
+                                        List.of(),
+                                        List.of(),
+                                        List.of(),
+                                        List.of(),
                                         CatalogueCoverReferenceRowMapper.map(rs),
                                         List.of()));
         if (games.isEmpty()) {
@@ -126,7 +130,38 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                                         MAX_RELEASES + 1),
                         params,
                         JdbcGameDetailsReadAdapter::release);
-        if (aliases.size() > MAX_ALIASES || releases.size() > MAX_RELEASES) {
+        var credits =
+                jdbc.query(
+                        """
+            SELECT gc.company_role, c.company_id, c.display_name
+            FROM catalogue.game_company gc
+            JOIN catalogue.company c ON c.company_id = gc.company_id
+            WHERE gc.game_id = :game
+            ORDER BY gc.company_role, lower(c.display_name), c.company_id
+            LIMIT %d
+            """
+                                .formatted(MAX_COMPANY_CREDITS + 1),
+                        params,
+                        (rs, row) ->
+                                Map.entry(
+                                        rs.getString("company_role"),
+                                        new GameDetailsResult.Company(
+                                                rs.getString("company_id"),
+                                                rs.getString("display_name"))));
+        var genres =
+                terms("catalogue.game_genre", "catalogue.genre", "genre_id", params, MAX_GENRES);
+        var gameModes =
+                terms(
+                        "catalogue.game_game_mode",
+                        "catalogue.game_mode",
+                        "game_mode_id",
+                        params,
+                        MAX_GAME_MODES);
+        if (aliases.size() > MAX_ALIASES
+                || releases.size() > MAX_RELEASES
+                || credits.size() > MAX_COMPANY_CREDITS
+                || genres.size() > MAX_GENRES
+                || gameModes.size() > MAX_GAME_MODES) {
             throw new CatalogueDataInvalidException(
                     new IllegalStateException("Game detail exceeds the supported context bound"));
         }
@@ -138,8 +173,39 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                         game.canonicalTitle(),
                         aliases,
                         game.summary(),
+                        credited(credits, "developer"),
+                        credited(credits, "publisher"),
+                        genres,
+                        gameModes,
                         game.cover(),
                         releases));
+    }
+
+    private static List<GameDetailsResult.Company> credited(
+            List<Map.Entry<String, GameDetailsResult.Company>> credits, String role) {
+        return credits.stream()
+                .filter(credit -> credit.getKey().equals(role))
+                .map(Map.Entry::getValue)
+                .toList();
+    }
+
+    /** A game's genres or game modes; {@code links}, {@code terms} and {@code id} are constants. */
+    private List<GameDetailsResult.Term> terms(
+            String links, String terms, String id, Map<String, ?> params, int bound) {
+        return jdbc.query(
+                """
+            SELECT t.code, t.display_name
+            FROM %s l
+            JOIN %s t ON t.%s = l.%s
+            WHERE l.game_id = :game
+            ORDER BY lower(t.display_name), t.code
+            LIMIT %d
+            """
+                        .formatted(links, terms, id, id, bound + 1),
+                params,
+                (rs, row) ->
+                        new GameDetailsResult.Term(
+                                rs.getString("code"), rs.getString("display_name")));
     }
 
     private static GameDetailsResult.Summary summary(ResultSet rs) throws SQLException {

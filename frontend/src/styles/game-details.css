@@ -1,19 +1,19 @@
-/* The public game page: a premium game hub built only from the contract's data. The stage is lit
-   by the game's own cover (cinema.css); the cover, title and both scores open the page, and the
-   release context follows with the selectors that drive it. */
+/* The game page: cover and scores form an identity column beside an editorial opening.
+   Structured facts keep their glass surfaces; title and summary read directly on the graded stage. */
 
 @layer components {
   .game-details-section {
     padding-block: 20px 64px;
   }
 
-  /* Phones: cover, title, both scores, then the release context. From tablet the cover stands
-     beside the title and scores, and the context spans the page below them. */
+  /* ---------------------------------------------------------------- Composition */
+
+  /* Phones lead with the title, then keep cover and scores together before the editorial text. */
   .game-detail-layout {
     display: grid;
-    grid-template-areas: "art" "heading" "scores" "main";
+    grid-template-areas: "heading" "identity" "summary" "facts";
     grid-template-columns: minmax(0, 1fr);
-    gap: 26px;
+    gap: 22px;
   }
 
   .game-detail-layout > * {
@@ -22,6 +22,7 @@
 
   .game-detail-heading {
     grid-area: heading;
+    container-type: inline-size;
     text-align: center;
   }
 
@@ -29,33 +30,41 @@
     justify-content: center;
   }
 
+  .game-detail-identity {
+    display: grid;
+    grid-area: identity;
+    align-content: start;
+    gap: 18px;
+  }
+
   .game-artwork {
     position: relative;
-    grid-area: art;
-    width: min(64vw, 270px);
+    width: min(64vw, 280px);
     justify-self: center;
   }
 
   .game-scores {
     display: grid;
-    grid-area: scores;
-    gap: 14px;
+    align-content: start;
+    gap: 10px;
   }
 
-  .game-detail-main {
-    display: grid;
-    grid-area: main;
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-    gap: 18px;
+  .game-summary,
+  .detail-skeleton-summary {
+    grid-area: summary;
+  }
+
+  .game-detail-facts {
+    grid-area: facts;
+    align-self: start;
   }
 
   /* ---------------------------------------------------------------- Title */
 
   .game-detail-title {
-    margin: 14px 0 0;
+    margin: 12px 0 0;
     font-family: var(--font-display);
-    font-size: clamp(2.4rem, 6.4vw, 5.75rem);
+    font-size: clamp(2.2rem, min(5.2vw, 8.5cqw), 4.75rem);
     font-stretch: 112%;
     font-weight: 850;
     line-height: 0.92;
@@ -64,15 +73,22 @@
       0 4px 40px color-mix(in srgb, var(--color-canvas) 75%, transparent),
       0 0 80px color-mix(in srgb, var(--color-accent) 20%, transparent);
     text-wrap: balance;
+    overflow-wrap: anywhere;
   }
 
   .game-detail-title-long {
-    font-size: clamp(2rem, 4.3vw, 3.75rem);
+    font-size: clamp(1.9rem, min(3.6vw, 6.5cqw), 3.25rem);
     line-height: 0.96;
   }
 
+  .game-detail-title-longest {
+    font-size: clamp(1.6rem, min(2.7vw, 5.5cqw), 2.5rem);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+  }
+
   .game-detail-aliases {
-    margin: 16px 0 0;
+    margin: 14px 0 0;
     color: var(--color-muted);
     font-size: 0.875rem;
     line-height: 1.5;
@@ -138,29 +154,120 @@
     filter: saturate(1.08) contrast(1.04) url("#cover-unsharp");
   }
 
+  /* The required credit sits on the cover's own glow, so it takes a lighter voice and a shade. */
   .game-artwork .cover-caption {
     margin-top: 10px;
+    color: color-mix(in srgb, var(--color-ink) 78%, var(--color-muted));
     text-align: center;
+    text-shadow: 0 1px 6px var(--color-canvas);
   }
 
-  /* ---------------------------------------------------------------- Shared glass panels */
+  .game-artwork .cover-caption .text-link {
+    color: inherit;
+  }
 
+  .game-artwork .cover-caption .text-link:hover {
+    color: var(--color-accent-hover);
+  }
+
+  /* Opacity-only entrance: the measured composition is never caught mid-transform. */
+  @media (prefers-reduced-motion: no-preference) {
+    .game-detail-heading,
+    .game-artwork,
+    .game-scores > *,
+    .game-summary,
+    .game-detail-facts {
+      animation: fade-in 620ms var(--ease-out) both;
+    }
+
+    .game-artwork {
+      animation-delay: 60ms;
+    }
+    .game-scores > * {
+      animation-delay: 160ms;
+    }
+    .game-scores > :nth-child(2) {
+      animation-delay: 220ms;
+    }
+    .game-summary {
+      animation-delay: 260ms;
+    }
+    .game-detail-facts {
+      animation-delay: 340ms;
+    }
+
+    .game-artwork .cover-link {
+      transition:
+        transform 600ms var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out);
+    }
+  }
+
+  /* The pointer tilt is a flourish for a mouse; everything else keeps the cover still. */
+  @media (prefers-reduced-motion: reduce), (hover: none) {
+    .game-artwork .cover-link {
+      transform: none;
+    }
+
+    .game-artwork:hover {
+      --glare: 0;
+    }
+  }
+
+  /* ---------------------------------------------------------------- Glass panels */
+
+  /* One glass surface per readable block; inside, hairlines divide instead of nested cards. */
   .game-community-score,
-  .game-personal-rating,
-  .game-release-context,
-  .game-compact-summary {
+  .game-panel {
     position: relative;
     isolation: isolate;
     border: 1px solid var(--glass-border);
-    border-radius: 26px;
+    border-radius: 20px;
     background: var(--glass);
-    box-shadow: var(--glass-highlight), var(--elevation-lift);
+    box-shadow: var(--glass-highlight);
     -webkit-backdrop-filter: var(--glass-blur);
     backdrop-filter: var(--glass-blur);
   }
 
-  .game-community-score::before,
-  .game-personal-rating::before {
+  .game-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 16px;
+    padding: 20px;
+    text-align: left;
+  }
+
+  .game-panel-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-stretch: 108%;
+    font-weight: 750;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+  }
+
+  .game-panel-empty {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  /* Attribution closes its block in the quiet operational voice. */
+  .game-panel-source {
+    margin: 0;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    line-height: 1.6;
+    letter-spacing: 0.06em;
+  }
+
+  /* ---------------------------------------------------------------- Community reading */
+
+  .game-community-score::before {
     position: absolute;
     z-index: -1;
     inset: 0;
@@ -181,13 +288,11 @@
   }
 
   /* A reading lights its panel with its temperature: the glow rises from the panel's floor. */
-  .game-community-score[data-thermal],
-  .game-personal-rating[data-thermal] {
-    border-color: color-mix(in srgb, var(--thermal) 30%, var(--glass-border));
+  .game-community-score[data-thermal] {
+    border-color: color-mix(in srgb, var(--thermal) 34%, var(--glass-border));
   }
 
-  .game-community-score[data-thermal]::before,
-  .game-personal-rating[data-thermal]::before {
+  .game-community-score[data-thermal]::before {
     background:
       radial-gradient(
         ellipse at 10% -30%,
@@ -195,8 +300,8 @@
         transparent 60%
       ),
       radial-gradient(
-        ellipse at 30% 135%,
-        color-mix(in srgb, var(--thermal) 30%, transparent),
+        ellipse at 22% 135%,
+        color-mix(in srgb, var(--thermal) 34%, transparent),
         transparent 62%
       );
   }
@@ -218,7 +323,7 @@
     border-radius: inherit;
     pointer-events: none;
     background: radial-gradient(
-      ellipse at 30% 100%,
+      ellipse at 26% 100%,
       color-mix(in srgb, var(--color-burn) 36%, transparent),
       color-mix(in srgb, var(--color-hot) 10%, transparent) 46%,
       transparent 72%
@@ -232,73 +337,39 @@
     }
   }
 
-  /* Opacity-only entrance: the measured composition is never caught mid-transform. */
-  @media (prefers-reduced-motion: no-preference) {
-    .game-detail-heading,
-    .game-artwork,
-    .game-scores > *,
-    .game-detail-main > * {
-      animation: fade-in 620ms var(--ease-out) both;
-    }
-
-    .game-artwork {
-      animation-delay: 60ms;
-    }
-    .game-scores > * {
-      animation-delay: 160ms;
-    }
-    .game-scores > :nth-child(2) {
-      animation-delay: 240ms;
-    }
-    .game-detail-main > * {
-      animation-delay: 320ms;
-    }
-
-    .game-artwork .cover-link {
-      transition:
-        transform 600ms var(--ease-out),
-        box-shadow var(--duration-normal) var(--ease-out);
-    }
-  }
-
-  /* The pointer tilt is a flourish for a mouse; everything else keeps the cover still. */
-  @media (prefers-reduced-motion: reduce), (hover: none) {
-    .game-artwork .cover-link {
-      transform: none;
-    }
-
-    .game-artwork:hover {
-      --glare: 0;
-    }
-  }
-
-  /* ---------------------------------------------------------------- Community reading */
-
-  /* The community mean read on the Gameómetro: the G-meter, then the number, its temperature in
-     words and the count. The number stays the authority; the meter only interprets it. */
+  /* The community mean read on the Gameómetro: the G-meter, then the label, the number with its
+     temperature in words and the count. The number stays the authority; the meter interprets it. */
   .game-community-score {
     display: grid;
-    grid-template-areas: "label label" "meter body";
     grid-template-columns: auto minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
     align-items: center;
-    column-gap: 16px;
+    gap: 12px 16px;
     overflow: hidden;
-    padding: 18px 22px 18px 16px;
+    padding: 18px 20px 18px 14px;
     text-align: left;
   }
 
   .game-score-meter {
-    width: 104px;
-    height: 104px;
-    grid-area: meter;
+    width: 92px;
+    height: 92px;
+  }
+
+  /* A missing mean needs less space; actual and unavailable readings retain their scale. */
+  .game-community-score[data-state="empty"] {
+    gap: 8px 12px;
+    padding-block: 12px;
+  }
+
+  .game-community-score[data-state="empty"] .game-score-meter {
+    width: 64px;
+    height: 64px;
   }
 
   .game-score-body {
     display: grid;
-    grid-area: body;
     justify-items: start;
     gap: 6px;
+    min-width: 0;
   }
 
   /* The needle sweeps up to the mean as the panel arrives; the panel itself only fades. */
@@ -309,18 +380,14 @@
   }
 
   .game-score-label {
-    display: flex;
-    grid-area: label;
-    align-items: center;
-    align-self: end;
-    gap: 8px;
-    margin: 0 0 6px;
+    grid-column: 1 / -1;
+    margin: 0;
     color: var(--color-accent-hover);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
     font-weight: 500;
     line-height: 1.4;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
@@ -328,7 +395,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px 12px;
+    gap: 6px 14px;
   }
 
   /* Solid ink keeps the headline score's contrast deterministic; its temperature supplies the
@@ -340,7 +407,7 @@
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
-    font-size: 2.5rem;
+    font-size: 2.75rem;
     font-stretch: 106%;
     font-weight: 850;
     line-height: 1;
@@ -351,10 +418,10 @@
 
   .game-score-value span {
     color: var(--color-muted);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    font-weight: 400;
-    letter-spacing: 0.14em;
+    font-family: var(--font-display);
+    font-size: 0.42em;
+    font-weight: 700;
+    letter-spacing: -0.01em;
     text-shadow: none;
   }
 
@@ -362,45 +429,113 @@
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: 1.375rem;
     font-stretch: 106%;
     font-weight: 750;
     line-height: 1.12;
     letter-spacing: -0.02em;
   }
 
+  /* Lighter than the usual muted voice: the panel's glass can sit over the brightest art. */
   .game-score-description {
-    margin: 4px 0 0;
-    color: var(--color-muted);
-    font-size: 0.9375rem;
+    margin: 0;
+    color: color-mix(in srgb, var(--color-ink) 72%, var(--color-muted));
+    font-size: 0.875rem;
     line-height: 1.5;
   }
 
-  /* ---------------------------------------------------------------- Personal keypad */
+  .game-score-description strong {
+    color: var(--color-ink);
+    font-weight: 650;
+  }
 
-  /* The panel sizes its own scale: a keypad of two rows of five, or one row of ten once the
-     panel is wide enough to keep every target at least 44px. */
+  /* ---------------------------------------------------------------- Personal reading */
+
+  /* The visitor's rating stays secondary to the community's: a compact reading that opens the
+     keypad. It takes the temperature of its value; without one it keeps the product's light. */
   .game-personal-rating {
+    position: relative;
     display: grid;
-    align-content: start;
-    gap: 18px;
-    padding: 20px 22px 22px;
-    container-type: inline-size;
-    text-align: left;
+    gap: 8px;
   }
 
-  .game-rating-heading {
-    display: flex;
-    align-items: flex-start;
+  /* An open panel overlays what follows, so the reading's block paints above it. */
+  .game-personal-rating:has(.game-rating-panel) {
+    z-index: 30;
+  }
+
+  .game-rating-trigger {
+    --reading: var(--thermal, var(--color-accent));
+
+    display: grid;
+    width: 100%;
+    min-height: 58px;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
     gap: 12px;
+    margin: 0;
+    border: 1px solid color-mix(in srgb, var(--reading) 42%, var(--glass-border));
+    border-radius: 18px;
+    padding: 8px 12px 8px 10px;
+    color: var(--color-ink);
+    background: linear-gradient(
+      110deg,
+      color-mix(in srgb, var(--reading) 13%, var(--color-surface)),
+      color-mix(in srgb, var(--color-surface) 84%, transparent)
+    );
+    box-shadow:
+      var(--glass-highlight),
+      0 16px 38px -22px color-mix(in srgb, var(--reading) 90%, transparent);
+    font: inherit;
+    text-align: start;
+    cursor: pointer;
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
   }
 
-  /* The panel's own G-meter: empty until a value is pressed, then it swings to that value. */
+  .game-rating-trigger:hover:not([aria-disabled="true"]),
+  .game-rating-trigger[aria-expanded="true"] {
+    border-color: color-mix(in srgb, var(--reading) 80%, transparent);
+    box-shadow:
+      var(--glass-highlight),
+      0 0 0 1px color-mix(in srgb, var(--reading) 30%, transparent),
+      0 18px 42px -18px var(--reading);
+  }
+
+  .game-rating-trigger:focus-visible {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 4px;
+  }
+
+  /* Nothing to open: the reading rests and the status beside it says why. */
+  .game-rating-trigger[aria-disabled="true"] {
+    border-style: dashed;
+    border-color: var(--glass-border);
+    background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+    box-shadow: var(--glass-highlight);
+    cursor: default;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .game-rating-trigger {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+
+    .game-rating-trigger:active:not([aria-disabled="true"]) {
+      transform: scale(0.985);
+    }
+
+    .game-rating-caret::before {
+      transition: transform var(--duration-fast) var(--ease-out);
+    }
+  }
+
   .game-rating-meter {
     width: 40px;
     height: 40px;
-    flex: none;
-    margin: -4px -2px -4px -6px;
   }
 
   .game-rating-meter .game-meter-tick {
@@ -411,21 +546,110 @@
     stroke-width: 7.6;
   }
 
-  .game-rating-title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.375rem;
-    font-stretch: 108%;
-    font-weight: 750;
-    line-height: 1.15;
-    letter-spacing: -0.02em;
+  .game-rating-label {
+    min-width: 0;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
   }
 
-  .game-rating-subtitle {
-    margin: 4px 0 0;
+  .game-rating-label b {
+    color: var(--thermal);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .game-rating-label b::before {
+    color: var(--color-subtle);
+    content: "· ";
+  }
+
+  /* On phones the personal band settles under its label and the community meter takes less room. */
+  @media (max-width: 619px) {
+    .game-rating-label b {
+      display: block;
+      margin-top: 2px;
+    }
+
+    .game-rating-label b::before {
+      content: none;
+    }
+
+    .game-score-meter {
+      width: 80px;
+      height: 80px;
+    }
+
+    .game-score-label {
+      letter-spacing: 0.1em;
+    }
+  }
+
+  .game-rating-value {
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-stretch: 106%;
+    font-weight: 850;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+  }
+
+  .game-rating-cta {
+    color: var(--color-accent-hover);
+    font-size: 0.875rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .game-rating-trigger[aria-disabled="true"] .game-rating-cta {
     color: var(--color-muted);
-    font-size: 0.9375rem;
+    font-weight: 500;
+  }
+
+  .game-rating-caret {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border: 1px solid var(--glass-border);
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  }
+
+  /* A caret drawn from two borders: down when closed, up while the keypad is open. */
+  .game-rating-caret::before {
+    width: 7px;
+    height: 7px;
+    margin-top: -3px;
+    border-right: 2px solid var(--color-muted);
+    border-bottom: 2px solid var(--color-muted);
+    content: "";
+    transform: rotate(45deg);
+  }
+
+  .game-rating-trigger[aria-expanded="true"] .game-rating-caret::before {
+    margin-top: 3px;
+    transform: rotate(225deg);
+  }
+
+  .game-rating-status {
+    margin: 0;
+    padding-inline: 4px;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
     line-height: 1.5;
+  }
+
+  .game-rating-status:empty {
+    display: block;
+    height: 0;
+    margin-top: -8px;
   }
 
   .game-rating-notice {
@@ -438,6 +662,70 @@
     line-height: 1.5;
   }
 
+  /* The keypad panel: anchored under the reading and overlaying what follows, opaque like every
+     overlay that carries controls, and lit by the reading's temperature. */
+  .game-rating-panel {
+    position: absolute;
+    z-index: 1;
+    top: calc(100% + 8px);
+    right: 0;
+    left: 0;
+    display: grid;
+    gap: 14px;
+    border: 1px solid color-mix(in srgb, var(--thermal, var(--color-accent)) 42%, var(--glass-border));
+    border-radius: 22px;
+    padding: 16px;
+    background:
+      radial-gradient(
+        120% 70% at 0 0,
+        color-mix(in srgb, var(--thermal, var(--color-accent)) 13%, transparent),
+        transparent 70%
+      ),
+      var(--glass-solid);
+    box-shadow:
+      var(--glass-highlight),
+      var(--elevation-lift),
+      0 24px 60px -30px var(--thermal, var(--color-accent));
+    container-type: inline-size;
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  .game-rating-panel:focus-visible {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .game-rating-panel {
+      animation: pop-in 180ms var(--ease-out) both;
+    }
+  }
+
+  .game-rating-prompt {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .game-rating-panel .rating-scale {
+    gap: 10px 6px;
+  }
+
+  .game-rating-panel .rating-thermal-scale {
+    margin-top: -4px;
+  }
+
+  .game-rating-panel .game-rating-actions {
+    border-top: 1px solid var(--glass-border);
+    padding-top: 12px;
+  }
+
+  /* ---------------------------------------------------------------- Personal keypad */
+
+  /* The panel sizes its own scale: a keypad of two rows of five, or one row of ten once the
+     panel is wide enough to keep every target at least 44px. */
   .rating-scale {
     display: grid;
     min-width: 0;
@@ -650,183 +938,425 @@
     box-shadow: none;
   }
 
-  /* ---------------------------------------------------------------- Release context */
+  /* ---------------------------------------------------------------- Summary */
 
-  /* One shrinkable column: a swipeable rail inside must never widen the panel. */
-  .game-release-context {
+  /* A comfortable reading measure on the stage; lengthy text stays whole behind Leer más. */
+  .game-summary {
+    display: grid;
+    align-content: start;
+    justify-items: start;
+    gap: 14px;
+    align-self: start;
+  }
+
+  .game-summary-text {
+    --summary-lines: 6;
+
+    display: -webkit-box;
+    max-width: 62ch;
+    margin: 0;
+    overflow: hidden;
+    color: color-mix(in srgb, var(--color-ink) 88%, var(--color-muted));
+    font-size: 1rem;
+    line-height: 1.8;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--summary-lines);
+    line-clamp: var(--summary-lines);
+  }
+
+  .game-summary-text[data-expanded="true"] {
+    display: block;
+    overflow: visible;
+    -webkit-line-clamp: none;
+    line-clamp: none;
+  }
+
+  .game-summary-toggle {
+    justify-self: start;
+    min-height: 44px;
+    margin: -6px 0;
+    border: 0;
+    padding: 4px 0;
+    color: var(--color-accent-hover);
+    background: none;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-accent-hover) 40%, transparent);
+    text-underline-offset: 4px;
+  }
+
+  .game-summary-toggle:hover {
+    color: var(--color-ink);
+    text-decoration-color: currentColor;
+  }
+
+  .game-summary-toggle:focus-visible {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
+
+  .game-summary .game-panel-source {
+    max-width: 62ch;
+  }
+
+  .game-summary .game-panel-source::before {
+    display: block;
+    width: 18px;
+    height: 2px;
+    margin-bottom: 10px;
+    background: var(--color-accent);
+    content: "";
+  }
+
+  /* ---------------------------------------------------------------- Game information */
+
+  .game-information {
+    container-type: inline-size;
+    gap: 24px;
+  }
+
+  .game-facts {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
-    padding: 22px;
-    text-align: left;
-  }
-
-  .game-context-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 6px 18px;
-  }
-
-  .game-panel-title {
     margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.375rem;
-    font-stretch: 108%;
-    font-weight: 750;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
+    gap: 24px;
   }
 
-  .game-context-announcement {
-    margin: 0;
-    color: var(--color-accent-hover);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    line-height: 1.5;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .game-context-selectors {
-    display: flex;
-    min-width: 0;
-    flex-wrap: wrap;
+  .game-fact {
+    display: grid;
     align-content: start;
-    gap: 16px 30px;
+    gap: 8px;
   }
 
-  .game-context-selectors fieldset {
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-
-  /* Legends share the filter-label voice used by the catalogue and personal selectors. */
-  .game-context-selectors legend {
-    margin-bottom: 10px;
+  .game-fact dt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: var(--color-muted);
     font-family: var(--font-mono);
     font-size: 0.6875rem;
     line-height: 1.45;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
   }
 
-  .game-context-options {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .game-context-option {
-    position: relative;
-    display: block;
-    min-width: 0;
-    cursor: pointer;
-  }
-
-  .game-context-option input {
-    position: absolute;
-    top: 50%;
-    left: 14px;
-    width: 14px;
-    height: 14px;
-    margin: -7px 0 0;
-    accent-color: var(--color-accent);
-  }
-
-  .game-context-option > span {
-    display: flex;
-    min-height: 44px;
-    align-items: center;
-    gap: 8px;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 8px 16px 8px 36px;
-    color: var(--color-muted);
-    background: color-mix(in srgb, var(--color-ink) 5%, transparent);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    overflow-wrap: anywhere;
-  }
-
-  .game-context-option .app-select-icon {
-    width: 18px;
-    height: 18px;
+  .game-fact-icon {
+    width: 16px;
+    height: 16px;
     flex: none;
     color: var(--color-accent-hover);
   }
 
-  .game-context-option .app-select-icon-playstation-5,
-  .game-context-option .app-select-icon-playstation-4 {
+  .game-fact dd {
+    margin: 0;
+    color: var(--color-ink);
+    overflow-wrap: anywhere;
+  }
+
+  .game-fact-credit dd {
+    font-size: 1rem;
+    font-weight: 650;
+    line-height: 1.45;
+  }
+
+  .game-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* A value wraps inside its chip rather than being cut. */
+  .game-chip {
+    min-width: 0;
+    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--glass-border));
+    border-radius: 999px;
+    padding: 5px 12px;
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+    font-size: 0.8125rem;
+    font-weight: 550;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+  }
+
+  /* Company roles share the first row when space allows; taxonomy follows beneath them. */
+  @container (min-width: 600px) {
+    .game-facts {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      column-gap: 32px;
+    }
+  }
+
+  /* ---------------------------------------------------------------- Dates and platforms */
+
+  .game-release-section {
+    display: grid;
+    min-width: 0;
+    gap: 16px;
+  }
+
+  .game-facts + .game-release-section {
+    border-top: 1px solid var(--glass-border);
+    padding-top: 24px;
+  }
+
+  .game-release-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .game-release-list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    container-type: inline-size;
+  }
+
+  .game-release-row {
+    display: grid;
+    gap: 8px;
+    border-top: 1px solid var(--glass-border);
+    padding-block: 14px;
+  }
+
+  .game-release-row:first-child {
+    border-top: 0;
+    padding-top: 2px;
+  }
+
+  .game-release-row:last-child {
+    padding-bottom: 2px;
+  }
+
+  /* Narrow rows: the platform and its status, then the date and the region. */
+  .game-release-facts {
+    display: grid;
+    grid-template-areas:
+      "platform state"
+      "when region";
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 14px;
+    margin: 0;
+  }
+
+  .game-release-facts dd {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .game-release-platform {
+    grid-area: platform;
+  }
+
+  .game-release-platform dd {
+    color: var(--color-ink);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+
+  .game-release-region {
+    grid-area: region;
+    justify-self: end;
+  }
+
+  .game-release-region dd {
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.3;
+  }
+
+  .game-release-when {
+    grid-area: when;
+  }
+
+  .game-release-when dd {
+    display: grid;
+    gap: 2px;
+  }
+
+  .game-release-state {
+    grid-area: state;
+    justify-self: end;
+  }
+
+  .game-release-date {
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-stretch: 104%;
+    font-weight: 750;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+
+  .game-release-stage {
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .game-release-facts .app-select-icon {
+    width: 18px;
+    height: 18px;
+    color: var(--color-accent-hover);
+  }
+
+  /* Platform marks keep their own proportions inside one shared slot, so the names align. */
+  .game-release-mark {
+    display: flex;
+    width: 36px;
+    flex: none;
+    align-items: center;
+  }
+
+  .game-release-mark .app-select-icon {
+    transform: none;
+  }
+
+  .game-release-mark .app-select-icon-playstation-5,
+  .game-release-mark .app-select-icon-playstation-4 {
     width: 36px;
     height: 11px;
   }
 
-  .game-context-option .app-select-icon-xbox-series-x-s,
-  .game-context-option .app-select-icon-nintendo-switch-2 {
-    width: 26px;
-    height: 13px;
+  .game-release-mark .app-select-icon-xbox-series-x-s {
+    width: 31px;
+    height: 15px;
   }
 
-  .game-context-option input:checked + span {
-    border-color: color-mix(in srgb, var(--color-accent) 80%, transparent);
-    color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 14%, transparent),
-      0 10px 28px -14px color-mix(in srgb, var(--color-accent) 100%, transparent);
+  .game-release-mark .app-select-icon-nintendo-switch-2 {
+    width: 30px;
+    height: 16px;
   }
 
-  .game-context-option input:focus-visible {
-    outline: none;
-  }
+  /* Wide rows read across one line: platform, region, date and status. */
+  @container (min-width: 500px) {
+    .game-release-facts {
+      grid-template-areas: "platform region when state";
+      grid-template-columns: minmax(156px, 1.3fr) minmax(88px, 0.7fr) minmax(0, 1.7fr) auto;
+      gap: 10px 12px;
+    }
 
-  .game-context-option input:focus-visible + span {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 3px;
-  }
+    .game-release-region {
+      justify-self: start;
+    }
 
-  .game-context-option:hover > span {
-    border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
-    color: var(--color-ink);
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .game-context-option > span {
-      transition:
-        border-color var(--duration-fast) var(--ease-out),
-        background-color var(--duration-fast) var(--ease-out),
-        color var(--duration-fast) var(--ease-out),
-        box-shadow var(--duration-normal) var(--ease-out);
+    .game-release-platform dd,
+    .game-release-date {
+      font-size: 0.875rem;
     }
   }
 
-  .game-release-records {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-    gap: 14px;
+  .game-release-flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.8125rem;
+    line-height: 1.45;
   }
 
-  /* Each record is its own card: its date and status lead, and the provenance and freshness
-     evidence follows as a quieter grid. Records are never merged. */
-  .game-release-record {
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    padding: 18px;
-    background: linear-gradient(
-      165deg,
-      color-mix(in srgb, var(--color-ink) 6%, transparent),
-      color-mix(in srgb, var(--color-ink) 1%, transparent)
-    );
-    container-type: inline-size;
+  /* A leading diamond keeps the warning tier distinguishable without colour. */
+  .game-warning {
+    color: var(--color-warning);
   }
 
-  /* Further records of the selected platform and region stay one native disclosure away: kept
-     whole and unmerged, never shown as equals of the presented record. */
+  .game-warning::before {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin: 0 8px 1px 1px;
+    border-radius: 1px;
+    background: currentColor;
+    content: "";
+    transform: rotate(45deg);
+  }
+
+  .game-verified {
+    color: var(--color-muted);
+  }
+
+  .game-verified::before {
+    display: inline-block;
+    width: 8px;
+    height: 4px;
+    margin: 0 8px 3px 1px;
+    border-bottom: 1.5px solid var(--color-accent-hover);
+    border-left: 1.5px solid var(--color-accent-hover);
+    content: "";
+    transform: rotate(-45deg);
+  }
+
+  /* Release status as a chip: the word states it, the tone only reinforces it. */
+  .game-status {
+    --status-tone: var(--color-muted);
+
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid color-mix(in srgb, var(--status-tone) 45%, transparent);
+    border-radius: 999px;
+    padding: 4px 12px 4px 10px;
+    color: var(--color-ink);
+    background: color-mix(in srgb, var(--status-tone) 14%, transparent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+
+  .game-status::before {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    border-radius: 50%;
+    background: var(--status-tone);
+    box-shadow: 0 0 10px 1px color-mix(in srgb, var(--status-tone) 80%, transparent);
+    content: "";
+  }
+
+  .game-status-released {
+    --status-tone: #7fe0c0;
+  }
+
+  .game-status-upcoming {
+    --status-tone: var(--color-accent);
+  }
+
+  .game-status-warning {
+    --status-tone: var(--color-warning);
+  }
+
+  .game-status-danger {
+    --status-tone: var(--color-danger);
+  }
+
+  /* Further records of a platform and region stay one native disclosure away: kept whole and
+     unmerged, never shown as equals of the presented records. */
+  .game-release-more {
+    border-top: 1px solid var(--glass-border);
+    padding-top: 6px;
+  }
+
   .game-release-more > summary {
     display: flex;
     min-height: 44px;
@@ -875,179 +1405,13 @@
     }
   }
 
-  .game-release-more > .game-release-records {
-    margin-top: 8px;
+  .game-release-more > .game-release-list {
+    margin-top: 4px;
   }
 
-  .game-release-metadata {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px 18px;
-    margin: 0;
-  }
-
-  .game-release-metadata > div {
-    display: grid;
-    align-content: start;
-    gap: 3px;
-  }
-
-  .game-release-metadata dt,
-  .game-release-metadata dd {
-    margin: 0;
-    overflow-wrap: anywhere;
-  }
-
-  .game-release-metadata dt {
-    color: var(--color-muted);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    line-height: 1.45;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .game-release-metadata dd {
-    color: var(--color-ink);
-    font-size: 0.8125rem;
-    line-height: 1.5;
-  }
-
-  .game-release-lead {
-    border-bottom: 1px solid var(--glass-border);
-    padding-bottom: 14px;
-  }
-
-  .game-release-metadata .game-release-date {
-    font-family: var(--font-display);
-    font-size: 1.5rem;
-    font-stretch: 106%;
-    font-weight: 800;
-    line-height: 1.12;
-    letter-spacing: -0.025em;
-  }
-
-  .game-release-stage {
-    display: block;
-    margin-top: 6px;
-    color: var(--color-muted);
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    font-stretch: normal;
-    font-weight: 400;
-    line-height: 1.5;
-    letter-spacing: normal;
-  }
-
-  .game-release-metadata .game-release-status {
-    padding-top: 2px;
-  }
-
-  /* A narrow record gives each lead fact its own row so a full date never breaks mid-phrase. */
-  @container (max-width: 459px) {
-    .game-release-lead {
-      grid-column: 1 / -1;
-    }
-
-    .game-release-lead:first-child {
-      border-bottom: 0;
-      padding-bottom: 0;
-    }
-  }
-
-  @container (min-width: 600px) {
-    .game-release-metadata {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .game-release-lead {
-      grid-column: span 2;
-    }
-  }
-
-  /* A leading diamond keeps the warning tier distinguishable without colour. */
-  .game-release-metadata .game-warning {
-    color: var(--color-warning);
-  }
-
-  .game-release-metadata .game-warning::before {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    margin: 0 8px 1px 1px;
-    border-radius: 1px;
-    background: currentColor;
-    content: "";
-    transform: rotate(45deg);
-  }
-
-  /* Release status as a chip: the word states it, the tone only reinforces it. */
-  .game-status {
-    --status-tone: var(--color-muted);
-
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    border: 1px solid color-mix(in srgb, var(--status-tone) 45%, transparent);
-    border-radius: 999px;
-    padding: 4px 12px 4px 10px;
-    color: var(--color-ink);
-    background: color-mix(in srgb, var(--status-tone) 14%, transparent);
-    font-size: 0.8125rem;
-    font-weight: 600;
-    line-height: 1.3;
-  }
-
-  .game-status::before {
-    width: 7px;
-    height: 7px;
-    flex: none;
-    border-radius: 50%;
-    background: var(--status-tone);
-    box-shadow: 0 0 10px 1px color-mix(in srgb, var(--status-tone) 80%, transparent);
-    content: "";
-  }
-
-  .game-status-released {
-    --status-tone: #7fe0c0;
-  }
-
-  .game-status-upcoming {
-    --status-tone: var(--color-accent);
-  }
-
-  .game-status-warning {
-    --status-tone: var(--color-warning);
-  }
-
-  .game-status-danger {
-    --status-tone: var(--color-danger);
-  }
-
-  /* ---------------------------------------------------------------- Summary */
-
-  .game-compact-summary {
-    min-width: 0;
-    padding: 22px;
-    text-align: left;
-  }
-
-  .game-summary-text {
-    max-width: 68ch;
-    margin: 14px 0 0;
-    color: color-mix(in srgb, var(--color-ink) 86%, var(--color-muted));
-    font-size: 1rem;
-    line-height: 1.75;
-    white-space: pre-line;
-  }
-
-  .game-summary-source {
-    margin: 18px 0 0;
-    color: var(--color-accent-hover);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    line-height: 1.5;
-    letter-spacing: 0.08em;
+  .game-release-more .game-release-row:first-child {
+    border-top: 1px solid var(--glass-border);
+    padding-top: 14px;
   }
 
   .game-details-back {
@@ -1079,60 +1443,28 @@
   }
 
   .skeleton.detail-skeleton-score {
-    min-height: 156px;
-    border-radius: 26px;
+    min-height: 130px;
+    border-radius: 24px;
   }
 
   .skeleton.detail-skeleton-rating {
-    min-height: 200px;
-    border-radius: 26px;
-  }
-
-  .skeleton.detail-skeleton-context {
-    min-height: 320px;
-    border-radius: 26px;
+    min-height: 58px;
+    border-radius: 18px;
   }
 
   .skeleton.detail-skeleton-summary {
     min-height: 180px;
-    border-radius: 26px;
+    border-radius: 8px;
   }
 
-  /* ---------------------------------------------------------------- Responsive */
-
-  /* Phones turn each option group into one swipeable rail of chips; arrow keys still move the
-     selection and bring the focused chip into view. */
-  @media (max-width: 619px) {
-    .game-context-selectors fieldset {
-      width: 100%;
-    }
-
-    .game-context-options {
-      flex-wrap: nowrap;
-      margin-inline: -22px;
-      padding: 4px 22px 8px;
-      overflow-x: auto;
-      scroll-padding-inline: 22px;
-      scrollbar-width: none;
-      -webkit-mask-image: linear-gradient(
-        90deg,
-        transparent,
-        #000 18px,
-        #000 calc(100% - 30px),
-        transparent
-      );
-      mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 30px), transparent);
-    }
-
-    .game-context-option {
-      flex: none;
-    }
-
-    .game-context-option > span {
-      white-space: nowrap;
-    }
+  .skeleton.detail-skeleton-information {
+    min-height: 380px;
+    border-radius: 24px;
   }
 
+  /* ---------------------------------------------------------------- Tablet */
+
+  /* Cover and editorial text share the opening; both readings get a comfortable row below. */
   @media (min-width: 760px) {
     .game-details-section {
       padding-block: 36px 72px;
@@ -1141,18 +1473,18 @@
     .game-detail-layout {
       grid-template-areas:
         "art heading"
-        "art scores"
-        "main main";
-      grid-template-columns: clamp(250px, 33%, 400px) minmax(0, 1fr);
-      grid-template-rows: 1fr auto auto;
-      column-gap: clamp(28px, 4vw, 56px);
-      row-gap: 28px;
+        "art summary"
+        "scores scores"
+        "facts facts";
+      grid-template-columns: clamp(250px, 30%, 280px) minmax(0, 1fr);
+      grid-template-rows: auto 1fr auto auto;
+      column-gap: clamp(28px, 3.4vw, 48px);
+      row-gap: 24px;
+      align-items: start;
     }
 
-    /* Title and scores form one block on the cover's baseline; any spare height opens above
-       the title, where the cover's light is brightest. */
     .game-detail-heading {
-      align-self: end;
+      padding-top: 20px;
       text-align: left;
     }
 
@@ -1160,78 +1492,125 @@
       justify-content: flex-start;
     }
 
+    .game-detail-identity {
+      display: contents;
+    }
+
     .game-artwork {
+      grid-area: art;
       width: 100%;
-      align-self: start;
       justify-self: stretch;
+    }
+
+    .game-scores {
+      grid-area: scores;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+      align-items: center;
+      gap: 18px;
     }
 
     .game-artwork .cover-caption {
       text-align: left;
     }
 
-    .game-scores {
-      align-self: end;
-    }
-
     .game-details-loading .game-detail-heading {
       justify-items: start;
     }
-  }
 
-  @media (min-width: 1024px) {
-    .game-scores {
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
-      align-items: stretch;
+    .game-panel {
+      padding: 22px 24px;
     }
 
-    .game-detail-main {
-      grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
-      gap: 20px;
+    /* The narrow identity column still opens a keypad with ten usable touch targets. */
+    .game-rating-panel {
+      right: auto;
+      width: max(100%, 300px);
     }
 
-    .game-release-context,
-    .game-compact-summary {
-      padding: 26px;
+    .game-rating-trigger {
+      gap: 8px;
+    }
+
+    .game-rating-label b {
+      display: block;
+      margin-top: 2px;
+    }
+
+    .game-rating-label b::before {
+      content: none;
     }
 
     .game-community-score {
-      column-gap: 16px;
-      padding: 22px 20px 22px 14px;
-    }
-
-    .game-score-empty {
-      font-size: 1.25rem;
+      column-gap: 12px;
+      padding: 18px 16px 18px 12px;
     }
 
     .game-score-meter {
-      width: 112px;
-      height: 112px;
+      width: 72px;
+      height: 72px;
+    }
+  }
+
+  /* ---------------------------------------------------------------- Desktop */
+
+  /* The unified information card follows the editorial opening at its natural height. */
+  @media (min-width: 1024px) {
+    .game-detail-layout {
+      grid-template-areas:
+        "identity heading"
+        "identity summary"
+        "identity facts";
+      grid-template-columns: clamp(280px, 25vw, 340px) minmax(0, 1fr);
+      grid-template-rows: auto auto 1fr;
+      row-gap: 24px;
     }
 
-    .game-score-value {
-      font-size: 2.75rem;
+    .game-detail-identity {
+      display: grid;
+    }
+
+    .game-artwork {
+      grid-area: auto;
+    }
+
+    .game-scores {
+      grid-area: auto;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 10px;
+    }
+
+    .game-detail-heading {
+      padding-top: 30px;
+    }
+
+    .game-summary-text {
+      --summary-lines: 8;
+
+      font-size: 1.0625rem;
+    }
+
+    .game-detail-facts {
+      margin-top: 8px;
+    }
+
+    .game-score-meter {
+      width: 82px;
+      height: 82px;
+    }
+
+    .game-panel {
+      padding: 24px;
     }
   }
 
   /* ---------------------------------------------------------------- Forced colours */
 
   @media (forced-colors: active) {
-    .game-context-option input:checked + span {
-      outline: 2px solid Highlight;
-      outline-offset: -3px;
-    }
-
-    .game-context-option input:focus-visible + span {
-      outline-color: Highlight;
-    }
-
     .game-community-score,
-    .game-personal-rating,
-    .game-release-context,
-    .game-compact-summary,
-    .game-release-record,
-    .game-context-option > span,
+    .game-panel,
+    .game-rating-trigger,
+    .game-rating-panel,
+    .game-chip,
     .game-status,
     .rating-option {
       border-color: CanvasText;
@@ -1248,21 +1627,22 @@
       color: HighlightText;
     }
 
-    .rating-option:focus-visible {
+    .rating-option:focus-visible,
+    .game-rating-trigger:focus-visible {
       outline-color: Highlight;
       outline-offset: 3px;
     }
 
     .game-community-score::before,
     .game-community-score::after,
-    .game-personal-rating::before,
     .game-artwork::before,
     .game-status::before,
     .rating-thermal-scale::before {
       display: none;
     }
 
-    .rating-thermal-scale span {
+    .rating-thermal-scale span,
+    .game-rating-label b {
       color: CanvasText;
     }
 
@@ -1280,9 +1660,17 @@
       filter: none;
     }
 
-    .game-context-options {
-      -webkit-mask-image: none;
-      mask-image: none;
+    /* A masked mark paints with its background, which forced colours turn into Canvas; it keeps
+       the system text colour instead, and so does the warning diamond that never relies on
+       colour alone. */
+    .game-release-facts span.app-select-icon,
+    .game-warning::before {
+      forced-color-adjust: none;
+      background-color: CanvasText;
+    }
+
+    .game-fact-icon {
+      color: CanvasText;
     }
   }
 }

@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.4.0
+  version: 3.5.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -632,6 +632,17 @@ paths:
                       kind: editorial
                       text: Una aventura de ejemplo curada para el catálogo acotado.
                       language: es
+                    developers:
+                      - { companyId: company_example_studio, name: Example Studio }
+                    publishers:
+                      - { companyId: company_example_publisher, name: Example Publishing }
+                      - { companyId: company_example_studio, name: Example Studio }
+                    genres:
+                      - { genreId: genre_adventure, name: Adventure }
+                      - { genreId: genre_role_playing, name: Role-playing (RPG) }
+                    gameModes:
+                      - { gameModeId: game_mode_co_operative, name: Co-operative }
+                      - { gameModeId: game_mode_single_player, name: Single player }
                     primaryCover:
                       kind: provider
                       url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1234.webp
@@ -683,6 +694,13 @@ paths:
                       kind: editorial
                       text: Un juego con fechas distintas según la región.
                       language: es
+                    developers:
+                      - { companyId: company_regional_studio, name: Regional Studio }
+                    publishers: []
+                    genres:
+                      - { genreId: genre_platform, name: Platform }
+                    gameModes:
+                      - { gameModeId: game_mode_single_player, name: Single player }
                     primaryCover:
                       kind: fallback
                       url: /assets/covers/fallback.svg
@@ -761,6 +779,10 @@ paths:
                         sourceKind: external_provider
                         sourceName: IGDB
                         sourceEntityType: game_summary
+                    developers: []
+                    publishers: []
+                    genres: []
+                    gameModes: []
                     primaryCover:
                       kind: fallback
                       url: /assets/covers/fallback.svg
@@ -803,6 +825,10 @@ paths:
                       kind: editorial
                       text: La página conserva el contexto coherente disponible.
                       language: es
+                    developers: []
+                    publishers: []
+                    genres: []
+                    gameModes: []
                     primaryCover:
                       kind: fallback
                       url: /assets/covers/fallback.svg
@@ -1329,6 +1355,22 @@ components:
       minLength: 1
       maxLength: 100
       examples: [region_europe]
+    CompanyId:
+      type: string
+      minLength: 1
+      maxLength: 100
+      description: Opaque, provider-independent company identifier.
+      examples: [company_example_studio]
+    GenreId:
+      type: string
+      minLength: 1
+      maxLength: 100
+      examples: [genre_adventure]
+    GameModeId:
+      type: string
+      minLength: 1
+      maxLength: 100
+      examples: [game_mode_single_player]
     CorrelationId:
       type: string
       minLength: 1
@@ -1354,6 +1396,24 @@ components:
       required: [platformId, name]
       properties:
         platformId: { $ref: '#/components/schemas/PlatformId' }
+        name: { type: string, minLength: 1 }
+    Company:
+      type: object
+      required: [companyId, name]
+      properties:
+        companyId: { $ref: '#/components/schemas/CompanyId' }
+        name: { type: string, minLength: 1 }
+    Genre:
+      type: object
+      required: [genreId, name]
+      properties:
+        genreId: { $ref: '#/components/schemas/GenreId' }
+        name: { type: string, minLength: 1 }
+    GameMode:
+      type: object
+      required: [gameModeId, name]
+      properties:
+        gameModeId: { $ref: '#/components/schemas/GameModeId' }
         name: { type: string, minLength: 1 }
     Region:
       type: object
@@ -1830,7 +1890,7 @@ components:
         - $ref: '#/components/schemas/UnavailableRatingStatistics'
     GameDetails:
       type: object
-      required: [gameId, slug, canonicalTitle, aliases, summary, primaryCover, releases, ratingEligibility, ratingStatistics]
+      required: [gameId, slug, canonicalTitle, aliases, summary, developers, publishers, genres, gameModes, primaryCover, releases, ratingEligibility, ratingStatistics]
       properties:
         gameId: { $ref: '#/components/schemas/GameId' }
         slug: { type: string, minLength: 1 }
@@ -1839,7 +1899,43 @@ components:
           type: array
           uniqueItems: true
           items: { type: string, minLength: 1 }
-        summary: { $ref: '#/components/schemas/GameSummaryText' }
+        summary:
+          $ref: '#/components/schemas/GameSummaryText'
+          description: |
+            A summary acquired from the catalogue provider is `sourced`, in the provider's
+            language and with its provenance. Without any summary, the product's editorial
+            notice that none is available yet is returned; no summary text is invented.
+        developers:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          description: |
+            Companies credited with developing the game, ordered by case-insensitive name and
+            then `companyId`. Empty when no developer is known; a company can also appear in
+            `publishers`.
+          items: { $ref: '#/components/schemas/Company' }
+        publishers:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          description: |
+            Companies credited with publishing the game, in the same order as `developers`.
+            Empty when no publisher is known.
+          items: { $ref: '#/components/schemas/Company' }
+        genres:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          description: Genres ordered by case-insensitive name, then `genreId`; empty when none is known.
+          items: { $ref: '#/components/schemas/Genre' }
+        gameModes:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          description: |
+            Ways to play the game, such as single player, multiplayer or co-operative, ordered
+            by case-insensitive name, then `gameModeId`; empty when none is known.
+          items: { $ref: '#/components/schemas/GameMode' }
         primaryCover: { $ref: '#/components/schemas/Cover' }
         releases:
           type: array

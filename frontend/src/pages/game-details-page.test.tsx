@@ -41,6 +41,31 @@ function gameRequests() {
     );
 }
 
+const releasesBlock = () => screen.getByRole("region", { name: "Fechas y plataformas" });
+/** The presented records: the items of the block's first list, not their flags or the disclosure. */
+const releaseRows = () => {
+  const [list] = within(releasesBlock()).getAllByRole("list");
+  if (!list) throw new Error("The release list is missing");
+  return within(list)
+    .getAllByRole("listitem")
+    .filter((row) => row.parentElement === list);
+};
+const readingButton = () => screen.getByRole("button", { name: /^Tu puntuación/ });
+
+function credited(game = gameDetailsFixture()) {
+  game.developers = [
+    { companyId: "company-a", name: "Capcom Development Division 1" },
+    { companyId: "company-b", name: "Studio B" },
+  ];
+  game.publishers = [{ companyId: "company-c", name: "Capcom" }];
+  game.genres = [
+    { genreId: "genre-adventure", name: "Adventure" },
+    { genreId: "genre-shooter", name: "Shooter" },
+  ];
+  game.gameModes = [{ gameModeId: "mode-single", name: "Single player" }];
+  return game;
+}
+
 describe("public game details", () => {
   it("announces loading while the requested game is pending", () => {
     vi.stubGlobal(
@@ -50,7 +75,7 @@ describe("public game details", () => {
     renderApp(path);
     expect(screen.getByRole("status")).toHaveTextContent("Cargando el juego");
   });
-  it("uses product identity and keeps eligibility, community and personal context separate", async () => {
+  it("uses product identity and keeps the community reading apart from the visitor's own", async () => {
     serve();
     renderApp(path);
     expect(
@@ -59,22 +84,15 @@ describe("public game details", () => {
         name: "Resident Evil Requiem",
       }),
     ).toBeVisible();
-    expect(
-      screen.getByRole("heading", { name: "Puntuaciones de la comunidad" }),
-    ).toBeVisible();
-    expect(screen.getByText("Sin nota todavía")).toBeVisible();
+    const community = screen.getByRole("region", { name: "Puntuación de la comunidad" });
+    expect(within(community).getByText("Sin nota todavía")).toBeVisible();
     // No mean, no temperature: the band never stands in for a missing score.
     expect(screen.queryByText(/^Temperatura:/)).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
-    expect(
-      screen.queryByText("Lanzamientos y evidencia"),
-    ).not.toBeInTheDocument();
     expect(screen.queryByText("Seguir")).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: "Tu puntuación" }),
-    ).toBeVisible();
-    // Eligibility is expressed by the enabled 1-10 control, not a separate block.
-    expect(screen.getByRole("button", { name: "8" })).toBeEnabled();
+    expect(screen.getByRole("region", { name: "Tu puntuación" })).toBeInTheDocument();
+    // Eligibility is expressed by the available reading, not a separate block.
+    expect(readingButton()).not.toHaveAttribute("aria-disabled");
     expect(
       screen.queryByText(/Disponible para puntuar/),
     ).not.toBeInTheDocument();
@@ -110,8 +128,174 @@ describe("public game details", () => {
     expect(await screen.findByLabelText("Nota media: 8,5 de 10")).toBeVisible();
     // The mean is read as a temperature, named in words beside the authoritative number.
     expect(screen.getByText("Ardiendo")).toHaveTextContent("Temperatura: Ardiendo");
-    expect(screen.getByText("2 puntuaciones")).toBeVisible();
+    expect(screen.getByText(/^Basada en/)).toHaveTextContent("Basada en 2 puntuaciones");
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+  it("states credits, genres and game modes once, exactly as the catalogue serves them", async () => {
+    const game = credited();
+    game.publishers.push({ companyId: "company-d", name: "Publisher B" });
+    serve(game);
+    renderApp(path);
+    const information = await screen.findByRole("region", { name: "Información del juego" });
+    const term = (label: string) =>
+      within(information).getByText(label, { selector: "dt" }).nextElementSibling;
+    expect(term("Desarrollador")).toHaveTextContent("Capcom Development Division 1 y Studio B");
+    expect(term("Publisher")).toHaveTextContent("Capcom y Publisher B");
+    expect(within(information).getByRole("heading", { level: 3, name: "Fechas y plataformas" })).toBeVisible();
+    expect(information).toContainElement(releasesBlock());
+    // Genres and modes are scannable chips with the provider's own names; nothing is translated.
+    const genres = within(term("Géneros") as HTMLElement).getAllByRole("listitem");
+    expect(genres.map((chip) => chip.textContent)).toEqual(["Adventure", "Shooter"]);
+    const modes = within(term("Modos de juego") as HTMLElement).getAllByRole("listitem");
+    expect(modes.map((chip) => chip.textContent)).toEqual(["Single player"]);
+    // Each fact appears once on the page, never repeated in the opening.
+    expect(screen.getAllByText("Adventure")).toHaveLength(1);
+    expect(screen.getAllByText(/Studio B/)).toHaveLength(1);
+  });
+  it("keeps developer and publisher roles distinct when companies match", async () => {
+    const game = credited();
+    game.publishers = [...game.developers];
+    serve(game);
+    renderApp(path);
+    const information = await screen.findByRole("region", { name: "Información del juego" });
+    for (const role of ["Desarrollador", "Publisher"]) {
+      expect(within(information).getByText(role, { selector: "dt" }).nextElementSibling)
+        .toHaveTextContent("Capcom Development Division 1 y Studio B");
+    }
+    expect(within(information).queryByText("Desarrollo y distribución")).not.toBeInTheDocument();
+  });
+  it("leaves unknown metadata out while keeping releases inside the information section", async () => {
+    const game = gameDetailsFixture();
+    game.genres = [{ genreId: "genre-rpg", name: "Role-playing (RPG)" }];
+    serve(game);
+    const { unmount } = renderApp(path);
+    const information = await screen.findByRole("region", { name: "Información del juego" });
+    expect(within(information).getByText("Géneros")).toBeVisible();
+    for (const missing of ["Desarrollador", "Publisher", "Modos de juego"]) {
+      expect(within(information).queryByText(missing)).not.toBeInTheDocument();
+    }
+    unmount();
+
+    serve(gameDetailsFixture());
+    renderApp(path);
+    await screen.findByRole("heading", { level: 1, name: "Resident Evil Requiem" });
+    const releaseInformation = screen.getByRole("region", { name: "Información del juego" });
+    expect(releaseInformation).toContainElement(releasesBlock());
+    expect(within(releaseInformation).queryByText("Desarrollador")).not.toBeInTheDocument();
+    expect(within(releaseInformation).queryByText("Publisher")).not.toBeInTheDocument();
+    expect(releasesBlock()).toBeVisible();
+  });
+  it("lists every platform and region with its presented release and keeps further records whole behind a disclosure", async () => {
+    const user = userEvent.setup();
+    const game = gameDetailsFixture();
+    const original = game.releases[0];
+    if (!original) throw new Error("Fixture needs a release");
+    // The API lists platform by platform with each combination's presented release first.
+    game.releases.push(
+      {
+        ...original,
+        releaseId: "ps5-europe-estimate",
+        releaseDate: { precision: "year", value: "2027" },
+        status: "scheduled",
+      },
+      {
+        ...original,
+        releaseId: "pc-world",
+        platform: { platformId: "pc", name: "Windows PC" },
+        region: { regionId: "worldwide", name: "Mundial" },
+        releaseDate: { precision: "quarter", value: "2027-Q2" },
+        status: "scheduled",
+      },
+      {
+        ...original,
+        releaseId: "pc-europe",
+        platform: { platformId: "pc", name: "Windows PC" },
+        releaseDate: { precision: "unknown", value: null },
+        status: "delayed",
+        reviewStatus: "required",
+      },
+    );
+    serve(game);
+    renderApp("/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem?platformId=pc&regionId=europe");
+    await screen.findByRole("heading", { level: 1, name: game.canonicalTitle });
+
+    // No selector to operate first: every combination reads at once, in the API's order, and a
+    // legacy selection in the URL changes nothing.
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    const rows = releaseRows();
+    expect(rows).toHaveLength(3);
+    const [ps5, pcWorld, pcEurope] = rows;
+    expect(ps5).toHaveTextContent(/PlayStation 5.*Europa.*27 de febrero de 2026.*Publicado/);
+    expect(pcWorld).toHaveTextContent(/Windows PC.*Mundial.*2\.º trimestre de 2027.*Programado/);
+    expect(pcEurope).toHaveTextContent(/Windows PC.*Europa.*Fecha por confirmar.*Retrasado/);
+    expect(within(pcEurope as HTMLElement).getByText("Información pendiente de revisión")).toBeVisible();
+    // Each value is still named for assistive technology.
+    expect(within(ps5 as HTMLElement).getByText("Región", { selector: "dt" })).toHaveClass("sr-only");
+
+    const more = within(releasesBlock()).getByText("Otras fechas registradas (1)");
+    expect(within(releasesBlock()).getByText("2027")).not.toBeVisible();
+    await user.click(more);
+    expect(within(releasesBlock()).getByText("2027")).toBeVisible();
+    // The ratings belong to the whole game, whatever the release context.
+    expect(readingButton()).not.toHaveAttribute("aria-disabled");
+    expect(gameRequests()).toHaveLength(1);
+  });
+  it("flags a pending review among the further records on the disclosure itself", async () => {
+    const game = gameDetailsFixture();
+    const original = game.releases[0];
+    if (!original) throw new Error("Fixture needs a release");
+    game.releases.push({
+      ...original,
+      releaseId: "pending-review",
+      releaseDate: { precision: "day", value: "2025-11-20" },
+      reviewStatus: "required",
+    });
+    serve(game);
+    renderApp(path);
+    const more = await screen.findByText("Otras fechas registradas (1)");
+    expect(more.closest("summary")).toHaveTextContent("Información pendiente de revisión");
+  });
+  it("marks each platform and region with its own icon", async () => {
+    const game = gameDetailsFixture();
+    const original = game.releases[0];
+    if (!original) throw new Error("Fixture needs a release");
+    game.releases.push(
+      { ...original, releaseId: "ps5-asia", region: { regionId: "asia", name: "Asia" } },
+      { ...original, releaseId: "ps5-nz", region: { regionId: "new-zealand", name: "Nueva Zelanda" } },
+      { ...original, releaseId: "ps5-cn", region: { regionId: "china", name: "China" } },
+    );
+    serve(game);
+    renderApp(path);
+    await screen.findByRole("heading", { level: 1, name: game.canonicalTitle });
+    // Marks are decorative, so they are read from the value they lead.
+    const mark = (name: string) =>
+      within(releasesBlock())
+        .getAllByText(name)[0]
+        ?.closest("dd")
+        ?.querySelector("[class*='app-select-icon-']")?.className;
+
+    expect(mark("PlayStation 5")).toContain("app-select-icon-playstation-5");
+    expect(mark("Europa")).toContain("app-select-icon-europe");
+    expect(mark("Asia")).toContain("app-select-icon-asia");
+    expect(mark("Nueva Zelanda")).toContain("app-select-icon-new-zealand");
+    // A region without a supplied mark keeps the generic location marker.
+    expect(mark("China")).toBeUndefined();
+  });
+  it("names a known stage under its date and leaves an unknown one unstated", async () => {
+    const game = gameDetailsFixture();
+    const original = game.releases[0];
+    if (!original) throw new Error("Fixture needs a release");
+    original.stage = "full_release";
+    game.releases.push({
+      ...original,
+      releaseId: "pc-world",
+      stage: "unknown",
+      platform: { platformId: "pc", name: "Windows PC" },
+    });
+    serve(game);
+    renderApp(path);
+    expect(await screen.findByText("Lanzamiento completo")).toBeVisible();
+    expect(screen.queryByText("Tipo no especificado")).not.toBeInTheDocument();
   });
   it("preserves uncertain dates, stale review state and a degraded aggregate", async () => {
     const game = gameDetailsFixture();
@@ -133,177 +317,42 @@ describe("public game details", () => {
     serve(game);
     renderApp(path);
     expect(await screen.findByText(/Fecha por confirmar/)).toBeVisible();
-    // Ineligibility disables the personal control and explains why in place.
-    expect(screen.getByRole("button", { name: "8" })).toBeDisabled();
+    // Ineligibility makes the personal reading unavailable and explains why in place.
+    expect(readingButton()).toHaveAttribute("aria-disabled", "true");
     expect(
       screen.getByText(/pendiente de revisión\.$/),
     ).toBeVisible();
     expect(screen.getByText("Datos locales desactualizados")).toBeVisible();
+    expect(within(releasesBlock()).getByText("Información pendiente de revisión")).toBeVisible();
     const community = screen.getByRole("region", {
-      name: "Puntuaciones de la comunidad",
+      name: "Puntuación de la comunidad",
     });
     expect(within(community).getByRole("status")).toHaveTextContent(
       "Las estadísticas no están disponibles temporalmente",
     );
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
-  it("changes platform and region evidence without changing global eligibility or requesting data again", async () => {
-    const user = userEvent.setup();
+  it("states the release sources and the latest synchronization once for the whole block", async () => {
     const game = gameDetailsFixture();
     const original = game.releases[0];
     if (!original) throw new Error("Fixture needs a release");
-    game.releases.push(
-      {
-        ...original,
-        releaseId: "pc-world",
-        stage: "unknown",
-        platform: { platformId: "pc", name: "Windows PC" },
-        region: { regionId: "worldwide", name: "Mundial" },
-        releaseDate: { precision: "quarter", value: "2027-Q2" },
-        status: "scheduled",
-        provenance: { ...original.provenance, sourceName: "PC source" },
-      },
-      {
-        ...original,
-        releaseId: "pc-europe",
-        stage: "unknown",
-        platform: { platformId: "pc", name: "Windows PC" },
-        releaseDate: { precision: "unknown", value: null },
-        reviewStatus: "required",
-      },
-    );
-    serve(game);
-    renderApp(path);
-    await screen.findByRole("heading", { level: 1, name: game.canonicalTitle });
-    await user.click(screen.getByRole("radio", { name: "Windows PC" }));
-    expect(screen.getByRole("radio", { name: "Europa" })).toBeChecked();
-    const context = screen.getByRole("region", {
-      name: "Contexto de lanzamiento",
+    game.releases.push({
+      ...original,
+      releaseId: "pc-world",
+      platform: { platformId: "pc", name: "Windows PC" },
+      provenance: { ...original.provenance, sourceName: "PC source" },
+      lastSyncedAt: "2026-08-10T08:00:00Z",
+      verificationLevel: "provider_only",
     });
-    expect(within(context).getByText("Fecha por confirmar")).toBeVisible();
-    await user.click(screen.getByRole("radio", { name: "Mundial" }));
-    expect(within(context).getByText("2.º trimestre de 2027")).toBeVisible();
-    expect(within(context).getByText("PC source")).toBeVisible();
-    expect(
-      within(context).queryByText("Fecha por confirmar"),
-    ).not.toBeInTheDocument();
-    // The personal control stays game-wide and enabled whatever the selected tuple.
-    expect(screen.getByRole("button", { name: "8" })).toBeEnabled();
-    await user.click(screen.getByRole("radio", { name: "PlayStation 5" }));
-    expect(screen.getByRole("radio", { name: "Europa" })).toBeChecked();
-    expect(
-      screen.queryByRole("radio", { name: "Mundial" }),
-    ).not.toBeInTheDocument();
-    expect(gameRequests()).toHaveLength(1);
-  });
-  it("marks each region choice with its region icon, as each platform choice has its platform icon", async () => {
-    const game = gameDetailsFixture();
-    const original = game.releases[0];
-    if (!original) throw new Error("Fixture needs a release");
-    game.releases.push(
-      { ...original, releaseId: "ps5-asia", region: { regionId: "asia", name: "Asia" } },
-      { ...original, releaseId: "ps5-nz", region: { regionId: "new-zealand", name: "Nueva Zelanda" } },
-      { ...original, releaseId: "ps5-cn", region: { regionId: "china", name: "China" } },
-    );
     serve(game);
     renderApp(path);
-    await screen.findByRole("heading", { level: 1, name: game.canonicalTitle });
-    // Marks are decorative, so they are read from the choice's own label.
-    const mark = (name: string) =>
-      screen
-        .getByRole("radio", { name })
-        .closest("label")
-        ?.querySelector("[class*='app-select-icon-']")?.className;
-
-    expect(mark("PlayStation 5")).toContain("app-select-icon-playstation-5");
-    expect(mark("Europa")).toContain("app-select-icon-europe");
-    expect(mark("Asia")).toContain("app-select-icon-asia");
-    expect(mark("Nueva Zelanda")).toContain("app-select-icon-new-zealand");
-    // A region without a supplied mark keeps the generic location marker.
-    expect(mark("China")).toBeUndefined();
-  });
-  it("shows stages on primary and additional dates with a keyboard-accessible disclosure", async () => {
-    const user = userEvent.setup();
-    const game = gameDetailsFixture();
-    const original = game.releases[0];
-    if (!original) throw new Error("Fixture needs a release");
-    original.stage = "full_release";
-    game.releases.push({ ...original, releaseId: "early-access", stage: "early_access",
-      releaseDate: { precision: "year", value: "2025" } });
-    serve(game);
-    renderApp(path);
-    await screen.findByRole("heading", { name: game.canonicalTitle });
-    expect(screen.getByText("Lanzamiento completo")).toBeVisible();
-    expect(screen.getByText("Acceso anticipado")).not.toBeVisible();
-    const summary = screen.getByText("Otras fechas registradas (1)").closest("summary");
-    if (!summary) throw new Error("Disclosure requires a summary");
-    summary.focus();
-    expect(summary).toHaveFocus();
-    // jsdom cannot toggle native details by keyboard; real keyboard behavior is checked in Playwright.
-    await user.click(summary);
-    expect(screen.getByText("Acceso anticipado")).toBeVisible();
-    expect(screen.getByText("2025")).toBeVisible();
-    expect(screen.getByRole("button", { name: "8" })).toBeEnabled();
-  });
-
-  it("presents the first record of the selected tuple and keeps the others behind a disclosure", async () => {
-    const user = userEvent.setup();
-    const game = gameDetailsFixture();
-    const original = game.releases[0];
-    if (!original) throw new Error("Fixture needs a release");
-    // The API lists the presented release of each platform and region first (#212).
-    game.releases.push(
-      {
-        ...original,
-        releaseId: "older-estimate",
-        stage: "unknown",
-        releaseDate: { precision: "year", value: "2027" },
-        status: "scheduled",
-      },
-      {
-        ...original,
-        releaseId: "pending-review",
-        stage: "unknown",
-        releaseDate: { precision: "day", value: "2025-11-20" },
-        reviewStatus: "required",
-      },
-    );
-    serve(game);
-    renderApp(path + "?platformId=obsolete&regionId=obsolete");
-    await screen.findByRole("heading", { level: 1, name: game.canonicalTitle });
-    expect(screen.getByRole("radio", { name: "PlayStation 5" })).toBeChecked();
-    const context = screen.getByRole("region", {
-      name: "Contexto de lanzamiento",
-    });
-    expect(within(context).getByRole("status")).toHaveTextContent(
-      "PlayStation 5 · Europa · 2 fechas adicionales",
-    );
-    expect(within(context).getByText("27 de febrero de 2026")).toBeVisible();
-    // The other records are neither merged nor dropped: they wait, whole, in a closed disclosure
-    // whose summary already says one of them is pending review.
-    const more = within(context).getByText("Otras fechas registradas (2)");
-    expect(more.closest("summary")).toHaveTextContent(
-      "Información pendiente de revisión",
-    );
-    expect(within(context).getByText("2027")).not.toBeVisible();
-    await user.click(more);
-    expect(within(context).getByText("2027")).toBeVisible();
-    expect(within(context).getByText("20 de noviembre de 2025")).toBeVisible();
-    expect(screen.getByRole("button", { name: "8" })).toBeEnabled();
-  });
-  it("announces a single record without a disclosure", async () => {
-    serve();
-    renderApp(path);
-    await screen.findByRole("heading", { level: 1, name: "Resident Evil Requiem" });
-    const context = screen.getByRole("region", {
-      name: "Contexto de lanzamiento",
-    });
-    expect(within(context).getByRole("status")).toHaveTextContent(
-      /^PlayStation 5 · Europa$/,
-    );
     expect(
-      within(context).queryByText(/Otras fechas registradas/),
-    ).not.toBeInTheDocument();
+      await within(await screen.findByRole("region", { name: "Fechas y plataformas" })).findByText(
+        /^Fuentes: Publisher, PC source/,
+      ),
+    ).toHaveTextContent("Fuentes: Publisher, PC source · Sincronizado el 10 de agosto de 2026");
+    // Verified evidence is credited on its own record; provider-only records stay quiet.
+    expect(within(releasesBlock()).getAllByText("Información verificada")).toHaveLength(1);
   });
   it("renders no release context without inventing selectors or metadata", async () => {
     const game = gameDetailsFixture();
@@ -318,14 +367,13 @@ describe("public game details", () => {
     expect(
       await screen.findByText("No hay lanzamientos comerciales registrados."),
     ).toBeVisible();
-    expect(
-      screen.queryByRole("radio", { name: "PlayStation 5" }),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "8" })).toBeDisabled();
-    expect(screen.queryByText("Género")).not.toBeInTheDocument();
-    expect(screen.queryByText("Desarrolladora")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(within(releasesBlock()).queryByText(/^Fuente/)).not.toBeInTheDocument();
+    expect(readingButton()).toHaveAttribute("aria-disabled", "true");
+    expect(screen.queryByText("Géneros")).not.toBeInTheDocument();
+    expect(screen.queryByText("Desarrollo")).not.toBeInTheDocument();
   });
-  it("attributes sourced text and replaces failed provider covers", async () => {
+  it("credits sourced text in its own language and replaces failed provider covers", async () => {
     const game = gameDetailsFixture();
     game.summary = {
       kind: "sourced",
@@ -352,6 +400,11 @@ describe("public game details", () => {
       "lang",
       "en",
     );
+    const summary = screen.getByRole("region", { name: "Resumen" });
+    // The text stays in its source language; the page only says which language that is.
+    expect(within(summary).getByText(/Fuente: Publisher$/)).toHaveTextContent(
+      "Texto original en inglés · Fuente: Publisher",
+    );
     expect(screen.getByRole("link", { name: "IGDB" })).toBeVisible();
     fireEvent.error(screen.getByRole("img"));
     expect(screen.getByRole("img")).toHaveAttribute(
@@ -361,6 +414,15 @@ describe("public game details", () => {
     expect(
       screen.queryByRole("link", { name: "IGDB" }),
     ).not.toBeInTheDocument();
+  });
+  it("keeps the catalogue's own editorial text without a source credit", async () => {
+    serve();
+    renderApp(path);
+    const summary = await screen.findByRole("region", { name: "Resumen" });
+    expect(within(summary).getByText("Resumen de prueba del catálogo.")).toHaveAttribute("lang", "es");
+    expect(within(summary).queryByText(/Fuente/)).not.toBeInTheDocument();
+    // jsdom has no layout, so a short text never offers to expand.
+    expect(within(summary).queryByRole("button")).not.toBeInTheDocument();
   });
   it.each([
     ["GAME_NOT_FOUND", "Juego no encontrado"],

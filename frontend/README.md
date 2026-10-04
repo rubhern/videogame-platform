@@ -71,7 +71,7 @@ transport types do not spread through components. Follow the
 React Router owns navigation. TanStack Query owns server state, caching, loading, and
 invalidation. Component state owns transient interaction state; URL parameters own
 navigable/shareable state when safe (the featured month, release view and filters,
-search query and page, the selected platform/region on a game page). The landing route
+search query and page). The landing route
 `/` shows the featured releases; the release lists always name their `view`. Values outside the contract shape
 fall back to a safe default before reaching the API. Personal filters live only in
 component state and personal query data is discarded when the page unmounts. OAuth
