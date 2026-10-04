@@ -1410,7 +1410,9 @@ components:
       required: [precision, value]
       properties:
         precision: { type: string, pattern: '^unknown$' }
-        value: { type: 'null' }
+        # The backend generator maps null-only schemas to Void but classifies them as
+        # non-nullable for inclusion. Preserve the required explicit null on the wire.
+        value: { type: 'null', x-jackson-json-include-policy: ALWAYS }
       unevaluatedProperties: false
     ReleaseDate:
       oneOf:
@@ -1494,7 +1496,7 @@ components:
           format: uri-reference
           pattern: '^/assets/covers/'
         alternativeText: { type: string, minLength: 1 }
-        attribution: { type: 'null' }
+        attribution: { type: 'null', x-jackson-json-include-policy: ALWAYS }
       unevaluatedProperties: false
     Cover:
       oneOf:
@@ -1738,7 +1740,7 @@ components:
           format: uri-reference
           pattern: '^/assets/featured/'
         alternativeText: { type: string, minLength: 1 }
-        attribution: { type: 'null' }
+        attribution: { type: 'null', x-jackson-json-include-policy: ALWAYS }
       unevaluatedProperties: false
     FeaturedLogo:
       type: object
@@ -1922,7 +1924,7 @@ components:
       type: object
       required: [personalRating, ratingStatistics]
       properties:
-        personalRating: { type: 'null' }
+        personalRating: { type: 'null', x-jackson-json-include-policy: ALWAYS }
         ratingStatistics: { $ref: '#/components/schemas/AvailableRatingStatistics' }
     ProblemCode:
       type: string
