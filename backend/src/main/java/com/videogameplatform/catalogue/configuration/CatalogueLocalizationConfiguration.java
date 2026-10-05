@@ -25,13 +25,20 @@ class CatalogueLocalizationConfiguration {
             DataSource dataSource,
             PlatformTransactionManager transactions,
             CatalogueLocalizationProperties properties,
-            MeterRegistry registry) {
+            MeterRegistry registry,
+            org.springframework.context.ApplicationEventPublisher events) {
         var transaction = new TransactionTemplate(transactions);
         transaction.setTimeout(10);
         var jdbc = new JdbcTemplate(dataSource);
         jdbc.setQueryTimeout(10);
         return new CatalogueLocalizationService(
-                new JdbcLocalizationStore(new NamedParameterJdbcTemplate(jdbc), transaction),
+                new JdbcLocalizationStore(
+                        new NamedParameterJdbcTemplate(jdbc),
+                        transaction,
+                        term ->
+                                events.publishEvent(
+                                        new com.videogameplatform.catalogue.application.details
+                                                .GenreLabelChanged(term))),
                 new LocalCatalogueTranslationAdapter(
                         HttpClient.newBuilder().connectTimeout(properties.timeout()).build(),
                         properties.endpoint(),

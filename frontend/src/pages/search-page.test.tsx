@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -74,6 +74,16 @@ afterEach(() => {
 });
 
 describe("catalogue search page", () => {
+  it("adds only two localized genres while preserving compact release context", async () => {
+    stubSearch(() => Response.json({ ...resultPage, items: [{ ...resultPage.items[0], genres: [{ genreId: "rpg", name: "Rol" }, { genreId: "action", name: "Acción" }, { genreId: "hidden", name: "Hidden genre" }], summary: { text: "Hidden summary" }, developers: [{ name: "Hidden developer" }], publishers: [{ name: "Hidden publisher" }], gameModes: [{ name: "Hidden mode" }] }] }));
+    renderApp("/search?q=witcher");
+    const results = await screen.findByRole("list", { name: "Resultados de la búsqueda" });
+    expect(within(results).getByLabelText("Géneros: Rol · Acción")).toBeVisible();
+    expect(within(results).getByText("2027")).toBeVisible();
+    expect(within(results).getByText("PlayStation 5")).toBeInTheDocument();
+    expect(within(results).queryByText(/Hidden/)).not.toBeInTheDocument();
+  });
+
   beforeEach(() => {
     stubSearch(() => Response.json(resultPage, { status: 200 }));
   });

@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.application.releases.port;
 
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
+import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
@@ -64,7 +65,8 @@ public interface ReleaseBrowseReadPort {
             String slug,
             String canonicalTitle,
             CatalogueCoverReference cover,
-            List<ReleaseRow> releases) {}
+            List<ReleaseRow> releases,
+            List<GameDetailsResult.Term> genres) {}
 
     /** One preserved release; grouping never merges or rewrites its identity or fields. */
     record ReleaseRow(

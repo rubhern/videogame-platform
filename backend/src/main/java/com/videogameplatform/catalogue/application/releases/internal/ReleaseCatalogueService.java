@@ -159,6 +159,7 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                 item.slug(),
                 item.canonicalTitle(),
                 coverPolicy.resolve(item.cover()),
-                releases);
+                releases,
+                item.genres());
     }
 }

@@ -231,8 +231,9 @@ the executable values; these constraints hold wherever they are used:
   by a dot, with none after the last. Loading keeps the previous row count as placeholders; empty and failure states are
   compact messages that never block the full search. On phones it spans the search
   dialog's row, wraps metadata instead of clipping it and drops the keyboard hints. Wide
-  platform wordmarks keep their ratio at the row height. Genres, companies and scores in
-  the reference are not part of the contract and stay omitted.
+  platform wordmarks keep their ratio at the row height. Genres, summary, developers,
+  publishers, game modes and scores stay absent from suggestions even when the shared
+  search response carries additional metadata; the identification row does not grow.
 - The full search results page (#188) follows the owner's approved results reference and
   shares the release windows' stage, title treatment and six-column grid. An
   active query is the only `h1`, **Resultados para «consulta»**, under the **Catálogo de
@@ -240,12 +241,17 @@ the executable values; these constraints hold wherever they are used:
   juegos**. The game total and page position sit above the grid (for example,
   `153 juegos del catálogo local · Página 1 de 26`), and the pager below repeats the
   position before its previous/next actions. Each card shows the cover with one known year,
-  an inclusive range or `Por confirmar` as its glass chip, the title link, a
-  `Coincidencia: alias` chip only when the alias differs from the title, and up to three
+  an inclusive range or `Por confirmar` as its glass chip, the title link, up to two
+  localized product genres as quiet text, a `Coincidencia: alias` chip only when the alias differs from the title, and up to three
   platform icons with the exact `+N` of further platforms at the card foot, all from the
   compact release summary.
   It never renders release rows or status chips, so its height never follows the release
-  count. Platform names stay available to assistive technology and as tooltips.
+  count. Platform names stay available to assistive technology and as tooltips. Summary,
+  developer, publisher and game modes stay absent. Recent/upcoming cards likewise add
+  only up to two genres, preserving date, platform and region as primary context. Their
+  titles reserve two lines and clamp overflow; genres and platform/region reserve one
+  line each with presentation-only ellipsis, keeping a grid row aligned. Full labels
+  remain in the DOM; release overflow preserves further dates.
 - Release windows, search results and `Mis puntuaciones` share one page opening: the
   cinematic stage, the kicker and the display title with its lit accent, directly under
   the header with tight spacing, so the first row of covers shows without scrolling. Titles longer than about 26 characters, usually a visitor's query, step down a size. Every
@@ -291,8 +297,8 @@ the executable values; these constraints hold wherever they are used:
 - Keep native links for navigation and buttons for actions. Use `aria-current` for the active
   route or filter, visible `:focus-visible`, the skip link and explicit focus movement after
   route and pagination changes. A cover may be pointer-accessible, but each card keeps one
-  primary keyboard stop: the title link on a release or search result card, **Ver ficha** on rating
-  cards.
+  primary keyboard stop: the title link on release, search and personal-rating cards.
+  Rating title links do not stretch over the card's editing controls.
 - Keep reduced-motion and forced-colour support. Do not require hover, animation, a fixed
   desktop width or a sticky header that can obscure focus.
 
@@ -346,11 +352,19 @@ delimiter visually, while the heading's text and accessible name keep the canoni
 exactly. The wordmark's size follows the name, so its longest word fits one line and the
 whole name three lines within a fixed range, with balanced and emergency wrapping. Then one
 meta row (the presented release's compact date, its platforms as marks separated by dots,
-with an unrecognized platform keeping its name, and its region), chips for that release's
-lifecycle and any known stage on their own row, the overflow control for further releases,
-then the hero's one action, **Ver ficha**, at its usual size; **Ver todos los
-lanzamientos** below opens the release lists. A reference's description and genres have no
-contract data and stay omitted.
+with an unrecognized platform keeping its name, and its region). Up to two genres reuse the
+catalogue's localized product labels as quiet, non-interactive text. The existing localized summary
+follows as secondary copy, visually clamped to two lines on desktop and tablet and three on phones;
+the full content and language remain intact. Source and translation provenance remain in the
+model; discovery does not display technical translation/provider copy. The game page retains
+its discreet attribution. Missing
+enrichment is omitted without invented values. Ordinary lifecycle and Full Release labels are
+absent; only exceptional delay, cancellation, unknown-date or pending-review notices carry a chip.
+The entire rounded hero frame is one native game link, named by its canonical title, with visible
+keyboard focus and restrained hover/focus feedback. Its metadata carries no controls. Further
+release dates retain their overflow control immediately below and outside the linked frame, so no
+interactive element nests inside the link. **Ver todos los lanzamientos** below opens the release
+lists. Developer, publisher and game modes stay absent from featured discovery.
 
 **Otros lanzamientos _destacados_** follows, with **Ver todos los lanzamientos** (Recientes)
 and up to five wide artwork cards straight on the stage, not inside glass. Each card's
@@ -359,7 +373,8 @@ landscape frame carries the date chip and context-selected media under `FEAT-003
 game's existing decorative logo; artwork is shown as it is. Keep the overlay restrained
 and centered cover cropping stable across breakpoints. Beneath the frame come the title on one line (its full text stays the link and
 its tooltip) as the only keyboard stop, then one release line with up to three platform
-marks, the exact `+N` and the region, and the overflow control. Fewer games mean fewer
+marks, the exact `+N` and the region, then up to two localized genres and the overflow control.
+Cards omit summary, developer, publisher and game modes. Fewer games mean fewer
 cards. An unranked or empty month replaces the hero and the row with an informational or
 empty notice that names the month and links to Recientes.
 
@@ -367,8 +382,8 @@ From 1024px the copy and the art share the hero, sized so the hero and the whole
 within 1320×900, and the row of cards has five columns. Tablets keep both sides with the
 art starting further right, so the title never sits on its brightest part, space the meta
 row instead of dividing it, and lay the row in three columns. Phones stack the 16:9 art
-over the copy, with the badge and the title over its faded edge, and give **Ver ficha** the
-full width. Their meta row sets the date, the platforms and the region as three groups
+over the copy, with the badge and the title over its faded edge, and retain the whole frame
+as the game link. Their meta row sets the date, the platforms and the region as three groups
 spread across one row whenever they fit, the platforms in the cards' compact form (the
 first two marks and the exact `+N`, every name still announced); a group that cannot fit
 moves whole to a second row, so no group ever breaks or shrinks. Below 480px each card
@@ -475,8 +490,15 @@ says “No hay lanzamientos comerciales registrados.”.
 
 `Mis puntuaciones` reuses the catalogue shell, page opening, cover treatment, tokens and
 native controls. Present cover-led glass rows, each washed by its own cover's light, with
-game navigation, a clearly personal score and the two rating timestamps; a row reads game,
-then score. On phones the score spans the row beneath the cover and title. The personal score
+native cover/title links, up to two localized genres beneath the title, and distinct
+**Tu puntuación** and read-only **Comunidad** readings. No summary, developer, publisher,
+game mode or release-specific platform/region context is shown: these are Game ratings.
+There is no **Ver ficha** CTA and the complete row is never a link. On phones the readings
+sit beneath the cover/title; at wider widths they sit side by side. The community retains
+the mean, scale and temperature with its count secondary; unavailable and no-rating states
+never invent a zero mean. Calendar dates are quiet secondary text without hours: one
+**Puntuado el …** when creation and update have the same visible date; otherwise compact
+**Actualizado el …** with the original date. The personal score
 is a Gameómetro reading — its G-meter, its temperature in words and the number — lit by its
 band in the language of the game page: it is the reason the row exists. The private filters form one glass control bar rather than
 four loose fields, and stay separate from the header's public catalogue search. Pages hold

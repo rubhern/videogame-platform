@@ -1,9 +1,11 @@
 package com.videogameplatform.catalogue.adapter.persistence.search;
 
+import com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.dao.DataAccessException;
@@ -51,11 +53,28 @@ public final class JdbcGameSearchReadAdapter implements GameSearchReadPort {
         Long totalItems =
                 jdbcOperations.queryForObject(GameSearchSql.COUNT, parameters, Long.class);
 
+        var items = jdbcOperations.query(GameSearchSql.PAGE, parameters, GameSearchPageMapper::map);
+        var genres =
+                CatalogueGenresReader.read(
+                        jdbcOperations,
+                        publication.id(),
+                        items.stream().map(Item::gameId).toList(),
+                        2);
+        items =
+                items.stream()
+                        .map(
+                                item ->
+                                        new Item(
+                                                item.gameId(),
+                                                item.slug(),
+                                                item.canonicalTitle(),
+                                                item.matchedAlias(),
+                                                item.cover(),
+                                                item.releaseContext(),
+                                                item.releaseSummary(),
+                                                genres.getOrDefault(item.gameId(), List.of())))
+                        .toList();
         return Optional.of(
-                new Result(
-                        publication.version(),
-                        jdbcOperations.query(
-                                GameSearchSql.PAGE, parameters, GameSearchPageMapper::map),
-                        totalItems == null ? 0 : totalItems));
+                new Result(publication.version(), items, totalItems == null ? 0 : totalItems));
     }
 }

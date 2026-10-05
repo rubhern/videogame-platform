@@ -49,6 +49,9 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
     private final TransactionOperations transaction;
     private final String provider;
     private final java.util.function.Consumer<String> listingChanged;
+    private final java.util.function.Consumer<
+                    com.videogameplatform.catalogue.application.details.GameDetailsResult.Term>
+            genreLabelChanged;
     private final JsonMapper json = JsonMapper.builder().build();
 
     public JdbcCatalogueSynchronizationStore(
@@ -56,6 +59,19 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
             TransactionOperations transaction,
             String provider,
             java.util.function.Consumer<String> listingChanged) {
+        this(jdbc, transaction, provider, listingChanged, ignored -> {});
+    }
+
+    public JdbcCatalogueSynchronizationStore(
+            NamedParameterJdbcOperations jdbc,
+            TransactionOperations transaction,
+            String provider,
+            java.util.function.Consumer<String> listingChanged,
+            java.util.function.Consumer<
+                            com.videogameplatform.catalogue.application.details.GameDetailsResult
+                                    .Term>
+                    genreLabelChanged) {
+        this.genreLabelChanged = genreLabelChanged;
         this.jdbc = jdbc;
         this.transaction = transaction;
         this.provider = provider;
@@ -820,17 +836,30 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
             assignments +=
                     ", display_name=CASE WHEN label_origin='source' THEN :source ELSE display_name END";
         }
-        return jdbc.update(
-                "UPDATE "
-                        + table
-                        + " SET "
-                        + assignments
-                        + " WHERE "
-                        + column
-                        + "=:id AND ("
-                        + comparison
-                        + ")",
-                parameters);
+        int changed =
+                jdbc.update(
+                        "UPDATE "
+                                + table
+                                + " SET "
+                                + assignments
+                                + " WHERE "
+                                + column
+                                + "=:id AND ("
+                                + comparison
+                                + ")",
+                        parameters);
+        if (changed > 0 && table.equals("catalogue.genre")) {
+            var productTerm =
+                    jdbc.queryForObject(
+                            "SELECT code,display_name FROM catalogue.genre WHERE genre_id=:id",
+                            Map.of("id", id),
+                            (rs, row) ->
+                                    new com.videogameplatform.catalogue.application.details
+                                            .GameDetailsResult.Term(
+                                            rs.getString(1), rs.getString(2)));
+            genreLabelChanged.accept(productTerm);
+        }
+        return changed;
     }
 
     /** Leaves room for a provider-reference suffix inside the 100-character code column. */

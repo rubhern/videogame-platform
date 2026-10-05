@@ -2,6 +2,7 @@ package com.videogameplatform.ratings.adapter.persistence;
 
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.details.GameListingChanged;
+import com.videogameplatform.catalogue.application.details.GenreLabelChanged;
 import com.videogameplatform.catalogue.application.details.GetGameListingUseCase;
 import com.videogameplatform.ratings.application.port.GameListingProjection;
 import java.util.Map;
@@ -77,6 +78,22 @@ public class JdbcGameListingProjection implements GameListingProjection, Applica
                     """,
                             params);
                     jdbc.update(
+                            "DELETE FROM ratings.game_listing_genre WHERE game_id=:game", params);
+                    for (int index = 0; index < game.genres().size(); index++) {
+                        var term = game.genres().get(index);
+                        // A concurrent label publication may be newer than this listing snapshot.
+                        // Only GenreLabelChanged replaces an existing shared label.
+                        jdbc.update(
+                                "INSERT INTO ratings.genre_label(genre_code,display_name) VALUES (:code,:name) ON CONFLICT (genre_code) DO NOTHING",
+                                Map.of("code", term.code(), "name", term.name()));
+                        jdbc.update(
+                                "INSERT INTO ratings.game_listing_genre(game_id,genre_code,position) VALUES (:game,:code,:position)",
+                                Map.of("game", id, "code", term.code(), "position", index + 1));
+                    }
+                    jdbc.update(
+                            "UPDATE ratings.game_listing SET genres_projected=true WHERE game_id=:game",
+                            params);
+                    jdbc.update(
                             "DELETE FROM ratings.game_listing_alias WHERE game_id=:game", params);
                     for (String alias : game.normalizedAliases()) {
                         jdbc.update(
@@ -87,6 +104,14 @@ public class JdbcGameListingProjection implements GameListingProjection, Applica
                                 Map.of("game", id, "alias", alias));
                     }
                 });
+    }
+
+    @EventListener
+    public void on(GenreLabelChanged event) {
+        var term = event.genre();
+        jdbc.update(
+                "INSERT INTO ratings.genre_label(genre_code,display_name) VALUES (:code,:name) ON CONFLICT (genre_code) DO UPDATE SET display_name=EXCLUDED.display_name",
+                Map.of("code", term.code(), "name", term.name()));
     }
 
     @EventListener
@@ -103,7 +128,7 @@ public class JdbcGameListingProjection implements GameListingProjection, Applica
                     jdbc.query(
                             """
                             SELECT r.game_id FROM ratings.rating r WHERE r.game_id > :after
-                              AND NOT EXISTS (SELECT 1 FROM ratings.game_listing g WHERE g.game_id=r.game_id)
+                              AND NOT EXISTS (SELECT 1 FROM ratings.game_listing g WHERE g.game_id=r.game_id AND g.genres_projected)
                             GROUP BY r.game_id ORDER BY r.game_id LIMIT 100
                     """,
                             Map.of("after", after),

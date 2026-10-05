@@ -177,7 +177,8 @@ class CatalogueSearchServiceTest {
                                                 "platform-2", "Windows PC")),
                                 4,
                                 2025,
-                                2026));
+                                2026),
+                        List.of());
 
         SearchCatalogueResult.Item result =
                 service(
@@ -266,7 +267,8 @@ class CatalogueSearchServiceTest {
                         new CatalogueCoverReference.Product(
                                 "/assets/covers/fallback.svg", "Sin portada"),
                         List.of(),
-                        EMPTY_SUMMARY);
+                        EMPTY_SUMMARY,
+                        List.of());
 
         SearchCatalogueResult.Item result =
                 service(
@@ -314,7 +316,8 @@ class CatalogueSearchServiceTest {
                 null,
                 new CatalogueCoverReference.Unavailable(),
                 List.of(),
-                EMPTY_SUMMARY);
+                EMPTY_SUMMARY,
+                List.of());
     }
 
     private static final GameSearchReadPort.ReleaseSummary EMPTY_SUMMARY =

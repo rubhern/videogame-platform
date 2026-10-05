@@ -31,6 +31,7 @@ export type GameSearchResult = {
   /** Exact number of further distinct platforms, folded into the compact `+N`. */
   hiddenPlatformCount: number;
   year: string;
+  genres: NonNullable<GameSummary["genres"]>;
 };
 
 export type GameSearchViewModel = {
@@ -99,6 +100,7 @@ export function explainingAlias(item: GameSummary): string | null {
 export function toGameSearchViewModel(page: GameSearchPage): GameSearchViewModel {
   return {
     results: page.items.map((item) => ({
+      genres: (item.genres ?? []).slice(0, 2),
       gameId: item.gameId,
       slug: item.slug,
       title: item.canonicalTitle,

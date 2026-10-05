@@ -5,6 +5,7 @@ import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStage;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
+import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -39,7 +40,8 @@ public record BrowseReleasesResult(
             String slug,
             String canonicalTitle,
             CatalogueCover primaryCover,
-            List<Release> releases) {}
+            List<Release> releases,
+            List<GameDetailsResult.Term> genres) {}
 
     public record Release(
             String releaseId,

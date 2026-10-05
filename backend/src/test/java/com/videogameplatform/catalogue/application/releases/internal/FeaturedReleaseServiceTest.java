@@ -255,7 +255,9 @@ class FeaturedReleaseServiceTest {
                         template.image(),
                         Optional.of(media(ImageKind.SCREENSHOT, "card", 1920, 1080, false)),
                         template.logo(),
-                        template.releases());
+                        template.releases(),
+                        template.genres(),
+                        template.summary());
         var result =
                 service(
                                 port(
@@ -424,6 +426,8 @@ class FeaturedReleaseServiceTest {
                                 null,
                                 VerificationLevel.PROVIDER_ONLY,
                                 ReviewStatus.NOT_REQUIRED,
-                                ReleaseStage.UNKNOWN)));
+                                ReleaseStage.UNKNOWN)),
+                List.of(),
+                Optional.empty());
     }
 }

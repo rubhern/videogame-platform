@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
+import { GameGenres } from "../../shared/catalogue/game-genres";
 import { GameMeter } from "../../shared/score/game-meter";
 import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
@@ -22,8 +23,8 @@ const failures: Record<RatingCommandError["kind"], string> = {
 /** A failed command and the collection read it was issued against. */
 type Failure = { error: RatingCommandError; readAt: number };
 
-const formatTimestamp = (value: string) => new Intl.DateTimeFormat("es-ES", {
-  dateStyle: "medium", timeStyle: "short",
+const formatDate = (value: string) => new Intl.DateTimeFormat("es-ES", {
+  day: "numeric", month: "short", year: "numeric",
 }).format(new Date(value));
 
 /**
@@ -54,7 +55,11 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
   const deleteButton = useRef<HTMLButtonElement>(null);
   const keepButton = useRef<HTMLButtonElement>(null);
   const command = useRatingCommand(item.game.gameId);
-  const { game, personalRating } = item;
+  const { game, personalRating, ratingSummary } = item;
+  const community = ratingSummary && "mean" in ratingSummary ? ratingSummary : null;
+  const communityBand = community?.mean == null ? null : thermalBand(community.mean);
+  const createdDate = formatDate(personalRating.createdAt);
+  const updatedDate = formatDate(personalRating.updatedAt);
   const current = personalRating.value;
   const band = thermalBand(current);
   const pendingBand = thermalBand(selected);
@@ -145,16 +150,15 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
     <span className="my-rating-glow" aria-hidden="true" />
     <CatalogueCover cover={cover} to={path} />
     <div className="my-rating-body">
-      <h2 className="card-title" id={id}>{game.canonicalTitle}</h2>
-      <dl className="my-rating-dates">
-        <div><dt>Puntuado</dt><dd><time dateTime={personalRating.createdAt}>{formatTimestamp(personalRating.createdAt)}</time></dd></div>
-        <div><dt>Actualizado</dt><dd><time dateTime={personalRating.updatedAt}>{formatTimestamp(personalRating.updatedAt)}</time></dd></div>
-      </dl>
-      <Link className="card-action" to={path}>
-        <span className="sr-only">Ver ficha de {game.canonicalTitle}</span>
-        <span aria-hidden="true">Ver ficha →</span>
-      </Link>
+      <h2 className="card-title" id={id}><Link to={path}>{game.canonicalTitle}</Link></h2>
+      <GameGenres genres={game.genres} />
+      <p className="my-rating-dates">
+        {createdDate === updatedDate ? <>Puntuado el <time dateTime={personalRating.createdAt}>{createdDate}</time></>
+          : <>Actualizado el <time dateTime={personalRating.updatedAt}>{updatedDate}</time>
+            <span> · Puntuado el <time dateTime={personalRating.createdAt}>{createdDate}</time></span></>}
+      </p>
     </div>
+    <div className="my-rating-comparison">
     <div className="my-rating-score" onBlur={(event) => {
       const next = event.relatedTarget;
       if (open && next instanceof Node && !event.currentTarget.contains(next)) close(false);
@@ -215,6 +219,17 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
           </div> : null}
         </div>
       </div> : null}
+    </div>
+    <div className="my-rating-community" data-thermal={communityBand ?? undefined} aria-label="Comunidad">
+      <GameMeter className="my-rating-meter" value={community?.mean ?? null} />
+      <p className="my-rating-label">Comunidad {communityBand ? <b>{thermalLabels[communityBand]}</b> : null}</p>
+      {community === null ? <p className="my-rating-community-empty">No disponible</p>
+        : community.mean === null ? <p className="my-rating-community-empty">Sin puntuaciones</p>
+          : <>
+            <strong>{new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(community.mean)}/10</strong>
+            <p className="my-rating-community-count">{new Intl.NumberFormat("es-ES").format(community.count)} {community.count === 1 ? "puntuación" : "puntuaciones"}</p>
+          </>}
+    </div>
     </div>
   </article>;
 }

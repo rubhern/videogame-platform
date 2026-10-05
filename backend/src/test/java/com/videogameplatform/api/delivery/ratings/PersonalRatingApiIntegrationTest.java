@@ -437,6 +437,220 @@ class PersonalRatingApiIntegrationTest {
                 .andExpect(jsonPath("$.items").isEmpty());
     }
 
+    @Autowired RatingApiMapper mapper;
+
+    @Test
+    void servesTwoLocalizedGenresAndCompactCommunityWithoutChangingOwnerScopedDiscovery()
+            throws Exception {
+        var codes = List.of("test-a-" + game, "test-b-" + game, "test-c-" + game);
+        var ids = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        for (int index = 0; index < 3; index++) {
+            admin.update(
+                    "INSERT INTO catalogue.genre(genre_id,code,display_name) VALUES (?,?,?)",
+                    ids.get(index),
+                    codes.get(index),
+                    List.of("Acción", "Rol", "Zeta").get(index));
+            admin.update(
+                    "INSERT INTO catalogue.game_genre(game_id,genre_id) VALUES (?,?)",
+                    game,
+                    ids.get(index));
+        }
+        create(ALICE, 6);
+        create(BOB, 10);
+        var response =
+                mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.page.totalItems").value(1))
+                        .andExpect(jsonPath("$.items[0].personalRating.value").value(6))
+                        .andExpect(jsonPath("$.items[0].game.genres.length()").value(2))
+                        .andExpect(jsonPath("$.items[0].game.genres[0].name").value("Acción"))
+                        .andExpect(jsonPath("$.items[0].game.genres[1].name").value("Rol"))
+                        .andExpect(jsonPath("$.items[0].ratingSummary.mean").value(8.0))
+                        .andExpect(jsonPath("$.items[0].ratingSummary.count").value(2))
+                        .andExpect(jsonPath("$.items[0].ratingSummary.distribution").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].game.releases").doesNotExist())
+                        .andExpect(jsonPath("$.items[0].game.summary").doesNotExist())
+                        .andReturn();
+        OpenApiResponseContract.load("/me/ratings")
+                .assertJsonResponse(response.getResponse(), 200, "PersonalRatingPage");
+        UUID upcoming = UUID.randomUUID();
+        admin.update(
+                "INSERT INTO catalogue.game_release(release_id,game_id,created_at) VALUES (?,?,now())",
+                upcoming,
+                game);
+        admin.update(
+                """
+            INSERT INTO catalogue.release_snapshot(publication_id,release_id,game_id,platform_id,region_id,date_precision,exact_date,release_status,source_kind,source_name,source_entity_type,last_synchronized_at,verification_level,review_status)
+            SELECT publication_id,?,game_id,platform_id,region_id,'day',date '2026-08-14','announced',source_kind,source_name,source_entity_type,now(),verification_level,review_status
+            FROM catalogue.release_snapshot WHERE game_id=? LIMIT 1
+            """,
+                upcoming,
+                game);
+        for (String url :
+                List.of(
+                        "/api/v1/releases?view=recent",
+                        "/api/v1/releases?view=upcoming",
+                        "/api/v1/games?q=Rated")) {
+            var publicResponse =
+                    mockMvc.perform(get(url)).andExpect(status().isOk()).andReturn().getResponse();
+            OpenApiResponseContract.load(url.contains("releases") ? "/releases" : "/games")
+                    .assertJsonResponse(
+                            publicResponse,
+                            200,
+                            url.contains("releases") ? "ReleasePage" : "GameSearchPage");
+            var body = JSON.readTree(publicResponse.getContentAsString());
+            var item =
+                    java.util.stream.StreamSupport.stream(body.path("items").spliterator(), false)
+                            .filter(row -> row.path("gameId").stringValue().equals(game.toString()))
+                            .findFirst()
+                            .orElseThrow();
+            assertThat(item.path("genres")).hasSize(2);
+            assertThat(item.path("genres").get(0).path("name").stringValue()).isEqualTo("Acción");
+            for (String absent : List.of("summary", "developers", "publishers", "gameModes"))
+                assertThat(item.has(absent)).isFalse();
+        }
+        // Existing links need not be re-acquired or resolved per game when a label is localized.
+        var staleListing = games.getListing(game.toString());
+        admin.update(
+                "UPDATE catalogue.genre SET source_label='Adventure',label_origin='source' WHERE genre_id=?",
+                ids.get(2));
+        String fingerprint =
+                admin.queryForObject(
+                        "SELECT catalogue.spanish_source_fingerprint('Adventure')", String.class);
+        admin.update(
+                "INSERT INTO catalogue.content_translation(fingerprint,source_text,translated_text,runtime_revision,translated_at) VALUES (?,'Adventure','Aventura','fixture',now()) ON CONFLICT(fingerprint) DO NOTHING",
+                fingerprint);
+        var localization =
+                new com.videogameplatform.catalogue.adapter.persistence.localization
+                        .JdbcLocalizationStore(
+                        new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(
+                                dataSource),
+                        new org.springframework.transaction.support.TransactionTemplate(
+                                transactionManager),
+                        term ->
+                                events.publishEvent(
+                                        new com.videogameplatform.catalogue.application.details
+                                                .GenreLabelChanged(term)));
+        assertThat(
+                        localization.publish(
+                                new com.videogameplatform.catalogue.application.localization.port
+                                        .LocalizationStore.Target(
+                                        com.videogameplatform.catalogue.application.localization
+                                                .port.LocalizationStore.Kind.GENRE,
+                                        ids.get(2),
+                                        "Adventure",
+                                        fingerprint,
+                                        false)))
+                .isTrue();
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)))
+                .andExpect(jsonPath("$.items[0].game.genres[1].name").value("Aventura"));
+        // A rebuild that read its listing before publication cannot overwrite the newer label.
+        new com.videogameplatform.ratings.adapter.persistence.JdbcGameListingProjection(
+                        new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(
+                                dataSource),
+                        new org.springframework.transaction.support.TransactionTemplate(
+                                transactionManager),
+                        ignored -> staleListing)
+                .refresh(game.toString());
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)))
+                .andExpect(jsonPath("$.items[0].game.genres[1].name").value("Aventura"));
+        admin.update(
+                "UPDATE ratings.game_listing SET genres_projected=false WHERE game_id=?", game);
+        admin.update("DELETE FROM ratings.game_listing_genre WHERE game_id=?", game);
+        projection.run(new org.springframework.boot.DefaultApplicationArguments());
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(ALICE)))
+                .andExpect(jsonPath("$.items[0].game.genres.length()").value(2));
+    }
+
+    @Test
+    void collectionEnrichmentUsesTwoQueriesForAPageRatherThanOneLookupPerGame() throws Exception {
+        create(ALICE, 7);
+        for (int index = 0; index < 4; index++) addListedGame("Additional rated game " + index, 6);
+        var jdbc =
+                org.mockito.Mockito.spy(
+                        new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(
+                                dataSource));
+        var transaction =
+                new org.springframework.transaction.support.TransactionTemplate(
+                        new org.springframework.jdbc.support.JdbcTransactionManager(dataSource));
+        transaction.setReadOnly(true);
+        transaction.setIsolationLevel(
+                org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        var adapter =
+                new com.videogameplatform.ratings.adapter.persistence
+                        .JdbcPersonalRatingsReadAdapter(jdbc, transaction);
+        var page =
+                adapter.read(
+                        UserId.fromIssuerAndSubject(ISSUER, ALICE).value(),
+                        new com.videogameplatform.ratings.application.port.PersonalRatingsReadPort
+                                .Criteria(
+                                List.of(),
+                                com.videogameplatform.ratings.application.port
+                                        .PersonalRatingsReadPort.Sort.UPDATED,
+                                true,
+                                1,
+                                10));
+        assertThat(page.items()).hasSize(5);
+        assertThat(page.items()).allSatisfy(item -> assertThat(item.ratingSummary()).isPresent());
+        org.mockito.Mockito.verify(jdbc, org.mockito.Mockito.times(2))
+                .query(
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.<String, Object>anyMap(),
+                        org.mockito.ArgumentMatchers.any(
+                                org.springframework.jdbc.core.RowCallbackHandler.class));
+    }
+
+    @Test
+    void isolatedAggregateFailurePreservesThePrivatePageAndRecoversItsTransaction()
+            throws Exception {
+        create(ALICE, 7);
+        var jdbc =
+                org.mockito.Mockito.spy(
+                        new org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate(
+                                dataSource));
+        org.mockito.Mockito.doAnswer(
+                        invocation -> {
+                            jdbc.getJdbcTemplate().execute("SELECT 1/0");
+                            return null;
+                        })
+                .when(jdbc)
+                .query(
+                        org.mockito.ArgumentMatchers.contains("round(avg(value),1)"),
+                        org.mockito.ArgumentMatchers.<String, Object>anyMap(),
+                        org.mockito.ArgumentMatchers.any(
+                                org.springframework.jdbc.core.RowCallbackHandler.class));
+        var transaction =
+                new org.springframework.transaction.support.TransactionTemplate(
+                        new org.springframework.jdbc.support.JdbcTransactionManager(dataSource));
+        transaction.setReadOnly(true);
+        transaction.setIsolationLevel(
+                org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        var adapter =
+                new com.videogameplatform.ratings.adapter.persistence
+                        .JdbcPersonalRatingsReadAdapter(jdbc, transaction);
+        var page =
+                adapter.read(
+                        UserId.fromIssuerAndSubject(ISSUER, ALICE).value(),
+                        new com.videogameplatform.ratings.application.port.PersonalRatingsReadPort
+                                .Criteria(
+                                List.of(),
+                                com.videogameplatform.ratings.application.port
+                                        .PersonalRatingsReadPort.Sort.UPDATED,
+                                true,
+                                1,
+                                10));
+        assertThat(page.items()).hasSize(1);
+        assertThat(page.items().getFirst().rating().value()).isEqualTo(7);
+        assertThat(page.items().getFirst().ratingSummary()).isEmpty();
+        var json = JSON.valueToTree(mapper.toResponse(page));
+        assertThat(json.at("/items/0/ratingSummary/status").stringValue()).isEqualTo("unavailable");
+        assertThat(json.at("/items/0/ratingSummary/mean").isMissingNode()).isTrue();
+        assertThat(
+                        new org.springframework.jdbc.core.JdbcTemplate(dataSource)
+                                .queryForObject("SELECT 1", Integer.class))
+                .isEqualTo(1);
+    }
+
     @Test
     void listingSearchUsesCanonicalAndApprovedAliasWordPrefixesWithinOwnerScope() throws Exception {
         admin.update(
@@ -678,6 +892,8 @@ class PersonalRatingApiIntegrationTest {
 
     @Autowired
     com.videogameplatform.ratings.adapter.persistence.JdbcGameListingProjection projection;
+
+    @Autowired com.videogameplatform.catalogue.application.details.GetGameListingUseCase games;
 
     @Test
     void missingPublicContextIsBackfilledThroughCatalogueBeforeServingLegacyRatings()

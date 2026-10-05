@@ -12,6 +12,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.UUID;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.FlywayException;
 import org.junit.jupiter.api.BeforeAll;
@@ -43,7 +44,7 @@ class CataloguePersistenceIntegrationTest {
         var migrationResult = flyway.migrate();
         flyway.validate();
 
-        assertThat(migrationResult.migrationsExecuted).isEqualTo(28);
+        assertThat(migrationResult.migrationsExecuted).isEqualTo(29);
         assertThat(flyway.migrate().migrationsExecuted).isZero();
     }
 
@@ -61,7 +62,7 @@ class CataloguePersistenceIntegrationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(28);
+                    .isEqualTo(29);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.game_snapshot"))
                     .isEqualTo(12);
             assertThat(singleInt(statement, "SELECT count(*) FROM catalogue.release_snapshot"))
@@ -260,6 +261,81 @@ class CataloguePersistenceIntegrationTest {
                     .isInstanceOf(SQLException.class)
                     .extracting(exception -> ((SQLException) exception).getSQLState())
                     .isEqualTo("42501");
+        }
+    }
+
+    @Test
+    void ratingGenreProjectionKeepsRuntimePrivilegesAndDurableLinkBounds() throws SQLException {
+        UUID game = UUID.randomUUID();
+        try (Connection connection = PostgreSqlTestDatabase.runtimeConnection(DATABASE_NAME);
+                Statement statement = connection.createStatement()) {
+            try (var insert =
+                    connection.prepareStatement(
+                            "INSERT INTO ratings.game_listing(game_id,slug,canonical_title,normalized_title,cover_kind) VALUES (?,?,?,?,?)")) {
+                insert.setObject(1, game);
+                insert.setString(2, "projection-test");
+                insert.setString(3, "Projection test");
+                insert.setString(4, "projection test");
+                insert.setString(5, "unavailable");
+                insert.executeUpdate();
+            }
+            statement.execute(
+                    "INSERT INTO ratings.genre_label VALUES ('projection-test-a','Acción'),('projection-test-b','Rol')");
+            assertThat(
+                            queryGameCount(
+                                    connection,
+                                    "ratings.game_listing",
+                                    game,
+                                    "AND NOT genres_projected"))
+                    .isEqualTo(1);
+            assertThatThrownBy(() -> insertGenreLink(connection, game, "projection-test-a", 51))
+                    .isInstanceOf(SQLException.class)
+                    .extracting(exception -> ((SQLException) exception).getSQLState())
+                    .isEqualTo("23514");
+            insertGenreLink(connection, game, "projection-test-a", 1);
+            assertThatThrownBy(() -> insertGenreLink(connection, game, "projection-test-b", 1))
+                    .isInstanceOf(SQLException.class)
+                    .extracting(exception -> ((SQLException) exception).getSQLState())
+                    .isEqualTo("23505");
+            assertThatThrownBy(() -> insertGenreLink(connection, game, "missing-genre", 2))
+                    .isInstanceOf(SQLException.class)
+                    .extracting(exception -> ((SQLException) exception).getSQLState())
+                    .isEqualTo("23503");
+            deleteGameListing(connection, game);
+            assertThat(queryGameCount(connection, "ratings.game_listing_genre", game, "")).isZero();
+        }
+    }
+
+    private static void insertGenreLink(
+            Connection connection, UUID game, String genre, int position) throws SQLException {
+        try (var insert =
+                connection.prepareStatement(
+                        "INSERT INTO ratings.game_listing_genre(game_id,genre_code,position) VALUES (?,?,?)")) {
+            insert.setObject(1, game);
+            insert.setString(2, genre);
+            insert.setInt(3, position);
+            insert.executeUpdate();
+        }
+    }
+
+    private static void deleteGameListing(Connection connection, UUID game) throws SQLException {
+        try (var delete =
+                connection.prepareStatement("DELETE FROM ratings.game_listing WHERE game_id=?")) {
+            delete.setObject(1, game);
+            delete.executeUpdate();
+        }
+    }
+
+    private static int queryGameCount(Connection connection, String table, UUID game, String suffix)
+            throws SQLException {
+        try (var query =
+                connection.prepareStatement(
+                        "SELECT count(*) FROM " + table + " WHERE game_id=? " + suffix)) {
+            query.setObject(1, game);
+            try (ResultSet result = query.executeQuery()) {
+                result.next();
+                return result.getInt(1);
+            }
         }
     }
 

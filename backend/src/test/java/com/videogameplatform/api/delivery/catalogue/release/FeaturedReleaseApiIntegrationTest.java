@@ -55,8 +55,14 @@ class FeaturedReleaseApiIntegrationTest {
     private com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort
             provider;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.videogameplatform.catalogue.application.localization.port.CatalogueTranslationPort
+            translator;
+
     @org.junit.jupiter.api.AfterEach
     void publicReadsNeverAcquireProviderData() {
+        org.mockito.Mockito.verify(translator, org.mockito.Mockito.never())
+                .translate(org.mockito.ArgumentMatchers.anyString());
         org.mockito.Mockito.verify(provider, org.mockito.Mockito.never())
                 .fetchWorks(org.mockito.ArgumentMatchers.any());
         org.mockito.Mockito.verify(provider, org.mockito.Mockito.never())
@@ -148,6 +154,100 @@ class FeaturedReleaseApiIntegrationTest {
         assertThat(december.path("selection").path("status").stringValue())
                 .isEqualTo("no_qualifying_releases");
         assertThat(december.path("items")).isEmpty();
+    }
+
+    @Test
+    void servesOnlyDiscoveryMetadataWithLocalizedSummaryFallbackAndChangingValidators()
+            throws Exception {
+        var game = java.util.UUID.fromString("30000000-0000-4000-8000-00000000000a");
+        var original =
+                jdbc.queryForMap(
+                        "SELECT summary_kind,summary_text,summary_language,summary_source_kind,summary_source_name,summary_source_entity_type FROM catalogue.game_snapshot WHERE game_id=?",
+                        game);
+        var genreIds =
+                List.of(
+                        java.util.UUID.randomUUID(),
+                        java.util.UUID.randomUUID(),
+                        java.util.UUID.randomUUID());
+        try {
+            for (int i = 0; i < genreIds.size(); i++) {
+                jdbc.update(
+                        "INSERT INTO catalogue.genre(genre_id,code,display_name) VALUES(?,?,?)",
+                        genreIds.get(i),
+                        "featured-test-" + i,
+                        List.of("Rol (RPG)", "Aventura", "Estrategia").get(i));
+                jdbc.update(
+                        "INSERT INTO catalogue.game_genre(game_id,genre_id) VALUES(?,?)",
+                        game,
+                        genreIds.get(i));
+            }
+            jdbc.update(
+                    "UPDATE catalogue.game_snapshot SET summary_kind='sourced',summary_text='Featured original source.',summary_language='en',summary_source_kind='external_provider',summary_source_name='IGDB',summary_source_entity_type='game_summary' WHERE game_id=?",
+                    game);
+            var fallback = get("/api/v1/featured-releases?month=2026-10");
+            OPENAPI.assertJsonResponse(fallback, 200, "FeaturedReleases");
+            var first = json(fallback).path("items").get(0);
+            assertThat(ids(first.path("genres"), "name")).containsExactly("Aventura", "Estrategia");
+            assertThat(first.path("summary").path("text").asString())
+                    .isEqualTo("Featured original source.");
+            assertThat(first.path("summary").path("language").asString()).isEqualTo("en");
+            assertThat(first.path("summary").has("translation")).isFalse();
+            assertThat(
+                            first.has("developers")
+                                    || first.has("publishers")
+                                    || first.has("gameModes")
+                                    || first.has("shortSummary"))
+                    .isFalse();
+            jdbc.update(
+                    "INSERT INTO catalogue.content_translation(fingerprint,source_text,translated_text,runtime_revision,translated_at) VALUES(catalogue.spanish_source_fingerprint('Featured original source.'),'Featured original source.','Resumen destacado en español.','fixture-v1',clock_timestamp()) ON CONFLICT DO NOTHING");
+            jdbc.update(
+                    "INSERT INTO catalogue.game_summary_translation(game_id,fingerprint) VALUES(?,catalogue.spanish_source_fingerprint('Featured original source.'))",
+                    game);
+            var translated =
+                    get(
+                            "/api/v1/featured-releases?month=2026-10",
+                            "If-None-Match",
+                            fallback.headers().firstValue("ETag").orElseThrow());
+            OPENAPI.assertJsonResponse(translated, 200, "FeaturedReleases");
+            var summary = json(translated).path("items").get(0).path("summary");
+            assertThat(summary.path("text").asString()).isEqualTo("Resumen destacado en español.");
+            assertThat(summary.path("language").asString()).isEqualTo("es");
+            assertThat(summary.path("provenance").path("sourceName").asString()).isEqualTo("IGDB");
+            assertThat(summary.path("translation").path("current").asBoolean()).isTrue();
+            jdbc.update(
+                    "UPDATE catalogue.game_snapshot SET summary_text='Changed featured source.' WHERE game_id=?",
+                    game);
+            var stale = get("/api/v1/featured-releases?month=2026-10");
+            OPENAPI.assertJsonResponse(stale, 200, "FeaturedReleases");
+            var oldSummary = json(stale).path("items").get(0).path("summary");
+            assertThat(oldSummary.path("text").asString())
+                    .isEqualTo("Resumen destacado en español.");
+            assertThat(oldSummary.path("translation").path("current").asBoolean()).isFalse();
+            assertThat(stale.headers().firstValue("ETag"))
+                    .isNotEqualTo(translated.headers().firstValue("ETag"));
+            assertThat(stale.body())
+                    .doesNotContain("OPUS", "CTranslate", "runtime_revision", "fingerprint");
+        } finally {
+            jdbc.update("DELETE FROM catalogue.game_summary_translation WHERE game_id=?", game);
+            jdbc.update(
+                    "DELETE FROM catalogue.content_translation WHERE fingerprint=catalogue.spanish_source_fingerprint('Featured original source.')");
+            for (var genre : genreIds) {
+                jdbc.update(
+                        "DELETE FROM catalogue.game_genre WHERE game_id=? AND genre_id=?",
+                        game,
+                        genre);
+                jdbc.update("DELETE FROM catalogue.genre WHERE genre_id=?", genre);
+            }
+            jdbc.update(
+                    "UPDATE catalogue.game_snapshot SET summary_kind=?,summary_text=?,summary_language=?,summary_source_kind=?,summary_source_name=?,summary_source_entity_type=? WHERE game_id=?",
+                    original.get("summary_kind"),
+                    original.get("summary_text"),
+                    original.get("summary_language"),
+                    original.get("summary_source_kind"),
+                    original.get("summary_source_name"),
+                    original.get("summary_source_entity_type"),
+                    game);
+        }
     }
 
     @Test

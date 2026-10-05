@@ -60,6 +60,13 @@ function page(items: GameSummary[], totalItems = items.length) {
 }
 
 describe("typeahead eligibility", () => {
+  it("keeps additional metadata out of autocomplete presentation and accessible names", () => {
+    const suggestion = toGameSuggestions(page([game({ genres: [{ genreId: "adventure", name: "Hidden genre" }] })])).suggestions[0];
+    if (!suggestion) throw new Error("Expected one suggestion");
+    expect(suggestion).not.toHaveProperty("genres");
+    expect(suggestion).not.toHaveProperty("summary");
+    expect(suggestionAccessibleName(suggestion)).not.toContain("Hidden genre");
+  });
   it("counts Unicode code points, not UTF-16 units", () => {
     expect(isSuggestionTerm("a")).toBe(false);
     expect(isSuggestionTerm("🎮")).toBe(false);

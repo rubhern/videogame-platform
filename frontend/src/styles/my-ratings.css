@@ -192,10 +192,7 @@
     min-width: 0;
   }
 
-  .my-rating-score,
-  .skeleton.my-rating-skeleton-score {
-    grid-area: score;
-  }
+  .skeleton.my-rating-skeleton-score { grid-area: score; }
 
   .my-rating-score {
     min-width: 0;
@@ -225,47 +222,53 @@
   }
 
   .my-rating-dates {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px 24px;
     margin: 10px 0 0;
     color: var(--color-muted);
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
   }
-
-  .my-rating-dates dt {
-    margin-bottom: 2px;
-    color: var(--color-muted);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+  .my-rating-dates span { display: inline-block; }
+  .my-rating-body .card-genres { margin-top: 6px; }
+  .my-rating-body .card-title a::after { content: none; }
+  .my-rating-body .card-title a:focus-visible {
+    outline: 2px solid var(--color-accent-hover);
+    outline-offset: 4px;
+    border-radius: 4px;
   }
-
-  .my-rating-dates dd {
-    margin: 0;
-    color: var(--color-ink);
+  .my-rating-comparison {
+    grid-area: score;
+    display: grid;
+    min-width: 0;
+    gap: 14px;
+    align-items: start;
   }
-
-  .card-action {
-    display: inline-flex;
-    min-height: 32px;
+  .my-rating-community {
+    display: grid;
+    grid-template-areas: "meter label" "meter value" "meter count";
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    gap: 6px;
-    align-self: start;
-    color: var(--color-accent-hover);
-    font-size: 0.8125rem;
-    font-weight: 650;
-    text-decoration: none;
+    gap: 2px 10px;
+    padding: 8px;
   }
-
-  .card-action:hover {
-    color: #fff;
+  .my-rating-community .my-rating-meter { align-self: center; }
+  .my-rating-community .my-rating-label { margin: 0; }
+  .my-rating-community b { color: var(--thermal); font-weight: 500; }
+  .my-rating-community b::before { content: "· "; color: var(--color-muted); }
+  .my-rating-community strong {
+    grid-area: value;
+    font-family: var(--font-display);
+    font-size: 1.875rem;
+    font-weight: 850;
+    line-height: 1;
   }
-
-  .my-rating-body .card-action {
-    margin-top: 10px;
+  .my-rating-community-count, .my-rating-community-empty {
+    grid-area: count;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.5;
   }
+  .my-rating-community-empty { grid-area: value; }
 
   /* The personal score is the reason this row exists: a Gameómetro reading in the language of
      the game page — the G-meter, the number and its temperature — lit by its own band, so a
@@ -616,8 +619,8 @@
     }
 
     .my-rating-card {
-      grid-template-areas: "cover body score";
-      grid-template-columns: 104px minmax(0, 1fr) auto;
+      grid-template-areas: "cover body" "score score";
+      grid-template-columns: 104px minmax(0, 1fr);
       gap: 14px 22px;
       padding: 16px;
     }
@@ -627,14 +630,14 @@
       justify-self: end;
     }
 
-    .my-rating-value {
-      justify-items: end;
-      min-width: 18rem;
-    }
+    .my-rating-comparison { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .my-rating-score { justify-self: stretch; }
+    .my-rating-value { width: 100%; }
 
     .my-rating-editor {
       top: 100%;
-      left: auto;
+      right: auto;
+      left: 0;
       width: min(26rem, calc(100vw - 48px));
     }
   }
@@ -661,6 +664,8 @@
       align-self: start;
     }
 
+    .my-rating-comparison { grid-template-columns: minmax(210px, 1fr) minmax(200px, 1fr); }
+
     .my-rating-body .card-title {
       font-size: 1.5rem;
     }
@@ -682,7 +687,9 @@
 
     .my-rating-value strong,
     .my-rating-value b,
-    .my-rating-editor-reading b {
+    .my-rating-editor-reading b,
+    .my-rating-community :is(strong, b, p),
+    .my-rating-body :is(.card-genres, .my-rating-dates) {
       color: CanvasText;
     }
 

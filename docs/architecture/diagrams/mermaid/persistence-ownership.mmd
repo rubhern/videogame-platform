@@ -39,6 +39,8 @@ erDiagram
     rating["ratings.rating"]
     game_listing["ratings.game_listing"]
     game_listing_alias["ratings.game_listing_alias"]
+    rating_genre_label["ratings.genre_label"]
+    game_listing_genre["ratings.game_listing_genre"]
 
     publication ||--o{ game_snapshot : "singleton revision for cache validators"
     game ||--o| game_snapshot : "current state"
@@ -66,5 +68,7 @@ erDiagram
 
     game ||--o{ rating : "rated by users (FK only, never read across modules)"
     game_listing ||--o{ game_listing_alias : "searchable as"
+    game_listing ||--o{ game_listing_genre : "bounded genre projection"
+    rating_genre_label ||--o{ game_listing_genre : "localized through application events"
     game_listing }o..o| game : "rebuildable projection via application contract"
     rating }o..o| game_listing : "listed in Mis puntuaciones"

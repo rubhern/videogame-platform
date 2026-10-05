@@ -1,10 +1,18 @@
 package com.videogameplatform.api.delivery.ratings;
 
 import com.videogameplatform.api.generated.model.AvailableRatingStatistics;
+import com.videogameplatform.api.generated.model.AvailableRatingSummary;
+import com.videogameplatform.api.generated.model.Genre;
 import com.videogameplatform.api.generated.model.PersonalRating;
+import com.videogameplatform.api.generated.model.PersonalRatingItem;
+import com.videogameplatform.api.generated.model.RatedGame;
 import com.videogameplatform.api.generated.model.RatingDistribution;
+import com.videogameplatform.api.generated.model.RatingSummary;
+import com.videogameplatform.api.generated.model.UnavailableRatingStatistics;
 import com.videogameplatform.ratings.application.RatingStatistics;
 import java.time.ZoneOffset;
+import java.util.LinkedHashSet;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
 /** Maps provider-independent rating results to the generated HTTP transport. */
@@ -21,16 +29,40 @@ final class RatingApiMapper {
         return new com.videogameplatform.api.generated.model.PersonalRatingPage(
                 page.items().stream()
                         .map(
-                                item ->
-                                        new com.videogameplatform.api.generated.model
-                                                .PersonalRatingItem(
-                                                new com.videogameplatform.api.generated.model
-                                                        .RatedGame(
-                                                        item.gameId(),
-                                                        item.slug(),
-                                                        item.canonicalTitle(),
-                                                        covers.toResponse(item.cover())),
-                                                toResponse(item.rating())))
+                                item -> {
+                                    var game =
+                                            new RatedGame(
+                                                    item.gameId(),
+                                                    item.slug(),
+                                                    item.canonicalTitle(),
+                                                    covers.toResponse(item.cover()));
+                                    game.setGenres(
+                                            item.genres().stream()
+                                                    .map(
+                                                            term ->
+                                                                    new Genre(
+                                                                            term.code(),
+                                                                            term.name()))
+                                                    .collect(
+                                                            Collectors.toCollection(
+                                                                    LinkedHashSet::new)));
+                                    var result =
+                                            new PersonalRatingItem(game, toResponse(item.rating()));
+                                    result.setRatingSummary(
+                                            item.ratingSummary()
+                                                    .<RatingSummary>map(
+                                                            summary ->
+                                                                    new AvailableRatingSummary(
+                                                                            "available",
+                                                                            summary.mean(),
+                                                                            summary.count()))
+                                                    .orElseGet(
+                                                            () ->
+                                                                    new UnavailableRatingStatistics(
+                                                                            "unavailable",
+                                                                            "RATING_STATISTICS_READ_FAILED")));
+                                    return result;
+                                })
                         .toList(),
                 new com.videogameplatform.api.generated.model.PageMetadata(
                         page.page(), page.pageSize(), page.totalItems(), page.totalPages()));

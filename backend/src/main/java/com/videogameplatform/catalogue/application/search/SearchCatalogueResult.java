@@ -4,6 +4,7 @@ import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
+import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import java.util.List;
 
 /**
@@ -26,7 +27,8 @@ public record SearchCatalogueResult(
             String matchedAlias,
             CatalogueCover primaryCover,
             List<ReleaseContext> releaseContext,
-            ReleaseSummary releaseSummary) {}
+            ReleaseSummary releaseSummary,
+            List<GameDetailsResult.Term> genres) {}
 
     /** Concise, explicitly bounded release context; never the game's complete release set. */
     public record ReleaseContext(

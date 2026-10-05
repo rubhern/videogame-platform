@@ -77,6 +77,11 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
                 .extracting(Item::canonicalTitle)
                 .containsExactly("Alpha", "Delta", "Bravo", "Charlie", "Lima", "Mike");
         assertThat(result.qualifyingReleases()).isTrue();
+        assertThat(result.items().getFirst().summary()).isPresent();
+        assertThat(result.items().stream().skip(1))
+                .allSatisfy(item -> assertThat(item.summary()).isEmpty());
+        assertThat(result.items())
+                .allSatisfy(item -> assertThat(item.genres()).hasSizeLessThanOrEqualTo(2));
         assertThat(result.items())
                 .allSatisfy(item -> assertThat(item.popularityObservedAt()).isEqualTo(OBSERVED));
     }

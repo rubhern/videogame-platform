@@ -75,6 +75,7 @@ class GameDetailMetadataSynchronizationIntegrationTest {
     private static final ProviderTerm MULTI = new ProviderTerm("2", "Multiplayer", "multiplayer");
     private static final ProviderTerm COOP = new ProviderTerm("3", "Co-operative", "co-operative");
 
+    private final List<GameDetailsResult.Term> changedGenreLabels = new java.util.ArrayList<>();
     private JdbcTemplate jdbc;
     private JdbcCatalogueSynchronizationStore store;
     private JdbcGameDetailsReadAdapter reads;
@@ -110,11 +111,16 @@ class GameDetailMetadataSynchronizationIntegrationTest {
         var tx = new TransactionTemplate(new JdbcTransactionManager(ds));
         store =
                 new JdbcCatalogueSynchronizationStore(
-                        new NamedParameterJdbcTemplate(jdbc), tx, "IGDB", gameId -> {});
+                        new NamedParameterJdbcTemplate(jdbc),
+                        tx,
+                        "IGDB",
+                        gameId -> {},
+                        changedGenreLabels::add);
         reads = new JdbcGameDetailsReadAdapter(new NamedParameterJdbcTemplate(jdbc), tx);
         localizationStore =
                 new com.videogameplatform.catalogue.adapter.persistence.localization
-                        .JdbcLocalizationStore(new NamedParameterJdbcTemplate(jdbc), tx);
+                        .JdbcLocalizationStore(
+                        new NamedParameterJdbcTemplate(jdbc), tx, changedGenreLabels::add);
         localization =
                 new com.videogameplatform.catalogue.application.localization.internal
                         .CatalogueLocalizationService(
@@ -478,6 +484,9 @@ class GameDetailMetadataSynchronizationIntegrationTest {
         assertThat(reads.find(gameId("100")).orElseThrow().genres())
                 .extracting(GameDetailsResult.Term::name)
                 .containsExactly("Aventura", "Rol (RPG)");
+        assertThat(changedGenreLabels)
+                .extracting(GameDetailsResult.Term::name)
+                .contains("Aventura", "Rol (RPG)");
         assertThat(reads.find(gameId("100")).orElseThrow().gameModes())
                 .extracting(GameDetailsResult.Term::name)
                 .containsExactly("Cooperativo", "Un jugador");
@@ -531,6 +540,9 @@ class GameDetailMetadataSynchronizationIntegrationTest {
                                 List.of(new ProviderTerm("999", "Unknown genre", "unknown")),
                                 List.of())));
         synchronize(0);
+        assertThat(changedGenreLabels)
+                .extracting(GameDetailsResult.Term::name)
+                .contains("Unknown genre", "ES Unknown genre");
         UUID genre = termId("genre", "999");
         assertThat(inferenceCalls).isEqualTo(1);
         assertThat(

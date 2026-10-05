@@ -59,7 +59,10 @@ The [story map](mvp-story-map.md) owns the detailed release cut. The MVP include
 - one active integer rating from 1 to 10 per user and released game, with create,
   edit, and delete;
 - separately labelled personal and aggregate ratings; aggregate arithmetic mean to
-  one decimal, count, and distribution, with Spanish decimal comma and no `/10`;
+  one decimal, count, and distribution, with Spanish decimal comma; personal and
+  aggregate readings consistently retain the `/10` scale and existing score-temperature
+  labels (owner presentation decision, #234). The temperature presents the score; it
+  never changes its meaning. Compact rating collections need only mean and count;
 - `Mis puntuaciones` with search, sort, direct edit, and delete;
 - accessibility, security, testing, journey signals, and operability needed by the
   slice.

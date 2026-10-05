@@ -98,7 +98,7 @@ final class ReleaseGroupPageMapper {
         }
 
         private Item toItem() {
-            return new Item(gameId, slug, canonicalTitle, cover, List.copyOf(releases));
+            return new Item(gameId, slug, canonicalTitle, cover, List.copyOf(releases), List.of());
         }
     }
 }

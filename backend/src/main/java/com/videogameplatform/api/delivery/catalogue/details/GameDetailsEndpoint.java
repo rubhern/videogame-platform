@@ -2,19 +2,16 @@ package com.videogameplatform.api.delivery.catalogue.details;
 
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
 import com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper;
+import com.videogameplatform.api.delivery.catalogue.CatalogueSummaryMapper;
 import com.videogameplatform.api.delivery.catalogue.release.ReleaseApiMapper;
 import com.videogameplatform.api.generated.model.AvailableRatingStatistics;
 import com.videogameplatform.api.generated.model.Company;
-import com.videogameplatform.api.generated.model.EditorialSummary;
 import com.videogameplatform.api.generated.model.GameDetails;
 import com.videogameplatform.api.generated.model.GameMode;
-import com.videogameplatform.api.generated.model.GameSummaryText;
 import com.videogameplatform.api.generated.model.Genre;
-import com.videogameplatform.api.generated.model.Provenance;
 import com.videogameplatform.api.generated.model.RatingDistribution;
 import com.videogameplatform.api.generated.model.RatingEligibility;
 import com.videogameplatform.api.generated.model.RatingStatistics;
-import com.videogameplatform.api.generated.model.SourcedSummary;
 import com.videogameplatform.api.generated.model.UnavailableRatingStatistics;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.details.GetGameDetailsUseCase;
@@ -73,7 +70,7 @@ public final class GameDetailsEndpoint {
                         game.slug(),
                         game.canonicalTitle(),
                         new LinkedHashSet<>(game.aliases()),
-                        summary(game.summary()),
+                        CatalogueSummaryMapper.toResponse(game.summary()),
                         companies(game.developers()),
                         companies(game.publishers()),
                         ordered(game.genres(), term -> new Genre(term.code(), term.name())),
@@ -101,32 +98,6 @@ public final class GameDetailsEndpoint {
     /** Keeps the application order; the contract's unique arrays are ordered sets here. */
     private static <S, T> Set<T> ordered(List<S> values, Function<S, T> mapping) {
         return values.stream().map(mapping).collect(Collectors.toCollection(LinkedHashSet::new));
-    }
-
-    private static GameSummaryText summary(GameDetailsResult.Summary summary) {
-        if ("editorial".equals(summary.kind())) {
-            return new EditorialSummary("editorial", summary.text(), summary.language());
-        }
-        var source = summary.provenance();
-        var result =
-                new SourcedSummary(
-                        "sourced",
-                        summary.text(),
-                        summary.language(),
-                        new Provenance(
-                                Provenance.SourceKindEnum.valueOf(source.sourceKind().name()),
-                                source.sourceName(),
-                                source.sourceEntityType()));
-        if (summary.translation() != null) {
-            var translation = summary.translation();
-            result.setTranslation(
-                    new com.videogameplatform.api.generated.model.SummaryTranslation(
-                            "machine_translation",
-                            translation.sourceText(),
-                            translation.sourceLanguage(),
-                            translation.current()));
-        }
-        return result;
     }
 
     private static RatingStatistics statistics(

@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.6.0
+  version: 3.7.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -308,7 +308,9 @@ paths:
         platform before anything reaches the application. Each item also carries the landscape
         context-selected image and optional decorative secondary-card logo,
         chosen from locally stored provider media metadata and delivered as approved direct CDN
-        references (ADR-0001). No provider is called.
+        references (ADR-0001). Up to two product-owned localized genres accompany each item;
+        only the first item carries the existing localized summary representation. All content
+        is served from PostgreSQL; no provider or translator is called.
       security: []
       parameters:
         - $ref: '#/components/parameters/FeaturedMonth'
@@ -343,6 +345,19 @@ paths:
                       - gameId: game_featured_example
                         slug: juego-destacado-de-ejemplo
                         canonicalTitle: Juego destacado de ejemplo
+                        genres:
+                          - { genreId: adventure, name: Aventura }
+                          - { genreId: role-playing, name: Rol (RPG) }
+                        summary:
+                          kind: sourced
+                          text: Explora un mundo abierto y descubre sus historias.
+                          language: es
+                          provenance: { sourceKind: external_provider, sourceName: IGDB, sourceEntityType: game }
+                          translation:
+                            kind: machine_translation
+                            sourceText: Explore an open world and discover its stories.
+                            sourceLanguage: en
+                            current: true
                         primaryCover:
                           kind: provider
                           url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp
@@ -1634,6 +1649,12 @@ components:
         slug: { type: string, minLength: 1, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         canonicalTitle: { type: string, minLength: 1 }
         matchedAlias: { type: string, minLength: 1 }
+        genres:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: Up to two existing localized product genres, ordered by case-insensitive name then genreId. Suggestions may omit their presentation.
         primaryCover: { $ref: '#/components/schemas/Cover' }
         releaseContext:
           type: array
@@ -1651,6 +1672,12 @@ components:
         slug: { type: string, minLength: 1 }
         canonicalTitle: { type: string, minLength: 1 }
         primaryCover: { $ref: '#/components/schemas/Cover' }
+        genres:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: Up to two existing localized product genres, ordered by case-insensitive name then genreId.
         releases:
           type: array
           minItems: 1
@@ -1766,6 +1793,20 @@ components:
         primaryCover: { $ref: '#/components/schemas/Cover' }
         featuredImage: { $ref: '#/components/schemas/FeaturedImage' }
         logo: { $ref: '#/components/schemas/FeaturedLogo' }
+        genres:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          description: |
+            Up to two known genres, ordered by case-insensitive product name, then genreId.
+            Names reuse the localized catalogue representation; empty when none is known.
+          items: { $ref: '#/components/schemas/Genre' }
+        summary:
+          $ref: '#/components/schemas/GameSummaryText'
+          description: |
+            The first ranked item's existing catalogue summary, with the same localization,
+            fallback and provenance semantics as GameDetails.summary. Omitted on other items.
+            Presentation truncation belongs to the UI; the persisted text is never shortened.
         releases:
           type: array
           minItems: 1
@@ -2013,12 +2054,37 @@ components:
         slug: { type: string, minLength: 1 }
         canonicalTitle: { type: string, minLength: 1 }
         primaryCover: { $ref: '#/components/schemas/Cover' }
+        genres:
+          type: array
+          maxItems: 2
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Genre' }
+          description: Up to two existing localized product genres, ordered by case-insensitive name then genreId; no release-specific context.
+    AvailableRatingSummary:
+      type: object
+      required: [status, mean, count]
+      properties:
+        status: { type: string, pattern: '^available$' }
+        mean:
+          oneOf:
+            - { type: number, minimum: 1, maximum: 10, multipleOf: 0.1 }
+            - { type: 'null' }
+        count: { type: integer, minimum: 0 }
+      unevaluatedProperties: false
+      description: Community mean rounded half up to one decimal, null exactly when count is zero. No distribution is needed by the personal collection.
+    RatingSummary:
+      oneOf:
+        - $ref: '#/components/schemas/AvailableRatingSummary'
+        - $ref: '#/components/schemas/UnavailableRatingStatistics'
     PersonalRatingItem:
       type: object
       required: [game, personalRating]
       properties:
         game: { $ref: '#/components/schemas/RatedGame' }
         personalRating: { $ref: '#/components/schemas/PersonalRating' }
+        ratingSummary:
+          $ref: '#/components/schemas/RatingSummary'
+          description: Community context for this game, returned with the user-scoped page without per-game browser requests. An isolated aggregate failure preserves the personal collection with explicit unavailable statistics.
     PersonalRatingPage:
       type: object
       required: [items, page]

@@ -2,6 +2,7 @@ package com.videogameplatform.catalogue.application.releases;
 
 import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
+import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -33,11 +34,15 @@ public record FeaturedReleasesResult(
      * and the optional title logo featured discovery presents.
      */
     public record Item(
-            BrowseReleasesResult.Item release, FeaturedImage image, Optional<FeaturedLogo> logo) {
+            BrowseReleasesResult.Item release,
+            FeaturedImage image,
+            Optional<FeaturedLogo> logo,
+            Optional<GameDetailsResult.Summary> summary) {
         public Item {
             java.util.Objects.requireNonNull(release, "release");
             java.util.Objects.requireNonNull(image, "image");
             logo = java.util.Objects.requireNonNull(logo, "logo");
+            summary = java.util.Objects.requireNonNull(summary, "summary");
         }
     }
 

@@ -134,7 +134,8 @@ final class GameSearchPageMapper {
                     matchedAlias,
                     cover,
                     List.copyOf(releaseContext),
-                    releaseSummary);
+                    releaseSummary,
+                    List.of());
         }
     }
 }

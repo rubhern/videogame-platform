@@ -126,7 +126,8 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                                                         evaluatedAt,
                                                         evaluatedOn,
                                                         freshnessPolicy))
-                                .toList());
+                                .toList(),
+                        item.genres());
         return new FeaturedReleasesResult.Item(
                 release,
                 (hero ? item.image() : item.cardImage())
@@ -149,7 +150,8 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                                                 : coverImage(
                                                         release.primaryCover(),
                                                         item.canonicalTitle())),
-                item.logo().map(logo -> logo(logo, item.canonicalTitle())));
+                item.logo().map(logo -> logo(logo, item.canonicalTitle())),
+                hero ? item.summary() : java.util.Optional.empty());
     }
 
     /**

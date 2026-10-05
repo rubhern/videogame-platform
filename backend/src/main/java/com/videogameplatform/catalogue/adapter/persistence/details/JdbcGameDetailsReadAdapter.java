@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.adapter.persistence.details;
 
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueCoverReferenceRowMapper;
+import com.videogameplatform.catalogue.adapter.persistence.CatalogueSummaryRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
 import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
@@ -9,7 +10,6 @@ import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
-import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
@@ -90,7 +90,7 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                                         rs.getString("slug"),
                                         rs.getString("canonical_title"),
                                         List.of(),
-                                        summary(rs),
+                                        CatalogueSummaryRowMapper.map(rs),
                                         List.of(),
                                         List.of(),
                                         List.of(),
@@ -211,29 +211,6 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                 (rs, row) ->
                         new GameDetailsResult.Term(
                                 rs.getString("code"), rs.getString("display_name")));
-    }
-
-    private static GameDetailsResult.Summary summary(ResultSet rs) throws SQLException {
-        String source = rs.getString("summary_source_kind");
-        return new GameDetailsResult.Summary(
-                rs.getString("summary_kind"),
-                rs.getString("translated_text") == null
-                        ? rs.getString("summary_text")
-                        : rs.getString("translated_text"),
-                rs.getString("translated_text") == null ? rs.getString("summary_language") : "es",
-                source == null
-                        ? null
-                        : new BrowseReleasesResult.Provenance(
-                                BrowseReleasesResult.Source.valueOf(
-                                        source.toUpperCase(Locale.ROOT)),
-                                rs.getString("summary_source_name"),
-                                rs.getString("summary_source_entity_type")),
-                rs.getString("translated_text") == null
-                        ? null
-                        : new GameDetailsResult.Translation(
-                                rs.getString("summary_text"),
-                                rs.getString("summary_language"),
-                                rs.getBoolean("translation_current")));
     }
 
     private static ReleaseBrowseReadPort.ReleaseRow release(ResultSet rs, int row)

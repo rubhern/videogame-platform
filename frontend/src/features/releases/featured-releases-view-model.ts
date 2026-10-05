@@ -1,5 +1,5 @@
 import { formatReleaseDateShort } from "../../shared/catalogue/release-date";
-import { releaseStages, releaseStatuses } from "../../shared/catalogue/release-labels";
+import { releaseStatuses } from "../../shared/catalogue/release-labels";
 import type { FeaturedReleasesResponse } from "./featured-releases-api";
 import { shiftMonth } from "./featured-search";
 import { toReleaseListItem, type ReleaseListItem } from "./releases-view-model";
@@ -64,7 +64,8 @@ export type FeaturedWordmark = {
  * provider cover only as the last resort when nothing else loads.
  */
 export type FeaturedLead = FeaturedItem & {
-  /** Lifecycle and, when known, stage of the presented release, in the product vocabulary. */
+  summary: NonNullable<FeaturedResponseItem["summary"]> | null;
+  /** Only exceptional lifecycle, date uncertainty and review notices. */
   facts: string[];
   wordmark: FeaturedWordmark;
   /** What the hero's light and title sheen sample: its landscape image, else its cover. */
@@ -134,9 +135,13 @@ function facts(release: FeaturedRelease | undefined): string[] {
   if (release === undefined) {
     return [];
   }
-  return release.stage === "unknown"
-    ? [releaseStatuses[release.status]]
-    : [releaseStatuses[release.status], releaseStages[release.stage]];
+  const notices: string[] = [];
+  if (release.status === "delayed" || release.status === "cancelled") {
+    notices.push(releaseStatuses[release.status]);
+  }
+  if (release.releaseDate.precision === "unknown") notices.push("Fecha por confirmar");
+  if (release.reviewStatus === "required") notices.push("Fecha pendiente de revisión");
+  return notices;
 }
 
 function fallbackArt(title: string): FeaturedArt {
@@ -233,6 +238,7 @@ function toFeaturedLead(item: FeaturedResponseItem): FeaturedLead {
     ...toFeaturedItem(item),
     art: [...landscape, fallbackArt(item.canonicalTitle), ...lastResort],
     facts: facts(item.releases[0]),
+    summary: item.summary ?? null,
     wordmark: toWordmark(item.canonicalTitle),
     lightUrl: landscape[0]?.compactUrl ?? lastResort[0]?.url ?? FEATURED_FALLBACK_URL,
   };

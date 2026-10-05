@@ -62,6 +62,14 @@ class PersonalRatingsScalabilityIT {
                     now() - (n % 100) * interval '1 minute'
                 FROM generate_series(1,20000) n
                 """);
+        jdbc.execute(
+                "INSERT INTO ratings.genre_label(genre_code,display_name) VALUES ('action','Acción'),('adventure','Aventura'),('rpg','Rol')");
+        jdbc.execute(
+                "INSERT INTO ratings.game_listing_genre(game_id,genre_code,position) SELECT game_id,genre_code,row_number() OVER (PARTITION BY game_id ORDER BY genre_code) FROM ratings.game_listing CROSS JOIN ratings.genre_label");
+        jdbc.execute(
+                "INSERT INTO ratings.rating(user_id,game_id,value) SELECT md5('community-user-'||n)::uuid,game_id,8 FROM ratings.game_listing CROSS JOIN generate_series(1,2) n");
+        jdbc.execute("ANALYZE ratings.game_listing_genre");
+        jdbc.execute("ANALYZE ratings.genre_label");
         jdbc.execute("ANALYZE ratings.rating");
         jdbc.execute("ANALYZE ratings.game_listing");
         jdbc.execute("ANALYZE ratings.game_listing_alias");
@@ -72,7 +80,7 @@ class PersonalRatingsScalabilityIT {
         var adapter = new JdbcPersonalRatingsReadAdapter(named, tx);
         var evidence =
                 new StringBuilder(
-                        "20,000 games; 1,000 owner ratings; 19,000 other-user ratings; 2,000 aliases.\n");
+                        "20,000 games; 1,000 owner ratings; 59,000 other-user ratings; 2,000 aliases; 60,000 projected genre links.\n");
         for (var sort : PersonalRatingsReadPort.Sort.values()) {
             for (var tokens : List.of(List.<String>of(), List.of("alias"))) {
                 var criteria = new PersonalRatingsReadPort.Criteria(tokens, sort, true, 2, 20);
@@ -91,6 +99,54 @@ class PersonalRatingsScalabilityIT {
                             .forEach(line -> evidence.append(line).append("\n"));
                 }
             }
+        }
+        var page =
+                adapter.read(
+                        owner,
+                        new PersonalRatingsReadPort.Criteria(
+                                List.of(), PersonalRatingsReadPort.Sort.UPDATED, true, 1, 20));
+        assertThat(page.items())
+                .allSatisfy(
+                        item -> {
+                            assertThat(item.genres()).hasSize(2);
+                            assertThat(item.ratingSummary().orElseThrow().count()).isEqualTo(3);
+                        });
+        var ids =
+                page.items().stream()
+                        .map(item -> java.util.UUID.fromString(item.gameId()))
+                        .toList();
+        for (var entry :
+                java.util.Map.of(
+                                "genres",
+                                PersonalRatingsSql.GENRES,
+                                "community",
+                                PersonalRatingsSql.SUMMARIES)
+                        .entrySet()) {
+            java.util.Map<String, Object> parameters =
+                    entry.getKey().equals("genres")
+                            ? java.util.Map.of("gameIds", ids)
+                            : java.util.Map.of(
+                                    "gameIds",
+                                    "{"
+                                            + ids.stream()
+                                                    .map(Object::toString)
+                                                    .collect(
+                                                            java.util.stream.Collectors.joining(
+                                                                    ","))
+                                            + "}");
+            var plan =
+                    named.queryForList(
+                            "EXPLAIN (ANALYZE,BUFFERS) " + entry.getValue(),
+                            parameters,
+                            String.class);
+            evidence.append("\n").append(entry.getKey()).append("\n");
+            plan.forEach(line -> evidence.append(line).append("\n"));
+            assertThat(plan)
+                    .noneMatch(
+                            line ->
+                                    line.contains("Seq Scan on rating ")
+                                            || line.contains("Seq Scan on game_listing ")
+                                            || line.contains("Seq Scan on game_listing_genre "));
         }
         Files.createDirectories(Path.of("target"));
         Files.writeString(Path.of("target/personal-ratings-query-plans.txt"), evidence);
