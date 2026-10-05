@@ -1,7 +1,9 @@
 package com.videogameplatform.catalogue.adapter.operator;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
+import com.videogameplatform.catalogue.adapter.observability.SynchronizationTrigger;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -63,8 +65,15 @@ public final class CatalogueSynchronizationEndpoint {
                             "from and to must be ISO dates and from must not be after to"),
                     400);
         }
-        var report = synchronizeCatalogue.synchronize(request);
-        metrics.recordRun(report);
-        return report;
+        long startedNanos = System.nanoTime();
+        SynchronizationOutcome outcome = SynchronizationOutcome.FAILED;
+        try {
+            var report = synchronizeCatalogue.synchronize(request);
+            outcome = report.outcome();
+            metrics.recordRun(report);
+            return report;
+        } finally {
+            metrics.recordTrigger(SynchronizationTrigger.MANUAL, outcome, startedNanos);
+        }
     }
 }

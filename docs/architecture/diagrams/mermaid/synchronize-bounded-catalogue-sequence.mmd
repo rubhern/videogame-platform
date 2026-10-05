@@ -2,6 +2,7 @@ sequenceDiagram
     autonumber
 
     actor Operator
+    participant Scheduler as Spring scheduled inbound adapter (opt-in)
     participant Sync as Catalogue synchronization
     participant Adapter as IGDB adapter / ACL
     participant IGDB as IGDB API
@@ -10,8 +11,14 @@ sequenceDiagram
     participant Helper as Private OPUS-MT helper (optional)
     participant Telemetry
 
-    Operator->>Sync: POST(from, to)
-    Sync->>DB: Start synchronization_run(from, to)
+    alt Recurring acquisition
+        Scheduler->>Scheduler: Derive moving window from trusted application clock/zone
+        Scheduler->>Sync: synchronize(from, to), same UC-009
+    else Exceptional manual operation
+        Operator->>Sync: POST(from, to)
+    end
+    Sync->>DB: Acquire synchronization_run(from, to), one active provider
+    Note over Sync,DB: Busy run skips without provider work; only acquired ownership enters the loop
 
     loop Pages until the inclusive interval is exhausted
         Sync->>Adapter: Release Games from..to after Game ID
@@ -45,6 +52,11 @@ sequenceDiagram
 
     Sync->>DB: Complete synchronization_run with counters and outcome
     Sync->>Telemetry: Record bounded-label run and provider metrics
-    Sync-->>Operator: Complete report for from..to
+    alt Scheduled caller
+        Sync-->>Scheduler: Complete report for from..to
+        Scheduler->>Telemetry: Bounded trigger/policy/outcome and monotonic duration
+    else Manual caller
+        Sync-->>Operator: Complete report for from..to
+    end
 
     Note over Operator,Telemetry: No synchronization mode or candidate queue. IGDB and inference never serve a public request

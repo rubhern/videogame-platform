@@ -70,6 +70,21 @@ public final class CatalogueSynchronizationMetrics {
         record("details_unavailable_games", c.detailsUnavailableGames());
     }
 
+    public void recordTrigger(
+            SynchronizationTrigger trigger, SynchronizationOutcome outcome, long startedNanos) {
+        String[] tags = {
+            "trigger",
+            trigger.type(),
+            "policy",
+            trigger.policy(),
+            "outcome",
+            outcome.name().toLowerCase(Locale.ROOT)
+        };
+        registry.counter("catalogue.synchronization.trigger", tags).increment();
+        registry.timer("catalogue.synchronization.trigger.duration", tags)
+                .record(Duration.ofNanos(System.nanoTime() - startedNanos));
+    }
+
     private void record(String kind, long count) {
         registry.summary("catalogue.synchronization.run.records", "kind", kind).record(count);
     }

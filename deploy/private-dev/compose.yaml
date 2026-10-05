@@ -189,6 +189,15 @@ services:
       TELEMETRY_OTLP_METRICS_ENDPOINT: http://telemetry:4318/v1/metrics
       TELEMETRY_OTLP_METRICS_STEP: 60s
       TELEMETRY_TRACING_SAMPLING_PROBABILITY: "0.1"
+      # Explicit opt-in. Null passthrough values are omitted when unset, leaving application.yaml
+      # as the sole owner of policy defaults; runtime.env may override any of these settings.
+      CATALOGUE_SYNC_SCHEDULING_ENABLED: ${CATALOGUE_SYNC_SCHEDULING_ENABLED:-false}
+      CATALOGUE_SYNC_NEAR_TERM_CRON:
+      CATALOGUE_SYNC_NEAR_TERM_PAST_DAYS:
+      CATALOGUE_SYNC_NEAR_TERM_FUTURE_DAYS:
+      CATALOGUE_SYNC_UPCOMING_CRON:
+      CATALOGUE_SYNC_UPCOMING_PAST_DAYS:
+      CATALOGUE_SYNC_UPCOMING_FUTURE_DAYS:
       IGDB_CLIENT_ID_FILE: /run/secrets/igdb_client_id
       IGDB_CLIENT_SECRET_FILE: /run/secrets/igdb_client_secret
     secrets:

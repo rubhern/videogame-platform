@@ -93,9 +93,12 @@ class CatalogueSynchronizationServiceTest {
         when(provider.isConfigured()).thenReturn(true);
         when(store.beginRun(any(), any(), any(), any())).thenReturn(Optional.empty());
 
-        service.synchronize(REQUEST);
+        var report = service.synchronize(REQUEST);
 
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.SKIPPED);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_ALREADY_RUNNING");
         assertThat(progress.events).containsExactly("skipped:SYNCHRONIZATION_ALREADY_RUNNING");
+        verify(provider, never()).releaseGames(any(), any(), anyLong(), anyInt());
     }
 
     @Test

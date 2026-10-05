@@ -54,6 +54,14 @@ with a dedicated short statement timeout; health details remain hidden.
   featured images observed, logos observed or kept because the logo lookup was
   unavailable, and Games whose summary, credits, genres and game modes were kept because
   that detail metadata was invalid. Deferral is import policy, not failure.
+- Trigger meters `catalogue.synchronization.trigger{trigger,policy,outcome}` and
+  `.trigger.duration{trigger,policy,outcome}` distinguish `manual/none` from
+  `scheduled/near_term` and `scheduled/upcoming`, with the closed synchronization
+  outcome vocabulary. Duration is monotonic wall time, including unexpected trigger
+  failure. Every returned report also contributes once to the existing aggregate run
+  meters/counters. A failure before a report exists contributes only to trigger meters;
+  it does not invent a durable run. Dates, IDs, cron strings and exception messages are
+  never metric labels.
 - Provider meters use `catalogue.synchronization.provider.request{operation,outcome}`,
   `.request.duration{operation}`, `.retry{operation}` and `.mapping.failure{reason}`.
   Operations are the closed `window`, `works`, `release_dates`, `logos`
@@ -252,6 +260,8 @@ Catalogue synchronization (`CatalogueSynchronizationLog`):
 | Run failure                 | `WARN`                                           | run, phase, page, stage, reason, exception class when unexpected                               |
 | Finished                    | `INFO` succeeded, `WARN` partial, `ERROR` failed | outcome, stable code, window, pages, elapsed, all counters, failures tallied by `stage/reason` |
 | Skipped                     | `INFO`                                           | `SYNCHRONIZATION_DISABLED` or `SYNCHRONIZATION_ALREADY_RUNNING`, window                        |
+| Scheduled invocation/result | `INFO`, result `WARN` partial / `ERROR` failed | trigger, policy, window at invocation; result outcome and stable code |
+| Unexpected scheduled failure | `ERROR` | trigger, policy, `SYNCHRONIZATION_TRIGGER_FAILED`, exception class; no message/payload/stack |
 | Rejected command            | `INFO`                                           | `INVALID_SYNCHRONIZATION_WINDOW`, never the raw input                                          |
 | IGDB retry                  | `DEBUG`                                          | endpoint name, retry, provider failure code, backoff                                           |
 
@@ -290,9 +300,11 @@ product decision and have a bounded cardinality review.
 synchronization run and `GET` reports the latest result; the
 [backend README](../../backend/README.md#persistence-and-observability) owns
 invocation and the [operations runbook](operations-runbook.md#catalogue-synchronization)
-owns the private-dev procedure. It is never scheduled, is absent from the product
-OpenAPI contract, and inherits the management-port boundary below, so no visitor
-request can trigger a provider call.
+owns the private-dev procedure. The command remains an exceptional operator path
+alongside the opt-in scheduled inbound adapter. Both are absent from the product
+OpenAPI contract; the command inherits the management-port boundary below, so no
+visitor request can trigger a provider call. Scheduler state and provider outcomes
+are never health dependencies.
 
 Actuator runs on the separate management port with its own security boundary: the
 endpoints are open on that port because it is already private, they hold no

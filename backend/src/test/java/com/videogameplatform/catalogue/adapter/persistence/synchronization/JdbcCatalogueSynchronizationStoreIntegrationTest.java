@@ -3,6 +3,10 @@ package com.videogameplatform.catalogue.adapter.persistence.synchronization;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
+import com.videogameplatform.catalogue.adapter.operator.CatalogueSynchronizationEndpoint;
+import com.videogameplatform.catalogue.adapter.scheduling.CatalogueSynchronizationScheduler;
+import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.internal.CatalogueSynchronizationService;
@@ -30,6 +34,7 @@ import com.videogameplatform.catalogue.domain.ReleaseStage;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -49,6 +54,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.jdbc.support.JdbcTransactionManager;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.config.ScheduledTaskRegistrar;
 import org.springframework.transaction.support.TransactionTemplate;
 
 class JdbcCatalogueSynchronizationStoreIntegrationTest {
@@ -1065,6 +1072,77 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         provider.works.put("100", work("100", changed, pr("11", "167", "8", date)));
         assertThat(service.synchronize(WINDOW).outcome()).isEqualTo(SynchronizationOutcome.FAILED);
         assertThat(count("release_external_reference")).isEqualTo(1);
+    }
+
+    @Test
+    void overlappingScheduledWindowsReuseStableIdentitiesAndDoNotRotateAnUnchangedRevision() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-09-10")));
+        var registry = new SimpleMeterRegistry();
+        var tasks = scheduledTasks(new CatalogueSynchronizationMetrics(registry));
+        tasks.getTriggerTaskList().getFirst().getRunnable().run();
+        var before = store.loadGame("100", 25).orElseThrow();
+        String revision = version();
+        tasks.getTriggerTaskList().getLast().getRunnable().run();
+        var after = store.loadGame("100", 25).orElseThrow();
+        assertThat(after.gameId()).isEqualTo(before.gameId());
+        assertThat(after.releases().get("10").releaseId())
+                .isEqualTo(before.releases().get("10").releaseId());
+        assertThat(version()).isEqualTo(revision);
+        assertThat(count("game")).isEqualTo(1);
+        assertThat(count("release_snapshot")).isEqualTo(1);
+        assertThat(provider.fetched).containsExactly("100", "100");
+        assertThat(
+                        registry.get("catalogue.synchronization.run")
+                                .tag("outcome", "succeeded")
+                                .counter()
+                                .count())
+                .isEqualTo(2);
+    }
+
+    @Test
+    void activeDatabaseRunSkipsBothScheduledPoliciesAndManualCommandWithoutProviderCalls() {
+        UUID active = store.beginRun("IGDB", WINDOW, NOW, Duration.ofMinutes(30)).orElseThrow();
+        var registry = new SimpleMeterRegistry();
+        var metrics = new CatalogueSynchronizationMetrics(registry);
+        scheduledTasks(metrics).getTriggerTaskList().forEach(task -> task.getRunnable().run());
+        var manual =
+                (CatalogueSynchronizationReport)
+                        new CatalogueSynchronizationEndpoint(service, metrics)
+                                .synchronize(WINDOW.from().toString(), WINDOW.to().toString());
+        assertThat(manual.outcome()).isEqualTo(SynchronizationOutcome.SKIPPED);
+        assertThat(manual.outcomeCode()).isEqualTo("SYNCHRONIZATION_ALREADY_RUNNING");
+        assertThat(store.lastRun().orElseThrow().runId()).isEqualTo(active);
+        assertThat(count("synchronization_run")).isEqualTo(1);
+        assertThat(provider.pageLimits).isEmpty();
+        assertThat(provider.fetched).isEmpty();
+        assertThat(
+                        registry.get("catalogue.synchronization.run")
+                                .tag("outcome", "skipped")
+                                .counter()
+                                .count())
+                .isEqualTo(3);
+        for (String policy : List.of("near_term", "upcoming", "none")) {
+            assertThat(
+                            registry.get("catalogue.synchronization.trigger")
+                                    .tags("policy", policy, "outcome", "skipped")
+                                    .counter()
+                                    .count())
+                    .isEqualTo(1);
+        }
+    }
+
+    private ScheduledTaskRegistrar scheduledTasks(CatalogueSynchronizationMetrics metrics) {
+        var registrar = new ScheduledTaskRegistrar();
+        new CatalogueSynchronizationScheduler(
+                        service,
+                        metrics,
+                        Clock.fixed(NOW, ZoneId.of("Europe/Madrid")),
+                        org.mockito.Mockito.mock(TaskScheduler.class),
+                        new CatalogueSynchronizationScheduler.Policy("0 0 4 * * *", 28, 28),
+                        new CatalogueSynchronizationScheduler.Policy("0 0 5 * * SUN", 0, 180))
+                .configureTasks(registrar);
+        return registrar;
     }
 
     @Test
