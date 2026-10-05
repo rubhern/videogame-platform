@@ -5,6 +5,8 @@ import { coverMedia, featuredItem, featuredReleases } from "./fixtures/releases"
 
 type FeaturedReleases = ReturnType<typeof featuredReleases>;
 
+const SUMMARY = "Explora un mundo abierto y descubre las historias de sus habitantes. ".repeat(40);
+
 const LEAD = "Una aventura extraordinariamente larga: más allá del horizonte";
 
 async function expectAccessibleLayout(page: Page) {
@@ -77,7 +79,14 @@ async function scriptFeatured(
 for (const width of [320, 390, 834, 1320]) {
   test(`featured releases layout, contrast and keyboard at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
-    await scriptFeatured(page);
+    await scriptFeatured(page, new Set(), (month) => ({ ...month, items: month.items.map((item, index) => ({
+      ...item,
+      genres: [{ genreId: "adventure", name: "Aventura" }, { genreId: "rpg", name: "Rol (RPG)" }],
+      ...(index === 0 ? { summary: { kind: "sourced", text: SUMMARY, language: "es",
+        provenance: { sourceKind: "external_provider", sourceName: "IGDB", sourceEntityType: "game" },
+        translation: { kind: "machine_translation", sourceText: "Explore a world.", sourceLanguage: "en", current: true },
+      } } : {}),
+    })) }));
     await page.goto("/");
 
     const hero = page.getByRole("article", { name: LEAD });
@@ -113,7 +122,7 @@ for (const width of [320, 390, 834, 1320]) {
         expect(region?.middle ?? 0).toBeGreaterThan((date?.middle ?? 0) + 10);
       }
     }
-    // Ver ficha is the hero's one action.
+    // The whole hero is one native link; metadata introduces no controls.
     await expect(hero.getByRole("link", { name: /Explorar lanzamientos/ })).toHaveCount(0);
     await expectAccessibleLayout(page);
 
@@ -178,12 +187,52 @@ for (const width of [320, 390, 834, 1320]) {
     expect(Math.abs((shown ?? 0) - (natural ?? 1))).toBeLessThan(0.02);
 
 
-    const action = hero.getByRole("link", { name: `Ver ficha de ${LEAD}` });
-    await action.focus();
+    const action = hero.getByRole("link", { name: LEAD, exact: true });
+    await expect(action).toHaveCount(1);
+    await expect(action.locator("a, button, input, select, summary, [tabindex]")).toHaveCount(0);
+    const summary = hero.locator(".featured-hero-summary");
+    await expect(summary).toHaveText(SUMMARY);
+    await expect(summary).toHaveAttribute("lang", "es");
+    await expect(summary).toHaveCSS("-webkit-line-clamp", width < 620 ? "3" : "2");
+    const textHeight = await summary.evaluate((element) => ({
+      shown: element.clientHeight, full: element.scrollHeight,
+      line: Number.parseFloat(getComputedStyle(element).lineHeight),
+    }));
+    expect(textHeight.full).toBeGreaterThan(textHeight.shown);
+    expect(Math.abs(textHeight.shown - textHeight.line * (width < 620 ? 3 : 2))).toBeLessThan(2);
+    await expect(hero.getByRole("list", { name: "Géneros" })).toHaveText("AventuraRol (RPG)");
+    await expect(others.locator(".featured-card-genres")).toHaveCount(5);
+    await expect(others.locator(".featured-hero-summary")).toHaveCount(0);
+    await expect(hero.getByText("Publicado", { exact: true })).toHaveCount(0);
+    await expect(hero.getByText("Lanzamiento completo", { exact: true })).toHaveCount(0);
+    await expect(hero.getByText("Ver ficha", { exact: true })).toHaveCount(0);
+    // Tab reaches the frame as a single keyboard stop; its visible focus outlines that frame.
+    const previous = page.getByRole("link", { name: "Mes siguiente: septiembre de 2026" });
+    await previous.focus();
+    await page.keyboard.press("Tab");
+    await expect(action).toBeFocused();
     await expect(action).toHaveCSS("outline-style", "solid");
+    await expect(action).toHaveCSS("outline-width", "2px");
+    await page.screenshot({ path: test.info().outputPath(`featured-${width}.png`), fullPage: true });
+    if (width === 390 || width === 1320) {
+      const destination = await action.getAttribute("href");
+      await page.keyboard.press("Enter");
+      await expect(page).toHaveURL(new RegExp(`${destination}$`));
+      await page.goBack();
+      await expect(action).toBeVisible();
+      // Clicking the image side, away from all text, navigates through the same link.
+      const box = await action.boundingBox();
+      if (!box) throw new Error("Featured link has no frame");
+      await action.click({ position: { x: box.width - 18, y: 18 } });
+      await expect(page).toHaveURL(new RegExp(`${destination}$`));
+      await page.goBack();
+    }
 
     const next = page.getByRole("link", { name: "Mes siguiente: septiembre de 2026" });
     await next.focus();
+    await page.keyboard.press("Shift+Tab");
+    await page.keyboard.press("Tab");
+    await expect(next).toBeFocused();
     await expect(next).toHaveCSS("outline-style", "solid");
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/\?month=2026-09$/);
@@ -319,5 +368,28 @@ for (const state of ["loading", "unranked", "empty", "error"] as const) {
       await page.getByRole("button", { name: "Reintentar" }).click();
       await expect(page.getByRole("article", { name: LEAD })).toBeVisible();
     }
+  });
+}
+
+for (const forcedColors of ["none", "active"] as const) {
+  test(`featured link and summary preserve focus under reduced motion and forced colours ${forcedColors}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await scriptFeatured(page, new Set(), (month) => ({ ...month, items: month.items.map((item, index) => index === 0 ? {
+      ...item, summary: { kind: "editorial", text: SUMMARY, language: "es" },
+    } : item) }));
+    await page.goto("/");
+    const link = page.getByRole("article", { name: LEAD }).getByRole("link", { name: LEAD, exact: true });
+    await expect(link).toBeVisible();
+    // As in the packaged journeys, measure normal-palette contrast before testing forced colours.
+    await expectAccessibleLayout(page);
+    await page.emulateMedia({ reducedMotion: "reduce", forcedColors });
+    await page.getByRole("link", { name: "Mes siguiente: septiembre de 2026" }).focus();
+    await page.keyboard.press("Tab");
+    await expect(link).toBeFocused();
+    await expect(link).toHaveCSS("outline-style", "solid");
+    await expect(link.locator(".featured-hero-summary")).toHaveCSS("-webkit-line-clamp", "3");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`featured-forced-${forcedColors}.png`), fullPage: true });
   });
 }

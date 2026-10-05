@@ -40,7 +40,7 @@ test("the packaged featured releases read local PostgreSQL month by month", asyn
   await expect(page.getByRole("region", { name: "Otros lanzamientos destacados" })).toHaveCount(0);
   await expect(crimson.getByText("oct 2026", { exact: true })).toBeVisible();
 
-  await crimson.getByRole("link", { name: "Ver ficha de Crimson Desert" }).click();
+  await crimson.getByRole("link", { name: "Crimson Desert" }).click();
   await expect(page).toHaveURL(/\/games\/30000000-0000-4000-8000-00000000000a\/crimson-desert$/);
   await page.goBack();
   await expect(page).toHaveURL(/\/\?month=2026-10$/);

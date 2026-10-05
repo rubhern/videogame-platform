@@ -30,7 +30,8 @@ for (const width of [320, 390, 834, 1320]) {
         window: query.get("weeks") === "4"
           ? { from: "2026-07-17", to: "2026-08-13" }
           : { from: "2026-08-07", to: "2026-08-13" },
-        items: [pragmata, {
+        items: [{ ...pragmata, genres: [{ genreId: "action", name: "Acción" }, { genreId: "rpg", name: "Rol" }] }, {
+          genres: [{ genreId: "long", name: "Un género de nombre extraordinariamente largo" }],
           ...pragmata,
           gameId: "30000000-0000-4000-8000-000000000007",
           slug: "long-title",
@@ -47,6 +48,21 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page.locator(".result-count")).toHaveText("8 juegos · Página 1 de 2");
     await expectAccessibleLayout(page);
     await expectComfortableCatalogueMetadata(page);
+    const releaseCards = page.locator(".release-card");
+    await expect(releaseCards.first().getByLabel("Géneros: Acción · Rol")).toBeVisible();
+    await expect(releaseCards.locator(".card-title").last()).toHaveCSS("-webkit-line-clamp", "2");
+    const metadata = await releaseCards.evaluateAll(cards => cards.map(card => {
+      const title = card.querySelector(".card-title");
+      const genre = card.querySelector(".card-genres");
+      const platform = card.querySelector(".card-platform");
+      if (!title || !genre || !platform) throw new Error("Expected release metadata");
+      return { titleHeight: title.getBoundingClientRect().height, titleLines: title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight), genreHeight: genre.getBoundingClientRect().height, platformHeight: platform.getBoundingClientRect().height, contextY: platform.getBoundingClientRect().y };
+    }));
+    expect(metadata[0]?.titleHeight).toBe(metadata[1]?.titleHeight);
+    expect(metadata[1]?.titleLines).toBeLessThanOrEqual(2.01);
+    expect(metadata[0]?.contextY).toBe(metadata[1]?.contextY);
+    expect(metadata[1]?.genreHeight).toBeLessThanOrEqual(18);
+    expect(metadata[1]?.platformHeight).toBeLessThanOrEqual(18);
     await expect(page.locator(".stale-banner")).toHaveCount(0);
     await expect(page.getByText("Datos locales desactualizados")).toHaveCount(0);
     await expect(page.getByText("Información pendiente de revisión")).toBeVisible();

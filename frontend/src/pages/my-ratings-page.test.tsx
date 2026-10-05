@@ -41,6 +41,53 @@ async function openEditor() {
 }
 
 describe("Mis puntuaciones", () => {
+  it("compares the editable personal reading with read-only community and only two genres, without detail requests", async () => {
+    const extras = { summary: { text: "Hidden summary" }, developers: [{ name: "Hidden developer" }], publishers: [{ name: "Hidden publisher" }], gameModes: [{ name: "Hidden mode" }], releases: [{ platform: { name: "Hidden platform" } }] };
+    const fetchMock = stub(() => Response.json({ ...page(), items: [
+      { game: { ...game, ...extras, genres: [{ genreId: "rpg", name: "Rol" }, { genreId: "adventure", name: "Aventura" }, { genreId: "hidden", name: "Hidden genre" }] }, personalRating: rating, ratingSummary: { status: "available", mean: 8.2, count: 1247 } },
+      { game: { ...game, gameId: "game-2", canonicalTitle: "Second game" }, personalRating: { ...rating, gameId: "game-2" }, ratingSummary: { status: "available", mean: null, count: 0 } },
+      { game: { ...game, gameId: "game-3", canonicalTitle: "Third game" }, personalRating: { ...rating, gameId: "game-3" }, ratingSummary: { status: "unavailable", reasonCode: "RATING_STATISTICS_READ_FAILED" } },
+    ] }));
+    renderApp("/mis-puntuaciones");
+    const card = await screen.findByRole("article", { name: "Élite Dangerous" });
+    expect(within(card).getByLabelText("Géneros: Rol · Aventura")).toBeVisible();
+    expect(within(card).getByRole("button", { name: /^Tu puntuación Caliente 7\/10/ })).toBeVisible();
+    const community = within(card).getByLabelText("Comunidad");
+    expect(community).toHaveTextContent("Comunidad Ardiendo8,2/101247 puntuaciones");
+    expect(within(community).queryByRole("button")).not.toBeInTheDocument();
+    expect(card).toHaveTextContent("Puntuado el 13 ago 2026");
+    expect(card).not.toHaveTextContent("Actualizado");
+    expect(card).not.toHaveTextContent("10:00");
+    expect(within(card).getByRole("link", { name: "Élite Dangerous" })).toHaveAttribute("href", "/games/game-1/elite");
+    expect(card.querySelector("a button, a a")).toBeNull();
+    expect(within(card).queryByText(/Ver ficha/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Hidden/)).not.toBeInTheDocument();
+    expect(within(screen.getByRole("article", { name: "Second game" })).getByText("Sin puntuaciones")).toBeVisible();
+    expect(within(screen.getByRole("article", { name: "Third game" })).getByText("No disponible")).toBeVisible();
+    expect(fetchMock.mock.calls.map(([request]) => new URL((request as Request).url).pathname).filter(path => path.startsWith("/api/v1/games"))).toEqual([]);
+    const link = within(card).getByRole("link", { name: "Élite Dangerous" });
+    link.focus();
+    await userEvent.tab();
+    expect(within(card).getByRole("button", { name: /^Tu puntuación/ })).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    expect(within(card).getByRole("dialog")).toBeVisible();
+    expect(listReads(fetchMock)).toHaveLength(1);
+  });
+  it("uses quiet calendar dates and collapses changes on the same visible day", async () => {
+    stub(() => Response.json(page({ ...rating, updatedAt: "2026-08-13T20:00:00Z" })));
+    renderApp("/mis-puntuaciones");
+    const card = await screen.findByRole("article", { name: "Élite Dangerous" });
+    expect(card).toHaveTextContent("Puntuado el 13 ago 2026");
+    expect(card).not.toHaveTextContent("Actualizado");
+  });
+  it("names a later update without hours", async () => {
+    stub(() => Response.json(page({ ...rating, updatedAt: "2026-08-14T20:00:00Z" })));
+    renderApp("/mis-puntuaciones");
+    const card = await screen.findByRole("article", { name: "Élite Dangerous" });
+    expect(card).toHaveTextContent("Actualizado el 14 ago 2026 · Puntuado el 13 ago 2026");
+    expect(card).not.toHaveTextContent("20:00");
+  });
+
   it("keeps anonymous visits private and offers the product account entry", async () => {
     const fetchMock = stub(() => Response.json(page()), false);
     renderApp("/mis-puntuaciones");

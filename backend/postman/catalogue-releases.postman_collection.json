@@ -59,7 +59,8 @@
               "});",
               "",
               "pm.collectionVariables.set(\"releaseEtag\", pm.response.headers.get(\"ETag\"));",
-              "pm.test(\"Product release stages\", () => { const body = pm.response.json(); const releases = body.releases || (body.items || []).flatMap(item => item.releases || []); releases.forEach(r => pm.expect([\"full_release\", \"early_access\", \"advance_access\", \"beta\", \"alpha\", \"unknown\"]).to.include(r.stage)); });"
+              "pm.test(\"Product release stages\", () => { const body = pm.response.json(); const releases = body.releases || (body.items || []).flatMap(item => item.releases || []); releases.forEach(r => pm.expect([\"full_release\", \"early_access\", \"advance_access\", \"beta\", \"alpha\", \"unknown\"]).to.include(r.stage)); });",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -120,7 +121,8 @@
               "pm.test(\"Conditional response retains public cache and correlation headers\", function () {",
               "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
               "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -196,7 +198,8 @@
               "    const worldwide = regions.find(region => region.regionId === \"20000000-0000-4000-8000-000000000001\");",
               "    pm.expect(worldwide.name).to.eql(\"Mundial\");",
               "    regions.forEach(region => pm.expect(region.name).not.to.include(\"_\"));",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -268,7 +271,8 @@
               "            pm.expect(release.releaseDate.precision).to.eql(\"day\");",
               "        });",
               "    });",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -345,7 +349,8 @@
               "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
               "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
               "    });",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -407,7 +412,8 @@
               "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
               "    pm.expect(body.code).to.eql(\"PLATFORM_NOT_SUPPORTED\");",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -464,7 +470,8 @@
               "    pm.expect(body.code).to.eql(\"PAGINATION_INVALID\");",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/pageSize\");",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -521,7 +528,8 @@
               "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/weeks\");",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -578,7 +586,8 @@
               "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/includeApproximateDates\");",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -634,7 +643,8 @@
               "    const body = pm.response.json();",
               "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/includeApproximateDates\");",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -691,7 +701,8 @@
               "    pm.expect(body.code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\");",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
               "    pm.expect(body.violations[0].pointer).to.eql(\"/query/unbounded\");",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -743,7 +754,8 @@
               "    pm.response.to.have.status(200);",
               "    pm.expect(pm.response.json().view).to.eql(\"recent\");",
               "    pm.expect(pm.response.headers.get(\"ETag\")).to.eql(pm.collectionVariables.get(\"releaseEtag\"));",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}
@@ -852,7 +864,8 @@
               "    pm.expect(body.code).to.eql(\"REPRESENTATION_NOT_ACCEPTABLE\");",
               "    pm.expect(body.status).to.eql(406);",
               "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
-              "});"
+              "});",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });"
             ],
             "type": "text/javascript",
             "packages": {}

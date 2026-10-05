@@ -164,11 +164,11 @@ describe("featured releases page", () => {
     expect(within(hero).getByRole("list", { name: "Plataformas" })).toHaveTextContent(
       "PlayStation 5",
     );
-    expect(within(hero).getByRole("link", { name: "Ver ficha de Juego destacado" })).toHaveAttribute(
+    expect(within(hero).getByRole("link", { name: "Juego destacado" })).toHaveAttribute(
       "href",
       "/games/game-lead/juego-destacado",
     );
-    // Ver ficha is the hero's one action; the row's own link opens the release lists.
+    // The entire hero is one native link; release-list navigation stays outside it.
     expect(within(hero).queryByRole("link", { name: /Explorar lanzamientos/ })).toBeNull();
 
     const others = screen.getByRole("region", { name: "Otros lanzamientos destacados" });
@@ -185,6 +185,62 @@ describe("featured releases page", () => {
     expect(screen.getByText("Selección automática según atención actual")).toBeVisible();
     // Attention ranks the selection; nothing claims quality or an award.
     expect(document.body).not.toHaveTextContent(/mejor|juego del mes|visitas/i);
+  });
+
+  it("shows only discovery metadata, with one whole-hero link and no nested controls", async () => {
+    const summary = {
+      kind: "sourced" as const, text: "Explora un mundo lleno de historias. ".repeat(30), language: "es",
+      provenance: { sourceKind: "external_provider" as const, sourceName: "IGDB", sourceEntityType: "game" },
+      translation: { kind: "machine_translation" as const, sourceText: "Explore a world of stories.", sourceLanguage: "en", current: false },
+    };
+    const lead = item("game-lead", "Juego destacado", "2026-10-15");
+    const other = item("game-two", "Segundo juego", "2026-10-22");
+    const genres = [{ genreId: "adventure", name: "Aventura" }, { genreId: "rpg", name: "Rol (RPG)" }];
+    // Extra detail-only content must never leak onto this discovery surface.
+    const extra = { developers: [{ name: "Studio secret" }], publishers: [{ name: "Publisher secret" }], gameModes: [{ name: "Multijugador" }] };
+    stubFeatured(featured({ items: [
+      { ...lead, ...extra, genres, summary, releases: [
+        { ...lead.releases[0] as FeaturedReleaseItem["releases"][number], status: "released", stage: "full_release" },
+        { ...lead.releases[0] as FeaturedReleaseItem["releases"][number], releaseId: "another", releaseDate: { precision: "day", value: "2026-10-20" } },
+      ] },
+      { ...other, ...extra, genres, summary: { kind: "editorial", text: "Other summary secret", language: "es" } },
+    ] }));
+    renderApp("/");
+
+    const hero = await screen.findByRole("article", { name: "Juego destacado" });
+    const link = within(hero).getByRole("link", { name: "Juego destacado" });
+    expect(link).toHaveAttribute("href", "/games/game-lead/juego-destacado");
+    expect(within(link).getByRole("heading", { name: "Juego destacado" })).toBeVisible();
+    expect(within(link).getByRole("list", { name: "Géneros" })).toHaveTextContent("AventuraRol (RPG)");
+    const text = within(link).getByText(summary.text.trim());
+    expect(text.textContent).toBe(summary.text);
+    expect(text).toHaveAttribute("lang", "es");
+    expect(within(link).queryByText(/Traducción|Fuente del original|IGDB/)).not.toBeInTheDocument();
+    expect(link.querySelector("a, button, input, select, summary, [tabindex]")).toBeNull();
+    const overflow = within(hero).getByRole("button", { name: /lanzamientos? más/ });
+    expect(link.contains(overflow)).toBe(false);
+    expect(within(hero).queryByText("Publicado")).toBeNull();
+    expect(within(hero).queryByText("Lanzamiento completo")).toBeNull();
+    expect(within(hero).queryByText("Ver ficha")).toBeNull();
+    const card = screen.getByRole("region", { name: "Otros lanzamientos destacados" });
+    expect(within(card).getByRole("list", { name: "Géneros" })).toHaveTextContent("AventuraRol (RPG)");
+    expect(within(card).getByText("22 de octubre de 2026: PlayStation 5.")).toBeInTheDocument();
+    expect(within(card).getByText("Mundial")).toBeVisible();
+    expect(document.body).not.toHaveTextContent(/Studio secret|Publisher secret|Multijugador|Other summary secret/);
+  });
+
+  it("omits missing enrichment and navigates to details through the hero with Enter", async () => {
+    stubFeatured(featured());
+    const user = userEvent.setup();
+    const { router } = renderApp("/");
+    const hero = await screen.findByRole("article", { name: "Juego destacado" });
+    expect(within(hero).queryByRole("list", { name: "Géneros" })).toBeNull();
+    expect(hero.querySelector(".featured-hero-summary")).toBeNull();
+    const link = within(hero).getByRole("link", { name: "Juego destacado" });
+    link.focus();
+    expect(link).toHaveFocus();
+    await user.keyboard("{Enter}");
+    expect(router.state.location.pathname).toBe("/games/game-lead/juego-destacado");
   });
 
   it("always renders the canonical hero title and retains the secondary screenshot logo", async () => {

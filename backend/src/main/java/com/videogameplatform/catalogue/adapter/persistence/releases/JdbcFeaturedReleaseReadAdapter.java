@@ -1,11 +1,14 @@
 package com.videogameplatform.catalogue.adapter.persistence.releases;
 
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueCoverReferenceRowMapper;
+import com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader;
+import com.videogameplatform.catalogue.adapter.persistence.CatalogueSummaryRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
 import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
+import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort.MediaReference;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
@@ -149,6 +152,20 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                                     "qr", "release_region", "qr.period_start ASC"),
                             ReleasePresentationOrder.precisionRank("p"));
 
+    private static final String SUMMARY_SQL =
+            """
+                SELECT g.summary_kind, g.summary_text, g.summary_language,
+                       g.summary_source_kind, g.summary_source_name, g.summary_source_entity_type,
+                       c.translated_text,
+                       l.fingerprint=catalogue.spanish_source_fingerprint(g.summary_text) AS translation_current
+                FROM catalogue.game_snapshot g
+                LEFT JOIN catalogue.game_summary_translation l ON l.game_id=g.game_id
+                LEFT JOIN catalogue.content_translation c ON c.fingerprint=l.fingerprint
+                  AND g.summary_kind='sourced' AND g.summary_language='en'
+                  AND g.summary_source_kind='external_provider' AND g.summary_source_name='IGDB'
+                WHERE g.publication_id = CAST(:publicationId AS uuid) AND g.game_id = CAST(:leadId AS uuid)
+                """;
+
     private final NamedParameterJdbcOperations jdbcOperations;
     private final TransactionOperations readTransaction;
 
@@ -185,7 +202,8 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
         parameters.put("limit", criteria.limit());
         parameters.put("releaseGroupLimit", criteria.releaseGroupLimit());
 
-        List<Item> items = jdbcOperations.query(PAGE_SQL, parameters, this::mapPage);
+        List<Item> items =
+                enrich(jdbcOperations.query(PAGE_SQL, parameters, this::mapPage), parameters);
         // A ranked game proves the month qualifies; only an empty ranking needs the cheap probe
         // that
         // tells an unranked month apart from a month without qualifying releases.
@@ -195,6 +213,39 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                                 jdbcOperations.queryForObject(
                                         QUALIFYING_EXISTS_SQL, parameters, Boolean.class));
         return Optional.of(new Result(publication.orElseThrow().version(), qualifying, items));
+    }
+
+    /** Two indexed reads enrich only the ranked page: at most twelve terms and one summary. */
+    private List<Item> enrich(List<Item> items, Map<String, Object> parameters) {
+        if (items.isEmpty()) return items;
+        var genres =
+                CatalogueGenresReader.read(
+                        jdbcOperations,
+                        parameters.get("publicationId").toString(),
+                        items.stream().map(Item::gameId).toList(),
+                        2);
+        parameters.put("leadId", items.getFirst().gameId());
+        GameDetailsResult.Summary summary =
+                jdbcOperations.queryForObject(
+                        SUMMARY_SQL, parameters, (rs, row) -> CatalogueSummaryRowMapper.map(rs));
+        return items.stream()
+                .map(
+                        item ->
+                                new Item(
+                                        item.gameId(),
+                                        item.slug(),
+                                        item.canonicalTitle(),
+                                        item.cover(),
+                                        item.popularityObservedAt(),
+                                        item.image(),
+                                        item.cardImage(),
+                                        item.logo(),
+                                        item.releases(),
+                                        genres.getOrDefault(item.gameId(), List.of()),
+                                        item == items.getFirst()
+                                                ? Optional.ofNullable(summary)
+                                                : Optional.empty()))
+                .toList();
     }
 
     /** Folds the bounded join rows back into one ranked item per game, keeping SQL order. */
@@ -288,7 +339,9 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                     image,
                     cardImage,
                     logo,
-                    releases);
+                    releases,
+                    List.of(),
+                    Optional.empty());
         }
     }
 }

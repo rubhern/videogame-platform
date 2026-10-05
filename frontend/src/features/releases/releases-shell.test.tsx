@@ -19,6 +19,7 @@ const search: ReleasesSearch = {
 
 const pragmata: ReleaseListItem = {
   gameId: "game-pragmata",
+  genres: [],
   slug: "pragmata",
   title: "Pragmata",
   releaseGroups: [

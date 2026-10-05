@@ -526,6 +526,40 @@
     font-weight: 600;
   }
 
+  .card-genres {
+    min-width: 0;
+    overflow: hidden;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .release-card .card-body {
+    display: grid;
+    grid-template-rows: calc(2 * 1.22 * var(--release-title-size, 1rem)) 1.125rem 1.125rem auto 1fr;
+    align-content: start;
+  }
+  .release-card .card-title {
+    grid-row: 1;
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .release-card .card-release { grid-row: 2; min-width: 0; display: block; }
+  .release-card .card-platform {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .release-card .card-genres { grid-row: 3; }
+  .release-card .card-statuses { grid-row: 4; }
+  .release-card .release-overflow { grid-row: 5; }
+
   .card-statuses {
     position: relative;
     z-index: 2;
@@ -788,6 +822,8 @@
     .search-page .release-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+
+    .release-card { --release-title-size: 1.0625rem; }
 
     .card-title {
       font-size: 1.0625rem;

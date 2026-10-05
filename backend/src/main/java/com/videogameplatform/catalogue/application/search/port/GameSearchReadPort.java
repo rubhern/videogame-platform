@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.application.search.port;
 
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
+import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import java.time.Instant;
@@ -55,7 +56,8 @@ public interface GameSearchReadPort {
             String matchedAlias,
             CatalogueCoverReference cover,
             List<ReleaseContext> releaseContext,
-            ReleaseSummary releaseSummary) {}
+            ReleaseSummary releaseSummary,
+            List<GameDetailsResult.Term> genres) {}
 
     record ReleaseContext(
             Taxonomy platform,

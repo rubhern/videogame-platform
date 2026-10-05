@@ -155,7 +155,9 @@
               "pm.test(\"Default total ordering\", () => { for (let i = 1; i < body.items.length; i++) { const previous = body.items[i - 1].personalRating; const current = body.items[i].personalRating; pm.expect(previous.updatedAt > current.updatedAt || (previous.updatedAt === current.updatedAt && previous.gameId < current.gameId)).to.eql(true); } });",
               "const own = body.items.find(item => item.game.gameId === pm.collectionVariables.get(\"gameId\"));",
               "pm.test(\"Created rating is listed\", () => { pm.expect(own).to.exist; pm.expect(own.personalRating.entityTag).to.eql(pm.collectionVariables.get(\"createdRatingEtag\")); pm.expect(own.game.slug).to.be.a(\"string\"); pm.expect(own.game.primaryCover).to.exist; });",
-              "if (own) pm.collectionVariables.set(\"createdRatingEtag\", own.personalRating.entityTag);"
+              "if (own) pm.collectionVariables.set(\"createdRatingEtag\", own.personalRating.entityTag);",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });",
+              "pm.test(\"Community is compact and distinct from personal\", () => { if (pm.response.code !== 200) return; pm.response.json().items.forEach(item => { const stats = item.ratingSummary; pm.expect(stats.status).to.be.oneOf([\"available\", \"unavailable\"]); pm.expect(stats).not.to.have.property(\"distribution\"); if (stats.status === \"available\") { pm.expect(stats.count).to.be.at.least(0); pm.expect(stats.mean === null).to.eql(stats.count === 0); } else { pm.expect(stats).not.to.have.property(\"mean\"); pm.expect(stats.reasonCode).to.eql(\"RATING_STATISTICS_READ_FAILED\"); } }); });"
             ]
           }
         }
@@ -173,7 +175,9 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test(\"A scoped search is a valid private page\", () => { pm.response.to.have.status(200); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); const body = pm.response.json(); pm.expect(body.items.length).to.be.at.most(20); pm.expect(body.page.number).to.eql(1); });"
+              "pm.test(\"A scoped search is a valid private page\", () => { pm.response.to.have.status(200); pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"); const body = pm.response.json(); pm.expect(body.items.length).to.be.at.most(20); pm.expect(body.page.number).to.eql(1); });",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });",
+              "pm.test(\"Community is compact and distinct from personal\", () => { if (pm.response.code !== 200) return; pm.response.json().items.forEach(item => { const stats = item.ratingSummary; pm.expect(stats.status).to.be.oneOf([\"available\", \"unavailable\"]); pm.expect(stats).not.to.have.property(\"distribution\"); if (stats.status === \"available\") { pm.expect(stats.count).to.be.at.least(0); pm.expect(stats.mean === null).to.eql(stats.count === 0); } else { pm.expect(stats).not.to.have.property(\"mean\"); pm.expect(stats.reasonCode).to.eql(\"RATING_STATISTICS_READ_FAILED\"); } }); });"
             ]
           }
         }
@@ -191,7 +195,9 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test(\"Owner is never accepted from the client\", () => { pm.response.to.have.status(422); pm.expect(pm.response.json().code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\"); });"
+              "pm.test(\"Owner is never accepted from the client\", () => { pm.response.to.have.status(422); pm.expect(pm.response.json().code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\"); });",
+              "pm.test(\"Compact localized genres only\", () => { if (pm.response.code !== 200) return; const payload = pm.response.json(); payload.items.forEach(item => { const game = item.game || item; pm.expect(game.genres).to.be.an(\"array\"); pm.expect(game.genres.length).to.be.at.most(2); game.genres.forEach(term => { pm.expect(term.genreId).to.be.a(\"string\"); pm.expect(term.name).to.be.a(\"string\"); }); [\"summary\", \"developers\", \"publishers\", \"gameModes\"].forEach(field => pm.expect(game).not.to.have.property(field)); }); });",
+              "pm.test(\"Community is compact and distinct from personal\", () => { if (pm.response.code !== 200) return; pm.response.json().items.forEach(item => { const stats = item.ratingSummary; pm.expect(stats.status).to.be.oneOf([\"available\", \"unavailable\"]); pm.expect(stats).not.to.have.property(\"distribution\"); if (stats.status === \"available\") { pm.expect(stats.count).to.be.at.least(0); pm.expect(stats.mean === null).to.eql(stats.count === 0); } else { pm.expect(stats).not.to.have.property(\"mean\"); pm.expect(stats.reasonCode).to.eql(\"RATING_STATISTICS_READ_FAILED\"); } }); });"
             ]
           }
         }

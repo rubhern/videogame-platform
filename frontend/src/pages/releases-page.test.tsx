@@ -132,6 +132,23 @@ afterEach(() => {
 });
 
 describe("releases page", () => {
+  it.each(["recent", "upcoming"] as const)("adds only localized genres to %s release cards", async view => {
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async input => {
+      const request = input instanceof Request ? input : new Request(input);
+      if (new URL(request.url).pathname === "/api/v1/session") return Response.json({ authenticated: false });
+      const item = { ...pragmata, genres: [{ genreId: "adventure", name: "Aventura" }], summary: { text: "Hidden summary" }, developers: [{ name: "Hidden developer" }], publishers: [{ name: "Hidden publisher" }], gameModes: [{ name: "Hidden mode" }] };
+      return Response.json(releasePage({ view, items: [item] }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderApp(`/?view=${view}`);
+    const title = await screen.findByRole("link", { name: "Pragmata" });
+    const card = title.closest("article");
+    if (!card) throw new Error("Expected a release card");
+    expect(within(card).getByLabelText("Géneros: Aventura")).toBeVisible();
+    expect(within(card).getByText("Windows PC · Mundial")).toBeVisible();
+    expect(within(card).queryByText(/Hidden/)).not.toBeInTheDocument();
+  });
+
   it("requests twelve recent releases and renders the window above the title", async () => {
     const fetchMock = stubReleases(() => Response.json(releasePage(), { status: 200 }));
 

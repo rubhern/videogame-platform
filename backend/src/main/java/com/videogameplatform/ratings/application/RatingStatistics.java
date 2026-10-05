@@ -18,5 +18,16 @@ public sealed interface RatingStatistics {
         }
     }
 
+    record Summary(BigDecimal mean, int count) {
+        public Summary {
+            if (count < 0
+                    || (count == 0) != (mean == null)
+                    || (mean != null
+                            && (mean.compareTo(BigDecimal.ONE) < 0
+                                    || mean.compareTo(BigDecimal.TEN) > 0)))
+                throw new IllegalArgumentException("Invalid rating summary");
+        }
+    }
+
     record Unavailable() implements RatingStatistics {}
 }

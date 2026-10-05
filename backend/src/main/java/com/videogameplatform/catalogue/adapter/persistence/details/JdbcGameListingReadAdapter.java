@@ -35,7 +35,8 @@ public final class JdbcGameListingReadAdapter implements GameListingReadPort {
                                         rs.getString("canonical_title"),
                                         rs.getString("normalized_title"),
                                         List.of(),
-                                        CatalogueCoverReferenceRowMapper.map(rs)));
+                                        CatalogueCoverReferenceRowMapper.map(rs),
+                                        List.of()));
         if (games.isEmpty()) return Optional.empty();
         var aliases =
                 jdbc.query(
@@ -51,6 +52,17 @@ public final class JdbcGameListingReadAdapter implements GameListingReadPort {
             throw new CatalogueDataInvalidException(
                     new IllegalStateException("Game listing exceeds the supported alias bound"));
         var game = games.getFirst();
+        var publication =
+                com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader.read(
+                                jdbc)
+                        .orElseThrow();
+        var genres =
+                com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader.read(
+                                jdbc, publication.id(), List.of(gameId), 51)
+                        .getOrDefault(gameId, List.of());
+        if (genres.size() > 50)
+            throw new CatalogueDataInvalidException(
+                    new IllegalStateException("Game listing exceeds the supported genre bound"));
         return Optional.of(
                 new Listing(
                         game.gameId(),
@@ -58,6 +70,7 @@ public final class JdbcGameListingReadAdapter implements GameListingReadPort {
                         game.title(),
                         game.normalizedTitle(),
                         aliases,
-                        game.cover()));
+                        game.cover(),
+                        genres));
     }
 }

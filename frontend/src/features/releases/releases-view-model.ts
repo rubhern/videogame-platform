@@ -57,6 +57,7 @@ export type ReleaseListItem = {
   hiddenReleaseCount: number;
   isStale: boolean;
   cover: ReleaseCover;
+  genres: NonNullable<ReleaseItem["genres"]>;
 };
 
 export type ReleaseFilterOption = { id: string; name: string };
@@ -192,6 +193,7 @@ export function toReleaseListItem(item: ReleaseItem): ReleaseListItem {
     .slice(1)
     .reduce((total, group) => total + group.releaseCount, 0);
   return {
+    genres: (item.genres ?? []).slice(0, 2),
     gameId: item.gameId,
     slug: item.slug,
     title: item.canonicalTitle,

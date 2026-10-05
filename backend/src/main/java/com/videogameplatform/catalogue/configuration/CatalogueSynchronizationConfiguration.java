@@ -125,7 +125,11 @@ class CatalogueSynchronizationConfiguration {
                 gameId ->
                         events.publishEvent(
                                 new com.videogameplatform.catalogue.application.details
-                                        .GameListingChanged(gameId)));
+                                        .GameListingChanged(gameId)),
+                term ->
+                        events.publishEvent(
+                                new com.videogameplatform.catalogue.application.details
+                                        .GenreLabelChanged(term)));
     }
 
     @Bean

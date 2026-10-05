@@ -76,6 +76,13 @@ export function FeaturedCard({ item }: { item: FeaturedItem }) {
             <span className="featured-card-region">{primaryGroup.region}</span>
           </p>
         )}
+        {item.genres.length === 0 ? null : (
+          <ul aria-label="Géneros" className="featured-genres featured-card-genres">
+            {item.genres.map((genre) => (
+              <li key={genre.genreId}>{genre.name}</li>
+            ))}
+          </ul>
+        )}
         {item.hiddenReleaseCount > 0 ? (
           <ReleaseOverflow
             groups={hiddenGroups}

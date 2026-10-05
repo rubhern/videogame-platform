@@ -57,6 +57,7 @@ class ScriptedCollection {
           gameId: rating.gameId,
           slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
           canonicalTitle: title,
+          genres: [{ genreId: "action", name: "Acción" }, { genreId: "rpg", name: "Rol" }],
           primaryCover: {
             kind: "fallback",
             url: "/assets/covers/fallback.svg",
@@ -65,6 +66,7 @@ class ScriptedCollection {
           },
         },
         personalRating: rating,
+        ratingSummary: { status: "available", mean: 8.2, count: 1247 },
       }));
       return route.fulfill({
         json: {
@@ -129,6 +131,18 @@ test.describe("Mis puntuaciones", () => {
     for (const width of [1320, 834, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       const first = card(page, titles[0] ?? "");
+      await expect(first.getByLabel("Géneros: Acción · Rol")).toBeVisible();
+      await expect(first.getByLabel("Comunidad")).toContainText("8,2/10");
+      await expect(first.getByLabel("Comunidad").getByRole("button")).toHaveCount(0);
+      await expect(first.getByText("Ver ficha →")).toHaveCount(0);
+      const title = first.getByRole("link", { name: titles[0], exact: true });
+      await title.focus();
+      await page.keyboard.press("Shift+Tab");
+      await page.keyboard.press("Tab");
+      await expect(title).toBeFocused();
+      await expect(title).toHaveCSS("outline-style", "solid");
+      await page.keyboard.press("Tab");
+      await expect(score(first)).toBeFocused();
       const before = await geometry(page);
       await score(first).focus();
       await page.keyboard.press("Enter");

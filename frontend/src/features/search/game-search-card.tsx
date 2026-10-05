@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
+import { GameGenres } from "../../shared/catalogue/game-genres";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { SelectIcon } from "../../shared/ui/select-icon";
 import { hiddenPlatformsLabel, type GameSearchResult } from "./game-search-view-model";
@@ -27,6 +28,7 @@ export function GameSearchCard({ result }: GameSearchCardProps) {
         <h3 className="card-title">
           <Link to={gamePath}>{result.title}</Link>
         </h3>
+        <GameGenres genres={result.genres} />
         {result.matchedAlias === null ? null : (
           <p className="search-card-alias">
             Coincidencia: <span>{result.matchedAlias}</span>

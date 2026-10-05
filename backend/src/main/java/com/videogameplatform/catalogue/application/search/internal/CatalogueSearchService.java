@@ -124,7 +124,8 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
                 item.matchedAlias(),
                 coverPolicy.resolve(item.cover()),
                 releaseContext,
-                toReleaseSummary(item.releaseSummary()));
+                toReleaseSummary(item.releaseSummary()),
+                item.genres());
     }
 
     private static SearchCatalogueResult.ReleaseSummary toReleaseSummary(

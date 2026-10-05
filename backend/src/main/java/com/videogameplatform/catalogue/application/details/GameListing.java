@@ -10,8 +10,10 @@ public record GameListing(
         String canonicalTitle,
         String normalizedTitle,
         List<String> normalizedAliases,
-        CatalogueCover cover) {
+        CatalogueCover cover,
+        List<GameDetailsResult.Term> genres) {
     public GameListing {
         normalizedAliases = List.copyOf(normalizedAliases);
+        genres = List.copyOf(genres);
     }
 }

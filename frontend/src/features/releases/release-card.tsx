@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
+import { GameGenres } from "../../shared/catalogue/game-genres";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { ReleaseOverflow } from "./release-overflow";
 import type { ReleaseListItem } from "./releases-view-model";
@@ -16,7 +17,7 @@ export function ReleaseCard({ item }: ReleaseCardProps) {
   const coverLight = { "--cover-art": `url(${JSON.stringify(item.cover.url)})` } as CSSProperties;
 
   return (
-    <article className="catalogue-card" style={coverLight}>
+    <article className="catalogue-card release-card" style={coverLight}>
       <CatalogueCover caption={false} cover={item.cover} to={gamePath} />
       {primaryGroup === undefined ? null : (
         <span aria-hidden="true" className="card-date-badge">
@@ -45,6 +46,7 @@ export function ReleaseCard({ item }: ReleaseCardProps) {
             ) : null}
           </>
         )}
+        <GameGenres genres={item.genres} />
         {item.hiddenReleaseCount > 0 ? (
           <ReleaseOverflow
             title={item.title}

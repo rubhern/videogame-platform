@@ -1,6 +1,7 @@
 package com.videogameplatform.catalogue.application.releases.port;
 
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
+import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy;
 import java.time.Instant;
@@ -56,12 +57,16 @@ public interface FeaturedReleaseReadPort {
             Optional<MediaReference> image,
             Optional<MediaReference> cardImage,
             Optional<MediaReference> logo,
-            List<ReleaseRow> releases) {
+            List<ReleaseRow> releases,
+            List<GameDetailsResult.Term> genres,
+            Optional<GameDetailsResult.Summary> summary) {
         public Item {
             cardImage = java.util.Objects.requireNonNull(cardImage, "cardImage");
             image = java.util.Objects.requireNonNull(image, "image");
             logo = java.util.Objects.requireNonNull(logo, "logo");
             releases = List.copyOf(releases);
+            genres = List.copyOf(genres);
+            summary = java.util.Objects.requireNonNull(summary, "summary");
         }
     }
 

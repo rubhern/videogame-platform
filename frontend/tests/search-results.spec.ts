@@ -16,6 +16,7 @@ function result(index: number, overrides: Partial<GameSummary> = {}): GameSummar
     gameId: `30000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
     slug: `concepto-${index}`,
     canonicalTitle: title,
+    genres: [{ genreId: "action", name: "Acción" }, { genreId: "adventure", name: "Aventura" }],
     primaryCover: {
       kind: "fallback",
       url: "/assets/covers/fallback.svg",
@@ -83,6 +84,8 @@ for (const [width, columns] of [[1320, 6], [834, 4], [390, 2], [320, 2]] as cons
     await page.goto("/search?q=con");
 
     await expect(page.getByRole("heading", { level: 1, name: "Resultados para «con»" })).toBeVisible();
+    await expect(cards(page).first().getByLabel("Géneros: Acción · Aventura")).toBeVisible();
+    await expect(cards(page).first().locator(".card-genres")).toHaveCSS("white-space", "nowrap");
     await expect(page.getByText("Catálogo de juegos")).toBeVisible();
     await expect(page.getByRole("status")).toHaveText("16 juegos del catálogo local · Página 1 de 3");
     await expect(cards(page)).toHaveCount(6);

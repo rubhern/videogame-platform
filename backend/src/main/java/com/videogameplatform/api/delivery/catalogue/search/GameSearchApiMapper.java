@@ -53,6 +53,15 @@ final class GameSearchApiMapper {
                         coverMapper.toResponse(item.primaryCover()),
                         item.releaseContext().stream().map(GameSearchApiMapper::toContext).toList(),
                         toReleaseSummary(item.releaseSummary()));
+        summary.setGenres(
+                item.genres().stream()
+                        .map(
+                                term ->
+                                        new com.videogameplatform.api.generated.model.Genre(
+                                                term.code(), term.name()))
+                        .collect(
+                                java.util.stream.Collectors.toCollection(
+                                        java.util.LinkedHashSet::new)));
         summary.setMatchedAlias(item.matchedAlias());
         return summary;
     }

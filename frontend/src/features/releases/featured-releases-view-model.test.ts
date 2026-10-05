@@ -109,14 +109,17 @@ describe("featured releases view model", () => {
     });
   });
 
-  it("states the lead's lifecycle and only a known stage, in the product vocabulary", () => {
-    const unknownStage = toFeaturedReleasesViewModel(response());
-    const earlyAccess = toFeaturedReleasesViewModel(
-      response({ items: [item("a", [release({ status: "released", stage: "early_access" })])] }),
-    );
-
-    expect(unknownStage.lead?.facts).toEqual(["Programado"]);
-    expect(earlyAccess.lead?.facts).toEqual(["Publicado", "Acceso anticipado"]);
+  it("omits normal lifecycle/stage labels and retains only exceptional release notices", () => {
+    for (const status of ["announced", "scheduled", "released", "unknown"] as const) {
+      expect(toFeaturedReleasesViewModel(response({ items: [item("a", [release({ status, stage: "full_release" })])] })).lead?.facts).toEqual([]);
+    }
+    for (const [status, label] of [["delayed", "Retrasado"], ["cancelled", "Cancelado"]] as const) {
+      expect(toFeaturedReleasesViewModel(response({ items: [item("a", [release({ status })])] })).lead?.facts).toEqual([label]);
+    }
+    const uncertain = toFeaturedReleasesViewModel(response({ items: [item("a", [release({
+      releaseDate: { precision: "unknown", value: null }, reviewStatus: "required", stage: "early_access",
+    })])] }));
+    expect(uncertain.lead?.facts).toEqual(["Fecha por confirmar", "Fecha pendiente de revisión"]);
   });
 
   it("never leads the hero with a cover: landscape art, the designed fallback, then the cover", () => {

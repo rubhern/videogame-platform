@@ -1,15 +1,25 @@
 package com.videogameplatform.ratings.adapter.persistence;
 
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
+import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.ratings.application.PersonalRating;
 import com.videogameplatform.ratings.application.PersonalRatingsPage;
 import com.videogameplatform.ratings.application.PersonalRatingsReadException;
+import com.videogameplatform.ratings.application.RatingStatistics;
 import com.videogameplatform.ratings.application.port.PersonalRatingsReadPort;
 import java.net.URI;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.TransactionOperations;
@@ -45,6 +55,64 @@ public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsRead
                         PersonalRatingsSql.page(criteria),
                         parameters,
                         JdbcPersonalRatingsReadAdapter::item);
+        if (!items.isEmpty()) {
+            var ids = items.stream().map(item -> UUID.fromString(item.gameId())).toList();
+            var metadataParams = Map.<String, Object>of("gameIds", ids);
+            Map<String, List<GameDetailsResult.Term>> genres = new HashMap<>();
+            jdbc.query(
+                    PersonalRatingsSql.GENRES,
+                    metadataParams,
+                    (RowCallbackHandler)
+                            rs ->
+                                    genres.computeIfAbsent(
+                                                    rs.getString("game_id"),
+                                                    ignored -> new ArrayList<>())
+                                            .add(
+                                                    new GameDetailsResult.Term(
+                                                            rs.getString("genre_code"),
+                                                            rs.getString("display_name"))));
+            Map<String, RatingStatistics.Summary> summaries = new HashMap<>();
+            // An isolated statistics failure must not abort the coherent personal read transaction.
+            jdbc.getJdbcOperations().execute("SAVEPOINT rating_collection_statistics");
+            try {
+                jdbc.query(
+                        PersonalRatingsSql.SUMMARIES,
+                        Map.of(
+                                "gameIds",
+                                "{"
+                                        + ids.stream()
+                                                .map(Object::toString)
+                                                .collect(Collectors.joining(","))
+                                        + "}"),
+                        (RowCallbackHandler)
+                                rs ->
+                                        summaries.put(
+                                                rs.getString("game_id"),
+                                                new RatingStatistics.Summary(
+                                                        rs.getBigDecimal("mean"),
+                                                        Math.toIntExact(rs.getLong("count")))));
+            } catch (DataAccessException unavailable) {
+                jdbc.getJdbcOperations()
+                        .execute("ROLLBACK TO SAVEPOINT rating_collection_statistics");
+                summaries.clear();
+            } finally {
+                jdbc.getJdbcOperations().execute("RELEASE SAVEPOINT rating_collection_statistics");
+            }
+            items =
+                    items.stream()
+                            .map(
+                                    item ->
+                                            new PersonalRatingsPage.Item(
+                                                    item.gameId(),
+                                                    item.slug(),
+                                                    item.canonicalTitle(),
+                                                    item.cover(),
+                                                    item.rating(),
+                                                    genres.getOrDefault(item.gameId(), List.of()),
+                                                    Optional.ofNullable(
+                                                            summaries.get(item.gameId()))))
+                            .toList();
+        }
         return new PersonalRatingsPage(items, criteria.page(), criteria.pageSize(), total);
     }
 
@@ -76,6 +144,8 @@ public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsRead
                 rs.getString("slug"),
                 rs.getString("canonical_title"),
                 cover,
-                rating);
+                rating,
+                List.of(),
+                Optional.empty());
     }
 }

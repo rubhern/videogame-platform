@@ -10,16 +10,23 @@
 
 `Mis puntuaciones` must search, sort, count and page only the authenticated user's
 active ratings, and each row needs public game context (navigation, canonical title,
-approved aliases and resolved cover). That context is owned by Catalogue, but the
-module boundary forbids Ratings from reading Catalogue tables, and the scalability
-invariants forbid a provider call or a per-row cross-module lookup on the user request
-path. Resolving context per rated game at request time would reintroduce N+1 work and
+approved aliases, resolved cover and bounded localized genres). Catalogue owns that
+context, but the module boundary forbids Ratings from reading Catalogue tables, and
+the scalability invariants forbid a provider call or a per-row cross-module lookup
+on the user request path. Resolving context per rated game at request time would reintroduce N+1 work and
 couple the private read to Catalogue availability.
 
 ## Decision
 
 - Keep a Ratings-owned, rebuildable projection (`ratings.game_listing` and
-  `ratings.game_listing_alias`) holding the public listing fields Ratings needs.
+  `ratings.game_listing_alias`) holding the public listing fields Ratings needs. It
+  stores at most 50 existing genre links per game (the Catalogue metadata bound),
+  sharing one label per product genre; each private page returns only its first two localized labels.
+  `GenreLabelChanged` updates a shared projected label transactionally during source
+  acquisition/localization, so reordering does not fan out into per-game refreshes.
+  Listing refreshes initialize missing labels without replacing existing ones; a
+  listing snapshot taken before a concurrent publication cannot overwrite its newer
+  label.
 - Populate it only through Catalogue application contracts (`GetGameListingUseCase` /
   `GameListingReadPort`), never through cross-module SQL or provider types.
 - Refresh synchronously and transactionally at each source of change: the Catalogue
@@ -30,6 +37,8 @@ couple the private read to Catalogue availability.
   writer must publish the same notification inside its transaction.
 - Backfill missing context for already-rated games at startup in keyset batches; an
   incomplete backfill fails startup rather than serving an incomplete private list.
+  The expand-only genre projection marks existing context for the same bounded
+  application-contract backfill; no cross-module migration reads Catalogue data.
 - Serialize per-game refreshes across instances with a per-game transaction advisory
   lock; hold no process-local cache.
 - Read in one read-only `REPEATABLE READ` transaction over Ratings tables only:
@@ -37,6 +46,11 @@ couple the private read to Catalogue availability.
   diacritic-insensitive all-token word-prefix match over title and aliases, count,
   deterministically order (chosen key then `gameId` ascending as the unique
   tie-breaker), `LIMIT` and `OFFSET`, materializing only `O(pageSize)` rows in Java.
+  Add two fixed queries for the paged games: at most two projected genres per game,
+  and indexed PostgreSQL mean/count over their active community ratings, without
+  distribution or per-row calls. An
+  isolated aggregate failure rolls back to a PostgreSQL savepoint and leaves the
+  personal page available with explicit unavailable community context.
 - Expose each item's current strong rating `entityTag` as the conditional validator
   for direct update and delete; it is not a collection cache validator.
 

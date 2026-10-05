@@ -15,9 +15,23 @@ import org.springframework.transaction.support.TransactionOperations;
 public final class JdbcLocalizationStore implements LocalizationStore {
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
+    private final java.util.function.Consumer<
+                    com.videogameplatform.catalogue.application.details.GameDetailsResult.Term>
+            genreLabelChanged;
 
     public JdbcLocalizationStore(
             NamedParameterJdbcOperations jdbc, TransactionOperations transaction) {
+        this(jdbc, transaction, ignored -> {});
+    }
+
+    public JdbcLocalizationStore(
+            NamedParameterJdbcOperations jdbc,
+            TransactionOperations transaction,
+            java.util.function.Consumer<
+                            com.videogameplatform.catalogue.application.details.GameDetailsResult
+                                    .Term>
+                    genreLabelChanged) {
+        this.genreLabelChanged = genreLabelChanged;
         this.jdbc = jdbc;
         this.transaction = transaction;
     }
@@ -242,7 +256,22 @@ public final class JdbcLocalizationStore implements LocalizationStore {
                                                     + " AND t.label_origin<>'curated' AND catalogue.spanish_source_fingerprint(t.source_label)=:hash"
                                                     + " AND t.translation_fingerprint IS DISTINCT FROM :hash",
                                             parameters);
-                            if (changed > 0) revision();
+                            if (changed > 0) {
+                                revision();
+                                if (target.kind() == Kind.GENRE) {
+                                    var term =
+                                            jdbc.queryForObject(
+                                                    "SELECT code,display_name FROM catalogue.genre WHERE genre_id=:id",
+                                                    parameters,
+                                                    (rs, row) ->
+                                                            new com.videogameplatform.catalogue
+                                                                    .application.details
+                                                                    .GameDetailsResult.Term(
+                                                                    rs.getString(1),
+                                                                    rs.getString(2)));
+                                    genreLabelChanged.accept(term);
+                                }
+                            }
                             return changed > 0;
                         }));
     }

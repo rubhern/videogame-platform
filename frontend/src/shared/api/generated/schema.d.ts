@@ -69,7 +69,9 @@ export interface paths {
          *     platform before anything reaches the application. Each item also carries the landscape
          *     context-selected image and optional decorative secondary-card logo,
          *     chosen from locally stored provider media metadata and delivered as approved direct CDN
-         *     references (ADR-0001). No provider is called.
+         *     references (ADR-0001). Up to two product-owned localized genres accompany each item;
+         *     only the first item carries the existing localized summary representation. All content
+         *     is served from PostgreSQL; no provider or translator is called.
          */
         get: operations["getFeaturedReleases"];
         put?: never;
@@ -429,6 +431,8 @@ export interface components {
             slug: string;
             canonicalTitle: string;
             matchedAlias?: string;
+            /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. Suggestions may omit their presentation. */
+            genres?: components["schemas"]["Genre"][];
             primaryCover: components["schemas"]["Cover"];
             /**
              * @description Bounded representative sample of the game's releases, ordered by release
@@ -457,6 +461,8 @@ export interface components {
             slug: string;
             canonicalTitle: string;
             primaryCover: components["schemas"]["Cover"];
+            /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. */
+            genres?: components["schemas"]["Genre"][];
             releases: components["schemas"]["Release"][];
         };
         /**
@@ -536,6 +542,17 @@ export interface components {
             primaryCover: components["schemas"]["Cover"];
             featuredImage: components["schemas"]["FeaturedImage"];
             logo?: components["schemas"]["FeaturedLogo"];
+            /**
+             * @description Up to two known genres, ordered by case-insensitive product name, then genreId.
+             *     Names reuse the localized catalogue representation; empty when none is known.
+             */
+            genres?: components["schemas"]["Genre"][];
+            /**
+             * @description The first ranked item's existing catalogue summary, with the same localization,
+             *     fallback and provenance semantics as GameDetails.summary. Omitted on other items.
+             *     Presentation truncation belongs to the UI; the persisted text is never shortened.
+             */
+            summary?: components["schemas"]["GameSummaryText"];
             releases: components["schemas"]["Release"][];
         };
         /**
@@ -706,10 +723,21 @@ export interface components {
             slug: string;
             canonicalTitle: string;
             primaryCover: components["schemas"]["Cover"];
+            /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId; no release-specific context. */
+            genres?: components["schemas"]["Genre"][];
         };
+        /** @description Community mean rounded half up to one decimal, null exactly when count is zero. No distribution is needed by the personal collection. */
+        AvailableRatingSummary: {
+            status: string;
+            mean: number | null;
+            count: number;
+        };
+        RatingSummary: components["schemas"]["AvailableRatingSummary"] | components["schemas"]["UnavailableRatingStatistics"];
         PersonalRatingItem: {
             game: components["schemas"]["RatedGame"];
             personalRating: components["schemas"]["PersonalRating"];
+            /** @description Community context for this game, returned with the user-scoped page without per-game browser requests. An isolated aggregate failure preserves the personal collection with explicit unavailable statistics. */
+            ratingSummary?: components["schemas"]["RatingSummary"];
         };
         PersonalRatingPage: {
             items: components["schemas"]["PersonalRatingItem"][];

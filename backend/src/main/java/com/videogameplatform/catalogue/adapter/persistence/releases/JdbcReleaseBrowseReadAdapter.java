@@ -1,5 +1,6 @@
 package com.videogameplatform.catalogue.adapter.persistence.releases;
 
+import com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
 import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
@@ -189,6 +190,24 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 jdbcOperations.query(
                         query.sql().page(), pageParameters, ReleaseGroupPageMapper::map);
 
+        var genres =
+                CatalogueGenresReader.read(
+                        jdbcOperations,
+                        publication.id(),
+                        items.stream().map(Item::gameId).toList(),
+                        2);
+        items =
+                items.stream()
+                        .map(
+                                item ->
+                                        new Item(
+                                                item.gameId(),
+                                                item.slug(),
+                                                item.canonicalTitle(),
+                                                item.cover(),
+                                                item.releases(),
+                                                genres.getOrDefault(item.gameId(), List.of())))
+                        .toList();
         return Optional.of(
                 new Result(
                         publication.version(),

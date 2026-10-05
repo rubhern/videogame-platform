@@ -68,12 +68,23 @@ public final class ReleaseApiMapper {
     /** One game with its presented releases; shared by discovery and the featured selection. */
     ReleaseItem toItem(BrowseReleasesResult.Item item) {
         List<Release> releases = item.releases().stream().map(this::toRelease).toList();
-        return new ReleaseItem(
-                item.gameId(),
-                item.slug(),
-                item.canonicalTitle(),
-                coverMapper.toResponse(item.primaryCover()),
-                releases);
+        ReleaseItem result =
+                new ReleaseItem(
+                        item.gameId(),
+                        item.slug(),
+                        item.canonicalTitle(),
+                        coverMapper.toResponse(item.primaryCover()),
+                        releases);
+        result.setGenres(
+                item.genres().stream()
+                        .map(
+                                term ->
+                                        new com.videogameplatform.api.generated.model.Genre(
+                                                term.code(), term.name()))
+                        .collect(
+                                java.util.stream.Collectors.toCollection(
+                                        java.util.LinkedHashSet::new)));
+        return result;
     }
 
     public Release toRelease(BrowseReleasesResult.Release source) {

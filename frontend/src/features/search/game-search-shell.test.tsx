@@ -11,6 +11,7 @@ const params: GameSearchParams = { query: "resident evil", page: 1, pageSize: 6 
 
 const requiem: GameSearchResult = {
   gameId: "game-resident-evil-requiem",
+  genres: [],
   slug: "resident-evil-requiem",
   title: "Resident Evil Requiem",
   matchedAlias: null,

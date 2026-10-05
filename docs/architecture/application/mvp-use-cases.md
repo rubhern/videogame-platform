@@ -220,7 +220,7 @@ owns the runtime and concurrency decision.
 | `UC-005` | Create rating                       | Authenticated user  | Validate 1–10 and current eligibility; prevent duplicate; update personal/aggregate coherently                                                |
 | `UC-006` | Update rating                       | Authenticated owner | Scope by principal + game; validate value/eligibility/concurrency; preserve previous state on failure                                         |
 | `UC-007` | Delete rating                       | Authenticated owner | Scope by principal + game; delete regardless of current eligibility; update aggregate coherently                                              |
-| `UC-008` | View/search/sort `Mis puntuaciones` | Authenticated user  | Scope by user before search/sort/count/page; default updated-descending; unique `gameId` tie-breaker                                          |
+| `UC-008` | View/search/sort `Mis puntuaciones` | Authenticated user  | Scope by user before search/sort/count/page; default updated-descending; unique `gameId` tie-breaker; bounded projected genres and mean/count for the paged games; isolated aggregate failure preserves personal context                                          |
 
 The client never supplies a trusted user/evaluation date. Scoped absence returns
 `RATING_NOT_FOUND` without revealing another user's state. Authentication cancellation

@@ -31,6 +31,7 @@ const providerCover = {
 function item(overrides: Partial<ReleaseListItem> = {}): ReleaseListItem {
   return {
     gameId: "game-witcher",
+  genres: [],
     slug: "the-witcher-iv",
     title: "The Witcher IV",
     releaseGroups: [group()],
@@ -50,6 +51,12 @@ function renderCard(model: ReleaseListItem = item()) {
 }
 
 describe("release card", () => {
+  it("shows only two genres beside the preserved release context", () => {
+    renderCard(item({ genres: [{ genreId: "rpg", name: "Rol" }, { genreId: "action", name: "Acción" }, { genreId: "hidden", name: "Hidden genre" }] }));
+    expect(screen.getByLabelText("Géneros: Rol · Acción")).toBeVisible();
+    expect(screen.getByText("PlayStation 5 · Mundial")).toBeVisible();
+    expect(screen.queryByText("Hidden genre")).not.toBeInTheDocument();
+  });
   it("shows an approved provider cover without the caption the game page owns", () => {
     renderCard();
 

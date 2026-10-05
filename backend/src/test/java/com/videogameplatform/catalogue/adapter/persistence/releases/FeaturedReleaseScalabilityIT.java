@@ -94,6 +94,89 @@ class FeaturedReleaseScalabilityIT {
         assertThat(sequentialScans(plan)).filteredOn(unboundedTables::contains).isEmpty();
     }
 
+    @Test
+    void enrichesOnlyTheRankedGamesThroughIndexedMetadataReads() throws Exception {
+        // The same representative fixture as the ranking test, with metadata on every game.
+        int rows = Integer.getInteger("release.scale.rows", 100_000);
+        if (rows < 10_000 || rows > 1_000_000)
+            throw new IllegalArgumentException("Unsupported scale fixture");
+        String databaseName =
+                PostgreSqlTestDatabase.isolatedDatabaseName("featured_metadata_" + rows);
+        PostgreSqlTestDatabase.createDatabase(databaseName);
+        Flyway.configure()
+                .dataSource(
+                        PostgreSqlTestDatabase.adminUrl(databaseName),
+                        PostgreSqlTestDatabase.migratorUsername(),
+                        PostgreSqlTestDatabase.migratorPassword())
+                .locations("classpath:db/migration")
+                .load()
+                .migrate();
+        var admin =
+                new JdbcTemplate(
+                        new DriverManagerDataSource(
+                                PostgreSqlTestDatabase.adminUrl(databaseName),
+                                PostgreSqlTestDatabase.adminUsername(),
+                                PostgreSqlTestDatabase.adminPassword()));
+        seed(admin, rows);
+        admin.update(
+                "INSERT INTO catalogue.genre(genre_id,code,display_name) SELECT md5('genre-' || n)::uuid, 'scale-genre-' || n, 'Genre ' || n FROM generate_series(1, 3) n");
+        admin.update(
+                "INSERT INTO catalogue.game_genre(game_id,genre_id) SELECT g.game_id,t.genre_id FROM catalogue.game g CROSS JOIN catalogue.genre t");
+        admin.execute("ANALYZE catalogue.game_genre");
+        admin.execute("ANALYZE catalogue.genre");
+        admin.update(
+                "UPDATE catalogue.game_snapshot SET summary_kind='sourced',summary_text='Source ' || game_id::text,summary_language='en',summary_source_kind='external_provider',summary_source_name='IGDB',summary_source_entity_type='game_summary'");
+        admin.update(
+                "INSERT INTO catalogue.content_translation(fingerprint,source_text,translated_text,runtime_revision,translated_at) SELECT catalogue.spanish_source_fingerprint(summary_text),summary_text,'Resumen ' || game_id::text,'fixture',clock_timestamp() FROM catalogue.game_snapshot");
+        admin.update(
+                "INSERT INTO catalogue.game_summary_translation(game_id,fingerprint) SELECT game_id,catalogue.spanish_source_fingerprint(summary_text) FROM catalogue.game_snapshot");
+        admin.execute("ANALYZE catalogue.game_snapshot");
+        admin.execute("ANALYZE catalogue.content_translation");
+        admin.execute("ANALYZE catalogue.game_summary_translation");
+        String ids =
+                java.util.stream.IntStream.rangeClosed(1, 6)
+                        .mapToObj(n -> "md5('game-" + n + "')::uuid")
+                        .collect(java.util.stream.Collectors.joining(","));
+        for (String fieldName : List.of("GENRES_SQL", "SUMMARY_SQL")) {
+            var field =
+                    (fieldName.equals("GENRES_SQL")
+                                    ? com.videogameplatform.catalogue.adapter.persistence
+                                            .CatalogueGenresReader.class
+                                    : JdbcFeaturedReleaseReadAdapter.class)
+                            .getDeclaredField(fieldName.equals("GENRES_SQL") ? "SQL" : fieldName);
+            field.setAccessible(true);
+            String sql =
+                    ((String) field.get(null))
+                            .replace(":genreLimit", "2")
+                            .replace(":publicationId", "'" + PUBLICATION_ID + "'")
+                            .replace(":gameIds", ids)
+                            .replace(":leadId", "md5('game-1')::uuid");
+            JsonNode plan = explain(admin, sql);
+            var tables =
+                    List.of(
+                            "game_snapshot",
+                            "game_genre",
+                            "game_summary_translation",
+                            "content_translation");
+            assertThat(sequentialScans(plan)).filteredOn(tables::contains).isEmpty();
+            assertThat(plan.path("Plan").path("Actual Rows").asInt())
+                    .isEqualTo(fieldName.equals("GENRES_SQL") ? 12 : 1);
+            Path output =
+                    Files.createDirectories(Path.of("target", "query-plans"))
+                            .resolve(
+                                    "featured-"
+                                            + rows
+                                            + "-"
+                                            + fieldName.toLowerCase(java.util.Locale.ROOT)
+                                            + ".json");
+            Files.writeString(
+                    output,
+                    OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(plan));
+            System.out.printf(
+                    "Featured metadata: rows=%d, query=%s, plan=%s%n", rows, fieldName, output);
+        }
+    }
+
     private static void seed(JdbcTemplate jdbc, int rows) {
         jdbc.update(
                 "INSERT INTO catalogue.catalogue_publication (publication_id, catalogue_version, published_at, last_synchronized_at, source_kind, source_name, is_current) VALUES (?::uuid, ?, now(), now(), 'product_curated', 'scale fixture', true)",
@@ -148,6 +231,7 @@ class FeaturedReleaseScalabilityIT {
         var field = JdbcFeaturedReleaseReadAdapter.class.getDeclaredField("PAGE_SQL");
         field.setAccessible(true);
         return ((String) field.get(null))
+                .replace(":genreLimit", "2")
                 .replace(":publicationId", "'" + PUBLICATION_ID + "'")
                 .replace(":monthStart", "'2026-08-01'")
                 .replace(":monthEnd", "'2026-08-31'")

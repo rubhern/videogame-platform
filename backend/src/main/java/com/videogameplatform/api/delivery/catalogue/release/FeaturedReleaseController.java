@@ -1,6 +1,7 @@
 package com.videogameplatform.api.delivery.catalogue.release;
 
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
+import com.videogameplatform.api.delivery.catalogue.CatalogueSummaryMapper;
 import com.videogameplatform.api.generated.FeaturedReleasesApi;
 import com.videogameplatform.api.generated.model.Attribution;
 import com.videogameplatform.api.generated.model.FallbackFeaturedImage;
@@ -9,6 +10,7 @@ import com.videogameplatform.api.generated.model.FeaturedLogo;
 import com.videogameplatform.api.generated.model.FeaturedReleaseItem;
 import com.videogameplatform.api.generated.model.FeaturedReleases;
 import com.videogameplatform.api.generated.model.FeaturedSelection;
+import com.videogameplatform.api.generated.model.Genre;
 import com.videogameplatform.api.generated.model.ProviderFeaturedImage;
 import com.videogameplatform.api.generated.model.ReleaseItem;
 import com.videogameplatform.api.generated.model.ReleaseWindow;
@@ -17,7 +19,9 @@ import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleas
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -89,6 +93,11 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
                         toImage(item.image()),
                         release.getReleases());
         item.logo().map(FeaturedReleaseController::toLogo).ifPresent(response::setLogo);
+        response.setGenres(
+                item.release().genres().stream()
+                        .map(term -> new Genre(term.code(), term.name()))
+                        .collect(Collectors.toCollection(LinkedHashSet::new)));
+        item.summary().map(CatalogueSummaryMapper::toResponse).ifPresent(response::setSummary);
         return response;
     }
 

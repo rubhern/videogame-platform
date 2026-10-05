@@ -9,6 +9,27 @@ import java.util.stream.Collectors;
 final class PersonalRatingsSql {
     private PersonalRatingsSql() {}
 
+    static final String GENRES =
+            """
+        SELECT g.game_id::text AS game_id, terms.genre_code, terms.display_name
+        FROM ratings.game_listing g
+        JOIN LATERAL (
+            SELECT l.genre_code,t.display_name FROM ratings.game_listing_genre l
+            JOIN ratings.genre_label t USING (genre_code) WHERE l.game_id=g.game_id
+            ORDER BY lower(t.display_name),l.genre_code LIMIT 2
+        ) terms ON true
+        WHERE g.game_id IN (:gameIds) ORDER BY g.game_id,lower(terms.display_name),terms.genre_code
+        """;
+    static final String SUMMARIES =
+            """
+        SELECT page.game_id::text AS game_id, aggregate.mean, aggregate.count
+        FROM unnest(CAST(:gameIds AS uuid[])) page(game_id)
+        CROSS JOIN LATERAL (
+            SELECT round(avg(value),1) AS mean,count(*) AS count FROM ratings.rating
+            WHERE game_id=page.game_id
+        ) aggregate
+        """;
+
     static String count(Criteria criteria) {
         return "SELECT count(*) " + scope(criteria);
     }
