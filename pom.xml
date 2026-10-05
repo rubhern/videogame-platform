@@ -28,7 +28,7 @@
     <maven.compiler.release>25</maven.compiler.release>
     <maven.compiler.enablePreview>false</maven.compiler.enablePreview>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <archunit.version>1.5.0</archunit.version>
+    <archunit.version>1.5.1</archunit.version>
     <spring-modulith.version>2.1.1</spring-modulith.version>
     <google-java-format.version>1.36.1</google-java-format.version>
     <jackson-bom.version>3.1.7</jackson-bom.version>
