@@ -377,5 +377,5 @@ done
 [[ "$collector_received_trace" == true ]] ||
   fail "The collector did not record trace receipt from the candidate deployment."
 
-smoke_checks="liveness,readiness,version-metadata,releases-api,browser-shell,oidc-bff-session,diagnostic-metrics,trace-correlation,collector-trace-receipt"
+smoke_checks="liveness,readiness,version-metadata,frontend-version-metadata,releases-api,browser-shell,oidc-bff-session,diagnostic-metrics,trace-correlation,collector-trace-receipt"
 write_evidence

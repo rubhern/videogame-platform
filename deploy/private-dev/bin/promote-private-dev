@@ -1,0 +1,170 @@
+#!/usr/bin/python3 -I
+"""Forced OpenSSH command. Run only from the root-owned, owner-installed checkout."""
+
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import socket
+import stat
+import subprocess
+import sys
+
+REPOSITORY_ROOT = Path("/opt/videogame-platform")
+RUNTIME_ENV = Path("/etc/videogame-platform/dev/runtime.env")
+EVIDENCE_ROOT = Path("/var/lib/videogame-platform/dev/deployment-evidence")
+APPROVED_CONTRACT = Path("/etc/videogame-platform/dev/deployment-contract.sha256")
+SAFE_ENV = {
+    "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "HOME": "/root", "LANG": "C.UTF-8",
+}
+
+
+def installation_require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def parse_command(command):
+    require(len(command) <= 300, "Promotion request exceeds the fixed protocol bound.")
+    parts = shlex.split(command)
+    require(len(parts) == 6 and parts[0] == "promote", "Only the fixed promotion command is permitted.")
+    _, revision, digest, contract, run_id, attempt = parts
+    validate_inputs(revision, digest, run_id, attempt)
+    require(re.fullmatch(r"[0-9a-f]{64}", contract), "A deployment contract fingerprint is required.")
+    return revision, digest, contract, run_id, attempt
+
+
+def verify_installation():
+    installation_require(Path(__file__).resolve() == REPOSITORY_ROOT / "deploy/private-dev/bin/promote-private-dev",
+            "Promotion must use the fixed owner-installed checkout.")
+    # Both the deployment account and other unprivileged users must be unable to
+    # replace privileged code, Git metadata, or their parent directories.
+    for directory in (REPOSITORY_ROOT, *REPOSITORY_ROOT.parents):
+        metadata = directory.stat()
+        installation_require(metadata.st_uid == 0 and not metadata.st_mode & 0o022,
+                "Deployment checkout parents must be root-owned and not group/world writable.")
+    for directory, folders, files in os.walk(REPOSITORY_ROOT):
+        for name in (*folders, *files):
+            path = Path(directory) / name
+            metadata = path.lstat()
+            safe_mode = (path.resolve().is_relative_to(REPOSITORY_ROOT) if stat.S_ISLNK(metadata.st_mode)
+                         else not metadata.st_mode & 0o022)
+            installation_require(metadata.st_uid == 0 and safe_mode,
+                    "The installed checkout must be root-owned, without writable entries or external symlinks.")
+
+
+# Check privileged code ownership before importing repository code. Python's -I
+# ignores PYTHONPATH/user-site/cwd, and the child receives only the fixed environment.
+if __name__ == "__main__":
+    try:
+        installation_require(len(sys.argv) == 1 and os.geteuid() == 0 and os.environ.get("SUDO_USER") == "vgp-deploy",
+                             "Use only the restricted deployment account and fixed sudo command.")
+        verify_installation()
+        original_command = os.environ.get("SSH_ORIGINAL_COMMAND", "")
+        os.environ.clear()
+        os.environ.update(SAFE_ENV)
+        os.umask(0o027)
+    except (RuntimeError, OSError) as error:
+        print(str(error), file=sys.stderr)
+        sys.exit(1)
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts"))
+from private_dev_promotion import (  # noqa: E402
+    GitHub, IMAGE_REPOSITORY, Refused, deployment_contract, remote_deployment_contract,
+    require, validate_inputs, verify_trusted_main,
+)
+
+
+def verify_base_application():
+    containers = subprocess.check_output(
+        ["docker", "ps", "--all", "--filter", "label=com.docker.compose.project=videogame-platform-dev",
+         "--filter", "label=com.docker.compose.service=application", "--format", "{{.ID}}"],
+        env=SAFE_ENV, stderr=subprocess.DEVNULL,
+    ).decode().splitlines()
+    require(len(containers) <= 1, "More than one application container exists; inspect the live project.")
+    if containers:
+        config_files = subprocess.check_output(
+            ["docker", "inspect", "--format", '{{index .Config.Labels "com.docker.compose.project.config_files"}}', containers[0]],
+            env=SAFE_ENV, stderr=subprocess.DEVNULL,
+        ).decode().strip().split(",")
+        require(len(config_files) == 1 and config_files[0].endswith("/deploy/private-dev/compose.yaml"),
+                "The application uses a Compose overlay or different runtime; use its separate reviewed deployment procedure.")
+
+
+def promote(command):
+    revision, digest, contract, run_id, attempt = parse_command(command)
+    require(socket.gethostname().split(".")[0] == "vgpdev", "Promotion is permitted only on vgpdev.")
+    installed = deployment_contract(REPOSITORY_ROOT, "HEAD", installed=True)
+    require(installed == contract,
+            "Runtime/deployment contracts differ. Complete the separate reviewed runtime rollout and install its approved checkout first.")
+    approval = APPROVED_CONTRACT.lstat()
+    require(approval.st_uid == 0 and not approval.st_mode & 0o022 and stat.S_ISREG(approval.st_mode),
+            "Runtime acknowledgement must be a protected root-owned regular file.")
+    require(APPROVED_CONTRACT.read_text(encoding="ascii").strip() == contract,
+            "The installed runtime/deployment contract has not been acknowledged by the owner.")
+    verify_runtime_project()
+    verify_base_application()
+    # Public metadata is rechecked on the host without granting it a GitHub token.
+    # The existing deployment script then binds the supplied digest to this SHA's
+    # published GHCR tag and inspects the pulled image's OCI labels.
+    api = GitHub()
+    _, security_id = verify_trusted_main(api, revision, digest, run_id, attempt)
+    require(remote_deployment_contract(api, revision) == contract,
+            "The supplied deployment fingerprint does not belong to the selected source revision.")
+    require(EVIDENCE_ROOT.is_dir() and not EVIDENCE_ROOT.is_symlink(), "Protected evidence storage is absent.")
+    directory = EVIDENCE_ROOT / f"actions-{run_id}-{attempt}-{os.urandom(8).hex()}"
+    directory.mkdir(mode=0o750)
+    log_path = directory / "deployment.log"
+    with log_path.open("x", encoding="utf-8") as log:
+        os.chmod(log_path, 0o640)
+        result = subprocess.run(
+            [str(REPOSITORY_ROOT / "deploy/private-dev/bin/deploy-private-dev"),
+             "--env-file", str(RUNTIME_ENV),
+             "--image", f"{IMAGE_REPOSITORY}@{digest}",
+             "--source-revision", revision,
+             "--initiator", "rubhern-actions",
+             "--evidence-directory", str(directory)],
+            env=SAFE_ENV, stdout=log, stderr=subprocess.STDOUT, check=False,
+        )
+    records = list(directory.glob("*.json"))
+    require(len(records) == 1, "Deployment did not produce one evidence record; inspect protected host logs.")
+    evidence = json.loads(records[0].read_text(encoding="utf-8"))
+    require(evidence["sourceRevision"] == revision and evidence["image"] == f"{IMAGE_REPOSITORY}@{digest}",
+            "Deployment evidence does not identify the selected artifact.")
+    success = result.returncode == 0 and evidence["outcome"] == "success" and evidence["phase"] == "complete"
+    # Only this small allowlist crosses SSH. Runtime/Compose/browser/migration logs
+    # remain on the private host even when deployment fails.
+    receipt = {
+        "sourceRevision": revision, "image": evidence["image"],
+        "applicationVersion": evidence["applicationVersion"],
+        "migrationVersion": evidence["migrationVersion"],
+        "outcome": "success" if success else "failure", "phase": evidence["phase"],
+        "evidencePath": str(records[0]),
+        "sourceRunId": int(run_id), "sourceRunAttempt": int(attempt),
+        "securityRunId": security_id, "deploymentContract": contract,
+    }
+    receipt_path = directory / "promotion-receipt.json"
+    receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    os.chmod(receipt_path, 0o640)
+    print(json.dumps(receipt))
+    return 0 if success else 1
+
+
+def verify_runtime_project():
+    project_values = [
+        line.partition("=")[2].strip()
+        for line in RUNTIME_ENV.read_text(encoding="utf-8").splitlines()
+        if line.strip().startswith("COMPOSE_PROJECT_NAME=")
+    ]
+    require(project_values in ([], ["videogame-platform-dev"]),
+            "Automation supports only the fixed private-dev Compose project; use the reviewed operator path for another project.")
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(promote(original_command))
+    except (Refused, OSError, ValueError, TypeError, KeyError, subprocess.CalledProcessError) as error:
+        print(str(error) if isinstance(error, Refused) else "Promotion failed; inspect protected host evidence.", file=sys.stderr)
+        sys.exit(1)

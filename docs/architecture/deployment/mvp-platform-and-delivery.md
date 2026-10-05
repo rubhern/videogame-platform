@@ -26,7 +26,12 @@ boundary.
 `x86_64`, 8 GB RAM, SSD, Docker Engine and Compose) under
 [ADR-0019](../../decisions/0019-host-private-dev-on-an-owner-managed-linux-host.md).
 Owner administration uses key-based OpenSSH over Tailscale; Tailscale Serve is the
-only HTTPS edge and admits only the owner. Tailscale does not replace Keycloak or
+only HTTPS edge and admits only the owner. Owner-approved application promotion
+additionally permits an ephemeral tagged Actions identity to reach only the host's
+OpenSSH port through the tailnet, with a forced promotion command; it receives no
+product, identity or management access. This boundary is prepared for review under
+[ADR-0023](../../decisions/0023-automate-owner-approved-private-dev-application-promotion.md);
+host configuration and acceptance remain separate. Tailscale does not replace Keycloak or
 product authorization. No public application, identity, database, telemetry or SSH
 ingress is allowed; router port forwarding, Tailscale Funnel and public DNS remain
 prohibited. Machine addressing and tailnet identifiers stay outside the repository.
@@ -153,9 +158,15 @@ is identified by commit SHA and content digest rather than `latest`.
 
 GitHub Actions validates pull requests without provider or deployment secrets and
 never publishes or deploys from them. Trusted `main` builds and scans the same
-index, produces SBOM/provenance evidence, and publishes to GHCR. Deployment promotes
-an already validated digest only when the owner invokes the deployment command; it is
-never automatic. The
+index, produces SBOM/provenance evidence, and publishes to GHCR. Application delivery
+remains **Continuous Delivery**: the owner explicitly selects a source revision,
+immutable digest and successful main CI run/attempt, dispatches the promotion workflow
+on main and approves its protected dev environment. Promotion verifies main ancestry,
+successful quality/security/publication evidence and the retained publication digest
+before connecting, and rechecks after approval. A merge never triggers deployment.
+The repository automation is prepared; the
+[runbook](../../development/operations-runbook.md#deploying-an-immutable-digest)
+owns its real-host evidence boundary. The
 [delivery pipeline diagram](../diagrams/mermaid/delivery-pipeline.mmd) shows the flow.
 
 Deployment runs under one non-blocking host lock: verify the supplied revision and
@@ -163,6 +174,28 @@ digest, run the selected image once as the migration actor, replace only the
 application container with that digest, wait for candidate readiness, run the
 deployment smoke against the candidate and the private HTTPS boundary, and record an
 external JSON evidence file that holds no credentials or personal data.
+Automation invokes this same command from a root-owned owner-installed checkout,
+without uploading or executing candidate source on the host. Its restricted account
+has no Docker group, interactive shell, forwarding or general sudo capability.
+Host verification binds the candidate's Git deployment-contract fingerprint to the
+clean installed checkout and a protected owner acknowledgement of the applied runtime.
+The source/main CI metadata is rechecked through public GitHub read-only access;
+the existing digest/tag/OCI checks bind the image to that successful source run.
+Only a sanitized receipt crosses SSH; deployment logs stay protected on the host.
+GitHub/API/network failures refuse promotion. Retained publication evidence may
+expire; successful old runs without that evidence cannot be promoted through Actions.
+
+Application promotion recreates **only the application** after the one-shot
+migration. PostgreSQL, Keycloak, Grafana, Prometheus, Loki, Alloy, the Collector and
+optional acquisition helpers keep their explicit owner-reviewed rollout procedures.
+Any change to deployment/runtime files or dependency bootstrap/configuration blocks
+promotion until the owner has applied the appropriate separate rollout and installed
+and acknowledged the matching checkout. Installing Git files alone never proves a
+runtime upgrade. Active application Compose overlays are refused so base-stack
+promotion cannot silently discard their settings; use their explicit operator path.
+Protected runtime environment/secret edits also retain their separate rollout and
+rotation procedures. The normal manual deployment remains available for recovery.
+
 Migration failure leaves the previous application running. A readiness or smoke
 failure records a failed deployment even if another or older process still answers.
 The mechanism implements no automatic rollback; backup, restore, rollback assessment

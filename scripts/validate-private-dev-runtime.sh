@@ -406,6 +406,7 @@ if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
     "$repository_root/deploy/private-dev/smoke/deployment-smoke-order.test.mjs" \
     "$repository_root/deploy/private-dev/smoke/deployment-smoke-contract.test.mjs"
   bash "$repository_root/scripts/test-private-dev-deployment.sh"
+  python3 "$repository_root/scripts/test-private-dev-promotion.py"
   bash "$repository_root/scripts/test-local-observability.sh"
   bash "$repository_root/scripts/test-local-localization.sh"
   python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"

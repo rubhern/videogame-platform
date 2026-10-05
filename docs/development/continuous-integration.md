@@ -31,12 +31,17 @@ Secret scanning remains applicable to every pull request.
 | IGDB PoC fixtures | `./mvnw -f tools/igdb-poc/pom.xml clean verify` |
 
 Commands and exact tool/action versions live in package manifests, Maven POMs,
-scripts, Dockerfile, and `.github/workflows/`. CI uses no live IGDB credentials and
-does not provision or deploy remote infrastructure. Private-dev validation uses
+scripts, Dockerfile, and `.github/workflows/`. Validation CI uses no live IGDB or
+deployment credentials and does not provision or deploy remote infrastructure.
+The separate [owner-approved promotion workflow](../../.github/workflows/deploy-private-dev.yml)
+uses protected environment credentials only after explicit approval; its policy and
+runtime boundary belong to the [platform design](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
+Private-dev validation uses
 disposable configuration, a fake deployment boundary to prove ordering/lock/failure
 semantics, and an in-memory Keycloak-admin double to prove smoke-account ownership
 rules; only the owner-run host commands can provision the real account or perform a
-real deployment.
+real deployment. Offline promotion regressions additionally cover CI trust,
+publication binding, restricted commands, runtime drift and sanitized failure evidence.
 
 Trusted `main` builds validate and publish the same non-root multi-architecture OCI
 index by immutable commit SHA/digest. Pull requests never publish. Image scanning,
