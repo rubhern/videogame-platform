@@ -1,0 +1,150 @@
+name: Promote application to private dev
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_revision:
+        description: Full trusted-main commit SHA
+        type: string
+        required: true
+      image_digest:
+        description: Immutable sha256 digest from the successful main publication
+        type: string
+        required: true
+      source_run_id:
+        description: Successful Build and verify run ID for this revision
+        type: string
+        required: true
+      source_run_attempt:
+        description: Current successful attempt of that CI run
+        type: string
+        required: true
+
+permissions: {}
+
+concurrency:
+  group: private-dev-application-promotion
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify selected trusted-main artifact
+    if: ${{ github.ref == 'refs/heads/main' && github.actor == 'rubhern' && github.triggering_actor == 'rubhern' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      contract: ${{ steps.verify.outputs.contract }}
+    steps:
+      - name: Check out trusted orchestration and source history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify approval configuration, CI and exact publication
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REVISION: ${{ inputs.source_revision }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: |
+          python3 scripts/private_dev_promotion.py \
+            --revision "$SOURCE_REVISION" --digest "$IMAGE_DIGEST" \
+            --run-id "$SOURCE_RUN_ID" --attempt "$SOURCE_RUN_ATTEMPT"
+
+  promote:
+    name: Owner-approved private-dev application promotion
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    environment:
+      name: dev
+    steps:
+      - name: Check out trusted orchestration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Recheck evidence after owner approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_REVISION: ${{ inputs.source_revision }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: |
+          python3 scripts/private_dev_promotion.py \
+            --revision "$SOURCE_REVISION" --digest "$IMAGE_DIGEST" \
+            --run-id "$SOURCE_RUN_ID" --attempt "$SOURCE_RUN_ATTEMPT"
+      - name: Prepare protected SSH identity
+        env:
+          DEPLOY_HOST: ${{ secrets.PRIVATE_DEV_SSH_HOST }}
+          SSH_KEY: ${{ secrets.PRIVATE_DEV_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.PRIVATE_DEV_SSH_KNOWN_HOSTS }}
+          TS_CLIENT: ${{ secrets.PRIVATE_DEV_TS_CLIENT_ID }}
+          TS_SECRET: ${{ secrets.PRIVATE_DEV_TS_CLIENT_SECRET }}
+        run: |
+          test -n "$DEPLOY_HOST" && test -n "$SSH_KEY" && test -n "$KNOWN_HOSTS"
+          test -n "$TS_CLIENT" && test -n "$TS_SECRET"
+          [[ "$DEPLOY_HOST" =~ ^vgpdev\.[a-zA-Z0-9.-]+\.ts\.net$ ]]
+          umask 077
+          mkdir -p "$RUNNER_TEMP/private-dev-ssh"
+          printf '%s\n' "$SSH_KEY" > "$RUNNER_TEMP/private-dev-ssh/key"
+          printf '%s\n' "$KNOWN_HOSTS" > "$RUNNER_TEMP/private-dev-ssh/known_hosts"
+      - name: Join the narrowly permitted ephemeral tailnet identity
+        uses: tailscale/github-action@d1b6cd204f8dceda5b3eaad7f1f767be390056cd # v4
+        with:
+          oauth-client-id: ${{ secrets.PRIVATE_DEV_TS_CLIENT_ID }}
+          oauth-secret: ${{ secrets.PRIVATE_DEV_TS_CLIENT_SECRET }}
+          tags: tag:vgp-deploy
+          version: 1.102.4
+          sha256sum: 50748df1045e60b5b695f19f4c56b0da36c019948b440fb456b6584a50f0d8b9
+          use-cache: "false"
+          log-mode: quiet
+      - name: Invoke the existing private-host deployment boundary
+        id: deploy
+        env:
+          DEPLOY_HOST: ${{ secrets.PRIVATE_DEV_SSH_HOST }}
+          SOURCE_REVISION: ${{ inputs.source_revision }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          CONTRACT: ${{ needs.verify.outputs.contract }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: |
+          ssh -F /dev/null -T \
+            -i "$RUNNER_TEMP/private-dev-ssh/key" \
+            -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            -o "UserKnownHostsFile=$RUNNER_TEMP/private-dev-ssh/known_hosts" \
+            -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            "vgp-deploy@$DEPLOY_HOST" \
+            "promote $SOURCE_REVISION $IMAGE_DIGEST $CONTRACT $SOURCE_RUN_ID $SOURCE_RUN_ATTEMPT" \
+            > promotion-receipt.json
+      - name: Summarize and verify the host outcome
+        if: ${{ always() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure') }}
+        env:
+          SOURCE_REVISION: ${{ inputs.source_revision }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+        run: |
+          python3 scripts/private_dev_promotion.py --receipt promotion-receipt.json \
+            --revision "$SOURCE_REVISION" --digest "$IMAGE_DIGEST" \
+            --run-id "$SOURCE_RUN_ID" --attempt "$SOURCE_RUN_ATTEMPT"
+      - name: Retain the sanitized deployment receipt
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: private-dev-promotion-${{ github.run_id }}-${{ github.run_attempt }}
+          path: promotion-receipt.json
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Remove temporary SSH credentials
+        if: ${{ always() }}
+        run: rm -rf -- "$RUNNER_TEMP/private-dev-ssh"

@@ -108,6 +108,12 @@ try {
   browser = await chromium.launch();
   const context = await browser.newContext({ baseURL: applicationOrigin });
   const page = await context.newPage();
+  const startupMessages = [];
+  page.on("console", (message) => {
+    if (message.type() === "info" && message.text().startsWith("Gameómetro ")) {
+      startupMessages.push(message.text());
+    }
+  });
   await page.route("**/*", async (route) => {
     if (igdbHosts.has(new URL(route.request().url()).hostname)) {
       await route.abort("blockedbyclient");
@@ -126,6 +132,12 @@ try {
   const renderedReleasesOutcome = await releasesOutcome(renderedReleases, "releases API");
   await page.locator("h1").waitFor({ state: "visible" });
   const heading = (await page.locator("h1").textContent()) ?? "";
+  assert(
+    startupMessages.length === 1 &&
+      startupMessages[0] === `Gameómetro ${expectedVersion} — revision ${expectedRevision.slice(0, 12)}`,
+    "frontend startup metadata did not match the selected artifact exactly once",
+  );
+  completedChecks.push("frontend-version-metadata");
   assert(
     /Lanzamientos recientes|Próximos lanzamientos/.test(heading),
     "minimal browser shell heading is absent",

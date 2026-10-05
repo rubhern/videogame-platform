@@ -182,6 +182,25 @@ outcome/phase pair in an issue comment.
 A deployment is never a named release or product acceptance. The
 [delivery lifecycle](delivery-lifecycle.md) owns release and acceptance records.
 
+**Not exercised on `vgpdev` for #160:** the
+[owner-approved Actions promotion](../../deploy/private-dev/README.md#owner-approved-actions-promotion)
+and its restricted SSH identity are prepared in the repository. Local doubles
+prove refusal/dispatch/evidence logic; a focused browser check proves injected startup
+metadata, not private-host access or rollout. No automation credential, host change
+or deployment is implied by these checks.
+
+Before marking automation proven, record the owner's implementation/host approval,
+protected-environment and tailnet restrictions, forced-command/forwarding denial,
+pinned host-key verification, refusal of stale/mismatched CI and runtime evidence,
+and one approved main-digest promotion with successful original host evidence and
+matching browser startup version/revision. Check that dependency container identities
+and configurations were not recreated by application promotion. Exercise lock contention
+and the applicable failure/recovery path through the existing procedures, without
+reverting an applied migration. Record outcomes in
+[#160](https://github.com/rubhern/videogame-platform/issues/160); keep it open while
+this acceptance remains pending. A failed or interrupted workflow requires inspecting
+protected host logs/evidence before another owner action, even if the application answers.
+
 ## Catalogue synchronization
 
 Owner: [Backend README](../../backend/README.md) for the command semantics,

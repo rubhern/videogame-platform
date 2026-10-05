@@ -519,6 +519,7 @@ assert record["smokeChecks"] == [
     "liveness",
     "readiness",
     "version-metadata",
+    "frontend-version-metadata",
     "releases-api",
     "browser-shell",
     "oidc-bff-session",

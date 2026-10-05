@@ -356,6 +356,10 @@ Record the action and the absence of an automatic recovery claim in #159.
 
 ## Owner-triggered deployment
 
+The direct host command remains the proven deployment/recovery entry point.
+The [owner-approved Actions promotion](#owner-approved-actions-promotion) invokes
+it through restricted SSH after verifying CI evidence; neither path deploys on merge.
+
 Choose a trusted `main` source revision and review its successful required checks,
 image publication summary, scan/SBOM evidence and immutable digest. Both selected
 values stay explicit in the command:
@@ -389,7 +393,7 @@ Under one non-blocking host lock the command:
    container or older version answers health checks.
 
 The smoke checks management liveness/readiness; `/actuator/info` version and source
-revision; the HTTP/JVM/JDBC metric catalogue; `GET /api/v1/releases` returning a
+revision; the matching single frontend startup console message; the HTTP/JVM/JDBC metric catalogue; `GET /api/v1/releases` returning a
 valid local page (including zero items) or the approved `CATALOGUE_NOT_READY`
 response; the matching Spanish shell rendering in Chromium with IGDB hosts blocked;
 real Keycloak authorization with an opaque `HttpOnly`, `Secure`, `SameSite=Lax` BFF
@@ -397,6 +401,157 @@ session, no browser-stored OAuth material, and CSRF-protected logout; W3C
 trace/correlation propagation in structured logs; and trace receipt by the collector.
 It deliberately does not rate a game, traverse every screen, or run provider
 synchronization, and it is not product acceptance.
+
+## Owner-approved Actions promotion
+
+Repository implementation for #160 is prepared for owner review; **real-host setup
+and acceptance are pending**. Do not execute this setup or dispatch promotion without
+the separate owner-approved host change. The
+[platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery)
+owns the application/runtime boundary and
+[ADR-0023](../../docs/decisions/0023-automate-owner-approved-private-dev-application-promotion.md)
+records the proposed trust decision. The workflow and scripts own job mechanics.
+
+### Protected GitHub and tailnet setup
+
+Use the public repository's eligible free GitHub-hosted runner/environment and
+existing free personal tailnet; recheck eligibility before enabling. No paid fallback
+or additional runtime service is authorized.
+
+Configure the GitHub **dev** environment with required reviewer **rubhern**, allow
+self-review for this sole-owner project, disable administrator bypass, and permit
+only the selected **main branch** (no tags). The workflow verifies reviewer/branch
+policy through GitHub's API before private connectivity and again after approval.
+The API does not expose the bypass setting: verify and record it in the settings UI.
+Keep all five credentials/connection values as environment secrets, never repository
+secrets or workflow inputs:
+
+| Environment secret | Owner-provided value |
+|---|---|
+| `PRIVATE_DEV_TS_CLIENT_ID` | Dedicated Tailscale OAuth client ID |
+| `PRIVATE_DEV_TS_CLIENT_SECRET` | OAuth secret limited to writable auth keys and `tag:vgp-deploy` |
+| `PRIVATE_DEV_SSH_HOST` | Exact private `vgpdev.*.ts.net` hostname |
+| `PRIVATE_DEV_SSH_KEY` | Dedicated Ed25519 private key for the restricted account |
+| `PRIVATE_DEV_SSH_KNOWN_HOSTS` | Exact hostname plus trusted host public key, verified through the existing owner connection/console |
+
+Generate the deployment key on the owner's trusted workstation, store the private
+key only in the protected environment, and install only its public key on the host.
+Do not discover/trust a new host key during deployment. For rotation, install the
+new public key through owner administration, update the environment secret, verify
+the restricted path, then remove the old key. Revoke the OAuth client and SSH key to
+disable automation; preserve the normal owner administration/recovery path.
+
+The [Tailscale Action](https://github.com/tailscale/github-action) creates an
+ephemeral tagged node and logs out in cleanup. Give that tag only TCP 22 to the
+specific existing host. Audit all existing grants/ACLs: an earlier allow-all rule
+would defeat a narrow added grant. It must reach neither another host nor product
+HTTPS, Keycloak, Grafana or management services. Keep owner access and Serve routes
+intact. Use ordinary OpenSSH, without enabling Tailscale SSH, Funnel, router
+forwarding or a public listener. Validate positive TCP-22 and negative other-service
+policy tests before adding the credential.
+
+### Restricted host installation
+
+Through the existing owner administration connection, install a **standalone,
+root-owned clean Git checkout** of the reviewed main revision at
+`/opt/videogame-platform`. Keep its Git metadata root-owned too, without group/world
+write access; do not copy a worktree's `.git` pointer, build outputs or private files.
+The runner never updates this checkout. Git and Python 3 are host prerequisites.
+
+Create a dedicated `vgp-deploy` system account with `/bin/sh` only for sshd's
+forced-command invocation, no password authentication, no Docker/runtime group
+membership and no other sudo rights. Install its public key in root-owned
+`/etc/ssh/authorized_keys/vgp-deploy` with mode 0644 (the key is public), under a
+root-owned searchable directory, using the `restrict` authorized-key option.
+The account must not be able to replace its authorized keys.
+
+Add this reviewed sshd drop-in; run `sudo sshd -t`, keep a working owner session
+and reload SSH only after the configuration validates:
+
+```text
+Match User vgp-deploy
+    AuthenticationMethods publickey
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    AuthorizedKeysFile /etc/ssh/authorized_keys/%u
+    ForceCommand /usr/bin/sudo -n /opt/videogame-platform/deploy/private-dev/bin/promote-private-dev
+    DisableForwarding yes
+    PermitTTY no
+    PermitUserRC no
+Match all
+```
+
+Install a root-owned mode-0440 sudoers drop-in and validate it with `visudo -cf`
+before enabling the key. The empty argument specification permits no arguments:
+
+```text
+Defaults:vgp-deploy env_keep += "SSH_ORIGINAL_COMMAND"
+vgp-deploy ALL=(root) NOPASSWD: /opt/videogame-platform/deploy/private-dev/bin/promote-private-dev ""
+```
+
+The isolated Python forced command validates its strict request grammar, clears the
+inherited environment and checks privileged code ownership before loading repository
+code. It has fixed runtime/evidence paths and cannot accept a shell, file upload,
+alternate checkout, environment file or Compose operation.
+
+Preserve the same deployment lock for root automation and the owner operator.
+Configure a reviewed tmpfiles entry and create it before first promotion:
+
+```text
+f /run/lock/videogame-platform-dev-deployment.lock 0660 root vgp-runtime - -
+```
+
+After reviewing/applying the actual runtime and dependency configuration using its
+existing explicit procedures, acknowledge its clean installed Git contract:
+
+```bash
+sudo python3 /opt/videogame-platform/scripts/private_dev_promotion.py --installed-contract \
+  | sudo tee /etc/videogame-platform/dev/deployment-contract.sha256 >/dev/null
+sudo chown root:vgp-runtime /etc/videogame-platform/dev/deployment-contract.sha256
+sudo chmod 0640 /etc/videogame-platform/dev/deployment-contract.sha256
+```
+
+This acknowledgement is an owner statement that the runtime was reviewed/applied;
+writing the hash does not deploy a dependency. Stop rather than acknowledge a rollout
+that has not happened. A tooling-only change may need just an approved checkout
+update; review the diff to distinguish that from real service changes. Preserve
+private runtime/secrets under `/etc`, evidence under `/var/lib`, and bind-mounted
+runtime configuration at its reviewed location. File replacement/restart alone may
+not update imported Keycloak state, database roles or Grafana's persisted credentials.
+
+### Promote and verify
+
+Review a successful main build's published immutable digest, source SHA, run ID and
+current attempt, plus its security and scan/SBOM evidence. Dispatch
+**Promote application to private dev** on **main** with those four exact inputs.
+Review the pending **dev** job and approve it. No build occurs during promotion.
+Pending Actions runs are serialized but the queue is not FIFO; the existing host
+lock also refuses concurrent manual deployment.
+
+The host rechecks public main CI/source evidence and binds the candidate's runtime
+fingerprint to the installed and acknowledged contract. Existing dependencies must
+already be healthy. A different contract or active application Compose overlay stops
+before migration/activation. This initial workflow supports the base private-dev
+application in the fixed `videogame-platform-dev` Compose project only; the localization overlay retains its
+[explicit operator path](#catalogue-localization-helper).
+
+Read the Actions summary and retained `private-dev-promotion-*` receipt. Original
+deployment JSON and detailed log remain under the protected evidence root in a
+per-invocation directory; use owner administration/sudo to inspect them. Failed SSH,
+missing receipts or workflow timeout are failures, never proof that deployment stopped
+or succeeded. Inspect the host before another promotion, and follow the existing
+[recovery assessment](#rollback-versus-forward-fix); no automatic rollback is added.
+GitHub public API rate limits, unavailable/expired CI artifacts or private-network
+failure refuse promotion; there is no retry that converts uncertain deployment into
+success.
+
+Open the application, enable DevTools Console info messages, disable browser network
+cache and reload. Confirm the
+[frontend build identity](../../frontend/README.md#deployed-build-identity)
+matches the expected version and SHA prefix. Check runtime container identities are
+unchanged. Record real-host restriction, success/failure and recovery acceptance in
+#160 as required by the
+[runbook](../../docs/development/operations-runbook.md#deploying-an-immutable-digest).
 
 ## Backup, restore, rollback and host-loss recovery
 

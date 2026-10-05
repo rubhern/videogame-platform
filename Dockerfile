@@ -17,10 +17,14 @@ RUN --mount=type=cache,target=/root/.npm \
 COPY docs/architecture/api/openapi.yaml docs/architecture/api/openapi.yaml
 COPY frontend frontend
 
+ARG APPLICATION_VERSION
+ARG SOURCE_REVISION=local-development
+
 RUN node --version \
     && npm --version \
     && npm run frontend:generate-api \
-    && npm run frontend:build
+    && APPLICATION_VERSION="${APPLICATION_VERSION:?Build caller must supply the reactor version}" \
+       SOURCE_REVISION="${SOURCE_REVISION}" npm run frontend:build
 
 FROM --platform=$BUILDPLATFORM ${JDK_IMAGE} AS backend-build
 

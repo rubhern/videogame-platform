@@ -6,19 +6,26 @@ flowchart TD
         PR --> Main --> GHCR
     end
 
-    subgraph Deploy["Owner-triggered on vgpdev (one host lock)"]
+    Dispatch["Owner dispatches promotion on main<br/>explicit CI run/attempt, source SHA and digest"]
+    Evidence["Verify trusted-main quality/security/publication evidence"]
+    Approval["Owner approves protected dev environment"]
+    Connect["Ephemeral Tailscale + restricted OpenSSH<br/>installed/runtime contract and source-trust checks"]
+
+    subgraph Deploy["Existing deploy-private-dev on vgpdev (one host lock)"]
         Verify["Verify supplied revision and digest<br/>pull by digest, check OCI labels"]
         Migrate["Run the image once as the migration actor"]
         Replace["Replace only the application container<br/>with the selected digest"]
         Ready{"Candidate ready?"}
-        Smoke["Deployment smoke over the private HTTPS edge<br/>readiness, releases API, browser shell, OIDC session, telemetry"]
+        Smoke["Deployment smoke over the private HTTPS edge<br/>browser build identity, releases, OIDC session, telemetry"]
         Record["Record JSON evidence: success or failure + phase"]
         Verify --> Migrate --> Replace --> Ready
         Ready -->|yes| Smoke --> Record
         Ready -->|no| Record
     end
 
-    GHCR -->|owner selects digest + revision| Verify
+    GHCR --> Dispatch --> Evidence --> Approval --> Connect --> Verify
+    Manual["Owner manual deployment / assessed recovery"] --> Verify
+    Runtime["Separate owner-reviewed runtime/dependency rollout<br/>and installed-contract acknowledgement"] -. prerequisite if contracts changed .-> Connect
     Migrate -->|migration fails: previous application keeps running| Record
     Record -->|failure| Assess["Assess rollback vs forward fix<br/>an applied migration is never reverted"]
     Assess -->|schema-compatible| Verify

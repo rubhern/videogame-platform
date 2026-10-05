@@ -60,6 +60,23 @@ browser path with `bash scripts/validate-browser.sh`.
 Keep feature behaviour close to its feature. Do not create a design system, global
 state store, or generic abstraction without demonstrated reuse or ownership value.
 
+## Deployed build identity
+
+Each document startup writes one developer-console info message:
+`Gameómetro <application-version> — revision <source-sha-prefix>`.
+It stays outside React rendering and does not repeat during client navigation.
+Packaged builds inject the same application version/source revision used for the
+Maven build information and OCI labels; the Dockerfile and packaging script own
+that wiring. Standalone Vite uses the frontend package version and
+`local-development` unless build metadata is injected. No second version constant,
+browser secret or public metadata endpoint is added.
+
+After private-dev promotion, open DevTools **Console**, enable info messages and
+reload the application with the network cache disabled. Compare its version and
+12-character SHA with the selected publication/deployment receipt. Deployment smoke
+checks that message against the candidate's expected metadata. A browser still
+holding an earlier document can retain the earlier bundle until reloaded.
+
 ## API, routing, and state
 
 [`openapi.yaml`](../docs/architecture/api/openapi.yaml) is the wire contract.
