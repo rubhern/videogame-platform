@@ -182,18 +182,22 @@ outcome/phase pair in an issue comment.
 A deployment is never a named release or product acceptance. The
 [delivery lifecycle](delivery-lifecycle.md) owns release and acceptance records.
 
-**Not exercised on `vgpdev` for #160:** the
+**Original path exercised on `vgpdev` for #160:** the
 [owner-approved Actions promotion](../../deploy/private-dev/README.md#owner-approved-actions-promotion)
-and its restricted SSH identity are prepared in the repository. Local doubles
-prove refusal/dispatch/evidence logic; a focused browser check proves injected startup
-metadata, not private-host access or rollout. No automation credential, host change
-or deployment is implied by these checks.
+has a successful retained host receipt (`outcome=success`, `phase=complete`) in
+[the original promotion run](https://github.com/rubhern/videogame-platform/actions/runs/37339424266).
+That proves the previous promotion path, including its technical smoke. **Acceptance
+of the refined single-dispatch flow remains pending**. Local doubles prove the new
+discovery/refusal logic; they do not prove the changed environment configuration or
+authorize a host change or deployment.
 
-Before marking automation proven, record the owner's implementation/host approval,
-protected-environment and tailnet restrictions, forced-command/forwarding denial,
+Before marking the refined flow proven, record the owner's implementation/host approval,
+the saved reviewer-free, main-only environment policy with bypass disabled, exact
+dispatch-SHA/run/attempt/digest derivation and tailnet restrictions, forced-command/forwarding denial,
 pinned host-key verification, refusal of stale/mismatched CI and runtime evidence,
-and one approved main-digest promotion with successful original host evidence and
-matching browser startup version/revision. Check that dependency container identities
+and one owner-dispatched promotion without input fields or a second approval, with
+successful original host evidence and matching browser startup version/revision.
+Check that dependency container identities
 and configurations were not recreated by application promotion. Exercise lock contention
 and the applicable failure/recovery path through the existing procedures, without
 reverting an applied migration. Record outcomes in

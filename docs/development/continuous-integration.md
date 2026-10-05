@@ -34,7 +34,8 @@ Commands and exact tool/action versions live in package manifests, Maven POMs,
 scripts, Dockerfile, and `.github/workflows/`. Validation CI uses no live IGDB or
 deployment credentials and does not provision or deploy remote infrastructure.
 The separate [owner-approved promotion workflow](../../.github/workflows/deploy-private-dev.yml)
-uses protected environment credentials only after explicit approval; its policy and
+derives the validated image from the exact dispatch SHA and uses dev environment
+credentials only after the owner dispatch (the sole human deployment approval); its policy and
 runtime boundary belong to the [platform design](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
 Private-dev validation uses
 disposable configuration, a fake deployment boundary to prove ordering/lock/failure
