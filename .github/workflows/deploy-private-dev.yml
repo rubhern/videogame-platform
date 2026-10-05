@@ -2,23 +2,6 @@ name: Promote application to private dev
 
 on:
   workflow_dispatch:
-    inputs:
-      source_revision:
-        description: Full trusted-main commit SHA
-        type: string
-        required: true
-      image_digest:
-        description: Immutable sha256 digest from the successful main publication
-        type: string
-        required: true
-      source_run_id:
-        description: Successful Build and verify run ID for this revision
-        type: string
-        required: true
-      source_run_attempt:
-        description: Current successful attempt of that CI run
-        type: string
-        required: true
 
 permissions: {}
 
@@ -28,7 +11,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Verify selected trusted-main artifact
+    name: Derive and verify exact dispatch artifact
     if: ${{ github.ref == 'refs/heads/main' && github.actor == 'rubhern' && github.triggering_actor == 'rubhern' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -37,28 +20,29 @@ jobs:
       actions: read
     outputs:
       contract: ${{ steps.verify.outputs.contract }}
+      source_revision: ${{ steps.verify.outputs.source_revision }}
+      image_digest: ${{ steps.verify.outputs.image_digest }}
+      source_run_id: ${{ steps.verify.outputs.source_run_id }}
+      source_run_attempt: ${{ steps.verify.outputs.source_run_attempt }}
     steps:
       - name: Check out trusted orchestration and source history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify approval configuration, CI and exact publication
+          ref: ${{ github.sha }}
+      - name: Verify environment policy and derive exact dispatch publication
         id: verify
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_REVISION: ${{ inputs.source_revision }}
-          IMAGE_DIGEST: ${{ inputs.image_digest }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          SOURCE_REVISION: ${{ github.sha }}
         run: |
-          python3 scripts/private_dev_promotion.py \
-            --revision "$SOURCE_REVISION" --digest "$IMAGE_DIGEST" \
-            --run-id "$SOURCE_RUN_ID" --attempt "$SOURCE_RUN_ATTEMPT"
+          python3 scripts/private_dev_promotion.py --discover --revision "$SOURCE_REVISION"
 
   promote:
     name: Owner-approved private-dev application promotion
     needs: verify
+    if: ${{ github.ref == 'refs/heads/main' && github.actor == 'rubhern' && github.triggering_actor == 'rubhern' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -72,13 +56,14 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Recheck evidence after owner approval
+          ref: ${{ github.sha }}
+      - name: Recheck the derived evidence before private connectivity
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE_REVISION: ${{ inputs.source_revision }}
-          IMAGE_DIGEST: ${{ inputs.image_digest }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          SOURCE_REVISION: ${{ needs.verify.outputs.source_revision }}
+          IMAGE_DIGEST: ${{ needs.verify.outputs.image_digest }}
+          SOURCE_RUN_ID: ${{ needs.verify.outputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ needs.verify.outputs.source_run_attempt }}
         run: |
           python3 scripts/private_dev_promotion.py \
             --revision "$SOURCE_REVISION" --digest "$IMAGE_DIGEST" \
@@ -112,11 +97,11 @@ jobs:
         id: deploy
         env:
           DEPLOY_HOST: ${{ secrets.PRIVATE_DEV_SSH_HOST }}
-          SOURCE_REVISION: ${{ inputs.source_revision }}
-          IMAGE_DIGEST: ${{ inputs.image_digest }}
+          SOURCE_REVISION: ${{ needs.verify.outputs.source_revision }}
+          IMAGE_DIGEST: ${{ needs.verify.outputs.image_digest }}
           CONTRACT: ${{ needs.verify.outputs.contract }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          SOURCE_RUN_ID: ${{ needs.verify.outputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ needs.verify.outputs.source_run_attempt }}
         run: |
           ssh -F /dev/null -T \
             -i "$RUNNER_TEMP/private-dev-ssh/key" \
@@ -129,10 +114,10 @@ jobs:
       - name: Summarize and verify the host outcome
         if: ${{ always() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure') }}
         env:
-          SOURCE_REVISION: ${{ inputs.source_revision }}
-          IMAGE_DIGEST: ${{ inputs.image_digest }}
-          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
-          SOURCE_RUN_ATTEMPT: ${{ inputs.source_run_attempt }}
+          SOURCE_REVISION: ${{ needs.verify.outputs.source_revision }}
+          IMAGE_DIGEST: ${{ needs.verify.outputs.image_digest }}
+          SOURCE_RUN_ID: ${{ needs.verify.outputs.source_run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ needs.verify.outputs.source_run_attempt }}
         run: |
           python3 scripts/private_dev_promotion.py --receipt promotion-receipt.json \
             --revision "$SOURCE_REVISION" --digest "$IMAGE_DIGEST" \

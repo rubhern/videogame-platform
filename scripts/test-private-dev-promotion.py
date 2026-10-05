@@ -8,6 +8,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import stat
@@ -42,6 +43,9 @@ def run_record(workflow="build-and-verify.yml", run_id=123):
 def api_fixture():
     values = {
         "/actions/runs/123": run_record(),
+        f"/actions/workflows/build-and-verify.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100": {
+            "total_count": 1, "workflow_runs": [run_record()],
+        },
         "/actions/runs/123/jobs?filter=latest&per_page=100": {
             "total_count": 2, "jobs": [
                 {"name": name, "conclusion": "success"}
@@ -63,10 +67,7 @@ def api_fixture():
             }],
         },
         "/environments/dev": {
-            "protection_rules": [{
-                "type": "required_reviewers", "prevent_self_review": False,
-                "reviewers": [{"type": "User", "reviewer": {"login": "rubhern"}}],
-            }],
+            "protection_rules": [{"type": "branch_policy"}], "can_admins_bypass": False,
             "deployment_branch_policy": {"protected_branches": False, "custom_branch_policies": True},
         },
         "/environments/dev/deployment-branch-policies?per_page=100": {
@@ -98,7 +99,7 @@ class EvidenceTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(policy.Refused):
                 policy.receipt_summary({**receipt, field: value}, REVISION, DIGEST, "123", "2")
 
-    def test_successful_main_publication_and_approval_configuration(self):
+    def test_successful_main_publication_and_dispatch_only_configuration(self):
         _, api = api_fixture()
         policy.verify_environment(api)
         run, security_id = policy.verify_trusted_main(api, REVISION, DIGEST, "123", "2")
@@ -149,15 +150,161 @@ class EvidenceTests(unittest.TestCase):
                 with self.assertRaises(policy.Refused):
                     policy.verify_publication(api, run_record(), REVISION, DIGEST)
 
-    def test_missing_reviewers_and_extra_branch_or_tag_policies_are_refused(self):
+    def test_second_approval_bypass_and_extra_branch_or_tag_policies_are_refused(self):
+        for rule in ("required_reviewers", "wait_timer", "custom_deployment_protection_rule", "unknown"):
+            values, api = api_fixture()
+            values["/environments/dev"]["protection_rules"].append({"type": rule})
+            with self.subTest(rule=rule), self.assertRaises(policy.Refused):
+                policy.verify_environment(api)
         values, api = api_fixture()
-        values["/environments/dev"]["protection_rules"] = []
+        values["/environments/dev"]["can_admins_bypass"] = True
         with self.assertRaises(policy.Refused):
             policy.verify_environment(api)
         values, api = api_fixture()
         values["/environments/dev/deployment-branch-policies?per_page=100"]["total_count"] = 2
         with self.assertRaises(policy.Refused):
             policy.verify_environment(api)
+        for branch in ({"name": "main", "type": "tag"}, {"name": "*", "type": "branch"}):
+            values, api = api_fixture()
+            values["/environments/dev/deployment-branch-policies?per_page=100"]["branch_policies"] = [branch]
+            with self.subTest(branch=branch), self.assertRaises(policy.Refused):
+                policy.verify_environment(api)
+        values, api = api_fixture()
+        values["/environments/dev"]["deployment_branch_policy"] = None
+        with self.assertRaises(policy.Refused):
+            policy.verify_environment(api)
+
+    def test_discovery_derives_the_exact_sha_run_current_attempt_and_digest(self):
+        _, api = api_fixture()
+        result = policy.discover_promotion(api, REVISION)
+        self.assertEqual(result, {"source_revision": REVISION, "source_run_id": "123",
+                                 "source_run_attempt": "2", "image_digest": DIGEST, "securityRunId": 456})
+
+    def test_discovery_never_selects_another_sha_or_ambiguous_or_missing_run(self):
+        path = f"/actions/workflows/build-and-verify.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100"
+        for records in ([], [run_record(), run_record(run_id=124)],
+                        [run_record(), {**run_record(run_id=124), "conclusion": "failure"}]):
+            values, api = api_fixture()
+            values[path] = {"total_count": len(records), "workflow_runs": records}
+            with self.subTest(records=len(records)), self.assertRaises(policy.Refused):
+                policy.discover_promotion(api, REVISION)
+        values, api = api_fixture()
+        values[path]["total_count"] = 101
+        with self.assertRaises(policy.Refused):
+            policy.discover_promotion(api, REVISION)
+        for key, value in (("head_sha", "d" * 40), ("id", 124), ("event", "pull_request"),
+                           ("head_branch", "feature"), ("conclusion", "failure"), ("status", "queued")):
+            values, api = api_fixture()
+            values["/actions/runs/123"][key] = value
+            with self.subTest(key=key), self.assertRaises(policy.Refused):
+                policy.discover_promotion(api, REVISION)
+
+    def test_discovery_refuses_missing_expired_duplicate_or_old_attempt_publication(self):
+        path = "/actions/runs/123/artifacts?per_page=100"
+        for mutation in ("missing", "expired", "duplicate", "old-attempt", "truncated"):
+            values, api = api_fixture()
+            artifact = values[path]["artifacts"][0]
+            if mutation == "missing":
+                values[path] = {"total_count": 0, "artifacts": []}
+            elif mutation == "expired":
+                artifact["expired"] = True
+            elif mutation == "duplicate":
+                values[path]["artifacts"].append({**artifact, "id": 790})
+                values[path]["total_count"] = 2
+            elif mutation == "old-attempt":
+                artifact["created_at"] = "2026-10-04T10:00:00Z"
+            else:
+                values[path]["total_count"] = 101
+            with self.subTest(mutation=mutation), self.assertRaises(policy.Refused):
+                policy.discover_promotion(api, REVISION)
+
+    def test_discovery_refuses_mutable_mismatched_or_ambiguous_archive_records(self):
+        valid_tag = f"tag={policy.IMAGE_REPOSITORY}:{REVISION}\n"
+        valid_digest = f"digest={policy.IMAGE_REPOSITORY}@{DIGEST}\n"
+        records = (valid_tag, valid_tag + valid_digest * 2,
+                   valid_tag + f"digest={policy.IMAGE_REPOSITORY}:latest\n",
+                   valid_tag + valid_digest.replace(policy.IMAGE_REPOSITORY, "ghcr.io/other/image"),
+                   valid_tag.replace(REVISION, "d" * 40) + valid_digest)
+        for record in records:
+            values, api = api_fixture()
+            bundle = io.BytesIO()
+            with zipfile.ZipFile(bundle, "w") as archive:
+                archive.writestr("published-image.txt", record)
+            values["/actions/artifacts/789/zip"] = bundle.getvalue()
+            with self.subTest(record=record), self.assertRaises(policy.Refused):
+                policy.discover_promotion(api, REVISION)
+
+    def test_discovery_refuses_failed_security_and_attempt_changed_during_download(self):
+        values, api = api_fixture()
+        values["/actions/runs/456"]["conclusion"] = "failure"
+        with self.assertRaises(policy.Refused):
+            policy.discover_promotion(api, REVISION)
+        values, api = api_fixture()
+        original = api.request
+        def request(path, **kwargs):
+            if path == "/actions/artifacts/789/zip":
+                values["/actions/runs/123"]["run_attempt"] = 3
+            return original(path, **kwargs)
+        api.request = request
+        with self.assertRaisesRegex(policy.Refused, "stale"):
+            policy.discover_promotion(api, REVISION)
+
+    def test_discovery_cli_emits_bound_outputs_only_after_all_checks(self):
+        values, api = api_fixture()
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / "outputs"
+            argv = ["promotion", "--discover", "--revision", REVISION]
+            with patch.object(policy.sys, "argv", argv), patch.object(policy, "GitHub", return_value=api), \
+                    patch.object(policy, "deployment_contract", return_value=CONTRACT) as contract, \
+                    patch.dict(os.environ, {"GITHUB_OUTPUT": str(output)}), contextlib.redirect_stdout(io.StringIO()):
+                policy.main()
+                contract.assert_called_once_with(ROOT, REVISION)
+                self.assertEqual(dict(line.split("=", 1) for line in output.read_text().splitlines()), {
+                    "contract": CONTRACT, "source_revision": REVISION, "image_digest": DIGEST,
+                    "source_run_id": "123", "source_run_attempt": "2",
+                })
+                output.unlink()
+                values["/environments/dev"]["protection_rules"].append({"type": "required_reviewers"})
+                with self.assertRaises(policy.Refused):
+                    policy.main()
+                self.assertFalse(output.exists())
+            for flag, value in (("--digest", DIGEST), ("--run-id", "123"), ("--attempt", "2")):
+                with patch.object(policy.sys, "argv", argv + [flag, value]), self.assertRaises(policy.Refused):
+                    policy.main()
+
+    def test_preconnect_recheck_cannot_reselect_a_changed_tuple_or_ambiguous_run(self):
+        for mutation in ("digest", "run", "attempt", "new-candidate"):
+            values, api = api_fixture()
+            digest, run_id, attempt = DIGEST, "123", "2"
+            if mutation == "digest":
+                digest = "sha256:" + "d" * 64
+            elif mutation == "run":
+                run_id = "124"
+            elif mutation == "attempt":
+                attempt = "1"
+            else:
+                path = f"/actions/workflows/build-and-verify.yml/runs?head_sha={REVISION}&branch=main&event=push&per_page=100"
+                values[path] = {"total_count": 2, "workflow_runs": [run_record(), run_record(run_id=124)]}
+            argv = ["promotion", "--revision", REVISION, "--digest", digest,
+                    "--run-id", run_id, "--attempt", attempt]
+            with self.subTest(mutation=mutation), patch.object(policy.sys, "argv", argv), \
+                    patch.object(policy, "GitHub", return_value=api), \
+                    patch.object(policy, "deployment_contract") as contract, self.assertRaises(policy.Refused):
+                policy.main()
+            contract.assert_not_called()
+
+    def test_preconnect_recheck_accepts_the_unchanged_derived_tuple(self):
+        _, api = api_fixture()
+        stdout = io.StringIO()
+        argv = ["promotion", "--revision", REVISION, "--digest", DIGEST,
+                "--run-id", "123", "--attempt", "2"]
+        with patch.object(policy.sys, "argv", argv), patch.object(policy, "GitHub", return_value=api), \
+                patch.object(policy, "deployment_contract", return_value=CONTRACT), \
+                patch.dict(os.environ, {"GITHUB_OUTPUT": ""}), contextlib.redirect_stdout(stdout):
+            policy.main()
+        result = json.loads(stdout.getvalue())
+        self.assertEqual((result["source_revision"], result["image_digest"], result["source_run_id"],
+                          result["source_run_attempt"], result["contract"]), (REVISION, DIGEST, "123", "2", CONTRACT))
 
     def test_artifact_redirect_never_forwards_the_workflow_token(self):
         opener = Mock()
@@ -170,6 +317,39 @@ class EvidenceTests(unittest.TestCase):
             self.assertEqual(policy.GitHub("test-only-token").request("/actions/artifacts/1/zip", archive=True), b"publication")
         self.assertEqual(opener.open.call_args.args[0].get_header("Authorization"), "Bearer test-only-token")
         self.assertEqual(storage.call_args.args, ("https://storage.example/signed",))
+
+
+class WorkflowTests(unittest.TestCase):
+    def test_dispatch_has_no_inputs_and_both_jobs_require_main_and_owner(self):
+        workflow = (ROOT / ".github/workflows/deploy-private-dev.yml").read_text()
+        trigger = workflow.split("\non:\n", 1)[1].split("\npermissions:", 1)[0]
+        self.assertEqual(trigger.strip(), "workflow_dispatch:")
+        for job in ("verify", "promote"):
+            section = workflow.split(f"\n  {job}:\n", 1)[1]
+            section = re.split(r"\n  [a-z]+:\n", section, maxsplit=1)[0]
+            self.assertIn("github.ref == 'refs/heads/main'", section)
+            self.assertIn("github.actor == 'rubhern'", section)
+            self.assertIn("github.triggering_actor == 'rubhern'", section)
+            self.assertIn("ref: ${{ github.sha }}", section)
+
+    def test_only_verified_dispatch_outputs_reach_the_environment_and_host(self):
+        workflow = (ROOT / ".github/workflows/deploy-private-dev.yml").read_text()
+        verify, promote = workflow.split("\n  promote:\n", 1)
+        self.assertIn("SOURCE_REVISION: ${{ github.sha }}", verify)
+        self.assertIn('--discover --revision "$SOURCE_REVISION"', verify)
+        self.assertNotIn("secrets.", verify)
+        self.assertNotIn("environment:", verify)
+        self.assertNotIn("inputs.", workflow)
+        self.assertIn("needs: verify", promote)
+        self.assertIn("environment:\n      name: dev", promote)
+        for key in ("source_revision", "image_digest", "source_run_id", "source_run_attempt"):
+            self.assertIn(f"{key}: ${{{{ steps.verify.outputs.{key} }}}}", verify)
+            self.assertEqual(promote.count('${{ needs.verify.outputs.' + key + ' }}'), 3)
+        self.assertLess(promote.index('python3 scripts/private_dev_promotion.py'), promote.index('secrets.PRIVATE_DEV_SSH_KEY'))
+        self.assertIn('tags: tag:vgp-deploy', promote)
+        self.assertIn('StrictHostKeyChecking=yes', promote)
+        self.assertIn('"vgp-deploy@$DEPLOY_HOST"', promote)
+        self.assertIn('"promote $SOURCE_REVISION $IMAGE_DIGEST $CONTRACT $SOURCE_RUN_ID $SOURCE_RUN_ATTEMPT"', promote)
 
 
 class HostTests(unittest.TestCase):

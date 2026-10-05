@@ -29,7 +29,7 @@ Owner administration uses key-based OpenSSH over Tailscale; Tailscale Serve is t
 only HTTPS edge and admits only the owner. Owner-approved application promotion
 additionally permits an ephemeral tagged Actions identity to reach only the host's
 OpenSSH port through the tailnet, with a forced promotion command; it receives no
-product, identity or management access. This boundary is prepared for review under
+product, identity or management access. This boundary is accepted under
 [ADR-0023](../../decisions/0023-automate-owner-approved-private-dev-application-promotion.md);
 host configuration and acceptance remain separate. Tailscale does not replace Keycloak or
 product authorization. No public application, identity, database, telemetry or SSH
@@ -159,12 +159,18 @@ is identified by commit SHA and content digest rather than `latest`.
 GitHub Actions validates pull requests without provider or deployment secrets and
 never publishes or deploys from them. Trusted `main` builds and scans the same
 index, produces SBOM/provenance evidence, and publishes to GHCR. Application delivery
-remains **Continuous Delivery**: the owner explicitly selects a source revision,
-immutable digest and successful main CI run/attempt, dispatches the promotion workflow
-on main and approves its protected dev environment. Promotion verifies main ancestry,
-successful quality/security/publication evidence and the retained publication digest
-before connecting, and rechecks after approval. A merge never triggers deployment.
-The repository automation is prepared; the
+remains **Continuous Delivery**: the owner dispatches the promotion workflow on main.
+That dispatch is the sole human deployment approval and selects GitHub's exact dispatch
+SHA. The workflow derives its unique trusted-main push build, current attempt and
+immutable digest from retained publication evidence, refusing missing, stale or
+ambiguous relationships without a latest-image or older-run fallback. It verifies
+main ancestry and successful quality/security/publication evidence before the
+credential-bearing job and rechecks the same tuple before connecting. The dev
+environment retains its secrets and main-only deployment policy, with no reviewer,
+wait timer or custom approval gate and no administrator bypass. Actor and triggering
+actor must both be the owner. A merge never triggers deployment.
+The original host promotion is proven; acceptance of the refined dispatch flow is
+pending. The
 [runbook](../../development/operations-runbook.md#deploying-an-immutable-digest)
 owns its real-host evidence boundary. The
 [delivery pipeline diagram](../diagrams/mermaid/delivery-pipeline.mmd) shows the flow.

@@ -34,9 +34,9 @@ historical decision.
 
 - [ADR-0022: Localize catalogue content during acquisition](0022-localize-catalogue-content-during-acquisition.md) — implementation awaiting owner review and private-host acceptance.
 
-## Proposed
+- [ADR-0023: Automate owner-approved private-dev application promotion](0023-automate-owner-approved-private-dev-application-promotion.md)
 
-- [ADR-0023: Automate owner-approved private-dev application promotion](0023-automate-owner-approved-private-dev-application-promotion.md) — #160 trust boundary awaiting implementation review and separate host approval.
+## Proposed
 
 - [ADR-0021: Collect private-dev logs with Alloy and Loki](0021-collect-private-dev-logs-with-alloy-and-loki.md) — #159 implementation awaiting owner review and host acceptance.
 

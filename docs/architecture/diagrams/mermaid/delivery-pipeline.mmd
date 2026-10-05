@@ -6,9 +6,9 @@ flowchart TD
         PR --> Main --> GHCR
     end
 
-    Dispatch["Owner dispatches promotion on main<br/>explicit CI run/attempt, source SHA and digest"]
-    Evidence["Verify trusted-main quality/security/publication evidence"]
-    Approval["Owner approves protected dev environment"]
+    Dispatch["Owner runs workflow on main<br/>sole human approval, exact dispatch SHA"]
+    Evidence["Derive unique push run, current attempt and immutable digest<br/>verify quality/security/publication and main ancestry"]
+    Environment["dev secrets + main-only policy, no reviewer gate<br/>recheck the same derived evidence"]
     Connect["Ephemeral Tailscale + restricted OpenSSH<br/>installed/runtime contract and source-trust checks"]
 
     subgraph Deploy["Existing deploy-private-dev on vgpdev (one host lock)"]
@@ -23,7 +23,7 @@ flowchart TD
         Ready -->|no| Record
     end
 
-    GHCR --> Dispatch --> Evidence --> Approval --> Connect --> Verify
+    GHCR --> Dispatch --> Evidence --> Environment --> Connect --> Verify
     Manual["Owner manual deployment / assessed recovery"] --> Verify
     Runtime["Separate owner-reviewed runtime/dependency rollout<br/>and installed-contract acknowledgement"] -. prerequisite if contracts changed .-> Connect
     Migrate -->|migration fails: previous application keeps running| Record

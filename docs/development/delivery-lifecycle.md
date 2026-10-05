@@ -83,8 +83,10 @@ owner, and expiry/removal condition.
 - Review dependency purpose, compatibility, licence, security, and rollback.
 - A merge or published image is not product acceptance. A named private release
   records version/tag, accepted journey evidence, known limits, and image digest.
-- Private-dev application promotion requires an explicit owner dispatch and protected
-  environment approval after trusted-main evidence. Successful deployment automation
+- Private-dev application promotion requires an explicit owner dispatch on main after
+  trusted-main evidence; dispatch is the sole human deployment approval. The dev
+  environment holds secrets and restricts the branch without a second reviewer gate.
+  Successful deployment automation
   records technical smoke evidence; the owner still accepts the product/release.
   Separate runtime/dependency rollouts require their own reviewed operational decision;
   see the [platform boundary](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).

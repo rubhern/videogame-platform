@@ -404,13 +404,14 @@ synchronization, and it is not product acceptance.
 
 ## Owner-approved Actions promotion
 
-Repository implementation for #160 is prepared for owner review; **real-host setup
-and acceptance are pending**. Do not execute this setup or dispatch promotion without
-the separate owner-approved host change. The
+The original promotion path has successful real-host evidence on #160. The refined
+single-dispatch flow still requires owner review, the environment Settings change below
+and acceptance on its published main revision. New host changes retain their separate
+owner approval; workflow dispatch authorizes only application promotion. The
 [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery)
 owns the application/runtime boundary and
 [ADR-0023](../../docs/decisions/0023-automate-owner-approved-private-dev-application-promotion.md)
-records the proposed trust decision. The workflow and scripts own job mechanics.
+records the accepted trust decision. The workflow and scripts own job mechanics.
 
 ### Protected GitHub and tailnet setup
 
@@ -418,11 +419,22 @@ Use the public repository's eligible free GitHub-hosted runner/environment and
 existing free personal tailnet; recheck eligibility before enabling. No paid fallback
 or additional runtime service is authorized.
 
-Configure the GitHub **dev** environment with required reviewer **rubhern**, allow
-self-review for this sole-owner project, disable administrator bypass, and permit
-only the selected **main branch** (no tags). The workflow verifies reviewer/branch
-policy through GitHub's API before private connectivity and again after approval.
-The API does not expose the bypass setting: verify and record it in the settings UI.
+Configure the GitHub **dev** environment without required reviewers, wait timers or
+custom deployment approval rules. **Run workflow is the sole human approval**.
+Keep administrator bypass disabled and permit only the selected **main branch**
+(no tags). The workflow checks this policy before the environment job and again
+before private connectivity, refusing the old reviewer configuration rather than
+waiting for another approval.
+
+For an existing environment, the owner must open **Repository Settings → Environments
+→ dev → Deployment protection rules**, remove **rubhern** from **Required reviewers**
+and disable that rule, then save. Remove any wait timer or custom approval rule if
+configured. In **Deployment branches and tags**, retain **Selected branches and tags**
+with exactly the **main branch** and no tags; keep administrator bypass disabled.
+Do not delete/recreate the environment or move its secrets. This is an explicit owner
+Settings change; repository code does not change it. Verify the saved policy before
+dispatching. Existing host/key/tailnet configuration remains required.
+
 Keep all five credentials/connection values as environment secrets, never repository
 secrets or workflow inputs:
 
@@ -521,12 +533,29 @@ not update imported Keycloak state, database roles or Grafana's persisted creden
 
 ### Promote and verify
 
-Review a successful main build's published immutable digest, source SHA, run ID and
-current attempt, plus its security and scan/SBOM evidence. Dispatch
-**Promote application to private dev** on **main** with those four exact inputs.
-Review the pending **dev** job and approve it. No build occurs during promotion.
+After the complete trusted-main build/security gates and publication succeed, open
+**Actions → Promote application to private dev → Run workflow**, select **main** and
+press **Run workflow**. There are no artifact/run input fields and no second approval.
+The owner dispatch authorizes deploying the exact main SHA captured by GitHub for
+that invocation. Checkout and artifact selection remain pinned to that SHA even if
+main advances while the run is queued; dispatching before evidence is ready fails.
+
+The workflow derives the unique main `push` Build and verify run, its current attempt
+and the immutable OCI digest from its retained `application-image-publication-<SHA>`
+record. It does not choose a latest image or fall back to a different SHA, older attempt
+or older successful run. Absent, expired, mismatched or ambiguous evidence refuses
+promotion; multiple build runs for that SHA are conservatively refused. It checks
+quality/security gates, main ancestry and the deployment contract, revalidates the
+same derived tuple before connectivity, and the host independently rechecks source
+trust and digest/OCI binding. No build occurs during promotion.
+
 Pending Actions runs are serialized but the queue is not FIFO; the existing host
 lock also refuses concurrent manual deployment.
+
+This refinement changes the installed deployment tooling contract: update the reviewed
+root-owned host checkout and acknowledge it through the existing procedure before
+the first refined promotion. Review the diff first; this does not authorize a runtime
+dependency upgrade. Leaving the old contract installed deliberately refuses promotion.
 
 The host rechecks public main CI/source evidence and binds the candidate's runtime
 fingerprint to the installed and acknowledged contract. Existing dependencies must
