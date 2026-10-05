@@ -19,6 +19,8 @@ import org.springframework.scheduling.support.CronTrigger;
 public final class CatalogueSynchronizationScheduler implements SchedulingConfigurer {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(CatalogueSynchronizationScheduler.class);
+    private static final String TRIGGER_FIELD = "sync.trigger";
+    private static final String POLICY_FIELD = "sync.policy";
     private final SynchronizeCatalogueUseCase synchronization;
     private final CatalogueSynchronizationMetrics metrics;
     private final Clock clock;
@@ -70,8 +72,8 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
                             today.minusDays(policy.pastDays()),
                             today.plusDays(policy.futureDays()));
             LOGGER.atInfo()
-                    .addKeyValue("sync.trigger", trigger.type())
-                    .addKeyValue("sync.policy", trigger.policy())
+                    .addKeyValue(TRIGGER_FIELD, trigger.type())
+                    .addKeyValue(POLICY_FIELD, trigger.policy())
                     .addKeyValue("sync.window_from", request.from())
                     .addKeyValue("sync.window_to", request.to())
                     .log(
@@ -88,8 +90,8 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
                                 case PARTIAL -> org.slf4j.event.Level.WARN;
                                 default -> org.slf4j.event.Level.INFO;
                             })
-                    .addKeyValue("sync.trigger", trigger.type())
-                    .addKeyValue("sync.policy", trigger.policy())
+                    .addKeyValue(TRIGGER_FIELD, trigger.type())
+                    .addKeyValue(POLICY_FIELD, trigger.policy())
                     .addKeyValue("sync.outcome", outcome)
                     .addKeyValue("sync.code", report.outcomeCode())
                     .log(
@@ -102,8 +104,8 @@ public final class CatalogueSynchronizationScheduler implements SchedulingConfig
             // handling.
             // Do not log exception messages or stop subsequent scheduled invocations.
             LOGGER.atError()
-                    .addKeyValue("sync.trigger", trigger.type())
-                    .addKeyValue("sync.policy", trigger.policy())
+                    .addKeyValue(TRIGGER_FIELD, trigger.type())
+                    .addKeyValue(POLICY_FIELD, trigger.policy())
                     .addKeyValue("sync.code", "SYNCHRONIZATION_TRIGGER_FAILED")
                     .addKeyValue("sync.failure.type", failure.getClass().getSimpleName())
                     .log(

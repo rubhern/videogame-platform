@@ -148,9 +148,11 @@ class CatalogueSynchronizationSchedulerTest {
                                 .totalAmount())
                 .isEqualTo(2);
         assertThat(registry.getMeters())
+                .isNotEmpty()
                 .allSatisfy(
                         meter ->
                                 assertThat(meter.getId().getTags())
+                                        .isNotEmpty()
                                         .allSatisfy(
                                                 t ->
                                                         assertThat(t.getKey())
