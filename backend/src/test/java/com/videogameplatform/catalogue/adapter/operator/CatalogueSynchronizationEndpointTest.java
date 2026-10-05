@@ -64,6 +64,12 @@ class CatalogueSynchronizationEndpointTest {
                 .isEqualTo(
                         new CatalogueSynchronizationRequest(
                                 LocalDate.parse("2026-09-08"), LocalDate.parse("2026-09-08")));
+        assertThat(
+                        registry.get("catalogue.synchronization.trigger")
+                                .tags("trigger", "manual", "policy", "none", "outcome", "skipped")
+                                .counter()
+                                .count())
+                .isEqualTo(2);
         assertThat(registry.getMeters())
                 .allSatisfy(meter -> assertThat(meter.getId().getTag("mode")).isNull());
     }

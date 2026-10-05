@@ -11,7 +11,7 @@
 | `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status), then groups the matching releases by game so a result is one game presenting at most one of its view-and-filter-matching releases per platform, and counts, uniquely orders, and pages games; cancelled is excluded from both views and delayed from recent; upcoming shows exact-day releases unless the visitor opts into approximate dates, where TBA sorts last; stale/empty/fallback are valid states |
 | `UC-002` | Search bounded catalogue            | Visitor               | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider                       |
 | `UC-003` | View game details                   | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page                                   |
-| `UC-009` | Synchronize catalogue from provider | Operator              | Synchronize every provider Game in an operator-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
+| `UC-009` | Synchronize catalogue from provider | Operator / scheduler  | Synchronize every provider Game in a caller-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
 | `UC-010` | Browse monthly featured releases    | Visitor               | Application derives evaluation date and the current calendar month (or validates a selected month); PostgreSQL selects the qualifying releases inside the month, ranks their games by the local popularity signal with a unique tie-breaker, limits the ranking to six and presents at most one release per platform; unranked, empty, stale and fallback are valid states; never call provider |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
@@ -153,6 +153,12 @@ summary, never the bounded release context. Matching, ranking, page size and pag
 are unchanged; the game page keeps the complete release context.
 
 `UC-009` reconciles all relevant new and known Games in the requested date interval through one operation.
+Post-MVP (#155, implemented; private-dev exercise pending): manual and scheduled inbound
+adapters supply that same request. Recurrence and moving-window policy stay in the
+scheduled adapter, outside application reconciliation and domain rules; the
+[solution architecture](../mvp-solution-architecture.md) owns its placement. A busy
+provider returns `SKIPPED / SYNCHRONIZATION_ALREADY_RUNNING` without provider work;
+no credentials returns `SKIPPED / SYNCHRONIZATION_DISABLED` without persistence work.
 [ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
 owns Game selection, import policy, stable Release identity and per-Game atomicity.
 It also acquires the platform and region taxonomy that accepted releases use, resolving
