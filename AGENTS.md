@@ -2,9 +2,9 @@
 
 ## Purpose
 
-VideoGame Platform is a product-oriented platform for discovering, tracking,
-rating, and analysing video games. It is also a long-term learning environment
-for solution architecture and technical leadership.
+VideoGame Platform is the repository and system behind Gameómetro. The
+[Product Brief](docs/product/product-brief.md) owns its product positioning and
+post-MVP direction, alongside its architecture and technical-leadership learning purpose.
 
 ## Current phase
 
@@ -20,16 +20,18 @@ identity, and provider-independent local catalogue data.
 
 These constraints are current and binding:
 
-- The release is a private, non-commercial learning MVP. Public production, a business
-  model, paid infrastructure, and distributed architecture are **not** approved; never
-  assume otherwise.
+- Current operation remains private and non-commercial. The Product Brief owns the
+  intended public-release direction and exploratory sustainability; public production,
+  a business model, paid infrastructure, and distributed architecture are **not**
+  approved.
 - Zero recurring cost. Use only currently eligible free resources and stop rather than
   silently provisioning a paid alternative.
 - Remote infrastructure requires the applicable walking-skeleton evidence and its
   zero-cost and delivery gates before provisioning.
-- The approved MVP boundary, the IGDB decision, and the accepted limitations define
-  current scope. The story map is the planning boundary: prefer minimum contracts and
-  one vertical slice over a detailed backlog or broad architecture.
+- The approved MVP boundary, the IGDB decision, and accepted limitations define the
+  accepted baseline. The Product Brief owns post-MVP direction; the story map retains
+  the accepted MVP cut. Prefer minimum contracts and one vertical slice over a detailed
+  backlog or broad architecture.
 - Label a proposed product decision a hypothesis until evidence or an explicit owner
   decision supports it.
 

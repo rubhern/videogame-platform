@@ -4,9 +4,11 @@ This page is the single index of maintained documentation and the ownership rule
 behind it: every kind of information has one canonical owner, and any other document
 links to it instead of restating it.
 
-Records describe the approved and implemented state of the private, non-commercial
-learning MVP (`v0.1.0`). Future capabilities and revisit triggers are labelled as such
-and are not commitments.
+Records distinguish Gameómetro's accepted learning MVP (`v0.1.0`), current private
+`dev` operation and post-MVP evolution, and future direction. The
+[Product Brief](product/product-brief.md) owns current product positioning and
+direction; MVP records retain the accepted baseline. Future capabilities and revisit
+triggers are labelled explicitly and do not imply delivery commitments.
 
 ## Canonical ownership
 
@@ -15,8 +17,8 @@ and are not commitments.
 | Project orientation and repository map | [Root README](../README.md) | Links and a short local context |
 | Backend/frontend immediate use | [Backend README](../backend/README.md), [frontend README](../frontend/README.md), [Postman README](../backend/postman/README.md) | Module-specific commands and troubleshooting |
 | IGDB development exploration and provider query examples | [IGDB Postman quick guide](../backend/postman/igdb-exploration.md) | Links; product scope and acquisition rules remain with their approved owners |
-| Product user, problem, value, MVP boundary, evidence standard, and risks | [Product Brief](product/product-brief.md) | Links to evidence and decisions |
-| Current journey and release cut | [MVP story map](product/mvp-story-map.md) | Acceptance criteria, not implementation tasks |
+| Product user, problem, value, positioning, direction, MVP boundary, evidence standard, and risks | [Product Brief](product/product-brief.md) | Links to evidence and decisions |
+| Accepted MVP journey and release cut | [MVP story map](product/mvp-story-map.md) | Acceptance criteria, not implementation tasks |
 | Product assumptions, resolved questions, and terminology | [Assumptions and decisions](product/assumptions-and-decisions.md) and [glossary](product/glossary.md) | No architecture or workflow rules |
 | Domain concepts and invariants | [Domain model](architecture/domain/mvp-domain-model.md) | Conceptual rules, never schemas or HTTP shapes |
 | Application operations, guarantees, and stable errors | [Use cases](architecture/application/mvp-use-cases.md) | No HTTP or framework mechanics |

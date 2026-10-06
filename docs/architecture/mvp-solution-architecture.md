@@ -2,12 +2,15 @@
 
 - **Status:** Approved
 - **Owner:** Ruben Hernandez
-- **Release mode:** Private, non-commercial learning MVP
+- **Release mode:** Private, non-commercial `dev`
 
 This document owns the current structural architecture. The
 [domain model](domain/mvp-domain-model.md), [use cases](application/mvp-use-cases.md),
 [OpenAPI](api/openapi.yaml), [platform design](deployment/mvp-platform-and-delivery.md),
 and [ADRs](../decisions/README.md) own their more specific contracts.
+
+The accepted MVP established this baseline, which also supports post-MVP evolution.
+The [Product Brief](../product/product-brief.md) owns current product direction.
 
 ## Architectural position
 

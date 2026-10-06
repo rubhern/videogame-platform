@@ -2,7 +2,7 @@
 
 - **Status:** Approved
 - **Owner:** Ruben Hernandez
-- **Scope:** Private, zero-recurring-cost learning platform
+- **Scope:** Current private, zero-recurring-cost platform and delivery
 
 This document owns environment purpose, deployment topology, artefact/configuration/
 secret policy, migration/backup/recovery policy, and technical delivery. The
@@ -13,6 +13,10 @@ and host procedures, and the [operations runbook](../../development/operations-r
 records which procedures have been proven on the real host and their evidence
 boundary.
 
+The accepted MVP established this platform baseline. The
+[Product Brief](../../product/product-brief.md#public-release-and-sustainability)
+owns post-MVP public-release direction and its pending decisions.
+
 ## Environments and topology
 
 | Environment  | Purpose                                                                        | Data/access                                     |
@@ -20,7 +24,7 @@ boundary.
 | `local`      | Development and focused proofs on supported WSL2                               | Disposable/seeded; loopback only                |
 | `test`       | Per-job automated evidence                                                     | Generated fixtures; CI only                     |
 | `dev`        | Persistent private integration, HTTPS, identity, delivery, telemetry, recovery | Non-sensitive learning data; owner tailnet only |
-| `production` | Deferred/prohibited                                                            | Undefined                                       |
+| `production` | Intended future environment; gated, not approved or available                  | Undefined                                       |
 
 `dev` is one owner-managed private Linux host (`vgpdev`: Ubuntu Server 24.04 LTS,
 `x86_64`, 8 GB RAM, SSD, Docker Engine and Compose) under
@@ -38,9 +42,9 @@ prohibited. Machine addressing and tailnet identifiers stay outside the reposito
 
 The superseded OCI path was removed; Git history and
 [#42](https://github.com/rubhern/videogame-platform/issues/42) retain it. No paid or
-trial-only substitute is authorized. Public production, HA, staging, Kubernetes,
-distributed components, automatic broad sync and paid managed services remain
-deferred.
+trial-only substitute is authorized. Public production requires the linked
+public-release decisions before provisioning or exposure. HA, staging, Kubernetes,
+distributed components, automatic broad sync and paid managed services remain deferred.
 
 Local development can opt into the same metrics services and provisioning with
 independent credentials and volumes. Only local development publishes loopback OTLP
