@@ -37,8 +37,8 @@ workspace "VideoGame Platform" "C4 model for the approved private learning MVP t
                 tags "Database"
             }
 
-            catalogueLocalizer = container "Catalogue Localizer (optional)" {
-                description "Keeps one EN to ES model loaded for acquisition enrichment; no public port, data store or visitor-read dependency."
+            catalogueLocalizer = container "Catalogue Localizer" {
+                description "Required private-dev acquisition runtime with one loaded EN to ES model; no public port, data store or visitor-read dependency."
                 technology "Python 3.12, CTranslate2 CPU INT8, OPUS-MT TC-big"
             }
         }

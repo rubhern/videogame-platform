@@ -23,7 +23,7 @@ Operator (management port, never the product port)
               -> public reads, including the monthly featured releases (ADR-0021)
 
 External boundaries:
-  optional private catalogue translation helper (acquisition/backfill only; ADR-0022)
+  private catalogue translation helper (acquisition/backfill only; ADR-0022/ADR-0024)
   Keycloak (authentication)
   IGDB API (bounded synchronization only)
   IGDB image CDN (approved direct cover delivery)

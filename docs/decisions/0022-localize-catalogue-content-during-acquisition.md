@@ -1,10 +1,11 @@
 # ADR-0022: Localize catalogue content during acquisition
 
-- **Status:** Accepted architecture; implementation awaiting owner review and private-host acceptance
+- **Status:** Accepted
 - **Date:** 2026-10-04
 - **Owner:** Ruben Hernandez
 - **Decision authority:** [#235](https://github.com/rubhern/videogame-platform/issues/235) and explicit implementation instruction
 - **Extends:** [ADR-0017](0017-discover-catalogue-members-automatically-from-igdb.md)
+- **Private-dev lifecycle:** The initial optional deployment is superseded by [ADR-0024](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md).
 
 ## Context and decision
 
@@ -16,13 +17,15 @@ and valid derived content separately. Curation always wins over provider wording
 
 A narrow Catalogue application port owns fixed English-to-Spanish translation.
 A private Python helper keeps one model loaded; its adapter owns the HTTP protocol and
-runtime revision. It is an optional acquisition component of the modular monolith,
+runtime revision. It is an acquisition component of the modular monolith,
 with no database, discovery, generic language API, scheduler or product endpoint.
 Local development extends the same helper definition through an optional Compose
 overlay, with loopback access and explicit startup flags alongside observability;
 the [local setup](../development/local-setup.md#local-catalogue-translations) owns those commands.
 Domain/application never know Python, model formats or CTranslate2 types. The helper
 has no published host port in private dev and is absent from product readiness.
+Its initial optional private-dev activation was replaced by the required operational
+runtime in ADR-0024; failure-tolerant acquisition and PostgreSQL serving remain valid.
 Inference runs after an independently valid Game commit, outside PostgreSQL
 transactions and revision locks. Failed enrichment cannot roll that Game back.
 The localization publication rechecks source and ownership atomically before changing

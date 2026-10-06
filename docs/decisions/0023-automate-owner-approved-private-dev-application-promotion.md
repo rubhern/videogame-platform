@@ -5,6 +5,7 @@
 - **Owner:** Ruben Hernandez
 - **Scope:** Private, non-commercial, zero-recurring-cost post-MVP delivery
 - **Related:** [ADR-0008](0008-use-github-actions-and-ghcr-for-initial-delivery.md), [ADR-0019](0019-host-private-dev-on-an-owner-managed-linux-host.md), [#160](https://github.com/rubhern/videogame-platform/issues/160)
+- **Localization lifecycle:** The initial localization-overlay restriction is superseded by [ADR-0024](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md).
 
 ## Context
 
@@ -59,8 +60,10 @@ environment/free-resource eligibility, Tailscale credentials/policy, pinned SSH
 identity and GitHub evidence availability become operational dependencies. Public
 GitHub metadata can be rate limited, and expired publication evidence blocks
 promotion; failure is explicit. The conservative contract check may require a
-reviewed tooling-only checkout update without a service upgrade. Active overlays
-retain their manual path. The owner must explicitly remove the old required reviewer
+reviewed tooling-only checkout update without a service upgrade. Initially, active overlays
+retained a manual path; ADR-0024 removes the private-dev localization overlay and
+permits its existing application container to transition to the standard base runtime.
+Other application overlays remain refused. The owner must explicitly remove the old required reviewer
 in GitHub Settings before using the refined flow; code refuses the old policy instead
 of changing Settings. Multiple build runs for the same SHA are conservatively refused.
 The changed host tooling contract needs a reviewed installed checkout update and

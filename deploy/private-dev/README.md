@@ -18,7 +18,7 @@ Local use of the same provisioned metrics stack is documented in
 - `compose.yaml` defines digest-pinned PostgreSQL, a locally optimized Keycloak image
   built from a digest-pinned upstream, the bounded OpenTelemetry collector, Prometheus and Grafana, the
   digest-selected application, a one-shot migration actor and a one-shot browser
-  smoke runner. Only PostgreSQL, Keycloak and the observability stack start without an explicit
+  smoke runner. PostgreSQL, Keycloak, observability and catalogue-localizer start without an explicit
   profile or service selection; the application runtime receives `videogame_app`
   credentials and cannot migrate, and the migration actor receives only
   `videogame_app_migrator` credentials on the internal data network.
@@ -114,16 +114,20 @@ dedicated Playwright container, so Node.js is not a host prerequisite.
    The application placeholders are accepted only by the static validator; the
    deployment command rejects them.
 
-3. Start only the runtime dependencies. Do not enable the application or deployment
-   profiles here.
+3. Install the immutable model outside the checkout using the
+   [model procedure](../../backend/README.md#catalogue-translation-runtime-and-models)
+   and set its directory in protected runtime.env. Start only the runtime dependencies;
+   do not enable the application or deployment profiles here. Existing hosts use the
+   [targeted localization migration](#one-time-migration-to-the-standard-runtime)
+   instead of repeating this full initial startup.
 
    ```bash
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
      --file deploy/private-dev/compose.yaml pull postgres telemetry prometheus grafana alloy loki
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml build --pull keycloak
+     --file deploy/private-dev/compose.yaml build --pull keycloak catalogue-localizer
    docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml up --detach postgres keycloak telemetry prometheus grafana alloy loki
+     --file deploy/private-dev/compose.yaml up --detach --wait postgres keycloak telemetry prometheus grafana alloy loki catalogue-localizer
    ```
 
 4. Keep Tailscale Funnel and router forwarding disabled. Confirm the owner-only
@@ -513,6 +517,8 @@ Configure a reviewed tmpfiles entry and create it before first promotion:
 f /run/lock/videogame-platform-dev-deployment.lock 0660 root vgp-runtime - -
 ```
 
+### Acknowledge the applied runtime contract
+
 After reviewing/applying the actual runtime and dependency configuration using its
 existing explicit procedures, acknowledge its clean installed Git contract:
 
@@ -558,11 +564,13 @@ the first refined promotion. Review the diff first; this does not authorize a ru
 dependency upgrade. Leaving the old contract installed deliberately refuses promotion.
 
 The host rechecks public main CI/source evidence and binds the candidate's runtime
-fingerprint to the installed and acknowledged contract. Existing dependencies must
-already be healthy. A different contract or active application Compose overlay stops
-before migration/activation. This initial workflow supports the base private-dev
-application in the fixed `videogame-platform-dev` Compose project only; the localization overlay retains its
-[explicit operator path](#catalogue-localization-helper).
+fingerprint to the installed and acknowledged contract. The required localizer must
+already be running, healthy and match the resolved service configuration and local
+image. A different contract or unrelated application Compose overlay stops before
+migration/activation. The fixed `videogame-platform-dev` project has one base runtime,
+including localization. An application still labelled with the retired localization
+overlay can transition through normal promotion because the endpoint now lives in
+the base definition; the required localizer is still checked and left intact.
 
 Read the Actions summary and retained `private-dev-promotion-*` receipt. Original
 deployment JSON and detailed log remain under the protected evidence root in a
@@ -578,8 +586,8 @@ Open the application, enable DevTools Console info messages, disable browser net
 cache and reload. Confirm the
 [frontend build identity](../../frontend/README.md#deployed-build-identity)
 matches the expected version and SHA prefix. Check runtime container identities are
-unchanged. Record real-host restriction, success/failure and recovery acceptance in
-#160 as required by the
+unchanged, including catalogue-localizer. Record real-host restriction, success/failure and recovery acceptance in
+the current delivery issue (#257 for the localization lifecycle) as required by the
 [runbook](../../docs/development/operations-runbook.md#deploying-an-immutable-digest).
 
 ## Backup, restore, rollback and host-loss recovery
@@ -698,29 +706,136 @@ sufficient:
 
 ## Catalogue localization helper
 
-#235 adds an optional private acquisition container; its implementation is awaiting
-owner review and host acceptance. Apply the normal migration/application deployment
-first. Convert/install the selected immutable model using the
-[backend model procedure](../../backend/README.md#catalogue-translation-runtime-and-models).
-Set `CATALOGUE_TRANSLATION_MODEL_DIR` to its absolute host directory in protected
-`runtime.env`; retain the existing pinned application image and version entries.
+The base Compose includes the required acquisition container and the application's
+internal translation endpoint under
+[ADR-0024](../../docs/decisions/0024-maintain-catalogue-localization-in-the-private-dev-runtime.md).
+The shared service definition in `tools/catalogue-localization/compose.yaml` owns
+helper mechanics; the workstation overlay adds its optional profile and loopback
+access. Private dev has no localization profile or overlay to reapply.
 
-```bash
-docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-  -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.localization.yaml \
-  --profile application --profile localization up -d --build catalogue-localizer application
-```
+The helper uses the internal data network, no published port, a read-only model mount,
+a non-root runtime and bounded resources. Preserve the model manifest/licences and
+weights outside the checkout. `CATALOGUE_TRANSLATION_MODEL_DIR` in protected
+`runtime.env` selects that immutable directory; never replace the protected file
+with the example or erase its current application image/version entries.
 
-The overlay sets the application's private helper address. It uses the existing
-internal data network, publishes no port, mounts weights read-only, and runs as a
-non-root user with explicit resource limits. It needs no secret or persistent volume.
-The normal application rollout does not build/start it implicitly. Do not add it to
-Tailscale Serve, the browser edge, application readiness or the database backup set.
+### One-time migration to the standard runtime
 
-For update/rollback, select the new/previous immutable model directory and recreate
-`catalogue-localizer` through the same overlay. To suspend inference, stop only that
-service; local reads and valid synchronization keep working, and missing/outdated
-content remains eligible for a later backfill. Recreate the application from the base
-Compose file to remove its helper override. Preserve model manifests/licences with
-installed weights. The [operations runbook](../../docs/development/operations-runbook.md#catalogue-localization)
-owns retry commands, diagnostics and the unexecuted host acceptance.
+Run only after owner review, publication/merge, current-main CI and separate approval
+to operate on `vgpdev`. This procedure handles the owner-reported current state:
+the model remains at
+`/var/lib/videogame-platform/dev/catalogue-models/tcbig-initial`, already selected
+in runtime.env, while the helper was temporarily removed during #160 preparation.
+Do not reinstall, move, modify or delete those weights. The old application can keep
+serving PostgreSQL content during this rollout.
+
+1. Open an owner administration session. Replace the revision placeholder with the
+   reviewed merged main SHA containing this change. Use the same host deployment
+   lock through installation, targeted rollout and acknowledgement:
+
+   ```bash
+   sudo -i
+   set -Eeuo pipefail
+   umask 0027
+   exec 9>/run/lock/videogame-platform-dev-deployment.lock
+   flock --nonblock 9
+   cd /opt/videogame-platform
+   test -z "$(git status --porcelain --untracked-files=all)"
+   approved_revision='REPLACE_WITH_REVIEWED_MERGED_MAIN_SHA'
+   [[ "$approved_revision" =~ ^[0-9a-f]{40}$ ]]
+   git fetch origin main
+   git merge-base --is-ancestor "$approved_revision" origin/main
+   git checkout --detach "$approved_revision"
+   test -z "$(git status --porcelain --untracked-files=all)"
+   ```
+
+   Keep the installed checkout root-owned and unwritable by unprivileged users, as
+   required by [restricted host installation](#restricted-host-installation).
+   A failed command means stop and investigate before acknowledging or dispatching.
+   If unrelated runtime changes are included in the revision, review/apply their
+   own rollout first; this procedure authorizes only localization.
+
+2. Preserve the existing model selection and check its manifest/revision. If its
+   selection is missing, use an owner editor to restore this one line in runtime.env
+   while preserving all other entries:
+
+   ```bash
+   grep --fixed-strings --line-regexp --quiet \
+     'CATALOGUE_TRANSLATION_MODEL_DIR=/var/lib/videogame-platform/dev/catalogue-models/tcbig-initial' \
+     /etc/videogame-platform/dev/runtime.env
+   test -s /var/lib/videogame-platform/dev/catalogue-models/tcbig-initial/manifest.json
+   test -s /var/lib/videogame-platform/dev/catalogue-models/tcbig-initial/revision.txt
+   bash scripts/validate-private-dev-runtime.sh \
+     --env-file /etc/videogame-platform/dev/runtime.env
+   compose=(docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+     --file /opt/videogame-platform/deploy/private-dev/compose.yaml --profile application)
+   "${compose[@]}" ps --all --format json \
+     >/var/lib/videogame-platform/dev/localizer-runtime-before.json
+   ```
+
+3. Build and recreate **only catalogue-localizer** from the new base definition:
+
+   ```bash
+   "${compose[@]}" build --pull catalogue-localizer
+   "${compose[@]}" up --detach --no-deps --force-recreate \
+     --wait --wait-timeout 180 catalogue-localizer
+   localizer_id=$("${compose[@]}" ps --quiet catalogue-localizer)
+   actual_hash=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$localizer_id")
+   test "$("${compose[@]}" config --hash catalogue-localizer)" = "catalogue-localizer $actual_hash"
+   "${compose[@]}" ps --all --format json \
+     >/var/lib/videogame-platform/dev/localizer-runtime-after.json
+   ```
+
+   Compare the two inventories: application, PostgreSQL, Keycloak and every
+   observability container must retain their IDs. The helper healthcheck loads and
+   validates the mounted model/tokenizers; fix mount readability for UID 10001 or a
+   failed manifest before proceeding. Do not run project-wide `up`, `down`,
+   `--remove-orphans` or `--volumes` for this migration.
+
+4. Only after the actual rollout passes, perform the protected contract
+   [applied-runtime acknowledgement](#acknowledge-the-applied-runtime-contract)
+   from this clean installed revision. Release the lock and leave the root session:
+
+   ```bash
+   flock --unlock 9
+   exec 9>&-
+   exit
+   ```
+
+   Dispatch **Promote application to private dev** on main through the
+   [normal promotion procedure](#promote-and-verify). This first promotion gives the
+   recreated application its base endpoint; it also replaces a retired overlay
+   label if present. Confirm the endpoint from container configuration and that the
+   helper's ID/image, model mount and health remain unchanged. Record evidence in #257.
+
+If helper rollout fails, keep the existing application and all PostgreSQL data.
+Do not acknowledge or dispatch. Diagnose/recreate only the helper with the reviewed
+image/model. A checkout change alone cannot roll back a container; use the explicit
+runtime rollback below. Keep old model directories and image identities for recovery.
+
+### Subsequent runtime or model rollout
+
+Normal backend/frontend promotion runs preflight, the one-shot migration, application
+recreation and smoke; it leaves the localizer and other persistent services intact.
+A stopped, missing or unhealthy localizer refuses promotion, and a differing service
+hash or local image ID requires its explicit rollout. Use the same installed Compose
+version for rollout and preflight; after a Compose upgrade, review/reapply the helper
+if its resolved hash changes.
+
+For a helper runtime/image/configuration change, review/install its matching checkout,
+hold the same deployment lock, then use step 3's targeted build/recreation. For a model
+change, install into a **new immutable directory** using the
+[backend model procedure](../../backend/README.md#catalogue-translation-runtime-and-models),
+change only its protected selection and recreate only the helper; no application
+recreation is needed for its stable internal endpoint. For rollback, select the retained
+previous model/image and apply its reviewed helper definition with the same targeted
+command. Verify health/configuration/image and acknowledge the matching Git contract
+only after the required rollout. Model bytes are immutable; never edit a mounted
+directory in place. Successful PostgreSQL translations survive helper/model changes.
+
+During diagnosis, stopping the helper leaves product reads and valid synchronization
+available; it temporarily blocks new application deployment. Restore it with the
+targeted command before resuming promotion. Once running, its restart policy recovers
+it after a host reboot; an intentionally stopped container must first be started.
+The [operations runbook](../../docs/development/operations-runbook.md#catalogue-localization)
+owns retry/diagnosis and the pending real-host lifecycle acceptance.

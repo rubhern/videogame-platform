@@ -32,9 +32,10 @@ historical decision.
 - [ADR-0020: Acquire platform and region taxonomy from accepted releases](0020-acquire-platform-and-region-taxonomy-from-releases.md)
 - [ADR-0021: Rank monthly featured releases by locally stored IGDB Hypes](0021-rank-monthly-featured-releases-by-local-igdb-hypes.md)
 
-- [ADR-0022: Localize catalogue content during acquisition](0022-localize-catalogue-content-during-acquisition.md) — implementation awaiting owner review and private-host acceptance.
+- [ADR-0022: Localize catalogue content during acquisition](0022-localize-catalogue-content-during-acquisition.md) — private-dev optional activation superseded by ADR-0024.
 
 - [ADR-0023: Automate owner-approved private-dev application promotion](0023-automate-owner-approved-private-dev-application-promotion.md)
+- [ADR-0024: Maintain catalogue localization in the private-dev runtime](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md)
 
 ## Proposed
 

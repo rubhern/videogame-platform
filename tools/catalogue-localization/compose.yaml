@@ -1,12 +1,8 @@
-# Optional acquisition helper. No published ports, no database, no product readiness dependency.
+# Shared acquisition helper mechanics. The environment owns activation and networking.
 services:
-  application:
-    environment:
-      CATALOGUE_TRANSLATION_ENDPOINT: http://catalogue-localizer:8092/translate
   catalogue-localizer:
-    profiles: ["localization"]
     build:
-      context: ../../tools/catalogue-localization
+      context: .
     image: videogame-platform/catalogue-localizer:1.0.0
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8092/ready', timeout=2).close()"]
@@ -15,8 +11,12 @@ services:
       retries: 6
       start_period: 10s
     volumes:
-      - ${CATALOGUE_TRANSLATION_MODEL_DIR:?Set an immutable converted-model directory}:/model:ro
-    networks: [data]
+      - type: bind
+        source: ${CATALOGUE_TRANSLATION_MODEL_DIR:?Set an immutable converted-model directory}
+        target: /model
+        read_only: true
+        bind:
+          create_host_path: false
     read_only: true
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]

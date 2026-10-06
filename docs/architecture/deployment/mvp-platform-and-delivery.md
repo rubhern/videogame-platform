@@ -51,16 +51,22 @@ owns local startup and reset procedures.
 ## Private dev runtime boundary
 
 The default stack starts PostgreSQL, Keycloak and one internal OpenTelemetry
-Collector, Prometheus, Grafana, Alloy and single-instance Loki. The application is profile-gated and receives only runtime database
+Collector, Prometheus, Grafana, Alloy, single-instance Loki and catalogue-localizer.
+The application is profile-gated and receives only runtime database
 credentials; the deployment profile adds a one-shot migration actor and a browser
 smoke runner. Repository configuration never selects or deploys an application digest
 by itself.
 
-The optional #235 localization overlay adds a private acquisition helper on the
+The required catalogue-localizer is an acquisition helper on the
 existing internal data network, with a read-only immutable model mount and explicit
-CPU/RAM/process limits. It publishes no port, owns no durable state and is not an
-application readiness or deployment prerequisite. [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md)
-owns the decision; the private-dev README owns activation and rollback commands.
+CPU/RAM/process limits. The application always receives its internal endpoint.
+It publishes no port and owns no durable state. Product readiness and PostgreSQL-only
+reads remain independent of translation health, but application deployment requires
+the expected acquisition runtime to be present and healthy before migration/activation.
+[ADR-0024](../../decisions/0024-maintain-catalogue-localization-in-the-private-dev-runtime.md)
+supersedes the initial private-dev optionality in ADR-0022; the
+[private-dev README](../../../deploy/private-dev/README.md#catalogue-localization-helper)
+owns migration, activation and rollback commands. Workstation activation stays opt-in.
 
 PostgreSQL, Prometheus, Loki and the collector publish no host port.
 Alloy accepts Docker syslog only on host IPv4 loopback UDP through a separate
@@ -138,9 +144,9 @@ revisit trigger if manual checks cannot protect the shared filesystem.
 Alloy has no durable spool: bounded retries and memory intentionally trade delivery
 for application independence. UDP/queue overflow/restarts and oversized records can
 lose logs; Docker dual caching is also best effort. Prior Docker history is not
-backfilled. The two new container memory ceilings add 576 MiB; total steady runtime
-ceilings are approximately 5.6 GiB before host/daemon, disk cache and deployment
-actors. Review headroom under representative load rather than treating ceilings as
+backfilled. Compose owns the memory ceilings, including the required localizer;
+host/daemon, disk cache and deployment actors need additional headroom.
+Review headroom under representative load rather than treating ceilings as
 capacity evidence. Logs are excluded from the irreplaceable PostgreSQL backup set.
 
 Telemetry, metrics/log storage and Grafana are never application startup/readiness
@@ -193,12 +199,16 @@ expire; successful old runs without that evidence cannot be promoted through Act
 
 Application promotion recreates **only the application** after the one-shot
 migration. PostgreSQL, Keycloak, Grafana, Prometheus, Loki, Alloy, the Collector and
-optional acquisition helpers keep their explicit owner-reviewed rollout procedures.
+catalogue-localizer keep their explicit owner-reviewed rollout procedures.
+The deployment preflight checks localizer health, the resolved Compose service hash
+(including the protected immutable model directory) and local image identity without
+recreating it. A helper outage blocks a new promotion while existing product reads
+remain available.
 Any change to deployment/runtime files or dependency bootstrap/configuration blocks
 promotion until the owner has applied the appropriate separate rollout and installed
 and acknowledged the matching checkout. Installing Git files alone never proves a
-runtime upgrade. Active application Compose overlays are refused so base-stack
-promotion cannot silently discard their settings; use their explicit operator path.
+runtime upgrade. The retired localization-overlay application label is accepted for
+transition to equivalent base settings; other active application overlays are refused.
 Protected runtime environment/secret edits also retain their separate rollout and
 rotation procedures. The normal manual deployment remains available for recovery.
 

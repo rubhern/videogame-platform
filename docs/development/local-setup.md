@@ -126,7 +126,7 @@ bash scripts/local-dependencies.sh application --localization
 bash scripts/local-dependencies.sh application --observability --localization
 ```
 
-The overlay extends the [shared helper definition](../../deploy/private-dev/compose.localization.yaml),
+The overlay extends the [shared helper definition](../../tools/catalogue-localization/compose.yaml),
 so build, loaded-model health check and resource/security bounds have one executable
 owner. It retains the model mount read-only and publishes the helper only on
 loopback. Helper health does not participate in application readiness; serving stays

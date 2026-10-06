@@ -100,7 +100,13 @@ if [[ "$1 ${2:-}" == "image inspect" ]]; then
     *revision*) printf '%s\n' "$SOURCE_REVISION" ;;
     *version*) printf '0.15.0-SNAPSHOT\n' ;;
     *source*) printf 'https://github.com/rubhern/videogame-platform\n' ;;
-    *Id*) printf 'sha256:candidate-image-id\n' ;;
+    *Id*)
+      if [[ "${*: -1}" == videogame-platform/catalogue-localizer:* ]]; then
+        printf 'sha256:localizer-image-id\n'
+      else
+        printf 'sha256:candidate-image-id\n'
+      fi
+      ;;
     *) printf 'unexpected image inspection format: %s\n' "$format" >&2; exit 90 ;;
   esac
   exit 0
@@ -112,6 +118,23 @@ fi
 
 if [[ "$1" == inspect ]]; then
   format="$3"
+  if [[ "${*: -1}" == catalogue-localizer-id ]]; then
+    case "$format" in
+      *State.Status*) [[ "${FAKE_DEPLOY_MODE:-}" != localizer-stopped ]] && printf 'running\n' || printf 'exited\n' ;;
+      *State.Health*)
+        case "${FAKE_DEPLOY_MODE:-}" in
+          localizer-unhealthy) printf 'unhealthy\n' ;;
+          localizer-no-healthcheck) printf '\n' ;;
+          *) printf 'healthy\n' ;;
+        esac ;;
+      *config-hash*)
+        [[ "${FAKE_DEPLOY_MODE:-}" != localizer-config-drift ]] && printf '%064d\n' 1 || printf '%064d\n' 2 ;;
+      *Image*)
+        [[ "${FAKE_DEPLOY_MODE:-}" != localizer-image-drift ]] && printf 'sha256:localizer-image-id\n' || printf 'sha256:old-localizer-image-id\n' ;;
+      *) exit 91 ;;
+    esac
+    exit 0
+  fi
   case "$format" in
     *State.Status*) printf 'running\n' ;;
     *State.Health*) printf 'healthy\n' ;;
@@ -219,6 +242,7 @@ services = {
         ("application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"),
         {
             "APPLICATION_FLYWAY_ENABLED": "false",
+            "CATALOGUE_TRANSLATION_ENDPOINT": "http://catalogue-localizer:8092/translate",
             "APPLICATION_SESSION_COOKIE_NAME": "__Host-vgp_session",
             "APPLICATION_SESSION_COOKIE_SECURE": "true",
             "APPLICATION_PUBLIC_ORIGIN": application_public_origin,
@@ -244,6 +268,16 @@ services = {
         ports=[{"host_ip": "127.0.0.1", "published": 8080, "target": 8080}],
         read_only=True,
         cap_drop=["ALL"],
+    ),
+    "catalogue-localizer": service(
+        "unless-stopped",
+        image="videogame-platform/catalogue-localizer:1.0.0",
+        build={"context": str(repository / "tools/catalogue-localization")},
+        networks={"data": None}, read_only=True, cap_drop=["ALL"],
+        security_opt=["no-new-privileges:true"],
+        healthcheck={"test": ["CMD", "python", "-c", "urlopen('http://127.0.0.1:8092/ready')"]},
+        volumes=[{"type": "bind", "source": str(secrets_directory.parent / "model"),
+                  "target": "/model", "read_only": True, "bind": {"create_host_path": False}}],
     ),
     "migration": service(
         "no",
@@ -286,7 +320,14 @@ PY
   fi
   if [[ "$arguments" == *" ps --quiet "* ]]; then
     service="${*: -1}"
+    if [[ "$service" == catalogue-localizer && "${FAKE_DEPLOY_MODE:-}" == localizer-missing ]]; then
+      exit 0
+    fi
     printf '%s-id\n' "$service"
+    exit 0
+  fi
+  if [[ "$arguments" == *" config --hash catalogue-localizer "* ]]; then
+    printf 'catalogue-localizer %064d\n' 1
     exit 0
   fi
   if [[ "$arguments" == *" build --pull deployment-smoke "* ]]; then
@@ -459,6 +500,22 @@ if grep -q '^pull ' "$command_log"; then
   exit 1
 fi
 
+for mode in localizer-missing localizer-stopped localizer-unhealthy localizer-no-healthcheck localizer-config-drift localizer-image-drift; do
+  : >"$command_log"
+  localizer_evidence="$temporary_directory/$mode-evidence"
+  if run_deployment "$mode" "$localizer_evidence" >"$temporary_directory/$mode.log" 2>&1; then
+    printf 'Deployment accepted invalid acquisition runtime: %s\n' "$mode" >&2
+    exit 1
+  fi
+  assert_evidence "$localizer_evidence" failure target-and-runtime-preflight
+  assert_lock_released
+  grep -qi 'catalogue-localizer' "$temporary_directory/$mode.log"
+  if grep -Eq 'buildx|^pull | build | run | up ' "$command_log"; then
+    printf 'Invalid localizer preflight performed deployment work: %s\n' "$mode" >&2
+    exit 1
+  fi
+done
+
 : >"$command_log"
 migration_evidence="$temporary_directory/migration-evidence"
 if run_deployment migration-failure "$migration_evidence" >"$temporary_directory/migration-run.log" 2>&1; then
@@ -529,18 +586,27 @@ assert record["smokeChecks"] == [
 ]
 PY
 
-python3 - "$command_log" <<'PY'
+python3 - "$command_log" "$image" <<'PY'
 import pathlib
 import sys
 
 commands = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines()
 positions = {
+    "localizer": next(i for i, value in enumerate(commands) if "config --hash catalogue-localizer" in value),
     "verify": next(i for i, value in enumerate(commands) if "buildx imagetools inspect" in value),
     "migration": next(i for i, value in enumerate(commands) if "run --rm --no-deps migration" in value),
     "activation": next(i for i, value in enumerate(commands) if "wait-timeout 180 application" in value),
     "smoke": next(i for i, value in enumerate(commands) if "run --rm --no-deps deployment-smoke" in value),
 }
-assert positions["verify"] < positions["migration"] < positions["activation"] < positions["smoke"], positions
+assert positions["localizer"] < positions["verify"] < positions["migration"] < positions["activation"] < positions["smoke"], positions
+# The only long-lived service touched is application. All dependency inspections
+# above are read-only; no helper/runtime pull, build, start or recreation is allowed.
+mutations = [value for value in commands if value.startswith("compose ") and
+             any(operation in value for operation in (" up ", " build ", " run "))]
+assert len(mutations) == 4, mutations
+assert all(value.endswith(("deployment-smoke", "migration", "application")) for value in mutations), mutations
+assert all(" --no-deps " in value for value in mutations if " up " in value or " run " in value), mutations
+assert [value for value in commands if value.startswith("pull ")] == ["pull " + sys.argv[2]]
 PY
 
 : >"$command_log"

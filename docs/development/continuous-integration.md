@@ -26,7 +26,7 @@ Secret scanning remains applicable to every pull request.
 | Packaged browser | `bash scripts/validate-browser.sh` |
 | Real OIDC/BFF session and Keycloak rating journey | `bash scripts/validate-identity.sh` |
 | Private-dev runtime/deployment | `bash scripts/validate-private-dev-runtime.sh`, then `bash scripts/validate-private-dev-runtime.sh --telemetry-smoke` and `python3 scripts/private-dev-logs-check.py --smoke` |
-| Local translation lifecycle/topology | `bash scripts/test-local-localization.sh`; optional `--smoke` with an installed model |
+| Workstation and private-dev translation lifecycle/topology | `bash scripts/test-local-localization.sh`; optional local `--smoke` with an installed model |
 | OCI image | `bash scripts/validate-container-image.sh` |
 | IGDB PoC fixtures | `./mvnw -f tools/igdb-poc/pom.xml clean verify` |
 

@@ -264,12 +264,29 @@ for secret_name in ("oidc_smoke_username", "oidc_smoke_password"):
     assert source.is_file() and source.stat().st_size > 0, f"required smoke credential is absent: {source}"
 PY
 
-for service_name in postgres keycloak telemetry; do
+for service_name in postgres keycloak telemetry catalogue-localizer; do
   container_id="$("${compose[@]}" ps --quiet "$service_name")"
   [[ -n "$container_id" ]] || fail "Required private-dev service is not created: $service_name"
   [[ "$(docker inspect --format '{{.State.Status}}' "$container_id")" == running ]] ||
     fail "Required private-dev service is not running: $service_name"
   health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id")"
+  if [[ "$service_name" == catalogue-localizer ]]; then
+    [[ "$health" == healthy ]] ||
+      fail "Required private-dev service is not healthy: $service_name (${health:-no healthcheck})"
+    # Compare the running helper to the resolved service, including the protected
+    # model path. Acknowledging Git alone must not hide an unapplied runtime change.
+    expected_hash="$("${compose[@]}" config --hash catalogue-localizer)"
+    [[ "$expected_hash" =~ ^catalogue-localizer[[:space:]]([0-9a-f]{64})$ ]] ||
+      fail "Compose did not report a valid catalogue-localizer configuration hash."
+    expected_hash="${BASH_REMATCH[1]}"
+    actual_hash="$(docker inspect --format '{{index .Config.Labels "com.docker.compose.config-hash"}}' "$container_id")"
+    [[ "$actual_hash" == "$expected_hash" ]] ||
+      fail "Catalogue-localizer configuration differs; complete its explicit runtime/model rollout before promotion."
+    localizer_image="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["services"]["catalogue-localizer"]["image"])' "$rendered_config")"
+    expected_image_id="$(docker image inspect --format '{{.Id}}' "$localizer_image")"
+    [[ "$(docker inspect --format '{{.Image}}' "$container_id")" == "$expected_image_id" ]] ||
+      fail "Catalogue-localizer image differs; complete its explicit runtime rollout before promotion."
+  fi
   [[ -z "$health" || "$health" == healthy ]] ||
     fail "Required private-dev service is not healthy: $service_name ($health)"
 done

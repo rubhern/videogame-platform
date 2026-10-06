@@ -88,8 +88,8 @@ Interpretation:
 - `GET /api/v1/releases` answering `CATALOGUE_NOT_READY` is an approved state of a
   database without any publication, not an incident. Deployment health never depends
   on IGDB.
-- Readiness covers only PostgreSQL and the catalogue store. IGDB, the cover CDN and
-  the collector being down never make the application unready.
+- Readiness covers only PostgreSQL and the catalogue store. IGDB, the cover CDN,
+  catalogue-localizer and the collector being down never make the application unready.
 - The application management port (`8081`), PostgreSQL, OTLP and Keycloak management
   have no host listener by design. A "connection refused" from the host to those ports
   is correct.
@@ -168,7 +168,7 @@ Before invoking it:
 
 1. Choose a `main` revision whose required checks, image publication and scan/SBOM
    evidence you have reviewed. Take the digest from that publication; never from a tag.
-2. Confirm the dependency stack is healthy (`ps` above) and that nobody else is
+2. Confirm the dependency stack, including the required catalogue-localizer, is healthy (`ps` above) and that nobody else is
    deploying. The command holds one host lock and refuses concurrency.
 3. Know the current Flyway version and whether the new revision adds migrations. A
    migration failure leaves the previous application running; a smoke failure records
@@ -201,8 +201,9 @@ Check that dependency container identities
 and configurations were not recreated by application promotion. Exercise lock contention
 and the applicable failure/recovery path through the existing procedures, without
 reverting an applied migration. Record outcomes in
-[#160](https://github.com/rubhern/videogame-platform/issues/160); keep it open while
-this acceptance remains pending. A failed or interrupted workflow requires inspecting
+the current delivery issue. #160 is closed; the localization lifecycle and its new
+host acceptance are tracked in [#257](https://github.com/rubhern/videogame-platform/issues/257).
+Its closure does not supply new runtime evidence. A failed or interrupted workflow requires inspecting
 protected host logs/evidence before another owner action, even if the application answers.
 
 ## Catalogue synchronization
@@ -512,12 +513,16 @@ lists these as proposals; none has an exercised procedure yet.
 **Local implementation evidence, 2026-10-04 (#235):** real IGDB sample inference with
 both approved OPUS candidates, PostgreSQL source/derived persistence, idempotency,
 claim fencing, last-valid preservation, bounded/restartable backfill, timeout/invalid
-output and PostgreSQL-only Spanish HTTP responses. Private `vgpdev` installation,
-shared-host resources and owner translation-quality acceptance are **not exercised**.
+output and PostgreSQL-only Spanish HTTP responses. The owner reports that the model
+selection already exists on `vgpdev` and that the helper was temporarily removed
+during #160 preparation. The required base-runtime migration, promotion with unchanged
+helper identity and reboot persistence in #257 are **not exercised** by this change.
+Earlier issue closure is not evidence for this new lifecycle; shared-host resources
+and translation quality have not been remeasured here.
 [ADR-0022](../decisions/0022-localize-catalogue-content-during-acquisition.md) owns the
 comparison evidence and resource extrapolation. [Backend README](../../backend/README.md#catalogue-translation-runtime-and-models)
 owns model/runtime installation; [private-dev README](../../deploy/private-dev/README.md#catalogue-localization-helper)
-owns helper activation/update/rollback.
+owns the single standard-runtime migration and helper activation/update/rollback.
 
 Normal synchronization commits provider source first, then attempts localization
 through the narrow acquisition boundary. Known taxonomy references receive curated
@@ -577,9 +582,10 @@ state to clear a translation error. A source beyond the runtime's explicit bound
 preserved without truncation and needs operator investigation. Successful translations
 persist across model/runtime restarts and upgrades.
 
-Before owner acceptance on `vgpdev`:
+Before owner acceptance of the new lifecycle on `vgpdev`:
 
-1. Install the pinned model/runtime, verify the manifest/licence and run a small
+1. Apply the [targeted one-time migration](../../deploy/private-dev/README.md#one-time-migration-to-the-standard-runtime),
+   preserving the already installed model. Verify the manifest/licence and run a small
    representative backfill using actual local source. Review short/long translations,
    proper nouns and game terminology; accept or reject the quality limitation.
 2. Measure inference and end-to-end batch throughput with the application, PostgreSQL,
@@ -592,5 +598,11 @@ Before owner acceptance on `vgpdev`:
    copy, confirm refresh, and stop the helper to verify last-valid/new-source behavior.
 4. With the helper stopped, read translated game details through the private browser
    HTTP boundary and verify source attribution, last-valid status and cache validators.
-5. Record host evidence on #235. Full affected-area CI, owner diff review and this
-   private-host acceptance remain gates before closing the issue.
+5. Restore the helper before promotion. Capture IDs/image/configuration for all
+   persistent services, dispatch a normal application promotion and confirm only
+   application changed. Verify the internal endpoint remains present, then confirm
+   localizer recovery after an owner-approved host reboot. Missing/unhealthy/drifted
+   helper refusal must precede migration/activation; it must not block existing reads.
+6. Record the new lifecycle evidence on #257, linking earlier #235/#160 evidence
+   where relevant. Full affected-area CI, owner diff review and private-host
+   acceptance remain gates before closing this follow-up.
