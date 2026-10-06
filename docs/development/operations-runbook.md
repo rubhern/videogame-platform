@@ -216,7 +216,7 @@ policy defaults and bounds, `backend/.env.example` for local configuration and
 [`runtime.env.example`](../../deploy/private-dev/runtime.env.example) for private-dev
 opt-in/overrides. These are acquisition policies, not product/business invariants.
 
-Post-MVP (#155, implemented; private-dev exercise pending): opt-in recurring near-term
+Post-MVP (#155, implemented and accepted in private dev): opt-in recurring near-term
 and upcoming policies invoke the same UC-009 application path as the exceptional
 `POST /actuator/cataloguesync`. `CATALOGUE_SYNC_SCHEDULING_ENABLED` defaults off,
 independently of credentials. Each policy accepts a six-field Spring cron; `-`
@@ -257,7 +257,8 @@ recovery; pause scheduling before prolonged manual maintenance. Synchronization 
 never reachable from the product API and never a deployment prerequisite. Without
 IGDB credentials UC-009 reports `SYNCHRONIZATION_DISABLED` and changes nothing.
 
-Private-dev acceptance for recurring behavior is **pending**, not inferred from the
+Recurring catalogue synchronization has been exercised and accepted in private dev. 
+Acceptance evidence is recorded in #155, not inferred from the
 proven manual procedure below. After owner review and explicit deployment/host
 authorization, enable scheduling in protected `runtime.env`, retaining secrets in
 files; exercise both policies (temporarily shorten crons/windows if needed), observe
