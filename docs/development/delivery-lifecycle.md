@@ -2,12 +2,16 @@
 
 - **Status:** Approved
 - **Owner:** Ruben Hernandez
-- **Scope:** Private, non-commercial learning MVP operated by one person
+- **Scope:** Current private, non-commercial product delivery operated by one person
 
 This document owns the human change flow, risk, review, validation selection,
 versioning, acceptance, and Definition of Done. The
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md) owns
 environment, artefact, migration, deployment, backup, and recovery mechanics.
+
+This lifecycle applies to post-MVP evolution. The
+[Product Brief](../product/product-brief.md#public-release-and-sustainability) owns
+future release-mode direction; the current public-production gate below still applies.
 
 ## Change flow
 

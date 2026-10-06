@@ -5,8 +5,9 @@
 - **Editable snapshot:** [FigJam board](https://www.figma.com/board/4OfeyWSF3rvEhDE5HGKUK8)
 - **Repository export:** [PNG](assets/mvp-story-map.png)
 
-The map is the planning boundary for one complete journey, not a detailed backlog or
-architecture source.
+The map retains the accepted `v0.1.0` MVP journey and release cut. The
+[Product Brief](product-brief.md) owns post-MVP product direction; GitHub Issues own
+subsequent work. This map is not a detailed backlog or architecture source.
 
 | Activity | User outcome | MVP capability |
 |---|---|---|
@@ -36,5 +37,6 @@ The journey gate evidence and its limits are recorded in the
 [synthesis](../research/simulated-round-synthesis.md); it does not validate demand or
 real-user behaviour.
 
-Anything outside the [Product Brief](product-brief.md) MVP boundary remains deferred,
-even if it appeared in the original vision or synthetic feedback.
+Anything outside this release cut was deferred from the MVP, even if it appeared in
+the original vision or synthetic feedback. Post-MVP direction does not change its
+acceptance evidence.

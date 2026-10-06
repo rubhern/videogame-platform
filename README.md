@@ -1,17 +1,20 @@
 # VideoGame Platform
 
-VideoGame Platform is a Spanish-first web product for discovering recent and
-upcoming video-game releases and keeping a personal rating for each game. Users know it as
-**Gameómetro**. It is also
-a long-term learning project for product, architecture, delivery, and technical
-leadership, developed and operated by one person.
+**Gameómetro** is an evolving Spanish-first web product for discovering recent and
+upcoming video-game releases and keeping personal ratings. It aims to make release
+discovery and deciding what is worth playing fast and clear. It is also an advanced
+architecture and technical-leadership learning project, developed and operated by
+one person; `VideoGame Platform` remains the repository and system name.
 
 The private, non-commercial learning MVP was accepted end to end in private `dev`
 and tagged `v0.1.0`: release discovery, bounded catalogue search, game details,
 same-origin Keycloak-backed authentication, personal ratings, `Mis puntuaciones`,
 operator-triggered IGDB synchronization, owner-triggered deployment, and proven
-backup/restore. Further work is post-MVP evolution or maintenance, tracked in
-GitHub Issues.
+backup/restore. The current environment remains private `dev`; further work is
+post-MVP product evolution or maintenance, tracked in GitHub Issues. The
+[Product Brief](docs/product/product-brief.md) owns the positioning, trustworthy
+community quality signals, intended but gated public release, and exploratory
+commercial sustainability.
 
 The system is one same-origin React application and Java/Spring modular monolith,
 with PostgreSQL, Flyway, Keycloak, and provider-independent local catalogue data.
