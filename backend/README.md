@@ -5,8 +5,8 @@ operation of the [OpenAPI contract](../docs/architecture/api/openapi.yaml)
 (release discovery, catalogue search, game details, the BFF session, and the
 current user's personal ratings), the Keycloak login and rating-intent navigation
 routes under `/auth`, the packaged frontend routes, Actuator health/info/metrics, and
-the internal operator-triggered IGDB catalogue synchronization. Behaviour is specified
-by the [use cases](../docs/architecture/application/mvp-use-cases.md) and
+IGDB catalogue synchronization through scheduled and exceptional operator triggers.
+Behaviour is specified by the [use cases](../docs/architecture/application/mvp-use-cases.md) and
 [API conventions](../docs/architecture/api/api-conventions.md); this README owns
 only how to build, run, and exercise it.
 
@@ -104,8 +104,16 @@ synchronization command on the separate management port (`8081` by default, loop
 only), never on the product port; [observability](../docs/development/observability.md)
 owns the signal catalogue.
 
-Catalogue synchronization (`UC-009`) is one internal management command with
-required inclusive ISO dates:
+Catalogue synchronization (`UC-009`) has opt-in recurring near-term/upcoming inbound
+policies and an exceptional management command, all using the same application path.
+[`application.yaml`](src/main/resources/application.yaml) owns policy defaults;
+`backend/.env.example` names local opt-in/override settings. Cron and date windows use
+the application clock's `Europe/Madrid` zone. Keep scheduling disabled for normal local
+work even when manually testing provider credentials. The
+[operations runbook](../docs/development/operations-runbook.md#catalogue-synchronization)
+owns policy rationale, failure handling and the pending private-dev exercise.
+
+The manual/break-glass command requires inclusive ISO dates:
 
 ```bash
 curl --fail -X POST -H 'Content-Type: application/json' \

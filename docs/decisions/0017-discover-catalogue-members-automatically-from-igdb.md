@@ -18,6 +18,9 @@
   last-valid-state rules below; [use cases](../architecture/application/mvp-use-cases.md)
   and `CAT-009` own the behaviour
 
+- **Extended:** 2026-10-05, owner-requested #155: recurring inbound policies reuse UC-009;
+  reconciliation, paging, identity, per-Game atomicity and database fencing remain unchanged.
+
 ## Context
 
 Manual catalogue membership and per-cover approval blocked unattended acquisition.
@@ -138,6 +141,20 @@ provider; writes fence abandoned runs before a successor can publish.
 Public readers continue using repeatable-read local PostgreSQL state and never call
 IGDB. Provider DTOs remain inside the adapter; domain/application use normalized
 provider-independent values.
+
+### Recurring inbound triggers (#155)
+
+An opt-in in-process Spring scheduled inbound adapter calls the same operation as
+the exceptional management command. This fits the approved single-instance monolith
+without a broker, distributed scheduler, durable queue or another acquisition path.
+Near-term/upcoming recurrence and windows are operational policy outside domain logic.
+A dedicated single scheduler thread avoids scheduled-worker parallelism; the existing
+PostgreSQL ownership constraint and fencing remain the concurrency authority for all
+callers and instances. The trade-off is delayed or missed scheduled work during long
+runs or downtime, rather than durable catch-up. Provider/trigger failure stays outside
+serving and health dependencies. The [solution architecture](../architecture/mvp-solution-architecture.md)
+owns current placement; configuration, policy rationale and acceptance evidence belong
+to the [operations runbook](../development/operations-runbook.md#catalogue-synchronization).
 
 ## Alternatives considered
 

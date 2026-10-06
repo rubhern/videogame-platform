@@ -28,7 +28,8 @@ class ProviderBoundaryTest {
                     .dependOnClassesThat()
                     .resideInAnyPackage(
                             "..catalogue.application.synchronization..",
-                            "..catalogue.adapter.provider..");
+                            "..catalogue.adapter.provider..",
+                            "..catalogue.adapter.scheduling..");
 
     @ArchTest
     static final ArchRule LOCAL_READ_PATHS_CANNOT_REACH_THE_PROVIDER_OR_SYNCHRONIZATION =
@@ -37,6 +38,9 @@ class ProviderBoundaryTest {
                     .resideInAnyPackage(
                             "..catalogue.application.releases..",
                             "..catalogue.application.search..",
+                            "..catalogue.application.details..",
+                            "..catalogue.adapter.persistence.details..",
+                            "..platform.observability..",
                             "..catalogue.adapter.persistence.releases..",
                             "..catalogue.adapter.persistence.search..",
                             "..ratings..")
@@ -44,7 +48,8 @@ class ProviderBoundaryTest {
                     .dependOnClassesThat()
                     .resideInAnyPackage(
                             "..catalogue.application.synchronization..",
-                            "..catalogue.adapter.provider..");
+                            "..catalogue.adapter.provider..",
+                            "..catalogue.adapter.scheduling..");
 
     @ArchTest
     static final ArchRule ONLY_THE_PROVIDER_ADAPTER_USES_PROVIDER_TRANSPORT_MODELS =

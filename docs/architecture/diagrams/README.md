@@ -12,7 +12,7 @@ a decision only in a drawing.
 | `mermaid/oidc-bff-session-sequence.mmd` | How a browser obtains an opaque BFF session without holding tokens | Identity code, configuration and tests |
 | `mermaid/session-csrf-logout-sequence.mmd` | How a state change is protected by same-origin metadata and CSRF, using logout | OpenAPI, identity code and tests |
 | `mermaid/rating-intent-authentication-sequence.mmd` | How an anonymous rating press becomes an authenticated rating command exactly once | Identity and frontend code, use cases `UC-004`/`UC-005` |
-| `mermaid/synchronize-bounded-catalogue-sequence.mmd` | How one operator call reconciles a date interval page by page, Game by Game | ADR-0017, use case `UC-009` |
+| `mermaid/synchronize-bounded-catalogue-sequence.mmd` | How scheduled/manual triggers share date-interval reconciliation, page by page and Game by Game | ADR-0017, use case `UC-009` |
 | `mermaid/persistence-ownership.mmd` | Which module owns which tables and how they relate | Flyway SQL |
 | `mermaid/delivery-pipeline.mmd` | How a merged change becomes a validated deployment or a recorded failure | Platform design, private-dev README |
 

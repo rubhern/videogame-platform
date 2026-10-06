@@ -210,12 +210,62 @@ protected host logs/evidence before another owner action, even if the applicatio
 
 Owner: [Backend README](../../backend/README.md) for the command semantics,
 [ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
-for reconciliation, `backend/.env.example` for the bounds (`CATALOGUE_SYNC_*`).
+for reconciliation,
+[`application.yaml`](../../backend/src/main/resources/application.yaml) for executable
+policy defaults and bounds, `backend/.env.example` for local configuration and
+[`runtime.env.example`](../../deploy/private-dev/runtime.env.example) for private-dev
+opt-in/overrides. These are acquisition policies, not product/business invariants.
 
-Synchronization is one owner-triggered `POST /actuator/cataloguesync` with an
-inclusive `from`/`to` date interval on the management port. It is never scheduled,
+Post-MVP (#155, implemented; private-dev exercise pending): opt-in recurring near-term
+and upcoming policies invoke the same UC-009 application path as the exceptional
+`POST /actuator/cataloguesync`. `CATALOGUE_SYNC_SCHEDULING_ENABLED` defaults off,
+independently of credentials. Each policy accepts a six-field Spring cron; `-`
+disables only that policy. Non-negative past/future day offsets derive an inclusive
+window from one evaluation of the application clock in `Europe/Madrid`; neither the
+host timezone nor the UTC provider date-query boundary changes this evaluation.
+Configuration changes take effect on application recreation. Invalid cron/windows
+are configuration errors detected at startup.
+
+Initial policy rationale: daily off-peak near-term refresh covers the supported
+four-week recent and upcoming discovery horizons. Weekly upcoming refresh covers
+roughly six months ahead, keeping wider acquisition less frequent. The default start
+times are staggered to reduce contention; the precise crons/offsets stay in
+`application.yaml` and can be tuned after observing run duration and provider volume.
+Their overlap is deliberate and uses stable-reference idempotence, with no scheduling
+de-duplication or coverage claim.
+
+One dedicated scheduler thread serializes recurring work. If a long run delays the
+other policy, its date window is evaluated at actual invocation. Missed occurrences
+of a running policy and downtime are not replayed; no acquisition runs on startup,
+no persistent checkpoint is added, and failed/skipped runs wait for the next cron.
+All callers retain PostgreSQL active-provider ownership/fencing: contention with a
+manual/repair run (or another instance) reports `SYNCHRONIZATION_ALREADY_RUNNING`
+and does no provider work. Existing provider request paging, request timeouts and
+bounded rate-aware retries remain unchanged;
+total time/network/database work grows with Games in the configured window, while
+memory stays bounded by page/aggregate size. Revisit cadence/windows if runs consume
+an unacceptable part of their interval; historical maintenance/coverage remains in
+#246/#245.
+
+Runtime provider/trigger failure preserves last-valid Game state and stays outside
+readiness and product reads. Inspect trigger outcome/duration and existing run/provider
+counters via the [observability catalogue](observability.md); scheduled failure uses
+`SYNCHRONIZATION_TRIGGER_FAILED`, while a returned report retains its existing stable
+code. A skipped trigger is visible in logs/meters even when no new durable run is
+written. The manual command remains available on private management for exceptional
+recovery; pause scheduling before prolonged manual maintenance. Synchronization is
 never reachable from the product API and never a deployment prerequisite. Without
-IGDB credentials it reports `SYNCHRONIZATION_DISABLED` and changes nothing.
+IGDB credentials UC-009 reports `SYNCHRONIZATION_DISABLED` and changes nothing.
+
+Private-dev acceptance for recurring behavior is **pending**, not inferred from the
+proven manual procedure below. After owner review and explicit deployment/host
+authorization, enable scheduling in protected `runtime.env`, retaining secrets in
+files; exercise both policies (temporarily shorten crons/windows if needed), observe
+moving Madrid windows, successful/repeated idempotent results and a busy-run skip,
+then verify readiness and recent/upcoming/search/game reads during a bounded provider
+failure. Record evidence in #155 and restore the selected operational settings. To
+recover, disable scheduling and recreate the same approved application digest; use
+the exceptional manual command only as needed. Local/CI tests use fixtures/fakes and require no live credentials.
 
 Local (proven): the `curl` commands in the backend README against `127.0.0.1:8081`,
 with credentials only in the ignored `backend/.env`.
@@ -244,8 +294,8 @@ Private dev (proven on `vgpdev`; this is the source of the current `dev` catalog
    reads the last run.
 4. Verify the product afterwards through the private HTTPS origin (recent, upcoming,
    search, one game page), as done for #45.
-5. To keep synchronization disabled between runs, empty both files and recreate the
-   application again.
+5. For exceptional manual-only operation, keep scheduling disabled. To disable all
+   provider acquisition, empty both credential files and recreate the application.
 
 Following a run: the POST blocks, so watch the application log from a second shell.
 The same filter works for plain (local) and ECS JSON (private dev) lines:

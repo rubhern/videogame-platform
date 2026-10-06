@@ -62,6 +62,17 @@ catalogue:
     max-releases-per-game: ${CATALOGUE_SYNC_MAX_RELEASES_PER_GAME:25}
     retained-runs: ${CATALOGUE_SYNC_RETAINED_RUNS:50}
     abandon-run-after: ${CATALOGUE_SYNC_ABANDON_RUN_AFTER:PT30M}
+    scheduling:
+      # Opt-in even when credentials exist; '-' disables an individual policy.
+      enabled: ${CATALOGUE_SYNC_SCHEDULING_ENABLED:false}
+      near-term:
+        cron: "${CATALOGUE_SYNC_NEAR_TERM_CRON:0 0 4 * * *}"
+        past-days: ${CATALOGUE_SYNC_NEAR_TERM_PAST_DAYS:28}
+        future-days: ${CATALOGUE_SYNC_NEAR_TERM_FUTURE_DAYS:28}
+      upcoming:
+        cron: "${CATALOGUE_SYNC_UPCOMING_CRON:0 0 5 * * SUN}"
+        past-days: ${CATALOGUE_SYNC_UPCOMING_PAST_DAYS:0}
+        future-days: ${CATALOGUE_SYNC_UPCOMING_FUTURE_DAYS:180}
     cover:
       fallback-asset-path: ${CATALOGUE_SYNC_FALLBACK_COVER_PATH:/assets/covers/fallback.svg}
       fallback-source-name: ${CATALOGUE_SYNC_FALLBACK_COVER_SOURCE:VideoGame Platform}

@@ -16,7 +16,7 @@ Browser
   -> same-origin static frontend + BFF/API + modular monolith
       -> application PostgreSQL
 
-Operator (management port, never the product port)
+Scheduled inbound adapter (opt-in) / Operator (exceptional management-port command)
   -> single catalogue synchronization use case
       -> IGDB adapter -> normalize/validate -> import or update
           -> atomic current Game state, featured evidence + catalogue revision in PostgreSQL
@@ -146,6 +146,16 @@ localization is acquisition enrichment under [ADR-0022](../decisions/0022-locali
 Its application-owned translation port has a private runtime adapter. No catalogue
 read, API delivery or readiness path depends on the helper. PostgreSQL remains the
 only serving and concurrency authority.
+
+Post-MVP (#155, implemented; private-dev exercise pending): the Catalogue scheduled
+inbound adapter derives two independently configurable moving windows using the trusted
+application clock and calls the same `UC-009` contract as the management adapter.
+Scheduling stays outside domain/application reconciliation. One dedicated Spring scheduler
+thread serializes scheduled work; PostgreSQL run ownership/fencing remains the concurrency
+authority across scheduled, manual and repair triggers. See
+[ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md) for
+reconciliation and the [runbook](../development/operations-runbook.md#catalogue-synchronization)
+for operational policy and acceptance.
 
 ## Evolution rule
 
