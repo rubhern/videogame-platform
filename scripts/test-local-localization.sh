@@ -99,6 +99,49 @@ assert set(combined['catalogue-localizer']['networks']) == {'default'}
 print('Local Compose inheritance, loopback, mounted model, health, bounds and observability coexistence passed.')
 PYTHON
 
+private_render=(docker compose --env-file "$repository_root/deploy/private-dev/runtime.env.example"
+  --file "$repository_root/deploy/private-dev/compose.yaml")
+CATALOGUE_TRANSLATION_MODEL_DIR="$model" "${private_render[@]}" config --services >"$temporary_directory/private-default-services"
+CATALOGUE_TRANSLATION_MODEL_DIR="$model" "${private_render[@]}" --profile application --profile deployment \
+  config --format json >"$temporary_directory/private.json"
+CATALOGUE_TRANSLATION_MODEL_DIR="$model" "${private_render[@]}" config --hash catalogue-localizer >"$temporary_directory/helper-hash"
+CATALOGUE_TRANSLATION_MODEL_DIR="$model" \
+APPLICATION_IMAGE=ghcr.io/rubhern/videogame-platform@sha256:2222222222222222222222222222222222222222222222222222222222222222 \
+APPLICATION_VERSION=next-application \
+  "${private_render[@]}" --profile application --profile deployment config --hash catalogue-localizer >"$temporary_directory/application-change-hash"
+cmp "$temporary_directory/helper-hash" "$temporary_directory/application-change-hash"
+CATALOGUE_TRANSLATION_MODEL_DIR="$model/next-immutable-model" "${private_render[@]}" config --hash catalogue-localizer >"$temporary_directory/model-change-hash"
+if cmp --silent "$temporary_directory/helper-hash" "$temporary_directory/model-change-hash"; then
+  printf 'The helper configuration hash ignored the protected model selection.\n' >&2; exit 1
+fi
+sed '/^CATALOGUE_TRANSLATION_MODEL_DIR=/d' "$repository_root/deploy/private-dev/runtime.env.example" >"$temporary_directory/no-model.env"
+if env -u CATALOGUE_TRANSLATION_MODEL_DIR docker compose --env-file "$temporary_directory/no-model.env" \
+    --file "$repository_root/deploy/private-dev/compose.yaml" config >"$temporary_directory/no-model.log" 2>&1; then
+  printf 'Private dev accepted an unset required model directory.\n' >&2; exit 1
+fi
+grep -q CATALOGUE_TRANSLATION_MODEL_DIR "$temporary_directory/no-model.log"
+python3 - "$temporary_directory" "$model" <<'PYTHON'
+import json, pathlib, re, sys
+directory, model = map(pathlib.Path, sys.argv[1:])
+defaults = set((directory / "private-default-services").read_text().splitlines())
+assert "catalogue-localizer" in defaults
+assert not {"application", "migration", "deployment-smoke"} & defaults
+services = json.loads((directory / "private.json").read_text())["services"]
+helper = services["catalogue-localizer"]
+assert not helper.get("profiles") and not helper.get("ports")
+assert set(helper["networks"]) == {"data"}
+assert helper["restart"] == "unless-stopped"
+assert "/ready" in helper["healthcheck"]["test"][-1]
+mount, = helper["volumes"]
+assert pathlib.Path(mount["source"]) == model and mount["read_only"]
+# Compose versions may omit false fields from normalized JSON.
+assert mount.get("bind", {}).get("create_host_path", False) is False
+assert services["application"]["environment"]["CATALOGUE_TRANSLATION_ENDPOINT"] == "http://catalogue-localizer:8092/translate"
+assert set(services["application"]["depends_on"]) == {"postgres", "keycloak"}
+assert re.fullmatch(r"catalogue-localizer [0-9a-f]{64}\n", (directory / "helper-hash").read_text())
+print("Private-dev base localization, internal endpoint, restart, no request dependency and application/model hash boundaries passed.")
+PYTHON
+
 [[ "${1:-}" == --smoke ]] || exit 0
 # Explicit native proof uses an installed model and its own disposable Compose project.
 [[ -n "${CATALOGUE_TRANSLATION_MODEL_DIR:-}" ]] || { printf 'Set an installed model directory for --smoke.\n' >&2; exit 1; }

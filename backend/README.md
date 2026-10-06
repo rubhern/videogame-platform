@@ -157,7 +157,8 @@ evidence boundary are owned by the [operations runbook](../docs/development/oper
 
 ## Catalogue translation runtime and models
 
-The acquisition-only runtime is optional. [ADR-0022](../docs/decisions/0022-localize-catalogue-content-during-acquisition.md)
+The acquisition-only runtime is required in private dev and opt-in on workstations.
+[ADR-0022](../docs/decisions/0022-localize-catalogue-content-during-acquisition.md)
 owns the model decision and evidence; the application keeps serving source/last-valid
 Spanish content when it is stopped. Installation/conversion is an operator action,
 never application startup or a visitor request. From the repository root:
@@ -181,7 +182,7 @@ For host/IDE and packaged local backends, use the
 [local translation startup](../docs/development/local-setup.md#local-catalogue-translations),
 which starts the same bounded container as private dev with loopback access and
 an optional flag combinable with observability. For private dev use the
-[optional container procedure](../deploy/private-dev/README.md#catalogue-localization-helper).
+[standard runtime procedure](../deploy/private-dev/README.md#catalogue-localization-helper).
 The helper retains one model and accepts only fixed EN→ES acquisition work. Its
 request/response/token/CPU/memory bounds are owned by code/configuration.
 `backend/.env.example` and `application.yaml` own endpoint and timeout settings.

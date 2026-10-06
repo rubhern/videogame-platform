@@ -385,15 +385,26 @@ class HostTests(unittest.TestCase):
             verify.assert_not_called()
             deploy.assert_not_called()
 
-    def test_active_localization_overlay_is_never_silently_removed(self):
-        with patch.object(host.subprocess, "check_output", side_effect=[
-            b"container-id\n", b"/opt/videogame-platform/deploy/private-dev/compose.yaml,/opt/videogame-platform/deploy/private-dev/compose.localization.yaml\n",
-        ]), self.assertRaisesRegex(policy.Refused, "Compose overlay"):
-            host.verify_base_application()
-        with patch.object(host.subprocess, "check_output", side_effect=[
-            b"container-id\n", b"/opt/videogame-platform/deploy/private-dev/compose.yaml\n",
-        ]):
-            host.verify_base_application()
+    def test_base_runtime_and_retired_localization_overlay_allow_application_promotion(self):
+        base = "/opt/videogame-platform/deploy/private-dev/compose.yaml"
+        retired = "/opt/videogame-platform/deploy/private-dev/compose.localization.yaml"
+        for files in (base, f"{base},{retired}"):
+            with self.subTest(files=files), patch.object(host.subprocess, "check_output", side_effect=[
+                b"application-id\n", (files + "\n").encode(),
+            ]) as docker:
+                host.verify_base_application()
+                # An active unprofiled helper does not alter the application filter.
+                self.assertIn("label=com.docker.compose.service=application", docker.call_args_list[0].args[0])
+
+    def test_unrelated_ambiguous_or_different_runtime_overlays_remain_refused(self):
+        base = "/opt/videogame-platform/deploy/private-dev/compose.yaml"
+        retired = "/opt/videogame-platform/deploy/private-dev/compose.localization.yaml"
+        for files in (f"{base},/tmp/custom.yaml", f"{base},{retired},/tmp/custom.yaml",
+                      f"{base},{base}", f"{retired},{base}", "/tmp/compose.yaml"):
+            with self.subTest(files=files), patch.object(host.subprocess, "check_output", side_effect=[
+                b"application-id\n", (files + "\n").encode(),
+            ]), self.assertRaisesRegex(policy.Refused, "Compose overlay"):
+                host.verify_base_application()
 
     def test_shell_scp_injection_and_arbitrary_arguments_are_refused(self):
         for command in ("sh", "scp -t /tmp", COMMAND + "; id", COMMAND + " extra",
@@ -473,7 +484,9 @@ class ContractTests(unittest.TestCase):
                      "deploy/private-dev/bin/run-application", "deploy/private-dev/smoke/package-lock.json",
                      "docker/keycloak/import/videogame-platform-realm.json",
                      "docker/postgres/init/001-create-databases.sh",
-                     "tools/catalogue-localization/models.json", "scripts/private_dev_promotion.py"):
+                     "tools/catalogue-localization/models.json", "tools/catalogue-localization/compose.yaml",
+                     "tools/catalogue-localization/Dockerfile", "tools/catalogue-localization/runtime-requirements.txt",
+                     "tools/catalogue-localization/helper.py", "scripts/private_dev_promotion.py"):
             with self.subTest(path=path):
                 self.assertTrue(policy.is_deployment_contract(path))
 
@@ -506,6 +519,32 @@ class ContractTests(unittest.TestCase):
             runtime.write_text("hidden drift", encoding="utf-8")
             with self.assertRaises(policy.Refused):
                 policy.deployment_contract(repo, "HEAD", installed=True)
+
+    def test_each_localizer_runtime_image_model_and_configuration_change_alters_the_contract(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            repo = Path(temporary)
+            def git(*args):
+                return subprocess.check_output(["git", *args], cwd=repo).decode().strip()
+            git("init", "-q")
+            paths = ("deploy/private-dev/compose.yaml", "deploy/private-dev/runtime.env.example",
+                     "tools/catalogue-localization/compose.yaml", "tools/catalogue-localization/Dockerfile",
+                     "tools/catalogue-localization/runtime-requirements.txt", "tools/catalogue-localization/models.json",
+                     "tools/catalogue-localization/helper.py")
+            for path in paths:
+                target = repo / path
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("initial", encoding="utf-8")
+            def snapshot():
+                git("add", ".")
+                git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture")
+                return policy.deployment_contract(repo, "HEAD")
+            previous = snapshot()
+            for path in paths:
+                with self.subTest(path=path):
+                    (repo / path).write_text("explicit localizer rollout", encoding="utf-8")
+                    current = snapshot()
+                    self.assertNotEqual(previous, current)
+                    previous = current
 
 
 if __name__ == "__main__":

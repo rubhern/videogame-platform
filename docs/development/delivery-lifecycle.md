@@ -88,7 +88,9 @@ owner, and expiry/removal condition.
   environment holds secrets and restricts the branch without a second reviewer gate.
   Successful deployment automation
   records technical smoke evidence; the owner still accepts the product/release.
-  Separate runtime/dependency rollouts require their own reviewed operational decision;
+  Separate runtime/dependency rollouts, including the required private-dev catalogue
+  localizer, require their own reviewed operational decision and applied-runtime
+  acknowledgement before application promotion;
   see the [platform boundary](../architecture/deployment/mvp-platform-and-delivery.md#artefact-and-delivery).
 - Public production remains prohibited until provider, privacy, security, support,
   cost, and release-mode gates are reopened and approved.

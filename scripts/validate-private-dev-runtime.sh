@@ -109,6 +109,7 @@ APPLICATION_VERSION=0.0.0-validation
 SOURCE_REVISION=1111111111111111111111111111111111111111
 SMOKE_CORRELATION_ID=deployment-smoke-validation
 SMOKE_TRACE_ID=11111111111111111111111111111111
+CATALOGUE_TRANSLATION_MODEL_DIR=$temporary_directory/model
 EOF
 else
   runtime_env="$(realpath -- "$runtime_env")"
@@ -131,7 +132,7 @@ docker compose \
   --profile deployment \
   config --format json >"$rendered_config"
 
-python3 - "$rendered_config" <<'PY'
+python3 - "$rendered_config" "$repository_root" <<'PY'
 import json
 import pathlib
 import stat
@@ -179,6 +180,7 @@ expected_services = {
     "application",
     "migration",
     "deployment-smoke",
+    "catalogue-localizer",
 }
 assert set(services) == expected_services, f"unexpected services: {set(services)}"
 
@@ -198,6 +200,7 @@ expected_secret_access = {
     "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"},
     "migration": {"application_migration_db_password"},
     "deployment-smoke": {"oidc_smoke_username", "oidc_smoke_password"},
+    "catalogue-localizer": set(),
 }
 
 for service_name, service in services.items():
@@ -271,6 +274,20 @@ assert "--storage.tsdb.retention.size=512MiB" in services["prometheus"]["command
 assert services["grafana"]["environment"]["GF_AUTH_ANONYMOUS_ENABLED"] == "false"
 assert services["grafana"]["environment"]["GF_SECURITY_ADMIN_PASSWORD__FILE"] == "/run/secrets/grafana_admin_password"
 assert set(services["application"]["depends_on"]) == {"postgres", "keycloak"}
+assert services["application"]["environment"]["CATALOGUE_TRANSLATION_ENDPOINT"] == "http://catalogue-localizer:8092/translate"
+helper = services["catalogue-localizer"]
+assert not helper.get("profiles"), "private-dev acquisition runtime must start by default"
+assert helper["networks"] == {"data": None} and "ports" not in helper
+assert helper["read_only"] and helper["cap_drop"] == ["ALL"]
+assert "no-new-privileges:true" in helper["security_opt"]
+assert pathlib.Path(helper["build"]["context"]) == pathlib.Path(sys.argv[2]) / "tools/catalogue-localization"
+assert "/ready" in helper["healthcheck"]["test"][-1]
+model_mount, = helper["volumes"]
+assert model_mount["type"] == "bind" and model_mount["target"] == "/model" and model_mount["read_only"]
+# Compose versions may omit false fields from normalized JSON.
+assert model_mount.get("bind", {}).get("create_host_path", False) is False
+model = pathlib.Path(model_mount["source"])
+assert model.is_absolute() and not model.is_relative_to(pathlib.Path(sys.argv[2])), "models must stay outside the Git checkout"
 assert services["application"]["environment"]["TELEMETRY_OTLP_METRICS_ENDPOINT"] == "http://telemetry:4318/v1/metrics"
 application_oidc = services["application"]["environment"]
 smoke_environment = services["deployment-smoke"]["environment"]
@@ -489,7 +506,7 @@ if [[ "$live" == false ]]; then
 fi
 
 compose=(docker compose --env-file "$runtime_env" --file "$compose_file")
-required_services=(postgres keycloak telemetry prometheus grafana alloy loki)
+required_services=(postgres keycloak telemetry prometheus grafana alloy loki catalogue-localizer)
 for service_name in "${required_services[@]}"; do
   container_id="$("${compose[@]}" ps --quiet "$service_name")"
   [[ -n "$container_id" ]] || {
@@ -501,6 +518,12 @@ for service_name in "${required_services[@]}"; do
     printf '%s is not running: %s\n' "$service_name" "$state" >&2
     exit 1
   }
+  if [[ "$service_name" == catalogue-localizer ]]; then
+    [[ "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id")" == healthy ]] || {
+      printf 'Required acquisition runtime is not healthy: %s\n' "$service_name" >&2
+      exit 1
+    }
+  fi
   restart_policy="$(docker inspect --format '{{.HostConfig.RestartPolicy.Name}}' "$container_id")"
   [[ "$restart_policy" == unless-stopped ]] || {
     printf '%s has unexpected restart policy: %s\n' "$service_name" "$restart_policy" >&2
@@ -566,7 +589,7 @@ assert_ipv4_loopback_only() {
 assert_ipv4_loopback_only "${KEYCLOAK_LOOPBACK_PORT:-8180}" true
 assert_ipv4_loopback_only "${APPLICATION_LOOPBACK_PORT:-8080}" false
 assert_ipv4_loopback_only 3000 true
-for unpublished_port in 5432 4317 4318 8081 9000 9090 9464 3100 9095 12345; do
+for unpublished_port in 5432 4317 4318 8081 8092 9000 9090 9464 3100 9095 12345; do
   assert_no_host_listener "$unpublished_port"
 done
 syslog_port="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["services"]["alloy"]["ports"][0]["published"])' "$rendered_config")"

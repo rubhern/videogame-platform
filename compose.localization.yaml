@@ -1,9 +1,10 @@
-# Optional workstation topology; shared helper mechanics remain with private dev.
+# Optional workstation topology; helper mechanics are shared with private dev.
 services:
   catalogue-localizer:
     extends:
-      file: ./deploy/private-dev/compose.localization.yaml
+      file: ./tools/catalogue-localization/compose.yaml
       service: catalogue-localizer
+    profiles: ["localization"]
     # Host/IDE acquisition can reach the loaded model through IPv4 loopback only.
     ports:
       - "127.0.0.1:8092:8092"

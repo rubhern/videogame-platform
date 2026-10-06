@@ -89,7 +89,12 @@ def verify_base_application():
             ["docker", "inspect", "--format", '{{index .Config.Labels "com.docker.compose.project.config_files"}}', containers[0]],
             env=SAFE_ENV, stderr=subprocess.DEVNULL,
         ).decode().strip().split(",")
-        require(len(config_files) == 1 and config_files[0].endswith("/deploy/private-dev/compose.yaml"),
+        # A container created with the retired localization overlay can transition
+        # to base Compose: the endpoint now lives there. All other overlays fail closed.
+        base = Path(config_files[0])
+        allowed = [str(base)] if base.parts[-3:] == ("deploy", "private-dev", "compose.yaml") else []
+        require(config_files == allowed or (
+                    allowed and config_files == [str(base), str(base.with_name("compose.localization.yaml"))]),
                 "The application uses a Compose overlay or different runtime; use its separate reviewed deployment procedure.")
 
 
