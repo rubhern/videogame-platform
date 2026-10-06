@@ -134,7 +134,8 @@ assert helper["restart"] == "unless-stopped"
 assert "/ready" in helper["healthcheck"]["test"][-1]
 mount, = helper["volumes"]
 assert pathlib.Path(mount["source"]) == model and mount["read_only"]
-assert mount["bind"]["create_host_path"] is False
+# Compose versions may omit false fields from normalized JSON.
+assert mount.get("bind", {}).get("create_host_path", False) is False
 assert services["application"]["environment"]["CATALOGUE_TRANSLATION_ENDPOINT"] == "http://catalogue-localizer:8092/translate"
 assert set(services["application"]["depends_on"]) == {"postgres", "keycloak"}
 assert re.fullmatch(r"catalogue-localizer [0-9a-f]{64}\n", (directory / "helper-hash").read_text())

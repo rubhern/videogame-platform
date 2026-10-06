@@ -284,7 +284,8 @@ assert pathlib.Path(helper["build"]["context"]) == pathlib.Path(sys.argv[2]) / "
 assert "/ready" in helper["healthcheck"]["test"][-1]
 model_mount, = helper["volumes"]
 assert model_mount["type"] == "bind" and model_mount["target"] == "/model" and model_mount["read_only"]
-assert model_mount["bind"]["create_host_path"] is False
+# Compose versions may omit false fields from normalized JSON.
+assert model_mount.get("bind", {}).get("create_host_path", False) is False
 model = pathlib.Path(model_mount["source"])
 assert model.is_absolute() and not model.is_relative_to(pathlib.Path(sys.argv[2])), "models must stay outside the Git checkout"
 assert services["application"]["environment"]["TELEMETRY_OTLP_METRICS_ENDPOINT"] == "http://telemetry:4318/v1/metrics"
