@@ -1,0 +1,842 @@
+[
+  {
+    "ordinal": 0,
+    "at": "2026-10-06T22:52:16.668340725Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.050448
+  },
+  {
+    "ordinal": 1,
+    "at": "2026-10-06T22:52:17.666088049Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 14.807003
+  },
+  {
+    "ordinal": 2,
+    "at": "2026-10-06T22:52:18.661747196Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 9.547739
+  },
+  {
+    "ordinal": 3,
+    "at": "2026-10-06T22:52:19.658284378Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.638487
+  },
+  {
+    "ordinal": 4,
+    "at": "2026-10-06T22:52:20.656959248Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 6.425437
+  },
+  {
+    "ordinal": 5,
+    "at": "2026-10-06T22:52:21.668729239Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.754754
+  },
+  {
+    "ordinal": 6,
+    "at": "2026-10-06T22:52:22.668288013Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 17.293022
+  },
+  {
+    "ordinal": 7,
+    "at": "2026-10-06T22:52:23.662940811Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.785324
+  },
+  {
+    "ordinal": 8,
+    "at": "2026-10-06T22:52:24.660017848Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 8.511567
+  },
+  {
+    "ordinal": 9,
+    "at": "2026-10-06T22:52:25.658307824Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.573754
+  },
+  {
+    "ordinal": 10,
+    "at": "2026-10-06T22:52:26.669929084Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 18.101076
+  },
+  {
+    "ordinal": 11,
+    "at": "2026-10-06T22:52:27.668384075Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 17.306958
+  },
+  {
+    "ordinal": 12,
+    "at": "2026-10-06T22:52:28.662497273Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 11.126066
+  },
+  {
+    "ordinal": 13,
+    "at": "2026-10-06T22:52:29.658981858Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 8.104946
+  },
+  {
+    "ordinal": 14,
+    "at": "2026-10-06T22:52:30.658041021Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.549488
+  },
+  {
+    "ordinal": 15,
+    "at": "2026-10-06T22:52:31.667733704Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.849774
+  },
+  {
+    "ordinal": 16,
+    "at": "2026-10-06T22:52:32.667852543Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.787271
+  },
+  {
+    "ordinal": 17,
+    "at": "2026-10-06T22:52:33.661861813Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.650206
+  },
+  {
+    "ordinal": 18,
+    "at": "2026-10-06T22:52:34.659511666Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.974239
+  },
+  {
+    "ordinal": 19,
+    "at": "2026-10-06T22:52:35.658158779Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.607135
+  },
+  {
+    "ordinal": 20,
+    "at": "2026-10-06T22:52:36.668578024Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.505123
+  },
+  {
+    "ordinal": 21,
+    "at": "2026-10-06T22:52:37.667866351Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.739044
+  },
+  {
+    "ordinal": 22,
+    "at": "2026-10-06T22:52:36.715605874Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.813678
+  },
+  {
+    "ordinal": 23,
+    "at": "2026-10-06T22:52:37.711201004Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.291286
+  },
+  {
+    "ordinal": 24,
+    "at": "2026-10-06T22:52:38.711020426Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 6.932986
+  },
+  {
+    "ordinal": 25,
+    "at": "2026-10-06T22:52:39.721296171Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.942225
+  },
+  {
+    "ordinal": 26,
+    "at": "2026-10-06T22:52:40.722854086Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 19.094357
+  },
+  {
+    "ordinal": 27,
+    "at": "2026-10-06T22:52:41.715249216Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.361329
+  },
+  {
+    "ordinal": 28,
+    "at": "2026-10-06T22:52:42.714980809Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 10.280754
+  },
+  {
+    "ordinal": 29,
+    "at": "2026-10-06T22:52:43.711892126Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.208023
+  },
+  {
+    "ordinal": 30,
+    "at": "2026-10-06T22:52:44.720703846Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.808961
+  },
+  {
+    "ordinal": 31,
+    "at": "2026-10-06T22:52:45.718945206Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 15.080385
+  },
+  {
+    "ordinal": 32,
+    "at": "2026-10-06T22:52:46.714608245Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.662949
+  },
+  {
+    "ordinal": 33,
+    "at": "2026-10-06T22:52:47.711838954Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.511576
+  },
+  {
+    "ordinal": 34,
+    "at": "2026-10-06T22:52:48.711734376Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.49294
+  },
+  {
+    "ordinal": 35,
+    "at": "2026-10-06T22:52:49.721556478Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.350309
+  },
+  {
+    "ordinal": 36,
+    "at": "2026-10-06T22:52:50.720939944Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 17.020385
+  },
+  {
+    "ordinal": 37,
+    "at": "2026-10-06T22:52:51.714561724Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.423933
+  },
+  {
+    "ordinal": 38,
+    "at": "2026-10-06T22:52:52.712836581Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.909702
+  },
+  {
+    "ordinal": 39,
+    "at": "2026-10-06T22:52:53.711548789Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.296171
+  },
+  {
+    "ordinal": 40,
+    "at": "2026-10-06T22:52:54.721346234Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.131895
+  },
+  {
+    "ordinal": 41,
+    "at": "2026-10-06T22:52:55.721207428Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.653704
+  },
+  {
+    "ordinal": 42,
+    "at": "2026-10-06T22:52:56.713999759Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.156655
+  },
+  {
+    "ordinal": 43,
+    "at": "2026-10-06T22:52:57.71191085Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.643961
+  },
+  {
+    "ordinal": 44,
+    "at": "2026-10-06T22:52:58.712106172Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.048443
+  },
+  {
+    "ordinal": 45,
+    "at": "2026-10-06T22:52:59.722378784Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 18.021705
+  },
+  {
+    "ordinal": 46,
+    "at": "2026-10-06T22:53:00.721236272Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 17.087466
+  },
+  {
+    "ordinal": 47,
+    "at": "2026-10-06T22:53:01.714408337Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.559092
+  },
+  {
+    "ordinal": 48,
+    "at": "2026-10-06T22:53:02.712201268Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.464339
+  },
+  {
+    "ordinal": 49,
+    "at": "2026-10-06T22:53:03.711640471Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.060777
+  },
+  {
+    "ordinal": 50,
+    "at": "2026-10-06T22:53:04.721928348Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.326774
+  },
+  {
+    "ordinal": 51,
+    "at": "2026-10-06T22:53:05.721301379Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.965933
+  },
+  {
+    "ordinal": 52,
+    "at": "2026-10-06T22:53:04.827252735Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.537486
+  },
+  {
+    "ordinal": 53,
+    "at": "2026-10-06T22:53:05.824750199Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.832926
+  },
+  {
+    "ordinal": 54,
+    "at": "2026-10-06T22:53:06.82361504Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 6.738843
+  },
+  {
+    "ordinal": 55,
+    "at": "2026-10-06T22:53:07.834730934Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.220753
+  },
+  {
+    "ordinal": 56,
+    "at": "2026-10-06T22:53:08.833977612Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 17.026724
+  },
+  {
+    "ordinal": 57,
+    "at": "2026-10-06T22:53:09.827389787Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.691999
+  },
+  {
+    "ordinal": 58,
+    "at": "2026-10-06T22:53:10.824367877Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.534602
+  },
+  {
+    "ordinal": 59,
+    "at": "2026-10-06T22:53:11.824046458Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.127511
+  },
+  {
+    "ordinal": 60,
+    "at": "2026-10-06T22:53:12.833186275Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.65267
+  },
+  {
+    "ordinal": 61,
+    "at": "2026-10-06T22:53:13.834166261Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 17.214574
+  },
+  {
+    "ordinal": 62,
+    "at": "2026-10-06T22:53:14.82649725Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 9.581483
+  },
+  {
+    "ordinal": 63,
+    "at": "2026-10-06T22:53:15.823839506Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.200231
+  },
+  {
+    "ordinal": 64,
+    "at": "2026-10-06T22:53:16.82377922Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 6.682767
+  },
+  {
+    "ordinal": 65,
+    "at": "2026-10-06T22:53:17.834694768Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.338023
+  },
+  {
+    "ordinal": 66,
+    "at": "2026-10-06T22:53:18.833946675Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.041087
+  },
+  {
+    "ordinal": 67,
+    "at": "2026-10-06T22:53:19.827374866Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.221744
+  },
+  {
+    "ordinal": 68,
+    "at": "2026-10-06T22:53:20.825997764Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.645578
+  },
+  {
+    "ordinal": 69,
+    "at": "2026-10-06T22:53:21.82401448Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.240979
+  },
+  {
+    "ordinal": 70,
+    "at": "2026-10-06T22:53:22.833365795Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.55638
+  },
+  {
+    "ordinal": 71,
+    "at": "2026-10-06T22:53:23.83346179Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.416047
+  },
+  {
+    "ordinal": 72,
+    "at": "2026-10-06T22:53:24.826715402Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.173923
+  },
+  {
+    "ordinal": 73,
+    "at": "2026-10-06T22:53:25.824904143Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.806938
+  },
+  {
+    "ordinal": 74,
+    "at": "2026-10-06T22:53:26.824241593Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.047767
+  },
+  {
+    "ordinal": 75,
+    "at": "2026-10-06T22:53:27.834786327Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.312345
+  },
+  {
+    "ordinal": 76,
+    "at": "2026-10-06T22:53:28.834260752Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 17.258896
+  },
+  {
+    "ordinal": 77,
+    "at": "2026-10-06T22:53:29.826559043Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 9.963898
+  },
+  {
+    "ordinal": 78,
+    "at": "2026-10-06T22:53:30.823934494Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.205799
+  },
+  {
+    "ordinal": 79,
+    "at": "2026-10-06T22:53:31.824631047Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.040836
+  },
+  {
+    "ordinal": 80,
+    "at": "2026-10-06T22:53:32.834480257Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.741374
+  },
+  {
+    "ordinal": 81,
+    "at": "2026-10-06T22:53:33.832752985Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.051743
+  },
+  {
+    "ordinal": 82,
+    "at": "2026-10-06T22:53:32.875442547Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.599483
+  },
+  {
+    "ordinal": 83,
+    "at": "2026-10-06T22:53:33.873813317Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 8.597981
+  },
+  {
+    "ordinal": 84,
+    "at": "2026-10-06T22:53:34.87232877Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.078822
+  },
+  {
+    "ordinal": 85,
+    "at": "2026-10-06T22:53:35.88258094Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.39181
+  },
+  {
+    "ordinal": 86,
+    "at": "2026-10-06T22:53:36.882157052Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.931087
+  },
+  {
+    "ordinal": 87,
+    "at": "2026-10-06T22:53:37.874827893Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.121199
+  },
+  {
+    "ordinal": 88,
+    "at": "2026-10-06T22:53:38.873032184Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.515749
+  },
+  {
+    "ordinal": 89,
+    "at": "2026-10-06T22:53:39.872501093Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 6.929428
+  },
+  {
+    "ordinal": 90,
+    "at": "2026-10-06T22:53:40.88161941Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.397169
+  },
+  {
+    "ordinal": 91,
+    "at": "2026-10-06T22:53:41.880974876Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 15.961617
+  },
+  {
+    "ordinal": 92,
+    "at": "2026-10-06T22:53:42.874876376Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.12326
+  },
+  {
+    "ordinal": 93,
+    "at": "2026-10-06T22:53:43.872946967Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.321807
+  },
+  {
+    "ordinal": 94,
+    "at": "2026-10-06T22:53:44.871472173Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 6.942423
+  },
+  {
+    "ordinal": 95,
+    "at": "2026-10-06T22:53:45.887153188Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 21.833142
+  },
+  {
+    "ordinal": 96,
+    "at": "2026-10-06T22:53:46.88016291Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 15.015105
+  },
+  {
+    "ordinal": 97,
+    "at": "2026-10-06T22:53:47.875167379Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 9.946278
+  },
+  {
+    "ordinal": 98,
+    "at": "2026-10-06T22:53:48.872593183Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.032345
+  },
+  {
+    "ordinal": 99,
+    "at": "2026-10-06T22:53:49.872231965Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.002996
+  },
+  {
+    "ordinal": 100,
+    "at": "2026-10-06T22:53:50.882045061Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.830846
+  },
+  {
+    "ordinal": 101,
+    "at": "2026-10-06T22:53:51.881312952Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.271002
+  },
+  {
+    "ordinal": 102,
+    "at": "2026-10-06T22:53:52.874986735Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.021783
+  },
+  {
+    "ordinal": 103,
+    "at": "2026-10-06T22:53:53.871764217Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.260554
+  },
+  {
+    "ordinal": 104,
+    "at": "2026-10-06T22:53:54.871805026Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 6.593809
+  },
+  {
+    "ordinal": 105,
+    "at": "2026-10-06T22:53:55.882986378Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 17.601293
+  },
+  {
+    "ordinal": 106,
+    "at": "2026-10-06T22:53:56.881799098Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.329161
+  },
+  {
+    "ordinal": 107,
+    "at": "2026-10-06T22:53:57.875243043Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 9.840753
+  },
+  {
+    "ordinal": 108,
+    "at": "2026-10-06T22:53:58.873061268Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.508859
+  },
+  {
+    "ordinal": 109,
+    "at": "2026-10-06T22:53:59.87228438Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 6.769564
+  },
+  {
+    "ordinal": 110,
+    "at": "2026-10-06T22:54:00.881373814Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.280485
+  },
+  {
+    "ordinal": 111,
+    "at": "2026-10-06T22:54:01.882105486Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 17.14137
+  },
+  {
+    "ordinal": 112,
+    "at": "2026-10-06T22:54:00.984575598Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.008485
+  },
+  {
+    "ordinal": 113,
+    "at": "2026-10-06T22:54:01.982296851Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 7.154269
+  },
+  {
+    "ordinal": 114,
+    "at": "2026-10-06T22:54:02.981402669Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.262787
+  },
+  {
+    "ordinal": 115,
+    "at": "2026-10-06T22:54:03.99095823Z",
+    "name": "releases_recent",
+    "status": "200",
+    "durationMs": 16.538788
+  },
+  {
+    "ordinal": 116,
+    "at": "2026-10-06T22:54:04.990100939Z",
+    "name": "releases_upcoming",
+    "status": "200",
+    "durationMs": 16.038441
+  },
+  {
+    "ordinal": 117,
+    "at": "2026-10-06T22:54:05.985167027Z",
+    "name": "releases_featured",
+    "status": "200",
+    "durationMs": 10.261992
+  },
+  {
+    "ordinal": 118,
+    "at": "2026-10-06T22:54:06.981803451Z",
+    "name": "catalogue_search",
+    "status": "200",
+    "durationMs": 6.954484
+  },
+  {
+    "ordinal": 119,
+    "at": "2026-10-06T22:54:07.981634399Z",
+    "name": "game_detail",
+    "status": "200",
+    "durationMs": 7.084712
+  }
+]

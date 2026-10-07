@@ -11,6 +11,7 @@ frontend/dist/
 frontend/coverage/
 frontend/playwright-report/
 frontend/test-results/
+tools/performance/results/
 **/.structurizr/
 *:Zone.Identifier
 **/.$*.bkp

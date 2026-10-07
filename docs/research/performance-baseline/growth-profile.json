@@ -1,0 +1,74 @@
+
+{
+    "counts": {
+        "games": 50000,
+        "ratings": 500000,
+        "regions": 5,
+        "releases": 200000,
+        "platforms": 10,
+        "rated_games": 40000,
+        "visible_games": 50000,
+        "approved_aliases": 10000,
+        "visible_releases": 200000,
+        "current_revisions": 1,
+        "games_with_genres": 50000,
+        "users_with_ratings": 4020
+    },
+    "profile": "growth",
+    "storage": {
+        "database_bytes": 519780031,
+        "catalogue_and_ratings_bytes": 510476288
+    },
+    "database": "videogame_performance",
+    "release_dates": {
+        "latest_period_end": "2028-12-31",
+        "last_synchronized_at": "2026-10-07T00:00:00+00:00",
+        "earliest_period_start": "2022-10-09"
+    },
+    "top_20_regions": {
+        "japan": 1500,
+        "europe": 500,
+        "unknown": 5000,
+        "worldwide": 192000,
+        "north-america": 1000
+    },
+    "measured_at_utc": "2026-10-06T22:30:27.100265+00:00",
+    "ratings_per_user": {
+        ">1000": 20,
+        "11..100": 4000
+    },
+    "top_20_platforms": {
+        "ios": 8800,
+        "mac": 14650,
+        "linux": 12100,
+        "ps4-1": 5150,
+        "switch": 14700,
+        "android": 5950,
+        "windows-pc": 100200,
+        "xbox-series": 14350,
+        "playstation-5": 13550,
+        "nintendo-switch-2": 10550
+    },
+    "releases_per_game": {
+        "1": 12500,
+        "2..5": 25000,
+        "6..10": 12500
+    },
+    "postgresql_version": "18.4 (Debian 18.4-1.pgdg12+1)",
+    "release_source_kind": {
+        "product_curated": 200000
+    },
+    "evaluation_date_madrid": "2026-10-07",
+    "release_date_precision": {
+        "day": 173000,
+        "year": 12000,
+        "month": 3000,
+        "quarter": 9000,
+        "unknown": 3000
+    },
+    "persisted_release_evidence": {
+        "delayed": 11000,
+        "announced": 184500,
+        "cancelled": 4500
+    }
+}

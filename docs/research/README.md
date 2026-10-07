@@ -12,6 +12,7 @@ guidance, and nothing here is maintained to reflect the current system.
 | [`igdb-poc-sample.csv`](igdb-poc-sample.csv) | Frozen 60-case control sample |
 | [Synthetic usability synthesis](simulated-round-synthesis.md) | Prototype record, accepted internal journey decision, and limitations |
 | [IGDB PoC tool](../../tools/igdb-poc/README.md) | Reproducible capture/offline-validation procedure |
+| [Performance baseline](performance-baseline/README.md) | Measured catalogue, synthetic dataset profiles and first low-rate public HTTP baseline for #85 |
 
 ## Point-in-time reviews
 

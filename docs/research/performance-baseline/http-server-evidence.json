@@ -1,0 +1,2598 @@
+{
+  "runId": "perf-current-20261006T225212Z-92_pvii8",
+  "start": 1791327016.358204,
+  "end": 1791327339.20916,
+  "stepSeconds": 30,
+  "prometheus": {
+    "http_count": {
+      "query": "sum by (uri,status) (http_server_requests_milliseconds_count{job=\"application-otlp\"})",
+      "series": [
+        {
+          "metric": {
+            "status": "200",
+            "uri": "/api/v1/featured-releases"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "10"
+            ],
+            [
+              1791327046.358,
+              "10"
+            ],
+            [
+              1791327076.358,
+              "22"
+            ],
+            [
+              1791327106.358,
+              "22"
+            ],
+            [
+              1791327136.358,
+              "25"
+            ],
+            [
+              1791327166.358,
+              "29"
+            ],
+            [
+              1791327196.358,
+              "29"
+            ],
+            [
+              1791327226.358,
+              "41"
+            ],
+            [
+              1791327256.358,
+              "41"
+            ],
+            [
+              1791327286.358,
+              "50"
+            ],
+            [
+              1791327316.358,
+              "50"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "status": "200",
+            "uri": "/api/v1/games"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "9"
+            ],
+            [
+              1791327046.358,
+              "9"
+            ],
+            [
+              1791327076.358,
+              "21"
+            ],
+            [
+              1791327106.358,
+              "21"
+            ],
+            [
+              1791327136.358,
+              "25"
+            ],
+            [
+              1791327166.358,
+              "28"
+            ],
+            [
+              1791327196.358,
+              "28"
+            ],
+            [
+              1791327226.358,
+              "40"
+            ],
+            [
+              1791327256.358,
+              "40"
+            ],
+            [
+              1791327286.358,
+              "50"
+            ],
+            [
+              1791327316.358,
+              "50"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "status": "200",
+            "uri": "/api/v1/games/{gameId}"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "9"
+            ],
+            [
+              1791327046.358,
+              "9"
+            ],
+            [
+              1791327076.358,
+              "21"
+            ],
+            [
+              1791327106.358,
+              "21"
+            ],
+            [
+              1791327136.358,
+              "25"
+            ],
+            [
+              1791327166.358,
+              "28"
+            ],
+            [
+              1791327196.358,
+              "28"
+            ],
+            [
+              1791327226.358,
+              "40"
+            ],
+            [
+              1791327256.358,
+              "40"
+            ],
+            [
+              1791327286.358,
+              "50"
+            ],
+            [
+              1791327316.358,
+              "50"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "status": "200",
+            "uri": "/api/v1/releases"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "20"
+            ],
+            [
+              1791327046.358,
+              "20"
+            ],
+            [
+              1791327076.358,
+              "44"
+            ],
+            [
+              1791327106.358,
+              "44"
+            ],
+            [
+              1791327136.358,
+              "50"
+            ],
+            [
+              1791327166.358,
+              "58"
+            ],
+            [
+              1791327196.358,
+              "58"
+            ],
+            [
+              1791327226.358,
+              "82"
+            ],
+            [
+              1791327256.358,
+              "82"
+            ],
+            [
+              1791327286.358,
+              "100"
+            ],
+            [
+              1791327316.358,
+              "100"
+            ]
+          ]
+        }
+      ]
+    },
+    "http_time_ms": {
+      "query": "sum by (uri) (http_server_requests_milliseconds_sum{job=\"application-otlp\"})",
+      "series": [
+        {
+          "metric": {
+            "uri": "/api/v1/featured-releases"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "298.900953"
+            ],
+            [
+              1791327046.358,
+              "298.900953"
+            ],
+            [
+              1791327076.358,
+              "425.772928"
+            ],
+            [
+              1791327106.358,
+              "425.772928"
+            ],
+            [
+              1791327136.358,
+              "456.20573"
+            ],
+            [
+              1791327166.358,
+              "494.458747"
+            ],
+            [
+              1791327196.358,
+              "494.458747"
+            ],
+            [
+              1791327226.358,
+              "607.22736"
+            ],
+            [
+              1791327256.358,
+              "607.22736"
+            ],
+            [
+              1791327286.358,
+              "689.52262"
+            ],
+            [
+              1791327316.358,
+              "689.52262"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "uri": "/api/v1/games"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "577.659288"
+            ],
+            [
+              1791327046.358,
+              "577.659288"
+            ],
+            [
+              1791327076.358,
+              "674.215092"
+            ],
+            [
+              1791327106.358,
+              "674.215092"
+            ],
+            [
+              1791327136.358,
+              "704.19092"
+            ],
+            [
+              1791327166.358,
+              "725.66835"
+            ],
+            [
+              1791327196.358,
+              "725.66835"
+            ],
+            [
+              1791327226.358,
+              "807.983334"
+            ],
+            [
+              1791327256.358,
+              "807.983334"
+            ],
+            [
+              1791327286.358,
+              "872.678034"
+            ],
+            [
+              1791327316.358,
+              "872.678034"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "uri": "/api/v1/games/{gameId}"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "174.185755"
+            ],
+            [
+              1791327046.358,
+              "174.185755"
+            ],
+            [
+              1791327076.358,
+              "266.299259"
+            ],
+            [
+              1791327106.358,
+              "266.299259"
+            ],
+            [
+              1791327136.358,
+              "293.90449"
+            ],
+            [
+              1791327166.358,
+              "312.698342"
+            ],
+            [
+              1791327196.358,
+              "312.698342"
+            ],
+            [
+              1791327226.358,
+              "387.267482"
+            ],
+            [
+              1791327256.358,
+              "387.267482"
+            ],
+            [
+              1791327286.358,
+              "447.411943"
+            ],
+            [
+              1791327316.358,
+              "447.411943"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "uri": "/api/v1/releases"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "762.582191"
+            ],
+            [
+              1791327046.358,
+              "762.582191"
+            ],
+            [
+              1791327076.358,
+              "1178.273475"
+            ],
+            [
+              1791327106.358,
+              "1178.273475"
+            ],
+            [
+              1791327136.358,
+              "1277.387482"
+            ],
+            [
+              1791327166.358,
+              "1413.399034"
+            ],
+            [
+              1791327196.358,
+              "1413.399034"
+            ],
+            [
+              1791327226.358,
+              "1795.709818"
+            ],
+            [
+              1791327256.358,
+              "1795.709818"
+            ],
+            [
+              1791327286.358,
+              "2083.171259"
+            ],
+            [
+              1791327316.358,
+              "2083.171259"
+            ]
+          ]
+        }
+      ]
+    },
+    "heap_used_bytes": {
+      "query": "sum(jvm_memory_used_bytes{job=\"application-otlp\",area=\"heap\"})",
+      "series": [
+        {
+          "metric": {},
+          "values": [
+            [
+              1791327016.358,
+              "130055272"
+            ],
+            [
+              1791327046.358,
+              "130055272"
+            ],
+            [
+              1791327076.358,
+              "164808232"
+            ],
+            [
+              1791327106.358,
+              "164808232"
+            ],
+            [
+              1791327136.358,
+              "117506344"
+            ],
+            [
+              1791327166.358,
+              "129065776"
+            ],
+            [
+              1791327196.358,
+              "129065776"
+            ],
+            [
+              1791327226.358,
+              "155137384"
+            ],
+            [
+              1791327256.358,
+              "155137384"
+            ],
+            [
+              1791327286.358,
+              "118837640"
+            ],
+            [
+              1791327316.358,
+              "118837640"
+            ]
+          ]
+        }
+      ]
+    },
+    "heap_max_bytes": {
+      "query": "sum(jvm_memory_max_bytes{job=\"application-otlp\",area=\"heap\"} > 0)",
+      "series": [
+        {
+          "metric": {},
+          "values": [
+            [
+              1791327016.358,
+              "259522560"
+            ],
+            [
+              1791327046.358,
+              "259522560"
+            ],
+            [
+              1791327076.358,
+              "259522560"
+            ],
+            [
+              1791327106.358,
+              "259522560"
+            ],
+            [
+              1791327136.358,
+              "259522560"
+            ],
+            [
+              1791327166.358,
+              "259522560"
+            ],
+            [
+              1791327196.358,
+              "259522560"
+            ],
+            [
+              1791327226.358,
+              "259522560"
+            ],
+            [
+              1791327256.358,
+              "259522560"
+            ],
+            [
+              1791327286.358,
+              "259522560"
+            ],
+            [
+              1791327316.358,
+              "259522560"
+            ]
+          ]
+        }
+      ]
+    },
+    "gc_pause_ms": {
+      "query": "sum(jvm_gc_pause_milliseconds_sum{job=\"application-otlp\"})",
+      "series": [
+        {
+          "metric": {},
+          "values": [
+            [
+              1791327016.358,
+              "26"
+            ],
+            [
+              1791327046.358,
+              "26"
+            ],
+            [
+              1791327076.358,
+              "35"
+            ],
+            [
+              1791327106.358,
+              "35"
+            ],
+            [
+              1791327136.358,
+              "35"
+            ],
+            [
+              1791327166.358,
+              "35"
+            ],
+            [
+              1791327196.358,
+              "35"
+            ],
+            [
+              1791327226.358,
+              "35"
+            ],
+            [
+              1791327256.358,
+              "35"
+            ],
+            [
+              1791327286.358,
+              "42"
+            ],
+            [
+              1791327316.358,
+              "42"
+            ]
+          ]
+        }
+      ]
+    },
+    "gc_pause_count": {
+      "query": "sum(jvm_gc_pause_milliseconds_count{job=\"application-otlp\"})",
+      "series": [
+        {
+          "metric": {},
+          "values": [
+            [
+              1791327016.358,
+              "2"
+            ],
+            [
+              1791327046.358,
+              "2"
+            ],
+            [
+              1791327076.358,
+              "3"
+            ],
+            [
+              1791327106.358,
+              "3"
+            ],
+            [
+              1791327136.358,
+              "3"
+            ],
+            [
+              1791327166.358,
+              "3"
+            ],
+            [
+              1791327196.358,
+              "3"
+            ],
+            [
+              1791327226.358,
+              "3"
+            ],
+            [
+              1791327256.358,
+              "3"
+            ],
+            [
+              1791327286.358,
+              "4"
+            ],
+            [
+              1791327316.358,
+              "4"
+            ]
+          ]
+        }
+      ]
+    },
+    "threads": {
+      "query": "jvm_threads_live{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "jvm_threads_live",
+            "instance": "telemetry:9464",
+            "job": "application-otlp"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "53"
+            ],
+            [
+              1791327046.358,
+              "53"
+            ],
+            [
+              1791327076.358,
+              "56"
+            ],
+            [
+              1791327106.358,
+              "56"
+            ],
+            [
+              1791327136.358,
+              "56"
+            ],
+            [
+              1791327166.358,
+              "55"
+            ],
+            [
+              1791327196.358,
+              "55"
+            ],
+            [
+              1791327226.358,
+              "56"
+            ],
+            [
+              1791327256.358,
+              "56"
+            ],
+            [
+              1791327286.358,
+              "53"
+            ],
+            [
+              1791327316.358,
+              "53"
+            ]
+          ]
+        }
+      ]
+    },
+    "process_cpu": {
+      "query": "process_cpu_usage{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "process_cpu_usage",
+            "instance": "telemetry:9464",
+            "job": "application-otlp"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "0.18461538461538463"
+            ],
+            [
+              1791327046.358,
+              "0.18461538461538463"
+            ],
+            [
+              1791327076.358,
+              "0.17362637362637362"
+            ],
+            [
+              1791327106.358,
+              "0.17362637362637362"
+            ],
+            [
+              1791327136.358,
+              "0.044444444444444446"
+            ],
+            [
+              1791327166.358,
+              "0.1018867924528302"
+            ],
+            [
+              1791327196.358,
+              "0.1018867924528302"
+            ],
+            [
+              1791327226.358,
+              "0.08952380952380952"
+            ],
+            [
+              1791327256.358,
+              "0.08952380952380952"
+            ],
+            [
+              1791327286.358,
+              "0.042105263157894736"
+            ],
+            [
+              1791327316.358,
+              "0.042105263157894736"
+            ]
+          ]
+        }
+      ]
+    },
+    "system_cpu": {
+      "query": "system_cpu_usage{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "system_cpu_usage",
+            "instance": "telemetry:9464",
+            "job": "application-otlp"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "0.19473435897435898"
+            ],
+            [
+              1791327046.358,
+              "0.19473435897435898"
+            ],
+            [
+              1791327076.358,
+              "0.18808"
+            ],
+            [
+              1791327106.358,
+              "0.18808"
+            ],
+            [
+              1791327136.358,
+              "0.0734005633802817"
+            ],
+            [
+              1791327166.358,
+              "0.11281811320754717"
+            ],
+            [
+              1791327196.358,
+              "0.11281811320754717"
+            ],
+            [
+              1791327226.358,
+              "0.10099019047619047"
+            ],
+            [
+              1791327256.358,
+              "0.10099019047619047"
+            ],
+            [
+              1791327286.358,
+              "0.07912105263157895"
+            ],
+            [
+              1791327316.358,
+              "0.07912105263157895"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_active": {
+      "query": "hikaricp_connections_active{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_active",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "0"
+            ],
+            [
+              1791327046.358,
+              "0"
+            ],
+            [
+              1791327076.358,
+              "0"
+            ],
+            [
+              1791327106.358,
+              "0"
+            ],
+            [
+              1791327136.358,
+              "0"
+            ],
+            [
+              1791327166.358,
+              "0"
+            ],
+            [
+              1791327196.358,
+              "0"
+            ],
+            [
+              1791327226.358,
+              "0"
+            ],
+            [
+              1791327256.358,
+              "0"
+            ],
+            [
+              1791327286.358,
+              "0"
+            ],
+            [
+              1791327316.358,
+              "0"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_pending": {
+      "query": "hikaricp_connections_pending{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_pending",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "0"
+            ],
+            [
+              1791327046.358,
+              "0"
+            ],
+            [
+              1791327076.358,
+              "0"
+            ],
+            [
+              1791327106.358,
+              "0"
+            ],
+            [
+              1791327136.358,
+              "0"
+            ],
+            [
+              1791327166.358,
+              "0"
+            ],
+            [
+              1791327196.358,
+              "0"
+            ],
+            [
+              1791327226.358,
+              "0"
+            ],
+            [
+              1791327256.358,
+              "0"
+            ],
+            [
+              1791327286.358,
+              "0"
+            ],
+            [
+              1791327316.358,
+              "0"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_max": {
+      "query": "hikaricp_connections_max{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_max",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "10"
+            ],
+            [
+              1791327046.358,
+              "10"
+            ],
+            [
+              1791327076.358,
+              "10"
+            ],
+            [
+              1791327106.358,
+              "10"
+            ],
+            [
+              1791327136.358,
+              "10"
+            ],
+            [
+              1791327166.358,
+              "10"
+            ],
+            [
+              1791327196.358,
+              "10"
+            ],
+            [
+              1791327226.358,
+              "10"
+            ],
+            [
+              1791327256.358,
+              "10"
+            ],
+            [
+              1791327286.358,
+              "10"
+            ],
+            [
+              1791327316.358,
+              "10"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_timeouts": {
+      "query": "hikaricp_connections_timeout_total{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_timeout_total",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "0"
+            ],
+            [
+              1791327046.358,
+              "0"
+            ],
+            [
+              1791327076.358,
+              "0"
+            ],
+            [
+              1791327106.358,
+              "0"
+            ],
+            [
+              1791327136.358,
+              "0"
+            ],
+            [
+              1791327166.358,
+              "0"
+            ],
+            [
+              1791327196.358,
+              "0"
+            ],
+            [
+              1791327226.358,
+              "0"
+            ],
+            [
+              1791327256.358,
+              "0"
+            ],
+            [
+              1791327286.358,
+              "0"
+            ],
+            [
+              1791327316.358,
+              "0"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_acquire_ms": {
+      "query": "hikaricp_connections_acquire_milliseconds_sum{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_acquire_milliseconds_sum",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791327016.358,
+              "17.30017"
+            ],
+            [
+              1791327046.358,
+              "17.30017"
+            ],
+            [
+              1791327076.358,
+              "36.261327"
+            ],
+            [
+              1791327106.358,
+              "36.261327"
+            ],
+            [
+              1791327136.358,
+              "42.694196"
+            ],
+            [
+              1791327166.358,
+              "47.793496"
+            ],
+            [
+              1791327196.358,
+              "47.793496"
+            ],
+            [
+              1791327226.358,
+              "63.7548"
+            ],
+            [
+              1791327256.358,
+              "63.7548"
+            ],
+            [
+              1791327286.358,
+              "75.931145"
+            ],
+            [
+              1791327316.358,
+              "75.931145"
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "logs": {
+    "query": "{environment=\"local\",service_name=\"application\"} |= \"perf-current-20261006T225212Z-92_pvii8\"",
+    "completions": 120,
+    "byRoute": {
+      "/api/v1/releases": 48,
+      "/api/v1/featured-releases": 24,
+      "/api/v1/games": 24,
+      "/api/v1/games/{gameId}": 24
+    },
+    "byStatus": {
+      "200": 120
+    },
+    "entries": [
+      {
+        "at": "1791327136668268000",
+        "iteration": 0,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327137666073000",
+        "iteration": 1,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 13
+      },
+      {
+        "at": "1791327138661701000",
+        "iteration": 2,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327139658290000",
+        "iteration": 3,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327140656928000",
+        "iteration": 4,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327141668709000",
+        "iteration": 5,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791327142668254000",
+        "iteration": 6,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327143662908000",
+        "iteration": 7,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791327144660027000",
+        "iteration": 8,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791327145658349000",
+        "iteration": 9,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327146669861000",
+        "iteration": 10,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791327147668306000",
+        "iteration": 11,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327148662511000",
+        "iteration": 12,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791327149659015000",
+        "iteration": 13,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327150657995000",
+        "iteration": 14,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327151667739000",
+        "iteration": 15,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327152667847000",
+        "iteration": 16,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327153661879000",
+        "iteration": 17,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327154659496000",
+        "iteration": 18,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327155658197000",
+        "iteration": 19,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327156668552000",
+        "iteration": 20,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791327156715550000",
+        "iteration": 22,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791327157667887000",
+        "iteration": 21,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327157711227000",
+        "iteration": 23,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327158711011000",
+        "iteration": 24,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327159721203000",
+        "iteration": 25,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327160722821000",
+        "iteration": 26,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 17
+      },
+      {
+        "at": "1791327161715204000",
+        "iteration": 27,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791327162714926000",
+        "iteration": 28,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327163711921000",
+        "iteration": 29,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327164720650000",
+        "iteration": 30,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327165718947000",
+        "iteration": 31,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 13
+      },
+      {
+        "at": "1791327166714631000",
+        "iteration": 32,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791327167711855000",
+        "iteration": 33,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327168711896000",
+        "iteration": 34,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327169721519000",
+        "iteration": 35,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327170720983000",
+        "iteration": 36,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327171714539000",
+        "iteration": 37,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327172712871000",
+        "iteration": 38,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327173711554000",
+        "iteration": 39,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327174721266000",
+        "iteration": 40,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327175721223000",
+        "iteration": 41,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327176713977000",
+        "iteration": 42,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327177711928000",
+        "iteration": 43,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327178712089000",
+        "iteration": 44,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327179722353000",
+        "iteration": 45,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791327180721177000",
+        "iteration": 46,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327181714435000",
+        "iteration": 47,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791327182712220000",
+        "iteration": 48,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327183711697000",
+        "iteration": 49,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327184721873000",
+        "iteration": 50,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327184827253000",
+        "iteration": 52,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791327185721291000",
+        "iteration": 51,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327185824749000",
+        "iteration": 53,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327186823642000",
+        "iteration": 54,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327187834717000",
+        "iteration": 55,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327188833953000",
+        "iteration": 56,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327189827407000",
+        "iteration": 57,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791327190824378000",
+        "iteration": 58,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327191824061000",
+        "iteration": 59,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327192833172000",
+        "iteration": 60,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327193834121000",
+        "iteration": 61,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327194826467000",
+        "iteration": 62,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327195823862000",
+        "iteration": 63,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327196823779000",
+        "iteration": 64,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327197834669000",
+        "iteration": 65,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327198833938000",
+        "iteration": 66,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791327199827375000",
+        "iteration": 67,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327200825956000",
+        "iteration": 68,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327201824063000",
+        "iteration": 69,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327202833324000",
+        "iteration": 70,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327203833453000",
+        "iteration": 71,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327204826751000",
+        "iteration": 72,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327205824799000",
+        "iteration": 73,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327206824279000",
+        "iteration": 74,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327207834740000",
+        "iteration": 75,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327208834317000",
+        "iteration": 76,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327209826527000",
+        "iteration": 77,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327210823901000",
+        "iteration": 78,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327211824696000",
+        "iteration": 79,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327212834445000",
+        "iteration": 80,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791327212875397000",
+        "iteration": 82,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791327213832744000",
+        "iteration": 81,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791327213873868000",
+        "iteration": 83,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791327214872339000",
+        "iteration": 84,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327215882604000",
+        "iteration": 85,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327216882171000",
+        "iteration": 86,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327217874890000",
+        "iteration": 87,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327218873042000",
+        "iteration": 88,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327219872496000",
+        "iteration": 89,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327220881600000",
+        "iteration": 90,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327221880989000",
+        "iteration": 91,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791327222874916000",
+        "iteration": 92,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327223872960000",
+        "iteration": 93,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327224871470000",
+        "iteration": 94,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327225887113000",
+        "iteration": 95,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 20
+      },
+      {
+        "at": "1791327226880191000",
+        "iteration": 96,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 13
+      },
+      {
+        "at": "1791327227875190000",
+        "iteration": 97,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327228872665000",
+        "iteration": 98,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327229872235000",
+        "iteration": 99,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327230882039000",
+        "iteration": 100,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327231881296000",
+        "iteration": 101,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791327232875005000",
+        "iteration": 102,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327233871807000",
+        "iteration": 103,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327234871854000",
+        "iteration": 104,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327235882920000",
+        "iteration": 105,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791327236881745000",
+        "iteration": 106,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327237875243000",
+        "iteration": 107,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327238873018000",
+        "iteration": 108,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791327239872291000",
+        "iteration": 109,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327240881359000",
+        "iteration": 110,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791327240984602000",
+        "iteration": 112,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327241882032000",
+        "iteration": 111,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327241982327000",
+        "iteration": 113,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327242981352000",
+        "iteration": 114,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327243990915000",
+        "iteration": 115,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791327244990151000",
+        "iteration": 116,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791327245985161000",
+        "iteration": 117,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791327246981882000",
+        "iteration": 118,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791327247981680000",
+        "iteration": 119,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      }
+    ]
+  },
+  "before": {
+    "at": "2026-10-06T22:52:13.991244+00:00",
+    "metrics": {
+      "http.server.requests": {
+        "availableTags": [
+          {
+            "tag": "exception",
+            "values": [
+              "none"
+            ]
+          },
+          {
+            "tag": "method",
+            "values": [
+              "GET"
+            ]
+          },
+          {
+            "tag": "error",
+            "values": [
+              "none"
+            ]
+          },
+          {
+            "tag": "uri",
+            "values": [
+              "/api/v1/games/{gameId}",
+              "/api/v1/featured-releases",
+              "/api/v1/games",
+              "/api/v1/releases"
+            ]
+          },
+          {
+            "tag": "outcome",
+            "values": [
+              "SUCCESS"
+            ]
+          },
+          {
+            "tag": "status",
+            "values": [
+              "200"
+            ]
+          }
+        ],
+        "baseUnit": "milliseconds",
+        "measurements": [
+          {
+            "statistic": "COUNT",
+            "value": 130.0
+          },
+          {
+            "statistic": "TOTAL_TIME",
+            "value": 2795.7188960000003
+          },
+          {
+            "statistic": "MAX",
+            "value": 20.628229
+          }
+        ],
+        "name": "http.server.requests"
+      },
+      "jvm.memory.used": {
+        "availableTags": [
+          {
+            "tag": "id",
+            "values": [
+              "Survivor Space",
+              "Eden Space",
+              "Tenured Gen"
+            ]
+          }
+        ],
+        "baseUnit": "bytes",
+        "description": "The amount of used memory",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 121618600.0
+          }
+        ],
+        "name": "jvm.memory.used"
+      },
+      "jvm.memory.max": {
+        "availableTags": [
+          {
+            "tag": "id",
+            "values": [
+              "Survivor Space",
+              "Eden Space",
+              "Tenured Gen"
+            ]
+          }
+        ],
+        "baseUnit": "bytes",
+        "description": "The maximum amount of memory in bytes that can be used for memory management",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 259522560.0
+          }
+        ],
+        "name": "jvm.memory.max"
+      },
+      "jvm.gc.pause": {
+        "availableTags": [
+          {
+            "tag": "cause",
+            "values": [
+              "Allocation Failure"
+            ]
+          },
+          {
+            "tag": "action",
+            "values": [
+              "end of minor GC"
+            ]
+          },
+          {
+            "tag": "gc",
+            "values": [
+              "Copy"
+            ]
+          }
+        ],
+        "baseUnit": "milliseconds",
+        "description": "Time spent in GC pause",
+        "measurements": [
+          {
+            "statistic": "COUNT",
+            "value": 3.0
+          },
+          {
+            "statistic": "TOTAL_TIME",
+            "value": 35.0
+          },
+          {
+            "statistic": "MAX",
+            "value": 9.0
+          }
+        ],
+        "name": "jvm.gc.pause"
+      },
+      "jvm.threads.live": {
+        "availableTags": [],
+        "baseUnit": "threads",
+        "description": "The current number of live threads including both daemon and non-daemon threads",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 55.0
+          }
+        ],
+        "name": "jvm.threads.live"
+      },
+      "process.cpu.usage": {
+        "availableTags": [],
+        "description": "The \"recent cpu usage\" for the Java Virtual Machine process",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 0.05194805194805195
+          }
+        ],
+        "name": "process.cpu.usage"
+      },
+      "system.cpu.usage": {
+        "availableTags": [],
+        "description": "The \"recent cpu usage\" of the system the application is running in",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 0.08643333333333333
+          }
+        ],
+        "name": "system.cpu.usage"
+      },
+      "hikaricp.connections.active": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "description": "Active connections",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 0.0
+          }
+        ],
+        "name": "hikaricp.connections.active"
+      },
+      "hikaricp.connections.pending": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "description": "Pending threads",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 0.0
+          }
+        ],
+        "name": "hikaricp.connections.pending"
+      },
+      "hikaricp.connections.max": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "description": "Max connections",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 10.0
+          }
+        ],
+        "name": "hikaricp.connections.max"
+      },
+      "hikaricp.connections.timeout": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "description": "Connection timeout total count",
+        "measurements": [
+          {
+            "statistic": "COUNT",
+            "value": 0.0
+          }
+        ],
+        "name": "hikaricp.connections.timeout"
+      },
+      "hikaricp.connections.acquire": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "baseUnit": "milliseconds",
+        "description": "Connection acquire time",
+        "measurements": [
+          {
+            "statistic": "COUNT",
+            "value": 238.0
+          },
+          {
+            "statistic": "TOTAL_TIME",
+            "value": 44.156237
+          },
+          {
+            "statistic": "MAX",
+            "value": 0.486754
+          }
+        ],
+        "name": "hikaricp.connections.acquire"
+      }
+    },
+    "database": {
+      "at": "2026-10-06T22:52:14.301521+00:00",
+      "numbackends": 11,
+      "xact_commit": 1662,
+      "xact_rollback": 4,
+      "blks_read": 4265,
+      "blks_hit": 578694,
+      "temp_files": 0,
+      "temp_bytes": 0,
+      "deadlocks": 0,
+      "stats_reset": null
+    },
+    "containers": [
+      {
+        "BlockIO": "6.35MB / 0B",
+        "CPUPerc": "0.12%",
+        "Container": "2236b0d8025014e94a751854c4c5579f93c9da3da3b6228f9e813819e483264c",
+        "ID": "2236b0d80250",
+        "MemPerc": "38.33%",
+        "MemUsage": "392.5MiB / 1GiB",
+        "Name": "videogame-platform-application-1",
+        "NetIO": "1.88MB / 2.92MB",
+        "PIDs": "62"
+      },
+      {
+        "BlockIO": "326MB / 3.48MB",
+        "CPUPerc": "0.00%",
+        "Container": "036337f149743c08073872a4665e1d3acacf2267983b01c991e5fc4a174e5b1b",
+        "ID": "036337f14974",
+        "MemPerc": "24.90%",
+        "MemUsage": "127.5MiB / 512MiB",
+        "Name": "videogame-platform-postgres-1",
+        "NetIO": "1MB / 3.62MB",
+        "PIDs": "21"
+      }
+    ]
+  },
+  "after": {
+    "at": "2026-10-06T22:54:09.214689+00:00",
+    "metrics": {
+      "http.server.requests": {
+        "availableTags": [
+          {
+            "tag": "exception",
+            "values": [
+              "none"
+            ]
+          },
+          {
+            "tag": "method",
+            "values": [
+              "GET"
+            ]
+          },
+          {
+            "tag": "error",
+            "values": [
+              "none"
+            ]
+          },
+          {
+            "tag": "uri",
+            "values": [
+              "/api/v1/games/{gameId}",
+              "/api/v1/featured-releases",
+              "/api/v1/games",
+              "/api/v1/releases"
+            ]
+          },
+          {
+            "tag": "outcome",
+            "values": [
+              "SUCCESS"
+            ]
+          },
+          {
+            "tag": "status",
+            "values": [
+              "200"
+            ]
+          }
+        ],
+        "baseUnit": "milliseconds",
+        "measurements": [
+          {
+            "statistic": "COUNT",
+            "value": 250.0
+          },
+          {
+            "statistic": "TOTAL_TIME",
+            "value": 4092.783856
+          },
+          {
+            "statistic": "MAX",
+            "value": 20.942605
+          }
+        ],
+        "name": "http.server.requests"
+      },
+      "jvm.memory.used": {
+        "availableTags": [
+          {
+            "tag": "id",
+            "values": [
+              "Survivor Space",
+              "Eden Space",
+              "Tenured Gen"
+            ]
+          }
+        ],
+        "baseUnit": "bytes",
+        "description": "The amount of used memory",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 116947256.0
+          }
+        ],
+        "name": "jvm.memory.used"
+      },
+      "jvm.memory.max": {
+        "availableTags": [
+          {
+            "tag": "id",
+            "values": [
+              "Survivor Space",
+              "Eden Space",
+              "Tenured Gen"
+            ]
+          }
+        ],
+        "baseUnit": "bytes",
+        "description": "The maximum amount of memory in bytes that can be used for memory management",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 259522560.0
+          }
+        ],
+        "name": "jvm.memory.max"
+      },
+      "jvm.gc.pause": {
+        "availableTags": [
+          {
+            "tag": "cause",
+            "values": [
+              "Allocation Failure"
+            ]
+          },
+          {
+            "tag": "action",
+            "values": [
+              "end of minor GC"
+            ]
+          },
+          {
+            "tag": "gc",
+            "values": [
+              "Copy"
+            ]
+          }
+        ],
+        "baseUnit": "milliseconds",
+        "description": "Time spent in GC pause",
+        "measurements": [
+          {
+            "statistic": "COUNT",
+            "value": 4.0
+          },
+          {
+            "statistic": "TOTAL_TIME",
+            "value": 42.0
+          },
+          {
+            "statistic": "MAX",
+            "value": 7.0
+          }
+        ],
+        "name": "jvm.gc.pause"
+      },
+      "jvm.threads.live": {
+        "availableTags": [],
+        "baseUnit": "threads",
+        "description": "The current number of live threads including both daemon and non-daemon threads",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 56.0
+          }
+        ],
+        "name": "jvm.threads.live"
+      },
+      "process.cpu.usage": {
+        "availableTags": [],
+        "description": "The \"recent cpu usage\" for the Java Virtual Machine process",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 0.06896551724137931
+          }
+        ],
+        "name": "process.cpu.usage"
+      },
+      "system.cpu.usage": {
+        "availableTags": [],
+        "description": "The \"recent cpu usage\" of the system the application is running in",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 0.08013137931034482
+          }
+        ],
+        "name": "system.cpu.usage"
+      },
+      "hikaricp.connections.active": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "description": "Active connections",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 0.0
+          }
+        ],
+        "name": "hikaricp.connections.active"
+      },
+      "hikaricp.connections.pending": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "description": "Pending threads",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 0.0
+          }
+        ],
+        "name": "hikaricp.connections.pending"
+      },
+      "hikaricp.connections.max": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "description": "Max connections",
+        "measurements": [
+          {
+            "statistic": "VALUE",
+            "value": 10.0
+          }
+        ],
+        "name": "hikaricp.connections.max"
+      },
+      "hikaricp.connections.timeout": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "description": "Connection timeout total count",
+        "measurements": [
+          {
+            "statistic": "COUNT",
+            "value": 0.0
+          }
+        ],
+        "name": "hikaricp.connections.timeout"
+      },
+      "hikaricp.connections.acquire": {
+        "availableTags": [
+          {
+            "tag": "pool",
+            "values": [
+              "HikariPool-1"
+            ]
+          }
+        ],
+        "baseUnit": "milliseconds",
+        "description": "Connection acquire time",
+        "measurements": [
+          {
+            "statistic": "COUNT",
+            "value": 418.0
+          },
+          {
+            "statistic": "TOTAL_TIME",
+            "value": 75.457613
+          },
+          {
+            "statistic": "MAX",
+            "value": 0.457899
+          }
+        ],
+        "name": "hikaricp.connections.acquire"
+      }
+    },
+    "database": {
+      "at": "2026-10-06T22:54:09.498217+00:00",
+      "numbackends": 11,
+      "xact_commit": 2335,
+      "xact_rollback": 5,
+      "blks_read": 4265,
+      "blks_hit": 804966,
+      "temp_files": 0,
+      "temp_bytes": 0,
+      "deadlocks": 0,
+      "stats_reset": null
+    },
+    "containers": [
+      {
+        "BlockIO": "6.35MB / 0B",
+        "CPUPerc": "0.08%",
+        "Container": "2236b0d8025014e94a751854c4c5579f93c9da3da3b6228f9e813819e483264c",
+        "ID": "2236b0d80250",
+        "MemPerc": "38.77%",
+        "MemUsage": "397MiB / 1GiB",
+        "Name": "videogame-platform-application-1",
+        "NetIO": "3.52MB / 5.38MB",
+        "PIDs": "63"
+      },
+      {
+        "BlockIO": "326MB / 3.55MB",
+        "CPUPerc": "0.04%",
+        "Container": "036337f149743c08073872a4665e1d3acacf2267983b01c991e5fc4a174e5b1b",
+        "ID": "036337f14974",
+        "MemPerc": "24.92%",
+        "MemUsage": "127.6MiB / 512MiB",
+        "Name": "videogame-platform-postgres-1",
+        "NetIO": "1.29MB / 5.18MB",
+        "PIDs": "21"
+      }
+    ]
+  }
+}

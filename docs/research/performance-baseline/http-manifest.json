@@ -1,0 +1,310 @@
+{
+  "runId": "perf-current-20261006T225212Z-92_pvii8",
+  "dataset": "current",
+  "harnessRevision": "702600188044fa51aa0834da6e030f872a50a916",
+  "scriptSha256": "15d6a1bf045ad6dd3cf45b8e585b44b2a993da77e833d7ef3d47da3747525cea",
+  "k6Image": "grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34",
+  "k6Version": "k6 v2.3.0 (commit/e088784614, go1.27.1, linux/amd64)",
+  "docker": {
+    "version": "29.7.2",
+    "os": "Docker Desktop (containerized)",
+    "kernel": "6.18.40.1-microsoft-standard-WSL2",
+    "architecture": "x86_64",
+    "cpus": 32,
+    "memoryBytes": 16328323072
+  },
+  "application": {
+    "image": "videogame-platform/application:0.29.0-SNAPSHOT",
+    "imageId": "sha256:3191264ec2eb62bb6940ff08cec1d1cdd918a24178c35cbe3679990e08ed5c90",
+    "memoryLimitBytes": 1073741824,
+    "cpuLimit": 0.5,
+    "startedAt": "2026-10-06T22:47:56.768441354Z",
+    "settings": {
+      "APPLICATION_CATALOGUE_READINESS_TIMEOUT": "2s",
+      "APPLICATION_DB_CONNECTION_TIMEOUT": "3000",
+      "APPLICATION_DB_MAXIMUM_POOL_SIZE": "10",
+      "APPLICATION_DB_VALIDATION_TIMEOUT": "1000",
+      "CATALOGUE_JDBC_READ_TIMEOUT": "5s",
+      "RATINGS_JDBC_OPERATION_TIMEOUT": "5s",
+      "SPRING_PROFILES_ACTIVE": "oidc,structured",
+      "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "local",
+      "TELEMETRY_OTLP_METRICS_ENABLED": "true",
+      "TELEMETRY_OTLP_METRICS_STEP": "60s",
+      "TELEMETRY_OTLP_TRACES_ENABLED": "false"
+    }
+  },
+  "postgres": {
+    "image": "postgres:18.4-bookworm",
+    "imageId": "sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+    "memoryLimitBytes": 536870912,
+    "cpuLimit": 0.5,
+    "startedAt": "2026-10-06T22:03:13.48871567Z",
+    "settings": {}
+  },
+  "applicationInfo": {
+    "build": {
+      "artifact": "videogame-platform-backend",
+      "name": "VideoGame Platform Backend",
+      "sourceRevision": "702600188044fa51aa0834da6e030f872a50a916",
+      "time": "2026-10-06T22:47:44.244Z",
+      "version": "0.29.0-SNAPSHOT",
+      "group": "com.videogameplatform"
+    }
+  },
+  "options": {
+    "paused": null,
+    "vus": null,
+    "duration": null,
+    "iterations": null,
+    "stages": null,
+    "scenarios": {
+      "public_reads": {
+        "executor": "constant-arrival-rate",
+        "startTime": null,
+        "gracefulStop": "10s",
+        "env": null,
+        "exec": null,
+        "tags": null,
+        "rate": 1,
+        "timeUnit": "1s",
+        "duration": "2m0s",
+        "preAllocatedVUs": 1,
+        "maxVUs": 1
+      }
+    },
+    "executionSegment": null,
+    "executionSegmentSequence": null,
+    "noSetup": null,
+    "setupTimeout": null,
+    "noTeardown": null,
+    "teardownTimeout": null,
+    "handleSummaryTimeout": null,
+    "rps": null,
+    "dns": {
+      "ttl": null,
+      "select": null,
+      "policy": null
+    },
+    "maxRedirects": 0,
+    "userAgent": "Gameometro-public-baseline/k6",
+    "batch": null,
+    "batchPerHost": null,
+    "httpDebug": null,
+    "insecureSkipTLSVerify": null,
+    "tlsCipherSuites": null,
+    "tlsVersion": null,
+    "tlsAuth": null,
+    "tlsAIAFetch": null,
+    "throw": null,
+    "thresholds": {
+      "checks": [
+        "rate==1"
+      ],
+      "dropped_iterations": [
+        "count==0"
+      ],
+      "http_req_duration{name:catalogue_search}": [],
+      "http_req_duration{name:game_detail}": [],
+      "http_req_duration{name:releases_featured}": [],
+      "http_req_duration{name:releases_recent}": [],
+      "http_req_duration{name:releases_upcoming}": [],
+      "http_req_failed": [
+        "rate==0"
+      ],
+      "http_reqs": [
+        "count==120"
+      ]
+    },
+    "blacklistIPs": null,
+    "blockHostnames": null,
+    "hosts": null,
+    "noConnectionReuse": null,
+    "noVUConnectionReuse": null,
+    "minIterationDuration": null,
+    "ext": null,
+    "summaryTrendStats": [
+      "count",
+      "avg",
+      "min",
+      "med",
+      "p(95)",
+      "p(99)",
+      "max"
+    ],
+    "summaryTimeUnit": null,
+    "systemTags": [
+      "check",
+      "expected_response",
+      "method",
+      "name",
+      "scenario",
+      "status"
+    ],
+    "tags": null,
+    "metricSamplesBufferSize": null,
+    "noCookiesReset": null,
+    "discardResponseBodies": null,
+    "features": null
+  },
+  "javaVersion": "openjdk 25.0.4 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)",
+  "runnerLimits": {
+    "memoryBytes": 268435456,
+    "cpus": 1
+  },
+  "preflight": {
+    "requests": 5,
+    "searchTotal": 3,
+    "recentTotal": 146,
+    "upcomingTotal": 183,
+    "featuredItems": 6,
+    "featuredSelection": {
+      "status": "ranked",
+      "popularityFreshness": "fresh",
+      "popularityObservedAt": "2026-10-05T05:11:06.542736Z"
+    },
+    "detailReleases": 1,
+    "ratingStatistics": {
+      "status": "available",
+      "mean": null,
+      "count": 0,
+      "distribution": {
+        "1": 0,
+        "10": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0,
+        "9": 0
+      }
+    }
+  },
+  "workload": {
+    "runId": "perf-current-20261006T225212Z-92_pvii8",
+    "gameId": "98cd7020-a79a-4310-a6e8-8c624769a1db",
+    "evaluatedOn": "2026-10-07"
+  },
+  "startedAt": "2026-10-06T22:52:16.358204+00:00",
+  "finishedAt": "2026-10-06T22:54:09.209160+00:00",
+  "elapsedMonotonicSeconds": 120.52709789200162,
+  "exitCode": 0,
+  "clockAudit": {
+    "httpSamples": 120,
+    "backsteps": [
+      {
+        "sample": 22,
+        "previous": "2026-10-06T22:52:37.667866+00:00",
+        "at": "2026-10-06T22:52:36.715605+00:00"
+      },
+      {
+        "sample": 52,
+        "previous": "2026-10-06T22:53:05.721301+00:00",
+        "at": "2026-10-06T22:53:04.827252+00:00"
+      },
+      {
+        "sample": 82,
+        "previous": "2026-10-06T22:53:33.832752+00:00",
+        "at": "2026-10-06T22:53:32.875442+00:00"
+      },
+      {
+        "sample": 112,
+        "previous": "2026-10-06T22:54:01.882105+00:00",
+        "at": "2026-10-06T22:54:00.984575+00:00"
+      }
+    ]
+  },
+  "datasetObservation": {
+    "counts": {
+      "games": 20241,
+      "ratings": 7,
+      "regions": 11,
+      "releases": 36090,
+      "platforms": 73,
+      "rated_games": 7,
+      "visible_games": 20241,
+      "approved_aliases": 0,
+      "visible_releases": 36090,
+      "current_revisions": 1,
+      "games_with_genres": 12217,
+      "users_with_ratings": 1
+    },
+    "profile": "current",
+    "storage": {
+      "database_bytes": 120764095,
+      "catalogue_and_ratings_bytes": 110952448
+    },
+    "database": "videogame_platform",
+    "release_dates": {
+      "latest_period_end": "2029-03-31",
+      "last_synchronized_at": "2026-10-05T05:11:06.542736+00:00",
+      "earliest_period_start": "1981-01-01"
+    },
+    "top_20_regions": {
+      "asia": 63,
+      "china": 31,
+      "japan": 480,
+      "korea": 20,
+      "brazil": 20,
+      "europe": 338,
+      "australia": 48,
+      "worldwide": 34601,
+      "new-zealand": 10,
+      "north-america": 479
+    },
+    "measured_at_utc": "2026-10-06T22:52:12.38574+00:00",
+    "ratings_per_user": {
+      "1..10": 1
+    },
+    "top_20_platforms": {
+      "ios": 634,
+      "mac": 2980,
+      "ps3": 29,
+      "linux": 2559,
+      "ps4-1": 1046,
+      "psvr2": 48,
+      "arcade": 22,
+      "psvita": 15,
+      "switch": 3010,
+      "android": 791,
+      "browser": 814,
+      "xboxone": 573,
+      "playdate": 101,
+      "steam-vr": 241,
+      "windows-pc": 19022,
+      "xbox-series": 1325,
+      "meta-quest-2": 109,
+      "meta-quest-3": 75,
+      "playstation-5": 1969,
+      "nintendo-switch-2": 508
+    },
+    "releases_per_game": {
+      "1": 12773,
+      "2..5": 6782,
+      "6..10": 624,
+      "11..25": 62
+    },
+    "postgresql_version": "18.4 (Debian 18.4-1.pgdg12+1)",
+    "release_source_kind": {
+      "external_provider": 36090
+    },
+    "evaluation_date_madrid": "2026-10-07",
+    "release_date_precision": {
+      "day": 30666,
+      "year": 2740,
+      "month": 440,
+      "quarter": 1752,
+      "unknown": 492
+    },
+    "persisted_release_evidence": {
+      "announced": 36046,
+      "cancelled": 44
+    }
+  },
+  "evidenceFiles": [
+    "http-summary.json",
+    "http-samples.json",
+    "http-server-evidence.json"
+  ]
+}
