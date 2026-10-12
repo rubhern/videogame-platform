@@ -84,7 +84,7 @@ function isContract(body, request) {
     return isPage(body, request) && body.items.length > 0
       && (request.expectedTotal === undefined || body.page.totalItems === request.expectedTotal)
       && (!request.firstGameId || body.items[0].gameId === request.firstGameId)
-      && (['growth', 'interference'].includes(config.dataset) || body.items[0].gameId === config.gameId)
+      && (['growth', 'interference', 'authenticated'].includes(config.dataset) || body.items[0].gameId === config.gameId)
       && body.items.every((item) => Array.isArray(item.releaseContext) && item.releaseSummary);
   }
   if (name === 'game_detail') {
@@ -120,6 +120,10 @@ export default function () {
   // An iteration at the executor's end boundary must not exceed the request budget.
   if (index >= budget) return;
   const request = requests[index % requests.length];
+  publicRead(request, index);
+}
+
+export function publicRead(request, index) {
   const correlationId = `${config.runId}-${index}`;
   const response = http.get(`${config.baseUrl || 'http://application:8080/api/v1'}${request.path}`, {
     timeout: '10s',

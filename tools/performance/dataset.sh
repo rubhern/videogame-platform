@@ -13,7 +13,7 @@ fail() { printf '%s\n' "$*" >&2; exit 1; }
 usage() {
   cat <<'TEXT'
 Usage: bash tools/performance/dataset.sh current
-       bash tools/performance/dataset.sh generate growth|large [YYYY-MM-DD]
+       bash tools/performance/dataset.sh generate authenticated|growth|large [YYYY-MM-DD]
        bash tools/performance/dataset.sh inspect
        bash tools/performance/dataset.sh stop
 
@@ -29,9 +29,9 @@ case "$command" in
   help|--help|-h) usage; exit 0 ;;
   current|inspect|stop) [[ $# == 1 ]] || fail 'Unexpected arguments.' ;;
   generate)
-    [[ $# == 2 || $# == 3 ]] || fail 'Expected generate growth|large [YYYY-MM-DD].'
+    [[ $# == 2 || $# == 3 ]] || fail 'Expected generate authenticated|growth|large [YYYY-MM-DD].'
     profile="$2"
-    [[ "$profile" == growth || "$profile" == large ]] || fail 'Unknown synthetic profile.'
+    [[ "$profile" == authenticated || "$profile" == growth || "$profile" == large ]] || fail 'Unknown synthetic profile.'
     as_of="${3:-2026-10-07}"
     [[ "$as_of" =~ ^20[0-9]{2}-[0-9]{2}-[0-9]{2}$ ]] || fail 'Reference date must be YYYY-MM-DD in 2000..2099.'
     [[ "$(date -d "$as_of" +%F 2>/dev/null)" == "$as_of" ]] || fail 'Invalid reference date.'

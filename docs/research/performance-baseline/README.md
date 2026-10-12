@@ -8,8 +8,9 @@ and records the [first minimal public HTTP baseline](http-baseline.md). That low
 run validates the measurement path. It establishes no saturation, recovery or
 production-capacity result. The subsequent
 [interference harness](interference-harness.md) validates three reproducible
-serving/acquisition/localization scenarios functionally. Stress, authenticated
-traffic, capacity conclusions and production optimizations remain pending.
+serving/acquisition/localization scenarios functionally. The
+[authenticated/mixed harness](authenticated-harness.md) adds a short real-Keycloak
+functional proof. Stress, capacity conclusions and production optimizations remain pending.
 
 `growth` and especially `large` are **synthetic performance/capacity profiles**.
 Their cardinalities and distributions are experimental inputs, **not product
@@ -37,6 +38,7 @@ sizes describe fixture construction; they do not measure application serving.
 | Profile | Games | Releases | Ratings | Meaning |
 |---|---:|---:|---:|---|
 | `current` | 20,241 | 36,090 | 7 | Measured local state; recalculate when synchronized data changes |
+| `authenticated` | 40 | 160 | 0 initially | Small isolated functional fixture; ratings created through the API |
 | `growth` | 50,000 | 200,000 | 500,000 | Synthetic intermediate capacity experiment |
 | `large` | 200,000 | 2,000,000 | 5,000,000 | Synthetic high-cardinality capacity experiment |
 
@@ -102,7 +104,8 @@ For a later host-run backend, connect to
 `jdbc:postgresql://127.0.0.1:55432/videogame_performance`, using the fixture-only
 `videogame_app` role/password `performance-local-only` and
 `APPLICATION_FLYWAY_ENABLED=false`. These credentials are unrelated to local or
-private-dev secrets. This slice starts no application and provisions no accounts.
+private-dev secrets. Dataset generation alone starts no application and provisions no accounts; the
+[authenticated harness](authenticated-harness.md) owns its separate identity lifecycle.
 
 ## Generation and interpretation decisions
 
@@ -218,8 +221,9 @@ are recorded in [HTTP baseline evidence](http-baseline.md). The subsequent
 [public read load on growth](growth-read-load.md) measures the varied read control.
 The [fixture-backed interference harness](interference-harness.md) and its
 [machine evidence](interference-evidence.json) retain the functional comparison;
-external provider timing is explicitly excluded. Authenticated traffic, complete
-host measurement, measured interference/capacity on stable clocks, a bounded
+external provider timing is explicitly excluded. The
+[authenticated/mixed functional proof](authenticated-harness.md) covers sessions and
+personal-rating reads/commands. Complete host measurement, measured interference/capacity on stable clocks, a bounded
 real-provider timing calibration and stress/soak remain pending in #85. No production optimization,
 architecture change, normal migration or development seed change was made. This
 harness is outside releasable backend/frontend/OpenAPI artefacts, so this slice has
