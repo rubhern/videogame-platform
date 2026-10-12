@@ -1,0 +1,1007 @@
+{
+  "issue": 85,
+  "purpose": "remote-functional-only",
+  "observedOnUtc": "2026-10-12",
+  "capacityInterpretationAllowed": false,
+  "harnessBaseRevision": "00a16a8ec54b7f47f9efef7d7b2501374f76e0c3",
+  "sshDocumentationPublishedRevision": "00a16a8ec54b7f47f9efef7d7b2501374f76e0c3",
+  "sutRevision": "8cb6071127b65c78fc74609502df4b4189b055d2",
+  "sutImage": "ghcr.io/rubhern/videogame-platform@sha256:53066de0f8aec722bb47e416451ffac66c2e7485290df7ee880869f59a704c76",
+  "smokeRun": "remote-smoke-hrd1hton",
+  "measuredScriptsSha256": {
+    "baseline.js": "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
+    "authenticated.js": "6365d365e10023c7a01eb483d62800c8f9d82023dfd47fa2b711ba8a1dfa79ac",
+    "mixed.js": "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
+    "windows-k6.ps1": "f984f7207c24a4e85ddaac89d6ab7ff4e11eb0ae716c4a61758e5faca4e2456f",
+    "remote_worker.py": "6c32802ca9c596c88d192dc073b03b640ac5d51133422788b609dd0acb8e3455"
+  },
+  "generator": {
+    "binarySha256": "efec04c36452cfb9c0ef313082c021e5656caf5004f922c2d8b807fdf4a0e02f",
+    "zipSha256": "112276d495e5741c968e2bc09ea6196099c1275bd6db9ee0875d173c7148ce43",
+    "version": "k6.exe v2.3.0 (commit/e088784614, go1.26.8, windows/amd64)",
+    "nativeWindows": true
+  },
+  "generatorExit": {
+    "phase": "Run",
+    "exitCode": 0
+  },
+  "target": {
+    "os": "Ubuntu 24.04.5 LTS",
+    "kernel": "6.8.0-139-generic",
+    "cpuModel": "Intel(R) Core(TM) i7-7700HQ CPU @ 2.80GHz",
+    "logicalCpus": 8,
+    "physicalCores": 4,
+    "ramBytes": 8193921024,
+    "swapBytes": 4294963200,
+    "filesystem": {
+      "type": "ext4",
+      "bytes": 941289119744,
+      "availableBytesAfterRestoration": 874046124032
+    },
+    "docker": "Docker version 29.8.0, build 88096ef",
+    "compose": "Docker Compose version v5.5.1",
+    "timeSynchronization": "Timezone=Etc/UTC\nNTP=yes\nNTPSynchronized=yes",
+    "configurationAfterRestoration": {
+      "applicationEnvironment": {
+        "APPLICATION_DB_MAXIMUM_POOL_SIZE": null,
+        "APPLICATION_DB_CONNECTION_TIMEOUT": null,
+        "APPLICATION_DB_VALIDATION_TIMEOUT": null,
+        "CATALOGUE_SYNC_SCHEDULING_ENABLED": "true",
+        "CATALOGUE_SYNC_NEAR_TERM_CRON": null,
+        "CATALOGUE_SYNC_UPCOMING_CRON": null
+      },
+      "jvmOverridePresent": {
+        "JAVA_TOOL_OPTIONS": false,
+        "JDK_JAVA_OPTIONS": false,
+        "JAVA_OPTS": false
+      },
+      "javaVersion": "openjdk 25.0.4 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)",
+      "postgresql": {
+        "checkpoint_timeout": {
+          "setting": "300",
+          "unit": "s",
+          "source": "default"
+        },
+        "effective_cache_size": {
+          "setting": "524288",
+          "unit": "8kB",
+          "source": "default"
+        },
+        "maintenance_work_mem": {
+          "setting": "65536",
+          "unit": "kB",
+          "source": "default"
+        },
+        "max_connections": {
+          "setting": "100",
+          "unit": null,
+          "source": "configuration file"
+        },
+        "max_wal_size": {
+          "setting": "1024",
+          "unit": "MB",
+          "source": "configuration file"
+        },
+        "server_version": {
+          "setting": "18.4 (Debian 18.4-1.pgdg12+1)",
+          "unit": null,
+          "source": "default"
+        },
+        "shared_buffers": {
+          "setting": "16384",
+          "unit": "8kB",
+          "source": "configuration file"
+        },
+        "track_io_timing": {
+          "setting": "off",
+          "unit": null,
+          "source": "default"
+        },
+        "work_mem": {
+          "setting": "4096",
+          "unit": "kB",
+          "source": "default"
+        }
+      },
+      "localizer": {
+        "imageId": "sha256:e8fa2ef387b2d5acfca906d18ef02ada33f55e6c0947c18d497c11c8c56eccf7",
+        "command": null,
+        "modelRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511"
+      },
+      "services": {
+        "application": {
+          "running": true,
+          "health": "healthy",
+          "memoryBytes": 1610612736,
+          "nanoCpus": 1500000000,
+          "pidsLimit": 384
+        },
+        "postgres": {
+          "running": true,
+          "health": "healthy",
+          "memoryBytes": 805306368,
+          "nanoCpus": 1000000000,
+          "pidsLimit": 256
+        },
+        "keycloak": {
+          "running": true,
+          "health": "healthy",
+          "memoryBytes": 1610612736,
+          "nanoCpus": 1500000000,
+          "pidsLimit": 384
+        },
+        "catalogue-localizer": {
+          "running": true,
+          "health": "healthy",
+          "memoryBytes": 805306368,
+          "nanoCpus": 2000000000,
+          "pidsLimit": 64
+        },
+        "telemetry": {
+          "running": true,
+          "health": "no-healthcheck",
+          "memoryBytes": 268435456,
+          "nanoCpus": 250000000,
+          "pidsLimit": 128
+        },
+        "prometheus": {
+          "running": true,
+          "health": "no-healthcheck",
+          "memoryBytes": 536870912,
+          "nanoCpus": 500000000,
+          "pidsLimit": 128
+        },
+        "grafana": {
+          "running": true,
+          "health": "no-healthcheck",
+          "memoryBytes": 536870912,
+          "nanoCpus": 500000000,
+          "pidsLimit": 128
+        },
+        "alloy": {
+          "running": true,
+          "health": "no-healthcheck",
+          "memoryBytes": 201326592,
+          "nanoCpus": 250000000,
+          "pidsLimit": 128
+        },
+        "loki": {
+          "running": true,
+          "health": "no-healthcheck",
+          "memoryBytes": 402653184,
+          "nanoCpus": 500000000,
+          "pidsLimit": 128
+        }
+      }
+    }
+  },
+  "dataset": {
+    "profile": "growth",
+    "referenceDate": "2026-10-12",
+    "counts": {
+      "games": 50000,
+      "ratings": 500000,
+      "regions": 5,
+      "releases": 200000,
+      "platforms": 10,
+      "rated_games": 40000,
+      "visible_games": 50000,
+      "approved_aliases": 10000,
+      "visible_releases": 200000,
+      "current_revisions": 1,
+      "games_with_genres": 50000,
+      "users_with_ratings": 4020
+    },
+    "storage": {
+      "database_bytes": 520263359,
+      "catalogue_and_ratings_bytes": 510517248
+    },
+    "schemaChecksum": "aecfb974575545a8f3df77cec49f30315ad4cb339bf6d169a33b07505057bd5a",
+    "syntheticIdentityPool": 2,
+    "identitiesRecreatedEachRun": true,
+    "independentGameSlotsPerUser": 3
+  },
+  "workload": {
+    "authenticatedUsers": 2,
+    "iterationsPerUser": 2,
+    "startSeconds": [
+      0,
+      55
+    ],
+    "pauseAfterRequestSeconds": 1,
+    "publicStartSeconds": 110,
+    "publicRequests": 10,
+    "cases": {
+      "login_begin": {
+        "requests": 2,
+        "checksPassed": 2,
+        "checksFailed": 0,
+        "statuses": {
+          "302": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 19.34985,
+          "p(95)": 29.265645,
+          "p(99)": 30.147049
+        }
+      },
+      "login_form": {
+        "requests": 2,
+        "checksPassed": 2,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 17.83975,
+          "p(95)": 19.607035,
+          "p(99)": 19.764127
+        }
+      },
+      "login_submit": {
+        "requests": 2,
+        "checksPassed": 2,
+        "checksFailed": 0,
+        "statuses": {
+          "302": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 120.95155,
+          "p(95)": 125.41559500000001,
+          "p(99)": 125.812399
+        }
+      },
+      "login_callback": {
+        "requests": 2,
+        "checksPassed": 2,
+        "checksFailed": 0,
+        "statuses": {
+          "302": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 220.21095000000003,
+          "p(95)": 373.083825,
+          "p(99)": 386.672525
+        }
+      },
+      "login_landing": {
+        "requests": 2,
+        "checksPassed": 4,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 18.56335,
+          "p(95)": 24.674035000000003,
+          "p(99)": 25.217207000000002
+        }
+      },
+      "session": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 11.108250000000002,
+          "p(95)": 13.081505,
+          "p(99)": 13.259741
+        }
+      },
+      "csrf_rejected": {
+        "requests": 2,
+        "checksPassed": 8,
+        "checksFailed": 0,
+        "statuses": {
+          "403": 2
+        },
+        "k6ErrorCodes": {
+          "1403": 2
+        },
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 12.1076,
+          "p(95)": 17.55107,
+          "p(99)": 18.034934
+        }
+      },
+      "prepare_rating": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "201": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 54.77795,
+          "p(95)": 203.92048999999994,
+          "p(99)": 224.97345799999997
+        }
+      },
+      "my_ratings": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 16.2531,
+          "p(95)": 34.612899999999996,
+          "p(99)": 37.12089999999999
+        }
+      },
+      "my_title": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 17.464599999999997,
+          "p(95)": 19.02265,
+          "p(99)": 19.19797
+        }
+      },
+      "my_value": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 16.421300000000002,
+          "p(95)": 20.34238,
+          "p(99)": 20.789116
+        }
+      },
+      "my_search": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 16.808049999999998,
+          "p(95)": 18.819734999999998,
+          "p(99)": 18.821307
+        }
+      },
+      "my_alias": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 16.734650000000002,
+          "p(95)": 18.02006,
+          "p(99)": 18.073771999999998
+        }
+      },
+      "peer_absence": {
+        "requests": 4,
+        "checksPassed": 12,
+        "checksFailed": 0,
+        "statuses": {
+          "404": 4
+        },
+        "k6ErrorCodes": {
+          "1404": 4
+        },
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 13.0672,
+          "p(95)": 19.41643,
+          "p(99)": 20.123206
+        }
+      },
+      "rating_absence": {
+        "requests": 4,
+        "checksPassed": 12,
+        "checksFailed": 0,
+        "statuses": {
+          "404": 4
+        },
+        "k6ErrorCodes": {
+          "1404": 4
+        },
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 11.2529,
+          "p(95)": 14.006889999999999,
+          "p(99)": 14.091778
+        }
+      },
+      "rating_create": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "201": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 37.19865,
+          "p(95)": 43.82593,
+          "p(99)": 44.102626
+        }
+      },
+      "rating_read_created": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 11.31615,
+          "p(95)": 30.15878999999999,
+          "p(99)": 32.76751799999999
+        }
+      },
+      "rating_update": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 26.3686,
+          "p(95)": 27.75589,
+          "p(99)": 27.889978
+        }
+      },
+      "rating_read_updated": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 10.2534,
+          "p(95)": 12.25635,
+          "p(99)": 12.48687
+        }
+      },
+      "my_after_update": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 13.556000000000001,
+          "p(95)": 14.958369999999999,
+          "p(99)": 15.151594
+        }
+      },
+      "rating_delete": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 19.08785,
+          "p(95)": 20.607045,
+          "p(99)": 20.661489
+        }
+      },
+      "rating_read_deleted": {
+        "requests": 4,
+        "checksPassed": 12,
+        "checksFailed": 0,
+        "statuses": {
+          "404": 4
+        },
+        "k6ErrorCodes": {
+          "1404": 4
+        },
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 10.297,
+          "p(95)": 11.07363,
+          "p(99)": 11.122086
+        }
+      },
+      "my_after_delete": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 17.79155,
+          "p(95)": 18.14374,
+          "p(99)": 18.169228
+        }
+      },
+      "restore_rating": {
+        "requests": 4,
+        "checksPassed": 16,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 4
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 15.3723,
+          "p(95)": 18.728595,
+          "p(99)": 18.823719
+        }
+      },
+      "logout": {
+        "requests": 2,
+        "checksPassed": 6,
+        "checksFailed": 0,
+        "statuses": {
+          "204": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 9.0359,
+          "p(95)": 11.036059999999999,
+          "p(99)": 11.213852
+        }
+      },
+      "session_after_logout": {
+        "requests": 2,
+        "checksPassed": 8,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 9.27945,
+          "p(95)": 11.399355,
+          "p(99)": 11.587791
+        }
+      },
+      "releases_recent": {
+        "requests": 2,
+        "checksPassed": 8,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 61.80325,
+          "p(95)": 65.489785,
+          "p(99)": 65.817477
+        }
+      },
+      "releases_upcoming": {
+        "requests": 2,
+        "checksPassed": 8,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 70.2086,
+          "p(95)": 83.95709,
+          "p(99)": 85.17917800000001
+        }
+      },
+      "releases_featured": {
+        "requests": 2,
+        "checksPassed": 8,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 80.46505,
+          "p(95)": 108.569575,
+          "p(99)": 111.067755
+        }
+      },
+      "catalogue_search": {
+        "requests": 2,
+        "checksPassed": 8,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 318.11195,
+          "p(95)": 367.553495,
+          "p(99)": 371.948299
+        }
+      },
+      "game_detail": {
+        "requests": 2,
+        "checksPassed": 8,
+        "checksFailed": 0,
+        "statuses": {
+          "200": 2
+        },
+        "k6ErrorCodes": {},
+        "timeouts": 0,
+        "observedPercentilesMs": {
+          "med": 19.214399999999998,
+          "p(95)": 25.42881,
+          "p(99)": 25.981202
+        }
+      }
+    },
+    "expectedErrorCodeNote": "k6 codes 1403/1404 are expected checked CSRF/absence responses, not unexpected HTTP failures"
+  },
+  "http": {
+    "http_reqs": {
+      "count": 98,
+      "rate": 0.8091984801611026
+    },
+    "checks": {
+      "rate": 1,
+      "passes": 350,
+      "fails": 0
+    },
+    "http_req_failed": {
+      "rate": 0,
+      "passes": 0,
+      "fails": 98
+    },
+    "http_req_duration": {
+      "max": 390.0697,
+      "count": 98,
+      "avg": 35.44756326530611,
+      "min": 6.0593,
+      "med": 17.1632,
+      "p(95)": 117.47951499999992,
+      "p(99)": 373.55768100000006
+    },
+    "response_timeouts": {
+      "count": 0,
+      "rate": 0
+    },
+    "dropped_iterations": {
+      "count": 0,
+      "rate": 0
+    },
+    "iterations": {
+      "rate": 0.11559978288015751,
+      "count": 14
+    }
+  },
+  "sessions": {
+    "authenticated_sessions": 2,
+    "session_reuses": 2
+  },
+  "operations": {
+    "prepare:create": 4,
+    "workload:create": 4,
+    "workload:update": 4,
+    "workload:delete": 4,
+    "restore:delete": 4
+  },
+  "scenarioResults": {
+    "authenticated_1": {
+      "requests": 44,
+      "checksPassed": 155,
+      "authenticated_sessions": 1,
+      "prepare:create": 2,
+      "workload:create": 2,
+      "workload:update": 2,
+      "workload:delete": 2,
+      "session_reuses": 1,
+      "restore:delete": 2
+    },
+    "authenticated_2": {
+      "requests": 44,
+      "checksPassed": 155,
+      "authenticated_sessions": 1,
+      "prepare:create": 2,
+      "workload:create": 2,
+      "workload:update": 2,
+      "workload:delete": 2,
+      "session_reuses": 1,
+      "restore:delete": 2
+    },
+    "public_reads": {
+      "requests": 10,
+      "checksPassed": 40
+    }
+  },
+  "clockAudit": {
+    "generator": {
+      "samples": 458,
+      "backsteps": [],
+      "discontinuities": [],
+      "maxAbsoluteDifferenceSeconds": 0.004426360479556024
+    },
+    "lenovo": {
+      "samples": 497,
+      "backsteps": [],
+      "discontinuities": [],
+      "maxAbsoluteDifferenceSeconds": 1.2415461242198944e-05
+    },
+    "http": {
+      "httpSamples": 98,
+      "backsteps": [],
+      "concurrentReorderings": [],
+      "rawMetricsAvailable": true
+    },
+    "stableDuringObservedWindow": true
+  },
+  "signals": {
+    "snapshots": 15,
+    "periodicSnapshots": 13,
+    "observationFailures": [],
+    "snapshotWindowSeconds": 129.17588210105896,
+    "applicationHttpRequestCounterDelta": 94.0,
+    "applicationHttpCorrelation": "94 = 98 workload requests minus 4 hosted Keycloak requests; control/preflight observations are outside the workload",
+    "jvmHeapMaxBytes": 389283840.0,
+    "jvmHeapUsedBytesBeforeAfter": [
+      146301144.0,
+      140749512.0
+    ],
+    "gcPauseCountDelta": 3.0,
+    "gcPauseTotalMillisecondsDelta": 232.0,
+    "hikariMaximumPool": 10.0,
+    "hikariPendingObservedMaximum": 0.0,
+    "hikariTimeoutCountDelta": 0.0,
+    "postgresqlCounterDeltas": {
+      "xact_commit": 440,
+      "xact_rollback": 0,
+      "blks_read": 29615,
+      "blks_hit": 592624,
+      "temp_files": 2,
+      "temp_bytes": 3555328,
+      "deadlocks": 0
+    },
+    "postgresqlBackendsObservedRange": [
+      11,
+      12
+    ],
+    "ungrantedLocksObservedMaximum": 0,
+    "cgroups": {
+      "application": {
+        "cpuUseSecondsDelta": 14.698105,
+        "throttledSecondsDelta": 0.311849,
+        "chargedMemoryBytesRange": [
+          434683904,
+          455651328
+        ],
+        "memoryEventsDelta": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "ioCountersCaptured": true
+      },
+      "postgres": {
+        "cpuUseSecondsDelta": 5.944257,
+        "throttledSecondsDelta": 0.034278,
+        "chargedMemoryBytesRange": [
+          796385280,
+          800743424
+        ],
+        "memoryEventsDelta": {
+          "low": 0,
+          "high": 0,
+          "max": 342,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "ioCountersCaptured": true
+      },
+      "catalogue-localizer": {
+        "cpuUseSecondsDelta": 5.154107,
+        "throttledSecondsDelta": 0.0,
+        "chargedMemoryBytesRange": [
+          342568960,
+          345231360
+        ],
+        "memoryEventsDelta": {
+          "low": 0,
+          "high": 0,
+          "max": 0,
+          "oom": 0,
+          "oom_kill": 0,
+          "oom_group_kill": 0
+        },
+        "ioCountersCaptured": true
+      }
+    },
+    "hostCpuNonIdleFraction": 0.07663440262791082,
+    "hostMemAvailableBytesRange": [
+      5338218496,
+      5372133376
+    ],
+    "physicalDiskAndPressureRawCaptured": true,
+    "localizationMeter": "unavailable on this new application without synchronization activity",
+    "jvmGcNamesObserved": [
+      "Copy",
+      "MarkSweepCompact"
+    ]
+  },
+  "observabilityAfterRestoration": {
+    "prometheus": {
+      "status": 200,
+      "targetsHealthy": true,
+      "targets": 2
+    },
+    "grafana": {
+      "status": 200,
+      "database": "ok"
+    },
+    "loki": {
+      "status": 200
+    },
+    "telemetry": {
+      "status": 200,
+      "applicationMetricsPresent": true
+    },
+    "alloy": {
+      "running": true,
+      "readinessNotSampled": true
+    },
+    "syntheticUsernamesAbsent": true,
+    "experimentalDatabaseAbsent": true
+  },
+  "restoration": {
+    "privateBefore": {
+      "games": 20999,
+      "releases": 37480,
+      "ratings": 22,
+      "syncRuns": 26,
+      "runningSyncs": 0
+    },
+    "privateAfter": {
+      "games": 20999,
+      "releases": 37480,
+      "ratings": 22,
+      "syncRuns": 26,
+      "runningSyncs": 0
+    },
+    "privateDataUnchanged": true,
+    "unexpectedExperimentalRatings": 0,
+    "databaseRetainedForReview": false,
+    "syntheticUsersRemoved": 2,
+    "readiness": {
+      "status": "UP"
+    },
+    "dependenciesUnchanged": true,
+    "ratingFingerprintUnchanged": true,
+    "originalSchedulingRestored": true,
+    "dependencyIdsVerifiedUnchanged": true,
+    "cpuRamLimitsVerifiedUnchanged": true
+  },
+  "retainedFailedAttempts": [
+    {
+      "run": "remote-probe-baeuxmkm",
+      "stage": "native inspection",
+      "cause": "Explicit k6 inspection environment paths missing",
+      "workloadExecuted": false
+    },
+    {
+      "run": "remote-probe-ha_94rea",
+      "stage": "native process outcome",
+      "cause": "PowerShell Start-Process returned null exit code; replaced by .NET process outcome capture",
+      "publicRequests": 15,
+      "controllerAccepted": false
+    },
+    {
+      "run": "remote-smoke-ozeb7lnv",
+      "stage": "identity preparation",
+      "cause": "Keycloak lowercased synthetic email; normalized email and immediate creation ID receipt added",
+      "workloadExecuted": false,
+      "ownedAccountCompensationVerified": true,
+      "privateDataUnchanged": true,
+      "experimentalDatabaseRemoved": true
+    }
+  ],
+  "readOnlyProbe": {
+    "run": "remote-probe-rgelen2p",
+    "requests": 15,
+    "checksPassed": 60,
+    "checksFailed": 0,
+    "unexpectedHttpFailureRate": 0,
+    "timeouts": 0,
+    "droppedIterations": 0,
+    "clockAudit": {
+      "generator": {
+        "samples": 58,
+        "backsteps": [],
+        "discontinuities": [],
+        "maxAbsoluteDifferenceSeconds": 0.004636225174181163
+      },
+      "lenovo": {
+        "samples": 74,
+        "backsteps": [],
+        "discontinuities": [],
+        "maxAbsoluteDifferenceSeconds": 1.0970979928970337e-06
+      },
+      "http": {
+        "httpSamples": 15,
+        "backsteps": [],
+        "concurrentReorderings": [],
+        "rawMetricsAvailable": true
+      },
+      "stableDuringObservedWindow": true
+    }
+  },
+  "notExecuted": [
+    "capacity pilot",
+    "stress",
+    "soak",
+    "remote fixture synchronization/localization comparisons",
+    "real IGDB traffic"
+  ],
+  "limitations": [
+    "Small serialized functional recipe, no simultaneous-user or capacity inference.",
+    "Sampling and management activity contribute server/host/database overhead; nominal interval includes collection time.",
+    "PostgreSQL memory is charged including caches; observed limit hits without OOM do not identify a serving bottleneck.",
+    "JVM/app counters reset when application is recreated; 60-second OTLP export can miss very short windows.",
+    "Experiment PostgreSQL statistics are captured through SSH; existing Grafana SQL datasource remains on private-dev.",
+    "Application cgroup io.stat was empty; physical disk and PostgreSQL counters remain available.",
+    "Remote background adapters remain unexecuted and need checkpoint/state equality, overlap and inferred/reused evidence before comparison.",
+    "Stable clocks apply only to this observed window; later pilot needs a fresh independent audit."
+  ]
+}

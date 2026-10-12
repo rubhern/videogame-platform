@@ -4,8 +4,8 @@ import execution from 'k6/execution';
 import { Counter } from 'k6/metrics';
 
 // Credentials live only in a temporary, mode-0700 mount, never in evidence.
-const config = JSON.parse(open('/results/workload.json'));
-const users = JSON.parse(open('/credentials/users.json'));
+const config = JSON.parse(open(__ENV.PERFORMANCE_CONFIG || '/results/workload.json'));
+const users = JSON.parse(open(__ENV.PERFORMANCE_USERS || '/credentials/users.json'));
 const timeouts = new Counter('response_timeouts');
 const operations = new Counter('rating_operations');
 const sessions = new Counter('authenticated_sessions');
@@ -21,6 +21,7 @@ export const authOptions = {
   scenarios: Object.fromEntries(users.map((_, slot) => [`authenticated_${slot + 1}`, {
     executor: 'per-vu-iterations', vus: 1, env: { PERFORMANCE_USER_SLOT: String(slot) },
     iterations: config.iterationsPerUser, maxDuration: config.maxDuration || '90s', gracefulStop: '5s',
+    ...(config.authStartSpacingSeconds ? { startTime: `${slot * config.authStartSpacingSeconds}s` } : {}),
   }])),
   hosts: config.hosts || {},
   noCookiesReset: true,
@@ -44,7 +45,8 @@ function request(name, method, url, body, expected, headers = {}) {
     redirects: 0, timeout: '10s',
     responseCallback: http.expectedStatuses(expected),
     tags: { name },
-    headers: { Accept: 'application/json', 'X-Correlation-ID': correlation, ...headers },
+    headers: { Accept: 'application/json', 'X-Correlation-ID': correlation,
+      ...(url.startsWith(config.origin + '/') && method !== 'GET' ? { Origin: config.origin } : {}), ...headers },
   });
   timeouts.add(r.error_code === 1050 ? 1 : 0, { name });
   check(r, { 'expected HTTP status': (response) => response.status === expected }, { name });
@@ -171,6 +173,6 @@ export default function authenticated() {
   }
 }
 export function handleSummary(data) {
-  return { '/results/summary.json': JSON.stringify(data, null, 2),
+  return { [`${__ENV.PERFORMANCE_RESULTS || '/results'}/summary.json`]: JSON.stringify(data, null, 2),
     stdout: `Requests: ${data.metrics.http_reqs.values.count}; checks: ${data.metrics.checks.values.passes} passed / ${data.metrics.checks.values.fails} failed\n` };
 }

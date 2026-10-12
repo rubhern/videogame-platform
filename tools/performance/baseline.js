@@ -4,7 +4,7 @@ import execution from 'k6/execution';
 import { Counter } from 'k6/metrics';
 
 // Supplied by baseline.py after read-only local preflight; no remote imports.
-const config = JSON.parse(open('/results/workload.json'));
+const config = JSON.parse(open(__ENV.PERFORMANCE_CONFIG || '/results/workload.json'));
 export const requests = config.requests || [
   { name: 'releases_recent', path: '/releases?view=recent&weeks=1&page=1&pageSize=20' },
   { name: 'releases_upcoming', path: '/releases?view=upcoming&weeks=1&page=1&pageSize=20' },
@@ -29,7 +29,9 @@ export const options = {
   thresholds: {
     checks: ['rate==1'],
     http_req_failed: ['rate==0'],
-    ...(config.dataset === 'interference' ? {
+    ...(config.expectedRequests !== undefined ? {
+      http_reqs: [`count==${config.expectedRequests}`], dropped_iterations: ['count==0'],
+    } : config.dataset === 'interference' ? {
       http_reqs: [`count==${config.rate * config.durationSeconds}`], dropped_iterations: ['count==0'],
     } : config.dataset === 'growth' ? {} : {
       http_reqs: ['count==120'], dropped_iterations: ['count==0'],
@@ -154,5 +156,5 @@ export function handleSummary(data) {
       + [values.avg, values.med, values['p(95)'], values['p(99)']]
         .map((value) => value.toFixed(2).padStart(8)).join(' '));
   }
-  return { '/results/summary.json': JSON.stringify(data, null, 2), stdout: lines.join('\n') + '\n' };
+  return { [`${__ENV.PERFORMANCE_RESULTS || '/results'}/summary.json`]: JSON.stringify(data, null, 2), stdout: lines.join('\n') + '\n' };
 }
