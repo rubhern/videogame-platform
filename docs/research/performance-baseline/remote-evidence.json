@@ -8,13 +8,20 @@
   "sutRevision": "8cb6071127b65c78fc74609502df4b4189b055d2",
   "sutImage": "ghcr.io/rubhern/videogame-platform@sha256:53066de0f8aec722bb47e416451ffac66c2e7485290df7ee880869f59a704c76",
   "smokeRun": "remote-smoke-hrd1hton",
-  "measuredScriptsSha256": {
-    "baseline.js": "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
-    "authenticated.js": "6365d365e10023c7a01eb483d62800c8f9d82023dfd47fa2b711ba8a1dfa79ac",
-    "mixed.js": "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
-    "windows-k6.ps1": "f984f7207c24a4e85ddaac89d6ab7ff4e11eb0ae716c4a61758e5faca4e2456f",
-    "remote_worker.py": "6c32802ca9c596c88d192dc073b03b640ac5d51133422788b609dd0acb8e3455"
-  },
+  "measuredScriptDigestOrder": [
+    "baseline.js",
+    "authenticated.js",
+    "mixed.js",
+    "windows-k6.ps1",
+    "remote_worker.py"
+  ],
+  "measuredScriptDigestsSha256": [
+    "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
+    "6365d365e10023c7a01eb483d62800c8f9d82023dfd47fa2b711ba8a1dfa79ac",
+    "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
+    "f984f7207c24a4e85ddaac89d6ab7ff4e11eb0ae716c4a61758e5faca4e2456f",
+    "6c32802ca9c596c88d192dc073b03b640ac5d51133422788b609dd0acb8e3455"
+  ],
   "generator": {
     "binarySha256": "efec04c36452cfb9c0ef313082c021e5656caf5004f922c2d8b807fdf4a0e02f",
     "zipSha256": "112276d495e5741c968e2bc09ea6196099c1275bd6db9ee0875d173c7148ce43",
