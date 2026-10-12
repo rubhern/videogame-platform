@@ -1,0 +1,3828 @@
+{
+  "experiment": {
+    "dataset": "growth",
+    "durationSecondsPerLevel": 300,
+    "rates": [
+      5,
+      10,
+      25,
+      50
+    ],
+    "requests": [
+      {
+        "name": "releases_recent",
+        "kind": "releases_recent",
+        "view": "recent",
+        "page": 1,
+        "path": "/releases?view=recent&weeks=1&page=1&pageSize=20",
+        "expectedTotal": 417
+      },
+      {
+        "name": "releases_upcoming",
+        "kind": "releases_upcoming",
+        "view": "upcoming",
+        "page": 1,
+        "path": "/releases?view=upcoming&weeks=1&page=1&pageSize=20",
+        "expectedTotal": 1023
+      },
+      {
+        "name": "releases_featured",
+        "kind": "releases_featured",
+        "path": "/featured-releases"
+      },
+      {
+        "name": "recent_pc",
+        "kind": "releases_recent",
+        "view": "recent",
+        "page": 1,
+        "platformIds": [
+          "7a26a1da-d414-0b7a-c3cb-4e28c51d3a07"
+        ],
+        "path": "/releases?view=recent&weeks=4&page=1&pageSize=20&platformIds=7a26a1da-d414-0b7a-c3cb-4e28c51d3a07",
+        "expectedTotal": 1049
+      },
+      {
+        "name": "recent_multi_filters",
+        "kind": "releases_recent",
+        "view": "recent",
+        "page": 1,
+        "platformIds": [
+          "7a26a1da-d414-0b7a-c3cb-4e28c51d3a07",
+          "2be57ffd-b64b-2428-5be4-8cacc033f8da"
+        ],
+        "regionIds": [
+          "c75704d9-d54e-1529-6e7f-4e449a0872fd",
+          "2d4da997-25a3-cd72-1e45-b99ae8a084a1"
+        ],
+        "path": "/releases?view=recent&weeks=4&page=1&pageSize=20&platformIds=7a26a1da-d414-0b7a-c3cb-4e28c51d3a07&platformIds=2be57ffd-b64b-2428-5be4-8cacc033f8da&regionIds=c75704d9-d54e-1529-6e7f-4e449a0872fd&regionIds=2d4da997-25a3-cd72-1e45-b99ae8a084a1",
+        "expectedTotal": 1238
+      },
+      {
+        "name": "upcoming_north_america",
+        "kind": "releases_upcoming",
+        "view": "upcoming",
+        "page": 1,
+        "regionIds": [
+          "2d4da997-25a3-cd72-1e45-b99ae8a084a1"
+        ],
+        "path": "/releases?view=upcoming&weeks=4&page=1&pageSize=20&regionIds=2d4da997-25a3-cd72-1e45-b99ae8a084a1",
+        "expectedTotal": 10
+      },
+      {
+        "name": "upcoming_approximate",
+        "kind": "releases_upcoming",
+        "view": "upcoming",
+        "page": 1,
+        "path": "/releases?view=upcoming&weeks=4&page=1&pageSize=20&includeApproximateDates=true",
+        "expectedTotal": 8649
+      },
+      {
+        "name": "recent_deep",
+        "kind": "releases_recent",
+        "view": "recent",
+        "page": 51,
+        "path": "/releases?view=recent&weeks=4&page=51&pageSize=20",
+        "expectedTotal": 2165
+      },
+      {
+        "name": "upcoming_deep",
+        "kind": "releases_upcoming",
+        "view": "upcoming",
+        "page": 51,
+        "path": "/releases?view=upcoming&weeks=4&page=51&pageSize=20",
+        "expectedTotal": 3518
+      },
+      {
+        "name": "search_selective",
+        "kind": "catalogue_search",
+        "page": 1,
+        "expectedTotal": 50,
+        "path": "/games?q=Needle&page=1&pageSize=20",
+        "firstGameId": "21c5f11d-dda7-bfd8-ea74-b0b1535d1c80"
+      },
+      {
+        "name": "search_broad",
+        "kind": "catalogue_search",
+        "page": 1,
+        "expectedTotal": 50000,
+        "path": "/games?q=Adventure&page=1&pageSize=20",
+        "firstGameId": "5d564233-4ec3-ac54-329f-374ad8d257b7"
+      },
+      {
+        "name": "search_deep_10k",
+        "kind": "catalogue_search",
+        "page": 501,
+        "expectedTotal": 50000,
+        "path": "/games?q=Adventure&page=501&pageSize=20",
+        "firstGameId": "50da48e5-5288-5688-16ce-52245ed2c8cc"
+      },
+      {
+        "name": "search_deep_48k",
+        "kind": "catalogue_search",
+        "page": 2401,
+        "expectedTotal": 50000,
+        "path": "/games?q=Adventure&page=2401&pageSize=20",
+        "firstGameId": "07487b31-78ec-d12d-24f6-6459daa5b60d"
+      },
+      {
+        "name": "search_alias",
+        "kind": "catalogue_search",
+        "page": 1,
+        "expectedTotal": 1,
+        "path": "/games?q=Aliasquest+000001&page=1&pageSize=20",
+        "firstGameId": "21c5f11d-dda7-bfd8-ea74-b0b1535d1c80"
+      },
+      {
+        "name": "search_accent",
+        "kind": "catalogue_search",
+        "page": 1,
+        "expectedTotal": 5000,
+        "path": "/games?q=Adventure+%C3%89lite&page=1&pageSize=20",
+        "firstGameId": "057e56fd-c084-c182-7fe0-5415528dc222"
+      },
+      {
+        "name": "search_normalized",
+        "kind": "catalogue_search",
+        "page": 1,
+        "expectedTotal": 5000,
+        "path": "/games?q=++adventure+ELITE++&page=1&pageSize=20",
+        "firstGameId": "057e56fd-c084-c182-7fe0-5415528dc222"
+      },
+      {
+        "name": "detail_fanout_1",
+        "kind": "game_detail",
+        "path": "/games/815bcd2b-0831-e047-af48-1f4cb7de95d7",
+        "gameId": "815bcd2b-0831-e047-af48-1f4cb7de95d7",
+        "releaseCount": 1,
+        "ratingCount": 84
+      },
+      {
+        "name": "detail_fanout_2",
+        "kind": "game_detail",
+        "path": "/games/21c5f11d-dda7-bfd8-ea74-b0b1535d1c80",
+        "gameId": "21c5f11d-dda7-bfd8-ea74-b0b1535d1c80",
+        "releaseCount": 2,
+        "ratingCount": 84
+      },
+      {
+        "name": "detail_fanout_3",
+        "kind": "game_detail",
+        "path": "/games/057e56fd-c084-c182-7fe0-5415528dc222",
+        "gameId": "057e56fd-c084-c182-7fe0-5415528dc222",
+        "releaseCount": 3,
+        "ratingCount": 84
+      },
+      {
+        "name": "detail_fanout_10",
+        "kind": "game_detail",
+        "path": "/games/5d564233-4ec3-ac54-329f-374ad8d257b7",
+        "gameId": "5d564233-4ec3-ac54-329f-374ad8d257b7",
+        "releaseCount": 10,
+        "ratingCount": 84
+      }
+    ],
+    "preflightRequests": 20,
+    "levelDirectories": [
+      "rps-5"
+    ],
+    "criterion": "Functional checks only; latency, dropped iterations and achieved rate are observations",
+    "startedAt": "2026-10-07T09:46:34.997600+00:00",
+    "sampleIntervalSeconds": 10,
+    "cooldownSeconds": 30,
+    "finishedAt": "2026-10-07T09:51:33.395908+00:00"
+  },
+  "levels": [
+    {
+      "rateInput": 5,
+      "expectedRequestBudget": 1500,
+      "manifest": {
+        "runId": "perf-growth-20261007T094633Z-gi6fpx2u-rps-5",
+        "dataset": "growth",
+        "harnessRevision": "9eb305c3fb8c13398f2b64be69fc3d850479d806",
+        "scriptSha256": "50fe739fc25aab5f58ff8f745241c0e321c803bd86701c7fc2faa32d8963b618",
+        "runnerSha256": "400adc978e2e0c51cc3355ed430c0a6992ac0d74e43df2b5c08c76a1b5ea3d64",
+        "k6Image": "grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34",
+        "k6Version": "k6 v2.3.0 (commit/e088784614, go1.27.1, linux/amd64)",
+        "application": {
+          "image": "videogame-platform/application:0.29.0-SNAPSHOT",
+          "imageId": "sha256:d3e6f20250bf60f8e925fb4d096d3047ac00b94baee2eae2462162ca3fc95ded",
+          "memoryLimitBytes": 1073741824,
+          "cpuLimit": 0.5,
+          "startedAt": "2026-10-07T09:45:16.75457453Z",
+          "settings": {
+            "APPLICATION_CATALOGUE_READINESS_TIMEOUT": "2s",
+            "APPLICATION_DB_CONNECTION_TIMEOUT": "3000",
+            "APPLICATION_DB_MAXIMUM_POOL_SIZE": "10",
+            "APPLICATION_DB_VALIDATION_TIMEOUT": "1000",
+            "APPLICATION_FLYWAY_ENABLED": "false",
+            "CATALOGUE_JDBC_READ_TIMEOUT": "5s",
+            "CATALOGUE_SYNC_SCHEDULING_ENABLED": "false",
+            "RATINGS_JDBC_OPERATION_TIMEOUT": "5s",
+            "SPRING_PROFILES_ACTIVE": "oidc,structured",
+            "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "local",
+            "TELEMETRY_OTLP_METRICS_ENABLED": "true",
+            "TELEMETRY_OTLP_METRICS_STEP": "60s",
+            "TELEMETRY_OTLP_TRACES_ENABLED": "false"
+          }
+        },
+        "postgres": {
+          "image": "postgres:18.4-bookworm",
+          "imageId": "sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+          "memoryLimitBytes": 1073741824,
+          "cpuLimit": 2.0,
+          "startedAt": "2026-10-07T09:41:58.588166352Z",
+          "settings": {}
+        },
+        "applicationInfo": {
+          "build": {
+            "artifact": "videogame-platform-backend",
+            "name": "VideoGame Platform Backend",
+            "sourceRevision": "9eb305c3fb8c13398f2b64be69fc3d850479d806",
+            "time": "2026-10-07T07:27:20.331Z",
+            "version": "0.29.0-SNAPSHOT",
+            "group": "com.videogameplatform"
+          }
+        },
+        "options": {
+          "paused": null,
+          "vus": null,
+          "duration": null,
+          "iterations": null,
+          "stages": null,
+          "scenarios": {
+            "public_reads": {
+              "executor": "constant-arrival-rate",
+              "startTime": null,
+              "gracefulStop": "10s",
+              "env": null,
+              "exec": null,
+              "tags": null,
+              "rate": 5,
+              "timeUnit": "1s",
+              "duration": "5m0s",
+              "preAllocatedVUs": 10,
+              "maxVUs": 60
+            }
+          },
+          "executionSegment": null,
+          "executionSegmentSequence": null,
+          "noSetup": null,
+          "setupTimeout": null,
+          "noTeardown": null,
+          "teardownTimeout": null,
+          "handleSummaryTimeout": null,
+          "rps": null,
+          "dns": {
+            "ttl": null,
+            "select": null,
+            "policy": null
+          },
+          "maxRedirects": 0,
+          "userAgent": "Gameometro-public-baseline/k6",
+          "batch": null,
+          "batchPerHost": null,
+          "httpDebug": null,
+          "insecureSkipTLSVerify": null,
+          "tlsCipherSuites": null,
+          "tlsVersion": null,
+          "tlsAuth": null,
+          "tlsAIAFetch": null,
+          "throw": null,
+          "thresholds": {
+            "checks": [
+              "rate==1"
+            ],
+            "http_req_duration{name:detail_fanout_10}": [],
+            "http_req_duration{name:detail_fanout_1}": [],
+            "http_req_duration{name:detail_fanout_2}": [],
+            "http_req_duration{name:detail_fanout_3}": [],
+            "http_req_duration{name:recent_deep}": [],
+            "http_req_duration{name:recent_multi_filters}": [],
+            "http_req_duration{name:recent_pc}": [],
+            "http_req_duration{name:releases_featured}": [],
+            "http_req_duration{name:releases_recent}": [],
+            "http_req_duration{name:releases_upcoming}": [],
+            "http_req_duration{name:search_accent}": [],
+            "http_req_duration{name:search_alias}": [],
+            "http_req_duration{name:search_broad}": [],
+            "http_req_duration{name:search_deep_10k}": [],
+            "http_req_duration{name:search_deep_48k}": [],
+            "http_req_duration{name:search_normalized}": [],
+            "http_req_duration{name:search_selective}": [],
+            "http_req_duration{name:upcoming_approximate}": [],
+            "http_req_duration{name:upcoming_deep}": [],
+            "http_req_duration{name:upcoming_north_america}": [],
+            "http_req_failed": [
+              "rate==0"
+            ]
+          },
+          "blacklistIPs": null,
+          "blockHostnames": null,
+          "hosts": null,
+          "noConnectionReuse": null,
+          "noVUConnectionReuse": null,
+          "minIterationDuration": null,
+          "ext": null,
+          "summaryTrendStats": [
+            "count",
+            "avg",
+            "min",
+            "med",
+            "p(95)",
+            "p(99)",
+            "max"
+          ],
+          "summaryTimeUnit": null,
+          "systemTags": [
+            "check",
+            "expected_response",
+            "method",
+            "name",
+            "scenario",
+            "status"
+          ],
+          "tags": null,
+          "metricSamplesBufferSize": null,
+          "noCookiesReset": null,
+          "discardResponseBodies": null,
+          "features": null
+        },
+        "javaVersion": "openjdk 25.0.4 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)",
+        "docker": {
+          "version": "29.7.2",
+          "os": "Docker Desktop (containerized)",
+          "kernel": "6.18.40.1-microsoft-standard-WSL2",
+          "architecture": "x86_64",
+          "cpus": 32,
+          "memoryBytes": 16328314880
+        },
+        "runnerLimits": {
+          "memoryBytes": 1073741824,
+          "cpus": 1
+        },
+        "workload": {
+          "runId": "perf-growth-20261007T094633Z-gi6fpx2u-rps-5",
+          "dataset": "growth",
+          "evaluatedOn": "2026-10-07",
+          "requests": [
+            {
+              "name": "releases_recent",
+              "kind": "releases_recent",
+              "view": "recent",
+              "page": 1,
+              "path": "/releases?view=recent&weeks=1&page=1&pageSize=20",
+              "expectedTotal": 417
+            },
+            {
+              "name": "releases_upcoming",
+              "kind": "releases_upcoming",
+              "view": "upcoming",
+              "page": 1,
+              "path": "/releases?view=upcoming&weeks=1&page=1&pageSize=20",
+              "expectedTotal": 1023
+            },
+            {
+              "name": "releases_featured",
+              "kind": "releases_featured",
+              "path": "/featured-releases"
+            },
+            {
+              "name": "recent_pc",
+              "kind": "releases_recent",
+              "view": "recent",
+              "page": 1,
+              "platformIds": [
+                "7a26a1da-d414-0b7a-c3cb-4e28c51d3a07"
+              ],
+              "path": "/releases?view=recent&weeks=4&page=1&pageSize=20&platformIds=7a26a1da-d414-0b7a-c3cb-4e28c51d3a07",
+              "expectedTotal": 1049
+            },
+            {
+              "name": "recent_multi_filters",
+              "kind": "releases_recent",
+              "view": "recent",
+              "page": 1,
+              "platformIds": [
+                "7a26a1da-d414-0b7a-c3cb-4e28c51d3a07",
+                "2be57ffd-b64b-2428-5be4-8cacc033f8da"
+              ],
+              "regionIds": [
+                "c75704d9-d54e-1529-6e7f-4e449a0872fd",
+                "2d4da997-25a3-cd72-1e45-b99ae8a084a1"
+              ],
+              "path": "/releases?view=recent&weeks=4&page=1&pageSize=20&platformIds=7a26a1da-d414-0b7a-c3cb-4e28c51d3a07&platformIds=2be57ffd-b64b-2428-5be4-8cacc033f8da&regionIds=c75704d9-d54e-1529-6e7f-4e449a0872fd&regionIds=2d4da997-25a3-cd72-1e45-b99ae8a084a1",
+              "expectedTotal": 1238
+            },
+            {
+              "name": "upcoming_north_america",
+              "kind": "releases_upcoming",
+              "view": "upcoming",
+              "page": 1,
+              "regionIds": [
+                "2d4da997-25a3-cd72-1e45-b99ae8a084a1"
+              ],
+              "path": "/releases?view=upcoming&weeks=4&page=1&pageSize=20&regionIds=2d4da997-25a3-cd72-1e45-b99ae8a084a1",
+              "expectedTotal": 10
+            },
+            {
+              "name": "upcoming_approximate",
+              "kind": "releases_upcoming",
+              "view": "upcoming",
+              "page": 1,
+              "path": "/releases?view=upcoming&weeks=4&page=1&pageSize=20&includeApproximateDates=true",
+              "expectedTotal": 8649
+            },
+            {
+              "name": "recent_deep",
+              "kind": "releases_recent",
+              "view": "recent",
+              "page": 51,
+              "path": "/releases?view=recent&weeks=4&page=51&pageSize=20",
+              "expectedTotal": 2165
+            },
+            {
+              "name": "upcoming_deep",
+              "kind": "releases_upcoming",
+              "view": "upcoming",
+              "page": 51,
+              "path": "/releases?view=upcoming&weeks=4&page=51&pageSize=20",
+              "expectedTotal": 3518
+            },
+            {
+              "name": "search_selective",
+              "kind": "catalogue_search",
+              "page": 1,
+              "expectedTotal": 50,
+              "path": "/games?q=Needle&page=1&pageSize=20",
+              "firstGameId": "21c5f11d-dda7-bfd8-ea74-b0b1535d1c80"
+            },
+            {
+              "name": "search_broad",
+              "kind": "catalogue_search",
+              "page": 1,
+              "expectedTotal": 50000,
+              "path": "/games?q=Adventure&page=1&pageSize=20",
+              "firstGameId": "5d564233-4ec3-ac54-329f-374ad8d257b7"
+            },
+            {
+              "name": "search_deep_10k",
+              "kind": "catalogue_search",
+              "page": 501,
+              "expectedTotal": 50000,
+              "path": "/games?q=Adventure&page=501&pageSize=20",
+              "firstGameId": "50da48e5-5288-5688-16ce-52245ed2c8cc"
+            },
+            {
+              "name": "search_deep_48k",
+              "kind": "catalogue_search",
+              "page": 2401,
+              "expectedTotal": 50000,
+              "path": "/games?q=Adventure&page=2401&pageSize=20",
+              "firstGameId": "07487b31-78ec-d12d-24f6-6459daa5b60d"
+            },
+            {
+              "name": "search_alias",
+              "kind": "catalogue_search",
+              "page": 1,
+              "expectedTotal": 1,
+              "path": "/games?q=Aliasquest+000001&page=1&pageSize=20",
+              "firstGameId": "21c5f11d-dda7-bfd8-ea74-b0b1535d1c80"
+            },
+            {
+              "name": "search_accent",
+              "kind": "catalogue_search",
+              "page": 1,
+              "expectedTotal": 5000,
+              "path": "/games?q=Adventure+%C3%89lite&page=1&pageSize=20",
+              "firstGameId": "057e56fd-c084-c182-7fe0-5415528dc222"
+            },
+            {
+              "name": "search_normalized",
+              "kind": "catalogue_search",
+              "page": 1,
+              "expectedTotal": 5000,
+              "path": "/games?q=++adventure+ELITE++&page=1&pageSize=20",
+              "firstGameId": "057e56fd-c084-c182-7fe0-5415528dc222"
+            },
+            {
+              "name": "detail_fanout_1",
+              "kind": "game_detail",
+              "path": "/games/815bcd2b-0831-e047-af48-1f4cb7de95d7",
+              "gameId": "815bcd2b-0831-e047-af48-1f4cb7de95d7",
+              "releaseCount": 1,
+              "ratingCount": 84
+            },
+            {
+              "name": "detail_fanout_2",
+              "kind": "game_detail",
+              "path": "/games/21c5f11d-dda7-bfd8-ea74-b0b1535d1c80",
+              "gameId": "21c5f11d-dda7-bfd8-ea74-b0b1535d1c80",
+              "releaseCount": 2,
+              "ratingCount": 84
+            },
+            {
+              "name": "detail_fanout_3",
+              "kind": "game_detail",
+              "path": "/games/057e56fd-c084-c182-7fe0-5415528dc222",
+              "gameId": "057e56fd-c084-c182-7fe0-5415528dc222",
+              "releaseCount": 3,
+              "ratingCount": 84
+            },
+            {
+              "name": "detail_fanout_10",
+              "kind": "game_detail",
+              "path": "/games/5d564233-4ec3-ac54-329f-374ad8d257b7",
+              "gameId": "5d564233-4ec3-ac54-329f-374ad8d257b7",
+              "releaseCount": 10,
+              "ratingCount": 84
+            }
+          ],
+          "rate": 5,
+          "durationSeconds": 300,
+          "preAllocatedVUs": 10,
+          "maxVUs": 60
+        },
+        "startedAt": "2026-10-07T09:46:39.156850+00:00",
+        "finishedAt": "2026-10-07T09:51:30.609794+00:00",
+        "elapsedMonotonicSeconds": 300.5131250049999,
+        "exitCode": 0,
+        "clockAudit": {
+          "httpSamples": 1500,
+          "backsteps": [
+            {
+              "sample": 89,
+              "previous": "2026-10-07T09:46:57.083571+00:00",
+              "at": "2026-10-07T09:46:56.311070+00:00",
+              "seconds": 0.772501
+            },
+            {
+              "sample": 239,
+              "previous": "2026-10-07T09:47:26.107902+00:00",
+              "at": "2026-10-07T09:47:25.425940+00:00",
+              "seconds": 0.681962
+            },
+            {
+              "sample": 389,
+              "previous": "2026-10-07T09:47:55.258033+00:00",
+              "at": "2026-10-07T09:47:54.540924+00:00",
+              "seconds": 0.717109
+            },
+            {
+              "sample": 539,
+              "previous": "2026-10-07T09:48:24.339145+00:00",
+              "at": "2026-10-07T09:48:23.629014+00:00",
+              "seconds": 0.710131
+            },
+            {
+              "sample": 689,
+              "previous": "2026-10-07T09:48:53.464108+00:00",
+              "at": "2026-10-07T09:48:52.737262+00:00",
+              "seconds": 0.726846
+            },
+            {
+              "sample": 839,
+              "previous": "2026-10-07T09:49:22.535924+00:00",
+              "at": "2026-10-07T09:49:21.846235+00:00",
+              "seconds": 0.689689
+            },
+            {
+              "sample": 989,
+              "previous": "2026-10-07T09:49:51.684537+00:00",
+              "at": "2026-10-07T09:49:50.942072+00:00",
+              "seconds": 0.742465
+            },
+            {
+              "sample": 1139,
+              "previous": "2026-10-07T09:50:20.739897+00:00",
+              "at": "2026-10-07T09:50:20.045000+00:00",
+              "seconds": 0.694897
+            },
+            {
+              "sample": 1289,
+              "previous": "2026-10-07T09:50:49.881836+00:00",
+              "at": "2026-10-07T09:50:49.085868+00:00",
+              "seconds": 0.795968
+            },
+            {
+              "sample": 1439,
+              "previous": "2026-10-07T09:51:18.884136+00:00",
+              "at": "2026-10-07T09:51:18.183525+00:00",
+              "seconds": 0.700611
+            }
+          ],
+          "concurrentReorderings": [],
+          "rawMetricsAvailable": true,
+          "pairedWallMonotonicSamples": 1198,
+          "wallMonotonicBacksteps": [
+            {
+              "sample": 71,
+              "wallDelta": -0.6835269927978516,
+              "monotonicDelta": 0.2543322560013621
+            },
+            {
+              "sample": 191,
+              "wallDelta": -0.6289763450622559,
+              "monotonicDelta": 0.2525975850003306
+            },
+            {
+              "sample": 310,
+              "wallDelta": -0.10894250869750977,
+              "monotonicDelta": 0.2502163469998777
+            },
+            {
+              "sample": 311,
+              "wallDelta": -0.2765505313873291,
+              "monotonicDelta": 0.25052823400073976
+            },
+            {
+              "sample": 430,
+              "wallDelta": -0.6619904041290283,
+              "monotonicDelta": 0.2501942719991348
+            },
+            {
+              "sample": 549,
+              "wallDelta": -0.641035795211792,
+              "monotonicDelta": 0.2501661390015215
+            },
+            {
+              "sample": 669,
+              "wallDelta": -0.6374762058258057,
+              "monotonicDelta": 0.2521756850001111
+            },
+            {
+              "sample": 789,
+              "wallDelta": -0.6539962291717529,
+              "monotonicDelta": 0.2512386359994707
+            },
+            {
+              "sample": 908,
+              "wallDelta": -0.6450512409210205,
+              "monotonicDelta": 0.25069285499921534
+            },
+            {
+              "sample": 1028,
+              "wallDelta": -0.710228681564331,
+              "monotonicDelta": 0.25014521399862133
+            },
+            {
+              "sample": 1147,
+              "wallDelta": -0.6486473083496094,
+              "monotonicDelta": 0.2517502050013718
+            }
+          ]
+        }
+      },
+      "nativeHttpRequests": {
+        "count": 1500,
+        "rate": 5.155706652307827
+      },
+      "completedRequestsPerConfiguredSecond": null,
+      "latencyMilliseconds": {
+        "min": 3.495605,
+        "med": 27.162573000000002,
+        "p(95)": 365.29804185,
+        "p(99)": 393.71708129999996,
+        "max": 453.771386,
+        "count": 1500,
+        "avg": 65.2720728180001
+      },
+      "errorCount": 0,
+      "errorRate": 0,
+      "timeouts": {
+        "count": 0,
+        "rate": 0
+      },
+      "droppedIterations": {
+        "count": 0
+      },
+      "checks": {
+        "passes": 6000,
+        "fails": 0,
+        "rate": 1
+      },
+      "byStatus": {
+        "200": 1500
+      },
+      "byCaseCount": {
+        "releases_recent": 75,
+        "releases_upcoming": 75,
+        "releases_featured": 75,
+        "recent_pc": 75,
+        "recent_multi_filters": 75,
+        "upcoming_north_america": 75,
+        "upcoming_approximate": 75,
+        "recent_deep": 75,
+        "upcoming_deep": 75,
+        "search_selective": 75,
+        "search_broad": 75,
+        "search_deep_10k": 75,
+        "search_alias": 75,
+        "search_deep_48k": 75,
+        "search_accent": 75,
+        "search_normalized": 75,
+        "detail_fanout_1": 75,
+        "detail_fanout_2": 75,
+        "detail_fanout_3": 75,
+        "detail_fanout_10": 75
+      },
+      "byCaseLatencyMilliseconds": {
+        "releases_recent": {
+          "count": 75,
+          "avg": 24.108785933333333,
+          "min": 20.036541,
+          "med": 24.194539,
+          "p(95)": 27.2586911,
+          "p(99)": 29.5380037,
+          "max": 29.691439
+        },
+        "releases_upcoming": {
+          "p(99)": 43.46805516000023,
+          "max": 78.225349,
+          "count": 75,
+          "avg": 24.526399226666665,
+          "min": 19.778282,
+          "med": 23.935006,
+          "p(95)": 28.077792899999995
+        },
+        "releases_featured": {
+          "count": 75,
+          "avg": 16.032985279999995,
+          "min": 13.046888,
+          "med": 15.887672,
+          "p(95)": 19.822128699999997,
+          "p(99)": 21.540711160000015,
+          "max": 23.876644
+        },
+        "recent_pc": {
+          "count": 75,
+          "avg": 33.45954929333333,
+          "min": 27.345354,
+          "med": 31.888026,
+          "p(95)": 35.9310107,
+          "p(99)": 67.25781220000059,
+          "max": 152.814888
+        },
+        "recent_multi_filters": {
+          "min": 34.020527,
+          "med": 42.405335,
+          "p(95)": 49.1006421,
+          "p(99)": 62.462418480000224,
+          "max": 94.456428,
+          "count": 75,
+          "avg": 42.73204419999999
+        },
+        "upcoming_north_america": {
+          "max": 19.110378,
+          "count": 75,
+          "avg": 14.521482373333338,
+          "min": 12.048548,
+          "med": 14.36416,
+          "p(95)": 17.4823524,
+          "p(99)": 18.72008054
+        },
+        "upcoming_approximate": {
+          "p(99)": 74.56727354000003,
+          "max": 78.988462,
+          "count": 75,
+          "avg": 67.02718946666666,
+          "min": 59.002889,
+          "med": 67.853559,
+          "p(95)": 72.3978444
+        },
+        "recent_deep": {
+          "count": 75,
+          "avg": 33.870282239999995,
+          "min": 28.015793,
+          "med": 34.044408,
+          "p(95)": 38.3255262,
+          "p(99)": 41.23239896000004,
+          "max": 46.815659
+        },
+        "upcoming_deep": {
+          "p(95)": 44.3933511,
+          "p(99)": 45.82735652,
+          "max": 46.214341,
+          "count": 75,
+          "avg": 40.854413693333335,
+          "min": 36.242056,
+          "med": 41.025054
+        },
+        "search_selective": {
+          "med": 5.691217,
+          "p(95)": 8.363584599999998,
+          "p(99)": 9.714806220000002,
+          "max": 9.921486,
+          "count": 75,
+          "avg": 6.042174493333332,
+          "min": 4.675189
+        },
+        "search_broad": {
+          "min": 161.222686,
+          "med": 188.450455,
+          "p(95)": 200.1309531,
+          "p(99)": 215.0495755200001,
+          "max": 228.000909,
+          "count": 75,
+          "avg": 186.06595656
+        },
+        "search_deep_10k": {
+          "min": 312.367277,
+          "med": 343.715096,
+          "p(95)": 376.2247518,
+          "p(99)": 389.91793714000005,
+          "max": 395.676868,
+          "count": 75,
+          "avg": 346.14141301333336
+        },
+        "search_deep_48k": {
+          "p(99)": 434.87857698000016,
+          "max": 453.771386,
+          "count": 75,
+          "avg": 379.5585288533334,
+          "min": 356.559901,
+          "med": 372.39883,
+          "p(95)": 414.2588413
+        },
+        "search_alias": {
+          "count": 75,
+          "avg": 5.101997893333333,
+          "min": 3.531619,
+          "med": 4.929831,
+          "p(95)": 6.8868025,
+          "p(99)": 7.919172140000005,
+          "max": 8.754069
+        },
+        "search_accent": {
+          "med": 29.685205,
+          "p(95)": 36.539302899999996,
+          "p(99)": 82.91127012,
+          "max": 82.972625,
+          "count": 75,
+          "avg": 31.367597346666663,
+          "min": 25.741378
+        },
+        "search_normalized": {
+          "med": 31.189624,
+          "p(95)": 38.882920399999996,
+          "p(99)": 40.78935344000001,
+          "max": 42.723376,
+          "count": 75,
+          "avg": 31.406405453333324,
+          "min": 26.208617
+        },
+        "detail_fanout_1": {
+          "count": 75,
+          "avg": 5.809878466666665,
+          "min": 3.606999,
+          "med": 4.998541,
+          "p(95)": 7.140940199999999,
+          "p(99)": 21.048458720000223,
+          "max": 53.413596
+        },
+        "detail_fanout_2": {
+          "p(95)": 7.0897177,
+          "p(99)": 20.329276160000234,
+          "max": 53.66651,
+          "count": 75,
+          "avg": 5.883342746666666,
+          "min": 3.495605,
+          "med": 5.001071
+        },
+        "detail_fanout_3": {
+          "med": 5.16588,
+          "p(95)": 6.868656399999999,
+          "p(99)": 7.679230880000002,
+          "max": 8.013147,
+          "count": 75,
+          "avg": 5.311875760000001,
+          "min": 4.150471
+        },
+        "detail_fanout_10": {
+          "p(99)": 9.52543752,
+          "max": 9.656123,
+          "count": 75,
+          "avg": 5.619154066666664,
+          "min": 3.801128,
+          "med": 5.3152,
+          "p(95)": 7.8193896999999986
+        }
+      },
+      "observations": 23,
+      "jvm": {
+        "heapBytes": {
+          "min": 106320992.0,
+          "max": 161969264.0
+        },
+        "heapMaxBytes": {
+          "min": 259522560.0,
+          "max": 259522560.0
+        },
+        "threads": {
+          "min": 56.0,
+          "max": 56.0
+        },
+        "processCpu": {
+          "min": 0.043076923076923075,
+          "max": 0.30727272727272725
+        },
+        "gcCountDelta": 11.0,
+        "gcPauseMsDelta": 55.0
+      },
+      "hikari": {
+        "active": {
+          "min": 0.0,
+          "max": 2.0
+        },
+        "pending": {
+          "min": 0.0,
+          "max": 0.0
+        },
+        "timeoutsDelta": 0.0,
+        "acquireCountDelta": 1890.0,
+        "acquireTimeMsDelta": 162.07555399999998
+      },
+      "httpServer": {
+        "countDelta": 1500.0,
+        "totalTimeMsDelta": 96901.01749700001
+      },
+      "database": {
+        "delta": {
+          "xact_commit": 6606,
+          "xact_rollback": 24,
+          "blks_read": 132,
+          "blks_hit": 52943256,
+          "temp_files": 375,
+          "temp_bytes": 2061312000,
+          "deadlocks": 0
+        },
+        "connections": {
+          "min": 11,
+          "max": 11
+        },
+        "sampledUngrantedLocksMax": 0,
+        "activity": [
+          {
+            "at": "2026-10-07T09:46:49.159032+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 2
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 9
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:47:01.186751+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:47:14.166310+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:47:26.121974+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:47:39.051404+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:47:52.006782+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 2
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 9
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:48:04.084056+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 9
+              },
+              {
+                "state": "idle in transaction",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:48:16.768453+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:48:28.840339+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:48:41.810065+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 2
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 9
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:48:53.888985+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 9
+              },
+              {
+                "state": "idle in transaction",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 1
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:49:06.584547+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:49:19.543479+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:49:31.570420+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:49:44.505726+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 2
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 9
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:49:56.347858+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:50:09.333518+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:50:21.375931+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:50:34.330427+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 2
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 9
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:50:47.097645+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:50:59.038692+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:51:12.028881+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          },
+          {
+            "at": "2026-10-07T09:51:24.066322+00:00",
+            "groups": [
+              {
+                "state": "active",
+                "wait_event_type": null,
+                "wait_event": null,
+                "count": 1
+              },
+              {
+                "state": "idle",
+                "wait_event_type": "Client",
+                "wait_event": "ClientRead",
+                "count": 10
+              }
+            ]
+          }
+        ]
+      },
+      "resources": {
+        "application": {
+          "observedWindowSeconds": 294.304177,
+          "averageCpuCores": null,
+          "cpuDelta": {
+            "usage_usec": 16627844,
+            "user_usec": 13268909,
+            "system_usec": 3358936,
+            "nice_usec": 0,
+            "nr_periods": 3015,
+            "nr_throttled": 42,
+            "throttled_usec": 1917676,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "sampledMemoryCurrentBytesMax": 587145216,
+          "memoryEventsDelta": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "postgres": {
+          "observedWindowSeconds": 294.304177,
+          "averageCpuCores": null,
+          "cpuDelta": {
+            "usage_usec": 90815791,
+            "user_usec": 86578267,
+            "system_usec": 4237524,
+            "nice_usec": 0,
+            "nr_periods": 3003,
+            "nr_throttled": 1,
+            "throttled_usec": 174,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "sampledMemoryCurrentBytesMax": 1048977408,
+          "memoryEventsDelta": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        },
+        "k6": {
+          "observedWindowSeconds": 274.90729,
+          "averageCpuCores": null,
+          "cpuDelta": {
+            "usage_usec": 4463500,
+            "user_usec": 2940251,
+            "system_usec": 1523250,
+            "nice_usec": 0,
+            "nr_periods": 2633,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "sampledMemoryCurrentBytesMax": 35418112,
+          "memoryEventsDelta": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          }
+        }
+      },
+      "cooldown": {
+        "at": "2026-10-07T09:53:46.639825+00:00",
+        "metrics": {
+          "http.server.requests": {
+            "availableTags": [
+              {
+                "tag": "exception",
+                "values": [
+                  "none"
+                ]
+              },
+              {
+                "tag": "method",
+                "values": [
+                  "GET"
+                ]
+              },
+              {
+                "tag": "error",
+                "values": [
+                  "none"
+                ]
+              },
+              {
+                "tag": "uri",
+                "values": [
+                  "/api/v1/games/{gameId}",
+                  "/api/v1/featured-releases",
+                  "/api/v1/games",
+                  "/api/v1/releases"
+                ]
+              },
+              {
+                "tag": "outcome",
+                "values": [
+                  "SUCCESS"
+                ]
+              },
+              {
+                "tag": "status",
+                "values": [
+                  "200"
+                ]
+              }
+            ],
+            "baseUnit": "milliseconds",
+            "measurements": [
+              {
+                "statistic": "COUNT",
+                "value": 1548.0
+              },
+              {
+                "statistic": "TOTAL_TIME",
+                "value": 102204.86937900001
+              },
+              {
+                "statistic": "MAX",
+                "value": 406.281521
+              }
+            ],
+            "name": "http.server.requests"
+          },
+          "jvm.memory.used": {
+            "availableTags": [
+              {
+                "tag": "id",
+                "values": [
+                  "Survivor Space",
+                  "Eden Space",
+                  "Tenured Gen"
+                ]
+              }
+            ],
+            "baseUnit": "bytes",
+            "description": "The amount of used memory",
+            "measurements": [
+              {
+                "statistic": "VALUE",
+                "value": 132862520.0
+              }
+            ],
+            "name": "jvm.memory.used"
+          },
+          "jvm.memory.max": {
+            "availableTags": [
+              {
+                "tag": "id",
+                "values": [
+                  "Survivor Space",
+                  "Eden Space",
+                  "Tenured Gen"
+                ]
+              }
+            ],
+            "baseUnit": "bytes",
+            "description": "The maximum amount of memory in bytes that can be used for memory management",
+            "measurements": [
+              {
+                "statistic": "VALUE",
+                "value": 259522560.0
+              }
+            ],
+            "name": "jvm.memory.max"
+          },
+          "jvm.gc.pause": {
+            "availableTags": [
+              {
+                "tag": "cause",
+                "values": [
+                  "Allocation Failure"
+                ]
+              },
+              {
+                "tag": "action",
+                "values": [
+                  "end of minor GC"
+                ]
+              },
+              {
+                "tag": "gc",
+                "values": [
+                  "Copy"
+                ]
+              }
+            ],
+            "baseUnit": "milliseconds",
+            "description": "Time spent in GC pause",
+            "measurements": [
+              {
+                "statistic": "COUNT",
+                "value": 14.0
+              },
+              {
+                "statistic": "TOTAL_TIME",
+                "value": 194.0
+              },
+              {
+                "statistic": "MAX",
+                "value": 5.0
+              }
+            ],
+            "name": "jvm.gc.pause"
+          },
+          "jvm.threads.live": {
+            "availableTags": [],
+            "baseUnit": "threads",
+            "description": "The current number of live threads including both daemon and non-daemon threads",
+            "measurements": [
+              {
+                "statistic": "VALUE",
+                "value": 55.0
+              }
+            ],
+            "name": "jvm.threads.live"
+          },
+          "process.cpu.usage": {
+            "availableTags": [],
+            "description": "The \"recent cpu usage\" for the Java Virtual Machine process",
+            "measurements": [
+              {
+                "statistic": "VALUE",
+                "value": 0.017948717948717947
+              }
+            ],
+            "name": "process.cpu.usage"
+          },
+          "system.cpu.usage": {
+            "availableTags": [],
+            "description": "The \"recent cpu usage\" of the system the application is running in",
+            "measurements": [
+              {
+                "statistic": "VALUE",
+                "value": 0.04903589743589744
+              }
+            ],
+            "name": "system.cpu.usage"
+          },
+          "hikaricp.connections.active": {
+            "availableTags": [
+              {
+                "tag": "pool",
+                "values": [
+                  "HikariPool-1"
+                ]
+              }
+            ],
+            "description": "Active connections",
+            "measurements": [
+              {
+                "statistic": "VALUE",
+                "value": 0.0
+              }
+            ],
+            "name": "hikaricp.connections.active"
+          },
+          "hikaricp.connections.pending": {
+            "availableTags": [
+              {
+                "tag": "pool",
+                "values": [
+                  "HikariPool-1"
+                ]
+              }
+            ],
+            "description": "Pending threads",
+            "measurements": [
+              {
+                "statistic": "VALUE",
+                "value": 0.0
+              }
+            ],
+            "name": "hikaricp.connections.pending"
+          },
+          "hikaricp.connections.max": {
+            "availableTags": [
+              {
+                "tag": "pool",
+                "values": [
+                  "HikariPool-1"
+                ]
+              }
+            ],
+            "description": "Max connections",
+            "measurements": [
+              {
+                "statistic": "VALUE",
+                "value": 10.0
+              }
+            ],
+            "name": "hikaricp.connections.max"
+          },
+          "hikaricp.connections.timeout": {
+            "availableTags": [
+              {
+                "tag": "pool",
+                "values": [
+                  "HikariPool-1"
+                ]
+              }
+            ],
+            "description": "Connection timeout total count",
+            "measurements": [
+              {
+                "statistic": "COUNT",
+                "value": 0.0
+              }
+            ],
+            "name": "hikaricp.connections.timeout"
+          },
+          "hikaricp.connections.acquire": {
+            "availableTags": [
+              {
+                "tag": "pool",
+                "values": [
+                  "HikariPool-1"
+                ]
+              }
+            ],
+            "baseUnit": "milliseconds",
+            "description": "Connection acquire time",
+            "measurements": [
+              {
+                "statistic": "COUNT",
+                "value": 2013.0
+              },
+              {
+                "statistic": "TOTAL_TIME",
+                "value": 169.589547
+              },
+              {
+                "statistic": "MAX",
+                "value": 0.324727
+              }
+            ],
+            "name": "hikaricp.connections.acquire"
+          },
+          "catalogue.localization.backfill": {
+            "unavailable": "HTTPError"
+          },
+          "catalogue.localization.content": {
+            "unavailable": "HTTPError"
+          }
+        },
+        "database": {
+          "at": "2026-10-07T09:53:46.912616+00:00",
+          "numbackends": 11,
+          "xact_commit": 7186,
+          "xact_rollback": 25,
+          "blks_read": 169716,
+          "blks_hit": 80062964,
+          "temp_files": 389,
+          "temp_bytes": 2132761604,
+          "deadlocks": 0,
+          "stats_reset": null,
+          "activity": [
+            {
+              "state": "active",
+              "wait_event_type": null,
+              "wait_event": null,
+              "count": 1
+            },
+            {
+              "state": "idle",
+              "wait_event_type": "Client",
+              "wait_event": "ClientRead",
+              "count": 10
+            }
+          ],
+          "ungranted_locks": 0
+        },
+        "containers": [
+          {
+            "BlockIO": "144MB / 0B",
+            "CPUPerc": "0.08%",
+            "Container": "51427682093f66329d55be573e70dd447da984329e01e9b94de53c2dcdaafdc3",
+            "ID": "51427682093f",
+            "MemPerc": "45.77%",
+            "MemUsage": "468.7MiB / 1GiB",
+            "Name": "videogame-platform-application-1",
+            "NetIO": "26.2MB / 32.4MB",
+            "PIDs": "62"
+          },
+          {
+            "BlockIO": "464MB / 3.48GB",
+            "CPUPerc": "0.00%",
+            "Container": "e1747ca149fcfc9d434b129b87e9ff9b874c660931c40666b345d928502fa35d",
+            "ID": "e1747ca149fc",
+            "MemPerc": "53.71%",
+            "MemUsage": "550MiB / 1GiB",
+            "Name": "videogame-platform-performance-postgres",
+            "NetIO": "4.39MB / 25.1MB",
+            "PIDs": "19"
+          }
+        ],
+        "cgroups": {
+          "application": {
+            "cpu.stat": "usage_usec 36759823\nuser_usec 31111504\nsystem_usec 5648318\nnice_usec 0\nnr_periods 3739\nnr_throttled 410\nthrottled_usec 58110800\nnr_bursts 0\nburst_usec 0",
+            "memory.current": "587784192",
+            "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0"
+          },
+          "postgres": {
+            "cpu.stat": "usage_usec 138751215\nuser_usec 129996632\nsystem_usec 8754582\nnice_usec 0\nnr_periods 4025\nnr_throttled 13\nthrottled_usec 566714\nnr_bursts 0\nburst_usec 0",
+            "memory.current": "1032658944",
+            "memory.events": "low 0\nhigh 0\nmax 2350\noom 0\noom_kill 0\noom_group_kill 0"
+          }
+        }
+      },
+      "serverEvidence": {
+        "runId": "perf-growth-20261007T094633Z-gi6fpx2u-rps-5",
+        "start": 1791366279.15685,
+        "end": 1791366780.609794,
+        "stepSeconds": 30,
+        "prometheus": {
+          "http_count": {
+            "query": "sum by (uri,status) (http_server_requests_milliseconds_count{job=\"application-otlp\"})",
+            "series": [
+              {
+                "metric": {
+                  "status": "200",
+                  "uri": "/api/v1/featured-releases"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "25"
+                  ],
+                  [
+                    1791366309.157,
+                    "25"
+                  ],
+                  [
+                    1791366339.157,
+                    "25"
+                  ],
+                  [
+                    1791366369.157,
+                    "25"
+                  ],
+                  [
+                    1791366399.157,
+                    "2"
+                  ],
+                  [
+                    1791366429.157,
+                    "2"
+                  ],
+                  [
+                    1791366459.157,
+                    "12"
+                  ],
+                  [
+                    1791366489.157,
+                    "12"
+                  ],
+                  [
+                    1791366519.157,
+                    "27"
+                  ],
+                  [
+                    1791366549.157,
+                    "27"
+                  ],
+                  [
+                    1791366579.157,
+                    "42"
+                  ],
+                  [
+                    1791366609.157,
+                    "42"
+                  ],
+                  [
+                    1791366639.157,
+                    "57"
+                  ],
+                  [
+                    1791366669.157,
+                    "57"
+                  ],
+                  [
+                    1791366699.157,
+                    "72"
+                  ],
+                  [
+                    1791366729.157,
+                    "72"
+                  ],
+                  [
+                    1791366759.157,
+                    "78"
+                  ]
+                ]
+              },
+              {
+                "metric": {
+                  "status": "200",
+                  "uri": "/api/v1/games"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "25"
+                  ],
+                  [
+                    1791366309.157,
+                    "25"
+                  ],
+                  [
+                    1791366339.157,
+                    "25"
+                  ],
+                  [
+                    1791366369.157,
+                    "25"
+                  ],
+                  [
+                    1791366399.157,
+                    "7"
+                  ],
+                  [
+                    1791366429.157,
+                    "7"
+                  ],
+                  [
+                    1791366459.157,
+                    "70"
+                  ],
+                  [
+                    1791366489.157,
+                    "70"
+                  ],
+                  [
+                    1791366519.157,
+                    "175"
+                  ],
+                  [
+                    1791366549.157,
+                    "175"
+                  ],
+                  [
+                    1791366579.157,
+                    "280"
+                  ],
+                  [
+                    1791366609.157,
+                    "280"
+                  ],
+                  [
+                    1791366639.157,
+                    "385"
+                  ],
+                  [
+                    1791366669.157,
+                    "385"
+                  ],
+                  [
+                    1791366699.157,
+                    "490"
+                  ],
+                  [
+                    1791366729.157,
+                    "490"
+                  ],
+                  [
+                    1791366759.157,
+                    "539"
+                  ]
+                ]
+              },
+              {
+                "metric": {
+                  "status": "200",
+                  "uri": "/api/v1/games/{gameId}"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "25"
+                  ],
+                  [
+                    1791366309.157,
+                    "25"
+                  ],
+                  [
+                    1791366339.157,
+                    "25"
+                  ],
+                  [
+                    1791366369.157,
+                    "25"
+                  ],
+                  [
+                    1791366399.157,
+                    "4"
+                  ],
+                  [
+                    1791366429.157,
+                    "4"
+                  ],
+                  [
+                    1791366459.157,
+                    "40"
+                  ],
+                  [
+                    1791366489.157,
+                    "40"
+                  ],
+                  [
+                    1791366519.157,
+                    "100"
+                  ],
+                  [
+                    1791366549.157,
+                    "100"
+                  ],
+                  [
+                    1791366579.157,
+                    "160"
+                  ],
+                  [
+                    1791366609.157,
+                    "160"
+                  ],
+                  [
+                    1791366639.157,
+                    "220"
+                  ],
+                  [
+                    1791366669.157,
+                    "220"
+                  ],
+                  [
+                    1791366699.157,
+                    "280"
+                  ],
+                  [
+                    1791366729.157,
+                    "280"
+                  ],
+                  [
+                    1791366759.157,
+                    "308"
+                  ]
+                ]
+              },
+              {
+                "metric": {
+                  "status": "200",
+                  "uri": "/api/v1/releases"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "50"
+                  ],
+                  [
+                    1791366309.157,
+                    "50"
+                  ],
+                  [
+                    1791366339.157,
+                    "50"
+                  ],
+                  [
+                    1791366369.157,
+                    "50"
+                  ],
+                  [
+                    1791366399.157,
+                    "13"
+                  ],
+                  [
+                    1791366429.157,
+                    "13"
+                  ],
+                  [
+                    1791366459.157,
+                    "90"
+                  ],
+                  [
+                    1791366489.157,
+                    "90"
+                  ],
+                  [
+                    1791366519.157,
+                    "210"
+                  ],
+                  [
+                    1791366549.157,
+                    "210"
+                  ],
+                  [
+                    1791366579.157,
+                    "330"
+                  ],
+                  [
+                    1791366609.157,
+                    "330"
+                  ],
+                  [
+                    1791366639.157,
+                    "450"
+                  ],
+                  [
+                    1791366669.157,
+                    "450"
+                  ],
+                  [
+                    1791366699.157,
+                    "570"
+                  ],
+                  [
+                    1791366729.157,
+                    "570"
+                  ],
+                  [
+                    1791366759.157,
+                    "623"
+                  ]
+                ]
+              }
+            ]
+          },
+          "http_time_ms": {
+            "query": "sum by (uri) (http_server_requests_milliseconds_sum{job=\"application-otlp\"})",
+            "series": [
+              {
+                "metric": {
+                  "uri": "/api/v1/featured-releases"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "449.477345"
+                  ],
+                  [
+                    1791366309.157,
+                    "449.477345"
+                  ],
+                  [
+                    1791366339.157,
+                    "449.477345"
+                  ],
+                  [
+                    1791366369.157,
+                    "449.477345"
+                  ],
+                  [
+                    1791366399.157,
+                    "183.718698"
+                  ],
+                  [
+                    1791366429.157,
+                    "183.718698"
+                  ],
+                  [
+                    1791366459.157,
+                    "365.022692"
+                  ],
+                  [
+                    1791366489.157,
+                    "365.022692"
+                  ],
+                  [
+                    1791366519.157,
+                    "606.439178"
+                  ],
+                  [
+                    1791366549.157,
+                    "606.439178"
+                  ],
+                  [
+                    1791366579.157,
+                    "832.085381"
+                  ],
+                  [
+                    1791366609.157,
+                    "832.085381"
+                  ],
+                  [
+                    1791366639.157,
+                    "1056.200521"
+                  ],
+                  [
+                    1791366669.157,
+                    "1056.200521"
+                  ],
+                  [
+                    1791366699.157,
+                    "1270.070593"
+                  ],
+                  [
+                    1791366729.157,
+                    "1270.070593"
+                  ],
+                  [
+                    1791366759.157,
+                    "1352.075391"
+                  ]
+                ]
+              },
+              {
+                "metric": {
+                  "uri": "/api/v1/games"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "570.653551"
+                  ],
+                  [
+                    1791366309.157,
+                    "570.653551"
+                  ],
+                  [
+                    1791366339.157,
+                    "570.653551"
+                  ],
+                  [
+                    1791366369.157,
+                    "570.653551"
+                  ],
+                  [
+                    1791366399.157,
+                    "1578.919638"
+                  ],
+                  [
+                    1791366429.157,
+                    "1578.919638"
+                  ],
+                  [
+                    1791366459.157,
+                    "10664.495005"
+                  ],
+                  [
+                    1791366489.157,
+                    "10664.495005"
+                  ],
+                  [
+                    1791366519.157,
+                    "25399.926346"
+                  ],
+                  [
+                    1791366549.157,
+                    "25399.926346"
+                  ],
+                  [
+                    1791366579.157,
+                    "40056.790202"
+                  ],
+                  [
+                    1791366609.157,
+                    "40056.790202"
+                  ],
+                  [
+                    1791366639.157,
+                    "54740.538771"
+                  ],
+                  [
+                    1791366669.157,
+                    "54740.538771"
+                  ],
+                  [
+                    1791366699.157,
+                    "69470.020343"
+                  ],
+                  [
+                    1791366729.157,
+                    "69470.020343"
+                  ],
+                  [
+                    1791366759.157,
+                    "76218.392665"
+                  ]
+                ]
+              },
+              {
+                "metric": {
+                  "uri": "/api/v1/games/{gameId}"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "350.026018"
+                  ],
+                  [
+                    1791366309.157,
+                    "350.026018"
+                  ],
+                  [
+                    1791366339.157,
+                    "350.026018"
+                  ],
+                  [
+                    1791366369.157,
+                    "350.026018"
+                  ],
+                  [
+                    1791366399.157,
+                    "244.019134"
+                  ],
+                  [
+                    1791366429.157,
+                    "244.019134"
+                  ],
+                  [
+                    1791366459.157,
+                    "567.027714"
+                  ],
+                  [
+                    1791366489.157,
+                    "567.027714"
+                  ],
+                  [
+                    1791366519.157,
+                    "881.70651"
+                  ],
+                  [
+                    1791366549.157,
+                    "881.70651"
+                  ],
+                  [
+                    1791366579.157,
+                    "1256.904082"
+                  ],
+                  [
+                    1791366609.157,
+                    "1256.904082"
+                  ],
+                  [
+                    1791366639.157,
+                    "1514.291156"
+                  ],
+                  [
+                    1791366669.157,
+                    "1514.291156"
+                  ],
+                  [
+                    1791366699.157,
+                    "1756.966644"
+                  ],
+                  [
+                    1791366729.157,
+                    "1756.966644"
+                  ],
+                  [
+                    1791366759.157,
+                    "1864.998543"
+                  ]
+                ]
+              },
+              {
+                "metric": {
+                  "uri": "/api/v1/releases"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "1240.28947"
+                  ],
+                  [
+                    1791366309.157,
+                    "1240.28947"
+                  ],
+                  [
+                    1791366339.157,
+                    "1240.28947"
+                  ],
+                  [
+                    1791366369.157,
+                    "1240.28947"
+                  ],
+                  [
+                    1791366399.157,
+                    "1646.310239"
+                  ],
+                  [
+                    1791366429.157,
+                    "1646.310239"
+                  ],
+                  [
+                    1791366459.157,
+                    "4719.405161"
+                  ],
+                  [
+                    1791366489.157,
+                    "4719.405161"
+                  ],
+                  [
+                    1791366519.157,
+                    "8884.326161"
+                  ],
+                  [
+                    1791366549.157,
+                    "8884.326161"
+                  ],
+                  [
+                    1791366579.157,
+                    "13071.326757"
+                  ],
+                  [
+                    1791366609.157,
+                    "13071.326757"
+                  ],
+                  [
+                    1791366639.157,
+                    "17164.70208"
+                  ],
+                  [
+                    1791366669.157,
+                    "17164.70208"
+                  ],
+                  [
+                    1791366699.157,
+                    "21024.967593"
+                  ],
+                  [
+                    1791366729.157,
+                    "21024.967593"
+                  ],
+                  [
+                    1791366759.157,
+                    "22769.40278"
+                  ]
+                ]
+              }
+            ]
+          },
+          "heap_used_bytes": {
+            "query": "sum(jvm_memory_used_bytes{job=\"application-otlp\",area=\"heap\"})",
+            "series": [
+              {
+                "metric": {},
+                "values": [
+                  [
+                    1791366279.157,
+                    "125960400"
+                  ],
+                  [
+                    1791366309.157,
+                    "127262432"
+                  ],
+                  [
+                    1791366339.157,
+                    "131776344"
+                  ],
+                  [
+                    1791366369.157,
+                    "131776344"
+                  ],
+                  [
+                    1791366399.157,
+                    "117518960"
+                  ],
+                  [
+                    1791366429.157,
+                    "117518960"
+                  ],
+                  [
+                    1791366459.157,
+                    "160310520"
+                  ],
+                  [
+                    1791366489.157,
+                    "160310520"
+                  ],
+                  [
+                    1791366519.157,
+                    "115189480"
+                  ],
+                  [
+                    1791366549.157,
+                    "115189480"
+                  ],
+                  [
+                    1791366579.157,
+                    "123068496"
+                  ],
+                  [
+                    1791366609.157,
+                    "123068496"
+                  ],
+                  [
+                    1791366639.157,
+                    "126599864"
+                  ],
+                  [
+                    1791366669.157,
+                    "126599864"
+                  ],
+                  [
+                    1791366699.157,
+                    "130804984"
+                  ],
+                  [
+                    1791366729.157,
+                    "130804984"
+                  ],
+                  [
+                    1791366759.157,
+                    "129301888"
+                  ]
+                ]
+              }
+            ]
+          },
+          "heap_max_bytes": {
+            "query": "sum(jvm_memory_max_bytes{job=\"application-otlp\",area=\"heap\"} > 0)",
+            "series": [
+              {
+                "metric": {},
+                "values": [
+                  [
+                    1791366279.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366309.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366339.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366369.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366399.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366429.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366459.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366489.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366519.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366549.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366579.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366609.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366639.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366669.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366699.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366729.157,
+                    "259522560"
+                  ],
+                  [
+                    1791366759.157,
+                    "259522560"
+                  ]
+                ]
+              }
+            ]
+          },
+          "gc_pause_ms": {
+            "query": "sum(jvm_gc_pause_milliseconds_sum{job=\"application-otlp\"})",
+            "series": [
+              {
+                "metric": {},
+                "values": [
+                  [
+                    1791366279.157,
+                    "67"
+                  ],
+                  [
+                    1791366309.157,
+                    "67"
+                  ],
+                  [
+                    1791366339.157,
+                    "67"
+                  ],
+                  [
+                    1791366369.157,
+                    "67"
+                  ],
+                  [
+                    1791366399.157,
+                    "139"
+                  ],
+                  [
+                    1791366429.157,
+                    "139"
+                  ],
+                  [
+                    1791366459.157,
+                    "149"
+                  ],
+                  [
+                    1791366489.157,
+                    "149"
+                  ],
+                  [
+                    1791366519.157,
+                    "162"
+                  ],
+                  [
+                    1791366549.157,
+                    "162"
+                  ],
+                  [
+                    1791366579.157,
+                    "170"
+                  ],
+                  [
+                    1791366609.157,
+                    "170"
+                  ],
+                  [
+                    1791366639.157,
+                    "179"
+                  ],
+                  [
+                    1791366669.157,
+                    "179"
+                  ],
+                  [
+                    1791366699.157,
+                    "189"
+                  ],
+                  [
+                    1791366729.157,
+                    "189"
+                  ],
+                  [
+                    1791366759.157,
+                    "194"
+                  ]
+                ]
+              }
+            ]
+          },
+          "gc_pause_count": {
+            "query": "sum(jvm_gc_pause_milliseconds_count{job=\"application-otlp\"})",
+            "series": [
+              {
+                "metric": {},
+                "values": [
+                  [
+                    1791366279.157,
+                    "8"
+                  ],
+                  [
+                    1791366309.157,
+                    "8"
+                  ],
+                  [
+                    1791366339.157,
+                    "8"
+                  ],
+                  [
+                    1791366369.157,
+                    "8"
+                  ],
+                  [
+                    1791366399.157,
+                    "3"
+                  ],
+                  [
+                    1791366429.157,
+                    "3"
+                  ],
+                  [
+                    1791366459.157,
+                    "4"
+                  ],
+                  [
+                    1791366489.157,
+                    "4"
+                  ],
+                  [
+                    1791366519.157,
+                    "7"
+                  ],
+                  [
+                    1791366549.157,
+                    "7"
+                  ],
+                  [
+                    1791366579.157,
+                    "9"
+                  ],
+                  [
+                    1791366609.157,
+                    "9"
+                  ],
+                  [
+                    1791366639.157,
+                    "11"
+                  ],
+                  [
+                    1791366669.157,
+                    "11"
+                  ],
+                  [
+                    1791366699.157,
+                    "13"
+                  ],
+                  [
+                    1791366729.157,
+                    "13"
+                  ],
+                  [
+                    1791366759.157,
+                    "14"
+                  ]
+                ]
+              }
+            ]
+          },
+          "threads": {
+            "query": "jvm_threads_live{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "jvm_threads_live",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "56"
+                  ],
+                  [
+                    1791366309.157,
+                    "56"
+                  ],
+                  [
+                    1791366339.157,
+                    "57"
+                  ],
+                  [
+                    1791366369.157,
+                    "57"
+                  ],
+                  [
+                    1791366399.157,
+                    "53"
+                  ],
+                  [
+                    1791366429.157,
+                    "53"
+                  ],
+                  [
+                    1791366459.157,
+                    "56"
+                  ],
+                  [
+                    1791366489.157,
+                    "56"
+                  ],
+                  [
+                    1791366519.157,
+                    "56"
+                  ],
+                  [
+                    1791366549.157,
+                    "56"
+                  ],
+                  [
+                    1791366579.157,
+                    "56"
+                  ],
+                  [
+                    1791366609.157,
+                    "56"
+                  ],
+                  [
+                    1791366639.157,
+                    "56"
+                  ],
+                  [
+                    1791366669.157,
+                    "56"
+                  ],
+                  [
+                    1791366699.157,
+                    "56"
+                  ],
+                  [
+                    1791366729.157,
+                    "56"
+                  ],
+                  [
+                    1791366759.157,
+                    "56"
+                  ]
+                ]
+              }
+            ]
+          },
+          "process_cpu": {
+            "query": "process_cpu_usage{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "process_cpu_usage",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "0.03170731707317073"
+                  ],
+                  [
+                    1791366309.157,
+                    "0.026470588235294117"
+                  ],
+                  [
+                    1791366339.157,
+                    "0.2"
+                  ],
+                  [
+                    1791366369.157,
+                    "0.2"
+                  ],
+                  [
+                    1791366399.157,
+                    "0.8453703703703703"
+                  ],
+                  [
+                    1791366429.157,
+                    "0.8453703703703703"
+                  ],
+                  [
+                    1791366459.157,
+                    "0.1292929292929293"
+                  ],
+                  [
+                    1791366489.157,
+                    "0.1292929292929293"
+                  ],
+                  [
+                    1791366519.157,
+                    "0.10566037735849057"
+                  ],
+                  [
+                    1791366549.157,
+                    "0.10566037735849057"
+                  ],
+                  [
+                    1791366579.157,
+                    "0.1"
+                  ],
+                  [
+                    1791366609.157,
+                    "0.1"
+                  ],
+                  [
+                    1791366639.157,
+                    "0.10851063829787234"
+                  ],
+                  [
+                    1791366669.157,
+                    "0.10851063829787234"
+                  ],
+                  [
+                    1791366699.157,
+                    "0.044897959183673466"
+                  ],
+                  [
+                    1791366729.157,
+                    "0.044897959183673466"
+                  ],
+                  [
+                    1791366759.157,
+                    "0.03272727272727273"
+                  ]
+                ]
+              }
+            ]
+          },
+          "system_cpu": {
+            "query": "system_cpu_usage{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "system_cpu_usage",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "0.06146048780487805"
+                  ],
+                  [
+                    1791366309.157,
+                    "0.06535470588235294"
+                  ],
+                  [
+                    1791366339.157,
+                    "0.24342"
+                  ],
+                  [
+                    1791366369.157,
+                    "0.24342"
+                  ],
+                  [
+                    1791366399.157,
+                    "0.8535026388888889"
+                  ],
+                  [
+                    1791366429.157,
+                    "0.8535026388888889"
+                  ],
+                  [
+                    1791366459.157,
+                    "0.14221757575757576"
+                  ],
+                  [
+                    1791366489.157,
+                    "0.14221757575757576"
+                  ],
+                  [
+                    1791366519.157,
+                    "0.12484301886792452"
+                  ],
+                  [
+                    1791366549.157,
+                    "0.12484301886792452"
+                  ],
+                  [
+                    1791366579.157,
+                    "0.09028222222222222"
+                  ],
+                  [
+                    1791366609.157,
+                    "0.09028222222222222"
+                  ],
+                  [
+                    1791366639.157,
+                    "0.12679574468085106"
+                  ],
+                  [
+                    1791366669.157,
+                    "0.12679574468085106"
+                  ],
+                  [
+                    1791366699.157,
+                    "0.06604448979591837"
+                  ],
+                  [
+                    1791366729.157,
+                    "0.06604448979591837"
+                  ],
+                  [
+                    1791366759.157,
+                    "0.071588"
+                  ]
+                ]
+              }
+            ]
+          },
+          "pool_active": {
+            "query": "hikaricp_connections_active{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "hikaricp_connections_active",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp",
+                  "pool": "HikariPool-1"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "0"
+                  ],
+                  [
+                    1791366309.157,
+                    "0"
+                  ],
+                  [
+                    1791366339.157,
+                    "0"
+                  ],
+                  [
+                    1791366369.157,
+                    "0"
+                  ],
+                  [
+                    1791366399.157,
+                    "0"
+                  ],
+                  [
+                    1791366429.157,
+                    "0"
+                  ],
+                  [
+                    1791366459.157,
+                    "0"
+                  ],
+                  [
+                    1791366489.157,
+                    "0"
+                  ],
+                  [
+                    1791366519.157,
+                    "0"
+                  ],
+                  [
+                    1791366549.157,
+                    "0"
+                  ],
+                  [
+                    1791366579.157,
+                    "0"
+                  ],
+                  [
+                    1791366609.157,
+                    "0"
+                  ],
+                  [
+                    1791366639.157,
+                    "0"
+                  ],
+                  [
+                    1791366669.157,
+                    "0"
+                  ],
+                  [
+                    1791366699.157,
+                    "0"
+                  ],
+                  [
+                    1791366729.157,
+                    "0"
+                  ],
+                  [
+                    1791366759.157,
+                    "0"
+                  ]
+                ]
+              }
+            ]
+          },
+          "pool_pending": {
+            "query": "hikaricp_connections_pending{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "hikaricp_connections_pending",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp",
+                  "pool": "HikariPool-1"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "0"
+                  ],
+                  [
+                    1791366309.157,
+                    "0"
+                  ],
+                  [
+                    1791366339.157,
+                    "0"
+                  ],
+                  [
+                    1791366369.157,
+                    "0"
+                  ],
+                  [
+                    1791366399.157,
+                    "0"
+                  ],
+                  [
+                    1791366429.157,
+                    "0"
+                  ],
+                  [
+                    1791366459.157,
+                    "0"
+                  ],
+                  [
+                    1791366489.157,
+                    "0"
+                  ],
+                  [
+                    1791366519.157,
+                    "0"
+                  ],
+                  [
+                    1791366549.157,
+                    "0"
+                  ],
+                  [
+                    1791366579.157,
+                    "0"
+                  ],
+                  [
+                    1791366609.157,
+                    "0"
+                  ],
+                  [
+                    1791366639.157,
+                    "0"
+                  ],
+                  [
+                    1791366669.157,
+                    "0"
+                  ],
+                  [
+                    1791366699.157,
+                    "0"
+                  ],
+                  [
+                    1791366729.157,
+                    "0"
+                  ],
+                  [
+                    1791366759.157,
+                    "0"
+                  ]
+                ]
+              }
+            ]
+          },
+          "pool_max": {
+            "query": "hikaricp_connections_max{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "hikaricp_connections_max",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp",
+                  "pool": "HikariPool-1"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "10"
+                  ],
+                  [
+                    1791366309.157,
+                    "10"
+                  ],
+                  [
+                    1791366339.157,
+                    "10"
+                  ],
+                  [
+                    1791366369.157,
+                    "10"
+                  ],
+                  [
+                    1791366399.157,
+                    "10"
+                  ],
+                  [
+                    1791366429.157,
+                    "10"
+                  ],
+                  [
+                    1791366459.157,
+                    "10"
+                  ],
+                  [
+                    1791366489.157,
+                    "10"
+                  ],
+                  [
+                    1791366519.157,
+                    "10"
+                  ],
+                  [
+                    1791366549.157,
+                    "10"
+                  ],
+                  [
+                    1791366579.157,
+                    "10"
+                  ],
+                  [
+                    1791366609.157,
+                    "10"
+                  ],
+                  [
+                    1791366639.157,
+                    "10"
+                  ],
+                  [
+                    1791366669.157,
+                    "10"
+                  ],
+                  [
+                    1791366699.157,
+                    "10"
+                  ],
+                  [
+                    1791366729.157,
+                    "10"
+                  ],
+                  [
+                    1791366759.157,
+                    "10"
+                  ]
+                ]
+              }
+            ]
+          },
+          "pool_timeouts": {
+            "query": "hikaricp_connections_timeout_total{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "hikaricp_connections_timeout_total",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp",
+                  "pool": "HikariPool-1"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "0"
+                  ],
+                  [
+                    1791366309.157,
+                    "0"
+                  ],
+                  [
+                    1791366339.157,
+                    "0"
+                  ],
+                  [
+                    1791366369.157,
+                    "0"
+                  ],
+                  [
+                    1791366399.157,
+                    "0"
+                  ],
+                  [
+                    1791366429.157,
+                    "0"
+                  ],
+                  [
+                    1791366459.157,
+                    "0"
+                  ],
+                  [
+                    1791366489.157,
+                    "0"
+                  ],
+                  [
+                    1791366519.157,
+                    "0"
+                  ],
+                  [
+                    1791366549.157,
+                    "0"
+                  ],
+                  [
+                    1791366579.157,
+                    "0"
+                  ],
+                  [
+                    1791366609.157,
+                    "0"
+                  ],
+                  [
+                    1791366639.157,
+                    "0"
+                  ],
+                  [
+                    1791366669.157,
+                    "0"
+                  ],
+                  [
+                    1791366699.157,
+                    "0"
+                  ],
+                  [
+                    1791366729.157,
+                    "0"
+                  ],
+                  [
+                    1791366759.157,
+                    "0"
+                  ]
+                ]
+              }
+            ]
+          },
+          "pool_acquire_count": {
+            "query": "hikaricp_connections_acquire_milliseconds_count{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "hikaricp_connections_acquire_milliseconds_count",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp",
+                  "pool": "HikariPool-1"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "2620"
+                  ],
+                  [
+                    1791366309.157,
+                    "2638"
+                  ],
+                  [
+                    1791366339.157,
+                    "2656"
+                  ],
+                  [
+                    1791366369.157,
+                    "2656"
+                  ],
+                  [
+                    1791366399.157,
+                    "43"
+                  ],
+                  [
+                    1791366429.157,
+                    "43"
+                  ],
+                  [
+                    1791366459.157,
+                    "286"
+                  ],
+                  [
+                    1791366489.157,
+                    "286"
+                  ],
+                  [
+                    1791366519.157,
+                    "664"
+                  ],
+                  [
+                    1791366549.157,
+                    "664"
+                  ],
+                  [
+                    1791366579.157,
+                    "1042"
+                  ],
+                  [
+                    1791366609.157,
+                    "1042"
+                  ],
+                  [
+                    1791366639.157,
+                    "1420"
+                  ],
+                  [
+                    1791366669.157,
+                    "1420"
+                  ],
+                  [
+                    1791366699.157,
+                    "1798"
+                  ],
+                  [
+                    1791366729.157,
+                    "1798"
+                  ],
+                  [
+                    1791366759.157,
+                    "1980"
+                  ]
+                ]
+              }
+            ]
+          },
+          "pool_usage_ms": {
+            "query": "hikaricp_connections_usage_milliseconds_sum{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "hikaricp_connections_usage_milliseconds_sum",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp",
+                  "pool": "HikariPool-1"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "1322"
+                  ],
+                  [
+                    1791366309.157,
+                    "1322"
+                  ],
+                  [
+                    1791366339.157,
+                    "1322"
+                  ],
+                  [
+                    1791366369.157,
+                    "1322"
+                  ],
+                  [
+                    1791366399.157,
+                    "2516"
+                  ],
+                  [
+                    1791366429.157,
+                    "2516"
+                  ],
+                  [
+                    1791366459.157,
+                    "13988"
+                  ],
+                  [
+                    1791366489.157,
+                    "13988"
+                  ],
+                  [
+                    1791366519.157,
+                    "32441"
+                  ],
+                  [
+                    1791366549.157,
+                    "32441"
+                  ],
+                  [
+                    1791366579.157,
+                    "51004"
+                  ],
+                  [
+                    1791366609.157,
+                    "51004"
+                  ],
+                  [
+                    1791366639.157,
+                    "69499"
+                  ],
+                  [
+                    1791366669.157,
+                    "69499"
+                  ],
+                  [
+                    1791366699.157,
+                    "87864"
+                  ],
+                  [
+                    1791366729.157,
+                    "87864"
+                  ],
+                  [
+                    1791366759.157,
+                    "96267"
+                  ]
+                ]
+              }
+            ]
+          },
+          "pool_usage_count": {
+            "query": "hikaricp_connections_usage_milliseconds_count{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "hikaricp_connections_usage_milliseconds_count",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp",
+                  "pool": "HikariPool-1"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "2620"
+                  ],
+                  [
+                    1791366309.157,
+                    "2638"
+                  ],
+                  [
+                    1791366339.157,
+                    "2656"
+                  ],
+                  [
+                    1791366369.157,
+                    "2656"
+                  ],
+                  [
+                    1791366399.157,
+                    "43"
+                  ],
+                  [
+                    1791366429.157,
+                    "43"
+                  ],
+                  [
+                    1791366459.157,
+                    "286"
+                  ],
+                  [
+                    1791366489.157,
+                    "286"
+                  ],
+                  [
+                    1791366519.157,
+                    "664"
+                  ],
+                  [
+                    1791366549.157,
+                    "664"
+                  ],
+                  [
+                    1791366579.157,
+                    "1042"
+                  ],
+                  [
+                    1791366609.157,
+                    "1042"
+                  ],
+                  [
+                    1791366639.157,
+                    "1420"
+                  ],
+                  [
+                    1791366669.157,
+                    "1420"
+                  ],
+                  [
+                    1791366699.157,
+                    "1798"
+                  ],
+                  [
+                    1791366729.157,
+                    "1798"
+                  ],
+                  [
+                    1791366759.157,
+                    "1980"
+                  ]
+                ]
+              }
+            ]
+          },
+          "pool_acquire_ms": {
+            "query": "hikaricp_connections_acquire_milliseconds_sum{job=\"application-otlp\"}",
+            "series": [
+              {
+                "metric": {
+                  "__name__": "hikaricp_connections_acquire_milliseconds_sum",
+                  "instance": "telemetry:9464",
+                  "job": "application-otlp",
+                  "pool": "HikariPool-1"
+                },
+                "values": [
+                  [
+                    1791366279.157,
+                    "286.217779"
+                  ],
+                  [
+                    1791366309.157,
+                    "287.669097"
+                  ],
+                  [
+                    1791366339.157,
+                    "288.99242"
+                  ],
+                  [
+                    1791366369.157,
+                    "288.99242"
+                  ],
+                  [
+                    1791366399.157,
+                    "2.264892"
+                  ],
+                  [
+                    1791366429.157,
+                    "2.264892"
+                  ],
+                  [
+                    1791366459.157,
+                    "61.555263"
+                  ],
+                  [
+                    1791366489.157,
+                    "61.555263"
+                  ],
+                  [
+                    1791366519.157,
+                    "74.46027"
+                  ],
+                  [
+                    1791366549.157,
+                    "74.46027"
+                  ],
+                  [
+                    1791366579.157,
+                    "139.126558"
+                  ],
+                  [
+                    1791366609.157,
+                    "139.126558"
+                  ],
+                  [
+                    1791366639.157,
+                    "150.302466"
+                  ],
+                  [
+                    1791366669.157,
+                    "150.302466"
+                  ],
+                  [
+                    1791366699.157,
+                    "162.092377"
+                  ],
+                  [
+                    1791366729.157,
+                    "162.092377"
+                  ],
+                  [
+                    1791366759.157,
+                    "167.21297"
+                  ]
+                ]
+              }
+            ]
+          }
+        },
+        "logs": {
+          "query": "{environment=\"local\",service_name=\"application\"} |= \"perf-growth-20261007T094633Z-gi6fpx2u-rps-5\" |= \"HTTP request completed\"",
+          "completions": 1500,
+          "byRoute": {
+            "/api/v1/releases": 600,
+            "/api/v1/featured-releases": 75,
+            "/api/v1/games": 525,
+            "/api/v1/games/{gameId}": 300
+          },
+          "byStatus": {
+            "200": 1500
+          },
+          "retainedEntryCount": 1500,
+          "failureExamples": []
+        }
+      },
+      "logsMatchHttpCount": true,
+      "capacityInterpretationValid": false,
+      "capacityInterpretationLimitation": "Clock backsteps: do not interpret capacity or aligned time-series rates"
+    }
+  ],
+  "control": {
+    "synchronization_runs": 0,
+    "content_translations": 0,
+    "summary_translations": 0,
+    "readinessAfterLoad": "UP",
+    "afterProfile": {
+      "counts": {
+        "games": 50000,
+        "ratings": 500000,
+        "regions": 5,
+        "releases": 200000,
+        "platforms": 10,
+        "rated_games": 40000,
+        "visible_games": 50000,
+        "approved_aliases": 10000,
+        "visible_releases": 200000,
+        "current_revisions": 1,
+        "games_with_genres": 50000,
+        "users_with_ratings": 4020
+      },
+      "profile": "synthetic",
+      "storage": {
+        "database_bytes": 523482815,
+        "catalogue_and_ratings_bytes": 514187264
+      },
+      "database": "videogame_performance",
+      "release_dates": {
+        "latest_period_end": "2028-12-31",
+        "last_synchronized_at": "2026-10-07T00:00:00+00:00",
+        "earliest_period_start": "2022-10-09"
+      },
+      "top_20_regions": {
+        "japan": 1500,
+        "europe": 500,
+        "unknown": 5000,
+        "worldwide": 192000,
+        "north-america": 1000
+      },
+      "measured_at_utc": "2026-10-07T09:53:49.762778+00:00",
+      "ratings_per_user": {
+        ">1000": 20,
+        "11..100": 4000
+      },
+      "top_20_platforms": {
+        "ios": 8800,
+        "mac": 14650,
+        "linux": 12100,
+        "ps4-1": 5150,
+        "switch": 14700,
+        "android": 5950,
+        "windows-pc": 100200,
+        "xbox-series": 14350,
+        "playstation-5": 13550,
+        "nintendo-switch-2": 10550
+      },
+      "releases_per_game": {
+        "1": 12500,
+        "2..5": 25000,
+        "6..10": 12500
+      },
+      "postgresql_version": "18.4 (Debian 18.4-1.pgdg12+1)",
+      "release_source_kind": {
+        "product_curated": 200000
+      },
+      "evaluation_date_madrid": "2026-10-07",
+      "release_date_precision": {
+        "day": 173000,
+        "year": 12000,
+        "month": 3000,
+        "quarter": 9000,
+        "unknown": 3000
+      },
+      "persisted_release_evidence": {
+        "delayed": 11000,
+        "announced": 184500,
+        "cancelled": 4500
+      }
+    }
+  },
+  "restoration": {
+    "readiness": "UP",
+    "profile": {
+      "counts": {
+        "games": 20241,
+        "ratings": 7,
+        "regions": 11,
+        "releases": 36090,
+        "platforms": 73,
+        "rated_games": 7,
+        "visible_games": 20241,
+        "approved_aliases": 0,
+        "visible_releases": 36090,
+        "current_revisions": 1,
+        "games_with_genres": 12217,
+        "users_with_ratings": 1
+      },
+      "profile": "current",
+      "storage": {
+        "database_bytes": 120764095,
+        "catalogue_and_ratings_bytes": 110952448
+      },
+      "database": "videogame_platform",
+      "release_dates": {
+        "latest_period_end": "2029-03-31",
+        "last_synchronized_at": "2026-10-05T05:11:06.542736+00:00",
+        "earliest_period_start": "1981-01-01"
+      },
+      "top_20_regions": {
+        "asia": 63,
+        "china": 31,
+        "japan": 480,
+        "korea": 20,
+        "brazil": 20,
+        "europe": 338,
+        "australia": 48,
+        "worldwide": 34601,
+        "new-zealand": 10,
+        "north-america": 479
+      },
+      "measured_at_utc": "2026-10-07T09:58:14.410613+00:00",
+      "ratings_per_user": {
+        "1..10": 1
+      },
+      "top_20_platforms": {
+        "ios": 634,
+        "mac": 2980,
+        "ps3": 29,
+        "linux": 2559,
+        "ps4-1": 1046,
+        "psvr2": 48,
+        "arcade": 22,
+        "psvita": 15,
+        "switch": 3010,
+        "android": 791,
+        "browser": 814,
+        "xboxone": 573,
+        "playdate": 101,
+        "steam-vr": 241,
+        "windows-pc": 19022,
+        "xbox-series": 1325,
+        "meta-quest-2": 109,
+        "meta-quest-3": 75,
+        "playstation-5": 1969,
+        "nintendo-switch-2": 508
+      },
+      "releases_per_game": {
+        "1": 12773,
+        "2..5": 6782,
+        "6..10": 624,
+        "11..25": 62
+      },
+      "postgresql_version": "18.4 (Debian 18.4-1.pgdg12+1)",
+      "release_source_kind": {
+        "external_provider": 36090
+      },
+      "evaluation_date_madrid": "2026-10-07",
+      "release_date_precision": {
+        "day": 30666,
+        "year": 2740,
+        "month": 440,
+        "quarter": 1752,
+        "unknown": 492
+      },
+      "persisted_release_evidence": {
+        "announced": 36046,
+        "cancelled": 44
+      }
+    }
+  },
+  "notExecutedRates": [
+    10,
+    25,
+    50
+  ]
+}

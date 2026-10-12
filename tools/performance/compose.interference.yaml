@@ -1,0 +1,10 @@
+# Opt-in fixture acquisition only. Apply after compose.growth.yaml/localization.
+services:
+  application:
+    environment:
+      IGDB_CLIENT_ID: fixture-only
+      IGDB_CLIENT_SECRET: fixture-only
+      IGDB_TOKEN_URI: http://videogame-platform-performance-provider:8093/oauth2/token
+      IGDB_API_BASE_URI: http://videogame-platform-performance-provider:8093/v4/
+      CATALOGUE_SYNC_SCHEDULING_ENABLED: "false"
+      CATALOGUE_TRANSLATION_ENDPOINT: http://catalogue-localizer:8092/translate

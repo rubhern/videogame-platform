@@ -1,0 +1,1666 @@
+{
+  "runId": "perf-current-20261007T072856Z-_4m0rh39",
+  "start": 1791358021.58623,
+  "end": 1791358351.614597,
+  "stepSeconds": 30,
+  "prometheus": {
+    "http_count": {
+      "query": "sum by (uri,status) (http_server_requests_milliseconds_count{job=\"application-otlp\"})",
+      "series": [
+        {
+          "metric": {
+            "status": "200",
+            "uri": "/api/v1/featured-releases"
+          },
+          "values": [
+            [
+              1791358201.586,
+              "8"
+            ],
+            [
+              1791358231.586,
+              "8"
+            ],
+            [
+              1791358261.586,
+              "20"
+            ],
+            [
+              1791358291.586,
+              "20"
+            ],
+            [
+              1791358321.586,
+              "25"
+            ],
+            [
+              1791358351.586,
+              "25"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "status": "200",
+            "uri": "/api/v1/games"
+          },
+          "values": [
+            [
+              1791358201.586,
+              "8"
+            ],
+            [
+              1791358231.586,
+              "8"
+            ],
+            [
+              1791358261.586,
+              "20"
+            ],
+            [
+              1791358291.586,
+              "20"
+            ],
+            [
+              1791358321.586,
+              "25"
+            ],
+            [
+              1791358351.586,
+              "25"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "status": "200",
+            "uri": "/api/v1/games/{gameId}"
+          },
+          "values": [
+            [
+              1791358201.586,
+              "7"
+            ],
+            [
+              1791358231.586,
+              "7"
+            ],
+            [
+              1791358261.586,
+              "19"
+            ],
+            [
+              1791358291.586,
+              "19"
+            ],
+            [
+              1791358321.586,
+              "25"
+            ],
+            [
+              1791358351.586,
+              "25"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "status": "200",
+            "uri": "/api/v1/releases"
+          },
+          "values": [
+            [
+              1791358201.586,
+              "16"
+            ],
+            [
+              1791358231.586,
+              "16"
+            ],
+            [
+              1791358261.586,
+              "40"
+            ],
+            [
+              1791358291.586,
+              "40"
+            ],
+            [
+              1791358321.586,
+              "50"
+            ],
+            [
+              1791358351.586,
+              "50"
+            ]
+          ]
+        }
+      ]
+    },
+    "http_time_ms": {
+      "query": "sum by (uri) (http_server_requests_milliseconds_sum{job=\"application-otlp\"})",
+      "series": [
+        {
+          "metric": {
+            "uri": "/api/v1/featured-releases"
+          },
+          "values": [
+            [
+              1791358201.586,
+              "268.820694"
+            ],
+            [
+              1791358231.586,
+              "268.820694"
+            ],
+            [
+              1791358261.586,
+              "402.942798"
+            ],
+            [
+              1791358291.586,
+              "402.942798"
+            ],
+            [
+              1791358321.586,
+              "449.477345"
+            ],
+            [
+              1791358351.586,
+              "449.477345"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "uri": "/api/v1/games"
+          },
+          "values": [
+            [
+              1791358201.586,
+              "441.141387"
+            ],
+            [
+              1791358231.586,
+              "441.141387"
+            ],
+            [
+              1791358261.586,
+              "527.601935"
+            ],
+            [
+              1791358291.586,
+              "527.601935"
+            ],
+            [
+              1791358321.586,
+              "570.653551"
+            ],
+            [
+              1791358351.586,
+              "570.653551"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "uri": "/api/v1/games/{gameId}"
+          },
+          "values": [
+            [
+              1791358201.586,
+              "228.960778"
+            ],
+            [
+              1791358231.586,
+              "228.960778"
+            ],
+            [
+              1791358261.586,
+              "312.821042"
+            ],
+            [
+              1791358291.586,
+              "312.821042"
+            ],
+            [
+              1791358321.586,
+              "350.026018"
+            ],
+            [
+              1791358351.586,
+              "350.026018"
+            ]
+          ]
+        },
+        {
+          "metric": {
+            "uri": "/api/v1/releases"
+          },
+          "values": [
+            [
+              1791358201.586,
+              "672.368082"
+            ],
+            [
+              1791358231.586,
+              "672.368082"
+            ],
+            [
+              1791358261.586,
+              "1070.669433"
+            ],
+            [
+              1791358291.586,
+              "1070.669433"
+            ],
+            [
+              1791358321.586,
+              "1240.28947"
+            ],
+            [
+              1791358351.586,
+              "1240.28947"
+            ]
+          ]
+        }
+      ]
+    },
+    "heap_used_bytes": {
+      "query": "sum(jvm_memory_used_bytes{job=\"application-otlp\",area=\"heap\"})",
+      "series": [
+        {
+          "metric": {},
+          "values": [
+            [
+              1791358141.586,
+              "115965368"
+            ],
+            [
+              1791358171.586,
+              "115965368"
+            ],
+            [
+              1791358201.586,
+              "132304096"
+            ],
+            [
+              1791358231.586,
+              "132304096"
+            ],
+            [
+              1791358261.586,
+              "159388608"
+            ],
+            [
+              1791358291.586,
+              "159388608"
+            ],
+            [
+              1791358321.586,
+              "116726568"
+            ],
+            [
+              1791358351.586,
+              "116726568"
+            ]
+          ]
+        }
+      ]
+    },
+    "heap_max_bytes": {
+      "query": "sum(jvm_memory_max_bytes{job=\"application-otlp\",area=\"heap\"} > 0)",
+      "series": [
+        {
+          "metric": {},
+          "values": [
+            [
+              1791358141.586,
+              "259522560"
+            ],
+            [
+              1791358171.586,
+              "259522560"
+            ],
+            [
+              1791358201.586,
+              "259522560"
+            ],
+            [
+              1791358231.586,
+              "259522560"
+            ],
+            [
+              1791358261.586,
+              "259522560"
+            ],
+            [
+              1791358291.586,
+              "259522560"
+            ],
+            [
+              1791358321.586,
+              "259522560"
+            ],
+            [
+              1791358351.586,
+              "259522560"
+            ]
+          ]
+        }
+      ]
+    },
+    "gc_pause_ms": {
+      "query": "sum(jvm_gc_pause_milliseconds_sum{job=\"application-otlp\"})",
+      "series": [
+        {
+          "metric": {},
+          "values": [
+            [
+              1791358141.586,
+              "25"
+            ],
+            [
+              1791358171.586,
+              "25"
+            ],
+            [
+              1791358201.586,
+              "36"
+            ],
+            [
+              1791358231.586,
+              "36"
+            ],
+            [
+              1791358261.586,
+              "36"
+            ],
+            [
+              1791358291.586,
+              "36"
+            ],
+            [
+              1791358321.586,
+              "45"
+            ],
+            [
+              1791358351.586,
+              "45"
+            ]
+          ]
+        }
+      ]
+    },
+    "gc_pause_count": {
+      "query": "sum(jvm_gc_pause_milliseconds_count{job=\"application-otlp\"})",
+      "series": [
+        {
+          "metric": {},
+          "values": [
+            [
+              1791358141.586,
+              "2"
+            ],
+            [
+              1791358171.586,
+              "2"
+            ],
+            [
+              1791358201.586,
+              "3"
+            ],
+            [
+              1791358231.586,
+              "3"
+            ],
+            [
+              1791358261.586,
+              "3"
+            ],
+            [
+              1791358291.586,
+              "3"
+            ],
+            [
+              1791358321.586,
+              "4"
+            ],
+            [
+              1791358351.586,
+              "4"
+            ]
+          ]
+        }
+      ]
+    },
+    "threads": {
+      "query": "jvm_threads_live{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "jvm_threads_live",
+            "instance": "telemetry:9464",
+            "job": "application-otlp"
+          },
+          "values": [
+            [
+              1791358141.586,
+              "53"
+            ],
+            [
+              1791358171.586,
+              "53"
+            ],
+            [
+              1791358201.586,
+              "56"
+            ],
+            [
+              1791358231.586,
+              "56"
+            ],
+            [
+              1791358261.586,
+              "56"
+            ],
+            [
+              1791358291.586,
+              "56"
+            ],
+            [
+              1791358321.586,
+              "56"
+            ],
+            [
+              1791358351.586,
+              "56"
+            ]
+          ]
+        }
+      ]
+    },
+    "process_cpu": {
+      "query": "process_cpu_usage{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "process_cpu_usage",
+            "instance": "telemetry:9464",
+            "job": "application-otlp"
+          },
+          "values": [
+            [
+              1791358141.586,
+              "0.8232445520581114"
+            ],
+            [
+              1791358171.586,
+              "0.8232445520581114"
+            ],
+            [
+              1791358201.586,
+              "0.20746268656716418"
+            ],
+            [
+              1791358231.586,
+              "0.20746268656716418"
+            ],
+            [
+              1791358261.586,
+              "0.12763819095477386"
+            ],
+            [
+              1791358291.586,
+              "0.12763819095477386"
+            ],
+            [
+              1791358321.586,
+              "0.059574468085106386"
+            ],
+            [
+              1791358351.586,
+              "0.059574468085106386"
+            ]
+          ]
+        }
+      ]
+    },
+    "system_cpu": {
+      "query": "system_cpu_usage{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "system_cpu_usage",
+            "instance": "telemetry:9464",
+            "job": "application-otlp"
+          },
+          "values": [
+            [
+              1791358141.586,
+              "0.8347243689320388"
+            ],
+            [
+              1791358171.586,
+              "0.8347243689320388"
+            ],
+            [
+              1791358201.586,
+              "0.21343582089552238"
+            ],
+            [
+              1791358231.586,
+              "0.21343582089552238"
+            ],
+            [
+              1791358261.586,
+              "0.14029075376884423"
+            ],
+            [
+              1791358291.586,
+              "0.14029075376884423"
+            ],
+            [
+              1791358321.586,
+              "0.08039695652173913"
+            ],
+            [
+              1791358351.586,
+              "0.08039695652173913"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_active": {
+      "query": "hikaricp_connections_active{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_active",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791358141.586,
+              "0"
+            ],
+            [
+              1791358171.586,
+              "0"
+            ],
+            [
+              1791358201.586,
+              "0"
+            ],
+            [
+              1791358231.586,
+              "0"
+            ],
+            [
+              1791358261.586,
+              "0"
+            ],
+            [
+              1791358291.586,
+              "0"
+            ],
+            [
+              1791358321.586,
+              "0"
+            ],
+            [
+              1791358351.586,
+              "0"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_pending": {
+      "query": "hikaricp_connections_pending{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_pending",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791358141.586,
+              "0"
+            ],
+            [
+              1791358171.586,
+              "0"
+            ],
+            [
+              1791358201.586,
+              "0"
+            ],
+            [
+              1791358231.586,
+              "0"
+            ],
+            [
+              1791358261.586,
+              "0"
+            ],
+            [
+              1791358291.586,
+              "0"
+            ],
+            [
+              1791358321.586,
+              "0"
+            ],
+            [
+              1791358351.586,
+              "0"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_max": {
+      "query": "hikaricp_connections_max{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_max",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791358141.586,
+              "10"
+            ],
+            [
+              1791358171.586,
+              "10"
+            ],
+            [
+              1791358201.586,
+              "10"
+            ],
+            [
+              1791358231.586,
+              "10"
+            ],
+            [
+              1791358261.586,
+              "10"
+            ],
+            [
+              1791358291.586,
+              "10"
+            ],
+            [
+              1791358321.586,
+              "10"
+            ],
+            [
+              1791358351.586,
+              "10"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_timeouts": {
+      "query": "hikaricp_connections_timeout_total{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_timeout_total",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791358141.586,
+              "0"
+            ],
+            [
+              1791358171.586,
+              "0"
+            ],
+            [
+              1791358201.586,
+              "0"
+            ],
+            [
+              1791358231.586,
+              "0"
+            ],
+            [
+              1791358261.586,
+              "0"
+            ],
+            [
+              1791358291.586,
+              "0"
+            ],
+            [
+              1791358321.586,
+              "0"
+            ],
+            [
+              1791358351.586,
+              "0"
+            ]
+          ]
+        }
+      ]
+    },
+    "pool_acquire_ms": {
+      "query": "hikaricp_connections_acquire_milliseconds_sum{job=\"application-otlp\"}",
+      "series": [
+        {
+          "metric": {
+            "__name__": "hikaricp_connections_acquire_milliseconds_sum",
+            "instance": "telemetry:9464",
+            "job": "application-otlp",
+            "pool": "HikariPool-1"
+          },
+          "values": [
+            [
+              1791358141.586,
+              "72.809935"
+            ],
+            [
+              1791358171.586,
+              "72.809935"
+            ],
+            [
+              1791358201.586,
+              "85.336205"
+            ],
+            [
+              1791358231.586,
+              "85.336205"
+            ],
+            [
+              1791358261.586,
+              "103.778043"
+            ],
+            [
+              1791358291.586,
+              "103.778043"
+            ],
+            [
+              1791358321.586,
+              "111.550906"
+            ],
+            [
+              1791358351.586,
+              "111.550906"
+            ]
+          ]
+        }
+      ]
+    }
+  },
+  "logs": {
+    "query": "{environment=\"local\",service_name=\"application\"} |= \"perf-current-20261007T072856Z-_4m0rh39\"",
+    "completions": 120,
+    "byRoute": {
+      "/api/v1/releases": 48,
+      "/api/v1/featured-releases": 24,
+      "/api/v1/games": 24,
+      "/api/v1/games/{gameId}": 24
+    },
+    "byStatus": {
+      "200": 120
+    },
+    "entries": [
+      {
+        "at": "1791358141891197000",
+        "iteration": 0,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 22
+      },
+      {
+        "at": "1791358142888119000",
+        "iteration": 1,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 20
+      },
+      {
+        "at": "1791358143880417000",
+        "iteration": 2,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 12
+      },
+      {
+        "at": "1791358144876856000",
+        "iteration": 3,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358145877992000",
+        "iteration": 4,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358146887281000",
+        "iteration": 5,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 19
+      },
+      {
+        "at": "1791358147888858000",
+        "iteration": 6,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 20
+      },
+      {
+        "at": "1791358148882400000",
+        "iteration": 7,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 13
+      },
+      {
+        "at": "1791358149876987000",
+        "iteration": 8,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358150877854000",
+        "iteration": 9,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358151890416000",
+        "iteration": 10,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 22
+      },
+      {
+        "at": "1791358152887891000",
+        "iteration": 11,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 20
+      },
+      {
+        "at": "1791358153881417000",
+        "iteration": 12,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 12
+      },
+      {
+        "at": "1791358154877703000",
+        "iteration": 13,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358155877782000",
+        "iteration": 14,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358156885921000",
+        "iteration": 15,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 18
+      },
+      {
+        "at": "1791358157887696000",
+        "iteration": 16,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 19
+      },
+      {
+        "at": "1791358158761039000",
+        "iteration": 17,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 12
+      },
+      {
+        "at": "1791358159755853000",
+        "iteration": 18,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358160757148000",
+        "iteration": 19,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358161769046000",
+        "iteration": 20,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 20
+      },
+      {
+        "at": "1791358162765705000",
+        "iteration": 21,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 17
+      },
+      {
+        "at": "1791358163759730000",
+        "iteration": 22,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 11
+      },
+      {
+        "at": "1791358164755642000",
+        "iteration": 23,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791358165757311000",
+        "iteration": 24,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358166768227000",
+        "iteration": 25,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 19
+      },
+      {
+        "at": "1791358167767027000",
+        "iteration": 26,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 18
+      },
+      {
+        "at": "1791358168760603000",
+        "iteration": 27,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 11
+      },
+      {
+        "at": "1791358169755486000",
+        "iteration": 28,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791358170756210000",
+        "iteration": 29,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791358171764607000",
+        "iteration": 30,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 17
+      },
+      {
+        "at": "1791358172762493000",
+        "iteration": 31,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358173758700000",
+        "iteration": 32,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 11
+      },
+      {
+        "at": "1791358174755985000",
+        "iteration": 33,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791358175756316000",
+        "iteration": 34,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358176764038000",
+        "iteration": 35,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358177765540000",
+        "iteration": 36,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 17
+      },
+      {
+        "at": "1791358178759487000",
+        "iteration": 37,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 11
+      },
+      {
+        "at": "1791358179756225000",
+        "iteration": 38,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791358180755986000",
+        "iteration": 39,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791358181764948000",
+        "iteration": 40,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358182766537000",
+        "iteration": 41,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 17
+      },
+      {
+        "at": "1791358183759765000",
+        "iteration": 42,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 11
+      },
+      {
+        "at": "1791358184756290000",
+        "iteration": 43,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358185755085000",
+        "iteration": 44,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791358186767345000",
+        "iteration": 45,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 19
+      },
+      {
+        "at": "1791358187765127000",
+        "iteration": 46,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358188615941000",
+        "iteration": 47,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 11
+      },
+      {
+        "at": "1791358189611073000",
+        "iteration": 48,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 7
+      },
+      {
+        "at": "1791358190610567000",
+        "iteration": 49,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358191619783000",
+        "iteration": 50,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358192619410000",
+        "iteration": 51,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358193613440000",
+        "iteration": 52,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358194609752000",
+        "iteration": 53,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358195610128000",
+        "iteration": 54,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358196620713000",
+        "iteration": 55,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358197619739000",
+        "iteration": 56,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358198613837000",
+        "iteration": 57,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 10
+      },
+      {
+        "at": "1791358199611142000",
+        "iteration": 58,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358200609681000",
+        "iteration": 59,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358201618312000",
+        "iteration": 60,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791358202620089000",
+        "iteration": 61,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358203612826000",
+        "iteration": 62,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358204609657000",
+        "iteration": 63,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358205610212000",
+        "iteration": 64,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358206621561000",
+        "iteration": 65,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 17
+      },
+      {
+        "at": "1791358207620265000",
+        "iteration": 66,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358208626164000",
+        "iteration": 67,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 18
+      },
+      {
+        "at": "1791358209610342000",
+        "iteration": 68,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358210610384000",
+        "iteration": 69,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358211619461000",
+        "iteration": 70,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358212619357000",
+        "iteration": 71,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358213613511000",
+        "iteration": 72,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358214610240000",
+        "iteration": 73,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358215609458000",
+        "iteration": 74,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358216619961000",
+        "iteration": 75,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358217618120000",
+        "iteration": 76,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791358218481903000",
+        "iteration": 77,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 10
+      },
+      {
+        "at": "1791358219477987000",
+        "iteration": 78,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358220477057000",
+        "iteration": 79,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358221486922000",
+        "iteration": 80,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358222487898000",
+        "iteration": 81,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358223480494000",
+        "iteration": 82,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358224477997000",
+        "iteration": 83,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358225476944000",
+        "iteration": 84,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358226487565000",
+        "iteration": 85,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358227486713000",
+        "iteration": 86,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358228480291000",
+        "iteration": 87,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358229476928000",
+        "iteration": 88,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358230477631000",
+        "iteration": 89,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358231484633000",
+        "iteration": 90,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 13
+      },
+      {
+        "at": "1791358232485903000",
+        "iteration": 91,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791358233479583000",
+        "iteration": 92,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358234477174000",
+        "iteration": 93,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358235477309000",
+        "iteration": 94,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358236488201000",
+        "iteration": 95,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 16
+      },
+      {
+        "at": "1791358237486816000",
+        "iteration": 96,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358238480547000",
+        "iteration": 97,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358239477892000",
+        "iteration": 98,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358240477343000",
+        "iteration": 99,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358241487585000",
+        "iteration": 100,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358242487672000",
+        "iteration": 101,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 15
+      },
+      {
+        "at": "1791358243480176000",
+        "iteration": 102,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358244490166000",
+        "iteration": 103,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 18
+      },
+      {
+        "at": "1791358245477491000",
+        "iteration": 104,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 6
+      },
+      {
+        "at": "1791358246488166000",
+        "iteration": 105,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 17
+      },
+      {
+        "at": "1791358247499341000",
+        "iteration": 106,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 27
+      },
+      {
+        "at": "1791358248363569000",
+        "iteration": 107,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358249360739000",
+        "iteration": 108,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358250360277000",
+        "iteration": 109,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358251369259000",
+        "iteration": 110,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791358252369072000",
+        "iteration": 111,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791358253363389000",
+        "iteration": 112,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 9
+      },
+      {
+        "at": "1791358254360400000",
+        "iteration": 113,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358255360199000",
+        "iteration": 114,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358256369358000",
+        "iteration": 115,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 14
+      },
+      {
+        "at": "1791358257368387000",
+        "iteration": 116,
+        "route": "/api/v1/releases",
+        "status": 200,
+        "durationMs": 13
+      },
+      {
+        "at": "1791358258364088000",
+        "iteration": 117,
+        "route": "/api/v1/featured-releases",
+        "status": 200,
+        "durationMs": 8
+      },
+      {
+        "at": "1791358259359760000",
+        "iteration": 118,
+        "route": "/api/v1/games",
+        "status": 200,
+        "durationMs": 5
+      },
+      {
+        "at": "1791358260360314000",
+        "iteration": 119,
+        "route": "/api/v1/games/{gameId}",
+        "status": 200,
+        "durationMs": 5
+      }
+    ]
+  }
+}

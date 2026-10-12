@@ -1,0 +1,11 @@
+# Opt-in experiment override for the existing local application; no new service.
+# First connect dataset.sh's verified disposable PostgreSQL to the local network.
+services:
+  application:
+    environment:
+      APPLICATION_DB_URL: jdbc:postgresql://videogame-platform-performance-postgres:5432/videogame_performance
+      APPLICATION_DB_PASSWORD: performance-local-only
+      APPLICATION_FLYWAY_ENABLED: "false"
+      CATALOGUE_SYNC_SCHEDULING_ENABLED: "false"
+      IGDB_CLIENT_ID: ""
+      IGDB_CLIENT_SECRET: ""

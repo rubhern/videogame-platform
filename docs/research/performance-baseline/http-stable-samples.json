@@ -1,0 +1,1325 @@
+{
+  "runId": "perf-current-20261007T072856Z-_4m0rh39",
+  "samples": [
+    {
+      "time": "2026-10-07T07:29:01.891357971Z",
+      "value": 24.307124,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:02.888234981Z",
+      "value": 22.030384,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:03.880514681Z",
+      "value": 14.200121,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:04.876920368Z",
+      "value": 10.262563,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:05.878184607Z",
+      "value": 11.610852,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:06.887325847Z",
+      "value": 20.756426,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:07.888999482Z",
+      "value": 22.737476,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:08.882495997Z",
+      "value": 15.66813,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:09.877081244Z",
+      "value": 10.534091,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:10.877922044Z",
+      "value": 11.139014,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:11.89058057Z",
+      "value": 24.244781,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:12.887977217Z",
+      "value": 21.943236,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:13.881525527Z",
+      "value": 14.627431,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:14.877810612Z",
+      "value": 11.766307,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:15.877873928Z",
+      "value": 10.997272,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:16.885947222Z",
+      "value": 20.078477,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:17.887766321Z",
+      "value": 21.752326,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:18.761092532Z",
+      "value": 14.531359,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:19.755932524Z",
+      "value": 9.772993,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:20.757188105Z",
+      "value": 10.715266,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:21.769083782Z",
+      "value": 22.88705,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:22.765713112Z",
+      "value": 19.24907,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:23.759784044Z",
+      "value": 13.290785,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:24.755695092Z",
+      "value": 9.308812,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:25.757364495Z",
+      "value": 10.457372,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:26.768308928Z",
+      "value": 21.304308,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:27.767130595Z",
+      "value": 20.442099,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:28.760607719Z",
+      "value": 13.588173,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:29.755581573Z",
+      "value": 8.608911,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:30.75625596Z",
+      "value": 9.353306,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:31.764715263Z",
+      "value": 18.492547,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:32.762590988Z",
+      "value": 16.565511,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:33.758756776Z",
+      "value": 12.697636,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:34.756047261Z",
+      "value": 9.574546,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:35.756393686Z",
+      "value": 9.792329,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:36.764078708Z",
+      "value": 18.042979,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:37.765625226Z",
+      "value": 18.545619,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:38.759538591Z",
+      "value": 13.127326,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:39.75629036Z",
+      "value": 9.279302,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:40.756023553Z",
+      "value": 9.295979,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:41.764992511Z",
+      "value": 18.330895,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:42.766584691Z",
+      "value": 19.507932,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:43.759815062Z",
+      "value": 13.053569,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:44.756337753Z",
+      "value": 9.727687,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:45.755093137Z",
+      "value": 9.088264,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:46.767479886Z",
+      "value": 20.96412,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:47.765223207Z",
+      "value": 18.334748,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:48.615975676Z",
+      "value": 13.311067,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:49.611129091Z",
+      "value": 8.739326,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:50.610603161Z",
+      "value": 7.939542,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:51.619819493Z",
+      "value": 17.630606,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:52.619534022Z",
+      "value": 17.12517,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:53.613468533Z",
+      "value": 11.01671,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:54.609786574Z",
+      "value": 7.736677,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:55.610192581Z",
+      "value": 7.839596,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:56.620730385Z",
+      "value": 18.669671,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:57.619768898Z",
+      "value": 17.28605,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:58.613858286Z",
+      "value": 11.64741,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:29:59.61145429Z",
+      "value": 8.955389,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:00.609710852Z",
+      "value": 7.730415,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:01.618331174Z",
+      "value": 15.867057,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:02.620172829Z",
+      "value": 18.481956,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:03.612857761Z",
+      "value": 10.821668,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:04.609759758Z",
+      "value": 8.005574,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:05.610194051Z",
+      "value": 7.462319,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:06.621716445Z",
+      "value": 18.944232,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:07.620332793Z",
+      "value": 18.012108,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:08.626243343Z",
+      "value": 22.968891,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:09.610375824Z",
+      "value": 8.176651,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:10.61039172Z",
+      "value": 7.865786,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:11.619490405Z",
+      "value": 17.075098,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:12.61941264Z",
+      "value": 17.014409,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:13.613552925Z",
+      "value": 11.019919,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:14.610224421Z",
+      "value": 8.059105,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:15.609499477Z",
+      "value": 7.414348,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:16.620077111Z",
+      "value": 17.410594,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:17.618118594Z",
+      "value": 16.367878,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:18.481896478Z",
+      "value": 11.48879,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:19.477964825Z",
+      "value": 7.609636,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:20.4771092Z",
+      "value": 7.593568,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:21.486961002Z",
+      "value": 17.314088,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:22.487909513Z",
+      "value": 17.470419,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:23.480549946Z",
+      "value": 10.385772,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:24.478033738Z",
+      "value": 8.135044,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:25.477000372Z",
+      "value": 7.140267,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:26.487668716Z",
+      "value": 17.752986,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:27.486767007Z",
+      "value": 17.266614,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:28.480526306Z",
+      "value": 10.910153,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:29.476979776Z",
+      "value": 7.441814,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:30.477656584Z",
+      "value": 7.345102,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:31.484657512Z",
+      "value": 14.981678,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:32.48586591Z",
+      "value": 15.581763,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:33.479602883Z",
+      "value": 9.939314,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:34.477414009Z",
+      "value": 7.484532,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:35.477312193Z",
+      "value": 6.982612,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:36.488253776Z",
+      "value": 18.152749,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:37.486824573Z",
+      "value": 16.825747,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:38.480596811Z",
+      "value": 10.119923,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:39.47796572Z",
+      "value": 7.636025,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:40.477363814Z",
+      "value": 7.639587,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:41.487632612Z",
+      "value": 17.205169,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:42.487690177Z",
+      "value": 16.967201,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:43.48022696Z",
+      "value": 10.618949,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:44.490205823Z",
+      "value": 19.627952,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:45.477504264Z",
+      "value": 7.624644,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:46.48824708Z",
+      "value": 18.713728,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:47.499393474Z",
+      "value": 29.697704,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:48.363582858Z",
+      "value": 10.087334,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:49.360743814Z",
+      "value": 6.715489,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:50.360279975Z",
+      "value": 7.117746,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:51.369287495Z",
+      "value": 15.582162,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:52.369093211Z",
+      "value": 16.074334,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:53.363371458Z",
+      "value": 10.373325,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:54.360402616Z",
+      "value": 7.128058,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:55.36019945Z",
+      "value": 6.565937,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:56.369466955Z",
+      "value": 15.85901,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_recent",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:57.368428823Z",
+      "value": 14.594484,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_upcoming",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:58.364173852Z",
+      "value": 10.277327,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "releases_featured",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:30:59.359770278Z",
+      "value": 6.721623,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "catalogue_search",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    },
+    {
+      "time": "2026-10-07T07:31:00.360292274Z",
+      "value": 6.809555,
+      "tags": {
+        "expected_response": "true",
+        "method": "GET",
+        "name": "game_detail",
+        "scenario": "public_reads",
+        "status": "200"
+      }
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+{
+  "runId": "perf-current-20261007T072856Z-_4m0rh39",
+  "dataset": "current",
+  "harnessRevision": "9eb305c3fb8c13398f2b64be69fc3d850479d806",
+  "scriptSha256": "15d6a1bf045ad6dd3cf45b8e585b44b2a993da77e833d7ef3d47da3747525cea",
+  "k6Image": "grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34",
+  "k6Version": "k6 v2.3.0 (commit/e088784614, go1.27.1, linux/amd64)",
+  "docker": {
+    "version": "29.7.2",
+    "os": "Docker Desktop (containerized)",
+    "kernel": "6.18.40.1-microsoft-standard-WSL2",
+    "architecture": "x86_64",
+    "cpus": 32,
+    "memoryBytes": 16328314880
+  },
+  "application": {
+    "image": "videogame-platform/application:0.29.0-SNAPSHOT",
+    "imageId": "sha256:d3e6f20250bf60f8e925fb4d096d3047ac00b94baee2eae2462162ca3fc95ded",
+    "memoryLimitBytes": 1073741824,
+    "cpuLimit": 0.5,
+    "startedAt": "2026-10-07T07:27:34.044335106Z",
+    "settings": {
+      "APPLICATION_CATALOGUE_READINESS_TIMEOUT": "2s",
+      "APPLICATION_DB_CONNECTION_TIMEOUT": "3000",
+      "APPLICATION_DB_MAXIMUM_POOL_SIZE": "10",
+      "APPLICATION_DB_VALIDATION_TIMEOUT": "1000",
+      "CATALOGUE_JDBC_READ_TIMEOUT": "5s",
+      "RATINGS_JDBC_OPERATION_TIMEOUT": "5s",
+      "SPRING_PROFILES_ACTIVE": "oidc,structured",
+      "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "local",
+      "TELEMETRY_OTLP_METRICS_ENABLED": "true",
+      "TELEMETRY_OTLP_METRICS_STEP": "60s",
+      "TELEMETRY_OTLP_TRACES_ENABLED": "false"
+    }
+  },
+  "postgres": {
+    "image": "postgres:18.4-bookworm",
+    "imageId": "sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+    "memoryLimitBytes": 536870912,
+    "cpuLimit": 0.5,
+    "startedAt": "2026-10-07T07:27:03.774301941Z",
+    "settings": {}
+  },
+  "applicationInfo": {
+    "build": {
+      "artifact": "videogame-platform-backend",
+      "name": "VideoGame Platform Backend",
+      "sourceRevision": "9eb305c3fb8c13398f2b64be69fc3d850479d806",
+      "time": "2026-10-07T07:27:20.331Z",
+      "version": "0.29.0-SNAPSHOT",
+      "group": "com.videogameplatform"
+    }
+  },
+  "options": {
+    "paused": null,
+    "vus": null,
+    "duration": null,
+    "iterations": null,
+    "stages": null,
+    "scenarios": {
+      "public_reads": {
+        "executor": "constant-arrival-rate",
+        "startTime": null,
+        "gracefulStop": "10s",
+        "env": null,
+        "exec": null,
+        "tags": null,
+        "rate": 1,
+        "timeUnit": "1s",
+        "duration": "2m0s",
+        "preAllocatedVUs": 1,
+        "maxVUs": 1
+      }
+    },
+    "executionSegment": null,
+    "executionSegmentSequence": null,
+    "noSetup": null,
+    "setupTimeout": null,
+    "noTeardown": null,
+    "teardownTimeout": null,
+    "handleSummaryTimeout": null,
+    "rps": null,
+    "dns": {
+      "ttl": null,
+      "select": null,
+      "policy": null
+    },
+    "maxRedirects": 0,
+    "userAgent": "Gameometro-public-baseline/k6",
+    "batch": null,
+    "batchPerHost": null,
+    "httpDebug": null,
+    "insecureSkipTLSVerify": null,
+    "tlsCipherSuites": null,
+    "tlsVersion": null,
+    "tlsAuth": null,
+    "tlsAIAFetch": null,
+    "throw": null,
+    "thresholds": {
+      "checks": [
+        "rate==1"
+      ],
+      "dropped_iterations": [
+        "count==0"
+      ],
+      "http_req_duration{name:catalogue_search}": [],
+      "http_req_duration{name:game_detail}": [],
+      "http_req_duration{name:releases_featured}": [],
+      "http_req_duration{name:releases_recent}": [],
+      "http_req_duration{name:releases_upcoming}": [],
+      "http_req_failed": [
+        "rate==0"
+      ],
+      "http_reqs": [
+        "count==120"
+      ]
+    },
+    "blacklistIPs": null,
+    "blockHostnames": null,
+    "hosts": null,
+    "noConnectionReuse": null,
+    "noVUConnectionReuse": null,
+    "minIterationDuration": null,
+    "ext": null,
+    "summaryTrendStats": [
+      "count",
+      "avg",
+      "min",
+      "med",
+      "p(95)",
+      "p(99)",
+      "max"
+    ],
+    "summaryTimeUnit": null,
+    "systemTags": [
+      "check",
+      "expected_response",
+      "method",
+      "name",
+      "scenario",
+      "status"
+    ],
+    "tags": null,
+    "metricSamplesBufferSize": null,
+    "noCookiesReset": null,
+    "discardResponseBodies": null,
+    "features": null
+  },
+  "javaVersion": "openjdk 25.0.4 2026-07-21 LTS\nOpenJDK Runtime Environment Temurin-25.0.4+7 (build 25.0.4+7-LTS)\nOpenJDK 64-Bit Server VM Temurin-25.0.4+7 (build 25.0.4+7-LTS, mixed mode, sharing)",
+  "runnerLimits": {
+    "memoryBytes": 268435456,
+    "cpus": 1
+  },
+  "preflight": {
+    "requests": 5,
+    "searchTotal": 3,
+    "recentTotal": 146,
+    "upcomingTotal": 183,
+    "featuredItems": 6,
+    "featuredSelection": {
+      "status": "ranked",
+      "popularityFreshness": "fresh",
+      "popularityObservedAt": "2026-10-05T05:11:06.542736Z"
+    },
+    "detailReleases": 1,
+    "ratingStatistics": {
+      "status": "available",
+      "mean": null,
+      "count": 0,
+      "distribution": {
+        "1": 0,
+        "10": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 0,
+        "9": 0
+      }
+    }
+  },
+  "workload": {
+    "runId": "perf-current-20261007T072856Z-_4m0rh39",
+    "gameId": "98cd7020-a79a-4310-a6e8-8c624769a1db",
+    "evaluatedOn": "2026-10-07"
+  },
+  "startedAt": "2026-10-07T07:29:01.586230+00:00",
+  "finishedAt": "2026-10-07T07:31:01.614597+00:00",
+  "elapsedMonotonicSeconds": 120.54097409399992,
+  "exitCode": 0,
+  "clockAudit": {
+    "httpSamples": 120,
+    "backsteps": [],
+    "rawMetricsAvailable": true
+  }
+}
