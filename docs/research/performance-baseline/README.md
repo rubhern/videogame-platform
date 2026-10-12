@@ -10,7 +10,9 @@ production-capacity result. The subsequent
 [interference harness](interference-harness.md) validates three reproducible
 serving/acquisition/localization scenarios functionally. The
 [authenticated/mixed harness](authenticated-harness.md) adds a short real-Keycloak
-functional proof. Stress, capacity conclusions and production optimizations remain pending.
+functional proof. The [Windows/Lenovo adapter](remote-harness.md) validates the same
+flows remotely over private HTTPS with independent generator/host clock audits.
+Stress, capacity conclusions and production optimizations remain pending.
 
 `growth` and especially `large` are **synthetic performance/capacity profiles**.
 Their cardinalities and distributions are experimental inputs, **not product
@@ -167,8 +169,11 @@ Catalogue/Ratings fixture tables; no `CASCADE` reaches other schemas. A transact
 and advisory lock serialize replacement. Failed generation rolls back; `stop`
 removes only the verified disposable container and its anonymous volume.
 
-These controls prevent supported commands from targeting persistent local or
-private-dev data. Do not manually transplant the marker or rewrite the guards.
+These local-wrapper controls prevent its supported commands from targeting
+persistent local or private-dev data. The [remote adapter](remote-harness.md)
+reuses the SQL unchanged in an OID-bound disposable database on the existing server,
+within an explicitly approved shared-environment window. Do not manually transplant
+the marker or rewrite the guards.
 
 ## Evidence and remaining work
 
@@ -223,8 +228,11 @@ The [fixture-backed interference harness](interference-harness.md) and its
 [machine evidence](interference-evidence.json) retain the functional comparison;
 external provider timing is explicitly excluded. The
 [authenticated/mixed functional proof](authenticated-harness.md) covers sessions and
-personal-rating reads/commands. Complete host measurement, measured interference/capacity on stable clocks, a bounded
-real-provider timing calibration and stress/soak remain pending in #85. No production optimization,
+personal-rating reads/commands. The [remote smoke](remote-harness.md) and its
+[machine evidence](remote-evidence.json) add native Windows generation, physical
+Lenovo observations and verified private-dev restoration. Measured
+interference/capacity on stable clocks, a bounded real-provider timing calibration
+and stress/soak remain pending in #85. No production optimization,
 architecture change, normal migration or development seed change was made. This
 harness is outside releasable backend/frontend/OpenAPI artefacts, so this slice has
 no version increment. Broad application suites were not run for this tooling-only
