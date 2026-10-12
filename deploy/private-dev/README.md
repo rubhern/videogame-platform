@@ -32,6 +32,27 @@ Local use of the same provisioned metrics stack is documented in
   versions, candidate container ID, completed smoke checks, phase, outcome), with no
   credentials or personal data.
 
+## Owner connection from WSL
+
+The owner's WSL environment defines `videogame-platform-lenovo` in `~/.ssh/config`.
+Use that alias for the existing key-authenticated private connection; no previously
+opened SSH session is required. Do not copy the configuration, private addressing,
+keys or credentials into Git or operational evidence.
+
+Check connectivity and the existing Docker permissions without changing the host:
+
+```bash
+ssh -o BatchMode=yes videogame-platform-lenovo 'hostname'
+ssh -o BatchMode=yes videogame-platform-lenovo \
+  'docker version --format "{{.Server.Version}}"; docker compose version; docker ps --format "{{.Names}}\t{{.Status}}"'
+```
+
+Docker and Compose are available without `sudo` through this owner connection.
+`BatchMode=yes` refuses interactive credential prompts; a failed connection is a
+connectivity/authentication problem, not a reason to print or replace secrets.
+This owner connection is separate from the restricted Actions promotion account.
+Keep the existing private ingress and internal-service boundaries unchanged.
+
 ## Host foundation
 
 These are rebuild instructions for the owner-managed host, not an installation log.
