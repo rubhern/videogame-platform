@@ -1,0 +1,6 @@
+# Reuse the existing Keycloak service with disposable identity data; no extra service.
+services:
+  keycloak:
+    environment:
+      KC_DB_URL: jdbc:postgresql://videogame-platform-performance-postgres:5432/performance_keycloak
+      KC_DB_PASSWORD: performance-identity-only

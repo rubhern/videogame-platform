@@ -7,9 +7,9 @@ SELECT pg_advisory_xact_lock(85, 1);
 CREATE TEMP TABLE perf_config ON COMMIT DROP AS
 SELECT :'profile'::text AS profile, :'as_of'::date AS as_of,
        :'schema_checksum'::text AS schema_checksum,
-       CASE :'profile' WHEN 'growth' THEN 50000 WHEN 'large' THEN 200000 END AS games,
-       CASE :'profile' WHEN 'growth' THEN 200000 WHEN 'large' THEN 2000000 END AS releases,
-       CASE :'profile' WHEN 'growth' THEN 500000 WHEN 'large' THEN 5000000 END AS ratings;
+       CASE :'profile' WHEN 'authenticated' THEN 40 WHEN 'growth' THEN 50000 WHEN 'large' THEN 200000 END AS games,
+       CASE :'profile' WHEN 'authenticated' THEN 160 WHEN 'growth' THEN 200000 WHEN 'large' THEN 2000000 END AS releases,
+       CASE :'profile' WHEN 'authenticated' THEN 0 WHEN 'growth' THEN 500000 WHEN 'large' THEN 5000000 END AS ratings;
 
 DO $$
 BEGIN
@@ -36,7 +36,7 @@ END $$;
 
 CREATE TEMP TABLE perf_game ON COMMIT DROP AS
 SELECT n, md5('performance:game:' || n)::uuid AS game_id,
-       CASE WHEN c.profile='growth' THEN (ARRAY[1,2,3,10])[n % 4 + 1]
+       CASE WHEN c.profile IN ('authenticated','growth') THEN (ARRAY[1,2,3,10])[n % 4 + 1]
             ELSE (ARRAY[1,3,11,25])[n % 4 + 1] END AS release_count
 FROM perf_config c CROSS JOIN LATERAL generate_series(1,c.games) n;
 ALTER TABLE perf_game ADD PRIMARY KEY (n);
@@ -187,11 +187,11 @@ ALTER TABLE perf_eligible ADD PRIMARY KEY (rank);
 ANALYZE perf_eligible;
 CREATE TEMP TABLE perf_user ON COMMIT DROP AS
 SELECT n,CASE WHEN c.profile='growth' THEN 100 ELSE 250 END AS history
-FROM perf_config c CROSS JOIN LATERAL generate_series(1,CASE WHEN profile='growth' THEN 4000 ELSE 16000 END) n
+FROM perf_config c CROSS JOIN LATERAL generate_series(1,CASE profile WHEN 'authenticated' THEN 0 WHEN 'growth' THEN 4000 ELSE 16000 END) n
 UNION ALL
 SELECT CASE WHEN profile='growth' THEN 4000 ELSE 16000 END+n,
        CASE WHEN profile='growth' THEN 5000 ELSE 10000 END
-FROM perf_config c CROSS JOIN LATERAL generate_series(1,CASE WHEN profile='growth' THEN 20 ELSE 100 END) n;
+FROM perf_config c CROSS JOIN LATERAL generate_series(1,CASE profile WHEN 'authenticated' THEN 0 WHEN 'growth' THEN 20 ELSE 100 END) n;
 
 -- One bounded statement per user (100..10,000 ratings), rather than a 5M-row FK queue.
 DO $$
@@ -236,10 +236,10 @@ BEGIN
     IF EXISTS (SELECT FROM catalogue.release_snapshot GROUP BY game_id HAVING count(*)>25) THEN
         RAISE EXCEPTION 'Game release context exceeds the supported acquisition bound';
     END IF;
-    IF NOT EXISTS (SELECT FROM ratings.game_listing g JOIN ratings.rating r USING (game_id)
+    IF c.profile <> 'authenticated' AND (NOT EXISTS (SELECT FROM ratings.game_listing g JOIN ratings.rating r USING (game_id)
         WHERE g.title_search_vector @@ to_tsquery('simple','needle:*'))
         OR NOT EXISTS (SELECT FROM ratings.game_listing g JOIN ratings.rating r USING (game_id)
-        WHERE g.title_search_vector @@ to_tsquery('simple','elite:*')) THEN
+        WHERE g.title_search_vector @@ to_tsquery('simple','elite:*'))) THEN
         RAISE EXCEPTION 'Selective/accent-normalized title cohorts must include rated Games';
     END IF;
 END $$;
