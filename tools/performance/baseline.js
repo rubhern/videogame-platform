@@ -1,10 +1,11 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import execution from 'k6/execution';
+import { Counter } from 'k6/metrics';
 
 // Supplied by baseline.py after read-only local preflight; no remote imports.
 const config = JSON.parse(open('/results/workload.json'));
-export const requests = [
+export const requests = config.requests || [
   { name: 'releases_recent', path: '/releases?view=recent&weeks=1&page=1&pageSize=20' },
   { name: 'releases_upcoming', path: '/releases?view=upcoming&weeks=1&page=1&pageSize=20' },
   { name: 'releases_featured', path: '/featured-releases' },
@@ -16,11 +17,11 @@ export const options = {
   scenarios: {
     public_reads: {
       executor: 'constant-arrival-rate',
-      rate: 1,
+      rate: config.rate || 1,
       timeUnit: '1s',
-      duration: '120s',
-      preAllocatedVUs: 1,
-      maxVUs: 1,
+      duration: `${config.durationSeconds || 120}s`,
+      preAllocatedVUs: config.preAllocatedVUs || 1,
+      maxVUs: config.maxVUs || 1,
       gracefulStop: '10s',
     },
   },
@@ -28,8 +29,11 @@ export const options = {
   thresholds: {
     checks: ['rate==1'],
     http_req_failed: ['rate==0'],
-    http_reqs: ['count==120'],
-    dropped_iterations: ['count==0'],
+    ...(config.dataset === 'interference' ? {
+      http_reqs: [`count==${config.rate * config.durationSeconds}`], dropped_iterations: ['count==0'],
+    } : config.dataset === 'growth' ? {} : {
+      http_reqs: ['count==120'], dropped_iterations: ['count==0'],
+    }),
     ...Object.fromEntries(requests.map(({ name }) => [
       `http_req_duration{name:${name}}`, [],
     ])),
@@ -48,10 +52,13 @@ function isGame(item) {
     && item.primaryCover && typeof item.primaryCover.kind === 'string';
 }
 
-function isPage(body) {
+const timeouts = new Counter('response_timeouts');
+const budget = (config.rate || 1) * (config.durationSeconds || 120);
+
+function isPage(body, request) {
   const page = body?.page;
   return Array.isArray(body?.items) && body.items.length <= 20
-    && page?.number === 1 && page.size === 20
+    && (page?.number === (request.page || 1)) && page.size === 20
     && Number.isInteger(page.totalItems) && page.totalItems >= body.items.length
     && Number.isInteger(page.totalPages) && page.totalPages >= 0
     && new Set(body.items.map((item) => item.gameId)).size === body.items.length
@@ -71,18 +78,24 @@ function isStatistics(statistics) {
       : typeof statistics.mean === 'number' && statistics.mean >= 1 && statistics.mean <= 10);
 }
 
-function isContract(body, name) {
+function isContract(body, request) {
+  const name = request.kind || request.name;
   if (name === 'catalogue_search') {
-    return isPage(body) && body.items.length > 0
-      && body.items[0].gameId === config.gameId
+    return isPage(body, request) && body.items.length > 0
+      && (request.expectedTotal === undefined || body.page.totalItems === request.expectedTotal)
+      && (!request.firstGameId || body.items[0].gameId === request.firstGameId)
+      && (['growth', 'interference'].includes(config.dataset) || body.items[0].gameId === config.gameId)
       && body.items.every((item) => Array.isArray(item.releaseContext) && item.releaseSummary);
   }
   if (name === 'game_detail') {
-    return isGame(body) && body.gameId === config.gameId
+    return isGame(body) && body.gameId === (request.gameId || config.gameId)
       && ['aliases', 'developers', 'publishers', 'genres', 'gameModes', 'releases']
         .every((field) => Array.isArray(body[field]))
       && body.summary && typeof body.ratingEligibility?.eligible === 'boolean'
-      && isStatistics(body.ratingStatistics);
+      && isStatistics(body.ratingStatistics)
+      && (request.releaseCount === undefined || body.releases.length === request.releaseCount)
+      && (request.ratingCount === undefined || body.ratingStatistics.status === 'available'
+        && body.ratingStatistics.count === request.ratingCount);
   }
   if (name === 'releases_featured') {
     return Array.isArray(body?.items) && body.items.length <= 6
@@ -91,30 +104,36 @@ function isContract(body, name) {
       && body.items.every((item) => isGame(item) && item.featuredImage
         && Array.isArray(item.releases) && item.releases.length > 0);
   }
-  return isPage(body) && body.view === name.replace('releases_', '')
+  return isPage(body, request) && body.view === (request.view || name.replace('releases_', ''))
     && body.evaluatedOn === config.evaluatedOn && body.window?.from && body.window?.to
     && body.activeFilters && body.availableFilters
+    && (request.expectedTotal === undefined || body.page.totalItems === request.expectedTotal)
+    && (!request.platformIds || JSON.stringify([...body.activeFilters.platformIds].sort())
+      === JSON.stringify([...request.platformIds].sort()))
+    && (!request.regionIds || JSON.stringify([...body.activeFilters.regionIds].sort())
+      === JSON.stringify([...request.regionIds].sort()))
     && body.items.every((item) => Array.isArray(item.releases) && item.releases.length > 0);
 }
 
 export default function () {
   const index = execution.scenario.iterationInTest;
-  // An iteration at the executor's end boundary must not add a 121st HTTP call.
-  if (index >= 120) return;
+  // An iteration at the executor's end boundary must not exceed the request budget.
+  if (index >= budget) return;
   const request = requests[index % requests.length];
   const correlationId = `${config.runId}-${index}`;
-  const response = http.get(`http://application:8080/api/v1${request.path}`, {
+  const response = http.get(`${config.baseUrl || 'http://application:8080/api/v1'}${request.path}`, {
     timeout: '10s',
     headers: { Accept: 'application/json', 'X-Correlation-ID': correlationId },
     tags: { name: request.name },
   });
+  timeouts.add(response.error_code === 1050 ? 1 : 0, { name: request.name });
   let body;
   try { body = response.json(); } catch (_) { body = null; }
   check(response, {
     'HTTP 200': (r) => r.status === 200,
     'JSON response': (r) => r.headers['Content-Type']?.includes('application/json') && body !== null,
     'correlation echoed': (r) => r.headers['X-Correlation-Id'] === correlationId,
-    'public contract': () => isContract(body, request.name),
+    'public contract': () => isContract(body, request),
   }, { name: request.name });
 }
 

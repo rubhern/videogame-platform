@@ -1,0 +1,4464 @@
+{
+  "scope": "Functional WSL validation only; no capacity or real-provider duration conclusion",
+  "capacityInterpretationAllowed": false,
+  "rawDirectory": "tools/performance/results/interference-gdrakj2g",
+  "experiment": {
+    "applicationVersion": "0.29.0-SNAPSHOT",
+    "originalApplication": {
+      "image": "videogame-platform/application:0.29.0-SNAPSHOT",
+      "imageId": "sha256:d3e6f20250bf60f8e925fb4d096d3047ac00b94baee2eae2462162ca3fc95ded",
+      "memoryLimitBytes": 1073741824,
+      "cpuLimit": 0.5,
+      "startedAt": "2026-10-07T11:32:00.71800796Z",
+      "settings": {
+        "APPLICATION_CATALOGUE_READINESS_TIMEOUT": "2s",
+        "APPLICATION_DB_CONNECTION_TIMEOUT": "3000",
+        "APPLICATION_DB_MAXIMUM_POOL_SIZE": "10",
+        "APPLICATION_DB_VALIDATION_TIMEOUT": "1000",
+        "APPLICATION_FLYWAY_ENABLED": "true",
+        "CATALOGUE_JDBC_READ_TIMEOUT": "5s",
+        "RATINGS_JDBC_OPERATION_TIMEOUT": "5s",
+        "SPRING_PROFILES_ACTIVE": "oidc,structured",
+        "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "local",
+        "TELEMETRY_OTLP_METRICS_ENABLED": "true",
+        "TELEMETRY_OTLP_METRICS_STEP": "60s",
+        "TELEMETRY_OTLP_TRACES_ENABLED": "false"
+      }
+    },
+    "modelManifest": {
+      "model": {
+        "repository": "Helsinki-NLP/opus-mt-tc-big-en-es",
+        "url": "https://object.pouta.csc.fi/Tatoeba-MT-models/eng-spa/opusTCv20210807+bt_transformer-big_2022-03-13.zip",
+        "sha256": "cd49c94629c84c424b2c310552b9058bf95f531269c91e72fded668b0d5084cf",
+        "license": "CC-BY-4.0"
+      },
+      "files": {
+        "model.bin": "bd11ca371fb16da7e9a79602d472c16e339af94d8f71a9927a118a781726a11e",
+        "config.json": "152eb448f1020eb55f90971d7b95f61896abee8415d555ca51ae7897ac0a0e68",
+        "shared_vocabulary.json": "4bb5db1d9067fd2d8fe0b1ed843bc338ebcc0d1840ac58acaad25e90495a98c7",
+        "source.spm": "b1763341d3a71262ed5aacc3f8287d3c3c2f2ae82295e11d03aea80879c98009",
+        "target.spm": "c70086dcac73d9c759cca0b5f195a073033906dcd29433d6c5fe74e66b2cc8da"
+      }
+    },
+    "schemaChecksum": "aecfb974575545a8f3df77cec49f30315ad4cb339bf6d169a33b07505057bd5a",
+    "capacityInterpretationAllowed": false,
+    "providerTimingScope": "Excluded: fixture timings never estimate real IGDB synchronization duration",
+    "created": {
+      "wall": "2026-10-07T11:34:39.730331+00:00",
+      "wallNs": 1791372879730347511,
+      "monotonicNs": 17857114613209
+    },
+    "scenarios": [
+      "serving-only",
+      "serving-sync-reuse",
+      "serving-sync-inference"
+    ],
+    "rate": 1,
+    "durationSeconds": 60,
+    "referenceDate": "2026-10-07",
+    "backgroundGames": 4,
+    "backgroundReleases": 8,
+    "expectedInferences": 6,
+    "inputSha256": "e64521425a86f1cf338ab4531ec37dabd7e66aa226a79e28ec6da1dd2d6bd4c0",
+    "calibrationCriterion": "Fixture-backed window between 3 and 40 seconds; collection time adds to the nominal 1-second sampling interval",
+    "calibrations": [
+      {
+        "games": 2,
+        "fixtureBackedOverlapSeconds": 2.929329487,
+        "dispatched": {
+          "wall": "2026-10-07T11:35:17.079078+00:00",
+          "wallNs": 1791372917079090616,
+          "monotonicNs": 17895653853948
+        },
+        "acknowledged": {
+          "wall": "2026-10-07T11:35:20.008410+00:00",
+          "wallNs": 1791372920008420248,
+          "monotonicNs": 17898583183435
+        },
+        "report": {
+          "runId": "6e169757-4afc-4cbe-b3f0-8c376b16aced",
+          "from": "2026-10-07",
+          "to": "2026-10-07",
+          "startedAt": "2026-10-07T11:35:17.184243332Z",
+          "completedAt": "2026-10-07T11:35:19.992678121Z",
+          "outcome": "SUCCEEDED",
+          "outcomeCode": "SYNCHRONIZATION_COMPLETED",
+          "counters": {
+            "inspectedReleaseDates": 4,
+            "createdGames": 2,
+            "updatedGames": 0,
+            "unchangedGames": 0,
+            "createdReleases": 4,
+            "updatedReleases": 0,
+            "unchangedReleases": 0,
+            "deferredGames": 0,
+            "failedGames": 0,
+            "providerRequests": 7,
+            "providerRetries": 0,
+            "providerLatencyMillis": 199,
+            "deletedReleases": 0,
+            "popularityObservedGames": 0,
+            "popularityClearedGames": 2,
+            "popularityUnavailableGames": 0,
+            "featuredImageObservedGames": 0,
+            "logoObservedGames": 0,
+            "logoUnavailableGames": 0,
+            "detailsUnavailableGames": 0
+          }
+        }
+      },
+      {
+        "games": 4,
+        "fixtureBackedOverlapSeconds": 4.174340781,
+        "dispatched": {
+          "wall": "2026-10-07T11:36:22.775233+00:00",
+          "wallNs": 1791372982775250197,
+          "monotonicNs": 17963765963300
+        },
+        "acknowledged": {
+          "wall": "2026-10-07T11:36:26.949580+00:00",
+          "wallNs": 1791372986949591640,
+          "monotonicNs": 17967940304081
+        },
+        "report": {
+          "runId": "ead44e46-ebcb-4140-8320-f1e1a7020a7e",
+          "from": "2026-10-07",
+          "to": "2026-10-07",
+          "startedAt": "2026-10-07T11:36:22.883661265Z",
+          "completedAt": "2026-10-07T11:36:26.932981376Z",
+          "outcome": "SUCCEEDED",
+          "outcomeCode": "SYNCHRONIZATION_COMPLETED",
+          "counters": {
+            "inspectedReleaseDates": 8,
+            "createdGames": 4,
+            "updatedGames": 0,
+            "unchangedGames": 0,
+            "createdReleases": 8,
+            "updatedReleases": 0,
+            "unchangedReleases": 0,
+            "deferredGames": 0,
+            "failedGames": 0,
+            "providerRequests": 11,
+            "providerRetries": 0,
+            "providerLatencyMillis": 126,
+            "deletedReleases": 0,
+            "popularityObservedGames": 0,
+            "popularityClearedGames": 4,
+            "popularityUnavailableGames": 0,
+            "featuredImageObservedGames": 0,
+            "logoObservedGames": 0,
+            "logoUnavailableGames": 0,
+            "detailsUnavailableGames": 0
+          }
+        }
+      }
+    ],
+    "checkpointSha256": "3f98888efb052923c3732382e5c0d6b056cc78b9e8413f526ac5a54e744814b7",
+    "offlinePreparation": "ANALYZE and CHECKPOINT after restore; logical state identical, host caches not controlled",
+    "calibrationRawDirectory": "tools/performance/results/interference-dqbp_x7p"
+  },
+  "providerInput": {
+    "referenceDate": "2026-10-07",
+    "games": [
+      {
+        "id": 850001,
+        "name": "Performance Fixture Mission 01",
+        "url": "https://www.igdb.com/games/performance-fixture-mission-01",
+        "updated_at": 1791331200,
+        "cover": {
+          "image_id": "co9x1z"
+        },
+        "game_status": {
+          "status": "Released"
+        },
+        "created_at": 1600000000,
+        "game_type": {
+          "type": "main_game"
+        },
+        "summary": "Experiment mission 01. A lone warrior seeks revenge in the lands around Mount Yotei.\r\nSecond line.",
+        "involved_companies": [
+          {
+            "id": 9001,
+            "company": {
+              "id": 3045,
+              "name": "Sucker Punch Productions"
+            },
+            "developer": true,
+            "publisher": false,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9002,
+            "company": {
+              "id": 10100,
+              "name": "Sony Interactive Entertainment"
+            },
+            "developer": false,
+            "publisher": true,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9003,
+            "company": {
+              "id": 777,
+              "name": "Nixxes Software"
+            },
+            "developer": false,
+            "publisher": false,
+            "porting": true,
+            "supporting": false
+          },
+          {
+            "id": 9004,
+            "company": {
+              "id": 888,
+              "name": "Support Studio"
+            },
+            "developer": false,
+            "publisher": false,
+            "porting": false,
+            "supporting": true
+          },
+          {
+            "id": 9005,
+            "company": {
+              "id": 5050,
+              "name": " Self Made Games "
+            },
+            "developer": true,
+            "publisher": true,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9006,
+            "company": {
+              "id": 3045,
+              "name": "Sucker Punch Productions"
+            },
+            "developer": true,
+            "publisher": false,
+            "porting": false,
+            "supporting": false
+          }
+        ],
+        "genres": [
+          {
+            "id": 985001,
+            "name": "Tactical exploration",
+            "slug": "tactical-exploration"
+          }
+        ],
+        "game_modes": [
+          {
+            "id": 985002,
+            "name": "Cooperative missions",
+            "slug": "cooperative-missions"
+          }
+        ]
+      },
+      {
+        "id": 850002,
+        "name": "Performance Fixture Mission 02",
+        "url": "https://www.igdb.com/games/performance-fixture-mission-02",
+        "updated_at": 1791331200,
+        "cover": {
+          "image_id": "co9x1z"
+        },
+        "game_status": {
+          "status": "Released"
+        },
+        "created_at": 1600000000,
+        "game_type": {
+          "type": "main_game"
+        },
+        "summary": "Experiment mission 02. A lone warrior seeks revenge in the lands around Mount Yotei.\r\nSecond line.",
+        "involved_companies": [
+          {
+            "id": 9001,
+            "company": {
+              "id": 3045,
+              "name": "Sucker Punch Productions"
+            },
+            "developer": true,
+            "publisher": false,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9002,
+            "company": {
+              "id": 10100,
+              "name": "Sony Interactive Entertainment"
+            },
+            "developer": false,
+            "publisher": true,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9003,
+            "company": {
+              "id": 777,
+              "name": "Nixxes Software"
+            },
+            "developer": false,
+            "publisher": false,
+            "porting": true,
+            "supporting": false
+          },
+          {
+            "id": 9004,
+            "company": {
+              "id": 888,
+              "name": "Support Studio"
+            },
+            "developer": false,
+            "publisher": false,
+            "porting": false,
+            "supporting": true
+          },
+          {
+            "id": 9005,
+            "company": {
+              "id": 5050,
+              "name": " Self Made Games "
+            },
+            "developer": true,
+            "publisher": true,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9006,
+            "company": {
+              "id": 3045,
+              "name": "Sucker Punch Productions"
+            },
+            "developer": true,
+            "publisher": false,
+            "porting": false,
+            "supporting": false
+          }
+        ],
+        "genres": [
+          {
+            "id": 985001,
+            "name": "Tactical exploration",
+            "slug": "tactical-exploration"
+          }
+        ],
+        "game_modes": [
+          {
+            "id": 985002,
+            "name": "Cooperative missions",
+            "slug": "cooperative-missions"
+          }
+        ]
+      },
+      {
+        "id": 850003,
+        "name": "Performance Fixture Mission 03",
+        "url": "https://www.igdb.com/games/performance-fixture-mission-03",
+        "updated_at": 1791331200,
+        "cover": {
+          "image_id": "co9x1z"
+        },
+        "game_status": {
+          "status": "Released"
+        },
+        "created_at": 1600000000,
+        "game_type": {
+          "type": "main_game"
+        },
+        "summary": "Experiment mission 03. A lone warrior seeks revenge in the lands around Mount Yotei.\r\nSecond line.",
+        "involved_companies": [
+          {
+            "id": 9001,
+            "company": {
+              "id": 3045,
+              "name": "Sucker Punch Productions"
+            },
+            "developer": true,
+            "publisher": false,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9002,
+            "company": {
+              "id": 10100,
+              "name": "Sony Interactive Entertainment"
+            },
+            "developer": false,
+            "publisher": true,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9003,
+            "company": {
+              "id": 777,
+              "name": "Nixxes Software"
+            },
+            "developer": false,
+            "publisher": false,
+            "porting": true,
+            "supporting": false
+          },
+          {
+            "id": 9004,
+            "company": {
+              "id": 888,
+              "name": "Support Studio"
+            },
+            "developer": false,
+            "publisher": false,
+            "porting": false,
+            "supporting": true
+          },
+          {
+            "id": 9005,
+            "company": {
+              "id": 5050,
+              "name": " Self Made Games "
+            },
+            "developer": true,
+            "publisher": true,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9006,
+            "company": {
+              "id": 3045,
+              "name": "Sucker Punch Productions"
+            },
+            "developer": true,
+            "publisher": false,
+            "porting": false,
+            "supporting": false
+          }
+        ],
+        "genres": [
+          {
+            "id": 985001,
+            "name": "Tactical exploration",
+            "slug": "tactical-exploration"
+          }
+        ],
+        "game_modes": [
+          {
+            "id": 985002,
+            "name": "Cooperative missions",
+            "slug": "cooperative-missions"
+          }
+        ]
+      },
+      {
+        "id": 850004,
+        "name": "Performance Fixture Mission 04",
+        "url": "https://www.igdb.com/games/performance-fixture-mission-04",
+        "updated_at": 1791331200,
+        "cover": {
+          "image_id": "co9x1z"
+        },
+        "game_status": {
+          "status": "Released"
+        },
+        "created_at": 1600000000,
+        "game_type": {
+          "type": "main_game"
+        },
+        "summary": "Experiment mission 04. A lone warrior seeks revenge in the lands around Mount Yotei.\r\nSecond line.",
+        "involved_companies": [
+          {
+            "id": 9001,
+            "company": {
+              "id": 3045,
+              "name": "Sucker Punch Productions"
+            },
+            "developer": true,
+            "publisher": false,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9002,
+            "company": {
+              "id": 10100,
+              "name": "Sony Interactive Entertainment"
+            },
+            "developer": false,
+            "publisher": true,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9003,
+            "company": {
+              "id": 777,
+              "name": "Nixxes Software"
+            },
+            "developer": false,
+            "publisher": false,
+            "porting": true,
+            "supporting": false
+          },
+          {
+            "id": 9004,
+            "company": {
+              "id": 888,
+              "name": "Support Studio"
+            },
+            "developer": false,
+            "publisher": false,
+            "porting": false,
+            "supporting": true
+          },
+          {
+            "id": 9005,
+            "company": {
+              "id": 5050,
+              "name": " Self Made Games "
+            },
+            "developer": true,
+            "publisher": true,
+            "porting": false,
+            "supporting": false
+          },
+          {
+            "id": 9006,
+            "company": {
+              "id": 3045,
+              "name": "Sucker Punch Productions"
+            },
+            "developer": true,
+            "publisher": false,
+            "porting": false,
+            "supporting": false
+          }
+        ],
+        "genres": [
+          {
+            "id": 985001,
+            "name": "Tactical exploration",
+            "slug": "tactical-exploration"
+          }
+        ],
+        "game_modes": [
+          {
+            "id": 985002,
+            "name": "Cooperative missions",
+            "slug": "cooperative-missions"
+          }
+        ]
+      }
+    ],
+    "releaseDates": [
+      {
+        "id": 8500011,
+        "date": 1791331200,
+        "y": 2026,
+        "m": 10,
+        "d": 7,
+        "date_format": {
+          "format": "YYYYMMMMDD"
+        },
+        "release_region": {
+          "id": 1,
+          "region": "europe"
+        },
+        "platform": {
+          "id": 167,
+          "slug": "ps5",
+          "name": "PlayStation 5"
+        },
+        "game": 850001
+      },
+      {
+        "id": 8500012,
+        "date": 1791331200,
+        "date_format": {
+          "format": "YYYYMMMMDD"
+        },
+        "release_region": {
+          "id": 8,
+          "region": "worldwide"
+        },
+        "platform": {
+          "id": 6,
+          "slug": "win",
+          "name": "PC (Microsoft Windows)"
+        },
+        "game": 850001,
+        "y": 2026,
+        "m": 10,
+        "d": 7
+      },
+      {
+        "id": 8500021,
+        "date": 1791331200,
+        "y": 2026,
+        "m": 10,
+        "d": 7,
+        "date_format": {
+          "format": "YYYYMMMMDD"
+        },
+        "release_region": {
+          "id": 1,
+          "region": "europe"
+        },
+        "platform": {
+          "id": 167,
+          "slug": "ps5",
+          "name": "PlayStation 5"
+        },
+        "game": 850002
+      },
+      {
+        "id": 8500022,
+        "date": 1791331200,
+        "date_format": {
+          "format": "YYYYMMMMDD"
+        },
+        "release_region": {
+          "id": 8,
+          "region": "worldwide"
+        },
+        "platform": {
+          "id": 6,
+          "slug": "win",
+          "name": "PC (Microsoft Windows)"
+        },
+        "game": 850002,
+        "y": 2026,
+        "m": 10,
+        "d": 7
+      },
+      {
+        "id": 8500031,
+        "date": 1791331200,
+        "y": 2026,
+        "m": 10,
+        "d": 7,
+        "date_format": {
+          "format": "YYYYMMMMDD"
+        },
+        "release_region": {
+          "id": 1,
+          "region": "europe"
+        },
+        "platform": {
+          "id": 167,
+          "slug": "ps5",
+          "name": "PlayStation 5"
+        },
+        "game": 850003
+      },
+      {
+        "id": 8500032,
+        "date": 1791331200,
+        "date_format": {
+          "format": "YYYYMMMMDD"
+        },
+        "release_region": {
+          "id": 8,
+          "region": "worldwide"
+        },
+        "platform": {
+          "id": 6,
+          "slug": "win",
+          "name": "PC (Microsoft Windows)"
+        },
+        "game": 850003,
+        "y": 2026,
+        "m": 10,
+        "d": 7
+      },
+      {
+        "id": 8500041,
+        "date": 1791331200,
+        "y": 2026,
+        "m": 10,
+        "d": 7,
+        "date_format": {
+          "format": "YYYYMMMMDD"
+        },
+        "release_region": {
+          "id": 1,
+          "region": "europe"
+        },
+        "platform": {
+          "id": 167,
+          "slug": "ps5",
+          "name": "PlayStation 5"
+        },
+        "game": 850004
+      },
+      {
+        "id": 8500042,
+        "date": 1791331200,
+        "date_format": {
+          "format": "YYYYMMMMDD"
+        },
+        "release_region": {
+          "id": 8,
+          "region": "worldwide"
+        },
+        "platform": {
+          "id": 6,
+          "slug": "win",
+          "name": "PC (Microsoft Windows)"
+        },
+        "game": 850004,
+        "y": 2026,
+        "m": 10,
+        "d": 7
+      }
+    ],
+    "fixtureSources": {
+      "details-game-response.json": "2fc3fee3b78ce04077fb80cc2defc4bc97efd4a1f283e845114b7c598291368b",
+      "game-response.json": "fe17b1daf62738412c174d407466bc2bb9d915e7829848a491fff943a1aa4645",
+      "release-dates-response.json": "9f6d5eb7027f371605b8c12430fc421e700e9ba1e290b1802ababe122e1ff889"
+    },
+    "timingScope": "Internal fixture-backed pipeline only; external provider timing excluded",
+    "payloadSha256": "e64521425a86f1cf338ab4531ec37dabd7e66aa226a79e28ec6da1dd2d6bd4c0"
+  },
+  "comparison": {
+    "sameInputHash": true,
+    "sameProviderCallsAndResponses": true,
+    "samePublicCases": true,
+    "externalProviderTimingIncluded": false
+  },
+  "scenarios": [
+    {
+      "scenario": "serving-only",
+      "functionalPassed": true,
+      "processedProviderGameIds": [],
+      "stateBefore": {
+        "games": 4,
+        "fingerprints": [
+          {
+            "fingerprint": "0e21f557babb51dbb5790c511406e175858b704aaf1beb071ff620f954540d40",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "2fa5af58cd6f3236806034ba4a06c32e3ca5945568cf234afab467e64b95e107",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "5127a17cf41312a23663c5ac9bbb5ed88d50e7ef0526bc6123aaece353d43e7c",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "8b0750e42d6be22227f85de76339bf2d117b825300a06758e739e62528c50dab",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "915cec6aeecee7499963e15e00e80364272fdfcebc1ad595f7a9fa0791ee9f2d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "c65867bb2a6cb9c6c6088da380623826967f9b275d138c54164e6648a263263d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          }
+        ],
+        "linkedSummaries": 0
+      },
+      "stateAfter": {
+        "games": 4,
+        "fingerprints": [
+          {
+            "fingerprint": "0e21f557babb51dbb5790c511406e175858b704aaf1beb071ff620f954540d40",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "2fa5af58cd6f3236806034ba4a06c32e3ca5945568cf234afab467e64b95e107",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "5127a17cf41312a23663c5ac9bbb5ed88d50e7ef0526bc6123aaece353d43e7c",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "8b0750e42d6be22227f85de76339bf2d117b825300a06758e739e62528c50dab",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "915cec6aeecee7499963e15e00e80364272fdfcebc1ad595f7a9fa0791ee9f2d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "c65867bb2a6cb9c6c6088da380623826967f9b275d138c54164e6648a263263d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          }
+        ],
+        "linkedSummaries": 0
+      },
+      "inferenceCompletions": 0,
+      "localizationDelta": {
+        "translated": 0,
+        "reused": 0,
+        "skipped": 0,
+        "failed": 0,
+        "busy": 0,
+        "fallback": 0
+      },
+      "http": {
+        "http_reqs": {
+          "count": 60,
+          "rate": 1.0425036115517772
+        },
+        "http_req_duration": {
+          "avg": 60.08263588333334,
+          "min": 1.215807,
+          "med": 25.018586499999998,
+          "p(95)": 357.0888000999999,
+          "p(99)": 398.41048471999994,
+          "max": 408.20802,
+          "count": 60
+        },
+        "http_req_failed": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 60
+        },
+        "checks": {
+          "rate": 1,
+          "passes": 240,
+          "fails": 0
+        },
+        "response_timeouts": {
+          "count": 0,
+          "rate": 0
+        },
+        "dropped_iterations": {
+          "rate": 0,
+          "count": 0
+        }
+      },
+      "perCaseDuration": {
+        "releases_recent": {
+          "min": 22.767605,
+          "med": 23.617295,
+          "p(95)": 50.70621319999999,
+          "p(99)": 53.11411704,
+          "max": 53.716093,
+          "count": 3,
+          "avg": 33.36699766666667
+        },
+        "releases_upcoming": {
+          "p(95)": 22.910319,
+          "p(99)": 22.9297358,
+          "max": 22.93459,
+          "count": 3,
+          "avg": 21.450962333333333,
+          "min": 18.726417,
+          "med": 22.69188
+        },
+        "releases_featured": {
+          "med": 18.623261,
+          "p(95)": 18.6792203,
+          "p(99)": 18.68419446,
+          "max": 18.685438,
+          "count": 3,
+          "avg": 17.895588333333336,
+          "min": 16.378066
+        },
+        "recent_pc": {
+          "p(99)": 34.13006126,
+          "max": 34.255792,
+          "count": 3,
+          "avg": 29.930385666666666,
+          "min": 27.56611,
+          "med": 27.969255,
+          "p(95)": 33.6271383
+        },
+        "recent_multi_filters": {
+          "p(99)": 37.03646118,
+          "max": 37.132086,
+          "count": 3,
+          "avg": 33.918473,
+          "min": 32.272488,
+          "med": 32.350845,
+          "p(95)": 36.6539619
+        },
+        "upcoming_north_america": {
+          "max": 19.940065,
+          "count": 3,
+          "avg": 18.425365333333332,
+          "min": 16.496191,
+          "med": 18.83984,
+          "p(95)": 19.8300425,
+          "p(99)": 19.9180605
+        },
+        "upcoming_approximate": {
+          "p(95)": 72.8309878,
+          "p(99)": 73.62419276,
+          "max": 73.822494,
+          "count": 3,
+          "avg": 64.49354633333333,
+          "min": 55.750713,
+          "med": 63.907432
+        },
+        "recent_deep": {
+          "med": 26.939999,
+          "p(95)": 32.967390800000004,
+          "p(99)": 33.50315896,
+          "max": 33.637101,
+          "count": 3,
+          "avg": 28.998992666666666,
+          "min": 26.419878
+        },
+        "upcoming_deep": {
+          "count": 3,
+          "avg": 41.278207,
+          "min": 40.004383,
+          "med": 40.181696,
+          "p(95)": 43.301857399999996,
+          "p(99)": 43.57920508,
+          "max": 43.648542
+        },
+        "search_selective": {
+          "avg": 9.102740666666667,
+          "min": 8.26697,
+          "med": 8.463655,
+          "p(95)": 10.3662028,
+          "p(99)": 10.535318160000001,
+          "max": 10.577597,
+          "count": 3
+        },
+        "search_broad": {
+          "min": 150.016211,
+          "med": 169.542558,
+          "p(95)": 171.2307321,
+          "p(99)": 171.38079202,
+          "max": 171.418307,
+          "count": 3,
+          "avg": 163.65902533333335
+        },
+        "search_deep_10k": {
+          "max": 408.20802,
+          "count": 3,
+          "avg": 394.5710186666667,
+          "min": 383.903008,
+          "med": 391.602028,
+          "p(95)": 406.5474208,
+          "p(99)": 407.87590015999996
+        },
+        "search_deep_48k": {
+          "count": 3,
+          "avg": 237.290083,
+          "min": 1.215807,
+          "med": 354.976916,
+          "p(95)": 355.607465,
+          "p(99)": 355.6635138,
+          "max": 355.677526
+        },
+        "search_alias": {
+          "min": 5.916774,
+          "med": 6.085071,
+          "p(95)": 7.787533499999999,
+          "p(99)": 7.9388635,
+          "max": 7.976696,
+          "count": 3,
+          "avg": 6.659513666666666
+        },
+        "search_accent": {
+          "max": 38.660512,
+          "count": 3,
+          "avg": 35.057340333333336,
+          "min": 32.714405,
+          "med": 33.797104,
+          "p(95)": 38.174171199999996,
+          "p(99)": 38.56324384
+        },
+        "search_normalized": {
+          "count": 3,
+          "avg": 32.23834133333333,
+          "min": 29.206342,
+          "med": 31.877701,
+          "p(95)": 35.255652999999995,
+          "p(99)": 35.555915399999996,
+          "max": 35.630981
+        },
+        "detail_fanout_1": {
+          "avg": 8.353720000000001,
+          "min": 8.012131,
+          "med": 8.428459,
+          "p(95)": 8.601358900000001,
+          "p(99)": 8.616727780000002,
+          "max": 8.62057,
+          "count": 3
+        },
+        "detail_fanout_2": {
+          "count": 3,
+          "avg": 8.248389666666666,
+          "min": 6.417317,
+          "med": 8.439921,
+          "p(95)": 9.74313,
+          "p(99)": 9.8589708,
+          "max": 9.887931
+        },
+        "detail_fanout_3": {
+          "max": 10.062543,
+          "count": 3,
+          "avg": 7.825188666666667,
+          "min": 5.918622,
+          "med": 7.494401,
+          "p(95)": 9.805728799999999,
+          "p(99)": 10.01118016
+        },
+        "detail_fanout_10": {
+          "avg": 8.888838,
+          "min": 8.152206,
+          "med": 8.761637,
+          "p(95)": 9.653567599999999,
+          "p(99)": 9.732850319999999,
+          "max": 9.752671,
+          "count": 3
+        }
+      },
+      "clockAudit": {
+        "httpSamples": 60,
+        "backsteps": [
+          {
+            "sample": 12,
+            "previous": "2026-10-07T11:46:33.251562+00:00",
+            "at": "2026-10-07T11:46:33.043629+00:00",
+            "seconds": 0.207933
+          },
+          {
+            "sample": 43,
+            "previous": "2026-10-07T11:47:02.662858+00:00",
+            "at": "2026-10-07T11:47:02.447945+00:00",
+            "seconds": 0.214913
+          }
+        ],
+        "concurrentReorderings": [],
+        "rawMetricsAvailable": true,
+        "pairedDiscontinuities": [
+          {
+            "previous": {
+              "wall": "2026-10-07T11:46:33.855255+00:00",
+              "wallNs": 1791373593855268757,
+              "monotonicNs": 18600535001478
+            },
+            "current": {
+              "wall": "2026-10-07T11:46:32.882766+00:00",
+              "wallNs": 1791373592882785244,
+              "monotonicNs": 18600785865895
+            },
+            "wallMinusMonotonicSeconds": -1.22334793
+          },
+          {
+            "previous": {
+              "wall": "2026-10-07T11:47:02.636680+00:00",
+              "wallNs": 1791373622636700450,
+              "monotonicNs": 18630539780923
+            },
+            "current": {
+              "wall": "2026-10-07T11:47:01.663333+00:00",
+              "wallNs": 1791373621663343064,
+              "monotonicNs": 18630789964295
+            },
+            "wallMinusMonotonicSeconds": -1.223540758
+          }
+        ]
+      },
+      "servingWindow": {
+        "launched": {
+          "wall": "2026-10-07T11:46:21.596106+00:00",
+          "wallNs": 1791373581596115425,
+          "monotonicNs": 18588275848177
+        },
+        "finished": {
+          "wall": "2026-10-07T11:47:19.689996+00:00",
+          "wallNs": 1791373639690012981,
+          "monotonicNs": 18648816634883
+        }
+      },
+      "backgroundWindow": null,
+      "controllerOverlapWindow": null,
+      "publicCompletionsInControllerBracket": 0,
+      "overlapHttpCounters": null,
+      "sampleCount": 39,
+      "samplesInBackgroundWindow": 0,
+      "runningSyncSamples": 0,
+      "maximumSampleIntervalSeconds": 1.825174982,
+      "resources": {
+        "application": {
+          "cpuCounterDelta": {
+            "usage_usec": 5148020,
+            "user_usec": 4225244,
+            "system_usec": 922775,
+            "nice_usec": 0,
+            "nr_periods": 378,
+            "nr_throttled": 24,
+            "throttled_usec": 1360493,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "maximumObservedMemoryBytes": 423731200,
+          "memoryEventsBefore": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "memoryEventsAfter": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "ioBefore": "",
+          "ioAfter": ""
+        },
+        "postgres": {
+          "cpuCounterDelta": {
+            "usage_usec": 6122361,
+            "user_usec": 4956840,
+            "system_usec": 1165522,
+            "nice_usec": 0,
+            "nr_periods": 276,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "maximumObservedMemoryBytes": 1068654592,
+          "memoryEventsBefore": {
+            "low": 0,
+            "high": 0,
+            "max": 2808,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "memoryEventsAfter": {
+            "low": 0,
+            "high": 0,
+            "max": 2901,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "ioBefore": "8:64 rbytes=175882240 wbytes=4805890048 rios=2366 wios=31064 dbytes=0 dios=0",
+          "ioAfter": "8:64 rbytes=176451584 wbytes=4808507392 rios=2391 wios=31333 dbytes=0 dios=0"
+        },
+        "localizer": {
+          "cpuCounterDelta": {
+            "usage_usec": 1756149,
+            "user_usec": 1155303,
+            "system_usec": 600846,
+            "nice_usec": 0,
+            "nr_periods": 121,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "maximumObservedMemoryBytes": 320065536,
+          "memoryEventsBefore": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "memoryEventsAfter": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "ioBefore": "",
+          "ioAfter": ""
+        }
+      },
+      "maximumObservedHeapBytes": 162431120.0,
+      "maximumObservedHikariActive": 1.0,
+      "maximumObservedHikariPending": 0.0,
+      "maximumObservedUngrantedLocks": 0,
+      "postgresBefore": {
+        "xact_commit": 965,
+        "xact_rollback": 1,
+        "blks_read": 314498,
+        "blks_hit": 27590381,
+        "temp_files": 65,
+        "temp_bytes": 195681284,
+        "deadlocks": 0
+      },
+      "postgresAfter": {
+        "xact_commit": 1362,
+        "xact_rollback": 39,
+        "blks_read": 314903,
+        "blks_hit": 29943813,
+        "temp_files": 82,
+        "temp_bytes": 290987012,
+        "deadlocks": 0
+      },
+      "metricsBefore": {
+        "http.server.requests": {
+          "availableTags": [
+            {
+              "tag": "exception",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "method",
+              "values": [
+                "GET"
+              ]
+            },
+            {
+              "tag": "error",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "uri",
+              "values": [
+                "/api/v1/games/{gameId}",
+                "/api/v1/featured-releases",
+                "/api/v1/games",
+                "/api/v1/releases"
+              ]
+            },
+            {
+              "tag": "outcome",
+              "values": [
+                "SUCCESS"
+              ]
+            },
+            {
+              "tag": "status",
+              "values": [
+                "200"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 20.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 3086.828705
+            },
+            {
+              "statistic": "MAX",
+              "value": 636.350822
+            }
+          ],
+          "name": "http.server.requests"
+        },
+        "jvm.memory.used": {
+          "availableTags": [
+            {
+              "tag": "id",
+              "values": [
+                "Survivor Space",
+                "Eden Space",
+                "Tenured Gen"
+              ]
+            }
+          ],
+          "baseUnit": "bytes",
+          "description": "The amount of used memory",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 113755928.0
+            }
+          ],
+          "name": "jvm.memory.used"
+        },
+        "jvm.gc.pause": {
+          "availableTags": [
+            {
+              "tag": "cause",
+              "values": [
+                "Allocation Failure"
+              ]
+            },
+            {
+              "tag": "action",
+              "values": [
+                "end of minor GC"
+              ]
+            },
+            {
+              "tag": "gc",
+              "values": [
+                "Copy"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "description": "Time spent in GC pause",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 3.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 112.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 89.0
+            }
+          ],
+          "name": "jvm.gc.pause"
+        },
+        "jvm.threads.live": {
+          "availableTags": [],
+          "baseUnit": "threads",
+          "description": "The current number of live threads including both daemon and non-daemon threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 55.0
+            }
+          ],
+          "name": "jvm.threads.live"
+        },
+        "process.cpu.usage": {
+          "availableTags": [],
+          "description": "The \"recent cpu usage\" for the Java Virtual Machine process",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.15714285714285714
+            }
+          ],
+          "name": "process.cpu.usage"
+        },
+        "hikaricp.connections.active": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Active connections",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.active"
+        },
+        "hikaricp.connections.pending": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Pending threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.pending"
+        },
+        "hikaricp.connections.timeout": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Connection timeout total count",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.timeout"
+        },
+        "catalogue.synchronization.provider.request.duration": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 0.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.request.duration"
+        },
+        "catalogue.synchronization.provider.retry": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.retry"
+        },
+        "catalogue.synchronization.trigger.duration": {
+          "unavailable": "HTTPError"
+        },
+        "localization.translated": 0,
+        "localization.reused": 0,
+        "localization.skipped": 0,
+        "localization.failed": 0,
+        "localization.busy": 0,
+        "localization.fallback": 0
+      },
+      "metricsAfter": {
+        "http.server.requests": {
+          "availableTags": [
+            {
+              "tag": "exception",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "method",
+              "values": [
+                "GET"
+              ]
+            },
+            {
+              "tag": "error",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "uri",
+              "values": [
+                "/api/v1/games/{gameId}",
+                "/api/v1/featured-releases",
+                "/api/v1/games",
+                "/api/v1/releases"
+              ]
+            },
+            {
+              "tag": "outcome",
+              "values": [
+                "SUCCESS"
+              ]
+            },
+            {
+              "tag": "status",
+              "values": [
+                "200"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 80.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 7035.75023
+            },
+            {
+              "statistic": "MAX",
+              "value": 636.350822
+            }
+          ],
+          "name": "http.server.requests"
+        },
+        "jvm.memory.used": {
+          "availableTags": [
+            {
+              "tag": "id",
+              "values": [
+                "Survivor Space",
+                "Eden Space",
+                "Tenured Gen"
+              ]
+            }
+          ],
+          "baseUnit": "bytes",
+          "description": "The amount of used memory",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 163436848.0
+            }
+          ],
+          "name": "jvm.memory.used"
+        },
+        "jvm.gc.pause": {
+          "availableTags": [
+            {
+              "tag": "cause",
+              "values": [
+                "Allocation Failure"
+              ]
+            },
+            {
+              "tag": "action",
+              "values": [
+                "end of minor GC"
+              ]
+            },
+            {
+              "tag": "gc",
+              "values": [
+                "Copy"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "description": "Time spent in GC pause",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 4.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 120.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 89.0
+            }
+          ],
+          "name": "jvm.gc.pause"
+        },
+        "jvm.threads.live": {
+          "availableTags": [],
+          "baseUnit": "threads",
+          "description": "The current number of live threads including both daemon and non-daemon threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 53.0
+            }
+          ],
+          "name": "jvm.threads.live"
+        },
+        "process.cpu.usage": {
+          "availableTags": [],
+          "description": "The \"recent cpu usage\" for the Java Virtual Machine process",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.11428571428571428
+            }
+          ],
+          "name": "process.cpu.usage"
+        },
+        "hikaricp.connections.active": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Active connections",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.active"
+        },
+        "hikaricp.connections.pending": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Pending threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.pending"
+        },
+        "hikaricp.connections.timeout": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Connection timeout total count",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.timeout"
+        },
+        "catalogue.synchronization.provider.request.duration": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 0.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.request.duration"
+        },
+        "catalogue.synchronization.provider.retry": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.retry"
+        },
+        "catalogue.synchronization.trigger.duration": {
+          "unavailable": "HTTPError"
+        },
+        "localization.translated": 0,
+        "localization.reused": 0,
+        "localization.skipped": 0,
+        "localization.failed": 0,
+        "localization.busy": 0,
+        "localization.fallback": 0
+      },
+      "application": {
+        "image": "videogame-platform/application:0.29.0-SNAPSHOT",
+        "imageId": "sha256:d3e6f20250bf60f8e925fb4d096d3047ac00b94baee2eae2462162ca3fc95ded",
+        "memoryLimitBytes": 1073741824,
+        "cpuLimit": 0.5,
+        "startedAt": "2026-10-07T11:45:43.369254853Z",
+        "settings": {
+          "APPLICATION_CATALOGUE_READINESS_TIMEOUT": "2s",
+          "APPLICATION_DB_CONNECTION_TIMEOUT": "3000",
+          "APPLICATION_DB_MAXIMUM_POOL_SIZE": "10",
+          "APPLICATION_DB_VALIDATION_TIMEOUT": "1000",
+          "APPLICATION_FLYWAY_ENABLED": "false",
+          "CATALOGUE_JDBC_READ_TIMEOUT": "5s",
+          "CATALOGUE_SYNC_SCHEDULING_ENABLED": "false",
+          "RATINGS_JDBC_OPERATION_TIMEOUT": "5s",
+          "SPRING_PROFILES_ACTIVE": "oidc,structured",
+          "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "local",
+          "TELEMETRY_OTLP_METRICS_ENABLED": "true",
+          "TELEMETRY_OTLP_METRICS_STEP": "60s",
+          "TELEMETRY_OTLP_TRACES_ENABLED": "false"
+        }
+      },
+      "postgres": {
+        "image": "postgres:18.4-bookworm",
+        "imageId": "sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+        "memoryLimitBytes": 1073741824,
+        "cpuLimit": 2.0,
+        "startedAt": "2026-10-07T11:44:41.130829661Z",
+        "settings": {}
+      },
+      "localizer": {
+        "image": "videogame-platform/catalogue-localizer:1.0.0",
+        "imageId": "sha256:f5c723b9c0051da1669b2772a3d16d1a0fc0683a59317a65dd853df52e01c211",
+        "memoryLimitBytes": 805306368,
+        "cpuLimit": 2.0,
+        "startedAt": "2026-10-07T11:45:43.168879736Z",
+        "settings": {}
+      },
+      "providerEvidence": {
+        "payloadSha256": "e64521425a86f1cf338ab4531ec37dabd7e66aa226a79e28ec6da1dd2d6bd4c0",
+        "requests": []
+      },
+      "rawEvidenceSha256": {
+        "after.json": "4b175ceb6b8f1e92cb8aad689c0714b12247a1f94838600618bb2ab8075509b3",
+        "application.log": "1902fc37d33e5609c411c39ccef0609224cf7d1a33db98b56039749c044680a0",
+        "before.json": "6eb35738e34a76b309e481616be7389c0ddb010cfbe48fa5ad7b9ff15c26bddc",
+        "clock-samples.json": "b1615851b0508a161de457b285a1153a59462c6829de69b9800a755f6990480c",
+        "evidence.json": "da17102995bef263fb2eafc9e9e4d5f7ddc6ea31827a8ed0d22c44338e3929cd",
+        "k6.log": "cb096de5672f1d2a231b7cf945ac81cb393b9b65d51fe5d270c0258eb3bf1e5d",
+        "localizer.log": "c80f13a70d547b96faa4918e3b2773dbad5be60f7d4b701d0e5e3a2ae9f32d38",
+        "metrics.json": "a8bc707dbe6daf839d3f5255abc0046214d6747160ac43e54c19886259df15fd",
+        "provider-evidence.json": "632f25d54448acada8909b442d26212200befd37dd3d85754fc125b36ffeb6df",
+        "samples.json": "d5cad31493a6cc6b84b321b55dd1e2419cd1a56ccc86b891844942aa77cb5c20",
+        "sampling-errors.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "state-after.json": "a4f5ea7bb0523072dae91fb7abcd3e7664896b68b7ae1823c8e0e7972d5004a2",
+        "state-before.json": "a4f5ea7bb0523072dae91fb7abcd3e7664896b68b7ae1823c8e0e7972d5004a2",
+        "summary.json": "dcd858107f516a8bc954b033101006184766f9f6d3168c2a45e503adc2e8098b",
+        "workload.json": "8ec6bd18dc076c21080abf42c0a1ba0ca8d32d2cb2502e5e47372cb77facab95"
+      }
+    },
+    {
+      "scenario": "serving-sync-reuse",
+      "functionalPassed": true,
+      "processedProviderGameIds": [
+        850001,
+        850002,
+        850003,
+        850004
+      ],
+      "stateBefore": {
+        "games": 4,
+        "fingerprints": [
+          {
+            "fingerprint": "0e21f557babb51dbb5790c511406e175858b704aaf1beb071ff620f954540d40",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "2fa5af58cd6f3236806034ba4a06c32e3ca5945568cf234afab467e64b95e107",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "5127a17cf41312a23663c5ac9bbb5ed88d50e7ef0526bc6123aaece353d43e7c",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "8b0750e42d6be22227f85de76339bf2d117b825300a06758e739e62528c50dab",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "915cec6aeecee7499963e15e00e80364272fdfcebc1ad595f7a9fa0791ee9f2d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "c65867bb2a6cb9c6c6088da380623826967f9b275d138c54164e6648a263263d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          }
+        ],
+        "linkedSummaries": 0
+      },
+      "stateAfter": {
+        "games": 4,
+        "fingerprints": [
+          {
+            "fingerprint": "0e21f557babb51dbb5790c511406e175858b704aaf1beb071ff620f954540d40",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "2fa5af58cd6f3236806034ba4a06c32e3ca5945568cf234afab467e64b95e107",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "5127a17cf41312a23663c5ac9bbb5ed88d50e7ef0526bc6123aaece353d43e7c",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "8b0750e42d6be22227f85de76339bf2d117b825300a06758e739e62528c50dab",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "915cec6aeecee7499963e15e00e80364272fdfcebc1ad595f7a9fa0791ee9f2d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "c65867bb2a6cb9c6c6088da380623826967f9b275d138c54164e6648a263263d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          }
+        ],
+        "linkedSummaries": 4
+      },
+      "inferenceCompletions": 0,
+      "localizationDelta": {
+        "translated": 0,
+        "reused": 6.0,
+        "skipped": 6.0,
+        "failed": 0,
+        "busy": 0,
+        "fallback": 0
+      },
+      "http": {
+        "http_reqs": {
+          "count": 60,
+          "rate": 1.0436303897461727
+        },
+        "http_req_duration": {
+          "max": 425.618283,
+          "count": 60,
+          "avg": 68.01971356666665,
+          "min": 5.679705,
+          "med": 28.243459,
+          "p(95)": 363.8238014,
+          "p(99)": 407.4026943899999
+        },
+        "http_req_failed": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 60
+        },
+        "checks": {
+          "fails": 0,
+          "rate": 1,
+          "passes": 240
+        },
+        "response_timeouts": {
+          "count": 0,
+          "rate": 0
+        },
+        "dropped_iterations": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "perCaseDuration": {
+        "releases_recent": {
+          "avg": 26.111655333333335,
+          "min": 23.065413,
+          "med": 26.718946,
+          "p(95)": 28.3674409,
+          "p(99)": 28.51397378,
+          "max": 28.550607,
+          "count": 3
+        },
+        "releases_upcoming": {
+          "p(95)": 55.97043609999999,
+          "p(99)": 58.983848019999996,
+          "max": 59.737201,
+          "count": 3,
+          "avg": 33.32164933333333,
+          "min": 18.158195,
+          "med": 22.069552
+        },
+        "releases_featured": {
+          "max": 16.58605,
+          "count": 3,
+          "avg": 16.048779,
+          "min": 15.307204,
+          "med": 16.253083,
+          "p(95)": 16.5527533,
+          "p(99)": 16.57939066
+        },
+        "recent_pc": {
+          "max": 30.071918,
+          "count": 3,
+          "avg": 28.448380666666665,
+          "min": 27.336913,
+          "med": 27.936311,
+          "p(95)": 29.8583573,
+          "p(99)": 30.02920586
+        },
+        "recent_multi_filters": {
+          "max": 38.055687,
+          "count": 3,
+          "avg": 33.380870333333334,
+          "min": 30.117316,
+          "med": 31.969608,
+          "p(95)": 37.447079099999996,
+          "p(99)": 37.93396542
+        },
+        "upcoming_north_america": {
+          "min": 15.187219,
+          "med": 15.869512,
+          "p(95)": 67.23172449999998,
+          "p(99)": 71.79725450000001,
+          "max": 72.938637,
+          "count": 3,
+          "avg": 34.66512266666667
+        },
+        "upcoming_approximate": {
+          "p(99)": 69.2419776,
+          "max": 69.317136,
+          "count": 3,
+          "avg": 65.03796266666667,
+          "min": 60.237536,
+          "med": 65.559216,
+          "p(95)": 68.941344
+        },
+        "recent_deep": {
+          "p(99)": 32.26703138,
+          "max": 32.317718,
+          "count": 3,
+          "avg": 29.827842,
+          "min": 27.382421,
+          "med": 29.783387,
+          "p(95)": 32.0642849
+        },
+        "upcoming_deep": {
+          "avg": 47.968945999999995,
+          "min": 40.393726,
+          "med": 45.054479,
+          "p(95)": 57.118217599999994,
+          "p(99)": 58.190549919999995,
+          "max": 58.458633,
+          "count": 3
+        },
+        "search_selective": {
+          "p(99)": 10.93163206,
+          "max": 10.973606,
+          "count": 3,
+          "avg": 9.104434,
+          "min": 7.464787,
+          "med": 8.874909,
+          "p(95)": 10.7637363
+        },
+        "search_broad": {
+          "p(95)": 173.4465974,
+          "p(99)": 174.02398108,
+          "max": 174.168327,
+          "count": 3,
+          "avg": 168.74314333333334,
+          "min": 165.110072,
+          "med": 166.951031
+        },
+        "search_deep_10k": {
+          "p(95)": 375.2410592,
+          "p(99)": 376.31562464,
+          "max": 376.584266,
+          "count": 3,
+          "avg": 360.20837800000004,
+          "min": 340.88867,
+          "med": 363.152198
+        },
+        "search_deep_48k": {
+          "count": 3,
+          "avg": 394.25612466666666,
+          "min": 362.405687,
+          "med": 394.744404,
+          "p(95)": 422.5308951,
+          "p(99)": 425.00080542,
+          "max": 425.618283
+        },
+        "search_alias": {
+          "med": 6.128782,
+          "p(95)": 6.9483202,
+          "p(99)": 7.02116804,
+          "max": 7.03938,
+          "count": 3,
+          "avg": 6.282622333333333,
+          "min": 5.679705
+        },
+        "search_accent": {
+          "min": 36.883405,
+          "med": 38.358789,
+          "p(95)": 39.4041642,
+          "p(99)": 39.49708644,
+          "max": 39.520317,
+          "count": 3,
+          "avg": 38.254170333333334
+        },
+        "search_normalized": {
+          "count": 3,
+          "avg": 38.12713933333333,
+          "min": 34.68547,
+          "med": 38.391214,
+          "p(95)": 41.013382,
+          "p(99)": 41.246463600000006,
+          "max": 41.304734
+        },
+        "detail_fanout_1": {
+          "count": 3,
+          "avg": 7.144987333333334,
+          "min": 5.716128,
+          "med": 6.720441,
+          "p(95)": 8.7705978,
+          "p(99)": 8.95283396,
+          "max": 8.998393
+        },
+        "detail_fanout_2": {
+          "min": 7.277423,
+          "med": 9.523069,
+          "p(95)": 9.9370528,
+          "p(99)": 9.97385136,
+          "max": 9.983051,
+          "count": 3,
+          "avg": 8.927847666666667
+        },
+        "detail_fanout_3": {
+          "avg": 7.641463666666667,
+          "min": 6.967542,
+          "med": 7.922127,
+          "p(95)": 8.0234625,
+          "p(99)": 8.032470100000001,
+          "max": 8.034722,
+          "count": 3
+        },
+        "detail_fanout_10": {
+          "max": 7.885183,
+          "count": 3,
+          "avg": 6.8927526666666665,
+          "min": 6.040822,
+          "med": 6.752253,
+          "p(95)": 7.771889999999999,
+          "p(99)": 7.8625244
+        }
+      },
+      "clockAudit": {
+        "httpSamples": 60,
+        "backsteps": [
+          {
+            "sample": 41,
+            "previous": "2026-10-07T11:48:57.473293+00:00",
+            "at": "2026-10-07T11:48:57.205284+00:00",
+            "seconds": 0.268009
+          }
+        ],
+        "concurrentReorderings": [
+          {
+            "sample": 11,
+            "previous": "2026-10-07T11:48:28.871651+00:00",
+            "at": "2026-10-07T11:48:28.791745+00:00",
+            "seconds": 0.079906
+          }
+        ],
+        "rawMetricsAvailable": true,
+        "pairedDiscontinuities": [
+          {
+            "previous": {
+              "wall": "2026-10-07T11:48:29.045142+00:00",
+              "wallNs": 1791373709045158535,
+              "monotonicNs": 18720651986703
+            },
+            "current": {
+              "wall": "2026-10-07T11:48:28.048607+00:00",
+              "wallNs": 1791373708048614932,
+              "monotonicNs": 18720902178012
+            },
+            "wallMinusMonotonicSeconds": -1.246734912
+          },
+          {
+            "previous": {
+              "wall": "2026-10-07T11:48:57.697824+00:00",
+              "wallNs": 1791373737697844332,
+              "monotonicNs": 18750551407904
+            },
+            "current": {
+              "wall": "2026-10-07T11:48:56.685285+00:00",
+              "wallNs": 1791373736685295517,
+              "monotonicNs": 18750801570698
+            },
+            "wallMinusMonotonicSeconds": -1.262711609
+          }
+        ]
+      },
+      "servingWindow": {
+        "launched": {
+          "wall": "2026-10-07T11:48:18.308929+00:00",
+          "wallNs": 1791373698308940261,
+          "monotonicNs": 18709915768515
+        },
+        "finished": {
+          "wall": "2026-10-07T11:49:16.451390+00:00",
+          "wallNs": 1791373756451407063,
+          "monotonicNs": 18770567682276
+        }
+      },
+      "backgroundWindow": {
+        "dispatched": {
+          "wall": "2026-10-07T11:48:23.456842+00:00",
+          "wallNs": 1791373703456851495,
+          "monotonicNs": 18715063679424
+        },
+        "acknowledged": {
+          "wall": "2026-10-07T11:48:26.910328+00:00",
+          "wallNs": 1791373706910338724,
+          "monotonicNs": 18718517166925
+        },
+        "report": {
+          "runId": "a76420e6-f6a2-4a09-a01a-01ef9fb71f67",
+          "from": "2026-10-07",
+          "to": "2026-10-07",
+          "startedAt": "2026-10-07T11:48:23.487498014Z",
+          "completedAt": "2026-10-07T11:48:26.900438587Z",
+          "outcome": "SUCCEEDED",
+          "outcomeCode": "SYNCHRONIZATION_COMPLETED",
+          "counters": {
+            "inspectedReleaseDates": 8,
+            "createdGames": 0,
+            "updatedGames": 0,
+            "unchangedGames": 4,
+            "createdReleases": 0,
+            "updatedReleases": 0,
+            "unchangedReleases": 8,
+            "deferredGames": 0,
+            "failedGames": 0,
+            "providerRequests": 11,
+            "providerRetries": 0,
+            "providerLatencyMillis": 102,
+            "deletedReleases": 0,
+            "popularityObservedGames": 0,
+            "popularityClearedGames": 4,
+            "popularityUnavailableGames": 0,
+            "featuredImageObservedGames": 0,
+            "logoObservedGames": 0,
+            "logoUnavailableGames": 0,
+            "detailsUnavailableGames": 0
+          }
+        }
+      },
+      "controllerOverlapWindow": {
+        "fromMonotonicNs": 18715063679424,
+        "toMonotonicNs": 18718517166925
+      },
+      "publicCompletionsInControllerBracket": 4.0,
+      "overlapHttpCounters": {
+        "beforeDispatch": {
+          "clock": {
+            "wall": "2026-10-07T11:48:23.310485+00:00",
+            "wallNs": 1791373703310495618,
+            "monotonicNs": 18714917324080
+          },
+          "completed": {
+            "/api/v1/games": 7.0,
+            "/api/v1/games/{gameId}": 4.0,
+            "/api/v1/releases": 12.0,
+            "/api/v1/featured-releases": 2.0
+          }
+        },
+        "afterAcknowledgement": {
+          "clock": {
+            "wall": "2026-10-07T11:48:26.910404+00:00",
+            "wallNs": 1791373706910410038,
+            "monotonicNs": 18718517237893
+          },
+          "completed": {
+            "/api/v1/games": 7.0,
+            "/api/v1/games/{gameId}": 4.0,
+            "/api/v1/releases": 16.0,
+            "/api/v1/featured-releases": 2.0
+          }
+        }
+      },
+      "sampleCount": 40,
+      "samplesInBackgroundWindow": 2,
+      "runningSyncSamples": 2,
+      "maximumSampleIntervalSeconds": 1.727984952,
+      "resources": {
+        "application": {
+          "cpuCounterDelta": {
+            "usage_usec": 5378768,
+            "user_usec": 4445695,
+            "system_usec": 933073,
+            "nice_usec": 0,
+            "nr_periods": 402,
+            "nr_throttled": 26,
+            "throttled_usec": 1909636,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "maximumObservedMemoryBytes": 434294784,
+          "memoryEventsBefore": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "memoryEventsAfter": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "ioBefore": "",
+          "ioAfter": ""
+        },
+        "postgres": {
+          "cpuCounterDelta": {
+            "usage_usec": 6222092,
+            "user_usec": 4953903,
+            "system_usec": 1268188,
+            "nice_usec": 0,
+            "nr_periods": 272,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "maximumObservedMemoryBytes": 1073725440,
+          "memoryEventsBefore": {
+            "low": 0,
+            "high": 0,
+            "max": 5409,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "memoryEventsAfter": {
+            "low": 0,
+            "high": 0,
+            "max": 5457,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "ioBefore": "8:64 rbytes=184266752 wbytes=6117294080 rios=2787 wios=39851 dbytes=0 dios=0",
+          "ioAfter": "8:64 rbytes=184872960 wbytes=6199275520 rios=2833 wios=41620 dbytes=0 dios=0"
+        },
+        "localizer": {
+          "cpuCounterDelta": {
+            "usage_usec": 1760853,
+            "user_usec": 1191566,
+            "system_usec": 569286,
+            "nice_usec": 0,
+            "nr_periods": 125,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "maximumObservedMemoryBytes": 305807360,
+          "memoryEventsBefore": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "memoryEventsAfter": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "ioBefore": "",
+          "ioAfter": ""
+        }
+      },
+      "maximumObservedHeapBytes": 164492288.0,
+      "maximumObservedHikariActive": 1.0,
+      "maximumObservedHikariPending": 0.0,
+      "maximumObservedUngrantedLocks": 0,
+      "postgresBefore": {
+        "xact_commit": 2191,
+        "xact_rollback": 42,
+        "blks_read": 548925,
+        "blks_hit": 31583432,
+        "temp_files": 143,
+        "temp_bytes": 470195204,
+        "deadlocks": 0
+      },
+      "postgresAfter": {
+        "xact_commit": 2663,
+        "xact_rollback": 81,
+        "blks_read": 549443,
+        "blks_hit": 33940630,
+        "temp_files": 160,
+        "temp_bytes": 565500932,
+        "deadlocks": 0
+      },
+      "metricsBefore": {
+        "http.server.requests": {
+          "availableTags": [
+            {
+              "tag": "exception",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "method",
+              "values": [
+                "GET"
+              ]
+            },
+            {
+              "tag": "error",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "uri",
+              "values": [
+                "/api/v1/games/{gameId}",
+                "/api/v1/featured-releases",
+                "/api/v1/games",
+                "/api/v1/releases"
+              ]
+            },
+            {
+              "tag": "outcome",
+              "values": [
+                "SUCCESS"
+              ]
+            },
+            {
+              "tag": "status",
+              "values": [
+                "200"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 20.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 2727.531914
+            },
+            {
+              "statistic": "MAX",
+              "value": 520.483156
+            }
+          ],
+          "name": "http.server.requests"
+        },
+        "jvm.memory.used": {
+          "availableTags": [
+            {
+              "tag": "id",
+              "values": [
+                "Survivor Space",
+                "Eden Space",
+                "Tenured Gen"
+              ]
+            }
+          ],
+          "baseUnit": "bytes",
+          "description": "The amount of used memory",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 111756632.0
+            }
+          ],
+          "name": "jvm.memory.used"
+        },
+        "jvm.gc.pause": {
+          "availableTags": [
+            {
+              "tag": "cause",
+              "values": [
+                "Allocation Failure"
+              ]
+            },
+            {
+              "tag": "action",
+              "values": [
+                "end of minor GC"
+              ]
+            },
+            {
+              "tag": "gc",
+              "values": [
+                "Copy"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "description": "Time spent in GC pause",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 3.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 34.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 12.0
+            }
+          ],
+          "name": "jvm.gc.pause"
+        },
+        "jvm.threads.live": {
+          "availableTags": [],
+          "baseUnit": "threads",
+          "description": "The current number of live threads including both daemon and non-daemon threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 55.0
+            }
+          ],
+          "name": "jvm.threads.live"
+        },
+        "process.cpu.usage": {
+          "availableTags": [],
+          "description": "The \"recent cpu usage\" for the Java Virtual Machine process",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.15384615384615385
+            }
+          ],
+          "name": "process.cpu.usage"
+        },
+        "hikaricp.connections.active": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Active connections",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.active"
+        },
+        "hikaricp.connections.pending": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Pending threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.pending"
+        },
+        "hikaricp.connections.timeout": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Connection timeout total count",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.timeout"
+        },
+        "catalogue.synchronization.provider.request.duration": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 0.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.request.duration"
+        },
+        "catalogue.synchronization.provider.retry": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.retry"
+        },
+        "catalogue.synchronization.trigger.duration": {
+          "unavailable": "HTTPError"
+        },
+        "localization.translated": 0,
+        "localization.reused": 0,
+        "localization.skipped": 0,
+        "localization.failed": 0,
+        "localization.busy": 0,
+        "localization.fallback": 0
+      },
+      "metricsAfter": {
+        "http.server.requests": {
+          "availableTags": [
+            {
+              "tag": "exception",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "method",
+              "values": [
+                "GET"
+              ]
+            },
+            {
+              "tag": "error",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "uri",
+              "values": [
+                "/api/v1/games/{gameId}",
+                "/api/v1/games",
+                "/api/v1/featured-releases",
+                "/api/v1/releases"
+              ]
+            },
+            {
+              "tag": "outcome",
+              "values": [
+                "SUCCESS"
+              ]
+            },
+            {
+              "tag": "status",
+              "values": [
+                "200"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 80.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 6753.7811409999995
+            },
+            {
+              "statistic": "MAX",
+              "value": 520.483156
+            }
+          ],
+          "name": "http.server.requests"
+        },
+        "jvm.memory.used": {
+          "availableTags": [
+            {
+              "tag": "id",
+              "values": [
+                "Survivor Space",
+                "Eden Space",
+                "Tenured Gen"
+              ]
+            }
+          ],
+          "baseUnit": "bytes",
+          "description": "The amount of used memory",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 146489392.0
+            }
+          ],
+          "name": "jvm.memory.used"
+        },
+        "jvm.gc.pause": {
+          "availableTags": [
+            {
+              "tag": "cause",
+              "values": [
+                "Allocation Failure"
+              ]
+            },
+            {
+              "tag": "action",
+              "values": [
+                "end of minor GC"
+              ]
+            },
+            {
+              "tag": "gc",
+              "values": [
+                "Copy"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "description": "Time spent in GC pause",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 5.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 51.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 12.0
+            }
+          ],
+          "name": "jvm.gc.pause"
+        },
+        "jvm.threads.live": {
+          "availableTags": [],
+          "baseUnit": "threads",
+          "description": "The current number of live threads including both daemon and non-daemon threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 58.0
+            }
+          ],
+          "name": "jvm.threads.live"
+        },
+        "process.cpu.usage": {
+          "availableTags": [],
+          "description": "The \"recent cpu usage\" for the Java Virtual Machine process",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.3
+            }
+          ],
+          "name": "process.cpu.usage"
+        },
+        "hikaricp.connections.active": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Active connections",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.active"
+        },
+        "hikaricp.connections.pending": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Pending threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.pending"
+        },
+        "hikaricp.connections.timeout": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Connection timeout total count",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.timeout"
+        },
+        "catalogue.synchronization.provider.request.duration": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 10.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 2944.8505120000004
+            },
+            {
+              "statistic": "MAX",
+              "value": 347.071184
+            }
+          ],
+          "name": "catalogue.synchronization.provider.request.duration"
+        },
+        "catalogue.synchronization.provider.retry": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "works",
+                "window",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.retry"
+        },
+        "catalogue.synchronization.trigger.duration": {
+          "availableTags": [
+            {
+              "tag": "trigger",
+              "values": [
+                "manual"
+              ]
+            },
+            {
+              "tag": "outcome",
+              "values": [
+                "succeeded"
+              ]
+            },
+            {
+              "tag": "policy",
+              "values": [
+                "none"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 1.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 3419.932344
+            },
+            {
+              "statistic": "MAX",
+              "value": 3419.932344
+            }
+          ],
+          "name": "catalogue.synchronization.trigger.duration"
+        },
+        "localization.translated": 0,
+        "localization.reused": 6.0,
+        "localization.skipped": 6.0,
+        "localization.failed": 0,
+        "localization.busy": 0,
+        "localization.fallback": 0
+      },
+      "application": {
+        "image": "videogame-platform/application:0.29.0-SNAPSHOT",
+        "imageId": "sha256:d3e6f20250bf60f8e925fb4d096d3047ac00b94baee2eae2462162ca3fc95ded",
+        "memoryLimitBytes": 1073741824,
+        "cpuLimit": 0.5,
+        "startedAt": "2026-10-07T11:47:39.326396179Z",
+        "settings": {
+          "APPLICATION_CATALOGUE_READINESS_TIMEOUT": "2s",
+          "APPLICATION_DB_CONNECTION_TIMEOUT": "3000",
+          "APPLICATION_DB_MAXIMUM_POOL_SIZE": "10",
+          "APPLICATION_DB_VALIDATION_TIMEOUT": "1000",
+          "APPLICATION_FLYWAY_ENABLED": "false",
+          "CATALOGUE_JDBC_READ_TIMEOUT": "5s",
+          "CATALOGUE_SYNC_SCHEDULING_ENABLED": "false",
+          "RATINGS_JDBC_OPERATION_TIMEOUT": "5s",
+          "SPRING_PROFILES_ACTIVE": "oidc,structured",
+          "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "local",
+          "TELEMETRY_OTLP_METRICS_ENABLED": "true",
+          "TELEMETRY_OTLP_METRICS_STEP": "60s",
+          "TELEMETRY_OTLP_TRACES_ENABLED": "false"
+        }
+      },
+      "postgres": {
+        "image": "postgres:18.4-bookworm",
+        "imageId": "sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+        "memoryLimitBytes": 1073741824,
+        "cpuLimit": 2.0,
+        "startedAt": "2026-10-07T11:44:41.130829661Z",
+        "settings": {}
+      },
+      "localizer": {
+        "image": "videogame-platform/catalogue-localizer:1.0.0",
+        "imageId": "sha256:f5c723b9c0051da1669b2772a3d16d1a0fc0683a59317a65dd853df52e01c211",
+        "memoryLimitBytes": 805306368,
+        "cpuLimit": 2.0,
+        "startedAt": "2026-10-07T11:47:39.094030554Z",
+        "settings": {}
+      },
+      "providerEvidence": {
+        "payloadSha256": "e64521425a86f1cf338ab4531ec37dabd7e66aa226a79e28ec6da1dd2d6bd4c0",
+        "requests": [
+          {
+            "path": "/oauth2/token",
+            "status": 200,
+            "querySha256": null,
+            "responseSha256": "dd19184fce8803d6d2e3832211919313061bcccd5a857744fa5d26cf05141e22",
+            "monotonicStartedNs": 18715180506902,
+            "monotonicPreparedNs": 18715180714354,
+            "gameIds": []
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "172f63d45639f87dcb739e684de5e3cf2bc8fc2ca8f08a479c08abde434eacae",
+            "responseSha256": "ad2827ccb1c39f191d9a3374216fe0f5742e0664d4ef0f63f6243ae9be2ad389",
+            "monotonicStartedNs": 18715444374829,
+            "monotonicPreparedNs": 18715444617522,
+            "gameIds": [
+              850001,
+              850002,
+              850003,
+              850004
+            ]
+          },
+          {
+            "path": "/v4/logos",
+            "status": 200,
+            "querySha256": "45085ebb8d1945aa1983fc9ff5b91c1c40b71a51775750c57484db3281337c1b",
+            "responseSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "monotonicStartedNs": 18715791629295,
+            "monotonicPreparedNs": 18715791796376,
+            "gameIds": []
+          },
+          {
+            "path": "/v4/games",
+            "status": 200,
+            "querySha256": "fbe18786b901a9eadfe721c17d6652adb07befdffbb963868b778e97995f2957",
+            "responseSha256": "c343076e66620d67cbcd8f36527eaf792fbbbde0c00972de83b5a068ac0f079d",
+            "monotonicStartedNs": 18716125471913,
+            "monotonicPreparedNs": 18716125658657,
+            "gameIds": [
+              850001
+            ]
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "fa9fae636adf22e7c645f95b51b7a5b16a106478fff3ea0c0853b31f92b57c07",
+            "responseSha256": "d87d3f4ce3ae9995a9cc30e1539cbb288b611e6701c470f3b342160191f0cbcd",
+            "monotonicStartedNs": 18716458753347,
+            "monotonicPreparedNs": 18716458829490,
+            "gameIds": [
+              850001
+            ]
+          },
+          {
+            "path": "/v4/games",
+            "status": 200,
+            "querySha256": "4e64589efb1b926e8ba7cbbdc9cb69b15ef401e12538b3ee7f2762d919667857",
+            "responseSha256": "5afe672af33fb782f1a7fd5956feca8f0f75d991e6b7681993fabb67b8e0b513",
+            "monotonicStartedNs": 18716793197505,
+            "monotonicPreparedNs": 18716793291368,
+            "gameIds": [
+              850002
+            ]
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "cfaca0b7da7f07eead37d07acf7813dab08698dd937daaf4a4384bcae7801531",
+            "responseSha256": "86eeefd7c502d5ea270ecabc41066f4dd148217fd13f6c8b02b583f2bfa63aa8",
+            "monotonicStartedNs": 18717141101433,
+            "monotonicPreparedNs": 18717141191118,
+            "gameIds": [
+              850002
+            ]
+          },
+          {
+            "path": "/v4/games",
+            "status": 200,
+            "querySha256": "d01b0330a2ab00ba7e4aeefc750ad6d6db6509704b679334d8d71bdd67d6a6cc",
+            "responseSha256": "35e547511cf71b1ba992d35a1318b240774578126219521cd9ce4af121c91be3",
+            "monotonicStartedNs": 18717474854572,
+            "monotonicPreparedNs": 18717474956553,
+            "gameIds": [
+              850003
+            ]
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "6d723fc47cc12f03e00a96583ac919787f68720ed1b123131e4e0574aca4d43c",
+            "responseSha256": "635d72fa360481ed510d49dc4f229d7dfff88a6540c4ecf1f668c1c59e2ec497",
+            "monotonicStartedNs": 18717808479845,
+            "monotonicPreparedNs": 18717808565486,
+            "gameIds": [
+              850003
+            ]
+          },
+          {
+            "path": "/v4/games",
+            "status": 200,
+            "querySha256": "19d0414452d36591a32973ccf34e6344c0e1016c76af32f12fafa06eed92ce52",
+            "responseSha256": "44907537a966dad7211f833ac802ae429a5f81df39959564cfa2631ca7bbb4e4",
+            "monotonicStartedNs": 18718141953883,
+            "monotonicPreparedNs": 18718142051424,
+            "gameIds": [
+              850004
+            ]
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "7356edb8c203a635be385261cccb3281ad21c957e148442fb42fae0b8b7ac4e1",
+            "responseSha256": "e69292fe0ca18aec73bcd341bd4bab498539caa14a24f748954458c1fdc92d3f",
+            "monotonicStartedNs": 18718476907472,
+            "monotonicPreparedNs": 18718476998776,
+            "gameIds": [
+              850004
+            ]
+          }
+        ]
+      },
+      "rawEvidenceSha256": {
+        "after.json": "b9338bfff9ad7110cdc4171199b8d12fa108764d942eadbfcf3608571a3ae57f",
+        "application.log": "2fd846c26a90b25ebe67c6d86e55cbdf854fe83be971d0f4c4000b7b7f2a2bed",
+        "before.json": "506f5f21cdaf9d0a76c129dd14ca9cf3a1cdd4ba341cf6987be840168b4dc54a",
+        "clock-samples.json": "900cc2443b6c109bd8228bd6d76f460dd62e4d8032287be41ab9ac8035d2dcf2",
+        "evidence.json": "5fcaf3dba8980d2f022a744d633a364b0ac05a9a757b080585502e3cd5ae797d",
+        "k6.log": "67e4553dda20bdc1f72d255148b51473a5eebf27cedf3dda074cda9f2215ccfe",
+        "localizer.log": "ed803e5958357fe618c1c1391865dc8251f4848327c269192d0a21f4964edc86",
+        "metrics.json": "63502c21294777b85481b9adaf75ac82b78a420337271a87b87ab6e6e1ea406a",
+        "provider-evidence.json": "1555608792de98849c27f1bd66947bc60561755fa76d730a68c01ee8568fa0b9",
+        "samples.json": "93b955df9c21004dcb14f6cee6884e29f9314aaa2d759086db67317bd9dfd106",
+        "sampling-errors.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "state-after.json": "b52de3f5f61c66223d9d955c2c8378958d5d2201a35256be6763fe624924d1b6",
+        "state-before.json": "a4f5ea7bb0523072dae91fb7abcd3e7664896b68b7ae1823c8e0e7972d5004a2",
+        "summary.json": "4ba3293bc4cc8f071a149d7e369e4fe195625cd079e22d5ebe9ca245defcb7c0",
+        "workload.json": "e09a3977c41f5b132814e469e467e6df32f9f4258304324a34ce5dcc0a92bbfc"
+      }
+    },
+    {
+      "scenario": "serving-sync-inference",
+      "functionalPassed": true,
+      "processedProviderGameIds": [
+        850001,
+        850002,
+        850003,
+        850004
+      ],
+      "stateBefore": {
+        "games": 4,
+        "fingerprints": [
+          {
+            "fingerprint": "0e21f557babb51dbb5790c511406e175858b704aaf1beb071ff620f954540d40",
+            "resolved": false,
+            "runtimeRevision": null,
+            "claimed": false
+          },
+          {
+            "fingerprint": "2fa5af58cd6f3236806034ba4a06c32e3ca5945568cf234afab467e64b95e107",
+            "resolved": false,
+            "runtimeRevision": null,
+            "claimed": false
+          },
+          {
+            "fingerprint": "5127a17cf41312a23663c5ac9bbb5ed88d50e7ef0526bc6123aaece353d43e7c",
+            "resolved": false,
+            "runtimeRevision": null,
+            "claimed": false
+          },
+          {
+            "fingerprint": "8b0750e42d6be22227f85de76339bf2d117b825300a06758e739e62528c50dab",
+            "resolved": false,
+            "runtimeRevision": null,
+            "claimed": false
+          },
+          {
+            "fingerprint": "915cec6aeecee7499963e15e00e80364272fdfcebc1ad595f7a9fa0791ee9f2d",
+            "resolved": false,
+            "runtimeRevision": null,
+            "claimed": false
+          },
+          {
+            "fingerprint": "c65867bb2a6cb9c6c6088da380623826967f9b275d138c54164e6648a263263d",
+            "resolved": false,
+            "runtimeRevision": null,
+            "claimed": false
+          }
+        ],
+        "linkedSummaries": 0
+      },
+      "stateAfter": {
+        "games": 4,
+        "fingerprints": [
+          {
+            "fingerprint": "0e21f557babb51dbb5790c511406e175858b704aaf1beb071ff620f954540d40",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "2fa5af58cd6f3236806034ba4a06c32e3ca5945568cf234afab467e64b95e107",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "5127a17cf41312a23663c5ac9bbb5ed88d50e7ef0526bc6123aaece353d43e7c",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "8b0750e42d6be22227f85de76339bf2d117b825300a06758e739e62528c50dab",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "915cec6aeecee7499963e15e00e80364272fdfcebc1ad595f7a9fa0791ee9f2d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          },
+          {
+            "fingerprint": "c65867bb2a6cb9c6c6088da380623826967f9b275d138c54164e6648a263263d",
+            "resolved": true,
+            "runtimeRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+            "claimed": false
+          }
+        ],
+        "linkedSummaries": 4
+      },
+      "inferenceCompletions": 6,
+      "localizationDelta": {
+        "translated": 6.0,
+        "reused": 0,
+        "skipped": 6.0,
+        "failed": 0,
+        "busy": 0,
+        "fallback": 2.0
+      },
+      "http": {
+        "http_reqs": {
+          "count": 60,
+          "rate": 1.0430685713619898
+        },
+        "http_req_duration": {
+          "p(99)": 418.5598997799999,
+          "max": 426.334482,
+          "count": 60,
+          "avg": 67.60331196666665,
+          "min": 5.842174,
+          "med": 27.1185705,
+          "p(95)": 365.5050407999999
+        },
+        "http_req_failed": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 60
+        },
+        "checks": {
+          "rate": 1,
+          "passes": 240,
+          "fails": 0
+        },
+        "response_timeouts": {
+          "count": 0,
+          "rate": 0
+        },
+        "dropped_iterations": {
+          "count": 0,
+          "rate": 0
+        }
+      },
+      "perCaseDuration": {
+        "releases_recent": {
+          "count": 3,
+          "avg": 25.721378666666666,
+          "min": 23.681744,
+          "med": 26.233525,
+          "p(95)": 27.1473328,
+          "p(99)": 27.22856016,
+          "max": 27.248867
+        },
+        "releases_upcoming": {
+          "count": 3,
+          "avg": 24.192811333333328,
+          "min": 22.101613,
+          "med": 22.521544,
+          "p(95)": 27.411903699999996,
+          "p(99)": 27.846602339999997,
+          "max": 27.955277
+        },
+        "releases_featured": {
+          "avg": 15.460283333333331,
+          "min": 14.251831,
+          "med": 15.183672,
+          "p(95)": 16.7691795,
+          "p(99)": 16.9101135,
+          "max": 16.945347,
+          "count": 3
+        },
+        "recent_pc": {
+          "med": 26.988274,
+          "p(95)": 35.002987299999994,
+          "p(99)": 35.715406259999995,
+          "max": 35.893511,
+          "count": 3,
+          "avg": 29.829386,
+          "min": 26.606373
+        },
+        "recent_multi_filters": {
+          "p(95)": 41.731331499999996,
+          "p(99)": 42.3543703,
+          "max": 42.51013,
+          "count": 3,
+          "avg": 36.49759699999999,
+          "min": 32.260516,
+          "med": 34.722145
+        },
+        "upcoming_north_america": {
+          "min": 13.481047,
+          "med": 14.261215,
+          "p(95)": 16.6537804,
+          "p(99)": 16.86645288,
+          "max": 16.919621,
+          "count": 3,
+          "avg": 14.887294333333335
+        },
+        "upcoming_approximate": {
+          "p(95)": 91.0080893,
+          "p(99)": 92.75299946,
+          "max": 93.189227,
+          "count": 3,
+          "avg": 76.748925,
+          "min": 65.679698,
+          "med": 71.37785
+        },
+        "recent_deep": {
+          "avg": 51.434469666666665,
+          "min": 30.50282,
+          "med": 31.875706,
+          "p(95)": 85.91996529999999,
+          "p(99)": 90.72389945999998,
+          "max": 91.924883,
+          "count": 3
+        },
+        "upcoming_deep": {
+          "count": 3,
+          "avg": 35.84566433333333,
+          "min": 34.949917,
+          "med": 35.826814,
+          "p(95)": 36.6669172,
+          "p(99)": 36.74159304,
+          "max": 36.760262
+        },
+        "search_selective": {
+          "count": 3,
+          "avg": 9.326835666666666,
+          "min": 8.158089,
+          "med": 8.954422,
+          "p(95)": 10.6766386,
+          "p(99)": 10.82972452,
+          "max": 10.867996
+        },
+        "search_broad": {
+          "p(99)": 187.30673234,
+          "max": 187.83349,
+          "count": 3,
+          "avg": 166.567083,
+          "min": 150.372152,
+          "med": 161.495607,
+          "p(95)": 185.19970170000002
+        },
+        "search_deep_10k": {
+          "avg": 343.29096333333337,
+          "min": 319.840027,
+          "med": 346.196703,
+          "p(95)": 362.0722143,
+          "p(99)": 363.48337086000004,
+          "max": 363.83616,
+          "count": 3
+        },
+        "search_deep_48k": {
+          "p(95)": 425.0167562,
+          "p(99)": 426.07093684,
+          "max": 426.334482,
+          "count": 3,
+          "avg": 412.2351606666667,
+          "min": 397.213776,
+          "med": 413.157224
+        },
+        "search_alias": {
+          "min": 6.006043,
+          "med": 6.093332,
+          "p(95)": 7.1211104,
+          "p(99)": 7.21246848,
+          "max": 7.235308,
+          "count": 3,
+          "avg": 6.444894333333333
+        },
+        "search_accent": {
+          "min": 29.493298,
+          "med": 36.52199,
+          "p(95)": 41.0891228,
+          "p(99)": 41.49509016,
+          "max": 41.596582,
+          "count": 3,
+          "avg": 35.870623333333334
+        },
+        "search_normalized": {
+          "p(99)": 39.74424338,
+          "max": 39.801454,
+          "count": 3,
+          "avg": 36.687523999999996,
+          "min": 33.320195,
+          "med": 36.940923,
+          "p(95)": 39.515400899999996
+        },
+        "detail_fanout_1": {
+          "p(99)": 9.25701618,
+          "max": 9.293428,
+          "count": 3,
+          "avg": 7.536146333333334,
+          "min": 5.842174,
+          "med": 7.472837,
+          "p(95)": 9.1113689
+        },
+        "detail_fanout_2": {
+          "max": 10.640766,
+          "count": 3,
+          "avg": 8.810763333333332,
+          "min": 7.518176,
+          "med": 8.273348,
+          "p(95)": 10.404024199999999,
+          "p(99)": 10.593417639999998
+        },
+        "detail_fanout_3": {
+          "min": 7.347935,
+          "med": 7.824527,
+          "p(95)": 8.3248658,
+          "p(99)": 8.36934036,
+          "max": 8.380459,
+          "count": 3,
+          "avg": 7.850973666666666
+        },
+        "detail_fanout_10": {
+          "p(99)": 8.093515060000001,
+          "max": 8.131911,
+          "count": 3,
+          "avg": 6.827462,
+          "min": 6.138361,
+          "med": 6.212114,
+          "p(95)": 7.9399313000000005
+        }
+      },
+      "clockAudit": {
+        "httpSamples": 60,
+        "backsteps": [
+          {
+            "sample": 7,
+            "previous": "2026-10-07T11:50:23.965818+00:00",
+            "at": "2026-10-07T11:50:23.739385+00:00",
+            "seconds": 0.226433
+          },
+          {
+            "sample": 37,
+            "previous": "2026-10-07T11:50:52.655574+00:00",
+            "at": "2026-10-07T11:50:52.404750+00:00",
+            "seconds": 0.250824
+          }
+        ],
+        "concurrentReorderings": [],
+        "rawMetricsAvailable": true,
+        "pairedDiscontinuities": [
+          {
+            "previous": {
+              "wall": "2026-10-07T11:50:23.900104+00:00",
+              "wallNs": 1791373823900115486,
+              "monotonicNs": 18840523112138
+            },
+            "current": {
+              "wall": "2026-10-07T11:50:22.931884+00:00",
+              "wallNs": 1791373822931899965,
+              "monotonicNs": 18840779633079
+            },
+            "wallMinusMonotonicSeconds": -1.224736462
+          },
+          {
+            "previous": {
+              "wall": "2026-10-07T11:50:52.686717+00:00",
+              "wallNs": 1791373852686736664,
+              "monotonicNs": 18870534469297
+            },
+            "current": {
+              "wall": "2026-10-07T11:50:51.683605+00:00",
+              "wallNs": 1791373851683621724,
+              "monotonicNs": 18870784801968
+            },
+            "wallMinusMonotonicSeconds": -1.253447611
+          }
+        ]
+      },
+      "servingWindow": {
+        "launched": {
+          "wall": "2026-10-07T11:50:17.507361+00:00",
+          "wallNs": 1791373817507371553,
+          "monotonicNs": 18834130367861
+        },
+        "finished": {
+          "wall": "2026-10-07T11:51:15.646200+00:00",
+          "wallNs": 1791373875646215701,
+          "monotonicNs": 18894747395726
+        }
+      },
+      "backgroundWindow": {
+        "dispatched": {
+          "wall": "2026-10-07T11:50:22.567082+00:00",
+          "wallNs": 1791373822567089774,
+          "monotonicNs": 18839190085820
+        },
+        "acknowledged": {
+          "wall": "2026-10-07T11:50:25.322005+00:00",
+          "wallNs": 1791373825322015839,
+          "monotonicNs": 18843169748252
+        },
+        "report": {
+          "runId": "f9372f16-49f2-4130-9d51-ae8902df19a8",
+          "from": "2026-10-07",
+          "to": "2026-10-07",
+          "startedAt": "2026-10-07T11:50:22.594215309Z",
+          "completedAt": "2026-10-07T11:50:25.313170915Z",
+          "outcome": "SUCCEEDED",
+          "outcomeCode": "SYNCHRONIZATION_COMPLETED",
+          "counters": {
+            "inspectedReleaseDates": 8,
+            "createdGames": 0,
+            "updatedGames": 0,
+            "unchangedGames": 4,
+            "createdReleases": 0,
+            "updatedReleases": 0,
+            "unchangedReleases": 8,
+            "deferredGames": 0,
+            "failedGames": 0,
+            "providerRequests": 11,
+            "providerRetries": 0,
+            "providerLatencyMillis": 123,
+            "deletedReleases": 0,
+            "popularityObservedGames": 0,
+            "popularityClearedGames": 4,
+            "popularityUnavailableGames": 0,
+            "featuredImageObservedGames": 0,
+            "logoObservedGames": 0,
+            "logoUnavailableGames": 0,
+            "detailsUnavailableGames": 0
+          }
+        }
+      },
+      "controllerOverlapWindow": {
+        "fromMonotonicNs": 18839190085820,
+        "toMonotonicNs": 18843169748252
+      },
+      "publicCompletionsInControllerBracket": 4.0,
+      "overlapHttpCounters": {
+        "beforeDispatch": {
+          "clock": {
+            "wall": "2026-10-07T11:50:22.515154+00:00",
+            "wallNs": 1791373822515167113,
+            "monotonicNs": 18839138163347
+          },
+          "completed": {
+            "/api/v1/games": 7.0,
+            "/api/v1/games/{gameId}": 4.0,
+            "/api/v1/releases": 12.0,
+            "/api/v1/featured-releases": 2.0
+          }
+        },
+        "afterAcknowledgement": {
+          "clock": {
+            "wall": "2026-10-07T11:50:25.322083+00:00",
+            "wallNs": 1791373825322088936,
+            "monotonicNs": 18843169820921
+          },
+          "completed": {
+            "/api/v1/games": 7.0,
+            "/api/v1/games/{gameId}": 4.0,
+            "/api/v1/releases": 16.0,
+            "/api/v1/featured-releases": 2.0
+          }
+        }
+      },
+      "sampleCount": 40,
+      "samplesInBackgroundWindow": 2,
+      "runningSyncSamples": 2,
+      "maximumSampleIntervalSeconds": 1.698879504,
+      "resources": {
+        "application": {
+          "cpuCounterDelta": {
+            "usage_usec": 5900061,
+            "user_usec": 4824193,
+            "system_usec": 1075869,
+            "nice_usec": 0,
+            "nr_periods": 392,
+            "nr_throttled": 30,
+            "throttled_usec": 2305630,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "maximumObservedMemoryBytes": 432680960,
+          "memoryEventsBefore": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "memoryEventsAfter": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "ioBefore": "",
+          "ioAfter": ""
+        },
+        "postgres": {
+          "cpuCounterDelta": {
+            "usage_usec": 6187770,
+            "user_usec": 5057180,
+            "system_usec": 1130589,
+            "nice_usec": 0,
+            "nr_periods": 283,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "maximumObservedMemoryBytes": 1073741824,
+          "memoryEventsBefore": {
+            "low": 0,
+            "high": 0,
+            "max": 7815,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "memoryEventsAfter": {
+            "low": 0,
+            "high": 0,
+            "max": 7861,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "ioBefore": "8:64 rbytes=191668224 wbytes=7471345664 rios=3126 wios=47188 dbytes=0 dios=0",
+          "ioAfter": "8:64 rbytes=192069632 wbytes=7530803200 rios=3153 wios=48714 dbytes=0 dios=0"
+        },
+        "localizer": {
+          "cpuCounterDelta": {
+            "usage_usec": 3249094,
+            "user_usec": 2657944,
+            "system_usec": 591150,
+            "nice_usec": 0,
+            "nr_periods": 134,
+            "nr_throttled": 0,
+            "throttled_usec": 0,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "maximumObservedMemoryBytes": 327790592,
+          "memoryEventsBefore": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "memoryEventsAfter": {
+            "low": 0,
+            "high": 0,
+            "max": 0,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "ioBefore": "",
+          "ioAfter": ""
+        }
+      },
+      "maximumObservedHeapBytes": 164616568.0,
+      "maximumObservedHikariActive": 1.0,
+      "maximumObservedHikariPending": 0.0,
+      "maximumObservedUngrantedLocks": 0,
+      "postgresBefore": {
+        "xact_commit": 3488,
+        "xact_rollback": 84,
+        "blks_read": 789240,
+        "blks_hit": 35575660,
+        "temp_files": 221,
+        "temp_bytes": 744692740,
+        "deadlocks": 0
+      },
+      "postgresAfter": {
+        "xact_commit": 3975,
+        "xact_rollback": 123,
+        "blks_read": 789759,
+        "blks_hit": 37933212,
+        "temp_files": 238,
+        "temp_bytes": 839998468,
+        "deadlocks": 0
+      },
+      "metricsBefore": {
+        "http.server.requests": {
+          "availableTags": [
+            {
+              "tag": "exception",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "method",
+              "values": [
+                "GET"
+              ]
+            },
+            {
+              "tag": "error",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "uri",
+              "values": [
+                "/api/v1/games/{gameId}",
+                "/api/v1/featured-releases",
+                "/api/v1/games",
+                "/api/v1/releases"
+              ]
+            },
+            {
+              "tag": "outcome",
+              "values": [
+                "SUCCESS"
+              ]
+            },
+            {
+              "tag": "status",
+              "values": [
+                "200"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 20.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 3073.678006
+            },
+            {
+              "statistic": "MAX",
+              "value": 707.354986
+            }
+          ],
+          "name": "http.server.requests"
+        },
+        "jvm.memory.used": {
+          "availableTags": [
+            {
+              "tag": "id",
+              "values": [
+                "Survivor Space",
+                "Eden Space",
+                "Tenured Gen"
+              ]
+            }
+          ],
+          "baseUnit": "bytes",
+          "description": "The amount of used memory",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 114670248.0
+            }
+          ],
+          "name": "jvm.memory.used"
+        },
+        "jvm.gc.pause": {
+          "availableTags": [
+            {
+              "tag": "cause",
+              "values": [
+                "Allocation Failure"
+              ]
+            },
+            {
+              "tag": "action",
+              "values": [
+                "end of minor GC"
+              ]
+            },
+            {
+              "tag": "gc",
+              "values": [
+                "Copy"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "description": "Time spent in GC pause",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 3.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 186.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 89.0
+            }
+          ],
+          "name": "jvm.gc.pause"
+        },
+        "jvm.threads.live": {
+          "availableTags": [],
+          "baseUnit": "threads",
+          "description": "The current number of live threads including both daemon and non-daemon threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 55.0
+            }
+          ],
+          "name": "jvm.threads.live"
+        },
+        "process.cpu.usage": {
+          "availableTags": [],
+          "description": "The \"recent cpu usage\" for the Java Virtual Machine process",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.1076923076923077
+            }
+          ],
+          "name": "process.cpu.usage"
+        },
+        "hikaricp.connections.active": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Active connections",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.active"
+        },
+        "hikaricp.connections.pending": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Pending threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.pending"
+        },
+        "hikaricp.connections.timeout": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Connection timeout total count",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.timeout"
+        },
+        "catalogue.synchronization.provider.request.duration": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 0.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.request.duration"
+        },
+        "catalogue.synchronization.provider.retry": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.retry"
+        },
+        "catalogue.synchronization.trigger.duration": {
+          "unavailable": "HTTPError"
+        },
+        "localization.translated": 0,
+        "localization.reused": 0,
+        "localization.skipped": 0,
+        "localization.failed": 0,
+        "localization.busy": 0,
+        "localization.fallback": 0
+      },
+      "metricsAfter": {
+        "http.server.requests": {
+          "availableTags": [
+            {
+              "tag": "exception",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "method",
+              "values": [
+                "GET"
+              ]
+            },
+            {
+              "tag": "error",
+              "values": [
+                "none"
+              ]
+            },
+            {
+              "tag": "uri",
+              "values": [
+                "/api/v1/games/{gameId}",
+                "/api/v1/games",
+                "/api/v1/featured-releases",
+                "/api/v1/releases"
+              ]
+            },
+            {
+              "tag": "outcome",
+              "values": [
+                "SUCCESS"
+              ]
+            },
+            {
+              "tag": "status",
+              "values": [
+                "200"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 80.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 7074.397059999999
+            },
+            {
+              "statistic": "MAX",
+              "value": 707.354986
+            }
+          ],
+          "name": "http.server.requests"
+        },
+        "jvm.memory.used": {
+          "availableTags": [
+            {
+              "tag": "id",
+              "values": [
+                "Survivor Space",
+                "Eden Space",
+                "Tenured Gen"
+              ]
+            }
+          ],
+          "baseUnit": "bytes",
+          "description": "The amount of used memory",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 151898104.0
+            }
+          ],
+          "name": "jvm.memory.used"
+        },
+        "jvm.gc.pause": {
+          "availableTags": [
+            {
+              "tag": "cause",
+              "values": [
+                "Allocation Failure"
+              ]
+            },
+            {
+              "tag": "action",
+              "values": [
+                "end of minor GC"
+              ]
+            },
+            {
+              "tag": "gc",
+              "values": [
+                "Copy"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "description": "Time spent in GC pause",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 5.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 203.0
+            },
+            {
+              "statistic": "MAX",
+              "value": 89.0
+            }
+          ],
+          "name": "jvm.gc.pause"
+        },
+        "jvm.threads.live": {
+          "availableTags": [],
+          "baseUnit": "threads",
+          "description": "The current number of live threads including both daemon and non-daemon threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 62.0
+            }
+          ],
+          "name": "jvm.threads.live"
+        },
+        "process.cpu.usage": {
+          "availableTags": [],
+          "description": "The \"recent cpu usage\" for the Java Virtual Machine process",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.8
+            }
+          ],
+          "name": "process.cpu.usage"
+        },
+        "hikaricp.connections.active": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Active connections",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.active"
+        },
+        "hikaricp.connections.pending": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Pending threads",
+          "measurements": [
+            {
+              "statistic": "VALUE",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.pending"
+        },
+        "hikaricp.connections.timeout": {
+          "availableTags": [
+            {
+              "tag": "pool",
+              "values": [
+                "HikariPool-1"
+              ]
+            }
+          ],
+          "description": "Connection timeout total count",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "hikaricp.connections.timeout"
+        },
+        "catalogue.synchronization.provider.request.duration": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "window",
+                "works",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 10.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 2594.7080419999998
+            },
+            {
+              "statistic": "MAX",
+              "value": 396.050147
+            }
+          ],
+          "name": "catalogue.synchronization.provider.request.duration"
+        },
+        "catalogue.synchronization.provider.retry": {
+          "availableTags": [
+            {
+              "tag": "operation",
+              "values": [
+                "works",
+                "window",
+                "logos",
+                "release_dates"
+              ]
+            }
+          ],
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 0.0
+            }
+          ],
+          "name": "catalogue.synchronization.provider.retry"
+        },
+        "catalogue.synchronization.trigger.duration": {
+          "availableTags": [
+            {
+              "tag": "trigger",
+              "values": [
+                "manual"
+              ]
+            },
+            {
+              "tag": "outcome",
+              "values": [
+                "succeeded"
+              ]
+            },
+            {
+              "tag": "policy",
+              "values": [
+                "none"
+              ]
+            }
+          ],
+          "baseUnit": "milliseconds",
+          "measurements": [
+            {
+              "statistic": "COUNT",
+              "value": 1.0
+            },
+            {
+              "statistic": "TOTAL_TIME",
+              "value": 3949.821915
+            },
+            {
+              "statistic": "MAX",
+              "value": 3949.821915
+            }
+          ],
+          "name": "catalogue.synchronization.trigger.duration"
+        },
+        "localization.translated": 6.0,
+        "localization.reused": 0,
+        "localization.skipped": 6.0,
+        "localization.failed": 0,
+        "localization.busy": 0,
+        "localization.fallback": 2.0
+      },
+      "application": {
+        "image": "videogame-platform/application:0.29.0-SNAPSHOT",
+        "imageId": "sha256:d3e6f20250bf60f8e925fb4d096d3047ac00b94baee2eae2462162ca3fc95ded",
+        "memoryLimitBytes": 1073741824,
+        "cpuLimit": 0.5,
+        "startedAt": "2026-10-07T11:49:38.817041264Z",
+        "settings": {
+          "APPLICATION_CATALOGUE_READINESS_TIMEOUT": "2s",
+          "APPLICATION_DB_CONNECTION_TIMEOUT": "3000",
+          "APPLICATION_DB_MAXIMUM_POOL_SIZE": "10",
+          "APPLICATION_DB_VALIDATION_TIMEOUT": "1000",
+          "APPLICATION_FLYWAY_ENABLED": "false",
+          "CATALOGUE_JDBC_READ_TIMEOUT": "5s",
+          "CATALOGUE_SYNC_SCHEDULING_ENABLED": "false",
+          "RATINGS_JDBC_OPERATION_TIMEOUT": "5s",
+          "SPRING_PROFILES_ACTIVE": "oidc,structured",
+          "TELEMETRY_DEPLOYMENT_ENVIRONMENT": "local",
+          "TELEMETRY_OTLP_METRICS_ENABLED": "true",
+          "TELEMETRY_OTLP_METRICS_STEP": "60s",
+          "TELEMETRY_OTLP_TRACES_ENABLED": "false"
+        }
+      },
+      "postgres": {
+        "image": "postgres:18.4-bookworm",
+        "imageId": "sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+        "memoryLimitBytes": 1073741824,
+        "cpuLimit": 2.0,
+        "startedAt": "2026-10-07T11:44:41.130829661Z",
+        "settings": {}
+      },
+      "localizer": {
+        "image": "videogame-platform/catalogue-localizer:1.0.0",
+        "imageId": "sha256:f5c723b9c0051da1669b2772a3d16d1a0fc0683a59317a65dd853df52e01c211",
+        "memoryLimitBytes": 805306368,
+        "cpuLimit": 2.0,
+        "startedAt": "2026-10-07T11:49:38.609014922Z",
+        "settings": {}
+      },
+      "providerEvidence": {
+        "payloadSha256": "e64521425a86f1cf338ab4531ec37dabd7e66aa226a79e28ec6da1dd2d6bd4c0",
+        "requests": [
+          {
+            "path": "/oauth2/token",
+            "status": 200,
+            "querySha256": null,
+            "responseSha256": "dd19184fce8803d6d2e3832211919313061bcccd5a857744fa5d26cf05141e22",
+            "monotonicStartedNs": 18839231540577,
+            "monotonicPreparedNs": 18839231603937,
+            "gameIds": []
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "172f63d45639f87dcb739e684de5e3cf2bc8fc2ca8f08a479c08abde434eacae",
+            "responseSha256": "ad2827ccb1c39f191d9a3374216fe0f5742e0664d4ef0f63f6243ae9be2ad389",
+            "monotonicStartedNs": 18839584912742,
+            "monotonicPreparedNs": 18839585240849,
+            "gameIds": [
+              850001,
+              850002,
+              850003,
+              850004
+            ]
+          },
+          {
+            "path": "/v4/logos",
+            "status": 200,
+            "querySha256": "45085ebb8d1945aa1983fc9ff5b91c1c40b71a51775750c57484db3281337c1b",
+            "responseSha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "monotonicStartedNs": 18839897957432,
+            "monotonicPreparedNs": 18839898103146,
+            "gameIds": []
+          },
+          {
+            "path": "/v4/games",
+            "status": 200,
+            "querySha256": "fbe18786b901a9eadfe721c17d6652adb07befdffbb963868b778e97995f2957",
+            "responseSha256": "c343076e66620d67cbcd8f36527eaf792fbbbde0c00972de83b5a068ac0f079d",
+            "monotonicStartedNs": 18840231352953,
+            "monotonicPreparedNs": 18840231528169,
+            "gameIds": [
+              850001
+            ]
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "fa9fae636adf22e7c645f95b51b7a5b16a106478fff3ea0c0853b31f92b57c07",
+            "responseSha256": "d87d3f4ce3ae9995a9cc30e1539cbb288b611e6701c470f3b342160191f0cbcd",
+            "monotonicStartedNs": 18840585796968,
+            "monotonicPreparedNs": 18840585876385,
+            "gameIds": [
+              850001
+            ]
+          },
+          {
+            "path": "/v4/games",
+            "status": 200,
+            "querySha256": "4e64589efb1b926e8ba7cbbdc9cb69b15ef401e12538b3ee7f2762d919667857",
+            "responseSha256": "5afe672af33fb782f1a7fd5956feca8f0f75d991e6b7681993fabb67b8e0b513",
+            "monotonicStartedNs": 18841287713655,
+            "monotonicPreparedNs": 18841287822041,
+            "gameIds": [
+              850002
+            ]
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "cfaca0b7da7f07eead37d07acf7813dab08698dd937daaf4a4384bcae7801531",
+            "responseSha256": "86eeefd7c502d5ea270ecabc41066f4dd148217fd13f6c8b02b583f2bfa63aa8",
+            "monotonicStartedNs": 18841684484643,
+            "monotonicPreparedNs": 18841684576148,
+            "gameIds": [
+              850002
+            ]
+          },
+          {
+            "path": "/v4/games",
+            "status": 200,
+            "querySha256": "d01b0330a2ab00ba7e4aeefc750ad6d6db6509704b679334d8d71bdd67d6a6cc",
+            "responseSha256": "35e547511cf71b1ba992d35a1318b240774578126219521cd9ce4af121c91be3",
+            "monotonicStartedNs": 18841956173128,
+            "monotonicPreparedNs": 18841956268759,
+            "gameIds": [
+              850003
+            ]
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "6d723fc47cc12f03e00a96583ac919787f68720ed1b123131e4e0574aca4d43c",
+            "responseSha256": "635d72fa360481ed510d49dc4f229d7dfff88a6540c4ecf1f668c1c59e2ec497",
+            "monotonicStartedNs": 18842291048233,
+            "monotonicPreparedNs": 18842291119805,
+            "gameIds": [
+              850003
+            ]
+          },
+          {
+            "path": "/v4/games",
+            "status": 200,
+            "querySha256": "19d0414452d36591a32973ccf34e6344c0e1016c76af32f12fafa06eed92ce52",
+            "responseSha256": "44907537a966dad7211f833ac802ae429a5f81df39959564cfa2631ca7bbb4e4",
+            "monotonicStartedNs": 18842626527437,
+            "monotonicPreparedNs": 18842626669264,
+            "gameIds": [
+              850004
+            ]
+          },
+          {
+            "path": "/v4/release_dates",
+            "status": 200,
+            "querySha256": "7356edb8c203a635be385261cccb3281ad21c957e148442fb42fae0b8b7ac4e1",
+            "responseSha256": "e69292fe0ca18aec73bcd341bd4bab498539caa14a24f748954458c1fdc92d3f",
+            "monotonicStartedNs": 18842959868665,
+            "monotonicPreparedNs": 18842959941657,
+            "gameIds": [
+              850004
+            ]
+          }
+        ]
+      },
+      "rawEvidenceSha256": {
+        "after.json": "62ea611b8de5262314687b443ccdf7346047a3e1ee74e478985a4fe97383059f",
+        "application.log": "02ca198e9c416ca11ef06f60ae23a5f2abf520d91d1317ce864bd2ceaa0b0351",
+        "before.json": "9f9ba44fc70ac6bb5fce616ce8dd4f4435fa6b64064b50eb5cf99e0b2fe977a1",
+        "clock-samples.json": "23c7955d70533ea82e56b0752a4594b11d011ba8cfdc64434ceb5c542ea80256",
+        "evidence.json": "750069f2007f2098741c029e48751d58f1b1e886bcdbf84e5651bdef0c3158fe",
+        "k6.log": "e845ddde26111f0d8ee6197ada55496fd557b055d69296f130fe4e2f6d4e5cde",
+        "localizer.log": "89590976b94a3603301a46840f04161a60be437255c839f5672c065816b7ae15",
+        "metrics.json": "54cb584d4de7621ab2b2e6673f6f7fab44d8c3190cc288ef4c97ecd88c71f5bc",
+        "provider-evidence.json": "f88d1452804d23b9ba55fd80dfa0eb8e0a9baa6ed78aacb46caef280c2eea8c5",
+        "samples.json": "ba3758c834da79e8ed81a8cad8f60c7baa557faef8636034c52c53d264c0c934",
+        "sampling-errors.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "state-after.json": "b52de3f5f61c66223d9d955c2c8378958d5d2201a35256be6763fe624924d1b6",
+        "state-before.json": "c8bb8dfede379900d15f591c1529e51f345bb57ed7ed2c79b4a36c6beea75596",
+        "summary.json": "8b03b7168f0c70f757e4c65c9bf32be22811a99b8df3a4e279ba2d4df9dd953a",
+        "workload.json": "13850688d3269f2047b0917d75d0cfde5effdbac719c13ba3e01dd346bc14aa3"
+      }
+    }
+  ],
+  "restoration": {
+    "sameCounts": true,
+    "beforeCounts": {
+      "games": 20241,
+      "ratings": 7,
+      "regions": 11,
+      "releases": 36090,
+      "platforms": 73,
+      "rated_games": 7,
+      "visible_games": 20241,
+      "approved_aliases": 0,
+      "visible_releases": 36090,
+      "current_revisions": 1,
+      "games_with_genres": 12217,
+      "users_with_ratings": 1
+    },
+    "afterCounts": {
+      "games": 20241,
+      "ratings": 7,
+      "regions": 11,
+      "releases": 36090,
+      "platforms": 73,
+      "rated_games": 7,
+      "visible_games": 20241,
+      "approved_aliases": 0,
+      "visible_releases": 36090,
+      "current_revisions": 1,
+      "games_with_genres": 12217,
+      "users_with_ratings": 1
+    }
+  },
+  "focusedStateGuards": [
+    {
+      "case": "Disposable performance database required",
+      "rejectedBeforeMutation": true
+    },
+    {
+      "case": "Disposable schema boundary mismatch",
+      "rejectedBeforeMutation": true
+    },
+    {
+      "case": "Remote-engine restoration",
+      "rejectedBeforeMutation": true
+    }
+  ],
+  "pendingProviderTimingCalibration": "Small normal-rate real-IGDB sample of call latency, retries/rate-limit waits and end-to-end sync; not a provider load test"
+}

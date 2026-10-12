@@ -6,8 +6,10 @@ This research for [#85](https://github.com/rubhern/videogame-platform/issues/85)
 measures the existing local catalogue, supplies deterministic disposable datasets,
 and records the [first minimal public HTTP baseline](http-baseline.md). That low-rate
 run validates the measurement path. It establishes no saturation, recovery or
-production-capacity result. Stress, authenticated traffic, synchronization
-interference and production optimizations remain outside the implemented slices.
+production-capacity result. The subsequent
+[interference harness](interference-harness.md) validates three reproducible
+serving/acquisition/localization scenarios functionally. Stress, authenticated
+traffic, capacity conclusions and production optimizations remain pending.
 
 `growth` and especially `large` are **synthetic performance/capacity profiles**.
 Their cardinalities and distributions are experimental inputs, **not product
@@ -211,10 +213,14 @@ Validation passed:
   a fresh-setup/cleanup check. Volume removal uses no force and refuses a volume
   in use elsewhere. No persistent database was reset.
 
-The first public HTTP run, existing server telemetry correlation and their limits
-are recorded in [HTTP baseline evidence](http-baseline.md). Broader workloads,
-success/saturation criteria, complete host measurement, background-work interference
-and recovery remain pending in #85. No production optimization,
+The minimum public HTTP run, its accepted stable repetition and telemetry limits
+are recorded in [HTTP baseline evidence](http-baseline.md). The subsequent
+[public read load on growth](growth-read-load.md) measures the varied read control.
+The [fixture-backed interference harness](interference-harness.md) and its
+[machine evidence](interference-evidence.json) retain the functional comparison;
+external provider timing is explicitly excluded. Authenticated traffic, complete
+host measurement, measured interference/capacity on stable clocks, a bounded
+real-provider timing calibration and stress/soak remain pending in #85. No production optimization,
 architecture change, normal migration or development seed change was made. This
 harness is outside releasable backend/frontend/OpenAPI artefacts, so this slice has
 no version increment. Broad application suites were not run for this tooling-only

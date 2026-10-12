@@ -259,6 +259,29 @@ aligned time series. The same four reversals appeared in the application complet
 timestamps, independently confirming the guest-clock behavior. This harness does
 not reconfigure the host clock.
 
+## Accepted stable repetition after WSL restart
+
+The owner-accepted repetition on 2026-10-07 is valid evidence and was preserved
+without rerunning the minimal baseline. Run `perf-current-20261007T072856Z-_4m0rh39`
+used source revision `9eb305c3fb8c13398f2b64be69fc3d850479d806` and the same
+five-path workload. It ran from `07:29:01.586230Z` to `07:31:01.614597Z`, with
+120.541 seconds measured independently by the wrapper's monotonic clock.
+
+The [stable manifest](http-stable-manifest.json),
+[native summary](http-stable-summary.json),
+[raw duration samples](http-stable-samples.json), and
+[correlated server evidence](http-stable-server-evidence.json) retain the observation.
+All 120 requests returned HTTP 200, all 480 checks passed, there were no failures
+or dropped iterations, and `clockAudit.backsteps` was `[]`. Native throughput was
+1.004 req/s; combined p50/p95/p99 were 12.23/22.07/24.30 ms. All 120 completion
+logs were recovered through the existing local Grafana datasource.
+
+This resolves the prerequisite clock concern for continuing experiments on this
+local session. The earlier stepped-clock run remains historical diagnostic evidence;
+its throughput is still unsuitable for capacity interpretation. Each subsequent
+experiment must audit its own clock. The next measurement is recorded in
+[public read load on growth](growth-read-load.md).
+
 ## Focused validation and remaining scope
 
 Validation passed Python syntax, pinned k6 option inspection, remote-engine and
@@ -270,8 +293,8 @@ observed clock steps. All runtime captures are read-only with respect to the cat
 build packages the current source with its existing skip-tests image profile;
 unaffected Java/frontend/browser suites are not rerun for this tooling-only change.
 
-Later #85 work still needs representative varied/selective/non-selective/deep-page
-traffic, synthetic-profile HTTP runs, authenticated ratings, controlled sync
+The [growth public-read experiment](growth-read-load.md) extends the read workload.
+Later #85 work still needs authenticated ratings, controlled sync
 interference, stress/soak/recovery criteria and measurement gaps addressed as needed.
 None is inferred from this initial run. This engineering harness/documentation is
 outside releasable application/API artefacts, so no version increment is required.
