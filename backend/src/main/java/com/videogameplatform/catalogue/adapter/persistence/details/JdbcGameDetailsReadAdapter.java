@@ -30,6 +30,7 @@ import org.springframework.dao.RecoverableDataAccessException;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionTimedOutException;
 import org.springframework.transaction.support.TransactionOperations;
 
 /** Indexed per-game reads within the existing bounded repeatable-read execution policy. */
@@ -56,7 +57,9 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
         } catch (CannotCreateTransactionException
                 | DataAccessResourceFailureException
                 | RecoverableDataAccessException
-                | TransientDataAccessException exception) {
+                | TransientDataAccessException
+                // The read deadline expired between statements rather than during one.
+                | TransactionTimedOutException exception) {
             throw new CatalogueReadException(exception);
         } catch (DataAccessException | IllegalArgumentException exception) {
             throw new CatalogueDataInvalidException(exception);
