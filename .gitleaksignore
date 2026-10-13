@@ -2,3 +2,10 @@
 c20e6360e340166d4a904dee5431498e20eaa552:docs/research/performance-baseline/remote-evidence.json:generic-api-key:13
 # False positive: verified SHA-256 digest of tools/performance/authenticated.js in the original evidence commit.
 1b083ceecad83790d2a9f66392688a98cb1f7acf:docs/research/performance-baseline/remote-capacity-evidence.json:generic-api-key:967
+
+# False positives: verified SHA-256 of unchanged tools/performance/authenticated.js in #85 evidence.
+0ff3b9d5d18341cf729e027bac35bd9e013d0f09:docs/research/performance-baseline/remote-capacity-evidence.json:generic-api-key:1533
+0ff3b9d5d18341cf729e027bac35bd9e013d0f09:docs/research/performance-baseline/remote-capacity-evidence.json:generic-api-key:2203
+0ff3b9d5d18341cf729e027bac35bd9e013d0f09:docs/research/performance-baseline/remote-capacity-evidence.json:generic-api-key:2912
+0ff3b9d5d18341cf729e027bac35bd9e013d0f09:docs/research/performance-baseline/remote-capacity-evidence.json:generic-api-key:4003
+0ff3b9d5d18341cf729e027bac35bd9e013d0f09:docs/research/performance-baseline/remote-capacity-evidence.json:generic-api-key:5721
