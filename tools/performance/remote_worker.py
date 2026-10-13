@@ -109,11 +109,11 @@ class Experiment:
     def save(self):
         atomic(self.receipt, self.state)
 
-    def sql(self, sql, database='videogame_platform', *variables):
+    def sql(self, sql, database='videogame_platform', *variables, timeout=300):
         pg = service('postgres')
         require(not self.state.get('postgresId') or pg['Id'] == self.state['postgresId'], 'PostgreSQL identity changed')
         return command('docker','exec','-i','--user','postgres',pg['Id'],'psql','-X','-qAt','-v','ON_ERROR_STOP=1',
-                       '-U','postgres','-d',database,*variables,input=sql)
+                       '-U','postgres','-d',database,*variables,input=sql,timeout=timeout)
 
     def private_counts(self):
         return json.loads(self.sql("""BEGIN READ ONLY; SET LOCAL statement_timeout='5s';
@@ -297,6 +297,41 @@ COMMIT;"""))
         self.save()
         return self.state['background']
 
+    def maintenance(self):
+        """Autovacuum/vacuum activity and the vacuum/analyze debt of the experiment's largest tables."""
+        return json.loads(self.sql("""BEGIN READ ONLY; SET LOCAL statement_timeout='5s';
+SELECT json_build_object('at',clock_timestamp(),
+'autovacuumWorkers',(SELECT count(*) FROM pg_stat_activity WHERE backend_type='autovacuum worker' AND datname=current_database()),
+'autovacuumWorkersOtherDatabases',(SELECT count(*) FROM pg_stat_activity WHERE backend_type='autovacuum worker' AND datname IS DISTINCT FROM current_database()),
+'vacuumProgress',(SELECT count(*) FROM pg_stat_progress_vacuum WHERE datname=current_database()),
+'tables',(SELECT json_agg(t ORDER BY t.relation) FROM (SELECT schemaname||'.'||relname AS relation,n_live_tup,n_dead_tup,
+  n_ins_since_vacuum,n_mod_since_analyze,last_vacuum IS NOT NULL OR last_autovacuum IS NOT NULL AS vacuumed,
+  last_analyze IS NOT NULL OR last_autoanalyze IS NOT NULL AS analyzed,autovacuum_count,autoanalyze_count
+  FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 8) t));
+COMMIT;""",DATABASE))
+
+    def settle(self, quiet_seconds=30, deadline_seconds=300):
+        """Reproducible post-generation settle: explicit VACUUM (ANALYZE), then a bounded quiet window."""
+        require(self.state['phase']=='active','Settling requires the active experiment')
+        self.boundary()
+        before=self.maintenance()
+        started=time.monotonic()
+        # Only the owned disposable database; replaces the insert-triggered autovacuum backlog of fresh fixtures.
+        self.sql("SET statement_timeout='600s'; VACUUM (ANALYZE);",DATABASE,timeout=660)
+        vacuum_seconds=time.monotonic()-started
+        polls=[]; quiet_since=None; deadline=time.monotonic()+deadline_seconds
+        while True:
+            state=self.maintenance(); polls.append({k:state[k] for k in ['at','autovacuumWorkers','autovacuumWorkersOtherDatabases','vacuumProgress']})
+            busy=state['autovacuumWorkers'] or state['vacuumProgress']
+            quiet_since=None if busy else (quiet_since or time.monotonic())
+            if quiet_since and time.monotonic()-quiet_since>=quiet_seconds: break
+            require(time.monotonic()<deadline,'Experiment database did not settle; refusing to measure')
+            time.sleep(2)
+        self.boundary()
+        return {'method':'VACUUM (ANALYZE) of the experiment database, then no autovacuum/vacuum progress there for the quiet window',
+                'quietSeconds':quiet_seconds,'deadlineSeconds':deadline_seconds,'vacuumSeconds':round(vacuum_seconds,3),
+                'settleSeconds':round(time.monotonic()-started,3),'before':before,'after':self.maintenance(),'polls':polls}
+
     def recreate_experiment(self):
         require(service('application')['Id']==self.state['candidateId'],'Experiment application changed')
         try: self.compose(True)
@@ -334,8 +369,26 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
             result['cgroups'][name]={p:command('docker','exec',service(name)['Id'],'cat','/sys/fs/cgroup/'+p,timeout=10) for p in ['cpu.stat','memory.current','memory.events','io.stat']}
         return result
 
+    def logs(self, name, since):
+        """Raw container output stays on the host; only filtered fields are returned."""
+        result=subprocess.run(['docker','logs','--since','%.3f'%since,'--until','%.3f'%time.time(),service(name)['Id']],
+                              capture_output=True,text=True,timeout=60)
+        require(result.returncode==0,'Container log capture failed (private output withheld)')
+        return (result.stdout+result.stderr).splitlines()
+
+    def application_log(self, since):
+        return filter_application_log(self.logs('application',since))
+
+    def postgres_log(self, since):
+        # The server is shared with private-dev: count patterns only, never retain statement text.
+        lines=self.logs('postgres',since)
+        return {k:sum(pattern in line for line in lines) for k,pattern in
+                [('statementCancellations','canceling statement due to'),('temporaryFileLines','temporary file:'),
+                 ('errorLines','ERROR:'),('fatalLines','FATAL:')]}
+
     def start_observation(self):
         require(not self.threads,'Observation already started')
+        self.observation_since=time.time()
         before=self.snapshot()
         def clock():
             while not self.stop.is_set():
@@ -354,7 +407,12 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
         self.stop.set()
         for thread in self.threads: thread.join(timeout=90)
         require(all(not thread.is_alive() for thread in self.threads),'Observation did not stop')
-        return {'samples':self.samples,'clocks':self.clocks,'failures':self.failures,'after':self.snapshot()}
+        result={'samples':self.samples,'clocks':self.clocks,'failures':self.failures,'after':self.snapshot()}
+        # Before restore recreates the application container and discards its log.
+        for key,capture in [('applicationLog',self.application_log),('postgresLog',self.postgres_log)]:
+            try: result[key]=capture(self.observation_since)
+            except Exception: result[key]={'unavailable':True}
+        return result
 
     def restore(self):
         if self.state['phase']=='restored':
@@ -415,6 +473,31 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
         return receipt
 
 
+LOG_FIELDS = ['@timestamp','log.level','log.logger','correlationId','trace.id','span.id',
+              'error.code','error.type','error.root_cause_type','error.sql_state']
+
+
+def flatten(value, prefix=''):
+    if not isinstance(value, dict): return {prefix[:-1]: value}
+    return {k: v for key, item in value.items() for k, v in flatten(item, prefix+key+'.').items()}
+
+
+def filter_application_log(lines):
+    """Keep WARN/ERROR ECS events with allowlisted fields; free text only from the redacting API handler."""
+    levels, events, unparsed = {}, [], 0
+    for line in lines:
+        try: event = flatten(json.loads(line))
+        except (ValueError, AttributeError): unparsed += 1; continue
+        if not isinstance(event, dict) or 'log.level' not in event: unparsed += 1; continue
+        level = str(event['log.level']).upper()
+        levels[level] = levels.get(level, 0)+1
+        if level in ['WARN', 'ERROR']:
+            kept = {k: event[k] for k in LOG_FIELDS if k in event}
+            if str(event.get('log.logger', '')).endswith('.ApiExceptionHandler'): kept['message'] = event.get('message')
+            events.append(kept)
+    return {'levels': levels, 'unparsedLines': unparsed, 'warnOrErrorEvents': len(events), 'events': events}
+
+
 def serve(directory):
     with open('/run/lock/videogame-platform-dev-deployment.lock','a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
@@ -425,7 +508,7 @@ def serve(directory):
                 if not line: break
                 request=json.loads(line)
                 action=request['action']
-                require(action in ['preflight','prepare','users','activate','background_prepare','background_sync','start_observation','stop_observation','restore'],'Unknown action')
+                require(action in ['preflight','prepare','users','activate','background_prepare','background_sync','settle','start_observation','stop_observation','restore'],'Unknown action')
                 try:
                     value=getattr(actor,action)(**request.get('arguments',{}))
                     print(json.dumps({'ok':True,'value':value}),flush=True)

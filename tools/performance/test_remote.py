@@ -90,4 +90,48 @@ class Safety(unittest.TestCase):
             actor.restore()
 
 
+    def test_normal_profile_excludes_only_adversarial_cases_with_exact_distribution(self):
+        adversarial=remote.b.growth_requests('adversarial')
+        normal=remote.b.growth_requests('normal')
+        self.assertEqual(adversarial,remote.b.growth_requests())
+        self.assertEqual(len(adversarial),20)
+        self.assertEqual([r for r in adversarial if r['name'] not in remote.b.ADVERSARIAL_CASES],normal)
+        distribution=remote.b.request_distribution(normal,300)
+        self.assertEqual(sum(distribution.values()),300)
+        self.assertEqual(sorted(set(distribution.values())),[17,18])
+        with self.assertRaises(ValueError):
+            remote.b.growth_requests('stress')
+
+    def test_vus_are_explicit_and_bounded(self):
+        self.assertEqual(remote.default_vus(5),4)
+        remote.validate_vus(5,None)
+        remote.validate_vus(5,50)
+        for rate,vus in [(5,0),(5,61),(1,13)]:
+            with self.assertRaisesRegex(RuntimeError,'VUs'):
+                remote.validate_vus(rate,vus)
+
+    def test_settle_refuses_to_measure_when_autovacuum_never_quiets(self):
+        actor=self.actor(); actor.state['phase']='active'
+        busy={'at':'t','autovacuumWorkers':1,'autovacuumWorkersOtherDatabases':0,'vacuumProgress':1,'tables':[]}
+        with patch.object(actor,'boundary'),patch.object(actor,'sql') as sql,patch.object(actor,'maintenance',return_value=busy), \
+             patch.object(worker.time,'sleep'):
+            with self.assertRaisesRegex(RuntimeError,'did not settle'):
+                actor.settle(quiet_seconds=1,deadline_seconds=0)
+            self.assertIn('VACUUM (ANALYZE)',sql.call_args.args[0])
+            self.assertEqual(sql.call_args.args[1],worker.DATABASE)
+
+    def test_application_log_keeps_allowlisted_warn_error_fields_only(self):
+        lines=['{"@timestamp":"t","log":{"level":"ERROR","logger":"com.videogameplatform.api.delivery.ApiExceptionHandler"},'
+               '"message":"API request failed: code=CATALOGUE_READ_FAILED","correlationId":"run-7","error":{"sql_state":"57014"}}',
+               '{"@timestamp":"t","log":{"level":"WARN","logger":"other"},"message":"private detail","user":"secret"}',
+               '{"@timestamp":"t","log":{"level":"INFO","logger":"other"},"message":"x"}','not json']
+        result=worker.filter_application_log(lines)
+        self.assertEqual(result['levels'],{'ERROR':1,'WARN':1,'INFO':1})
+        self.assertEqual(result['unparsedLines'],1)
+        self.assertEqual(result['events'][0]['error.sql_state'],'57014')
+        self.assertEqual(result['events'][0]['correlationId'],'run-7')
+        self.assertNotIn('message',result['events'][1])
+        self.assertNotIn('secret',str(result))
+
+
 if __name__=='__main__': unittest.main()
