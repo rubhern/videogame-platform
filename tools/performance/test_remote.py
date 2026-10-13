@@ -1,5 +1,8 @@
 """Boundary and clock controls; never calls Docker, SSH, Keycloak or Windows."""
 import argparse
+import json
+import io
+import contextlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -89,6 +92,90 @@ class Safety(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError,'retained'):
             actor.restore()
 
+
+    def test_clock_is_dispatchable_through_the_host_rpc(self):
+        actor=self.actor()
+        stream=io.StringIO('{"action":"clock"}\n')
+        output=io.StringIO()
+        with patch.object(worker,'Experiment',return_value=actor),patch.object(worker.sys,'stdin',stream), \
+             patch.object(worker.select,'select',side_effect=[([stream],[],[]),([],[],[])]), \
+             patch.object(worker.fcntl,'flock'),patch('builtins.open',return_value=io.StringIO()), \
+             contextlib.redirect_stdout(output):
+            worker.serve(actor.directory)
+        result=json.loads(output.getvalue())
+        self.assertTrue(result['ok'])
+        self.assertGreater(result['value']['wallSeconds'],0)
+        self.assertGreater(result['value']['monotonicSeconds'],0)
+
+    def test_failed_background_command_retains_start_end_and_durable_completion(self):
+        actor=self.actor()
+        actor.state.update(providerId='provider',providerName='fixture',referenceDate='2026-10-13',noInference=True)
+        env=['IGDB_API_BASE_URI=http://fixture:8093/v4/','IGDB_TOKEN_URI=http://fixture:8093/oauth2/token',
+             'CATALOGUE_TRANSLATION_ENDPOINT=http://127.0.0.1:9/translate']
+        durable={'startedAt':'2026-10-13T10:00:00Z','completedAt':'2026-10-13T10:00:40Z','outcome':'SUCCEEDED'}
+        with patch.object(actor,'boundary'),patch.object(worker,'service',return_value={'Id':'app','Config':{'Env':env}}), \
+             patch.object(actor,'localization',return_value={'translated':0,'reused':64,'failed':0}), \
+             patch.object(worker,'command',side_effect=RuntimeError('timeout')),patch.object(actor,'actuator',return_value=durable):
+            result=actor.background_sync()
+        self.assertEqual(result['status'],'command-failed')
+        self.assertEqual(result['syncDurationSeconds'],40)
+        self.assertGreaterEqual(result['commandDurationSeconds'],0)
+        self.assertEqual(result,json.loads((actor.directory/'background-last.json').read_text()))
+
+    def test_reuse_refuses_real_token_or_translation_endpoint_before_dispatch(self):
+        actor=self.actor()
+        actor.state.update(providerId='provider',providerName='fixture',referenceDate='2026-10-13',noInference=True)
+        env=['IGDB_API_BASE_URI=http://fixture:8093/v4/','IGDB_TOKEN_URI=http://fixture:8093/oauth2/token',
+             'CATALOGUE_TRANSLATION_ENDPOINT=http://model/translate']
+        with patch.object(actor,'boundary'),patch.object(worker,'service',return_value={'Id':'app','Config':{'Env':env}}), \
+             patch.object(worker,'command') as command:
+            with self.assertRaisesRegex(RuntimeError,'blocked inference'):
+                actor.background_sync()
+            command.assert_not_called()
+
+    def test_observation_failure_does_not_block_restoration(self):
+        actor=self.actor()
+        actor.state.update(phase='active',privateBefore={'counts':1})
+        actor.threads=[Mock()]
+        with patch.object(actor,'stop_observation',side_effect=RuntimeError('sampling failed')), \
+             patch.object(actor,'private_counts',return_value={'counts':1}),patch.object(actor,'actuator',return_value={'status':'UP'}):
+            receipt=actor.restore()
+        self.assertTrue(receipt['privateDataUnchanged'])
+        self.assertEqual(actor.state['observationStopFailure'],'RuntimeError')
+
+    def test_reuse_preparation_preserves_resource_bounds_and_blocks_inference(self):
+        actor=self.actor()
+        actor.state.update(phase='active',referenceDate='2026-10-13',schemaChecksum='checksum',
+                           dependencies={'catalogue-localizer':{'imageId':'existing-image'}})
+        (actor.directory/'override.json').write_text(json.dumps({'services':{'application':{'environment':{}}}}))
+        def command(*args, **kwargs):
+            return 'owned-provider' if args[:2]==('docker','run') else ''
+        completed={'report':{'outcome':'SUCCEEDED'},'syncDurationSeconds':43}
+        with patch.object(actor,'boundary'),patch.object(worker,'command',side_effect=command) as commands, \
+             patch.object(actor,'sql') as sql,patch.object(actor,'recreate_experiment'), \
+             patch.object(actor,'background_sync',return_value=completed) as sync:
+            prepared=actor.background_prepare('serving-sync-reuse')
+        self.assertEqual((prepared['games'],prepared['releases']),(64,128))
+        self.assertEqual(sync.call_count,2)
+        env=json.loads((actor.directory/'override.json').read_text())['services']['application']['environment']
+        self.assertEqual(env['CATALOGUE_TRANSLATION_ENDPOINT'],'http://127.0.0.1:9/translate')
+        self.assertTrue(env['IGDB_API_BASE_URI'].endswith(':8093/v4/'))
+        actor_args=next(c.args for c in commands.call_args_list if c.args[:2]==('docker','run'))
+        self.assertEqual(actor_args[actor_args.index('--memory')+1],'128m')
+        self.assertEqual(actor_args[actor_args.index('--cpus')+1],'.25')
+        self.assertNotIn('--publish',actor_args)
+        resets=[c for c in sql.call_args_list if 'DELETE FROM catalogue.game_summary_translation' in c.args[0]]
+        self.assertEqual(len(resets),2)
+        self.assertTrue(all(c.args[1]==worker.DATABASE for c in sql.call_args_list))
+
+    def test_reuse_seed_checks_disposable_boundary_before_any_write(self):
+        from provider_fixture import build_reuse_input
+        actor=self.actor()
+        fixture=build_reuse_input(remote.b.ROOT,'2026-10-13')
+        with patch.object(actor,'boundary',side_effect=RuntimeError('foreign DB')),patch.object(actor,'sql') as sql:
+            with self.assertRaisesRegex(RuntimeError,'foreign DB'):
+                actor.seed_reuse_cache(fixture)
+            sql.assert_not_called()
 
     def test_normal_profile_excludes_only_adversarial_cases_with_exact_distribution(self):
         adversarial=remote.b.growth_requests('adversarial')

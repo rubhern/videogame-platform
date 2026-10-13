@@ -232,9 +232,10 @@ external provider timing is explicitly excluded. The
 [authenticated/mixed functional proof](authenticated-harness.md) covers sessions and
 personal-rating reads/commands. The [remote smoke](remote-harness.md) and its
 [machine evidence](remote-evidence.json) add native Windows generation, physical
-Lenovo observations and verified private-dev restoration. Measured
-interference/capacity on stable clocks, a bounded real-provider timing calibration
-and stress/soak remain pending in #85. No production optimization,
+Lenovo observations and verified private-dev restoration. The [remote capacity/interference record](remote-harness.md#public-capacity-pilots)
+and [capacity evidence](remote-capacity-evidence.json) retain the public capacity
+pilots and five-minute reference. The remote sync exploration, a bounded
+real-provider timing calibration and longer stress/soak remain pending in #85. No production optimization,
 architecture change, normal migration or development seed change was made. This
 harness is outside releasable backend/frontend/OpenAPI artefacts, so this slice has
 no version increment. Broad application suites were not run for this tooling-only

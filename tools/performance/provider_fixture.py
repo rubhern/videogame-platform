@@ -51,6 +51,29 @@ def build_input(root, count, date):
     return value
 
 
+# A fixed offline reuse cohort; local calibration inputs retain their original bounds.
+REUSE_GAMES = 64
+
+
+def build_reuse_input(root, date):
+    data = build_input(root, 2, date)
+    templates = data['games']
+    releases = data['releaseDates']
+    data['games'], data['releaseDates'] = [], []
+    for n in range(1, REUSE_GAMES + 1):
+        game = copy.deepcopy(templates[(n - 1) % 2])
+        game.update(id=850000 + n, name=f'Performance Fixture Mission {n:02d}',
+                    url=f'https://www.igdb.com/games/performance-fixture-mission-{n:02d}')
+        data['games'].append(game)
+        for slot, template in enumerate(releases[:2], 1):
+            row = copy.deepcopy(template)
+            row.update(id=game['id'] * 10 + slot, game=game['id'])
+            data['releaseDates'].append(row)
+    data['translationScope'] = 'Two shared summaries plus two taxonomy labels; offline fixture cache'
+    data['payloadSha256'] = digest({k: v for k, v in data.items() if k != 'payloadSha256'})
+    return data
+
+
 def response_for(data, path, query):
     limit_match = re.search(r'limit (\d+);$', query)
     if not limit_match or not 1 <= int(limit_match[1]) <= 500:
@@ -68,7 +91,7 @@ def response_for(data, path, query):
     if not match or path not in ['/v4/games', '/v4/release_dates', '/v4/logos']:
         raise ValueError('Unsupported endpoint/query')
     ids = [int(value) for value in match[1].split(',')]
-    if not 1 <= len(ids) <= 8 or not set(ids) <= {game['id'] for game in data['games']}:
+    if not 1 <= len(ids) <= 100 or not set(ids) <= {game['id'] for game in data['games']}:
         raise ValueError('Unknown or oversized acquisition subset')
     if path == '/v4/logos':
         return []
