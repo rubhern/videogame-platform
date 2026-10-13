@@ -9,7 +9,7 @@ from remote_interference import correlate, markdown
 
 
 class Overlap(unittest.TestCase):
-    def evidence(self, start=5, end=45, stable=True, requests=600, offsets=(0, 0), outcome='SUCCEEDED', translated=0):
+    def evidence(self, start=5, end=45, stable=True, requests=600, offsets=(0, 0), outcome='SUCCEEDED', translated=0, scenario='serving-sync-reuse', completed_inferences=0):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         directory = Path(tmp.name)
@@ -21,9 +21,10 @@ class Overlap(unittest.TestCase):
         write('background.json', {'status': outcome, 'report': {'startedAt': stamp(start), 'completedAt': stamp(end), 'outcome': outcome,
             'counters': {'updatedGames': 64, 'failedGames': 0, 'deferredGames': 0}},
             'localizationBefore': {'translated': 0, 'reused': 0, 'failed': 0},
-            'localizationAfter': {'translated': translated, 'reused': 66, 'failed': 0}})
+            'localizationAfter': {'translated': translated, 'reused': 66, 'failed': 0},
+            'localizer': {'completedInferences': completed_inferences, 'failedInferences': 0}})
         write('clock-bridge.json', {'hostMinusControllerSeconds': list(offsets)})
-        write('background-preparation.json', {'scenario': 'serving-sync-reuse', 'games': 64})
+        write('background-preparation.json', {'scenario': scenario, 'games': 64})
         points = [{'type': 'Point', 'metric': 'http_req_duration', 'data': {'time': stamp(n / 10 + .1),
                     'value': 100, 'tags': {'status': '200'}}} for n in range(requests)]
         (directory / 'metrics.json').write_text('\n'.join(json.dumps(p) for p in points))
@@ -41,6 +42,20 @@ class Overlap(unittest.TestCase):
         self.assertGreater(result['periods']['during']['count'], 300)
         self.assertGreater(result['periods']['after']['count'], 100)
         self.assertIn('exploratory correlation', markdown(result))
+
+    def test_uncertain_boundaries_are_counted_separately_without_losing_requests(self):
+        result = self.evidence(offsets=(-.1, .1))
+        self.assertEqual(sum(p['count'] for p in result['periods'].values()), 600)
+        self.assertGreater(result['periods']['boundary']['count'], 0)
+
+    def test_inference_requires_both_meter_and_real_helper_completion_evidence(self):
+        without_helper = self.evidence(scenario='serving-sync-inference', translated=4)
+        self.assertFalse(without_helper['inferenceVerified'])
+        self.assertFalse(without_helper['interferenceObservationUsable'])
+        verified = self.evidence(scenario='serving-sync-inference', translated=4, completed_inferences=4)
+        self.assertTrue(verified['inferenceVerified'])
+        self.assertTrue(verified['interferenceObservationUsable'])
+        self.assertIsNone(verified['reuseVerified'])
 
     def test_two_game_sized_short_window_cannot_support_attribution(self):
         result = self.evidence(end=6)

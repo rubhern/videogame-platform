@@ -108,85 +108,10 @@ python3 tools/performance/authenticated.py restore \
   tools/performance/results/authenticated-EXACT-RUN
 ```
 
-## Evidence and limitations
 
-The corrected run `authenticated-gv7utc0a` passed 152 requests / 545 checks, zero
-unexpected HTTP failures/timeouts/dropped iterations, and all 26 planned iterations.
-Each authenticated slot made 44 requests / 155 checks, one login and one session
-reuse, two workload creates, two updates and two deletes. Twenty public requests
-(four each for recent/upcoming/featured/search/detail) passed 80 checks concurrently.
+## Evidence and conclusion
 
-| Request group | Calls |
-|---|---:|
-| Keycloak/BFF login steps | 15 |
-| Session discovery and anonymous post-logout checks | 9 |
-| Mis puntuaciones: default, title/value sorts, title/alias search, post-update/delete | 42 |
-| Personal single-rating reads: peer/own absence, created, updated, deleted | 30 |
-| Create/update/delete, including preparation/restoration | 30 |
-| Missing-CSRF rejection | 3 |
-| BFF logout | 3 |
-| Public cases | 20 |
-
-Six seed ratings were created/restored in addition to six workload creates, six
-updates and six deletes. Status checks include expected 201, 200, 302, 204, 403 and
-404 responses; expected rejection/absence is not an unexpected HTTP error. The
-mixed composition is 132 authenticated/lifecycle calls (86.84%) and 20 anonymous
-public calls (13.16%), by count, not a clock-derived throughput distribution.
-
-Native global p50/p95/p99 were 15.30 / 254.99 / 1,165.86 ms. `clockAudit` retained
-three HTTP timestamp backsteps (0.170, 0.271 and 7.539 seconds), one microsecond-scale
-concurrent reordering and twelve paired wall/monotonic discontinuities across 196
-samples, including negative wall deltas of about 8.42 seconds. These are kept as
-observations; no throughput or capacity interpretation is allowed. The failed
-assignment diagnostic `authenticated-wfjbdx7h` retained 108 requests / 390 passing
-checks, but only two sessions/reuses and a failing k6 exit; its one HTTP backstep
-and thirteen paired discontinuities also remain in the machine evidence.
-
-Seven periodic existing-telemetry snapshots plus before/after observations retained
-heap 102.0–154.2 MiB, threads 55–62, three additional GC pauses / 111 ms, Hikari
-sampled active/pending 0 / 0 with maximum pool 10 and timeout delta 0. PostgreSQL
-recorded 434 additional commits, 8 rollbacks, 9 block reads, 23,721 block hits and
-zero new temp files/bytes/deadlocks; sampled ungranted locks were zero. Sampled
-zero-valued gauges do not establish absence of transient connection/lock pressure.
-Existing container CPU/memory and cgroup counters are retained without clock-invalid
-CPU/rate attribution. The native server counter after the run was 146: six of the
-152 HTTP requests went to Keycloak. The server meter was not registered before
-product traffic; raw before/after observations preserve that availability limit.
-
-The application and Keycloak were restored, readiness was UP, persistent counts
-remained 20,241 Games / 36,090 Releases / 7 Ratings and persistent rating-row
-fingerprints matched. Zero experiment ratings and explicit deletion of all three
-synthetic accounts were verified before removal of the disposable database/volume.
-
-The compact results and raw-run identifiers are recorded in
-[authenticated-evidence.json](authenticated-evidence.json). The failed diagnostic
-run remains visible beside the corrected proof; it is not promoted to success.
-The local persistent Keycloak administrator password was rejected before mutation,
-so the proof uses fresh disposable identity state and preserves existing accounts
-and credentials.
-
-HTTP percentiles include login and cold-path work and are observations only. Existing
-JVM/GC/Hikari, PostgreSQL counters/grouped activity/locks and container resource
-signals are diagnostic samples, not exhaustive wait histories or physical Windows
-host pressure. No expiry/refresh longevity, browser rendering/accessibility, external
-provider timing, synchronization interference or capacity conclusion follows from
-this short HTTP proof. BFF tokens remain server-side; this workload does not inspect
-them or claim to validate a long refresh cycle.
-
-For Lenovo capacity testing, use an external generator with stable audited clocks,
-reachable registered BFF/Keycloak TLS origins, a protected credential handoff and
-explicit generator/controller start coordination. Provision an isolated catalogue
-and independently owned synthetic accounts on the target with a recoverable cleanup
-boundary before reuse of the same scenarios. Define the intended dataset/concurrency,
-session lifecycle, case mix and success/saturation criteria separately; add physical
-host resource capture and longer-window clock audits. Scenario origins, cookie name, routing mappings, iteration budgets, pause and maximum
-duration are workload configuration; the local controller deliberately
-retains its local-engine guards and fixed short budget. Remote launch/coordination and
-capacity execution remain future #85 work, not an implemented claim.
-
-Focused checks passed: six controller safety/evidence regressions, fourteen existing
-disposable-boundary controls, Python syntax, independent pinned-k6 parsing of public/
-authenticated/mixed modules, final default options matching the executed proof,
-report regeneration, documentation links and diff whitespace. Product suites and
-mandatory CI were not added for this tooling-only change. Owner review/publication
-and the broader acceptance of #85 remain pending.
+The [final report](remote-harness.md) owns capacity conclusions.
+The [authenticated-evidence.json](authenticated-evidence.json) retains this method’s historical results.
+Clock-invalid local runs remain functional/query diagnostics only; they are not capacity evidence.
+Raw artifacts remain ignored under `tools/performance/results/`.

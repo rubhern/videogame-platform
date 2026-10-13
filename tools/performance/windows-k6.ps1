@@ -89,6 +89,10 @@ try {
     $epoch = [DateTime]::Parse('1970-01-01T00:00:00Z').ToUniversalTime().Ticks
     $timer = [Diagnostics.Stopwatch]::StartNew()
     while (!$process.HasExited) {
+      if (Test-Path -LiteralPath (Join-Path $OutputDirectory 'generator-stop-requested.json')) {
+        $process.Kill()
+        break
+      }
       $process.Refresh()
       $clocks.Add(@{wallSeconds=([DateTime]::UtcNow.Ticks-$epoch)/1e7;monotonicSeconds=[Diagnostics.Stopwatch]::GetTimestamp()/[Diagnostics.Stopwatch]::Frequency;cpuSeconds=$process.TotalProcessorTime.TotalSeconds;workingSetBytes=$process.WorkingSet64})
       if ($timer.Elapsed.TotalSeconds -gt $TimeoutSeconds) { $process.Kill(); throw 'Native generator exceeded its bounded deadline' }

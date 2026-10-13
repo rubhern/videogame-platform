@@ -51,7 +51,12 @@ def native(phase, directory, workload='baseline', users=None, timeout=240):
         args+=['-Workload',workload,'-ConfigFile',win(directory/'workload.json'),
                '-OutputDirectory',win(directory),'-TimeoutSeconds',str(timeout)]
         if users: args+=['-UsersFile',win(users)]
-    result=subprocess.run(args,text=True,capture_output=True,timeout=timeout+120)
+    # WSL interop can inherit Core-only module paths into Windows PowerShell.
+    paths=json.loads(run('powershell.exe','-NoProfile','-NonInteractive','-Command',
+        '[pscustomobject]@{psHome=$PSHOME;machine=[Environment]::GetEnvironmentVariable("PSModulePath","Machine")} | ConvertTo-Json -Compress',text=True))
+    native_env={**os.environ,'PSModulePath':paths['psHome']+'\\Modules;'+(paths['machine'] or ''),
+                'WSLENV':os.environ.get('WSLENV','')+':PSModulePath/w'}
+    result=subprocess.run(args,text=True,capture_output=True,timeout=timeout+120,env=native_env)
     if phase=='Install' and result.returncode==0: return json.loads(result.stdout.strip())
     if result.returncode: raise RuntimeError('Native Windows k6 failed; private command output withheld; inspect result files')
 

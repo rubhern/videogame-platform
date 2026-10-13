@@ -56,7 +56,7 @@ def correlate(directory, observation, stable):
             period = ('before' if end < start_low else 'after' if start > end_high
                       else 'during' if start >= start_high and end <= end_low else 'boundary')
             periods[period].append(data['value'])
-            if data.get('tags', {}).get('status') != '200':
+            if str(data.get('tags', {}).get('expected_response', data.get('tags', {}).get('status') == '200')).lower() != 'true':
                 errors[period] += 1
     if not requests:
         result['interpretation'] = 'No HTTP request intervals; no degradation attributed to synchronization.'
@@ -76,13 +76,19 @@ def correlate(directory, observation, stable):
     reuse_verified = (preparation['scenario'] != 'serving-sync-reuse' or
                       (deltas['translated'] == 0 and deltas['failed'] == 0 and
                        deltas['reused'] is not None and deltas['reused'] >= preparation['games']))
-    usable = overlap_sufficient and stable and successful and reuse_verified and not observation['failures']
+    inference_required = preparation['scenario'] == 'serving-sync-inference'
+    helper = background.get('localizer', {})
+    inference_verified = (deltas['translated'] is not None and deltas['translated'] >= 4 and deltas['failed'] == 0
+        and helper.get('completedInferences', 0) >= 4 and helper.get('failedInferences') == 0)
+    usable = (overlap_sufficient and stable and successful and reuse_verified
+        and (not inference_required or inference_verified) and not observation['failures'])
     result.update(syncDurationSeconds=finished-started, conservativeOverlapSeconds=overlap,
                   httpEnvelopeSeconds=http_end-http_start,
                   conservativeHttpWindowFraction=overlap/(http_end-http_start) if http_end > http_start else 0,
                   requestIntervalsIntersectingSync=sum(e >= start_high and s <= end_low for s, e in requests),
                   serverSampleCountDuringSync=len(samples), localizationDelta=deltas,
-                  successfulWorkVerified=successful, reuseVerified=reuse_verified,
+                  successfulWorkVerified=successful, reuseVerified=reuse_verified if not inference_required else None,
+                  inferenceVerified=inference_verified if inference_required else None,
                   httpRecoveryAfterSyncObserved=bool(periods['after']),
                   periods={key: {**percentiles(values), 'httpErrors': errors[key]} for key, values in periods.items()},
                   overlapSufficient=overlap_sufficient, interferenceObservationUsable=usable,

@@ -1,41 +1,13 @@
 # Performance baseline
 
-## Objective and evidence boundary
+Start with the [final #85 report](remote-harness.md): results, capacity, limitations and decision.
+[Remote operations](../../../tools/performance/README.md) owns maintenance-window, identity,
+restoration and reproduction controls. No further experiment is authorized by this documentation.
 
-This research for [#85](https://github.com/rubhern/videogame-platform/issues/85)
-measures the existing local catalogue, supplies deterministic disposable datasets,
-and records the [first minimal public HTTP baseline](http-baseline.md). That low-rate
-run validates the measurement path. It establishes no saturation, recovery or
-production-capacity result. The subsequent
-[interference harness](interference-harness.md) validates three reproducible
-serving/acquisition/localization scenarios functionally. The
-[authenticated/mixed harness](authenticated-harness.md) adds a short real-Keycloak
-functional proof. The [Windows/Lenovo adapter](remote-harness.md) validates the same
-flows remotely over private HTTPS with independent generator/host clock audits, and
-records three bounded [public capacity pilots](remote-harness.md#public-capacity-pilots),
-including a saturated 25 req/s `normal` run.
-Stress, capacity conclusions and production optimizations remain pending.
-
-`growth` and especially `large` are **synthetic performance/capacity profiles**.
-Their cardinalities and distributions are experimental inputs, **not product
-requirements, forecasts, or infrastructure commitments**. Product direction remains
-in the [Product Brief](../../product/product-brief.md).
-
-## Environment
-
-The local measurement was taken on 2026-10-07 in Europe/Madrid, from the supported
-local PostgreSQL container and `videogame_platform` database, using the application
-role in a repeatable-read, read-only transaction. All 36,090 release snapshots have
-external-provider provenance: this is the locally synchronized catalogue, not the
-old demonstration seed. Its last recorded release synchronization was 2026-10-05
-05:11 UTC. The local container has a 512 MiB memory limit and 0.5 CPU.
-
-The synthetic harness uses the same local Docker engine, a separate PostgreSQL
-container, a loopback-only port and an anonymous disposable volume, with limits of
-1 GiB and 2 CPUs. The Docker Desktop engine reported 32 CPUs and about 15.2 GiB
-of available VM memory on x86_64. Executable configuration belongs to
-[dataset.sh](../../../tools/performance/dataset.sh). Generation timings and relation
-sizes describe fixture construction; they do not measure application serving.
+Local methods: [public baseline](http-baseline.md), [growth workload](growth-read-load.md),
+[authenticated journeys](authenticated-harness.md), [checkpoint interference](interference-harness.md).
+Numerical evidence stays in the JSON files beside these notes; raw artifacts remain ignored.
+`growth`/`large` cardinalities are synthetic experimental inputs, not product requirements.
 
 ## Dataset profiles
 
@@ -177,66 +149,5 @@ reuses the SQL unchanged in an OID-bound disposable database on the existing ser
 within an explicitly approved shared-environment window. Do not manually transplant
 the marker or rewrite the guards.
 
-## Evidence and remaining work
 
-Focused validation comprises shell syntax, boundary regression checks, PostgreSQL
-generation with all constraints enabled, generator semantic/count assertions,
-deterministic reruns and documentation-link validation. Run the fast safety checks
-with `bash tools/performance/test-safety.sh`.
-
-Both profiles were generated and checked on 2026-10-07 with reference date
-2026-10-07. The aggregate outputs are frozen in
-[growth-profile.json](growth-profile.json) and [large-profile.json](large-profile.json).
-
-| Profile | Generation and verification | Catalogue/Ratings tables + indexes | Whole database |
-|---|---:|---:|---:|
-| `current` | Read-only inventory | 105.81 MiB | 115.17 MiB |
-| `growth` | 25–26 seconds warm; 45 seconds after fresh setup | 486.83 MiB | 495.70 MiB |
-| `large` | 409 seconds, about 6 minutes 49 seconds | 3,828.72 MiB, about 3.74 GiB | 3,837.79 MiB |
-
-Generation includes semantic/count verification and `ANALYZE`, and excludes initial
-container/schema setup and the final inventory query. Sizes exclude WAL, temporary
-files, Docker/image overhead and peak disk requirements during build/replacement;
-they are not estimates of the total free disk space needed. The large observation
-is one run, and warm caches/storage make timings environment-dependent.
-
-Validation passed:
-
-- Shell syntax and 14 fake-Docker safety cases, including remote context precedence,
-  unrelated containers, persistent/bind-mounted volumes and invalid input.
-- Both full synthetic profiles with existing PostgreSQL CHECK/FK/UNIQUE/generated
-  column rules enabled, plus cardinality, projection-presence, release-bound and
-  rating-eligibility assertions. Selective and accent-normalized title cohorts
-  include rated Games.
-- Final `growth` replacement/rerun: row counts and order-independent full-row
-  fingerprints matched across all 32 Catalogue/Ratings tables. Physical storage
-  is intentionally excluded from the determinism promise. `large` was executed
-  once; its profile/date use the same deterministic construction.
-- Broad/rare/accent title counts of 50,000/50/5,000 and 200,000/200/20,000, and
-  alias counts of 10,000/40,000. Catalogue offsets 10,000/100,000 and rating offsets
-  4,000/9,000 each returned 20 rows using the application database role.
-- Direct SQL rejection of the normal application database name and an incorrect
-  schema checksum. Sentinel data remained intact. Standalone profiling succeeded;
-  the supported local catalogue's counts/distributions remained unchanged.
-- Documentation validation and diff whitespace checks. The disposable container
-  and exact verified anonymous volume were removed after measurement, including
-  a fresh-setup/cleanup check. Volume removal uses no force and refuses a volume
-  in use elsewhere. No persistent database was reset.
-
-The minimum public HTTP run, its accepted stable repetition and telemetry limits
-are recorded in [HTTP baseline evidence](http-baseline.md). The subsequent
-[public read load on growth](growth-read-load.md) measures the varied read control.
-The [fixture-backed interference harness](interference-harness.md) and its
-[machine evidence](interference-evidence.json) retain the functional comparison;
-external provider timing is explicitly excluded. The
-[authenticated/mixed functional proof](authenticated-harness.md) covers sessions and
-personal-rating reads/commands. The [remote smoke](remote-harness.md) and its
-[machine evidence](remote-evidence.json) add native Windows generation, physical
-Lenovo observations and verified private-dev restoration. The [remote capacity/interference record](remote-harness.md#public-capacity-pilots)
-and [capacity evidence](remote-capacity-evidence.json) retain the public capacity
-pilots and five-minute reference. The remote sync exploration, a bounded
-real-provider timing calibration and longer stress/soak remain pending in #85. No production optimization,
-architecture change, normal migration or development seed change was made. This
-harness is outside releasable backend/frontend/OpenAPI artefacts, so this slice has
-no version increment. Broad application suites were not run for this tooling-only
-slice; publication/CI and owner acceptance remain separate steps.
+Frozen [current](current-profile.json), [growth](growth-profile.json) and [large](large-profile.json) profiles retain generation measurements.
