@@ -164,80 +164,10 @@ Windows/WSL CPU/RAM/IO, query-plan traces or authoritative provider timing is ad
 Management sampling itself consumes some resources. These gaps and the unstable
 WSL clock prevent capacity attribution from this local validation.
 
-## Recorded functional validation
 
-The final run is identified by the machine evidence's `rawDirectory`. All three
-scenarios completed 60 HTTP-200 responses and 240 passing checks each, with zero
-HTTP failures, timeouts or dropped iterations. All twenty cases ran exactly three
-times. The background scenarios returned `SUCCEEDED`: four unchanged Games, eight
-unchanged Releases, eleven fixture provider calls and zero retries/failures. Payload,
-query/response hashes, public cases and selected fingerprints matched.
+## Evidence and conclusion
 
-| Scenario | Helper inference completions | Reused targets | Resolved fingerprints before → after | k6 backsteps / paired discontinuities |
-|---|---:|---:|---:|---:|
-| `serving-only` | 0 | 0 | 6 → 6 | 2 / 2 |
-| `serving-sync-reuse` | 0 | 6 | 6 → 6 | 1 / 2 |
-| `serving-sync-inference` | 6 | 0 | 0 → 6 | 2 / 2 |
-
-Both background scenarios also skipped six already-current taxonomy visits. The
-two inference `fallback` events are the existing additional event for non-curated
-taxonomy translation, not localization failures. Six real helper completion log
-entries, six `translated` increments and six completed rows carrying the approved
-OPUS/CT2 runtime revision prove inference; the analogous zero completion/translated
-counts plus six `reused` increments prove reuse without inference.
-
-There were 39/40/40 light samples respectively, without collection errors. Each
-background window contained two samples reporting a running sync; four public
-completions occurred in each controller counter bracket. The effective largest
-sample intervals were 1.825/1.728/1.699 seconds. Monotonic overlap windows are
-retained in JSON; neither their duration nor the fixture's provider latency metric
-estimates real IGDB synchronization time.
-
-Observed heap maxima were 154.91/156.87/156.99 MiB; additional GC pauses were
-1/2/2, totaling 8/17/17 ms. Hikari sampled active connections peaked at one and
-pending at zero, with zero timeout increments. No ungranted lock or deadlock was
-observed. PostgreSQL produced temporary files in every scenario; its charged
-memory reached approximately its 1 GiB limit, including file cache, without OOM.
-Its explicit observer rollbacks contribute to `xact_rollback`, which is not an
-application-error counter. CPU/throttling/block-I/O counters are retained per
-container. Localizer charged-memory maxima were 305.24/291.64/312.61 MiB; its CPU
-counter deltas include health checks and sampling as well as inference. These
-functional observations identify available signals, without attributing capacity
-or a bottleneck to their differences.
-
-The paired clock audit recorded six negative wall/monotonic discrepancies of
-approximately 1.22–1.26 seconds. Together with five k6 backsteps, this invalidates
-capacity interpretation. Raw HTTP percentiles/rates remain diagnostic observations
-in JSON. The accepted stable minimum baseline is unchanged.
-
-Restoration returned readiness `UP` and all persistent profile cardinalities
-matched, including 20,241 Games, 36,090 Releases and seven Ratings. The disposable
-database/provider and exact anonymous volume were removed; the helper is stopped.
-Focused checks passed: four fixture protocol checks, syntax/whitespace checks,
-fourteen existing disposable-boundary cases, direct SQL rejection of persistent
-database/wrong schema and rejection of remote-engine restoration, plus documentation
-validation. Broad product suites were unnecessary for this tooling-only slice.
-
-## Later #85 work
-
-On Lenovo, reproduce the same payload/checkpoint preparation, approved model/image
-digests and container limits; choose any larger background input through a separate
-short calibration with recorded texts/hashes. Keep both acquisition scenarios equal.
-Move k6 to an external generator with its own stable clock and adequate resources;
-`baseline.js` accepts a `baseUrl` in the exported workload. Arrange authorized private
-serving access, controller/generator start coordination and clock audits on both
-hosts without exposing management publicly. The current orchestrator launches local
-k6; the external launch/coordination adapter and host resource capture remain needed.
-Then run controlled levels/repetitions and interpret interference only with valid
-clocks. This task performs none of those capacity/stress runs.
-
-Separately, #85 needs a **provider timing calibration**: a small, bounded, normal-rate
-real-IGDB synchronization observing call latency, retries/rate-limit waits and
-end-to-end operational duration. It must not load-test IGDB. Future evidence can
-combine fixture-backed runs for internal contention/capacity with that real-provider
-calibration for operational-duration estimates. No such calls were made here.
-
-No releasable backend/frontend/OpenAPI/helper artefact changes, version increment,
-product thresholds, production instrumentation or CI gate are introduced. Owner
-review and publication follow the normal delivery lifecycle. The broader capacity
-and provider-timing work remains pending in #85.
+The [final report](remote-harness.md) owns capacity conclusions.
+The [interference-evidence.json](interference-evidence.json) retains this method’s historical results.
+Clock-invalid local runs remain functional/query diagnostics only; they are not capacity evidence.
+Raw artifacts remain ignored under `tools/performance/results/`.

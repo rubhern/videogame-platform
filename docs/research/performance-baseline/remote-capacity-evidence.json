@@ -1521,7 +1521,4296 @@
         "This run uses the corrected deployed image and a later evaluation date than the earlier 25 req/s pilot.",
         "Shared PostgreSQL caches/WAL and BFF sessions are not restored to their previous process state."
       ]
+    },
+    {
+      "run": "remote-capacity-rwkiahu4",
+      "observedOnUtc": "2026-10-13",
+      "purpose": "exploratory-serving-sync-reuse",
+      "harnessRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+      "uncommittedHarnessCorrection": true,
+      "scriptsSha256": {
+        "baseline.js": "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
+        "authenticated.js": "6365d365e10023c7a01eb483d62800c8f9d82023dfd47fa2b711ba8a1dfa79ac",
+        "mixed.js": "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
+        "windows-k6.ps1": "f984f7207c24a4e85ddaac89d6ab7ff4e11eb0ae716c4a61758e5faca4e2456f",
+        "remote_worker.py": "0d7000773b4daea39b794efbe5b3feae891322f713b92c93a21cbb7871eaf49c",
+        "provider_fixture.py": "66562e74d60e4ab7949c41beb6f34f3259a3b2fd3342b388c002d08bd06f3fdd",
+        "interference-state.sql": "41856d41f8ebb467a07c39acd891659e7734276749f581072e405ca332645e8a",
+        "remote_interference.py": "6a60203c7940b9b2f0407a567686362ebd3d069b45cda3922bc9cbde3dd4852c"
+      },
+      "sutRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+      "sutImage": "ghcr.io/rubhern/videogame-platform@sha256:b57a183d0e466b7f476d4f78a0f13612b72f1b58d5b19962b22d8a06b3266ca6",
+      "applicationVersion": "0.29.1-SNAPSHOT",
+      "scenario": "serving-sync-reuse",
+      "workloadProfile": "normal",
+      "cases": 17,
+      "requestDistribution": {
+        "releases_recent": 36,
+        "releases_upcoming": 36,
+        "releases_featured": 36,
+        "recent_pc": 36,
+        "recent_multi_filters": 36,
+        "upcoming_north_america": 35,
+        "upcoming_approximate": 35,
+        "recent_deep": 35,
+        "upcoming_deep": 35,
+        "search_selective": 35,
+        "search_alias": 35,
+        "search_accent": 35,
+        "search_normalized": 35,
+        "detail_fanout_1": 35,
+        "detail_fanout_2": 35,
+        "detail_fanout_3": 35,
+        "detail_fanout_10": 35
+      },
+      "evaluatedOn": "2026-10-13",
+      "rate": 10,
+      "durationSeconds": 60,
+      "vus": {
+        "preAllocated": 30,
+        "max": 30
+      },
+      "datasetSettle": {
+        "method": "VACUUM (ANALYZE) of the experiment database, then no autovacuum/vacuum progress there for the quiet window",
+        "quietSeconds": 30,
+        "vacuumSeconds": 4.575,
+        "settleSeconds": 35.277
+      },
+      "preparation": {
+        "scenario": "serving-sync-reuse",
+        "games": 64,
+        "releases": 128,
+        "inputSha256": "db4eb84dadd4397379fa7270a6f430d3e7b678a46b83d2c108ff1d777361566d"
+      },
+      "calibrationSeconds": 43.079543,
+      "http": {
+        "http_reqs": {
+          "count": 600,
+          "rate": 9.999959900160801
+        },
+        "checks": {
+          "rate": 1,
+          "passes": 2400,
+          "fails": 0
+        },
+        "http_req_failed": {
+          "passes": 0,
+          "fails": 600,
+          "rate": 0
+        },
+        "http_req_duration": {
+          "avg": 62.401065500000016,
+          "min": 7.4288,
+          "med": 50.078649999999996,
+          "p(95)": 142.11943499999998,
+          "p(99)": 503.6903969999998,
+          "max": 1087.2846,
+          "count": 600
+        },
+        "response_timeouts": {
+          "count": 0,
+          "rate": 0
+        },
+        "dropped_iterations": {
+          "count": 0,
+          "rate": 0
+        },
+        "iterations": {
+          "count": 601,
+          "rate": 10.016626499994402
+        }
+      },
+      "perCase": {
+        "releases_upcoming": {
+          "requests": 36,
+          "checksPassed": 144,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 36
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 36,
+            "avg": 61.952852777777785,
+            "min": 40.5207,
+            "med": 56.5141,
+            "p(95)": 89.852775,
+            "p(99)": 180.47768999999985,
+            "max": 212.2719
+          }
+        },
+        "releases_recent": {
+          "requests": 36,
+          "checksPassed": 144,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 36
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 36,
+            "avg": 63.25835277777777,
+            "min": 43.3288,
+            "med": 52.76905,
+            "p(95)": 97.696425,
+            "p(99)": 242.40172999999987,
+            "max": 279.0643
+          }
+        },
+        "releases_featured": {
+          "requests": 36,
+          "checksPassed": 144,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 36
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 36,
+            "avg": 41.188816666666675,
+            "min": 25.0277,
+            "med": 35.3628,
+            "p(95)": 58.387724999999996,
+            "p(99)": 154.20039999999983,
+            "max": 192.083
+          }
+        },
+        "upcoming_north_america": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "p(95)": 59.84671999999987,
+            "p(99)": 210.55327199999937,
+            "max": 271.9128,
+            "count": 35,
+            "avg": 40.84309999999999,
+            "min": 24.3349,
+            "med": 31.3715
+          }
+        },
+        "recent_pc": {
+          "requests": 36,
+          "checksPassed": 144,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 36
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 36,
+            "avg": 83.55995833333334,
+            "min": 51.766,
+            "med": 70.33575,
+            "p(95)": 87.06285,
+            "p(99)": 412.8394249999993,
+            "max": 585.4477
+          }
+        },
+        "recent_multi_filters": {
+          "requests": 36,
+          "checksPassed": 144,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 36
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "min": 70.6918,
+            "med": 88.97540000000001,
+            "p(95)": 121.934875,
+            "p(99)": 634.8930749999988,
+            "max": 910.5242,
+            "count": 36,
+            "avg": 112.2627611111111
+          }
+        },
+        "upcoming_deep": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "max": 524.7771,
+            "count": 35,
+            "avg": 102.75750285714288,
+            "min": 68.5933,
+            "med": 88.0409,
+            "p(95)": 144.55572999999998,
+            "p(99)": 397.4436999999987
+          }
+        },
+        "recent_deep": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "med": 96.4483,
+            "p(95)": 124.21361999999998,
+            "p(99)": 493.5557399999981,
+            "max": 681.7114,
+            "count": 35,
+            "avg": 110.27387999999998,
+            "min": 61.201
+          }
+        },
+        "search_alias": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "min": 7.474,
+            "med": 13.3753,
+            "p(95)": 21.691039999999987,
+            "p(99)": 276.7892779999987,
+            "max": 406.4103,
+            "count": 35,
+            "avg": 24.42091428571429
+          }
+        },
+        "search_selective": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "med": 16.8289,
+            "p(95)": 28.36664999999996,
+            "p(99)": 395.0314699999982,
+            "max": 578.7027,
+            "count": 35,
+            "avg": 33.8229457142857,
+            "min": 13.0523
+          }
+        },
+        "detail_fanout_2": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 35,
+            "avg": 15.169771428571426,
+            "min": 7.4775,
+            "med": 11.8716,
+            "p(95)": 22.571359999999967,
+            "p(99)": 75.93342799999976,
+            "max": 99.3376
+          }
+        },
+        "detail_fanout_1": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "p(99)": 135.9706879999994,
+            "max": 197.1917,
+            "count": 35,
+            "avg": 17.312048571428573,
+            "min": 7.4288,
+            "med": 12.208,
+            "p(95)": 16.667479999999998
+          }
+        },
+        "detail_fanout_3": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 35,
+            "avg": 14.529888571428568,
+            "min": 7.8675,
+            "med": 12.0558,
+            "p(95)": 24.67836999999998,
+            "p(99)": 55.30446999999987,
+            "max": 68.5779
+          }
+        },
+        "search_accent": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "avg": 80.19065142857144,
+            "min": 48.304,
+            "med": 72.6997,
+            "p(95)": 79.78117999999999,
+            "p(99)": 359.80757799999856,
+            "max": 503.4774,
+            "count": 35
+          }
+        },
+        "detail_fanout_10": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 35,
+            "avg": 16.40800571428572,
+            "min": 8.2621,
+            "med": 14.0143,
+            "p(95)": 24.82241999999998,
+            "p(99)": 70.29036599999979,
+            "max": 91.01
+          }
+        },
+        "upcoming_approximate": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "med": 140.0991,
+            "p(95)": 200.05078999999995,
+            "p(99)": 789.493865999997,
+            "max": 1087.2846,
+            "count": 35,
+            "avg": 177.7382171428571,
+            "min": 109.8807
+          }
+        },
+        "search_normalized": {
+          "requests": 35,
+          "checksPassed": 140,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 35
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "min": 49.9255,
+            "med": 57.189,
+            "p(95)": 75.16311,
+            "p(99)": 141.87267599999967,
+            "max": 176.0371,
+            "count": 35,
+            "avg": 63.69366285714285
+          }
+        }
+      },
+      "interference": {
+        "syncDurationSeconds": 43.05112886428833,
+        "conservativeOverlapSeconds": 43.047969579696655,
+        "serverSampleCountDuringSync": 5,
+        "requestIntervalsIntersectingSync": 431,
+        "localizationDelta": {
+          "translated": 0,
+          "reused": 66.0,
+          "failed": 0
+        },
+        "successfulWorkVerified": true,
+        "reuseVerified": true,
+        "httpRecoveryAfterSyncObserved": true,
+        "periods": {
+          "before": {
+            "count": 54,
+            "p50Ms": 77.7917,
+            "p95Ms": 619.1399949999995,
+            "p99Ms": 993.6015879999998,
+            "httpErrors": 0
+          },
+          "during": {
+            "count": 430,
+            "p50Ms": 47.23435,
+            "p95Ms": 131.07417499999997,
+            "p99Ms": 181.97566399999997,
+            "httpErrors": 0
+          },
+          "after": {
+            "count": 114,
+            "p50Ms": 44.8392,
+            "p95Ms": 111.54530499999987,
+            "p99Ms": 180.4960250000002,
+            "httpErrors": 0
+          },
+          "boundary": {
+            "count": 2,
+            "p50Ms": 95.126,
+            "p95Ms": 120.99407,
+            "p99Ms": 123.293454,
+            "httpErrors": 0
+          }
+        },
+        "overlapSufficient": true,
+        "interferenceObservationUsable": true,
+        "attributionAllowed": false,
+        "limitations": [
+          "Request starts reconstructed from k6 http_req_duration exclude connection setup.",
+          "Clock bridge assumes Windows and WSL share UTC; independent clock audits must pass.",
+          "Server snapshots are sequential, coarse and add observation overhead.",
+          "Sparse period tails and different request mixes are descriptive, not reliable comparative percentiles.",
+          "No paired serving-only run at this rate; correlation cannot establish causality.",
+          "Fixed cache reuse, two releases/game; no inference, new acquisition, historical backfill or real IGDB timing."
+        ]
+      },
+      "syncCounters": {
+        "inspectedReleaseDates": 128,
+        "createdGames": 0,
+        "updatedGames": 0,
+        "unchangedGames": 64,
+        "createdReleases": 0,
+        "updatedReleases": 0,
+        "unchangedReleases": 128,
+        "deferredGames": 0,
+        "failedGames": 0,
+        "providerRequests": 130,
+        "providerRetries": 0,
+        "providerLatencyMillis": 190,
+        "deletedReleases": 0,
+        "popularityObservedGames": 0,
+        "popularityClearedGames": 64,
+        "popularityUnavailableGames": 0,
+        "featuredImageObservedGames": 0,
+        "logoObservedGames": 0,
+        "logoUnavailableGames": 0,
+        "detailsUnavailableGames": 0
+      },
+      "signals": {
+        "snapshotCount": 7,
+        "observationFailures": [],
+        "cgroups": {
+          "application": {
+            "cpuStatDelta": {
+              "usage_usec": 20787007,
+              "user_usec": 18452516,
+              "system_usec": 2334491,
+              "core_sched.force_idle_usec": 0,
+              "nr_periods": 643,
+              "nr_throttled": 9,
+              "throttled_usec": 990657,
+              "nr_bursts": 0,
+              "burst_usec": 0
+            },
+            "memoryEventsDelta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0
+            }
+          },
+          "postgres": {
+            "cpuStatDelta": {
+              "usage_usec": 26487177,
+              "user_usec": 25050332,
+              "system_usec": 1436844,
+              "core_sched.force_idle_usec": 0,
+              "nr_periods": 631,
+              "nr_throttled": 60,
+              "throttled_usec": 3885901,
+              "nr_bursts": 0,
+              "burst_usec": 0
+            },
+            "memoryEventsDelta": {
+              "low": 0,
+              "high": 0,
+              "max": 307,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0
+            }
+          },
+          "catalogue-localizer": {
+            "cpuStatDelta": {
+              "usage_usec": 3115805,
+              "user_usec": 2622899,
+              "system_usec": 492907,
+              "core_sched.force_idle_usec": 0,
+              "nr_periods": 98,
+              "nr_throttled": 0,
+              "throttled_usec": 0,
+              "nr_bursts": 0,
+              "burst_usec": 0
+            },
+            "memoryEventsDelta": {
+              "low": 0,
+              "high": 0,
+              "max": 0,
+              "oom": 0,
+              "oom_kill": 0,
+              "oom_group_kill": 0
+            }
+          }
+        },
+        "postgresLog": {
+          "statementCancellations": 0,
+          "temporaryFileLines": 0,
+          "errorLines": 0,
+          "fatalLines": 0
+        },
+        "applicationLog": {
+          "levels": {
+            "INFO": 606,
+            "WARN": 2
+          },
+          "unparsedLines": 0,
+          "warnOrErrorEvents": 2
+        },
+        "warningLoggers": [
+          "org.hibernate.validator.internal.metadata.aggregated.CascadingMetaDataBuilder"
+        ],
+        "hikaricp.connections.active": {
+          "minimumObserved": 0.0,
+          "maximumObserved": 1.0
+        },
+        "hikaricp.connections.pending": {
+          "minimumObserved": 0.0,
+          "maximumObserved": 0.0
+        },
+        "hikaricp.connections.timeout": {
+          "minimumObserved": 0.0,
+          "maximumObserved": 0.0
+        }
+      },
+      "clockAudit": {
+        "generator": {
+          "samples": 228,
+          "backsteps": [],
+          "discontinuities": [],
+          "maxAbsoluteDifferenceSeconds": 0.004367463174276054
+        },
+        "lenovo": {
+          "samples": 254,
+          "backsteps": [],
+          "discontinuities": [],
+          "maxAbsoluteDifferenceSeconds": 1.1972151696681976e-06
+        },
+        "http": {
+          "httpSamples": 600,
+          "backsteps": [],
+          "concurrentReorderings": [],
+          "rawMetricsAvailable": true
+        },
+        "stableDuringObservedWindow": true
+      },
+      "generatorExit": {
+        "phase": "Run",
+        "exitCode": 0
+      },
+      "restoration": {
+        "originalSchedulingRestored": true,
+        "originalEnvironmentVerified": true,
+        "privateDataUnchanged": true,
+        "dependenciesUnchanged": true,
+        "databaseRetainedForReview": false,
+        "unexpectedExperimentalRatings": 0,
+        "readiness": {
+          "status": "UP"
+        }
+      },
+      "rawEvidenceSha256": {
+        "evidence.json": "0cc4c140ca3873f306d1012b62044bda2fc3487934e9998cec21f85ce9239437",
+        "before.json": "68321838349479f61bdfe6e9616ae33035ca69c0e12107b8fba0a4f580a63978",
+        "after.json": "985eb1e8de2556b5ade4435225229ec5c677e1d7b40ec61e666983320db155e7",
+        "observation.json": "206f49e229c5b2acc0a110bd55985176e2ec7accdeea336f71954a6a351d92c1",
+        "background.json": "79d87b66930823be5c4c0c35cf3bb5416713c75aeafb716126df9e81ec62cd70",
+        "restoration.json": "0daab7397ab193c697255e781647b9c9573b562c2aefe75c3e94112287c176bc"
+      },
+      "limitations": [
+        "One 60-second exploratory run; no matched serving-only control at 10 requests/s.",
+        "No sustained or production capacity conclusion and no causal attribution.",
+        "Native launcher required process-local Windows PowerShell module-path normalization from WSL; preceding Install failure sent no load."
+      ]
     }
   ],
-  "sutMetadataScope": "Top-level SUT identifies the initial pilots; a per-run SUT, when present, overrides it."
+  "sutMetadataScope": "Top-level SUT identifies the initial pilots; a per-run SUT, when present, overrides it.",
+  "completion": {
+    "observedOn": "2026-10-13",
+    "ownerReviewPending": false,
+    "decision": "no action",
+    "scope": "Private non-commercial deployment only; no production guarantee or automatic optimization.",
+    "rwkiahu4Reconciliation": {
+      "total": 600,
+      "before": 54,
+      "during": 430,
+      "after": 114,
+      "boundary": 2
+    },
+    "scenarios": {
+      "inference": {
+        "run": "remote-closure-inference-lqhojz65",
+        "sutRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+        "sutImage": "ghcr.io/rubhern/videogame-platform@sha256:b57a183d0e466b7f476d4f78a0f13612b72f1b58d5b19962b22d8a06b3266ca6",
+        "applicationVersion": "0.29.1-SNAPSHOT",
+        "harnessManifest": {
+          "sourceRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+          "purpose": "owner-approved-issue-85-completion",
+          "sutRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+          "scriptsSha256": {
+            "closure.py": "24b364ecaf46572700c0152a85113e6a187f42291bb762bed4507e14edbf5f74",
+            "remote.py": "52b61eab3f2ebacdf561ebedf9ceb4aa5dc809f48f6c0295e8dac0c3853a87f6",
+            "remote_worker.py": "e468c56758214007ec04ebdbfb6159a20fb81a7d1a4aeae9dbaa6687982384f0",
+            "windows-k6.ps1": "7d88608d7b4123045bb0e33a4fd3875a1e09396ea41870d78cce344bcdaaedf4",
+            "baseline.js": "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
+            "authenticated.js": "6365d365e10023c7a01eb483d62800c8f9d82023dfd47fa2b711ba8a1dfa79ac",
+            "mixed.js": "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
+            "provider_fixture.py": "66562e74d60e4ab7949c41beb6f34f3259a3b2fd3342b388c002d08bd06f3fdd",
+            "interference-state.sql": "41856d41f8ebb467a07c39acd891659e7734276749f581072e405ca332645e8a"
+          }
+        },
+        "policy": {
+          "publicRates": [
+            10,
+            15,
+            20,
+            25
+          ],
+          "secondsPerLevel": 60,
+          "maximumVus": 30,
+          "recoveryRate": 5,
+          "recoverySeconds": 60,
+          "saturationErrorFraction": 0.01,
+          "saturationDropFraction": 0.01,
+          "minimumDeliveryFraction": 0.95,
+          "maximumP95Ms": 1000,
+          "criticalStop": [
+            "oom",
+            "readiness-down",
+            "observation-unavailable",
+            "observation-stale"
+          ],
+          "mixedUsers": 2,
+          "mixedIterationsPerUser": 5,
+          "mixedPublicReads": 120,
+          "interpretation": "Experimental controls, not product SLOs; stop at first degraded level."
+        },
+        "restoration": {
+          "originalSchedulingRestored": true,
+          "originalEnvironmentVerified": true,
+          "privateDataUnchanged": true,
+          "dependenciesUnchanged": true,
+          "databaseRetainedForReview": false,
+          "unexpectedExperimentalRatings": 0,
+          "syntheticUsersRemoved": 0,
+          "readiness": {
+            "status": "UP"
+          }
+        },
+        "stages": [
+          {
+            "stage": "measured",
+            "workloadProfile": "normal",
+            "rate": 10,
+            "durationSeconds": 60,
+            "executorMaximumDuration": null,
+            "authenticatedUsers": 0,
+            "iterationsPerUser": null,
+            "publicIterations": null,
+            "http": {
+              "http_reqs": {
+                "count": 600,
+                "rate": 9.998801693611028
+              },
+              "checks": {
+                "rate": 1,
+                "passes": 2400,
+                "fails": 0
+              },
+              "http_req_failed": {
+                "rate": 0,
+                "passes": 0,
+                "fails": 600
+              },
+              "http_req_duration": {
+                "max": 1732.1177,
+                "count": 600,
+                "avg": 76.78730633333339,
+                "min": 6.9069,
+                "med": 53.4559,
+                "p(95)": 157.88513499999996,
+                "p(99)": 1009.2957029999999
+              },
+              "response_timeouts": {
+                "count": 0,
+                "rate": 0
+              },
+              "dropped_iterations": {
+                "count": 0,
+                "rate": 0
+              },
+              "iterations": {
+                "count": 601,
+                "rate": 10.01546636310038
+              }
+            },
+            "cases": {
+              "releases_recent": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  57.1092,
+                  72.24855,
+                  346.54538999999943
+                ]
+              },
+              "releases_upcoming": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  59.08065,
+                  76.002275,
+                  375.3938449999994
+                ]
+              },
+              "releases_featured": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  36.230149999999995,
+                  121.11255,
+                  351.28903999999994
+                ]
+              },
+              "upcoming_north_america": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  35.6064,
+                  103.50559999999956,
+                  349.9920739999993
+                ]
+              },
+              "search_alias": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  13.9972,
+                  43.774209999999755,
+                  182.13122599999957
+                ]
+              },
+              "recent_pc": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  76.21195,
+                  204.208225,
+                  841.4968699999993
+                ]
+              },
+              "search_selective": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  18.1598,
+                  88.11147999999949,
+                  351.1785299999993
+                ]
+              },
+              "recent_multi_filters": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  87.9204,
+                  302.74825,
+                  946.0258399999997
+                ]
+              },
+              "recent_deep": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  71.3777,
+                  280.6550599999987,
+                  682.2645799999997
+                ]
+              },
+              "detail_fanout_1": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  11.5652,
+                  22.99484999999997,
+                  238.1005299999989
+                ]
+              },
+              "detail_fanout_2": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  13.1238,
+                  28.123689999999964,
+                  173.86982199999926
+                ]
+              },
+              "detail_fanout_3": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  12.748,
+                  24.142449999999958,
+                  156.77939399999937
+                ]
+              },
+              "detail_fanout_10": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  14.0192,
+                  25.134869999999975,
+                  90.02927799999969
+                ]
+              },
+              "upcoming_deep": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  91.0862,
+                  318.0354499999983,
+                  921.769665999999
+                ]
+              },
+              "search_accent": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  70.7412,
+                  200.11208999999909,
+                  887.1816299999978
+                ]
+              },
+              "search_normalized": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  66.3311,
+                  193.23921999999914,
+                  816.684591999998
+                ]
+              },
+              "upcoming_approximate": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  140.6065,
+                  426.3449699999976,
+                  1486.3251719999976
+                ]
+              }
+            },
+            "operations": {},
+            "sessions": {},
+            "clockAudit": {
+              "generator": {
+                "samples": 227,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 0.0038811032427474856
+              },
+              "lenovo": {
+                "samples": 259,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 4.118308424949646e-06
+              },
+              "http": {
+                "httpSamples": 600,
+                "backsteps": [],
+                "concurrentReorderings": [],
+                "rawMetricsAvailable": true
+              },
+              "stableDuringObservedWindow": true
+            },
+            "generatorExit": {
+              "phase": "Run",
+              "exitCode": 0
+            },
+            "safetyAbort": null,
+            "signals": {
+              "periodicSamples": 7,
+              "snapshotBracketSeconds": 73.27750052791089,
+              "observationFailures": [],
+              "readinessAfter": {
+                "status": "UP"
+              },
+              "containers": {
+                "application": {
+                  "cpuSeconds": 21.130415,
+                  "cpuStatDelta": {
+                    "usage_usec": 21130415,
+                    "user_usec": 18704167,
+                    "system_usec": 2426249,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 667,
+                    "nr_throttled": 4,
+                    "throttled_usec": 504297,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 477630464,
+                  "ioDelta": {}
+                },
+                "postgres": {
+                  "cpuSeconds": 27.581633,
+                  "cpuStatDelta": {
+                    "usage_usec": 27581633,
+                    "user_usec": 26049783,
+                    "system_usec": 1531851,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 653,
+                    "nr_throttled": 76,
+                    "throttled_usec": 10375060,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 458,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 801411072,
+                  "ioDelta": {
+                    "rbytes": 16236544,
+                    "wbytes": 52617216,
+                    "rios": 1454,
+                    "wios": 5431,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                },
+                "catalogue-localizer": {
+                  "cpuSeconds": 4.699898,
+                  "cpuStatDelta": {
+                    "usage_usec": 4699898,
+                    "user_usec": 4233597,
+                    "system_usec": 466300,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 103,
+                    "nr_throttled": 2,
+                    "throttled_usec": 7115,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 348999680,
+                  "ioDelta": {
+                    "rbytes": 0,
+                    "wbytes": 0,
+                    "rios": 0,
+                    "wios": 0,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                }
+              },
+              "jvm": {
+                "heapUsed": {
+                  "maximumObserved": 154852504.0,
+                  "after": 142355800.0
+                },
+                "heapMax": {
+                  "maximumObserved": 389283840.0,
+                  "after": 389283840.0
+                },
+                "threads": {
+                  "maximumObserved": 65.0,
+                  "after": 64.0
+                },
+                "gcPauseTimeUnit": "milliseconds",
+                "gcPauseDeltaCOUNT": 5.0,
+                "gcPauseDeltaTOTAL_TIME": 299.0
+              },
+              "hikari": {
+                "active": {
+                  "maximumObserved": 0.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "pending": {
+                  "maximumObserved": 0.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "max": {
+                  "maximumObserved": 10.0,
+                  "after": 10.0,
+                  "delta": 0.0
+                },
+                "timeout": {
+                  "maximumObserved": 0.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                }
+              },
+              "postgresql": {
+                "xact_commitDelta": 4148,
+                "xact_rollbackDelta": 0,
+                "blks_readDelta": 8365,
+                "blks_hitDelta": 7645009,
+                "temp_filesDelta": 0,
+                "temp_bytesDelta": 0,
+                "deadlocksDelta": 0,
+                "maximumUngrantedLocksObserved": 0,
+                "activityMaximumCounts": [
+                  {
+                    "state": "active",
+                    "waitEventType": null,
+                    "waitEvent": null,
+                    "maximumObserved": 1
+                  },
+                  {
+                    "state": "idle",
+                    "waitEventType": "Client",
+                    "waitEvent": "ClientRead",
+                    "maximumObserved": 10
+                  }
+                ]
+              },
+              "physicalHost": {
+                "pressure_cpu": {
+                  "some": {
+                    "totalDeltaMicroseconds": 2213167,
+                    "maximumSampledAvg10": 5.93
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 0,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_memory": {
+                  "some": {
+                    "totalDeltaMicroseconds": 6670,
+                    "maximumSampledAvg10": 0.0
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 5692,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_io": {
+                  "some": {
+                    "totalDeltaMicroseconds": 132000,
+                    "maximumSampledAvg10": 0.12
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 115020,
+                    "maximumSampledAvg10": 0.12
+                  }
+                }
+              }
+            },
+            "applicationLog": {
+              "levels": {
+                "INFO": 603
+              },
+              "unparsedLines": 0,
+              "warnOrErrorEvents": 0
+            },
+            "postgresLog": {
+              "statementCancellations": 0,
+              "temporaryFileLines": 0,
+              "errorLines": 0,
+              "fatalLines": 0
+            },
+            "rawSha256": {
+              "evidence.json": "2e8bbbdca981304bebca592fb0ddea7ae07e9c5c20f6d9ff42f056790482ce62",
+              "before.json": "0daa6caf4851b1474daf4610c8f137e466579cc1820ce3c47a157ef939b9043f",
+              "after.json": "6f3fb36ac36879f91d3557e1eb61bb581842518e31fda474600b62952ab537ff",
+              "observation.json": "cfb3130241f1421fd1b4a06a83f5b1264ef946d5cba0219fadd352c9a622fdc1",
+              "summary.json": "f00172119dceb96b09be9a28f94d80fe8c1e84180751191244bda81828a9fc8f",
+              "metrics.json": "dad067a9547cfb18eaaf9ddc9248121b3871b8faf090acb4b0e800cb9407769f"
+            },
+            "generatorResources": {
+              "cpuSeconds": 1.34375,
+              "maximumWorkingSetBytes": 68407296,
+              "resourceSamplesUnavailable": 0
+            },
+            "interference": {
+              "syncDurationSeconds": 43.29844117164612,
+              "conservativeOverlapSeconds": 43.295161485672,
+              "serverSampleCountDuringSync": 5,
+              "localizationDelta": {
+                "translated": 4.0,
+                "reused": 62.0,
+                "failed": 0
+              },
+              "successfulWorkVerified": true,
+              "reuseVerified": null,
+              "inferenceVerified": true,
+              "overlapSufficient": true,
+              "interferenceObservationUsable": true,
+              "httpRecoveryAfterSyncObserved": true,
+              "periods": {
+                "before": {
+                  "count": 71,
+                  "p50Ms": 78.7304,
+                  "p95Ms": 1019.9318000000001,
+                  "p99Ms": 1307.3494399999984,
+                  "httpErrors": 0
+                },
+                "during": {
+                  "count": 432,
+                  "p50Ms": 52.29885,
+                  "p95Ms": 135.41003,
+                  "p99Ms": 157.437233,
+                  "httpErrors": 0
+                },
+                "after": {
+                  "count": 95,
+                  "p50Ms": 46.7304,
+                  "p95Ms": 122.95598999999997,
+                  "p99Ms": 142.8737,
+                  "httpErrors": 0
+                },
+                "boundary": {
+                  "count": 2,
+                  "p50Ms": 68.92869999999999,
+                  "p95Ms": 71.0671,
+                  "p99Ms": 71.25717999999999,
+                  "httpErrors": 0
+                }
+              },
+              "attributionAllowed": false,
+              "limitations": [
+                "Request starts reconstructed from k6 http_req_duration exclude connection setup.",
+                "Clock bridge assumes Windows and WSL share UTC; independent clock audits must pass.",
+                "Server snapshots are sequential, coarse and add observation overhead.",
+                "Sparse period tails and different request mixes are descriptive, not reliable comparative percentiles.",
+                "No paired serving-only run at this rate; correlation cannot establish causality.",
+                "Fixed cache reuse, two releases/game; no inference, new acquisition, historical backfill or real IGDB timing."
+              ]
+            },
+            "syncCounters": {
+              "inspectedReleaseDates": 128,
+              "createdGames": 0,
+              "updatedGames": 0,
+              "unchangedGames": 64,
+              "createdReleases": 0,
+              "updatedReleases": 0,
+              "unchangedReleases": 128,
+              "deferredGames": 0,
+              "failedGames": 0,
+              "providerRequests": 130,
+              "providerRetries": 0,
+              "providerLatencyMillis": 188,
+              "deletedReleases": 0,
+              "popularityObservedGames": 0,
+              "popularityClearedGames": 64,
+              "popularityUnavailableGames": 0,
+              "featuredImageObservedGames": 0,
+              "logoObservedGames": 0,
+              "logoUnavailableGames": 0,
+              "detailsUnavailableGames": 0
+            },
+            "localizer": {
+              "completedInferences": 4,
+              "failedInferences": 0,
+              "inferenceSeconds": [
+                0.285,
+                0.061,
+                0.077,
+                0.355
+              ]
+            }
+          }
+        ],
+        "modelRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+        "datasetCounts": {
+          "games": 50000,
+          "ratings": 500000,
+          "regions": 5,
+          "releases": 200000,
+          "platforms": 10,
+          "rated_games": 40000,
+          "visible_games": 50000,
+          "approved_aliases": 10000,
+          "visible_releases": 200000,
+          "current_revisions": 1,
+          "games_with_genres": 50000,
+          "users_with_ratings": 4020
+        },
+        "outcome": {
+          "nativeFailure": null,
+          "safetyAbort": null,
+          "clockStable": true,
+          "checksFailed": 0
+        },
+        "preparation": {
+          "scenario": "serving-sync-inference",
+          "games": 64,
+          "releases": 128,
+          "inputSha256": "db4eb84dadd4397379fa7270a6f430d3e7b678a46b83d2c108ff1d777361566d"
+        },
+        "calibrationSeconds": 43.196711
+      },
+      "mixed": {
+        "run": "remote-closure-mixed-56_70s8z",
+        "sutRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+        "sutImage": "ghcr.io/rubhern/videogame-platform@sha256:b57a183d0e466b7f476d4f78a0f13612b72f1b58d5b19962b22d8a06b3266ca6",
+        "applicationVersion": "0.29.1-SNAPSHOT",
+        "harnessManifest": {
+          "sourceRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+          "purpose": "owner-approved-issue-85-completion",
+          "sutRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+          "scriptsSha256": {
+            "closure.py": "24b364ecaf46572700c0152a85113e6a187f42291bb762bed4507e14edbf5f74",
+            "remote.py": "52b61eab3f2ebacdf561ebedf9ceb4aa5dc809f48f6c0295e8dac0c3853a87f6",
+            "remote_worker.py": "2a703be53ec414c39caf672c48ed75f6afb63892e861a01d585c626dfa63952a",
+            "windows-k6.ps1": "7d88608d7b4123045bb0e33a4fd3875a1e09396ea41870d78cce344bcdaaedf4",
+            "baseline.js": "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
+            "authenticated.js": "6365d365e10023c7a01eb483d62800c8f9d82023dfd47fa2b711ba8a1dfa79ac",
+            "mixed.js": "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
+            "provider_fixture.py": "66562e74d60e4ab7949c41beb6f34f3259a3b2fd3342b388c002d08bd06f3fdd",
+            "interference-state.sql": "41856d41f8ebb467a07c39acd891659e7734276749f581072e405ca332645e8a"
+          }
+        },
+        "policy": {
+          "publicRates": [
+            10,
+            15,
+            20,
+            25
+          ],
+          "secondsPerLevel": 60,
+          "maximumVus": 30,
+          "recoveryRate": 5,
+          "recoverySeconds": 60,
+          "saturationErrorFraction": 0.01,
+          "saturationDropFraction": 0.01,
+          "minimumDeliveryFraction": 0.95,
+          "maximumP95Ms": 1000,
+          "criticalStop": [
+            "oom",
+            "readiness-down",
+            "observation-unavailable",
+            "observation-stale"
+          ],
+          "mixedUsers": 2,
+          "mixedIterationsPerUser": 5,
+          "mixedPublicReads": 120,
+          "interpretation": "Experimental controls, not product SLOs; stop at first degraded level."
+        },
+        "restoration": {
+          "originalSchedulingRestored": true,
+          "originalEnvironmentVerified": true,
+          "privateDataUnchanged": true,
+          "dependenciesUnchanged": true,
+          "databaseRetainedForReview": false,
+          "unexpectedExperimentalRatings": 0,
+          "syntheticUsersRemoved": 2,
+          "readiness": {
+            "status": "UP"
+          }
+        },
+        "stages": [
+          {
+            "stage": "measured",
+            "workloadProfile": "normal-concurrent-mixed",
+            "rate": null,
+            "durationSeconds": null,
+            "executorMaximumDuration": "120s",
+            "authenticatedUsers": 2,
+            "iterationsPerUser": 5,
+            "publicIterations": 120,
+            "http": {
+              "http_reqs": {
+                "count": 304,
+                "rate": 4.522304134902142
+              },
+              "checks": {
+                "rate": 1,
+                "passes": 1156,
+                "fails": 0
+              },
+              "http_req_failed": {
+                "rate": 0,
+                "passes": 0,
+                "fails": 304
+              },
+              "http_req_duration": {
+                "p(99)": 277.6861849999975,
+                "max": 365.7942,
+                "count": 304,
+                "avg": 36.59275263157893,
+                "min": 5.7107,
+                "med": 16.439799999999998,
+                "p(95)": 118.89684999999984
+              },
+              "response_timeouts": {
+                "count": 0,
+                "rate": 0
+              },
+              "dropped_iterations": {
+                "count": 0,
+                "rate": 0
+              },
+              "iterations": {
+                "rate": 1.9338800576884159,
+                "count": 130
+              }
+            },
+            "cases": {
+              "login_begin": {
+                "requests": 2,
+                "checksFailed": 0,
+                "statuses": {
+                  "302": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  39.3449,
+                  39.3449,
+                  39.3449
+                ]
+              },
+              "releases_recent": {
+                "requests": 8,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 8
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  61.5226,
+                  209.83264499999987,
+                  271.2392489999999
+                ]
+              },
+              "login_form": {
+                "requests": 2,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  15.338049999999999,
+                  16.729675,
+                  16.853375
+                ]
+              },
+              "releases_upcoming": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  53.8633,
+                  107.16248999999996,
+                  121.71769799999997
+                ]
+              },
+              "login_submit": {
+                "requests": 2,
+                "checksFailed": 0,
+                "statuses": {
+                  "302": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  149.3125,
+                  157.62022,
+                  158.35868399999998
+                ]
+              },
+              "releases_featured": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  37.9166,
+                  144.6295299999999,
+                  179.05774599999995
+                ]
+              },
+              "login_callback": {
+                "requests": 2,
+                "checksFailed": 0,
+                "statuses": {
+                  "302": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  356.69565,
+                  364.884345,
+                  365.612229
+                ]
+              },
+              "recent_pc": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  72.2587,
+                  160.27375999999992,
+                  188.01051199999995
+                ]
+              },
+              "login_landing": {
+                "requests": 2,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  25.0504,
+                  25.0504,
+                  25.0504
+                ]
+              },
+              "recent_multi_filters": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  86.6587,
+                  101.74499,
+                  104.725478
+                ]
+              },
+              "session": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  8.2344,
+                  19.920455,
+                  20.186891
+                ]
+              },
+              "upcoming_north_america": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  38.4811,
+                  72.89639999999997,
+                  82.16111999999998
+                ]
+              },
+              "csrf_rejected": {
+                "requests": 2,
+                "checksFailed": 0,
+                "statuses": {
+                  "403": 2
+                },
+                "timeouts": 0,
+                "errors": {
+                  "1403": 2
+                },
+                "p50p95p99Ms": [
+                  17.1734,
+                  17.1734,
+                  17.1734
+                ]
+              },
+              "upcoming_approximate": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  132.8696,
+                  253.01215999999994,
+                  274.798592
+                ]
+              },
+              "prepare_rating": {
+                "requests": 4,
+                "checksFailed": 0,
+                "statuses": {
+                  "201": 4
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  88.7336,
+                  144.2324,
+                  144.2324
+                ]
+              },
+              "recent_deep": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  83.4976,
+                  85.56693,
+                  85.929546
+                ]
+              },
+              "my_ratings": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  14.8081,
+                  33.86,
+                  33.86
+                ]
+              },
+              "upcoming_deep": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  94.6764,
+                  111.59701999999999,
+                  114.324524
+                ]
+              },
+              "my_title": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  11.8313,
+                  16.1062,
+                  16.1062
+                ]
+              },
+              "search_selective": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  24.2288,
+                  62.20790999999997,
+                  72.35494199999998
+                ]
+              },
+              "my_value": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  13.83855,
+                  17.978,
+                  17.978
+                ]
+              },
+              "search_alias": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  15.4659,
+                  24.79978999999999,
+                  27.184837999999992
+                ]
+              },
+              "my_search": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  15.90745,
+                  23.5058,
+                  23.5058
+                ]
+              },
+              "search_accent": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  61.1277,
+                  94.98766999999998,
+                  101.19625399999998
+                ]
+              },
+              "my_alias": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  12.94505,
+                  18.523245,
+                  18.895449
+                ]
+              },
+              "search_normalized": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  56.8332,
+                  74.29626,
+                  74.569332
+                ]
+              },
+              "peer_absence": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "404": 10
+                },
+                "timeouts": 0,
+                "errors": {
+                  "1404": 10
+                },
+                "p50p95p99Ms": [
+                  9.786449999999999,
+                  19.4795,
+                  19.4795
+                ]
+              },
+              "detail_fanout_1": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  14.3645,
+                  25.49593999999999,
+                  28.307827999999994
+                ]
+              },
+              "rating_absence": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "404": 10
+                },
+                "timeouts": 0,
+                "errors": {
+                  "1404": 10
+                },
+                "p50p95p99Ms": [
+                  8.5641,
+                  13.005949999999997,
+                  14.146790000000001
+                ]
+              },
+              "detail_fanout_2": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  11.5286,
+                  17.876539999999995,
+                  19.183147999999996
+                ]
+              },
+              "rating_create": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "201": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  26.552799999999998,
+                  46.2578,
+                  46.2578
+                ]
+              },
+              "detail_fanout_3": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  13.7235,
+                  30.03436999999999,
+                  33.522313999999994
+                ]
+              },
+              "rating_read_created": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  8.5333,
+                  15.66759999999999,
+                  18.82768
+                ]
+              },
+              "detail_fanout_10": {
+                "requests": 7,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 7
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  14.7027,
+                  21.795019999999994,
+                  23.603803999999997
+                ]
+              },
+              "rating_update": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  19.5042,
+                  22.961564999999997,
+                  23.899833
+                ]
+              },
+              "rating_read_updated": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  10.4094,
+                  27.39281499999999,
+                  30.688003000000002
+                ]
+              },
+              "my_after_update": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  13.99035,
+                  43.9818,
+                  43.9818
+                ]
+              },
+              "rating_delete": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  13.7011,
+                  16.776265,
+                  16.851972999999997
+                ]
+              },
+              "rating_read_deleted": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "404": 10
+                },
+                "timeouts": 0,
+                "errors": {
+                  "1404": 10
+                },
+                "p50p95p99Ms": [
+                  7.719200000000001,
+                  9.669214999999998,
+                  10.226963000000001
+                ]
+              },
+              "my_after_delete": {
+                "requests": 10,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 10
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  14.643,
+                  32.78639,
+                  34.385438
+                ]
+              },
+              "restore_rating": {
+                "requests": 4,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 4
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  14.199449999999999,
+                  16.773255,
+                  17.090091
+                ]
+              },
+              "logout": {
+                "requests": 2,
+                "checksFailed": 0,
+                "statuses": {
+                  "204": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  10.981000000000002,
+                  11.91835,
+                  12.00167
+                ]
+              },
+              "session_after_logout": {
+                "requests": 2,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  11.6902,
+                  11.6902,
+                  11.6902
+                ]
+              }
+            },
+            "operations": {
+              "prepare:create": 4,
+              "workload:create": 10,
+              "workload:update": 10,
+              "workload:delete": 10,
+              "restore:delete": 4
+            },
+            "sessions": {
+              "authenticated_sessions": 2,
+              "session_reuses": 8
+            },
+            "clockAudit": {
+              "generator": {
+                "samples": 254,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 0.0040863321628421545
+              },
+              "lenovo": {
+                "samples": 293,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 1.6004778444766998e-06
+              },
+              "http": {
+                "httpSamples": 304,
+                "backsteps": [],
+                "concurrentReorderings": [],
+                "rawMetricsAvailable": true
+              },
+              "stableDuringObservedWindow": true
+            },
+            "generatorExit": {
+              "phase": "Run",
+              "exitCode": 0
+            },
+            "safetyAbort": null,
+            "signals": {
+              "periodicSamples": 8,
+              "snapshotBracketSeconds": 81.4442377910018,
+              "observationFailures": [],
+              "readinessAfter": {
+                "status": "UP"
+              },
+              "containers": {
+                "application": {
+                  "cpuSeconds": 19.804444,
+                  "cpuStatDelta": {
+                    "usage_usec": 19804444,
+                    "user_usec": 17528282,
+                    "system_usec": 2276163,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 647,
+                    "nr_throttled": 8,
+                    "throttled_usec": 346722,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 475922432,
+                  "ioDelta": {}
+                },
+                "postgres": {
+                  "cpuSeconds": 8.645972,
+                  "cpuStatDelta": {
+                    "usage_usec": 8645972,
+                    "user_usec": 7326603,
+                    "system_usec": 1319368,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 566,
+                    "nr_throttled": 2,
+                    "throttled_usec": 129982,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 290,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 801345536,
+                  "ioDelta": {
+                    "rbytes": 43909120,
+                    "wbytes": 102096896,
+                    "rios": 3850,
+                    "wios": 9997,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                },
+                "catalogue-localizer": {
+                  "cpuSeconds": 3.452818,
+                  "cpuStatDelta": {
+                    "usage_usec": 3452818,
+                    "user_usec": 2903393,
+                    "system_usec": 549425,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 109,
+                    "nr_throttled": 0,
+                    "throttled_usec": 0,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 353050624,
+                  "ioDelta": {
+                    "rbytes": 0,
+                    "wbytes": 0,
+                    "rios": 0,
+                    "wios": 0,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                }
+              },
+              "jvm": {
+                "heapUsed": {
+                  "maximumObserved": 157154432.0,
+                  "after": 116813752.0
+                },
+                "heapMax": {
+                  "maximumObserved": 389283840.0,
+                  "after": 389283840.0
+                },
+                "threads": {
+                  "maximumObserved": 69.0,
+                  "after": 61.0
+                },
+                "gcPauseTimeUnit": "milliseconds",
+                "gcPauseDeltaCOUNT": 4.0,
+                "gcPauseDeltaTOTAL_TIME": 242.0
+              },
+              "hikari": {
+                "active": {
+                  "maximumObserved": 0.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "pending": {
+                  "maximumObserved": 0.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "max": {
+                  "maximumObserved": 10.0,
+                  "after": 10.0,
+                  "delta": 0.0
+                },
+                "timeout": {
+                  "maximumObserved": 0.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                }
+              },
+              "postgresql": {
+                "xact_commitDelta": 2347,
+                "xact_rollbackDelta": 0,
+                "blks_readDelta": 8552,
+                "blks_hitDelta": 1559005,
+                "temp_filesDelta": 0,
+                "temp_bytesDelta": 0,
+                "deadlocksDelta": 0,
+                "maximumUngrantedLocksObserved": 0,
+                "activityMaximumCounts": [
+                  {
+                    "state": "active",
+                    "waitEventType": null,
+                    "waitEvent": null,
+                    "maximumObserved": 1
+                  },
+                  {
+                    "state": "idle",
+                    "waitEventType": "Client",
+                    "waitEvent": "ClientRead",
+                    "maximumObserved": 10
+                  },
+                  {
+                    "state": "idle in transaction",
+                    "waitEventType": null,
+                    "waitEvent": null,
+                    "maximumObserved": 1
+                  }
+                ]
+              },
+              "physicalHost": {
+                "pressure_cpu": {
+                  "some": {
+                    "totalDeltaMicroseconds": 825415,
+                    "maximumSampledAvg10": 13.8
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 0,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_memory": {
+                  "some": {
+                    "totalDeltaMicroseconds": 10927,
+                    "maximumSampledAvg10": 0.0
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 9742,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_io": {
+                  "some": {
+                    "totalDeltaMicroseconds": 183172,
+                    "maximumSampledAvg10": 0.01
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 173928,
+                    "maximumSampledAvg10": 0.01
+                  }
+                }
+              }
+            },
+            "applicationLog": {
+              "levels": {
+                "INFO": 303
+              },
+              "unparsedLines": 0,
+              "warnOrErrorEvents": 0
+            },
+            "postgresLog": {
+              "statementCancellations": 0,
+              "temporaryFileLines": 0,
+              "errorLines": 0,
+              "fatalLines": 0
+            },
+            "rawSha256": {
+              "evidence.json": "cdd62a5da1493499e8dd0f163ee0321025f1f9b1137c6d6988d39c3363439290",
+              "before.json": "d2da2d9bbf274ecf31be6663aba6e5087a8791c4c5b65a17a7ce7683e8f66e84",
+              "after.json": "4f0a3a01126b8d0c5a894f547df972b07c40acac4c5a29cd0cee243090156c93",
+              "observation.json": "99a8824c5cc51a898e7e51f17afa643e4c9228fab7ad6bab1ec5455fe95c0668",
+              "summary.json": "803b17cdf743846956ba92b56abe76599908c67da2dcb92fc9aaa060147a0509",
+              "metrics.json": "1d96d396854729a9fa7ead18d03105b3c6d12ea2f838433ffa91e30ff1b9f836"
+            },
+            "generatorResources": {
+              "cpuSeconds": 0.796875,
+              "maximumWorkingSetBytes": 46981120,
+              "resourceSamplesUnavailable": 1
+            },
+            "interference": {
+              "syncDurationSeconds": 43.05117201805115,
+              "conservativeOverlapSeconds": 43.047882080078125,
+              "serverSampleCountDuringSync": 5,
+              "localizationDelta": {
+                "translated": 0,
+                "reused": 66.0,
+                "failed": 0
+              },
+              "successfulWorkVerified": true,
+              "reuseVerified": true,
+              "inferenceVerified": null,
+              "overlapSufficient": true,
+              "interferenceObservationUsable": true,
+              "httpRecoveryAfterSyncObserved": true,
+              "periods": {
+                "before": {
+                  "count": 35,
+                  "p50Ms": 39.3449,
+                  "p95Ms": 304.89275999999984,
+                  "p99Ms": 359.60718599999996,
+                  "httpErrors": 0
+                },
+                "during": {
+                  "count": 238,
+                  "p50Ms": 14.7646,
+                  "p95Ms": 86.11597499999999,
+                  "p99Ms": 117.14731999999997,
+                  "httpErrors": 0
+                },
+                "after": {
+                  "count": 31,
+                  "p50Ms": 48.929,
+                  "p95Ms": 112.96074999999999,
+                  "p99Ms": 133.6928,
+                  "httpErrors": 0
+                },
+                "boundary": {
+                  "count": 0,
+                  "httpErrors": 0
+                }
+              },
+              "attributionAllowed": false,
+              "limitations": [
+                "Request starts reconstructed from k6 http_req_duration exclude connection setup.",
+                "Clock bridge assumes Windows and WSL share UTC; independent clock audits must pass.",
+                "Server snapshots are sequential, coarse and add observation overhead.",
+                "Sparse period tails and different request mixes are descriptive, not reliable comparative percentiles.",
+                "No paired serving-only run at this rate; correlation cannot establish causality.",
+                "Fixed cache reuse, two releases/game; no inference, new acquisition, historical backfill or real IGDB timing."
+              ]
+            },
+            "syncCounters": {
+              "inspectedReleaseDates": 128,
+              "createdGames": 0,
+              "updatedGames": 0,
+              "unchangedGames": 64,
+              "createdReleases": 0,
+              "updatedReleases": 0,
+              "unchangedReleases": 128,
+              "deferredGames": 0,
+              "failedGames": 0,
+              "providerRequests": 130,
+              "providerRetries": 0,
+              "providerLatencyMillis": 228,
+              "deletedReleases": 0,
+              "popularityObservedGames": 0,
+              "popularityClearedGames": 64,
+              "popularityUnavailableGames": 0,
+              "featuredImageObservedGames": 0,
+              "logoObservedGames": 0,
+              "logoUnavailableGames": 0,
+              "detailsUnavailableGames": 0
+            },
+            "localizer": {
+              "completedInferences": 0,
+              "failedInferences": 0,
+              "inferenceSeconds": []
+            }
+          }
+        ],
+        "modelRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+        "datasetCounts": {
+          "games": 50000,
+          "ratings": 500000,
+          "regions": 5,
+          "releases": 200000,
+          "platforms": 10,
+          "rated_games": 40000,
+          "visible_games": 50000,
+          "approved_aliases": 10000,
+          "visible_releases": 200000,
+          "current_revisions": 1,
+          "games_with_genres": 50000,
+          "users_with_ratings": 4020
+        },
+        "mixed-integrity": {
+          "unchangedExperimentalRatings": true
+        },
+        "outcome": {
+          "nativeFailure": null,
+          "safetyAbort": null,
+          "clockStable": true,
+          "checksFailed": 0
+        },
+        "preparation": {
+          "scenario": "serving-sync-reuse",
+          "games": 64,
+          "releases": 128,
+          "inputSha256": "db4eb84dadd4397379fa7270a6f430d3e7b678a46b83d2c108ff1d777361566d"
+        },
+        "calibrationSeconds": 43.070719
+      },
+      "stress": {
+        "run": "remote-closure-stress-eqb_g53p",
+        "sutRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+        "sutImage": "ghcr.io/rubhern/videogame-platform@sha256:b57a183d0e466b7f476d4f78a0f13612b72f1b58d5b19962b22d8a06b3266ca6",
+        "applicationVersion": "0.29.1-SNAPSHOT",
+        "harnessManifest": {
+          "sourceRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+          "purpose": "owner-approved-issue-85-completion",
+          "sutRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+          "scriptsSha256": {
+            "closure.py": "24b364ecaf46572700c0152a85113e6a187f42291bb762bed4507e14edbf5f74",
+            "remote.py": "52b61eab3f2ebacdf561ebedf9ceb4aa5dc809f48f6c0295e8dac0c3853a87f6",
+            "remote_worker.py": "2a703be53ec414c39caf672c48ed75f6afb63892e861a01d585c626dfa63952a",
+            "windows-k6.ps1": "7d88608d7b4123045bb0e33a4fd3875a1e09396ea41870d78cce344bcdaaedf4",
+            "baseline.js": "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
+            "authenticated.js": "6365d365e10023c7a01eb483d62800c8f9d82023dfd47fa2b711ba8a1dfa79ac",
+            "mixed.js": "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
+            "provider_fixture.py": "66562e74d60e4ab7949c41beb6f34f3259a3b2fd3342b388c002d08bd06f3fdd",
+            "interference-state.sql": "41856d41f8ebb467a07c39acd891659e7734276749f581072e405ca332645e8a"
+          }
+        },
+        "policy": {
+          "publicRates": [
+            10,
+            15,
+            20,
+            25
+          ],
+          "secondsPerLevel": 60,
+          "maximumVus": 30,
+          "recoveryRate": 5,
+          "recoverySeconds": 60,
+          "saturationErrorFraction": 0.01,
+          "saturationDropFraction": 0.01,
+          "minimumDeliveryFraction": 0.95,
+          "maximumP95Ms": 1000,
+          "criticalStop": [
+            "oom",
+            "readiness-down",
+            "observation-unavailable",
+            "observation-stale"
+          ],
+          "mixedUsers": 2,
+          "mixedIterationsPerUser": 5,
+          "mixedPublicReads": 120,
+          "interpretation": "Experimental controls, not product SLOs; stop at first degraded level."
+        },
+        "restoration": {
+          "originalSchedulingRestored": true,
+          "originalEnvironmentVerified": true,
+          "privateDataUnchanged": true,
+          "dependenciesUnchanged": true,
+          "databaseRetainedForReview": false,
+          "unexpectedExperimentalRatings": 0,
+          "syntheticUsersRemoved": 0,
+          "readiness": {
+            "status": "UP"
+          }
+        },
+        "stages": [
+          {
+            "stage": "rate-10",
+            "workloadProfile": "normal",
+            "rate": 10,
+            "durationSeconds": 60,
+            "executorMaximumDuration": null,
+            "authenticatedUsers": 0,
+            "iterationsPerUser": null,
+            "publicIterations": null,
+            "http": {
+              "http_reqs": {
+                "count": 600,
+                "rate": 9.999979666708011
+              },
+              "checks": {
+                "rate": 1,
+                "passes": 2400,
+                "fails": 0
+              },
+              "http_req_failed": {
+                "fails": 600,
+                "rate": 0,
+                "passes": 0
+              },
+              "http_req_duration": {
+                "p(95)": 149.9712299999999,
+                "p(99)": 325.4350349999999,
+                "max": 747.764,
+                "count": 600,
+                "avg": 59.77316683333337,
+                "min": 7.5097,
+                "med": 51.69125
+              },
+              "response_timeouts": {
+                "count": 0,
+                "rate": 0
+              },
+              "dropped_iterations": {
+                "count": 0,
+                "rate": 0
+              },
+              "iterations": {
+                "count": 600,
+                "rate": 9.999979666708011
+              }
+            },
+            "cases": {
+              "releases_recent": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  52.1109,
+                  72.51255,
+                  78.879445
+                ]
+              },
+              "releases_upcoming": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  55.28275,
+                  76.894275,
+                  78.95739499999999
+                ]
+              },
+              "releases_featured": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  34.15905,
+                  72.8168,
+                  257.2154149999997
+                ]
+              },
+              "recent_pc": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  73.57765,
+                  114.2516,
+                  222.77827499999987
+                ]
+              },
+              "recent_multi_filters": {
+                "requests": 36,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 36
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  90.86055,
+                  117.8186,
+                  184.79673999999994
+                ]
+              },
+              "upcoming_north_america": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  31.5975,
+                  56.3851,
+                  78.58484599999989
+                ]
+              },
+              "recent_deep": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  76.9176,
+                  235.8555599999999,
+                  253.20419199999998
+                ]
+              },
+              "upcoming_approximate": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  143.6959,
+                  270.6220799999997,
+                  470.60188799999935
+                ]
+              },
+              "search_alias": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  14.8498,
+                  30.72534999999996,
+                  114.66904399999962
+                ]
+              },
+              "search_selective": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  17.2971,
+                  38.91487999999999,
+                  232.85980999999902
+                ]
+              },
+              "detail_fanout_1": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  12.058,
+                  20.313249999999996,
+                  127.77888399999945
+                ]
+              },
+              "upcoming_deep": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  89.1654,
+                  190.43151999999998,
+                  560.3352259999981
+                ]
+              },
+              "detail_fanout_2": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  13.5711,
+                  43.43855999999995,
+                  154.0248999999995
+                ]
+              },
+              "detail_fanout_3": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  13.4959,
+                  21.508939999999996,
+                  101.2521579999996
+                ]
+              },
+              "search_normalized": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  61.3513,
+                  81.91815,
+                  327.91256199999873
+                ]
+              },
+              "detail_fanout_10": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  15.564,
+                  27.43336999999997,
+                  50.791541999999914
+                ]
+              },
+              "search_accent": {
+                "requests": 35,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 35
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  73.1916,
+                  101.21945999999998,
+                  403.6178599999985
+                ]
+              }
+            },
+            "operations": {},
+            "sessions": {},
+            "clockAudit": {
+              "generator": {
+                "samples": 227,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 0.003952171769924462
+              },
+              "lenovo": {
+                "samples": 258,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 1.385807991027832e-06
+              },
+              "http": {
+                "httpSamples": 600,
+                "backsteps": [],
+                "concurrentReorderings": [],
+                "rawMetricsAvailable": true
+              },
+              "stableDuringObservedWindow": true
+            },
+            "generatorExit": {
+              "phase": "Run",
+              "exitCode": 0
+            },
+            "safetyAbort": null,
+            "signals": {
+              "periodicSamples": 7,
+              "snapshotBracketSeconds": 71.48157535726205,
+              "observationFailures": [],
+              "readinessAfter": {
+                "status": "UP"
+              },
+              "containers": {
+                "application": {
+                  "cpuSeconds": 20.657778,
+                  "cpuStatDelta": {
+                    "usage_usec": 20657778,
+                    "user_usec": 18646532,
+                    "system_usec": 2011247,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 655,
+                    "nr_throttled": 10,
+                    "throttled_usec": 679620,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 477077504,
+                  "ioDelta": {}
+                },
+                "postgres": {
+                  "cpuSeconds": 25.157069,
+                  "cpuStatDelta": {
+                    "usage_usec": 25157069,
+                    "user_usec": 23961644,
+                    "system_usec": 1195426,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 639,
+                    "nr_throttled": 50,
+                    "throttled_usec": 3691669,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 448,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 801677312,
+                  "ioDelta": {
+                    "rbytes": 10698752,
+                    "wbytes": 115613696,
+                    "rios": 1154,
+                    "wios": 6072,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                },
+                "catalogue-localizer": {
+                  "cpuSeconds": 3.017572,
+                  "cpuStatDelta": {
+                    "usage_usec": 3017572,
+                    "user_usec": 2525514,
+                    "system_usec": 492057,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 102,
+                    "nr_throttled": 0,
+                    "throttled_usec": 0,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 342781952,
+                  "ioDelta": {
+                    "rbytes": 0,
+                    "wbytes": 0,
+                    "rios": 0,
+                    "wios": 0,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                }
+              },
+              "jvm": {
+                "heapUsed": {
+                  "maximumObserved": 164127480.0,
+                  "after": 99474264.0
+                },
+                "heapMax": {
+                  "maximumObserved": 389283840.0,
+                  "after": 389283840.0
+                },
+                "threads": {
+                  "maximumObserved": 59.0,
+                  "after": 59.0
+                },
+                "gcPauseTimeUnit": "milliseconds",
+                "gcPauseDeltaCOUNT": 5.0,
+                "gcPauseDeltaTOTAL_TIME": 355.0
+              },
+              "hikari": {
+                "active": {
+                  "maximumObserved": 1.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "pending": {
+                  "maximumObserved": 0.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "max": {
+                  "maximumObserved": 10.0,
+                  "after": 10.0,
+                  "delta": 0.0
+                },
+                "timeout": {
+                  "maximumObserved": 0.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                }
+              },
+              "postgresql": {
+                "xact_commitDelta": 2768,
+                "xact_rollbackDelta": 0,
+                "blks_readDelta": 8483,
+                "blks_hitDelta": 7527120,
+                "temp_filesDelta": 0,
+                "temp_bytesDelta": 0,
+                "deadlocksDelta": 0,
+                "maximumUngrantedLocksObserved": 0,
+                "activityMaximumCounts": [
+                  {
+                    "state": "active",
+                    "waitEventType": null,
+                    "waitEvent": null,
+                    "maximumObserved": 2
+                  },
+                  {
+                    "state": "idle",
+                    "waitEventType": "Client",
+                    "waitEvent": "ClientRead",
+                    "maximumObserved": 10
+                  }
+                ]
+              },
+              "physicalHost": {
+                "pressure_cpu": {
+                  "some": {
+                    "totalDeltaMicroseconds": 1185883,
+                    "maximumSampledAvg10": 2.13
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 0,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_memory": {
+                  "some": {
+                    "totalDeltaMicroseconds": 5178,
+                    "maximumSampledAvg10": 0.0
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 4991,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_io": {
+                  "some": {
+                    "totalDeltaMicroseconds": 50139,
+                    "maximumSampledAvg10": 0.04
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 44826,
+                    "maximumSampledAvg10": 0.04
+                  }
+                }
+              }
+            },
+            "applicationLog": {
+              "levels": {
+                "INFO": 600
+              },
+              "unparsedLines": 0,
+              "warnOrErrorEvents": 0
+            },
+            "postgresLog": {
+              "statementCancellations": 0,
+              "temporaryFileLines": 0,
+              "errorLines": 0,
+              "fatalLines": 0
+            },
+            "rawSha256": {
+              "evidence.json": "7d3429d033fa54c722c009caea0a19ebfaa12a6653e81c746688b704de7ac777",
+              "before.json": "e22d2bc4b15f6b01e2d16a7e154ef2186216735c3ad5dea21c3097912d088f8c",
+              "after.json": "decfa0b89b748db8e9abed8c2971665805a60be481a91ac6a1267d129b201192",
+              "observation.json": "67e22475ccd904e0b32876ac7f5725547fda3535154dd39e58a5489728dba290",
+              "summary.json": "195707c4e2fc0abb538c5b511fd5bfe68a5022ccaa5b309fef8e8d0751887ad5",
+              "metrics.json": "f238a4c5173b6263642ea9512d99e5a21530d38d64d72cc9755a0772a2829565"
+            },
+            "generatorResources": {
+              "cpuSeconds": 0.75,
+              "maximumWorkingSetBytes": 68452352,
+              "resourceSamplesUnavailable": 0
+            },
+            "errorTypes": []
+          },
+          {
+            "stage": "rate-15",
+            "workloadProfile": "normal",
+            "rate": 15,
+            "durationSeconds": 60,
+            "executorMaximumDuration": null,
+            "authenticatedUsers": 0,
+            "iterationsPerUser": null,
+            "publicIterations": null,
+            "http": {
+              "http_reqs": {
+                "count": 815,
+                "rate": 13.254101561008722
+              },
+              "checks": {
+                "rate": 0.99079754601227,
+                "passes": 3230,
+                "fails": 30
+              },
+              "http_req_failed": {
+                "rate": 0.012269938650306749,
+                "passes": 10,
+                "fails": 805
+              },
+              "http_req_duration": {
+                "p(99)": 4403.9425120000005,
+                "max": 5466.2122,
+                "count": 815,
+                "avg": 909.8361811042944,
+                "min": 5.6703,
+                "med": 93.304,
+                "p(95)": 3445.2658899999988
+              },
+              "response_timeouts": {
+                "count": 0,
+                "rate": 0
+              },
+              "dropped_iterations": {
+                "rate": 1.3985923119592025,
+                "count": 86
+              },
+              "iterations": {
+                "count": 815,
+                "rate": 13.254101561008722
+              }
+            },
+            "cases": {
+              "releases_recent": {
+                "requests": 48,
+                "checksFailed": 6,
+                "statuses": {
+                  "200": 46,
+                  "503": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  63.8548,
+                  3171.4301849999997,
+                  3669.654235000001
+                ]
+              },
+              "releases_upcoming": {
+                "requests": 48,
+                "checksFailed": 3,
+                "statuses": {
+                  "200": 47,
+                  "503": 1
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  58.5887,
+                  2658.379505,
+                  3202.5409900000004
+                ]
+              },
+              "releases_featured": {
+                "requests": 48,
+                "checksFailed": 6,
+                "statuses": {
+                  "200": 46,
+                  "503": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  35.0749,
+                  2793.895199999999,
+                  3165.5013820000004
+                ]
+              },
+              "recent_pc": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  76.78055,
+                  3437.2209149999994,
+                  4045.4225730000003
+                ]
+              },
+              "recent_multi_filters": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  97.76855,
+                  4019.724379999999,
+                  4592.996488000001
+                ]
+              },
+              "upcoming_north_america": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  34.2851,
+                  2161.927175,
+                  2568.529881000001
+                ]
+              },
+              "recent_deep": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  166.5943,
+                  3210.0486349999996,
+                  3292.699942
+                ]
+              },
+              "search_selective": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  38.479,
+                  2012.09158,
+                  2179.307819
+                ]
+              },
+              "upcoming_approximate": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  264.74559999999997,
+                  4705.06452,
+                  5126.3846220000005
+                ]
+              },
+              "search_alias": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  29.611800000000002,
+                  1943.1080799999997,
+                  2194.235678
+                ]
+              },
+              "upcoming_deep": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  212.9822,
+                  3603.040625,
+                  3945.6018830000003
+                ]
+              },
+              "search_accent": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  77.2931,
+                  3574.4489449999996,
+                  3965.183736
+                ]
+              },
+              "search_normalized": {
+                "requests": 48,
+                "checksFailed": 3,
+                "statuses": {
+                  "200": 47,
+                  "503": 1
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  71.90135000000001,
+                  3159.3283749999996,
+                  3526.6365780000006
+                ]
+              },
+              "detail_fanout_1": {
+                "requests": 48,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 48
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  12.3048,
+                  2150.16649,
+                  2848.257163000001
+                ]
+              },
+              "detail_fanout_2": {
+                "requests": 48,
+                "checksFailed": 3,
+                "statuses": {
+                  "200": 47,
+                  "503": 1
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  12.8644,
+                  3330.7021699999996,
+                  3893.103481
+                ]
+              },
+              "detail_fanout_3": {
+                "requests": 48,
+                "checksFailed": 6,
+                "statuses": {
+                  "200": 46,
+                  "503": 2
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  12.67425,
+                  3014.1870799999997,
+                  4073.8530740000015
+                ]
+              },
+              "detail_fanout_10": {
+                "requests": 47,
+                "checksFailed": 3,
+                "statuses": {
+                  "200": 46,
+                  "503": 1
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  13.2727,
+                  3403.054649999999,
+                  3876.3259599999997
+                ]
+              }
+            },
+            "operations": {},
+            "sessions": {},
+            "clockAudit": {
+              "generator": {
+                "samples": 233,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 0.0043111571576446295
+              },
+              "lenovo": {
+                "samples": 269,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 1.674005761742592e-05
+              },
+              "http": {
+                "httpSamples": 815,
+                "backsteps": [],
+                "concurrentReorderings": [],
+                "rawMetricsAvailable": true
+              },
+              "stableDuringObservedWindow": true
+            },
+            "generatorExit": {
+              "phase": "Run",
+              "exitCode": 99
+            },
+            "safetyAbort": null,
+            "signals": {
+              "periodicSamples": 6,
+              "snapshotBracketSeconds": 73.31242151232436,
+              "observationFailures": [],
+              "readinessAfter": {
+                "status": "UP"
+              },
+              "containers": {
+                "application": {
+                  "cpuSeconds": 14.775226,
+                  "cpuStatDelta": {
+                    "usage_usec": 14775226,
+                    "user_usec": 12910061,
+                    "system_usec": 1865164,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 669,
+                    "nr_throttled": 0,
+                    "throttled_usec": 0,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 487985152,
+                  "ioDelta": {}
+                },
+                "postgres": {
+                  "cpuSeconds": 48.948069,
+                  "cpuStatDelta": {
+                    "usage_usec": 48948069,
+                    "user_usec": 47608344,
+                    "system_usec": 1339725,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 644,
+                    "nr_throttled": 367,
+                    "throttled_usec": 194167479,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 217,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 798093312,
+                  "ioDelta": {
+                    "rbytes": 0,
+                    "wbytes": 1015808,
+                    "rios": 0,
+                    "wios": 1604,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                },
+                "catalogue-localizer": {
+                  "cpuSeconds": 2.99399,
+                  "cpuStatDelta": {
+                    "usage_usec": 2993990,
+                    "user_usec": 2478882,
+                    "system_usec": 515108,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 93,
+                    "nr_throttled": 0,
+                    "throttled_usec": 0,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 342671360,
+                  "ioDelta": {
+                    "rbytes": 0,
+                    "wbytes": 0,
+                    "rios": 0,
+                    "wios": 0,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                }
+              },
+              "jvm": {
+                "heapUsed": {
+                  "maximumObserved": 154664656.0,
+                  "after": 104481344.0
+                },
+                "heapMax": {
+                  "maximumObserved": 389283840.0,
+                  "after": 389283840.0
+                },
+                "threads": {
+                  "maximumObserved": 80.0,
+                  "after": 80.0
+                },
+                "gcPauseTimeUnit": "milliseconds",
+                "gcPauseDeltaCOUNT": 5.0,
+                "gcPauseDeltaTOTAL_TIME": 37.0
+              },
+              "hikari": {
+                "active": {
+                  "maximumObserved": 10.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "pending": {
+                  "maximumObserved": 14.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "max": {
+                  "maximumObserved": 10.0,
+                  "after": 10.0,
+                  "delta": 0.0
+                },
+                "timeout": {
+                  "maximumObserved": 10.0,
+                  "after": 10.0,
+                  "delta": 10.0
+                }
+              },
+              "postgresql": {
+                "xact_commitDelta": 3546,
+                "xact_rollbackDelta": 0,
+                "blks_readDelta": 0,
+                "blks_hitDelta": 10214810,
+                "temp_filesDelta": 0,
+                "temp_bytesDelta": 0,
+                "deadlocksDelta": 0,
+                "maximumUngrantedLocksObserved": 0,
+                "activityMaximumCounts": [
+                  {
+                    "state": "active",
+                    "waitEventType": null,
+                    "waitEvent": null,
+                    "maximumObserved": 10
+                  },
+                  {
+                    "state": "idle",
+                    "waitEventType": "Client",
+                    "waitEvent": "ClientRead",
+                    "maximumObserved": 10
+                  },
+                  {
+                    "state": "idle",
+                    "waitEventType": null,
+                    "waitEvent": null,
+                    "maximumObserved": 1
+                  }
+                ]
+              },
+              "physicalHost": {
+                "pressure_cpu": {
+                  "some": {
+                    "totalDeltaMicroseconds": 26750545,
+                    "maximumSampledAvg10": 71.13
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 0,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_memory": {
+                  "some": {
+                    "totalDeltaMicroseconds": 27408,
+                    "maximumSampledAvg10": 0.0
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 14586,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_io": {
+                  "some": {
+                    "totalDeltaMicroseconds": 26616,
+                    "maximumSampledAvg10": 0.0
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 20521,
+                    "maximumSampledAvg10": 0.0
+                  }
+                }
+              }
+            },
+            "applicationLog": {
+              "levels": {
+                "INFO": 805,
+                "WARN": 30,
+                "ERROR": 10
+              },
+              "unparsedLines": 0,
+              "warnOrErrorEvents": 40
+            },
+            "postgresLog": {
+              "statementCancellations": 0,
+              "temporaryFileLines": 0,
+              "errorLines": 0,
+              "fatalLines": 0
+            },
+            "rawSha256": {
+              "evidence.json": "defea49fb774ca9e02cf51949dbd4174cbd759f6822ade9076ed94e2e7baec93",
+              "before.json": "f95a4e31cdf595354f22fd486860e90b7aafd1900a3eba2d52d6edf0377f1d18",
+              "after.json": "43d882064d82a0308133e0bf7c74db234970484098784c23720bd1768c364212",
+              "observation.json": "86e79c536476ca22723c4afbd619820f29f33f8a944033f14f7d4ced7bd27589",
+              "summary.json": "f31e0f17e95e7be490595964e3b49746a1829d1194dca35fd73a09fd271082d1",
+              "metrics.json": "3015cbbe5cb578659e8fb83190592b8b1ec15fa8c5e7dbf1bbb12ff914884995"
+            },
+            "generatorResources": {
+              "cpuSeconds": 1.3125,
+              "maximumWorkingSetBytes": 69156864,
+              "resourceSamplesUnavailable": 0
+            },
+            "concurrency": {
+              "maximumReconstructedConcurrentHttp": 30,
+              "droppedPoints": 86,
+              "dropsWithAtLeast29HttpInFlight": 86,
+              "reconstructedBusyRequestSeconds": 741.5164883136749
+            },
+            "errorTypes": [
+              "java.sql.SQLTransientConnectionException"
+            ]
+          },
+          {
+            "stage": "recovery",
+            "workloadProfile": "normal",
+            "rate": 5,
+            "durationSeconds": 60,
+            "executorMaximumDuration": null,
+            "authenticatedUsers": 0,
+            "iterationsPerUser": null,
+            "publicIterations": null,
+            "http": {
+              "http_reqs": {
+                "count": 300,
+                "rate": 4.9999851417108205
+              },
+              "checks": {
+                "rate": 1,
+                "passes": 1200,
+                "fails": 0
+              },
+              "http_req_failed": {
+                "rate": 0,
+                "passes": 0,
+                "fails": 300
+              },
+              "http_req_duration": {
+                "avg": 49.58964066666665,
+                "min": 6.3491,
+                "med": 46.990399999999994,
+                "p(95)": 123.72475000000004,
+                "p(99)": 151.71550499999998,
+                "max": 169.5668,
+                "count": 300
+              },
+              "response_timeouts": {
+                "count": 0,
+                "rate": 0
+              },
+              "dropped_iterations": {
+                "count": 0,
+                "rate": 0
+              },
+              "iterations": {
+                "count": 301,
+                "rate": 5.016651758849856
+              }
+            },
+            "cases": {
+              "releases_recent": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  51.41465,
+                  66.96490499999999,
+                  69.841781
+                ]
+              },
+              "releases_upcoming": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  49.89385,
+                  76.42880499999998,
+                  86.68096099999997
+                ]
+              },
+              "releases_featured": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  28.141550000000002,
+                  47.47860999999999,
+                  52.88284199999998
+                ]
+              },
+              "recent_pc": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  69.2435,
+                  76.62425,
+                  77.55925
+                ]
+              },
+              "recent_multi_filters": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  88.33075,
+                  103.18297999999999,
+                  105.941876
+                ]
+              },
+              "upcoming_north_america": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  31.9643,
+                  42.81019999999999,
+                  50.483319999999985
+                ]
+              },
+              "upcoming_approximate": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  131.77339999999998,
+                  157.36726,
+                  167.12689199999997
+                ]
+              },
+              "recent_deep": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  76.7243,
+                  103.19152999999999,
+                  107.694626
+                ]
+              },
+              "upcoming_deep": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  91.7173,
+                  96.008555,
+                  96.370111
+                ]
+              },
+              "search_selective": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  19.3874,
+                  29.780954999999995,
+                  31.962190999999994
+                ]
+              },
+              "search_alias": {
+                "requests": 18,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 18
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  12.94705,
+                  17.504359999999988,
+                  23.749751999999983
+                ]
+              },
+              "search_accent": {
+                "requests": 17,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 17
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  55.9645,
+                  75.01737999999999,
+                  78.40067599999999
+                ]
+              },
+              "search_normalized": {
+                "requests": 17,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 17
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  62.8026,
+                  75.17972,
+                  75.623624
+                ]
+              },
+              "detail_fanout_1": {
+                "requests": 17,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 17
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  12.2798,
+                  13.995099999999999,
+                  14.11542
+                ]
+              },
+              "detail_fanout_2": {
+                "requests": 17,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 17
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  12.0117,
+                  18.315619999999985,
+                  31.178403999999997
+                ]
+              },
+              "detail_fanout_3": {
+                "requests": 17,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 17
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  11.1071,
+                  16.677859999999995,
+                  20.334052
+                ]
+              },
+              "detail_fanout_10": {
+                "requests": 17,
+                "checksFailed": 0,
+                "statuses": {
+                  "200": 17
+                },
+                "timeouts": 0,
+                "errors": {},
+                "p50p95p99Ms": [
+                  10.1957,
+                  21.550019999999982,
+                  37.755523999999994
+                ]
+              }
+            },
+            "operations": {},
+            "sessions": {},
+            "clockAudit": {
+              "generator": {
+                "samples": 228,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 0.0037162346998229623
+              },
+              "lenovo": {
+                "samples": 258,
+                "backsteps": [],
+                "discontinuities": [],
+                "maxAbsoluteDifferenceSeconds": 1.3281125575304031e-05
+              },
+              "http": {
+                "httpSamples": 300,
+                "backsteps": [],
+                "concurrentReorderings": [],
+                "rawMetricsAvailable": true
+              },
+              "stableDuringObservedWindow": true
+            },
+            "generatorExit": {
+              "phase": "Run",
+              "exitCode": 0
+            },
+            "safetyAbort": null,
+            "signals": {
+              "periodicSamples": 7,
+              "snapshotBracketSeconds": 70.1409365250729,
+              "observationFailures": [],
+              "readinessAfter": {
+                "status": "UP"
+              },
+              "containers": {
+                "application": {
+                  "cpuSeconds": 7.450044,
+                  "cpuStatDelta": {
+                    "usage_usec": 7450044,
+                    "user_usec": 6186748,
+                    "system_usec": 1263296,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 651,
+                    "nr_throttled": 0,
+                    "throttled_usec": 0,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 490614784,
+                  "ioDelta": {}
+                },
+                "postgres": {
+                  "cpuSeconds": 13.144243,
+                  "cpuStatDelta": {
+                    "usage_usec": 13144243,
+                    "user_usec": 12412541,
+                    "system_usec": 731701,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 615,
+                    "nr_throttled": 5,
+                    "throttled_usec": 85128,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 796356608,
+                  "ioDelta": {
+                    "rbytes": 0,
+                    "wbytes": 229376,
+                    "rios": 0,
+                    "wios": 56,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                },
+                "catalogue-localizer": {
+                  "cpuSeconds": 2.811268,
+                  "cpuStatDelta": {
+                    "usage_usec": 2811268,
+                    "user_usec": 2344297,
+                    "system_usec": 466972,
+                    "core_sched.force_idle_usec": 0,
+                    "nr_periods": 93,
+                    "nr_throttled": 0,
+                    "throttled_usec": 0,
+                    "nr_bursts": 0,
+                    "burst_usec": 0
+                  },
+                  "memoryEventsDelta": {
+                    "low": 0,
+                    "high": 0,
+                    "max": 0,
+                    "oom": 0,
+                    "oom_kill": 0,
+                    "oom_group_kill": 0
+                  },
+                  "sampledMemoryMaximumBytes": 342773760,
+                  "ioDelta": {
+                    "rbytes": 0,
+                    "wbytes": 0,
+                    "rios": 0,
+                    "wios": 0,
+                    "dbytes": 0,
+                    "dios": 0
+                  }
+                }
+              },
+              "jvm": {
+                "heapUsed": {
+                  "maximumObserved": 161817808.0,
+                  "after": 100878720.0
+                },
+                "heapMax": {
+                  "maximumObserved": 389283840.0,
+                  "after": 389283840.0
+                },
+                "threads": {
+                  "maximumObserved": 79.0,
+                  "after": 79.0
+                },
+                "gcPauseTimeUnit": "milliseconds",
+                "gcPauseDeltaCOUNT": 2.0,
+                "gcPauseDeltaTOTAL_TIME": 5.0
+              },
+              "hikari": {
+                "active": {
+                  "maximumObserved": 1.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "pending": {
+                  "maximumObserved": 0.0,
+                  "after": 0.0,
+                  "delta": 0.0
+                },
+                "max": {
+                  "maximumObserved": 10.0,
+                  "after": 10.0,
+                  "delta": 0.0
+                },
+                "timeout": {
+                  "maximumObserved": 10.0,
+                  "after": 10.0,
+                  "delta": 0.0
+                }
+              },
+              "postgresql": {
+                "xact_commitDelta": 1388,
+                "xact_rollbackDelta": 0,
+                "blks_readDelta": 0,
+                "blks_hitDelta": 3640486,
+                "temp_filesDelta": 0,
+                "temp_bytesDelta": 0,
+                "deadlocksDelta": 0,
+                "maximumUngrantedLocksObserved": 0,
+                "activityMaximumCounts": [
+                  {
+                    "state": "active",
+                    "waitEventType": null,
+                    "waitEvent": null,
+                    "maximumObserved": 2
+                  },
+                  {
+                    "state": "idle",
+                    "waitEventType": "Client",
+                    "waitEvent": "ClientRead",
+                    "maximumObserved": 10
+                  }
+                ]
+              },
+              "physicalHost": {
+                "pressure_cpu": {
+                  "some": {
+                    "totalDeltaMicroseconds": 408835,
+                    "maximumSampledAvg10": 17.8
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 0,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_memory": {
+                  "some": {
+                    "totalDeltaMicroseconds": 0,
+                    "maximumSampledAvg10": 0.0
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 0,
+                    "maximumSampledAvg10": 0.0
+                  }
+                },
+                "pressure_io": {
+                  "some": {
+                    "totalDeltaMicroseconds": 11264,
+                    "maximumSampledAvg10": 0.0
+                  },
+                  "full": {
+                    "totalDeltaMicroseconds": 9909,
+                    "maximumSampledAvg10": 0.0
+                  }
+                }
+              }
+            },
+            "applicationLog": {
+              "levels": {
+                "INFO": 300
+              },
+              "unparsedLines": 0,
+              "warnOrErrorEvents": 0
+            },
+            "postgresLog": {
+              "statementCancellations": 0,
+              "temporaryFileLines": 0,
+              "errorLines": 0,
+              "fatalLines": 0
+            },
+            "rawSha256": {
+              "evidence.json": "7c13d9156aeeb77a26a3500d5bb0c8905447414faa7985236fcd7bb60ec04efd",
+              "before.json": "c4625c0a8100818df8e083070308a37cc414bf1d198b35d581bd8ce350a270e7",
+              "after.json": "234668fca26fcccdcdd6cbee4de13f776376a60cdf7b4b9051f3f4b4b615b66e",
+              "observation.json": "720b109d3321c32f8b64b4653c67726a2604829b57b3fa24178ac37d01e28c62",
+              "summary.json": "0c5e9bb6612c9fb988d8b487ac0484f7a7a8bd6bb31d8a04e8d48161a4d1a031",
+              "metrics.json": "da65a6e261215fcf25344b0e3ce16862540e845f1d945a3d50964684ab866117"
+            },
+            "generatorResources": {
+              "cpuSeconds": 0.515625,
+              "maximumWorkingSetBytes": 66654208,
+              "resourceSamplesUnavailable": 0
+            },
+            "errorTypes": []
+          }
+        ],
+        "modelRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+        "datasetCounts": {
+          "games": 50000,
+          "ratings": 500000,
+          "regions": 5,
+          "releases": 200000,
+          "platforms": 10,
+          "rated_games": 40000,
+          "visible_games": 50000,
+          "approved_aliases": 10000,
+          "visible_releases": 200000,
+          "current_revisions": 1,
+          "games_with_genres": 50000,
+          "users_with_ratings": 4020
+        },
+        "stress-outcome": {
+          "levels": [
+            {
+              "rate": 10,
+              "degraded": false,
+              "clockStable": true,
+              "safetyAbort": null
+            },
+            {
+              "rate": 15,
+              "degraded": true,
+              "clockStable": true,
+              "safetyAbort": null
+            }
+          ],
+          "recoveryPassed": true,
+          "recoveryP95LimitMs": 500,
+          "theoreticalMaximumSought": false
+        }
+      },
+      "provider": {
+        "run": "remote-closure-provider-vmv37vjt",
+        "sutRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+        "sutImage": "ghcr.io/rubhern/videogame-platform@sha256:b57a183d0e466b7f476d4f78a0f13612b72f1b58d5b19962b22d8a06b3266ca6",
+        "applicationVersion": "0.29.1-SNAPSHOT",
+        "harnessManifest": {
+          "sourceRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+          "purpose": "owner-approved-issue-85-completion",
+          "sutRevision": "0b3d26672da0a5bcda711791bfeb02c53637693c",
+          "scriptsSha256": {
+            "closure.py": "24b364ecaf46572700c0152a85113e6a187f42291bb762bed4507e14edbf5f74",
+            "remote.py": "52b61eab3f2ebacdf561ebedf9ceb4aa5dc809f48f6c0295e8dac0c3853a87f6",
+            "remote_worker.py": "2a703be53ec414c39caf672c48ed75f6afb63892e861a01d585c626dfa63952a",
+            "windows-k6.ps1": "7d88608d7b4123045bb0e33a4fd3875a1e09396ea41870d78cce344bcdaaedf4",
+            "baseline.js": "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
+            "authenticated.js": "6365d365e10023c7a01eb483d62800c8f9d82023dfd47fa2b711ba8a1dfa79ac",
+            "mixed.js": "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
+            "provider_fixture.py": "66562e74d60e4ab7949c41beb6f34f3259a3b2fd3342b388c002d08bd06f3fdd",
+            "interference-state.sql": "41856d41f8ebb467a07c39acd891659e7734276749f581072e405ca332645e8a"
+          }
+        },
+        "policy": {
+          "publicRates": [
+            10,
+            15,
+            20,
+            25
+          ],
+          "secondsPerLevel": 60,
+          "maximumVus": 30,
+          "recoveryRate": 5,
+          "recoverySeconds": 60,
+          "saturationErrorFraction": 0.01,
+          "saturationDropFraction": 0.01,
+          "minimumDeliveryFraction": 0.95,
+          "maximumP95Ms": 1000,
+          "criticalStop": [
+            "oom",
+            "readiness-down",
+            "observation-unavailable",
+            "observation-stale"
+          ],
+          "mixedUsers": 2,
+          "mixedIterationsPerUser": 5,
+          "mixedPublicReads": 120,
+          "interpretation": "Experimental controls, not product SLOs; stop at first degraded level."
+        },
+        "restoration": {
+          "originalSchedulingRestored": true,
+          "originalEnvironmentVerified": true,
+          "privateDataUnchanged": true,
+          "dependenciesUnchanged": true,
+          "databaseRetainedForReview": false,
+          "unexpectedExperimentalRatings": 0,
+          "syntheticUsersRemoved": 0,
+          "readiness": {
+            "status": "UP"
+          }
+        },
+        "stages": [],
+        "modelRevision": "opus-tcbig:c22b3c17fb226c16302bbcd1b99b67d74ba42b339885f16bc7a8ecc7e1b4f6fd;ct2-4.8.2;int8;beam2;chunk256;decode511",
+        "provider-calibration": {
+          "status": "SUCCEEDED",
+          "samples": [
+            {
+              "endpoint": "games",
+              "status": 200,
+              "latencyMilliseconds": 771.2825238704681,
+              "returnedRows": 1
+            },
+            {
+              "endpoint": "release_dates",
+              "status": 200,
+              "latencyMilliseconds": 323.32113897427917,
+              "returnedRows": 1
+            },
+            {
+              "endpoint": "platforms",
+              "status": 200,
+              "latencyMilliseconds": 216.3554672151804,
+              "returnedRows": 1
+            }
+          ],
+          "retries": 0,
+          "sampleSequenceSeconds": 4.903018236160278,
+          "realSynchronizationDurationMeasured": false
+        },
+        "finalVerification": {
+          "readiness": {
+            "status": "UP"
+          },
+          "experimentDatabases": 0,
+          "helperContainers": 0,
+          "syntheticAccounts": 0
+        }
+      }
+    },
+    "analysisScriptsSha256": {
+      "summarize_closure.py": "fe90b58b289c9df3aedd344afd2047654697a52af31eddfcef112cc8201eb99f",
+      "remote_interference.py": "11d0b19405905cc98fbdb809bffc3c3a9b26f5d749a8a971ce74f44602f513d1"
+    },
+    "comparison": {
+      "reuseInferencePayloadEqual": true,
+      "sameSutRevision": true,
+      "strictChecksumIdenticalServingOnlyControl": false,
+      "causalAttributionAllowed": false
+    },
+    "postMeasurementSafetyHardening": "Experimental POST pins its validated container; private availability precedes failed background drain refusal; regression tested without repeating valid load.",
+    "acceptance": "Experimental phase accepted by owner; publication and current-commit CI tracked in PR."
+  }
 }

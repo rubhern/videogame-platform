@@ -64,7 +64,7 @@ class Safety(unittest.TestCase):
             compose.assert_called_once_with(False)
             self.assertIsNone(actor.state['candidateId'])
             self.assertEqual(actor.state['phase'],'private-restored')
-            self.assertEqual(services.call_args_list[0].kwargs,{'include_stopped':True})
+            self.assertTrue(services.call_args_list[0].kwargs['include_stopped'])
 
     def test_backsteps_are_retained_and_clock_sources_are_independent(self):
         clock=remote.paired_audit([{'wallSeconds':2,'monotonicSeconds':1},{'wallSeconds':1,'monotonicSeconds':2}])
@@ -123,6 +123,103 @@ class Safety(unittest.TestCase):
                     self.assertIn('label=com.docker.compose.project='+worker.PROJECT,args)
                     self.assertIn('label=com.docker.compose.service=catalogue-localizer',args)
                     self.assertNotIn('private-container-id',str(failure.exception))
+
+    def container(self, identity, name='catalogue-localizer', owner=None, running=True, auto_remove=False):
+        labels={'com.docker.compose.project':worker.PROJECT,'com.docker.compose.service':name}
+        if owner is not None: labels['videogame-platform.performance-owner']=owner
+        return {'Id':identity,'Config':{'Labels':labels},'HostConfig':{'AutoRemove':auto_remove},
+                'State':{'Running':running}}
+
+    def docker_listing(self, containers):
+        def command(*args,**kwargs):
+            if args[:2]==('docker','ps'):
+                filters=[arg.removeprefix('label=') for arg in args if arg.startswith('label=')]
+                return '\n'.join(row['Id'] for row in containers if ('--all' in args or row['State']['Running'])
+                    and all(row['Config']['Labels'].get(k)==v for k,v in (f.split('=',1) for f in filters)))
+            if args[:2]==('docker','inspect'):
+                return json.dumps([row for row in containers if row['Id']==args[2]])
+            if args[:2]==('docker','stats'): return '{}'
+            if args[:2]==('docker','exec'): return '0'
+            self.fail('Unexpected host command')
+        return command
+
+    def test_snapshot_uses_preflight_localizer_not_helper_with_inherited_compose_labels(self):
+        actor=self.actor(); actor.state.update(phase='active',providerId='helper',
+            dependencies={'catalogue-localizer':{'id':'real-localizer'}})
+        rows=[self.container('helper',owner=actor.directory.name,auto_remove=True),
+              self.container('real-localizer'),*[self.container(name,name) for name in ['application','postgres','keycloak']]]
+        with patch.object(worker,'command',side_effect=self.docker_listing(rows)) as commands, \
+             patch.object(actor,'sql',return_value='{}'),patch.object(actor,'actuator',return_value={}), \
+             patch.object(worker.Path,'read_text',return_value='offline-proc'):
+            snapshot=actor.snapshot()
+        self.assertIn('catalogue-localizer',snapshot['cgroups'])
+        stats=next(c.args for c in commands.call_args_list if c.args[:2]==('docker','stats'))
+        self.assertIn('real-localizer',stats)
+        self.assertNotIn('helper',stats)
+        localizer_exec=[c.args for c in commands.call_args_list if c.args[:3]==('docker','exec','real-localizer')]
+        self.assertEqual(len(localizer_exec),4)
+        self.assertFalse(any(c.args[:3]==('docker','exec','helper') for c in commands.call_args_list))
+
+    def test_real_duplicates_still_fail_even_with_known_identity_and_owned_helper(self):
+        actor=self.actor(); actor.state.update(providerId='helper',dependencies={'catalogue-localizer':{'id':'real'}})
+        for owner in [None,actor.directory.name,'another-experiment']:
+            rows=[self.container('helper',owner=actor.directory.name,auto_remove=True),self.container('real'),
+                  self.container('duplicate',owner=owner,auto_remove=True)]
+            with self.subTest(owner=owner),patch.object(worker,'command',side_effect=self.docker_listing(rows)):
+                with self.assertRaisesRegex(RuntimeError,'service=catalogue-localizer, containers=2'):
+                    actor.service('catalogue-localizer')
+
+    def test_replaced_dependency_is_not_adopted_and_missing_real_service_is_not_replaced_by_helper(self):
+        actor=self.actor(); actor.state.update(providerId='helper',dependencies={'catalogue-localizer':{'id':'real'}})
+        helper=self.container('helper',owner=actor.directory.name,auto_remove=True)
+        for rows,error in [([helper,self.container('replacement')],'identity changed'),([helper],'containers=0')]:
+            with self.subTest(error=error),patch.object(worker,'command',side_effect=self.docker_listing(rows)):
+                with self.assertRaisesRegex(RuntimeError,error): actor.service('catalogue-localizer')
+
+    def test_helper_exclusion_requires_recorded_id_ownership_and_auto_removal(self):
+        actor=self.actor(); actor.state.update(providerId='helper',dependencies={'catalogue-localizer':{'id':'real'}})
+        for owner,auto_remove in [(None,True),('another-experiment',True),(actor.directory.name,False)]:
+            rows=[self.container('helper',owner=owner,auto_remove=auto_remove),self.container('real')]
+            with self.subTest(owner=owner,auto_remove=auto_remove), \
+                 patch.object(worker,'command',side_effect=self.docker_listing(rows)):
+                with self.assertRaisesRegex(RuntimeError,'helper ownership mismatch'):
+                    actor.service('catalogue-localizer')
+        actor.state['providerId']=None
+        rows=[self.container('helper',owner=actor.directory.name,auto_remove=True),self.container('real')]
+        with patch.object(worker,'command',side_effect=self.docker_listing(rows)):
+            with self.assertRaisesRegex(RuntimeError,'containers=2'): actor.service('catalogue-localizer')
+
+    def test_stopped_real_dependency_remains_available_only_for_explicit_stopped_lookup(self):
+        actor=self.actor(); actor.state.update(providerId='helper',dependencies={'catalogue-localizer':{'id':'real'}})
+        rows=[self.container('helper',owner=actor.directory.name,auto_remove=True),self.container('real',running=False)]
+        with patch.object(worker,'command',side_effect=self.docker_listing(rows)):
+            with self.assertRaisesRegex(RuntimeError,'containers=0'): actor.service('catalogue-localizer')
+            self.assertEqual(actor.service('catalogue-localizer',include_stopped=True)['Id'],'real')
+
+    def test_restoration_removes_only_recorded_helper_and_verifies_preflight_dependency(self):
+        actor=self.actor(); actor.state.update(phase='active',providerId='helper',privateBefore={'counts':1},
+            dependencies={'catalogue-localizer':{'id':'real','imageId':'image','memory':1,'cpu':2,'configHash':'hash'}})
+        real=self.container('real'); real['Image']='image'
+        real['HostConfig'].update(Memory=1,NanoCpus=2)
+        real['Config']['Labels']['com.docker.compose.config-hash']='hash'
+        rows=[self.container('helper',owner=actor.directory.name,auto_remove=True),real]
+        lookup=self.docker_listing(rows)
+        def command(*args,**kwargs):
+            if args[:2]==('docker','ps') and 'id=helper' in args: return 'helper'
+            if args[:2]==('docker','rm'):
+                self.assertEqual(args,('docker','rm','--force','helper'))
+                rows.pop(0); return ''
+            return lookup(*args,**kwargs)
+        with patch.object(worker,'command',side_effect=command) as commands, \
+             patch.object(actor,'private_counts',return_value={'counts':1}), \
+             patch.object(actor,'actuator',return_value={'status':'UP'}):
+            receipt=actor.restore()
+        self.assertTrue(receipt['privateDataUnchanged'])
+        self.assertTrue(receipt['dependenciesUnchanged'])
+        self.assertEqual(actor.state['phase'],'restored')
+        self.assertIsNone(actor.state['providerId'])
+        self.assertEqual([row['Id'] for row in rows],['real'])
+        self.assertEqual(sum(c.args[:2]==('docker','rm') for c in commands.call_args_list),1)
 
     def test_initial_snapshot_cardinality_failure_exports_action_phase_and_restores_without_threads(self):
         for ids,count in [('',0),('private-id-1\nprivate-id-2',2)]:

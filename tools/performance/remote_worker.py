@@ -8,6 +8,7 @@ import importlib.machinery
 import importlib.util
 import json
 import os
+import re
 from pathlib import Path
 import secrets
 import select
@@ -17,6 +18,8 @@ import threading
 import time
 import uuid
 import urllib.parse
+import urllib.request
+import urllib.error
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOL = Path(__file__).resolve().parent
@@ -46,11 +49,19 @@ def atomic(path, value):
     temporary.replace(path)
 
 
-def service(name, include_stopped=False):
+def service(name, include_stopped=False, *, expected_id=None, helper_id=None, helper_owner=None):
     ids = command('docker', 'ps', *(['--all'] if include_stopped else []), '--no-trunc', '--filter', 'label=com.docker.compose.project='+PROJECT,
                   '--filter', 'label=com.docker.compose.service='+name, '--format', '{{.ID}}').splitlines()
+    # Image labels are inherited by docker run; exclude only the recorded, verified helper.
+    if helper_id and helper_id in ids:
+        helper = json.loads(command('docker', 'inspect', helper_id))[0]
+        require(helper_owner and helper['Id'] == helper_id
+                and helper['Config']['Labels'].get('videogame-platform.performance-owner') == helper_owner
+                and helper['HostConfig']['AutoRemove'], f'Experiment helper ownership mismatch: service={name}')
+        ids.remove(helper_id)
     scope = 'running or stopped' if include_stopped else 'running'
     require(len(ids) == 1, f'Expected one {scope} private-dev service: service={name}, containers={len(ids)}')
+    require(not expected_id or ids[0] == expected_id, f'Private-dev service identity changed: service={name}')
     return json.loads(command('docker', 'inspect', ids[0]))[0]
 
 
@@ -58,13 +69,14 @@ def settings(container):
     return dict(row.split('=', 1) for row in container['Config']['Env'] if '=' in row)
 
 
-def configuration():
+def configuration(resolve=None):
     """Allowlisted non-secret configuration; executable sources own absent defaults."""
-    app=service('application'); env=settings(app)
+    resolve=resolve or service
+    app=resolve('application'); env=settings(app)
     names=['APPLICATION_DB_MAXIMUM_POOL_SIZE','APPLICATION_DB_CONNECTION_TIMEOUT',
            'APPLICATION_DB_VALIDATION_TIMEOUT','CATALOGUE_SYNC_SCHEDULING_ENABLED',
            'CATALOGUE_SYNC_NEAR_TERM_CRON','CATALOGUE_SYNC_UPCOMING_CRON']
-    pg=service('postgres'); localizer=service('catalogue-localizer')
+    pg=resolve('postgres'); localizer=resolve('catalogue-localizer')
     pgsettings=json.loads(command('docker','exec','--user','postgres',pg['Id'],'psql','-X','-qAt','-U','postgres',
         '-d','postgres','-c',"SELECT json_object_agg(name,json_build_object('setting',setting,'unit',unit,'source',source)) FROM pg_settings WHERE name IN ('server_version','max_connections','shared_buffers','work_mem','maintenance_work_mem','effective_cache_size','max_wal_size','checkpoint_timeout','track_io_timing');"))
     return {'applicationEnvironment':{name:env.get(name) for name in names},
@@ -73,7 +85,7 @@ def configuration():
         'postgresql':pgsettings,
         'localizer':{'imageId':localizer['Image'],'command':localizer['Config']['Cmd'],
                      'modelRevision':command('docker','exec',localizer['Id'],'cat','/model/revision.txt')},
-        'services':{name:{'running':(row:=service(name))['State']['Running'],
+        'services':{name:{'running':(row:=resolve(name))['State']['Running'],
                          'health':row['State'].get('Health',{}).get('Status','no-healthcheck'),
                          'memoryBytes':row['HostConfig']['Memory'],'nanoCpus':row['HostConfig']['NanoCpus'],
                          'pidsLimit':row['HostConfig']['PidsLimit']} for name in REQUIRED}}
@@ -111,8 +123,14 @@ class Experiment:
     def save(self):
         atomic(self.receipt, self.state)
 
+    def service(self, name, include_stopped=False):
+        expected=self.state.get('dependencies',{}).get(name,{}).get('id')
+        # Application recreation retains its original/candidate checks at each transition.
+        return service(name,include_stopped=include_stopped,expected_id=expected,
+                       helper_id=self.state.get('providerId'),helper_owner=self.directory.name)
+
     def sql(self, sql, database='videogame_platform', *variables, timeout=300):
-        pg = service('postgres')
+        pg = self.service('postgres')
         require(not self.state.get('postgresId') or pg['Id'] == self.state['postgresId'], 'PostgreSQL identity changed')
         return command('docker','exec','-i','--user','postgres',pg['Id'],'psql','-X','-qAt','-v','ON_ERROR_STOP=1',
                        '-U','postgres','-d',database,*variables,input=sql,timeout=timeout)
@@ -127,7 +145,7 @@ COMMIT;"""))
 
     def preflight(self, revision):
         require(command('hostname','--short') == 'vgpdev', 'Wrong target host')
-        rows = {name:service(name) for name in REQUIRED}
+        rows = {name:self.service(name) for name in REQUIRED}
         app, pg = rows['application'], rows['postgres']
         s = settings(app)
         require(app['Config']['Labels'].get('org.opencontainers.image.revision') == revision, 'Deployed revision mismatch')
@@ -163,7 +181,7 @@ COMMIT;"""))
             'filesystem':command('df','-B1','-T','/'),
             'docker':command('docker','--version'),'compose':command('docker','compose','version'),
             'timeSync':command('timedatectl','show','-p','NTPSynchronized','-p','NTP','-p','Timezone')}
-        self.state['configuration'] = configuration()
+        self.state['configuration'] = configuration(self.service)
         self.state['privateBefore'] = self.private_counts()
         require(self.state['privateBefore']['runningSyncs']==0, 'An existing synchronization is active')
         self.save()
@@ -189,12 +207,12 @@ COMMIT;"""))
         require(marker['purpose']==PURPOSE and marker['schema_checksum']==self.state['schemaChecksum'], 'Disposable marker/schema mismatch')
 
     def prepare(self, date):
-        require(self.state['phase']=='inspected' and service('application')['Id']==self.state['originalApplicationId'], 'Stale preflight')
+        require(self.state['phase']=='inspected' and self.service('application')['Id']==self.state['originalApplicationId'], 'Stale preflight')
         require(self.private_counts()==self.state['privateBefore'], 'Private data/activity changed since preflight')
         # Validate the approved management seam before spending shared database resources.
         admin()
         data=self.sql('SHOW data_directory;','postgres')
-        available=int(command('docker','exec',service('postgres')['Id'],'df','-Pk',data).splitlines()[-1].split()[3])*1024
+        available=int(command('docker','exec',self.service('postgres')['Id'],'df','-Pk',data).splitlines()[-1].split()[3])*1024
         require(available>=4*1024**3,'Insufficient verified PostgreSQL filesystem headroom')
         # No volumes or roles are created/replaced; no schema is copied from personal data.
         self.sql('CREATE DATABASE videogame_performance OWNER postgres;', 'postgres')
@@ -239,7 +257,7 @@ COMMIT;"""))
 
     def activate(self):
         self.boundary()
-        require(self.state['phase']=='prepared' and service('application')['Id']==self.state['originalApplicationId'],'Activation boundary changed')
+        require(self.state['phase']=='prepared' and self.service('application')['Id']==self.state['originalApplicationId'],'Activation boundary changed')
         require(self.private_counts()==self.state['privateBefore'],'Private activity/synchronization changed during preparation; refusing activation')
         override={'services':{'application':{'environment':{
             'APPLICATION_DB_URL':'jdbc:postgresql://postgres:5432/videogame_performance',
@@ -250,10 +268,10 @@ COMMIT;"""))
         self.state['phase']='activating'; self.save()
         try: self.compose(True)
         finally:
-            app=service('application',include_stopped=True)
+            app=self.service('application',include_stopped=True)
             if settings(app).get('APPLICATION_DB_URL')=='jdbc:postgresql://postgres:5432/videogame_performance':
                 self.state['candidateId']=app['Id']; self.save()
-        app=service('application')
+        app=self.service('application')
         require(settings(app).get('CATALOGUE_SYNC_SCHEDULING_ENABLED')=='false','Scheduling was not disabled')
         require({'memory':app['HostConfig']['Memory'],'cpu':app['HostConfig']['NanoCpus']}==self.state['applicationLimits'],'Limits drifted')
         require(app['Image']==json.loads(command('docker','image','inspect',self.state['image']))[0]['Id'],'Image drifted')
@@ -264,10 +282,9 @@ COMMIT;"""))
         """Prepare bounded fixture acquisition; reuse never needs a translation helper call."""
         require(scenario in ['serving-sync-reuse','serving-sync-inference'] and self.state['phase']=='active','Unsupported background scenario')
         self.boundary()
-        from provider_fixture import build_input, build_reuse_input
+        from provider_fixture import build_reuse_input
         reuse=scenario=='serving-sync-reuse'
-        fixture=(build_reuse_input(ROOT,self.state['referenceDate']) if reuse
-                 else build_input(ROOT,2,self.state['referenceDate']))
+        fixture=build_reuse_input(ROOT,self.state['referenceDate'])
         atomic(self.directory/'provider-input.json',fixture)
         os.chmod(self.directory/'provider-input.json',0o444)
         provider='vgp-performance-85-provider-'+self.directory.name.removeprefix('vgp-performance-85-')
@@ -307,12 +324,11 @@ COMMIT;"""))
             'releases':len(fixture['releaseDates']),'inputSha256':fixture['payloadSha256'],
             'externalProviderTimingIncluded':False,'warmup':calibration,
             'translationCache':'offline-fixture' if reuse else 'real-helper'}
-        if reuse:
-            # Measure the same reuse checkpoint without HTTP, then reset it for the measured run.
-            calibration=self.background_sync()
-            require(calibration['report']['outcome']=='SUCCEEDED','Reuse calibration failed')
-            self.sql((TOOL/'interference-state.sql').read_text(),DATABASE,'-v',
-                     'schema_checksum='+self.state['schemaChecksum'],'-v','scenario='+scenario)
+        # Calibrate each cache state on the identical cohort, then reset for measurement.
+        calibration=self.background_sync()
+        require(calibration['report']['outcome']=='SUCCEEDED','Background calibration failed')
+        self.sql((TOOL/'interference-state.sql').read_text(),DATABASE,'-v',
+                 'schema_checksum='+self.state['schemaChecksum'],'-v','scenario='+scenario)
         self.state['background']['calibration']=calibration
         self.save()
         return self.state['background']
@@ -353,10 +369,10 @@ COMMIT;""",DATABASE))
                 'settleSeconds':round(time.monotonic()-started,3),'before':before,'after':self.maintenance(),'polls':polls}
 
     def recreate_experiment(self):
-        require(service('application')['Id']==self.state['candidateId'],'Experiment application changed')
+        require(self.service('application')['Id']==self.state['candidateId'],'Experiment application changed')
         try: self.compose(True)
         finally:
-            app=service('application',include_stopped=True)
+            app=self.service('application',include_stopped=True)
             if settings(app).get('APPLICATION_DB_URL')=='jdbc:postgresql://postgres:5432/videogame_performance':
                 self.state['candidateId']=app['Id']; self.save()
 
@@ -396,8 +412,8 @@ COMMIT;""",DATABASE,'-v','rows='+json.dumps(rows))
 
     def background_sync(self):
         self.boundary()
-        require(self.state.get('providerId') and settings(service('application'))['IGDB_API_BASE_URI']=='http://'+self.state['providerName']+':8093/v4/','No verified fixture-only provider is configured')
-        env=settings(service('application'))
+        app=self.service('application'); env=settings(app)
+        require(self.state.get('providerId') and env['IGDB_API_BASE_URI']=='http://'+self.state['providerName']+':8093/v4/','No verified fixture-only provider is configured')
         require(env.get('IGDB_TOKEN_URI')=='http://'+self.state['providerName']+':8093/oauth2/token','No fixture-only token endpoint')
         if self.state.get('noInference'):
             require(env.get('CATALOGUE_TRANSLATION_ENDPOINT')=='http://127.0.0.1:9/translate','Reuse requires blocked inference')
@@ -406,7 +422,7 @@ COMMIT;""",DATABASE,'-v','rows='+json.dumps(rows))
         path=self.directory/'background-last.json'
         atomic(path,evidence)  # Survives command failure/SSH interruption; started work is never lost.
         try:
-            evidence['report']=json.loads(command('docker','exec',service('application')['Id'],'wget','-q','-O','-',
+            evidence['report']=json.loads(command('docker','exec',app['Id'],'wget','-q','-O','-',
                 '--header','Content-Type: application/json','--post-data',body,
                 'http://127.0.0.1:8081/actuator/cataloguesync',timeout=120))
             evidence['status']=evidence['report']['outcome']
@@ -430,11 +446,18 @@ COMMIT;""",DATABASE,'-v','rows='+json.dumps(rows))
                     'python','-c',"import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8093/evidence').read().decode())",timeout=15))
             except Exception:
                 evidence['providerEvidenceUnavailable']=True
+            try:
+                lines=self.logs('catalogue-localizer',evidence['started']['wallSeconds'])
+                evidence['localizer']={'completedInferences':sum('translation outcome=completed' in line for line in lines),
+                    'failedInferences':sum('translation outcome=failed' in line or 'translation outcome=invalid' in line for line in lines),
+                    'inferenceSeconds':[float(match.group(1)) for line in lines
+                        if (match:=re.search(r'translation outcome=completed seconds=([0-9.]+)',line))]}
+            except Exception: evidence['localizer']={'unavailable':True}
             atomic(path,evidence)
         return evidence
 
     def actuator(self,path):
-        return json.loads(command('docker','exec',service('application')['Id'],'wget','-q','-O','-', 'http://127.0.0.1:8081/actuator/'+path,timeout=15))
+        return json.loads(command('docker','exec',self.service('application')['Id'],'wget','-q','-O','-', 'http://127.0.0.1:8081/actuator/'+path,timeout=15))
 
     def snapshot(self):
         result={'wallSeconds':time.time(),'monotonicSeconds':time.monotonic(),'metrics':{}}
@@ -446,16 +469,18 @@ COMMIT;""",DATABASE,'-v','rows='+json.dumps(rows))
 SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_commit,xact_rollback,blks_read,blks_hit,temp_files,temp_bytes,deadlocks,stats_reset,
 (SELECT json_agg(a) FROM (SELECT state,wait_event_type,wait_event,count(*) FROM pg_stat_activity WHERE datname=current_database() GROUP BY state,wait_event_type,wait_event) a) AS activity,
 (SELECT count(*) FROM pg_locks WHERE NOT granted) AS ungranted_locks FROM pg_stat_database WHERE datname=current_database()) d; COMMIT;""",db))
-        result['containers']=command('docker','stats','--no-stream','--format','{{json .}}',*[service(n)['Id'] for n in ['application','postgres','keycloak','catalogue-localizer']],timeout=15).splitlines()
+        result['containers']=command('docker','stats','--no-stream','--format','{{json .}}',*[self.service(n)['Id'] for n in ['application','postgres','keycloak','catalogue-localizer']],timeout=15).splitlines()
+        try: result['readiness']=self.actuator('health/readiness')
+        except Exception: result['readiness']={'status':'UNAVAILABLE'}
         result['physicalHost']={p:Path('/proc/'+p).read_text() for p in ['stat','meminfo','diskstats','pressure/cpu','pressure/memory','pressure/io']}
         result['cgroups']={}
         for name in ['application','postgres','catalogue-localizer']:
-            result['cgroups'][name]={p:command('docker','exec',service(name)['Id'],'cat','/sys/fs/cgroup/'+p,timeout=10) for p in ['cpu.stat','memory.current','memory.events','io.stat']}
+            result['cgroups'][name]={p:command('docker','exec',self.service(name)['Id'],'cat','/sys/fs/cgroup/'+p,timeout=10) for p in ['cpu.stat','memory.current','memory.events','io.stat']}
         return result
 
     def logs(self, name, since):
         """Raw container output stays on the host; only filtered fields are returned."""
-        result=subprocess.run(['docker','logs','--since','%.3f'%since,'--until','%.3f'%time.time(),service(name)['Id']],
+        result=subprocess.run(['docker','logs','--since','%.3f'%since,'--until','%.3f'%time.time(),self.service(name)['Id']],
                               capture_output=True,text=True,timeout=60)
         require(result.returncode==0,'Container log capture failed (private output withheld)')
         return (result.stdout+result.stderr).splitlines()
@@ -471,9 +496,13 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
                  ('errorLines','ERROR:'),('fatalLines','FATAL:')]}
 
     def start_observation(self):
-        require(not self.threads,'Observation already started')
+        require(not any(t.is_alive() for t in self.threads),'Observation already started')
+        self.stop.clear()
+        self.samples, self.clocks, self.failures, self.threads = [], [], [], []
         self.observation_since=time.time()
         before=self.snapshot()
+        require(before['readiness']['status']=='UP','Initial observation readiness failed')
+        self.observation_before=before
         def clock():
             while not self.stop.is_set():
                 self.clocks.append({'wallSeconds':time.time(),'monotonicSeconds':time.monotonic()})
@@ -498,7 +527,79 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
             except Exception: result[key]={'unavailable':True}
         return result
 
+    def observation_status(self):
+        require(bool(self.threads),'Observation is not running')
+        latest=self.samples[-1] if self.samples else self.observation_before
+        reasons=[]
+        if self.failures: reasons.append('observation-unavailable')
+        if time.time()-latest['wallSeconds']>45: reasons.append('observation-stale')
+        if latest['readiness']['status']!='UP': reasons.append('readiness-down')
+        for name in ['application','postgres','catalogue-localizer']:
+            def events(sample):
+                return dict(line.split() for line in sample['cgroups'][name]['memory.events'].splitlines())
+            before,after=events(self.observation_before),events(latest)
+            if any(int(after.get(k,0))>int(before.get(k,0)) for k in ['oom','oom_kill']):
+                reasons.append(name+'-oom')
+        return {'abort':bool(reasons),'reasons':reasons}
+
+    def start_background(self):
+        require(self.state['phase']=='active','Background work requires active experiment')
+        require(not getattr(self,'background_thread',None),'Background work already dispatched')
+        self.background_result=None
+        def run():
+            try: self.background_result=self.background_sync()
+            except Exception as error:
+                self.background_result={'status':'command-failed','errorType':type(error).__name__}
+        self.background_thread=threading.Thread(target=run)
+        self.background_thread.start()
+        return {'dispatched':True}
+
+    def background_status(self):
+        return {'finished':self.background_result is not None,'value':self.background_result}
+
+    def rating_integrity(self):
+        self.boundary()
+        return json.loads(self.sql("""BEGIN READ ONLY; SET LOCAL statement_timeout='10s';
+SELECT json_build_object('ratings',count(*),'fingerprint',md5(count(*)::text||':'||
+coalesce(sum(('x'||substr(md5(r::text),1,16))::bit(64)::bigint::numeric),0)::text||':'||
+coalesce(sum(('x'||substr(md5(r::text),17,16))::bit(64)::bigint::numeric),0)::text))
+FROM ratings.rating r; COMMIT;""",DATABASE))
+
+    def provider_calibration(self):
+        """Three normal-rate read-only IGDB samples; no payload or credential exported."""
+        require(self.state['phase']=='inspected','Provider calibration requires original private-dev')
+        app=self.service('application'); env=settings(app)
+        api=env.get('IGDB_API_BASE_URI','https://api.igdb.com/v4/')
+        token_uri=env.get('IGDB_TOKEN_URI','https://id.twitch.tv/oauth2/token')
+        require(api=='https://api.igdb.com/v4/' and token_uri=='https://id.twitch.tv/oauth2/token',
+                'Only approved provider origins are permitted')
+        client_id=command('docker','exec',app['Id'],'cat','/run/secrets/igdb_client_id')
+        secret=command('docker','exec',app['Id'],'cat','/run/secrets/igdb_client_secret')
+        started=time.monotonic(); samples=[]
+        try:
+            body=urllib.parse.urlencode({'client_id':client_id,'client_secret':secret,'grant_type':'client_credentials'}).encode()
+            with urllib.request.urlopen(urllib.request.Request(token_uri,data=body),timeout=15) as response:
+                token=json.load(response)['access_token']
+            for endpoint in ['games','release_dates','platforms']:
+                time.sleep(1)
+                request=urllib.request.Request(api+endpoint,data=b'fields id; limit 1;',
+                    headers={'Client-ID':client_id,'Authorization':'Bearer '+token,'Content-Type':'text/plain'})
+                before=time.monotonic()
+                with urllib.request.urlopen(request,timeout=15) as response:
+                    payload=json.load(response)
+                    samples.append({'endpoint':endpoint,'status':response.status,
+                        'latencyMilliseconds':(time.monotonic()-before)*1000,'returnedRows':len(payload)})
+        except urllib.error.HTTPError as error:
+            return {'status':'BLOCKED','httpStatus':error.code,'samples':samples,'retries':0}
+        except Exception as error:
+            return {'status':'BLOCKED','errorType':type(error).__name__,'samples':samples,'retries':0}
+        require(self.private_counts()==self.state['privateBefore'],'Private data changed during provider sample')
+        return {'status':'SUCCEEDED','samples':samples,'retries':0,
+                'sampleSequenceSeconds':time.monotonic()-started,'realSynchronizationDurationMeasured':False}
+
     def restore(self):
+        if getattr(self,'background_thread',None):
+            self.background_thread.join(timeout=5)
         if self.state['phase']=='restored':
             require(not self.state['restoration']['databaseRetainedForReview'],'Experiment database retained for owner review')
             require(self.state['restoration']['privateDataUnchanged'],'Private data changed; owner review is required')
@@ -520,14 +621,18 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
                 self.state['unexpectedExperimentalRatings']=unexpected; self.save()
         # Restore product availability before attempting management-only account cleanup.
         if self.state.get('candidateId'):
-            require(service('application',include_stopped=True)['Id']==self.state['candidateId'],'Another application replaced the experiment; refusing recreation')
+            require(self.service('application',include_stopped=True)['Id']==self.state['candidateId'],'Another application replaced the experiment; refusing recreation')
             self.compose(False)
-            require(settings(service('application')).get('APPLICATION_DB_URL')=='jdbc:postgresql://postgres:5432/videogame_platform','Private database connection was not restored')
-            require(settings(service('application')).get('CATALOGUE_SYNC_SCHEDULING_ENABLED')==self.state['originalScheduling'],'Original scheduling was not restored')
+            require(settings(self.service('application')).get('APPLICATION_DB_URL')=='jdbc:postgresql://postgres:5432/videogame_platform','Private database connection was not restored')
+            require(settings(self.service('application')).get('CATALOGUE_SYNC_SCHEDULING_ENABLED')==self.state['originalScheduling'],'Original scheduling was not restored')
             if self.state.get('originalEnvironmentSha256'):
-                require(hashlib.sha256(json.dumps(settings(service('application')),sort_keys=True).encode()).hexdigest()==
+                require(hashlib.sha256(json.dumps(settings(self.service('application')),sort_keys=True).encode()).hexdigest()==
                         self.state['originalEnvironmentSha256'],'Original application environment was not restored')
             self.state['candidateId']=None; self.state['phase']='private-restored'; self.save()
+        if getattr(self,'background_thread',None):
+            # Availability is restored before waiting for a failed experimental RPC to drain.
+            self.background_thread.join(timeout=90)
+            require(not self.background_thread.is_alive(),'Private-dev restored; background drain failed, owned resources retained')
         if self.state['users']:
             client=admin()
             for user in self.state['users']:
@@ -552,7 +657,7 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
         receipt={'originalSchedulingRestored':True,'originalEnvironmentVerified':bool(self.state.get('originalEnvironmentSha256')),'privateDataUnchanged':after==self.state.get('privateBefore'),'privateAfter':after,'unexpectedExperimentalRatings':unexpected,'databaseRetainedForReview':retained,
                  'syntheticUsersRemoved':len(self.state['users']),'readiness':self.actuator('health/readiness')}
         if self.state.get('dependencies'):
-            receipt['dependenciesUnchanged']=all((row:=service(n))['Id']==r['id'] and row['Image']==r['imageId']
+            receipt['dependenciesUnchanged']=all((row:=self.service(n))['Id']==r['id'] and row['Image']==r['imageId']
                 and row['HostConfig']['Memory']==r['memory'] and row['HostConfig']['NanoCpus']==r['cpu']
                 and row['Config']['Labels'].get('com.docker.compose.config-hash')==r['configHash']
                 for n,r in self.state['dependencies'].items())
@@ -598,7 +703,7 @@ def serve(directory):
                 if not line: break
                 request=json.loads(line)
                 action=request['action']
-                require(action in ['preflight','prepare','users','activate','background_prepare','background_sync','settle','clock','start_observation','stop_observation','restore'],'Unknown action')
+                require(action in ['preflight','prepare','users','activate','background_prepare','background_sync','settle','clock','start_observation','stop_observation','observation_status','start_background','background_status','rating_integrity','provider_calibration','restore'],'Unknown action')
                 try:
                     value=getattr(actor,action)(**request.get('arguments',{}))
                     print(json.dumps({'ok':True,'value':value}),flush=True)
