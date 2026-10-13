@@ -107,6 +107,55 @@ class Safety(unittest.TestCase):
         self.assertGreater(result['value']['wallSeconds'],0)
         self.assertGreater(result['value']['monotonicSeconds'],0)
 
+    def test_service_cardinality_reports_name_count_and_lookup_scope_without_private_output(self):
+        for include_stopped in [False,True]:
+            for ids,count in [('',0),('private-container-id-1\nprivate-container-id-2',2)]:
+                with self.subTest(include_stopped=include_stopped,count=count), \
+                     patch.object(worker,'command',return_value=ids) as command:
+                    with self.assertRaises(RuntimeError) as failure:
+                        worker.service('catalogue-localizer',include_stopped=include_stopped)
+                    scope='running or stopped' if include_stopped else 'running'
+                    self.assertEqual(str(failure.exception),
+                        f'Expected one {scope} private-dev service: service=catalogue-localizer, containers={count}')
+                    command.assert_called_once()
+                    args=command.call_args.args
+                    self.assertEqual('--all' in args,include_stopped)
+                    self.assertIn('label=com.docker.compose.project='+worker.PROJECT,args)
+                    self.assertIn('label=com.docker.compose.service=catalogue-localizer',args)
+                    self.assertNotIn('private-container-id',str(failure.exception))
+
+    def test_initial_snapshot_cardinality_failure_exports_action_phase_and_restores_without_threads(self):
+        for ids,count in [('',0),('private-id-1\nprivate-id-2',2)]:
+            with self.subTest(count=count):
+                actor=self.actor(); actor.state['phase']='active'
+                stream=io.StringIO('{"action":"start_observation"}\n')
+                output=io.StringIO()
+                def command(*args,**kwargs):
+                    if args[:2]==('docker','ps'):
+                        return ids if 'label=com.docker.compose.service=keycloak' in args else 'owned'
+                    if args[:2]==('docker','inspect'):
+                        return json.dumps([{'Id':'owned','Config':{'Env':['SECRET=private-secret']}}])
+                    self.fail('Unexpected host command')
+                with patch.object(worker,'Experiment',return_value=actor),patch.object(worker.sys,'stdin',stream), \
+                     patch.object(worker.select,'select',side_effect=[([stream],[],[]),([],[],[])]), \
+                     patch.object(worker.fcntl,'flock'),patch('builtins.open',return_value=io.StringIO()), \
+                     patch.object(worker,'command',side_effect=command) as commands, \
+                     patch.object(actor,'actuator',return_value={}),patch.object(actor,'sql',return_value='{}'), \
+                     patch.object(actor,'restore') as restore,contextlib.redirect_stdout(output):
+                    worker.serve(actor.directory)
+                result=json.loads(output.getvalue())
+                self.assertFalse(result['ok'])
+                self.assertEqual(result['error'],
+                    f'action=start_observation, phase=active: Expected one running private-dev service: service=keycloak, containers={count}')
+                self.assertEqual(actor.threads,[])
+                self.assertFalse((actor.directory/'before.json').exists())
+                restore.assert_called_once_with()
+                lookups=[c for c in commands.call_args_list if c.args[:2]==('docker','ps')
+                         and 'label=com.docker.compose.service=keycloak' in c.args]
+                self.assertEqual(len(lookups),1)
+                self.assertNotIn('private-secret',output.getvalue())
+                self.assertNotIn('private-id',output.getvalue())
+
     def test_failed_background_command_retains_start_end_and_durable_completion(self):
         actor=self.actor()
         actor.state.update(providerId='provider',providerName='fixture',referenceDate='2026-10-13',noInference=True)

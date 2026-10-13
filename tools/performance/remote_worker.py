@@ -49,7 +49,8 @@ def atomic(path, value):
 def service(name, include_stopped=False):
     ids = command('docker', 'ps', *(['--all'] if include_stopped else []), '--no-trunc', '--filter', 'label=com.docker.compose.project='+PROJECT,
                   '--filter', 'label=com.docker.compose.service='+name, '--format', '{{.ID}}').splitlines()
-    require(len(ids) == 1, 'Expected one running private-dev service')
+    scope = 'running or stopped' if include_stopped else 'running'
+    require(len(ids) == 1, f'Expected one {scope} private-dev service: service={name}, containers={len(ids)}')
     return json.loads(command('docker', 'inspect', ids[0]))[0]
 
 
@@ -602,7 +603,8 @@ def serve(directory):
                     value=getattr(actor,action)(**request.get('arguments',{}))
                     print(json.dumps({'ok':True,'value':value}),flush=True)
                 except Exception as error:
-                    print(json.dumps({'ok':False,'error':str(error) if isinstance(error,RuntimeError) else type(error).__name__}),flush=True)
+                    message=str(error) if isinstance(error,RuntimeError) else type(error).__name__
+                    print(json.dumps({'ok':False,'error':f'action={action}, phase={actor.state["phase"]}: {message}'}),flush=True)
                 if action=='restore': break
         finally:
             if actor.state['phase'] not in ['new','restored']:

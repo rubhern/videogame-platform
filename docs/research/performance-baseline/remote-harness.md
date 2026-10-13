@@ -382,7 +382,7 @@ readiness was `UP`, and the disposable DB was removed. This is an experimental
 five-minute reference, not guaranteed production capacity, a long soak, or
 background-interference evidence. No optimization follows from this slice.
 
-## Prepared background scenarios; not executed
+## Prepared background scenarios; no measured overlap
 
 The native launcher also supports the separate `authenticated` and `mixed`
 modules; their capacity budgets remain a separate choice.
@@ -395,7 +395,8 @@ but no remote duration or HTTP overlap was measured. The current sequential
 adapter needs roughly six provider API requests for that input; at the unchanged
 default 3 calls/s its pacing component is about 1.7 seconds. That is an estimate,
 not measured internal CPU/database time, and is too short to rely on with coarse
-server sampling. No remote sync experiment has been run in this change.
+server sampling. The later reuse preparation below completed calibration only;
+no remote serving/sync overlap has been measured.
 
 ### Bounded reuse work and evidence controls
 
@@ -459,10 +460,46 @@ required. The report incorporates the restoration receipt only after recovery.
 Sampling failure cannot skip application restoration; failed restoration produces
 `recovery-required.json` and retains the owned host receipts.
 
+### Aborted reuse attempt before observation
+
+On 2026-10-13, `remote-capacity-s1o16z8w` completed `background_prepare`,
+the fixture warm-up and reuse calibration (`SUCCEEDED`, 43.51 and 43.07 seconds),
+and `settle` (35.31 seconds, including the required quiet window).
+`start_observation` then failed with `Expected one running private-dev service`
+before `before.json`, observation threads or native k6 execution. This attempt
+provides preparation evidence only; it contributes no HTTP capacity, overlap or
+interference result. Its ignored raw receipts remain separate from accepted runs.
+
+The recorded and staged worker hashes match the reviewed source. `service()`
+resolves the current container through Compose project/service labels on every
+call; its error means the Docker listing returned a count other than one, but the
+old message retained neither the service nor the count. `snapshot()` tolerates
+unavailable Actuator meters, then requires PostgreSQL, container stats and cgroup
+capture. Recreation waits for readiness, calibration and settling are sequential,
+and observation threads start only after the initial snapshot. No harness
+recreation race or stale container-ID reuse was identified at this boundary.
+
+Restoration verified the original application environment and scheduling, unchanged
+private data and dependency identities/configuration, database removal and readiness
+`UP`. A subsequent read-only host inspection found unchanged dependency IDs, no
+dependency restarts or OOM flags, and no retained Docker events in the failure
+window. The experimental application container has been removed. A transient
+Docker listing inconsistency is a hypothesis, not a confirmed root cause;
+application exit/restart or temporary duplicate matches cannot be reconstructed
+from the old error and these receipts.
+
+Cardinality errors now report the service, container count and running/all lookup
+scope; failed RPC replies include the action and durable experiment phase.
+Diagnostics exclude container IDs, inspect payloads, environment values and raw
+command output. Focused offline tests cover zero/multiple matches and initial
+snapshot failure through RPC with restoration and no observation threads. The
+single-container requirement, fail-fast behaviour and infrastructure are unchanged;
+no automatic retry is added.
+
 ### Owner's next manual exploration
 
 After review, merge and a separately authorized maintenance window, run exactly
-one exploration; **it has not been executed**:
+one exploration; **no serving/sync overlap has yet been measured**:
 
 ```bash
 # Use the exact deployed full SHA after a read-only plan; never infer it from checkout HEAD.
