@@ -42,6 +42,12 @@ foundation evidence proves none of their acceptance criteria.
 
 ## Reconsider when
 
+The owner's public-release/budget decision in the
+[Product Brief](../product/product-brief.md#public-release-and-sustainability)
+reopens the former project-wide cost/release restriction for future production.
+[ADR-0025](0025-host-public-production-on-a-deferred-single-vps.md) proposes its
+separate host; this record still governs private-dev and its private ingress.
+
 Revisit on measured resource pressure, hardware or network reliability limits,
 Tailscale eligibility/terms changes, additional recurring cost, or a changed release
 mode. Reopening OCI requires fresh eligibility and cost gates, never a paid fallback.

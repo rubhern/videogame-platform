@@ -18,8 +18,10 @@ commercial sustainability.
 
 The system is one same-origin React application and Java/Spring modular monolith,
 with PostgreSQL, Flyway, Keycloak, and provider-independent local catalogue data.
-Public production, paid infrastructure, distributed architecture, and live
-request-path provider calls are not approved.
+The owner-approved public-release direction is gated and unbuilt; its budget,
+deferred purchase and best-effort mode belong to the
+[Product Brief](docs/product/product-brief.md#public-release-and-sustainability).
+Distributed architecture and live request-path provider calls are not approved.
 
 ## Start locally
 

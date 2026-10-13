@@ -11,6 +11,9 @@ and [ADRs](../decisions/README.md) own their more specific contracts.
 
 The accepted MVP established this baseline, which also supports post-MVP evolution.
 The [Product Brief](../product/product-brief.md) owns current product direction.
+The proposed public topology in the
+[platform design](deployment/mvp-platform-and-delivery.md#public-production-target)
+retains these structure/dependency boundaries; it is not an implemented environment.
 
 ## Architectural position
 

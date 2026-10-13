@@ -41,6 +41,10 @@ the lock file, Dockerfile, and Compose file.
 
 ## Deferred by default
 
+The unbuilt [public platform proposal](../deployment/mvp-platform-and-delivery.md#public-production-target)
+adds one static Caddy HTTPS edge, subject to ADR-0025 review. It reuses the baseline
+families; no new executable dependency or image pin is selected by this investigation.
+
 Java preview, WebFlux, Lombok, H2 as PostgreSQL proof, Cucumber, Next.js/SSR/RSC,
 another global state/component library, microservices, brokers, distributed caches,
 search engines, extra databases, event sourcing, physical CQRS, Kubernetes, service

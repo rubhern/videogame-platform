@@ -13,6 +13,7 @@ guidance, and nothing here is maintained to reflect the current system.
 | [Synthetic usability synthesis](simulated-round-synthesis.md) | Prototype record, accepted internal journey decision, and limitations |
 | [IGDB PoC tool](../../tools/igdb-poc/README.md) | Reproducible capture/offline-validation procedure |
 | [Performance baseline](performance-baseline/README.md) | Measured catalogue, synthetic dataset profiles and first low-rate public HTTP baseline for #85 |
+| [Public-production topology investigation](public-production-topology.md) | #252 hosting comparison, provider/privacy review, evidence limits and draft #251 decomposition; no infrastructure or purchase |
 
 ## Point-in-time reviews
 

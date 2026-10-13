@@ -21,13 +21,13 @@ identity, and provider-independent local catalogue data.
 These constraints are current and binding:
 
 - Current operation remains private and non-commercial. The Product Brief owns the
-  intended public-release direction and exploratory sustainability; public production,
-  a business model, paid infrastructure, and distributed architecture are **not**
-  approved.
-- Zero recurring cost. Use only currently eligible free resources and stop rather than
-  silently provisioning a paid alternative.
-- Remote infrastructure requires the applicable walking-skeleton evidence and its
-  zero-cost and delivery gates before provisioning.
+  owner-approved public-release direction, bounded budget and deferred purchase;
+  production remains unbuilt. A business model and distributed architecture are not
+  approved. See [public release](docs/product/product-brief.md#public-release-and-sustainability).
+- No services may be contracted or paid alternatives provisioned silently. Public
+  production requires the separate purchase and exposure gates in the
+  [delivery lifecycle](docs/development/delivery-lifecycle.md#public-production-gates);
+  existing private-dev stays private until an explicit retirement decision.
 - The approved MVP boundary, the IGDB decision, and accepted limitations define the
   accepted baseline. The Product Brief owns post-MVP direction; the story map retains
   the accepted MVP cut. Prefer minimum contracts and one vertical slice over a detailed

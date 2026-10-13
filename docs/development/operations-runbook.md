@@ -13,9 +13,15 @@ and recorded the outcome in the linked issue or pull request. Anything else is m
 **not exercised**. Repository validation (for example
 `scripts/test-private-dev-backup-recovery.sh`) proves logic, not host behaviour.
 
-The MVP is private, single-host and zero-cost. Nothing here claims public production,
+The accepted MVP is private, single-host and zero-cost. Nothing here claims public production,
 high availability, automatic recovery or alerting. Retained private-dev metrics and aggregated logs are
 disposable operational history.
+
+The [public target](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
+and [separate purchase/exposure gates](delivery-lifecycle.md#public-production-gates)
+are proposals awaiting review; no production procedure has been exercised. Record
+real-VPS evidence here only when those procedures are executed; private-dev evidence
+does not certify production networking, capacity, email or recovery.
 
 ## Environment responsibilities
 

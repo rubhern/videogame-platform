@@ -39,6 +39,8 @@ historical decision.
 
 ## Proposed
 
+- [ADR-0025: Host public production on a deferred single VPS](0025-host-public-production-on-a-deferred-single-vps.md) — #252; owner-selected release/budget envelope, technical design awaiting review, no purchase/deployment authorization.
+
 - [ADR-0021: Collect private-dev logs with Alloy and Loki](0021-collect-private-dev-logs-with-alloy-and-loki.md) — #159 implementation awaiting owner review and host acceptance.
 
 ## Superseded

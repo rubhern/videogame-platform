@@ -8,6 +8,10 @@ versions remain in Maven manifests.
 
 ## Local inspection
 
+The unbuilt public target has a separate
+[minimal observability proposal](#public-production-observability-proposal);
+private-dev configuration and proven evidence remain environment-specific.
+
 ```bash
 curl --fail http://localhost:8081/actuator/health
 curl --fail http://localhost:8081/actuator/health/liveness
@@ -328,3 +332,36 @@ cursor. The helper logs outcome and duration without source text. Adapter failur
 separate timeout from unavailable/invalid runtime responses; durable pending state and
 last-valid links support diagnosis and retries through the [operations runbook](operations-runbook.md#catalogue-localization).
 Helper failure never participates in liveness/readiness.
+
+## Public production observability proposal
+
+**Proposed, unbuilt (#252):** reuse Collector → Prometheus → private Grafana;
+initially retain redacted, rotated Docker logs without a production Loki/Alloy stack
+or retained traces. The [platform target](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
+owns topology/resource budgets. No private-dev collector configuration is modified.
+
+Start with seven days / 512 MiB of Prometheus history, including bounded label sets;
+WAL/head/compaction need extra disk, so this is not a filesystem quota. Propose at
+most seven days or 100 MiB per service of diagnostic logs, whichever expires first,
+with an enforced age/rotation procedure. Ordinary byte rotation alone does not
+implement age deletion. Disable detailed identity events/edge access logging by
+default; retain only necessary redacted outcomes. Do not collect tokens, cookies,
+email/name, raw IP, full URLs/query strings or rating-owner IDs. If a security
+investigation requires exceptional personal metadata, record purpose/access/expiry
+separately and keep it out of metrics. Never send real account data to public GitHub
+reports or monitoring SaaS. Backups follow their independent protected retention.
+
+Observe HTTP rate/errors/latency, Hikari pending/timeouts, JVM/PG/identity resources,
+disk/free space, sync outcomes, latest verified off-host backup age and certificate
+expiry. Notifications need no new alert service: reuse the existing Grafana route
+where sufficient and an existing private owner channel within budget; link relevant
+work to [#269](https://github.com/rubhern/videogame-platform/issues/269).
+A failed-backup and disk/error/certificate test must reach the owner before opening.
+An on-host monitor cannot prove host-loss notification: run a lightweight external
+reachability/backup-age check from an existing independent owner device with a
+documented check cadence. No paid uptime service or status platform is assumed.
+
+Telemetry remains outside product readiness/request dependencies. Resource pressure
+stops ingestion before threatening durable data. Deletion/redaction and notification
+behaviour must be tested locally, then on the actual VPS; the
+[public gates](delivery-lifecycle.md#public-production-gates) require that evidence.

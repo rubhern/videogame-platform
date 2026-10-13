@@ -2,7 +2,7 @@
 
 - **Status:** Approved
 - **Owner:** Ruben Hernandez
-- **Scope:** Current private, zero-recurring-cost platform and delivery
+- **Scope:** Implemented private-dev platform and gated public-production design
 
 This document owns environment purpose, deployment topology, artefact/configuration/
 secret policy, migration/backup/recovery policy, and technical delivery. The
@@ -24,7 +24,7 @@ owns post-MVP public-release direction and its pending decisions.
 | `local`      | Development and focused proofs on supported WSL2                               | Disposable/seeded; loopback only                |
 | `test`       | Per-job automated evidence                                                     | Generated fixtures; CI only                     |
 | `dev`        | Persistent private integration, HTTPS, identity, delivery, telemetry, recovery | Non-sensitive learning data; owner tailnet only |
-| `production` | Intended future environment; gated, not approved or available                  | Undefined                                       |
+| `production` | Owner-approved release direction; technical proposal below, unbuilt and gated   | Independent durable data and public product access only |
 
 `dev` is one owner-managed private Linux host (`vgpdev`: Ubuntu Server 24.04 LTS,
 `x86_64`, 8 GB RAM, SSD, Docker Engine and Compose) under
@@ -37,13 +37,14 @@ product, identity or management access. This boundary is accepted under
 [ADR-0023](../../decisions/0023-automate-owner-approved-private-dev-application-promotion.md);
 host configuration and acceptance remain separate. Tailscale does not replace Keycloak or
 product authorization. No public application, identity, database, telemetry or SSH
-ingress is allowed; router port forwarding, Tailscale Funnel and public DNS remain
+ingress is allowed on private-dev; router port forwarding, Tailscale Funnel and public DNS remain
 prohibited. Machine addressing and tailnet identifiers stay outside the repository.
 
 The superseded OCI path was removed; Git history and
 [#42](https://github.com/rubhern/videogame-platform/issues/42) retain it. No paid or
-trial-only substitute is authorized. Public production requires the linked
-public-release decisions before provisioning or exposure. HA, staging, Kubernetes,
+trial-only substitute is authorized for private-dev. The owner's gated production
+direction and separate purchase/exposure controls are described
+[below](#public-production-target). HA, staging, Kubernetes,
 distributed components, automatic broad sync and paid managed services remain deferred.
 
 Local development can opt into the same metrics services and provisioning with
@@ -274,3 +275,153 @@ owns the date interval, paging and partial-failure decisions.
 
 Standard OCI images, PostgreSQL logical backups, OpenTelemetry and private ingress
 preserve portability. Hosting reconsideration triggers belong to ADR-0019.
+
+## Public production target
+
+**Owner-approved direction, unbuilt:** netcup VPS Lite 2, x86_64 / 8 GB RAM,
+subject to availability, final price and qualification; open, non-commercial,
+best-effort launch; EUR 20/month ceiling for all recurring costs. Purchase waits
+for a production candidate. Local/CI development continues with temporary private-dev.
+The [Product Brief](../../product/product-brief.md#public-release-and-sustainability)
+owns that release mode, [ADR-0025](../../decisions/0025-host-public-production-on-a-deferred-single-vps.md)
+proposes the durable topology, and the
+[investigation](../../research/public-production-topology.md) records price/capacity evidence.
+
+**Technical proposal awaiting review:** one Linux VPS, Docker Engine/Compose,
+one application replica and one PostgreSQL server. No production Compose, proxy
+configuration, host, DNS or workflow is created in #252. The following specifies
+the minimal implementation target; it is not proof of a running system.
+
+| Component / boundary | Target responsibility and exposure |
+|---|---|
+| HTTPS edge | Proposed Caddy with static routing, persisted ACME state and no Docker socket. Public TCP 80 only for redirect/ACME, TCP 443 for product/identity HTTPS. HTTP/3/UDP 443 is unnecessary initially. Default-deny unknown hosts and routes |
+| Application | Existing immutable image serves React and same-origin BFF/API on one product origin; upstream port container-internal. No browser tokens, new CORS API or public provider proxy |
+| Keycloak | Independent production realm/client/database. Dedicated HTTPS identity origin with canonical issuer; only necessary product-realm OIDC/login/resource routes public. Block admin console/API, master realm, health and metrics at the edge; admin hostname alone is not an access control |
+| PostgreSQL | Same supported PG family; separate application/identity databases and roles; runtime role without DDL, one-shot migration actor. No host/public database port |
+| Acquisition | Existing bounded sync and required CPU localizer with immutable read-only model. Internal network only, no request-serving role; schedule explicitly budgeted. Healthy expected helper required for promotion, following the current lifecycle pattern |
+| Telemetry | Reuse internal Collector → Prometheus → Grafana patterns; Grafana through private administration/tunnel only. Initial production logs use bounded redacted Docker history; private-dev Loki/Alloy are not prerequisites for this target |
+| Administration | Key-based owner SSH over existing eligible Tailscale; no public SSH listener. Database, Keycloak admin, Actuator/sync management, Docker and telemetry ports private. Protect provider/GitHub/tailnet administration with MFA |
+| Recovery | Independent encrypted off-host copies of both databases, protected config/secrets reconstruction and immutable source/image receipts; no paid managed backup assumed |
+
+Use separate edge, data/acquisition and telemetry networks with only required
+membership; the proxy never joins the database network. Network names alone are
+not ACLs: limit published ports and access from every attached peer. The identity
+server remains reachable from the BFF at its canonical issuer without bypassing TLS
+validation. Keycloak proxy configuration must overwrite forwarded host/scheme/client
+headers, trust only the proxy and restrict backend access; see
+[Keycloak guidance](https://www.keycloak.org/server/reverseproxy). Trust the known
+production proxy peer/network rather than copying the private-dev loopback trust.
+Test spoofed Host/forwarded values and exact redirect/logout origins. Preserve CSRF,
+principal ownership, secure cookies and production-only HSTS/CSP/referrer controls.
+
+[Caddy automatic HTTPS](https://caddyserver.com/docs/automatic-https) requires
+correct DNS, reachable validation ports and persistent writable certificate state.
+Prepare static routes/local certificate tests before purchase; public issuance and
+renewal need real DNS/network evidence. Publish AAAA only after independent IPv6
+qualification. Docker NAT/published ports and host firewall must both be assessed
+on IPv4/IPv6; do not claim protection from an SSH/HTTP-only firewall screenshot.
+Private administration must work before opening the edge; provider console is a
+protected break-glass path.
+
+### Resource and work envelope (proposal, not capacity evidence)
+
+Begin qualification with explicit memory/CPU/PID/connection/request/log/storage
+bounds. This initial envelope is a local/CI hypothesis, not a claim that these
+values work on netcup; executable Compose will own the final limits.
+
+| Memory allocation for qualification | GiB |
+|---|---:|
+| Application, including JVM native memory | 1.50 |
+| PostgreSQL including charged page cache | 0.75 |
+| Keycloak including JVM native memory | 0.75 |
+| Catalogue localizer | 0.75 |
+| Collector / Prometheus / Grafana total | 0.625 |
+| HTTPS edge | 0.125 |
+| Steady service ceilings total | **4.50** |
+| One deployment/backup actor, serialized | 0.50 |
+| Host kernel/Docker/OS allowance | 1.00 |
+| Unassigned nominal remainder at 8 decimal GB (~7.45 GiB) | **~1.45** |
+
+The provider's actual reported RAM decides usable headroom. Require at least
+20% available host memory under the qualification workload, no OOM/sustained swap
+thrashing, and room for migration/restart. If the nominal envelope misses that
+target or a service limit is insufficient, revise allocations/load within the
+selected plan and repeat the focused proof before approval; never call container
+ceilings measured resident usage. Shared vCores are not reserved physical cores.
+Serialize deployment/backup/heavy sync, bound translation concurrency and keep
+product/database CPU headroom; do not sum CPU quotas as a throughput guarantee.
+No pool increase or search-index change is assumed by this topology.
+
+Storage budget covers PG data/indexes/WAL, identity, model, telemetry, rotated
+logs, two retained image generations and dump/restore scratch. Require >=25%
+free filesystem space under the representative dataset plus job/image overlap.
+Retention is not a disk quota. Stop sync/log ingestion before exhausting storage,
+preserve identity/ratings, and stop new deployments when recovery headroom is lost.
+Record real disk growth/I/O, shared-CPU steal and p95/pool/resource observations;
+the [qualification plan](../../research/public-production-topology.md#capacity-evidence-assumptions-and-stop-conditions)
+defines the bounded experiment. No Lenovo result substitutes for VPS measurement.
+
+### Independent secrets, data and recovery
+
+Production secrets are separate from local/private-dev and CI, stored in protected
+host files outside Git, mounted only into their consumers. Compose secrets on one
+host are file delivery, not an encrypted vault. Keep restricted owner permissions,
+no secret values in container metadata/arguments/logs, and coordinated role/client/file
+rotation. Securely retain reconstruction material and the backup decryption key
+outside the VPS/account. Application sessions, real accounts and ratings never come
+from private-dev fixtures or database cloning.
+
+Start from forward migrations, an independently configured realm and fresh local
+catalogue synchronization after provider acceptance. Production registration/email
+policy must satisfy [release readiness](../../research/public-production-topology.md#identity-and-abuse-findings-from-the-repository).
+Seed no local users; an isolated, non-personal deployment-smoke account requires
+separate credentials/lifecycle and does not prove real email delivery.
+
+Reuse logical dumps encrypted to the owner's public key, checksummed manifests,
+bounded retention and isolated restore. Proposed initial recovery objectives for
+owner acceptance are **RPO <=24 hours for the last verified off-host pair** and
+**RTO <=48 hours after incident detection**; neither is measured or a commercial SLA.
+Propose seven daily copies plus one weekly copy for four weeks. Size the independent
+destination and prove the scheduled copy/check cadence; a dump left on the VPS is
+not a backup against host/account loss. Failure/age must reach the owner through a
+tested private channel. If this cannot operate within the budget, do not open accounts.
+
+Two per-database dumps do not create one cross-database transaction. Quiesce rating
+writes and registration/identity mutation while capturing the pair, verify the
+application-principal/Keycloak relationship on isolated restore, and record the
+common recovery point. Restoration must reapply post-backup deletion requests before
+reopening and invalidate old sessions as appropriate. Preserve only the minimum
+protected deletion ledger needed for that bounded backup window. Roles/secrets are
+reconstructed separately. Provider snapshots can aid rollback but cannot replace
+independent, encrypted, tested recovery. Rehearse host-loss reconstruction privately
+before public acceptance; measure achieved RPO/RTO and record limitations.
+
+### Immutable deployment and failure
+
+CI builds/scans the existing frontend/BFF/monolith image; select a trusted-main
+source SHA and immutable `image@sha256:…` with retained checks/SBOM/provenance.
+Production dependencies (including the themed Keycloak image and localizer/model)
+also need reproducible pinned identities; never build on the VPS, deploy `latest`,
+or infer a digest from a movable tag. Record configuration fingerprint, source,
+image/model identities, migration version and sanitized deployment/acceptance receipt.
+
+Initially use owner-triggered manual promotion over private administration, reusing
+the current preflight/lock/migration/readiness/smoke pattern in a production-specific
+contract. Private-dev Actions credentials/forced commands authorize only private-dev;
+do not reuse them for production or add unattended deployment. A production Actions
+promotion path is optional later, not a launch prerequisite. Migration is a one-shot
+actor before application replacement; dependencies/config/secrets have separate
+reviewed rollouts. No automatic merge-to-production or extra staging environment.
+
+Retain the previous digest and recovery point. Failed migration prevents activation;
+failed readiness/smoke is recorded as failure. An application rollback requires
+schema compatibility; otherwise use a forward fix or assessed restore. Never revert
+an applied migration. One replica means deployment interruption and no HA promise.
+IGDB/CDN/helper/telemetry failures preserve database-only reads; overload returns
+controlled bounded failure and admission restrictions instead of unbounded queues.
+Close public ingress on an unresolved security/data-integrity failure.
+
+The [public gates](../../development/delivery-lifecycle.md#public-production-gates)
+separate preparation, purchase and exposure. The operations runbook will describe
+production procedures as proven only after real-VPS execution. Private-dev remains
+private integration until the owner separately approves retirement after launch.

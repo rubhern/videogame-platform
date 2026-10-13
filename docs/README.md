@@ -5,7 +5,7 @@ behind it: every kind of information has one canonical owner, and any other docu
 links to it instead of restating it.
 
 Records distinguish Gameómetro's accepted learning MVP (`v0.1.0`), current private
-`dev` operation and post-MVP evolution, and future direction. The
+`dev` operation and post-MVP evolution, and the gated public-release direction. The
 [Product Brief](product/product-brief.md) owns current product positioning and
 direction; MVP records retain the accepted baseline. Future capabilities and revisit
 triggers are labelled explicitly and do not imply delivery commitments.

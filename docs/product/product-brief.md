@@ -30,8 +30,9 @@ technology must support a product outcome, operational need, measured limitation
 bounded experiment.
 
 Ruben Hernandez is the only human contributor and decision owner. AI may assist but
-does not own evidence or approval. There is no fixed public-release date or recurring
-paid-service commitment. Public release and commercial exploration are described
+does not own evidence or approval. There is no fixed public-release date or active
+paid-service commitment. The owner-approved bounded budget, deferred purchase,
+public release and commercial exploration are described
 [below](#public-release-and-sustainability).
 
 ## Priority user and problem
@@ -129,11 +130,11 @@ learning; they are not market targets.
 | Demand/differentiation unvalidated | Keep claims narrow; use real observations before expanding product scope |
 | Provider quality | Explicit import policy, validation before publication, explicit uncertainty/provenance/review state, local reads |
 | Spanish data gaps | Product-owned aliases/editorial content; never present translation as provider content |
-| Provider/licensing scope | Current approval covers private non-commercial use and attributed IGDB CDN references; no copied image binaries or adopted external scores; public use and external signals require review |
+| Provider/licensing scope | Private non-commercial baseline remains; public metadata/media acceptance is a launch gate under the [public-use investigation](../research/public-production-topology.md#provider-and-image-review); no copied image binaries or adopted external scores |
 | Provider coupling/outage | Internal identity, anti-corruption adapter, last valid local snapshot, no request-path IGDB; provider drives acquisition, never serving |
 | Scope/architecture expansion | Focused product journeys and modular monolith; complexity requires evidence or bounded learning objective |
 | Accounts/personal ratings | Delegated identity, principal-derived ownership, privacy/security controls |
-| Solo operation | Small increments, automation, few deployables, zero recurring-cost constraint |
+| Solo operation | Small increments, automation, few deployables; bounded public-release budget and best-effort expectations [below](#public-release-and-sustainability) |
 
 Public deployment, monetization, provider-data retention or redistribution beyond
 the approved normalized local catalogue and CDN-reference mode, image binary
@@ -167,21 +168,33 @@ external-score source, display threshold, or implementation is adopted here.
 
 ## Public release and sustainability
 
-A public Gameómetro environment is an intended next evolution; the deployed
-environment remains private `dev`. Public production is neither approved nor
-available: provider/licensing, privacy, security, capacity, cost, operations, and
-release-mode decisions must pass the gates tracked by
+A public Gameómetro environment is the owner-approved next release direction:
+**open, non-commercial and best effort**, without a commercial SLA or staffed support.
+The deployed environment remains private `dev`; production is unbuilt and exposure
+is not authorized by this direction alone. The owner selected netcup VPS Lite 2
+(x86_64, 8 GB RAM), conditionally on availability, final price and measured capacity,
+with a **EUR 20/month ceiling for all recurring costs**. This replaces the former
+project-wide zero-recurring-cost restriction for the gated public environment.
+
+Delay contracting the VPS until a production candidate has passed preparation in
+local/CI. Keep developing in local/CI and use private-dev temporarily for integration;
+review its retirement after public acceptance rather than relabel it production.
+Provider/licensing, privacy, security, capacity, cost and recovery gates are tracked by
 [#251](https://github.com/rubhern/videogame-platform/issues/251) and
 [#252](https://github.com/rubhern/videogame-platform/issues/252) before exposure.
-The [platform design](../architecture/deployment/mvp-platform-and-delivery.md) owns
-the environment boundaries.
+The [platform design](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
+owns the technical proposal and environment boundaries; the
+[delivery lifecycle](../development/delivery-lifecycle.md#public-production-gates)
+separates permission to contract from permission to expose. Best effort does not
+waive personal-data protection, account recovery, provider rights or security.
 
 Commercial sustainability is exploratory. A plausible initial goal is a small
 community of real users and modest, non-intrusive monetization that offsets basic
 operating costs while preserving a clean, low-friction experience. This is not
 validated demand, product–market fit, a revenue target, a committed business roadmap,
-or an adopted monetization model. Paid infrastructure still requires an explicit
-owner decision; the current zero-recurring-cost constraint remains binding.
+or an adopted monetization model. This first launch includes no monetization;
+commercial/provider scope and any spend outside the approved ceiling require a
+separate explicit owner decision. No service is contracted by this documentation.
 
 Broader vision capabilities must earn inclusion through evidence, value, cost, risk,
 and solo operability; GitHub Issues own evaluation and delivery work.
