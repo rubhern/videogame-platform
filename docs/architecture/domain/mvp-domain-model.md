@@ -28,7 +28,7 @@ eligibility, and aggregate calculation. Identity supplies only authenticated
 | Game details | A game's summary, the companies credited as its developers and publishers, its genres and its game modes; current provider-acquired state that may be empty |
 | `Company` | A product entity credited with developing or publishing games; one company may hold both roles for one game |
 | `Genre` / `GameMode` | Product taxonomy classifying a game's style and ways to play, acquired like platform taxonomy |
-| Verification / review / freshness | Independent evidence, ambiguity, and time-policy states |
+| Verification / review / freshness | Independent evidence, ambiguity, and time-policy states; freshness is internal operational evidence of the last committed provider check, never a player-facing state |
 | `Rating` | One active integer 1–10 identified by `UserId + GameId` |
 | `RatingStatistics` | Unweighted mean, count, and 1–10 distribution from active ratings |
 

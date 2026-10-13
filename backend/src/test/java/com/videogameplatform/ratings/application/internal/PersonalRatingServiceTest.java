@@ -3,7 +3,6 @@ package com.videogameplatform.ratings.application.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
@@ -147,10 +146,8 @@ class PersonalRatingServiceTest {
                                 "release"),
                         NOW,
                         NOW,
-                        NOW,
                         BrowseReleasesResult.Verification.VERIFIED,
                         BrowseReleasesResult.Review.NOT_REQUIRED,
-                        CatalogueFreshness.FRESH,
                         com.videogameplatform.catalogue.application.CatalogueReleaseStage.UNKNOWN);
         return new GameDetailsResult(
                 GAME,

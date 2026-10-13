@@ -12,6 +12,9 @@ erDiagram
     game_release["catalogue.game_release"]
     release_snapshot["catalogue.release_snapshot"]
     release_external_reference["catalogue.release_external_reference"]
+    release_reconciliation["catalogue.release_reconciliation"] {
+        timestamptz last_reconciled_at "last committed provider check; not product content"
+    }
     game_featured_evidence["catalogue.game_featured_evidence"] {
         bigint hypes "positive current attention or absent; featured only"
         date first_release_date "known own first release or absent"
@@ -51,6 +54,7 @@ erDiagram
     game ||--o{ game_featured_media : "at most one hero image, card image and card logo, written with the Game"
     game_release ||--o| release_snapshot : "current state"
     game_release ||--o{ release_external_reference : "provider identity"
+    release_external_reference ||--o| release_reconciliation : "last check, written with the Game"
     platform ||--o{ release_snapshot : classifies
     region ||--o{ release_snapshot : classifies
     game ||--o{ game_company : "credited, replaced with the Game"

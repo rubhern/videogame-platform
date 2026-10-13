@@ -17,7 +17,6 @@ import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.api.generated.model.ReleaseWindow;
 import com.videogameplatform.api.generated.model.UnknownReleaseDate;
 import com.videogameplatform.api.generated.model.YearReleaseDate;
-import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
@@ -102,10 +101,8 @@ public final class ReleaseApiMapper {
                                 toSourceKind(source.provenance().sourceKind()),
                                 source.provenance().sourceName(),
                                 source.provenance().sourceEntityType()),
-                        toOffsetDateTime(source.lastSyncedAt()),
                         toVerificationLevel(source.verificationLevel()),
-                        toReviewStatus(source.reviewStatus()),
-                        toFreshnessStatus(source.freshnessStatus()));
+                        toReviewStatus(source.reviewStatus()));
         release.setProviderUpdatedAt(toOffsetDateTime(source.providerUpdatedAt()));
         release.setLastVerifiedAt(toOffsetDateTime(source.lastVerifiedAt()));
         return release;
@@ -160,13 +157,6 @@ public final class ReleaseApiMapper {
         return switch (source) {
             case NOT_REQUIRED -> Release.ReviewStatusEnum.NOT_REQUIRED;
             case REQUIRED -> Release.ReviewStatusEnum.REQUIRED;
-        };
-    }
-
-    private static Release.FreshnessStatusEnum toFreshnessStatus(CatalogueFreshness source) {
-        return switch (source) {
-            case FRESH -> Release.FreshnessStatusEnum.FRESH;
-            case STALE -> Release.FreshnessStatusEnum.STALE;
         };
     }
 

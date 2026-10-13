@@ -23,10 +23,8 @@ function release(overrides: Partial<Release> = {}): Release {
     status: "scheduled",
     stage: "unknown",
     provenance: { sourceKind: "external_provider", sourceName: "IGDB", sourceEntityType: "release_date" },
-    lastSyncedAt: "2026-10-02T05:00:00Z",
     verificationLevel: "provider_only",
     reviewStatus: "not_required",
-    freshnessStatus: "fresh",
     ...overrides,
   };
 }

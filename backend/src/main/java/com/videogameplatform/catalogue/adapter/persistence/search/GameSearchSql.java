@@ -113,8 +113,7 @@ final class GameSearchSql {
                            context.release_year,
                            context.release_month,
                            context.release_quarter,
-                           context.release_status,
-                           context.last_synchronized_at
+                           context.release_status
                     FROM page
                     CROSS JOIN LATERAL (
                         SELECT count(DISTINCT rs.platform_id)::integer AS total_platforms,
@@ -158,7 +157,6 @@ final class GameSearchSql {
                                bounded.release_month,
                                bounded.release_quarter,
                                bounded.release_status,
-                               bounded.last_synchronized_at,
                                bounded.period_start,
                                bounded.release_id
                         FROM (
@@ -171,7 +169,6 @@ final class GameSearchSql {
                                    rs.release_month,
                                    rs.release_quarter,
                                    rs.release_status,
-                                   rs.last_synchronized_at,
                                    rs.period_start
                             FROM catalogue.release_snapshot rs
                             WHERE rs.publication_id = CAST(:publicationId AS uuid)

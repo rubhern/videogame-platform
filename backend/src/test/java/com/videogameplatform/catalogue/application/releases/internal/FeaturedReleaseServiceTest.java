@@ -422,7 +422,6 @@ class FeaturedReleaseServiceTest {
                                 "IGDB",
                                 "release_date",
                                 null,
-                                observedAt,
                                 null,
                                 VerificationLevel.PROVIDER_ONLY,
                                 ReviewStatus.NOT_REQUIRED,

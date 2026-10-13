@@ -1203,9 +1203,9 @@
       }
     },
     {
-      "title": "Release evidence age bands",
+      "title": "Release check age bands",
       "type": "bargauge",
-      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Age of last changed synchronized evidence. Unchanged records are not timestamp-refreshed; this is not time since last successful provider verification. Bands are descriptive, not alerts.",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Age of the last committed provider check: the later of the last published change and the last reconciliation that re-checked the release unchanged (#267). Releases outside every scheduled window age by design; this is not provider verification. Bands are descriptive, not alerts.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "private-dev-postgres"
@@ -1217,7 +1217,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "private-dev-postgres"
           },
-          "rawSql": "SELECT CASE WHEN last_synchronized_at > now() THEN 'future timestamp' WHEN last_synchronized_at >= now() - interval '7 days' THEN '0\u20137 days' WHEN last_synchronized_at >= now() - interval '30 days' THEN '7\u201330 days' ELSE '30+ days' END AS evidence_age, count(*) AS releases FROM catalogue.observability_release_quality GROUP BY 1 ORDER BY 1",
+          "rawSql": "SELECT CASE WHEN checked_at > now() THEN 'future timestamp' WHEN checked_at >= now() - interval '7 days' THEN '0\u20137 days' WHEN checked_at >= now() - interval '30 days' THEN '7\u201330 days' ELSE '30+ days' END AS check_age, count(*) AS releases FROM (SELECT greatest(last_synchronized_at, last_reconciled_at) AS checked_at FROM catalogue.observability_release_quality) q GROUP BY 1 ORDER BY 1",
           "format": "table",
           "editorMode": "code",
           "rawQuery": true
@@ -1337,7 +1337,7 @@
     {
       "title": "Oldest evidence timestamps",
       "type": "table",
-      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Null verification timestamps do not mean verification happened.",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Changed is the last published change; checked is the last committed reconciliation, empty before #267 recorded any. Null verification timestamps do not mean verification happened.",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "private-dev-postgres"
@@ -1349,7 +1349,7 @@
             "type": "grafana-postgresql-datasource",
             "uid": "private-dev-postgres"
           },
-          "rawSql": "SELECT min(last_synchronized_at) AS oldest_synchronized, max(last_synchronized_at) AS newest_synchronized, min(last_verified_at) AS oldest_verified, count(last_verified_at) AS verified_timestamps FROM catalogue.observability_release_quality",
+          "rawSql": "SELECT min(last_synchronized_at) AS oldest_changed, max(last_synchronized_at) AS newest_changed, min(last_reconciled_at) AS oldest_checked, max(last_reconciled_at) AS newest_checked, min(last_verified_at) AS oldest_verified, count(last_verified_at) AS verified_timestamps FROM catalogue.observability_release_quality",
           "format": "table",
           "editorMode": "code",
           "rawQuery": true

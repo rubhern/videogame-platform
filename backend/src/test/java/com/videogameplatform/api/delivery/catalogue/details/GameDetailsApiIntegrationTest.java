@@ -279,7 +279,9 @@ class GameDetailsApiIntegrationTest {
         assertThat(release.path("stage").asString()).isEqualTo("unknown");
         assertThat(release.path("provenance").path("sourceKind").asString())
                 .isEqualTo("official_source");
-        assertThat(release.path("freshnessStatus").asString()).isEqualTo("stale");
+        // Synchronization timing is internal operational evidence, never player-facing (#267).
+        assertThat(release.has("freshnessStatus")).isFalse();
+        assertThat(release.has("lastSyncedAt")).isFalse();
         assertThat(body.has("personalRating")).isFalse();
         assertThat(response.headers().firstValue("Set-Cookie")).isEmpty();
         assertThat(response.headers().firstValue("X-Content-Type-Options")).contains("nosniff");

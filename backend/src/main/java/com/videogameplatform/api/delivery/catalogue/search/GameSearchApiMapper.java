@@ -13,7 +13,6 @@ import com.videogameplatform.api.generated.model.Region;
 import com.videogameplatform.api.generated.model.ReleaseSummary;
 import com.videogameplatform.api.generated.model.UnknownReleaseDate;
 import com.videogameplatform.api.generated.model.YearReleaseDate;
-import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueResult;
@@ -84,8 +83,7 @@ final class GameSearchApiMapper {
                 new Platform(context.platform().id(), context.platform().name()),
                 new Region(context.region().id(), context.region().name()),
                 toReleaseDate(context.releaseDate()),
-                toStatus(context.status()),
-                toFreshnessStatus(context.freshnessStatus()));
+                toStatus(context.status()));
     }
 
     private static com.videogameplatform.api.generated.model.ReleaseDate toReleaseDate(
@@ -107,13 +105,6 @@ final class GameSearchApiMapper {
             case DELAYED -> ReleaseSummary.StatusEnum.DELAYED;
             case CANCELLED -> ReleaseSummary.StatusEnum.CANCELLED;
             case UNKNOWN -> ReleaseSummary.StatusEnum.UNKNOWN;
-        };
-    }
-
-    private static ReleaseSummary.FreshnessStatusEnum toFreshnessStatus(CatalogueFreshness source) {
-        return switch (source) {
-            case FRESH -> ReleaseSummary.FreshnessStatusEnum.FRESH;
-            case STALE -> ReleaseSummary.FreshnessStatusEnum.STALE;
         };
     }
 }

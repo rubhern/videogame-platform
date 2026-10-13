@@ -23,7 +23,6 @@ const releaseContext = [
     region: { regionId: "region-europe", name: "Europa" },
     releaseDate: { precision: "day", value: "2026-02-27" },
     status: "released",
-    freshnessStatus: "stale",
   },
 ] as const satisfies GameSummary["releaseContext"];
 

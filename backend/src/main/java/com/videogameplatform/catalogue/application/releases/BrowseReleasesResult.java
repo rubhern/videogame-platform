@@ -1,6 +1,5 @@
 package com.videogameplatform.catalogue.application.releases;
 
-import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStage;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
@@ -52,11 +51,9 @@ public record BrowseReleasesResult(
             CatalogueReleaseStatus status,
             Provenance provenance,
             Instant providerUpdatedAt,
-            Instant lastSyncedAt,
             Instant lastVerifiedAt,
             Verification verificationLevel,
             Review reviewStatus,
-            CatalogueFreshness freshnessStatus,
             CatalogueReleaseStage stage) {}
 
     public record Provenance(Source sourceKind, String sourceName, String sourceEntityType) {}

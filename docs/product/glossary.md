@@ -15,7 +15,7 @@
 | Catalogue | Accepted visible games with product-owned identity; a provider result joins it only through the explicit import policy |
 | Import policy | Product rule deciding which provider work types become a game; unsupported types are deferred, not failed |
 | Cover reference | Provider image identifier or product asset reference used without making provider binaries product-owned storage |
-| Verification / review / freshness | Independent axes: evidence level, unresolved ambiguity, and time-policy state |
+| Verification / review / freshness | Independent axes: evidence level, unresolved ambiguity, and internal time-policy state |
 | Rating | One active personal integer score from 1 to 10 for a released game; not a written review |
 | Rating eligibility | Dated decision that a qualifying commercial release permits create/update; delete remains allowed |
 | Aggregate rating | Arithmetic mean to one decimal, count, and distribution from active ratings; separate from personal rating |

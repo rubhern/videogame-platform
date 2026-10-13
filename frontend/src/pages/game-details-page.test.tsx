@@ -297,13 +297,12 @@ describe("public game details", () => {
     expect(await screen.findByText("Lanzamiento completo")).toBeVisible();
     expect(screen.queryByText("Tipo no especificado")).not.toBeInTheDocument();
   });
-  it("preserves uncertain dates, stale review state and a degraded aggregate", async () => {
+  it("preserves uncertain dates, review state and a degraded aggregate", async () => {
     const game = gameDetailsFixture();
     game.releases = game.releases.map((r) => ({
       ...r,
       releaseDate: { precision: "unknown", value: null },
       reviewStatus: "required",
-      freshnessStatus: "stale",
     }));
     game.ratingEligibility = {
       eligible: false,
@@ -322,7 +321,6 @@ describe("public game details", () => {
     expect(
       screen.getByText(/pendiente de revisión\.$/),
     ).toBeVisible();
-    expect(screen.getByText("Datos locales desactualizados")).toBeVisible();
     expect(within(releasesBlock()).getByText("Información pendiente de revisión")).toBeVisible();
     const community = screen.getByRole("region", {
       name: "Puntuación de la comunidad",
@@ -332,7 +330,7 @@ describe("public game details", () => {
     );
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
-  it("states the release sources and the latest synchronization once for the whole block", async () => {
+  it("states the release sources once for the whole block without operational timing", async () => {
     const game = gameDetailsFixture();
     const original = game.releases[0];
     if (!original) throw new Error("Fixture needs a release");
@@ -341,7 +339,6 @@ describe("public game details", () => {
       releaseId: "pc-world",
       platform: { platformId: "pc", name: "Windows PC" },
       provenance: { ...original.provenance, sourceName: "PC source" },
-      lastSyncedAt: "2026-08-10T08:00:00Z",
       verificationLevel: "provider_only",
     });
     serve(game);
@@ -350,7 +347,10 @@ describe("public game details", () => {
       await within(await screen.findByRole("region", { name: "Fechas y plataformas" })).findByText(
         /^Fuentes: Publisher, PC source/,
       ),
-    ).toHaveTextContent("Fuentes: Publisher, PC source · Sincronizado el 10 de agosto de 2026");
+    ).toHaveTextContent(/^Fuentes: Publisher, PC source$/);
+    // Synchronization age is internal operational evidence, never a player-facing notice (#267).
+    expect(screen.queryByText(/Sincronizado/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/desactualizad/i)).not.toBeInTheDocument();
     // Verified evidence is credited on its own record; provider-only records stay quiet.
     expect(within(releasesBlock()).getAllByText("Información verificada")).toHaveLength(1);
   });

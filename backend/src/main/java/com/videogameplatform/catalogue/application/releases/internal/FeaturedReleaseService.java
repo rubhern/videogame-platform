@@ -79,12 +79,7 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
         List<FeaturedReleasesResult.Item> items =
                 java.util.stream.IntStream.range(0, result.items().size())
                         .mapToObj(
-                                index ->
-                                        toItem(
-                                                result.items().get(index),
-                                                index == 0,
-                                                evaluatedAt,
-                                                evaluatedOn))
+                                index -> toItem(result.items().get(index), index == 0, evaluatedOn))
                         .toList();
         return new FeaturedReleasesResult(
                 month, evaluatedOn, window, selection(result, evaluatedAt), items);
@@ -110,8 +105,7 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                 oldest);
     }
 
-    private FeaturedReleasesResult.Item toItem(
-            Item item, boolean hero, Instant evaluatedAt, LocalDate evaluatedOn) {
+    private FeaturedReleasesResult.Item toItem(Item item, boolean hero, LocalDate evaluatedOn) {
         BrowseReleasesResult.Item release =
                 new BrowseReleasesResult.Item(
                         item.gameId(),
@@ -119,13 +113,7 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                         item.canonicalTitle(),
                         coverPolicy.resolve(item.cover()),
                         item.releases().stream()
-                                .map(
-                                        row ->
-                                                CatalogueReleaseMapping.map(
-                                                        row,
-                                                        evaluatedAt,
-                                                        evaluatedOn,
-                                                        freshnessPolicy))
+                                .map(row -> CatalogueReleaseMapping.map(row, evaluatedOn))
                                 .toList(),
                         item.genres());
         return new FeaturedReleasesResult.Item(

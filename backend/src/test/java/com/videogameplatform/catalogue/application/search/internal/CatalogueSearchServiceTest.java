@@ -3,7 +3,6 @@ package com.videogameplatform.catalogue.application.search.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
@@ -11,7 +10,6 @@ import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
-import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueResult;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
 import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
@@ -20,7 +18,6 @@ import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import java.net.URI;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -168,8 +165,7 @@ class CatalogueSearchServiceTest {
                                         PLATFORM,
                                         REGION,
                                         new ReleaseDate.Day(LocalDate.parse("2026-03-18")),
-                                        ReleaseStatus.RELEASED,
-                                        NOW.minus(Duration.ofDays(30)))),
+                                        ReleaseStatus.RELEASED)),
                         new GameSearchReadPort.ReleaseSummary(
                                 List.of(
                                         PLATFORM,
@@ -208,8 +204,7 @@ class CatalogueSearchServiceTest {
                                 new SearchCatalogueResult.Taxonomy("region-1", "Europe"),
                                 new CatalogueReleaseDate(
                                         CatalogueReleaseDate.Precision.DAY, "2026-03-18"),
-                                CatalogueReleaseStatus.RELEASED,
-                                CatalogueFreshness.STALE));
+                                CatalogueReleaseStatus.RELEASED));
         assertThat(result.releaseSummary())
                 .isEqualTo(
                         new SearchCatalogueResult.ReleaseSummary(
@@ -336,7 +331,6 @@ class CatalogueSearchServiceTest {
                                         "Test provider",
                                         URI.create(sourceUrl))),
                 Clock.fixed(NOW, ZoneId.of("Europe/Madrid")),
-                new CatalogueSearchPolicy(3),
-                new CatalogueFreshnessPolicy(Duration.ofDays(7)));
+                new CatalogueSearchPolicy(3));
     }
 }

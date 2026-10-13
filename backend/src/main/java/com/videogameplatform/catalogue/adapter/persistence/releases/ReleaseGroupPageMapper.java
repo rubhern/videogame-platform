@@ -69,7 +69,6 @@ final class ReleaseGroupPageMapper {
                 resultSet.getString("source_name"),
                 resultSet.getString("source_entity_type"),
                 instant(resultSet, "provider_updated_at"),
-                instant(resultSet, "last_synchronized_at"),
                 instant(resultSet, "last_verified_at"),
                 VerificationLevel.fromValue(resultSet.getString("verification_level")),
                 ReviewStatus.fromValue(resultSet.getString("review_status")),
