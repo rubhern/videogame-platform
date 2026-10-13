@@ -326,12 +326,15 @@ the load, with p50 2.1–2.8 s, while drops stayed at 114–144 per interval. Ev
 lasted 3.0 s, the Hikari connection timeout. No statement was cancelled and no
 temporary file was written. Errors were spread over release and detail cases.
 
-- **Demonstrated:** `normal` at 5 req/s for 60 s without errors or drops.
+- **Demonstrated:** the later five-minute reference below completed `normal` at
+  12 req/s without errors or drops; the earlier 5 req/s run lasted 60 seconds.
 - **Saturation observed:** at 25 offered req/s, PostgreSQL consumed its whole
   1-CPU quota and completed about 11 req/s with multi-second latency; Hikari
   queued up to 20 waiters and timed out 39 acquisitions. This is a saturated
   plateau under this generator configuration, not a sustainable capacity.
-- **Not established:** the highest error-free rate between 5 and about 11 req/s.
+- **Not established:** the highest sustainable error-free rate. The later 12 req/s
+  reference used the corrected SUT and a different window; the earlier saturated
+  plateau is not an upper capacity bound.
   Drops are a closed-loop consequence: about 64 VUs (25 req/s × 2.55 s) would
   have been needed to sustain the arrivals, so the server never received
   25 req/s. Hikari 10 below 30 VUs moves the queue into the pool. Snapshot
@@ -354,27 +357,139 @@ general) as `CatalogueReadException`, so the documented 503
 `CATALOGUE_READ_FAILED` covers both cases; timeouts, Hikari, SQL and OpenAPI are
 unchanged. `w943jpoq` ran `0.29.0-SNAPSHOT` and predates the correction.
 
-**Next minimal test (proposed, not approved).** After the corrected image is deployed,
-measure the error-free boundary between 5 and about 11 req/s with `normal`
-unchanged, for example 10 req/s with `--vus 60`, so the generator does not cap
-arrivals. Pool sizing, SQL optimization and timeout changes remain separate
-decisions supported by such a measurement.
+### Five-minute serving reference
+
+The owner executed `remote-capacity-ar4bukx5` on 2026-10-13 with the unchanged
+`normal` profile, 12 req/s for 300 seconds and 30 VUs on `growth`.
+The same [capacity evidence](remote-capacity-evidence.json) owns its exact
+per-case distribution, SUT revision/digest, percentiles, resource deltas, clock
+audits, restoration receipt and raw-file checksums. Raw evidence was recovered
+from the original capacity worktree and remains ignored.
+
+All 3,600 requests and 14,400 checks passed, with no errors, timeouts or dropped
+iterations. Global p50/p95/p99 were 46/145/226 ms. PostgreSQL averaged about 46%
+of its unchanged one-CPU quota over the 312-second server observation bracket;
+this includes collection overhead beyond k6's 300 seconds. Hikari had no observed
+pending connections or acquisition timeouts. There were no deadlocks, temporary
+files, statement cancellations or observed ungranted locks. CPU throttling and
+memory-limit events still occurred without OOM, so the average CPU use does not
+prove absence of short pressure spikes.
+
+The corrected `0.29.1-SNAPSHOT` image ran at deployed revision `34a8d8e`;
+this differs from the earlier saturation pilot. Private data and the rating
+fingerprint were unchanged after restoration, dependencies were unchanged,
+readiness was `UP`, and the disposable DB was removed. This is an experimental
+five-minute reference, not guaranteed production capacity, a long soak, or
+background-interference evidence. No optimization follows from this slice.
 
 ## Prepared background scenarios; not executed
 
 The native launcher also supports the separate `authenticated` and `mixed`
-modules through configuration/user-file paths. The remote smoke orchestrates their
-full identity lifecycle; longer authenticated capacity budgets remain an explicit
-next-phase choice rather than promoting this serialized functional recipe.
+modules; their capacity budgets remain a separate choice.
 
-`--scenario serving-sync-reuse` and `--scenario serving-sync-inference` are prepared
-adapters for the existing fixture provider and reset SQL, with a bounded two-Game,
-four-Release input and real loaded localizer. They use internal networking only,
-fixture credentials instead of the protected real provider, and dispatch a single
-manual sync after the Windows process starts. **Neither was executed in this
-phase.** Before interpreting a later comparison, verify equal acquired state and
-payload, actual overlap, reused/inferred outcome meters and helper evidence; the
-remote adapter does not yet reproduce the local checksum-identical dump checkpoint
-or local calibrated four-Game overlap evidence. Fixture latency never represents
-real IGDB latency, throughput or cost. Schedules remain disabled during each future
-measurement and restored afterward. No optimization or resource change is proposed.
+The original remote adapter already provided an internal fixture provider,
+fixture credentials, a real application manual sync, localization checkpoint
+reset, sampling, a disposable database, deployment lock and receipt-based
+restoration. Its two-Game/four-Release input demonstrated protocol composition,
+but no remote duration or HTTP overlap was measured. The current sequential
+adapter needs roughly six provider API requests for that input; at the unchanged
+default 3 calls/s its pacing component is about 1.7 seconds. That is an estimate,
+not measured internal CPU/database time, and is too short to rely on with coarse
+server sampling. No remote sync experiment has been run in this change.
+
+### Bounded reuse work and evidence controls
+
+`--scenario serving-sync-reuse` now uses a fixed 64-Game/128-Release fixture,
+derived from the same provider test payloads, with two shared summaries and two
+taxonomy texts. The fixture builder owns cardinality and payload digest. Public
+`normal` cases, their distribution, infrastructure quotas, SQL, Hikari and JVM
+settings are unchanged. Games are processed by the existing sequential application
+flow, including provider mapping, reconciliation, real PostgreSQL transactions,
+projection updates and cached Spanish publication. Online bounds remain the
+existing 500-row provider page, one Game acquisition at a time and two releases
+per fixture Game; fixture storage and ledger are finite.
+
+Preparation seeds exactly four resolved translations in the OID/marker/schema
+guarded experimental database, labelled `performance-offline-fixture`.
+It blocks the application's translation endpoint on closed loopback, including
+during preparation: no real model invocation is needed or permitted. It acquires
+the fixture cohort, resets publication links with the existing guarded SQL,
+measures one reuse calibration without k6, then resets the same links again for
+the measured work. `background-preparation.json` retains warm-up, calibration
+duration/result and immutable input digest. Calibration is a reference, not a
+guarantee under simultaneous reads; it does not change the cohort automatically.
+
+One release-window page, one logo lookup and two API calls per Game give about
+130 API calls. At the unchanged default 3 calls/s, pacing alone suggests roughly
+43 seconds, leaving a useful window in the planned 60-second run. Real mapping,
+writes and contention add time; actual runtime and the configured pacing are
+evidence, not assumed CPU pressure. No fixture sleeps, parallelism or extra
+infrastructure are introduced. The fixture server still never forwards and
+retains its original resource and 1,000-request ledger limits.
+
+The measured manual sync is dispatched five seconds after native k6 process
+startup. Process startup is only coordination; it is never taken as proof of
+HTTP overlap. The host saves its start receipt before dispatch and records finish,
+command duration, application `startedAt/completedAt`, outcome and counters,
+durable last-run report, localization deltas and bounded provider ledger, including
+on command failure. An immediate SSH clock exchange brackets host/controller
+UTC offset before measurement; independent generator/host clock audits remain
+required. k6 request intervals are reconstructed from actual completion timestamps
+and `http_req_duration`, which excludes connection setup.
+
+`evidence.json` and `interference-report.md` separate before/during/after and
+uncertain boundary requests, with counts, errors and percentiles. They report
+conservative overlap seconds/fraction, intersecting requests and server samples
+starting within the real application sync window. The declared exploratory
+sufficiency controls are at least **10 seconds, 50 fully contained requests and
+two server samples**, stable clocks, successful complete cohort processing,
+no observation failures, zero translated/failed localization deltas and at least
+64 reused summaries. These are experiment usability criteria, not a product SLO.
+Insufficient overlap or failed controls explicitly prohibit attributing degradation
+to synchronization; even passed controls establish correlation only.
+
+Existing before/after/periodic evidence retains PostgreSQL activity, locks,
+transactions/buffers/temp/deadlock counters, JVM heap/GC/threads, Hikari, cgroup
+CPU/throttling/memory/I/O and physical-host pressure. Samples are sequential and
+coarse, can miss short waits, and add overhead. Localization meters are read by
+bounded outcome tags. Full original application environment equality is now checked
+during restoration; the protected runtime-file hash, scheduling, private counts
+and rating fingerprint, dependency identities/limits and ownership cleanup remain
+required. The report incorporates the restoration receipt only after recovery.
+Sampling failure cannot skip application restoration; failed restoration produces
+`recovery-required.json` and retains the owned host receipts.
+
+### Owner's next manual exploration
+
+After review, merge and a separately authorized maintenance window, run exactly
+one exploration; **it has not been executed**:
+
+```bash
+# Use the exact deployed full SHA after a read-only plan; never infer it from checkout HEAD.
+python3 tools/performance/remote.py capacity \
+  --revision "$DEPLOYED_SHA" --approved-maintenance-window \
+  --workload-profile normal --scenario serving-sync-reuse \
+  --rate 10 --duration-seconds 60 --vus 30
+```
+
+The underlying growth seed remains 50,000 Games/200,000 Releases/500,000 Ratings;
+preparation adds 64 acquired fixture Games and 128 Releases to that disposable
+database. No real IGDB calls or inference occur. Shared PostgreSQL remains the
+contention surface; private-dev data is isolated but normal private-dev use must
+stop during the existing application maintenance window.
+
+This fixed workload emphasizes refresh/reconciliation and publication from cache.
+It does not represent unique-summary inference, new-catalogue import, large
+release fan-out, historical backfill, provider latency/retries or all kinds of
+locking. Most of the expected wall time may be application rate-limiter pacing;
+duration alone cannot establish database pressure. A single exploratory run has
+no matched serving-only control at the same rate/window, and the five-minute
+12 req/s reference is not that control. If work outlasts k6, HTTP recovery after
+sync is unobserved and must be reported as such; restored readiness and data are
+separate recovery evidence.
+
+`--scenario serving-sync-inference` retains the original two-Game/four-Release
+real-helper preparation and remains unexecuted and outside this next experiment.
+Neither remote scenario reproduces the local checksum-identical dump comparison.
+Schedules and original provider/translation settings are restored after each
+window. No SQL, pool, JVM or quota tuning is part of this preparation.

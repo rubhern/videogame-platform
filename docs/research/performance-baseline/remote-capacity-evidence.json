@@ -956,6 +956,572 @@
         "case": "upcoming_approximate",
         "durationMs": 6968.0
       }
+    },
+    {
+      "run": "remote-capacity-ar4bukx5",
+      "observedOnUtc": "2026-10-13",
+      "purpose": "five-minute-public-serving-reference",
+      "harnessRevision": "07a92afde2d40b036418401374f16e5ecb2eaa53",
+      "scriptsSha256": {
+        "baseline.js": "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
+        "mixed.js": "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
+        "windows-k6.ps1": "f984f7207c24a4e85ddaac89d6ab7ff4e11eb0ae716c4a61758e5faca4e2456f",
+        "remote_worker.py": "7466cf69ac84d5d5236ddaa0387b41d9809492c6c92d9e79b262cb49e24b45ee"
+      },
+      "sutRevision": "34a8d8ea8f325f5a24712fdd8af7bbeb9d5efbdc",
+      "sutImage": "ghcr.io/rubhern/videogame-platform@sha256:91016218fcfd24674d7d7b4c396c4d979080cf1c1b822f8be8143f05414e9a9e",
+      "applicationVersion": "0.29.1-SNAPSHOT",
+      "workloadProfile": "normal",
+      "cases": 17,
+      "requestDistribution": {
+        "releases_recent": 212,
+        "releases_upcoming": 212,
+        "releases_featured": 212,
+        "recent_pc": 212,
+        "recent_multi_filters": 212,
+        "upcoming_north_america": 212,
+        "upcoming_approximate": 212,
+        "recent_deep": 212,
+        "upcoming_deep": 212,
+        "search_selective": 212,
+        "search_alias": 212,
+        "search_accent": 212,
+        "search_normalized": 212,
+        "detail_fanout_1": 211,
+        "detail_fanout_2": 211,
+        "detail_fanout_3": 211,
+        "detail_fanout_10": 211
+      },
+      "evaluatedOn": "2026-10-13",
+      "rate": 12,
+      "durationSeconds": 300,
+      "vus": {
+        "preAllocated": 30,
+        "max": 30
+      },
+      "datasetCounts": {
+        "games": 50000,
+        "ratings": 500000,
+        "regions": 5,
+        "releases": 200000,
+        "platforms": 10,
+        "rated_games": 40000,
+        "visible_games": 50000,
+        "approved_aliases": 10000,
+        "visible_releases": 200000,
+        "current_revisions": 1,
+        "games_with_genres": 50000,
+        "users_with_ratings": 4020
+      },
+      "datasetSettle": {
+        "method": "VACUUM (ANALYZE) of the experiment database, then no autovacuum/vacuum progress there for the quiet window",
+        "quietSeconds": 30,
+        "vacuumSeconds": 5.008,
+        "settleSeconds": 35.668
+      },
+      "http": {
+        "http_reqs": {
+          "count": 3600,
+          "rate": 11.999995808001465
+        },
+        "checks": {
+          "rate": 1,
+          "passes": 14400,
+          "fails": 0
+        },
+        "http_req_failed": {
+          "rate": 0,
+          "passes": 0,
+          "fails": 3600
+        },
+        "http_req_duration": {
+          "med": 45.80435,
+          "p(95)": 145.24523,
+          "p(99)": 226.05500299999997,
+          "max": 653.0235,
+          "count": 3600,
+          "avg": 53.21881955555552,
+          "min": 5.8788
+        },
+        "response_timeouts": {
+          "count": 0,
+          "rate": 0
+        },
+        "dropped_iterations": {
+          "count": 0,
+          "rate": 0
+        },
+        "iterations": {
+          "count": 3600,
+          "rate": 11.999995808001465
+        }
+      },
+      "perCase": {
+        "releases_recent": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "max": 130.8638,
+            "count": 212,
+            "avg": 53.24088113207546,
+            "min": 38.119,
+            "med": 51.00995,
+            "p(95)": 65.782045,
+            "p(99)": 73.36672
+          }
+        },
+        "releases_upcoming": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "med": 50.22065,
+            "p(95)": 65.06904499999999,
+            "p(99)": 102.23196199999983,
+            "max": 140.008,
+            "count": 212,
+            "avg": 51.990326415094344,
+            "min": 36.1637
+          }
+        },
+        "releases_featured": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "p(99)": 119.98470699999969,
+            "max": 143.8611,
+            "count": 212,
+            "avg": 34.383096226415105,
+            "min": 22.7541,
+            "med": 30.089750000000002,
+            "p(95)": 45.437709999999996
+          }
+        },
+        "recent_pc": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "p(95)": 80.525555,
+            "p(99)": 152.46766399999973,
+            "max": 414.5642,
+            "count": 212,
+            "avg": 71.4091481132076,
+            "min": 49.3548,
+            "med": 71.19775
+          }
+        },
+        "recent_multi_filters": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "min": 65.1091,
+            "med": 83.18865,
+            "p(95)": 107.08639499999997,
+            "p(99)": 172.87217399999966,
+            "max": 438.4602,
+            "count": 212,
+            "avg": 85.79470896226412
+          }
+        },
+        "upcoming_north_america": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "min": 22.2177,
+            "med": 27.10905,
+            "p(95)": 44.326919999999994,
+            "p(99)": 89.06689199999995,
+            "max": 102.4912,
+            "count": 212,
+            "avg": 31.238825471698124
+          }
+        },
+        "recent_deep": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 212,
+            "avg": 95.81530896226411,
+            "min": 55.8248,
+            "med": 86.36695,
+            "p(95)": 188.816415,
+            "p(99)": 271.82747599999954,
+            "max": 390.2406
+          }
+        },
+        "search_alias": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 212,
+            "avg": 13.696298584905671,
+            "min": 7.3135,
+            "med": 12.00845,
+            "p(95)": 20.462354999999985,
+            "p(99)": 55.77358399999996,
+            "max": 121.6769
+          }
+        },
+        "search_selective": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "min": 11.1208,
+            "med": 14.72925,
+            "p(95)": 41.52519999999998,
+            "p(99)": 93.09680499999982,
+            "max": 210.2823,
+            "count": 212,
+            "avg": 19.43413867924528
+          }
+        },
+        "upcoming_approximate": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "med": 149.08595,
+            "p(95)": 242.06666999999996,
+            "p(99)": 413.73111899999986,
+            "max": 653.0235,
+            "count": 212,
+            "avg": 160.8291136792453,
+            "min": 101.8315
+          }
+        },
+        "upcoming_deep": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "max": 410.8683,
+            "count": 212,
+            "avg": 104.40757405660372,
+            "min": 64.3751,
+            "med": 85.82275,
+            "p(95)": 212.75126499999973,
+            "p(99)": 297.11015799999967
+          }
+        },
+        "search_accent": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "p(95)": 88.97387,
+            "p(99)": 221.32506699999902,
+            "max": 340.1221,
+            "count": 212,
+            "avg": 72.58198443396225,
+            "min": 48.8485,
+            "med": 71.23910000000001
+          }
+        },
+        "detail_fanout_2": {
+          "requests": 211,
+          "checksPassed": 844,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 211
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "med": 10.5631,
+            "p(95)": 16.174599999999998,
+            "p(99)": 63.36123000000018,
+            "max": 91.2021,
+            "count": 211,
+            "avg": 11.655386729857817,
+            "min": 6.4756
+          }
+        },
+        "detail_fanout_1": {
+          "requests": 211,
+          "checksPassed": 844,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 211
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "max": 172.988,
+            "count": 211,
+            "avg": 11.415490995260663,
+            "min": 6.2637,
+            "med": 8.3427,
+            "p(95)": 15.7895,
+            "p(99)": 64.70309000000005
+          }
+        },
+        "search_normalized": {
+          "requests": 212,
+          "checksPassed": 848,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 212
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 212,
+            "avg": 63.69941792452826,
+            "min": 45.5163,
+            "med": 58.5687,
+            "p(95)": 90.28800999999986,
+            "p(99)": 184.84585799999994,
+            "max": 257.1757
+          }
+        },
+        "detail_fanout_3": {
+          "requests": 211,
+          "checksPassed": 844,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 211
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "count": 211,
+            "avg": 11.011882464454972,
+            "min": 5.8788,
+            "med": 10.4107,
+            "p(95)": 16.6391,
+            "p(99)": 28.711860000000026,
+            "max": 75.3074
+          }
+        },
+        "detail_fanout_10": {
+          "requests": 211,
+          "checksPassed": 844,
+          "checksFailed": 0,
+          "statuses": {
+            "200": 211
+          },
+          "errors": {},
+          "timeouts": 0,
+          "percentilesMs": {
+            "p(95)": 17.00445,
+            "p(99)": 23.3948,
+            "max": 31.3451,
+            "count": 211,
+            "avg": 11.32641516587678,
+            "min": 6.7703,
+            "med": 11.119
+          }
+        }
+      },
+      "signals": {
+        "snapshotCount": 33,
+        "snapshotWindowSeconds": 311.75375747680664,
+        "observationFailures": [],
+        "postgresql": {
+          "cpuSeconds": 141.865813,
+          "meanCpuOfOneCpuQuota": 0.45505726746711084,
+          "cpuStatDelta": {
+            "usage_usec": 141865813,
+            "user_usec": 136866539,
+            "system_usec": 4999274,
+            "core_sched.force_idle_usec": 0,
+            "nr_periods": 3027,
+            "nr_throttled": 351,
+            "throttled_usec": 18775772,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "memoryEventsDelta": {
+            "low": 0,
+            "high": 0,
+            "max": 493,
+            "oom": 0,
+            "oom_kill": 0,
+            "oom_group_kill": 0
+          },
+          "databaseCountersDelta": {
+            "xact_commit": 16344,
+            "xact_rollback": 0,
+            "blks_read": 8956,
+            "blks_hit": 45246737,
+            "temp_files": 0,
+            "temp_bytes": 0,
+            "deadlocks": 0
+          },
+          "ungrantedLocksObservedMaximum": 0
+        },
+        "application": {
+          "cpuStatDelta": {
+            "usage_usec": 56010031,
+            "user_usec": 48523130,
+            "system_usec": 7486901,
+            "core_sched.force_idle_usec": 0,
+            "nr_periods": 3052,
+            "nr_throttled": 9,
+            "throttled_usec": 840596,
+            "nr_bursts": 0,
+            "burst_usec": 0
+          },
+          "heapUsedBytesRange": [
+            98715656.0,
+            162974200.0
+          ],
+          "gcPauseCountDelta": 23.0,
+          "gcPauseTotalMillisecondsDelta": 333.0,
+          "hikari": {
+            "max": 10.0,
+            "activeObservedMaximum": 3.0,
+            "pendingObservedMaximum": 0.0,
+            "timeoutCountDelta": 0.0
+          }
+        },
+        "applicationLog": {
+          "levels": {
+            "INFO": 3600
+          },
+          "unparsedLines": 0,
+          "warnOrErrorEvents": 0
+        },
+        "postgresLog": {
+          "statementCancellations": 0,
+          "temporaryFileLines": 0,
+          "errorLines": 0,
+          "fatalLines": 0
+        }
+      },
+      "clockAudit": {
+        "generator": {
+          "samples": 1138,
+          "backsteps": [],
+          "discontinuities": [],
+          "maxAbsoluteDifferenceSeconds": 0.0040186443366110325
+        },
+        "lenovo": {
+          "samples": 1213,
+          "backsteps": [],
+          "discontinuities": [],
+          "maxAbsoluteDifferenceSeconds": 1.3169832527637482e-05
+        },
+        "http": {
+          "httpSamples": 3600,
+          "backsteps": [],
+          "concurrentReorderings": [],
+          "rawMetricsAvailable": true
+        },
+        "stableDuringObservedWindow": true
+      },
+      "generatorExit": {
+        "phase": "Run",
+        "exitCode": 0
+      },
+      "restoration": {
+        "privateDataUnchanged": true,
+        "privateAfter": {
+          "games": 21036,
+          "releases": 37529,
+          "ratings": 22,
+          "syncRuns": 27,
+          "runningSyncs": 0,
+          "ratingsFingerprint": "f5f43250abd22a3ab4738c69be778cdf"
+        },
+        "unexpectedExperimentalRatings": 0,
+        "databaseRetainedForReview": false,
+        "syntheticUsersRemoved": 0,
+        "readiness": {
+          "status": "UP"
+        },
+        "dependenciesUnchanged": true
+      },
+      "rawEvidenceSha256": {
+        "target.json": "dbf2b9aff8f5453d056e7e4b9aa384a1eaa48b9d74030c3e46efafee838fc54e",
+        "manifest.json": "65b8aeebc8c4525be64b33001baa0d1a187acaa6dd4fc0d3279d75bd1792c7f7",
+        "workload.json": "e3200d3ad84fefa3e02746380efa2a4575797579fbf2af34647eee901d062a93",
+        "evidence.json": "49146699b29e55293f0f156be164b8921d3c726c2d7648cf000228f9499863b1",
+        "before.json": "98b04e2f8f69876d26acfc8b95e69763b6fbfa1d5d7f06528d556f4708b11bc7",
+        "after.json": "259f7424e8b7ba4faa7e1ef16b576979dcb31946cafd77dd8441d698c095fd71",
+        "observation.json": "f35aa355484b49cf685546f57e8d36e3f9e2e1380ca0145f5b410779bde57a55",
+        "restoration.json": "14edf4fe329fdecdd6a947b3a1053c839d25f013f006a2b3addd305b880fc703",
+        "metrics.json": "cb588693df87d1a48e8cd0d686173f5091de09a402fc7da5c69e19ea130b0c23",
+        "summary.json": "a214d19f9df597a6f85ef563234321f3aa6e00c252f6a38911e0cdfe29332ad4",
+        "settle.json": "cd2e1bc2bf5c8065b7c65d32ce2a7176cef38db757841063976324fffefdc3e8"
+      },
+      "limitations": [
+        "Single experiment, not guaranteed production capacity or a long soak.",
+        "No synchronization, inference or authenticated writes during this window.",
+        "CPU mean uses the server snapshot window including collection overhead, not exactly the 300-second k6 budget.",
+        "Hikari waits and locks are sampled; transient waits between observations may be missed.",
+        "This run uses the corrected deployed image and a later evaluation date than the earlier 25 req/s pilot.",
+        "Shared PostgreSQL caches/WAL and BFF sessions are not restored to their previous process state."
+      ]
     }
-  ]
+  ],
+  "sutMetadataScope": "Top-level SUT identifies the initial pilots; a per-run SUT, when present, overrides it."
 }

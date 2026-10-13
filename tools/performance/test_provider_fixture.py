@@ -3,7 +3,7 @@ import datetime
 from pathlib import Path
 import unittest
 
-from provider_fixture import build_input, response_for
+from provider_fixture import build_input, build_reuse_input, response_for, digest
 
 
 class ProviderProtocol(unittest.TestCase):
@@ -26,6 +26,20 @@ class ProviderProtocol(unittest.TestCase):
         self.assertEqual([850002, 850002], [row['game'] for row in rows])
         self.assertEqual([], response_for(self.data, '/v4/logos',
             'fields game,image_id; where game = (850002) & id > 0; sort id asc; limit 100;'))
+
+    def test_reuse_cohort_is_bounded_deterministic_and_uses_two_cached_summaries(self):
+        data = build_reuse_input(Path(__file__).resolve().parents[2], '2026-10-07')
+        self.assertEqual(64, len(data['games']))
+        self.assertEqual(128, len(data['releaseDates']))
+        self.assertEqual(64, len({game['id'] for game in data['games']}))
+        self.assertEqual(2, len({game['summary'] for game in data['games']}))
+        self.assertEqual(data['payloadSha256'], digest({k: v for k, v in data.items() if k != 'payloadSha256'}))
+        self.assertEqual(data, build_reuse_input(Path(__file__).resolve().parents[2], '2026-10-07'))
+        query = 'fields game,image_id; where game = (' + ','.join(str(g['id']) for g in data['games']) + ') & id > 0; sort id asc; limit 100;'
+        self.assertEqual([], response_for(data, '/v4/logos', query))
+        rows = response_for(data, '/v4/release_dates',
+            f"fields id,game; where date >= {data['releaseDates'][0]['date']} & date < {data['releaseDates'][0]['date'] + 86400} & game > 850060; sort game asc; limit 500;" )
+        self.assertEqual([850061,850061,850062,850062,850063,850063,850064,850064], [row['game'] for row in rows])
 
     def test_unknown_unbounded_and_remote_paths_fail_closed(self):
         for path, query in [('/v4/games', 'fields id; limit 501;'),

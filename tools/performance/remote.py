@@ -18,6 +18,7 @@ import urllib.parse
 
 import authenticated as a
 import baseline as b
+import remote_interference as interference
 
 ALIAS='videogame-platform-lenovo'
 REVISION='8cb6071127b65c78fc74609502df4b4189b055d2'
@@ -154,6 +155,9 @@ def report(directory,observation):
             'observationFailures':observation['failures'],
             'applicationLog':{k:v for k,v in observation.get('applicationLog',{}).items() if k!='events'},
             'postgresLog':observation.get('postgresLog'),'capacityInterpretationAllowed':False}
+    if (directory/'background.json').exists():
+        result['interference']=interference.correlate(directory,observation,stable)
+        (directory/'interference-report.md').write_text(interference.markdown(result['interference']))
     b.write(directory/'evidence.json',result)
     return result
 
@@ -197,12 +201,20 @@ def execute(args):
         b.write(directory/'workload.json',workload)
         b.write(directory/'manifest.json',{'sourceRevision':b.command('git','-C',str(b.ROOT),'rev-parse','HEAD'),
             'purpose':'functional-only' if args.command!='capacity' else 'owner-selected-capacity-pilot',
-            'scriptsSha256':{p:hashlib.sha256((b.TOOL/p).read_bytes()).hexdigest() for p in ['baseline.js','authenticated.js','mixed.js','windows-k6.ps1','remote_worker.py']}})
+            'scriptsSha256':{p:hashlib.sha256((b.TOOL/p).read_bytes()).hexdigest() for p in ['baseline.js','authenticated.js','mixed.js','windows-k6.ps1','remote_worker.py','provider_fixture.py','interference-state.sql','remote_interference.py']}})
         with tempfile.TemporaryDirectory(prefix='vgp-remote-private-') as protected:
             users=Path(protected)/'users.json'
             if private: b.write(users,private); os.chmod(users,0o600)
             native('Inspect',directory,mode,users if private else None)
             b.write(directory/'before.json',remote.call('start_observation')); observing=True
+            if args.command=='capacity' and args.scenario!='serving-only':
+                before_clock=time.time()
+                host_clock=remote.call('clock')
+                after_clock=time.time()
+                b.write(directory/'clock-bridge.json',{'controllerStarted':before_clock,
+                    'controllerFinished':after_clock,'host':host_clock,
+                    'hostMinusControllerSeconds':[host_clock['wallSeconds']-after_clock,
+                                                  host_clock['wallSeconds']-before_clock]})
             native_failure=None
             try:
                 with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -225,6 +237,8 @@ def execute(args):
                 b.write(directory/'application-errors.json',observation.get('applicationLog'))
             result=report(directory,observation)
             if native_failure: raise native_failure
+            if result.get('interference') and not result['interference'].get('successfulWorkVerified'):
+                raise RuntimeError('Background synchronization failed; raw lifecycle and restoration retained')
             if result['http']['checks'].get('fails') or result['generatorExit']['exitCode'] or not result['clockAudit']['stableDuringObservedWindow']:
                 raise RuntimeError('Functional or clock audit failed; raw evidence retained')
         return directory
@@ -232,7 +246,20 @@ def execute(args):
         if observing:
             try: b.write(directory/'observation.json',remote.call('stop_observation'))
             except Exception: pass
-        try: b.write(directory/'restoration.json',remote.call('restore'))
+        try:
+            receipt=remote.call('restore')
+            b.write(directory/'restoration.json',receipt)
+            if (directory/'evidence.json').exists():
+                result=json.loads((directory/'evidence.json').read_text())
+                result['restoration']=receipt
+                if result.get('interference'):
+                    result['interference']['restoration']=receipt
+                    (directory/'interference-report.md').write_text(interference.markdown(result['interference']))
+                b.write(directory/'evidence.json',result)
+        except Exception as error:
+            b.write(directory/'recovery-required.json',{'status':'restoration-failed','errorType':type(error).__name__,
+                    'procedure':'Use recover with this exact evidence directory; inspect the owned host receipt.'})
+            raise
         finally: remote.close()
 
 

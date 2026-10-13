@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Private-dev adapter for the existing harness. JSON RPC over owner SSH; no listener."""
 import argparse
+import datetime
 import fcntl
 import hashlib
 import importlib.machinery
@@ -153,6 +154,7 @@ COMMIT;"""))
             runtimeSha256=hashlib.sha256(Path(ENV).read_bytes()).hexdigest(),
             origin=s['APPLICATION_PUBLIC_ORIGIN'], keycloakOrigin=s['OIDC_ISSUER_URI'].split('/realms/')[0],
             cookieName=s['APPLICATION_SESSION_COOKIE_NAME'], originalScheduling=s['CATALOGUE_SYNC_SCHEDULING_ENABLED'],
+            originalEnvironmentSha256=hashlib.sha256(json.dumps(s,sort_keys=True).encode()).hexdigest(),
             dependencies={name:{'id':r['Id'],'imageId':r['Image'],'memory':r['HostConfig']['Memory'],'cpu':r['HostConfig']['NanoCpus'],'configHash':r['Config']['Labels'].get('com.docker.compose.config-hash')} for name,r in rows.items() if name!='application'},
             applicationLimits={'memory':app['HostConfig']['Memory'],'cpu':app['HostConfig']['NanoCpus']})
         self.state['physicalHost']={'kernel':command('uname','-r'),'os':Path('/etc/os-release').read_text(),
@@ -258,11 +260,13 @@ COMMIT;"""))
         return {'readiness':self.actuator('health/readiness'),'candidateId':app['Id'],'scheduling':False}
 
     def background_prepare(self, scenario):
-        """Prepare the existing two-game fixture/checkpoint; invoked only by a later explicit scenario."""
+        """Prepare bounded fixture acquisition; reuse never needs a translation helper call."""
         require(scenario in ['serving-sync-reuse','serving-sync-inference'] and self.state['phase']=='active','Unsupported background scenario')
         self.boundary()
-        from provider_fixture import build_input
-        fixture=build_input(ROOT,2,self.state['referenceDate'])
+        from provider_fixture import build_input, build_reuse_input
+        reuse=scenario=='serving-sync-reuse'
+        fixture=(build_reuse_input(ROOT,self.state['referenceDate']) if reuse
+                 else build_input(ROOT,2,self.state['referenceDate']))
         atomic(self.directory/'provider-input.json',fixture)
         os.chmod(self.directory/'provider-input.json',0o444)
         provider='vgp-performance-85-provider-'+self.directory.name.removeprefix('vgp-performance-85-')
@@ -285,7 +289,12 @@ COMMIT;"""))
             env[key]=destination
         env['IGDB_TOKEN_URI']='http://'+provider+':8093/oauth2/token'
         env['IGDB_API_BASE_URI']='http://'+provider+':8093/v4/'
+        if reuse:
+            # Fail closed: a cache miss cannot call the real model even during preparation.
+            env['CATALOGUE_TRANSLATION_ENDPOINT']='http://127.0.0.1:9/translate'
+            self.seed_reuse_cache(fixture)
         atomic(self.directory/'override.json',override)
+        self.state['noInference']=reuse; self.save()
         self.recreate_experiment()
         calibration=self.background_sync()
         require(calibration['report']['outcome']=='SUCCEEDED','Bounded fixture warm-up failed')
@@ -293,7 +302,17 @@ COMMIT;"""))
         self.sql("CREATE TABLE performance_data.interference_game(provider_id text PRIMARY KEY); INSERT INTO performance_data.interference_game SELECT unnest(:'ids'::text[]); CREATE TABLE performance_data.interference_fingerprint(fingerprint varchar(64) PRIMARY KEY); INSERT INTO performance_data.interference_fingerprint SELECT catalogue.spanish_source_fingerprint(g.summary_text) FROM catalogue.game_snapshot g JOIN catalogue.game_external_reference r USING(game_id) JOIN performance_data.interference_game i ON i.provider_id=r.provider_id WHERE r.provider='IGDB' UNION SELECT catalogue.spanish_source_fingerprint('Tactical exploration') UNION SELECT catalogue.spanish_source_fingerprint('Cooperative missions');",DATABASE,'-v','ids='+('{'+','.join(ids)+'}'))
         # Reuse the existing guarded state reset, preserving the real helper process/model.
         self.sql((TOOL/'interference-state.sql').read_text(),DATABASE,'-v','schema_checksum='+self.state['schemaChecksum'],'-v','scenario='+scenario)
-        self.state['background']={'scenario':scenario,'games':2,'releases':4,'inputSha256':fixture['payloadSha256'],'externalProviderTimingIncluded':False,'calibration':calibration}
+        self.state['background']={'scenario':scenario,'games':len(fixture['games']),
+            'releases':len(fixture['releaseDates']),'inputSha256':fixture['payloadSha256'],
+            'externalProviderTimingIncluded':False,'warmup':calibration,
+            'translationCache':'offline-fixture' if reuse else 'real-helper'}
+        if reuse:
+            # Measure the same reuse checkpoint without HTTP, then reset it for the measured run.
+            calibration=self.background_sync()
+            require(calibration['report']['outcome']=='SUCCEEDED','Reuse calibration failed')
+            self.sql((TOOL/'interference-state.sql').read_text(),DATABASE,'-v',
+                     'schema_checksum='+self.state['schemaChecksum'],'-v','scenario='+scenario)
+        self.state['background']['calibration']=calibration
         self.save()
         return self.state['background']
 
@@ -340,14 +359,78 @@ COMMIT;""",DATABASE))
             if settings(app).get('APPLICATION_DB_URL')=='jdbc:postgresql://postgres:5432/videogame_performance':
                 self.state['candidateId']=app['Id']; self.save()
 
+    def seed_reuse_cache(self, fixture):
+        self.boundary()
+        rows=[{'source':source,'translated':'Contenido de prueba reutilizado.'} for source in
+              sorted({game['summary'] for game in fixture['games']} |
+                     {'Tactical exploration','Cooperative missions'})]
+        require(len(rows)==4,'Reuse cache must contain exactly four fixture texts')
+        self.sql("""BEGIN;
+INSERT INTO catalogue.content_translation(fingerprint,source_text,translated_text,runtime_revision,translated_at)
+SELECT catalogue.spanish_source_fingerprint(r.source),r.source,r.translated,
+       'performance-offline-fixture',CURRENT_TIMESTAMP
+FROM jsonb_to_recordset(:'rows'::jsonb) AS r(source text,translated text);
+COMMIT;""",DATABASE,'-v','rows='+json.dumps(rows))
+
+    def clock(self):
+        return {'wallSeconds':time.time(),'monotonicSeconds':time.monotonic()}
+
+    def localization(self):
+        try:
+            meter=self.actuator('metrics/catalogue.localization.content')
+            outcomes=next(t['values'] for t in meter['availableTags'] if t['tag']=='outcome')
+        except Exception:
+            return {outcome:None for outcome in ['translated','reused','failed']}
+        result={}
+        for outcome in ['translated','reused','failed']:
+            if outcome not in outcomes:
+                result[outcome]=0
+                continue
+            try:
+                meter=self.actuator('metrics/catalogue.localization.content?tag=outcome:'+outcome)
+                result[outcome]=next(m['value'] for m in meter['measurements'] if m['statistic']=='COUNT')
+            except Exception:
+                result[outcome]=None
+        return result
+
     def background_sync(self):
         self.boundary()
         require(self.state.get('providerId') and settings(service('application'))['IGDB_API_BASE_URI']=='http://'+self.state['providerName']+':8093/v4/','No verified fixture-only provider is configured')
+        env=settings(service('application'))
+        require(env.get('IGDB_TOKEN_URI')=='http://'+self.state['providerName']+':8093/oauth2/token','No fixture-only token endpoint')
+        if self.state.get('noInference'):
+            require(env.get('CATALOGUE_TRANSLATION_ENDPOINT')=='http://127.0.0.1:9/translate','Reuse requires blocked inference')
         body=json.dumps({'from':self.state['referenceDate'],'to':self.state['referenceDate']})
-        start={'wallSeconds':time.time(),'monotonicSeconds':time.monotonic()}
-        result=json.loads(command('docker','exec',service('application')['Id'],'wget','-q','-O','-',
-            '--header','Content-Type: application/json','--post-data',body,'http://127.0.0.1:8081/actuator/cataloguesync',timeout=120))
-        return {'started':start,'finished':{'wallSeconds':time.time(),'monotonicSeconds':time.monotonic()},'report':result}
+        evidence={'started':self.clock(),'status':'running','localizationBefore':self.localization()}
+        path=self.directory/'background-last.json'
+        atomic(path,evidence)  # Survives command failure/SSH interruption; started work is never lost.
+        try:
+            evidence['report']=json.loads(command('docker','exec',service('application')['Id'],'wget','-q','-O','-',
+                '--header','Content-Type: application/json','--post-data',body,
+                'http://127.0.0.1:8081/actuator/cataloguesync',timeout=120))
+            evidence['status']=evidence['report']['outcome']
+        except Exception as error:
+            evidence.update(status='command-failed',errorType=type(error).__name__)
+        finally:
+            evidence['finished']=self.clock()
+            evidence['commandDurationSeconds']=evidence['finished']['monotonicSeconds']-evidence['started']['monotonicSeconds']
+            evidence['localizationAfter']=self.localization()
+            try:
+                # The durable report distinguishes actual application execution from the RPC bracket.
+                evidence['durableReport']=self.actuator('cataloguesync')
+                report=evidence['durableReport']
+                if report.get('startedAt') and report.get('completedAt'):
+                    evidence['syncDurationSeconds']=(datetime.datetime.fromisoformat(report['completedAt'].replace('Z','+00:00'))-
+                        datetime.datetime.fromisoformat(report['startedAt'].replace('Z','+00:00'))).total_seconds()
+            except Exception:
+                evidence['durableReportUnavailable']=True
+            try:
+                evidence['provider']=json.loads(command('docker','exec',self.state['providerId'],
+                    'python','-c',"import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8093/evidence').read().decode())",timeout=15))
+            except Exception:
+                evidence['providerEvidenceUnavailable']=True
+            atomic(path,evidence)
+        return evidence
 
     def actuator(self,path):
         return json.loads(command('docker','exec',service('application')['Id'],'wget','-q','-O','-', 'http://127.0.0.1:8081/actuator/'+path,timeout=15))
@@ -420,7 +503,10 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
             require(self.state['restoration']['privateDataUnchanged'],'Private data changed; owner review is required')
             require(self.state['restoration'].get('dependenciesUnchanged',True),'Dependency configuration changed; owner review is required')
             return self.state['restoration']
-        if self.threads and not self.stop.is_set(): self.stop_observation()
+        if self.threads and not self.stop.is_set():
+            try: self.stop_observation()
+            except Exception as error:
+                self.state['observationStopFailure']=type(error).__name__; self.save()
         unexpected=self.state.get('unexpectedExperimentalRatings',0)
         if self.state.get('databaseOid'):
             oid=self.sql("SELECT oid FROM pg_database WHERE datname='videogame_performance';",'postgres')
@@ -437,6 +523,9 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
             self.compose(False)
             require(settings(service('application')).get('APPLICATION_DB_URL')=='jdbc:postgresql://postgres:5432/videogame_platform','Private database connection was not restored')
             require(settings(service('application')).get('CATALOGUE_SYNC_SCHEDULING_ENABLED')==self.state['originalScheduling'],'Original scheduling was not restored')
+            if self.state.get('originalEnvironmentSha256'):
+                require(hashlib.sha256(json.dumps(settings(service('application')),sort_keys=True).encode()).hexdigest()==
+                        self.state['originalEnvironmentSha256'],'Original application environment was not restored')
             self.state['candidateId']=None; self.state['phase']='private-restored'; self.save()
         if self.state['users']:
             client=admin()
@@ -459,7 +548,7 @@ SELECT row_to_json(d) FROM (SELECT clock_timestamp() AS at,numbackends,xact_comm
             self.state['providerId']=None; self.save()
         after=self.private_counts() if self.state.get('privateBefore') else None
         retained=bool(unexpected)
-        receipt={'privateDataUnchanged':after==self.state.get('privateBefore'),'privateAfter':after,'unexpectedExperimentalRatings':unexpected,'databaseRetainedForReview':retained,
+        receipt={'originalSchedulingRestored':True,'originalEnvironmentVerified':bool(self.state.get('originalEnvironmentSha256')),'privateDataUnchanged':after==self.state.get('privateBefore'),'privateAfter':after,'unexpectedExperimentalRatings':unexpected,'databaseRetainedForReview':retained,
                  'syntheticUsersRemoved':len(self.state['users']),'readiness':self.actuator('health/readiness')}
         if self.state.get('dependencies'):
             receipt['dependenciesUnchanged']=all((row:=service(n))['Id']==r['id'] and row['Image']==r['imageId']
@@ -508,7 +597,7 @@ def serve(directory):
                 if not line: break
                 request=json.loads(line)
                 action=request['action']
-                require(action in ['preflight','prepare','users','activate','background_prepare','background_sync','settle','start_observation','stop_observation','restore'],'Unknown action')
+                require(action in ['preflight','prepare','users','activate','background_prepare','background_sync','settle','clock','start_observation','stop_observation','restore'],'Unknown action')
                 try:
                     value=getattr(actor,action)(**request.get('arguments',{}))
                     print(json.dumps({'ok':True,'value':value}),flush=True)
