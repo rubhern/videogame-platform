@@ -28,10 +28,8 @@ function release(
     releaseDate: { precision: "day", value: "2026-09-24" },
     status: "released",
     provenance,
-    lastSyncedAt: "2026-08-09T10:00:00Z",
     verificationLevel: "provider_only",
     reviewStatus: "not_required",
-    freshnessStatus: "fresh",
     ...overrides,
   };
 }
@@ -167,7 +165,6 @@ const upcomingPage = page(
       releaseDate: { precision: "unknown", value: null },
       status: "announced",
       reviewStatus: "required",
-      freshnessStatus: "stale",
     }),
   ],
   {
@@ -194,7 +191,6 @@ const upcomingPage = page(
             releaseDate: { precision: "unknown", value: null },
             status: "announced",
             reviewStatus: "required",
-            freshnessStatus: "stale",
           }),
         ],
       },
@@ -235,11 +231,9 @@ describe("releases view model", () => {
     expect(model.regions).toEqual([{ id: "region-new-zealand", name: "Nueva Zelanda" }]);
   });
 
-  it("keeps stale and review information explicit per group", () => {
+  it("keeps review information explicit per group", () => {
     const model = toReleasesViewModel(upcomingPage);
 
-    expect(model.staleItemCount).toBe(1);
-    expect(model.items[0]?.isStale).toBe(true);
     expect(model.items[0]?.releaseGroups[0]?.review).toBe(true);
   });
 

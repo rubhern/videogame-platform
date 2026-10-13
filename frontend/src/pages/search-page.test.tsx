@@ -26,7 +26,6 @@ const resultPage = {
           region: { regionId: "region-europe", name: "Europa" },
           releaseDate: { precision: "year", value: "2027" },
           status: "announced",
-          freshnessStatus: "fresh",
         },
       ],
       releaseSummary: {

@@ -2,7 +2,6 @@ package com.videogameplatform.catalogue.application.releases.internal;
 
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
-import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.internal.CatalogueReleaseMapping;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
@@ -12,7 +11,6 @@ import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseRe
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.ReleaseRow;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort.Result;
 import java.time.Clock;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -24,25 +22,21 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
     private final CatalogueCoverPolicy coverPolicy;
     private final Clock clock;
     private final ReleaseBrowsePolicy browsePolicy;
-    private final CatalogueFreshnessPolicy freshnessPolicy;
 
     public ReleaseCatalogueService(
             ReleaseBrowseReadPort readPort,
             CatalogueCoverPolicy coverPolicy,
             Clock clock,
-            ReleaseBrowsePolicy browsePolicy,
-            CatalogueFreshnessPolicy freshnessPolicy) {
+            ReleaseBrowsePolicy browsePolicy) {
         this.readPort = readPort;
         this.coverPolicy = coverPolicy;
         this.clock = clock;
         this.browsePolicy = browsePolicy;
-        this.freshnessPolicy = freshnessPolicy;
     }
 
     @Override
     public BrowseReleasesResult browse(Query query) {
-        Instant evaluatedAt = clock.instant();
-        LocalDate evaluatedOn = LocalDate.ofInstant(evaluatedAt, clock.getZone());
+        LocalDate evaluatedOn = LocalDate.ofInstant(clock.instant(), clock.getZone());
         BrowseReleasesResult.Window window = window(query.view(), query.weeks(), evaluatedOn);
         long offset = Math.multiplyExact((long) query.pageNumber() - 1, query.pageSize());
 
@@ -77,9 +71,7 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
                 window,
                 new BrowseReleasesResult.ActiveFilters(platformIds, regionIds),
                 availableFilters(result),
-                result.items().stream()
-                        .map(item -> toItem(item, evaluatedAt, evaluatedOn))
-                        .toList(),
+                result.items().stream().map(item -> toItem(item, evaluatedOn)).toList(),
                 new BrowseReleasesResult.PageMetadata(
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));
     }
@@ -145,14 +137,10 @@ public final class ReleaseCatalogueService implements BrowseReleasesUseCase {
         return new BrowseReleasesResult.AvailableFilters(platforms, regions);
     }
 
-    private BrowseReleasesResult.Item toItem(
-            Item item, Instant evaluatedAt, LocalDate evaluatedOn) {
+    private BrowseReleasesResult.Item toItem(Item item, LocalDate evaluatedOn) {
         List<BrowseReleasesResult.Release> releases =
                 item.releases().stream()
-                        .map(
-                                (ReleaseRow row) ->
-                                        CatalogueReleaseMapping.map(
-                                                row, evaluatedAt, evaluatedOn, freshnessPolicy))
+                        .map((ReleaseRow row) -> CatalogueReleaseMapping.map(row, evaluatedOn))
                         .toList();
         return new BrowseReleasesResult.Item(
                 item.gameId(),

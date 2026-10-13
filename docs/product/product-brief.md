@@ -62,7 +62,8 @@ capabilities remain the baseline for post-MVP evolution:
 - recent/upcoming releases with platform and region filters;
 - title and approved-alias search across the local catalogue;
 - a game page with provider-independent identity, commercial releases, provenance,
-  freshness, review status, and explicit date precision;
+  review status, and explicit date precision; synchronization freshness stays internal
+  operational evidence and is not shown to players;
 - an approved provider-CDN cover reference with attribution and a product-owned
   fallback, without copied provider image binaries;
 - delegated registration/sign-in at the rating boundary;

@@ -29,7 +29,6 @@ function result(index: number, overrides: Partial<GameSummary> = {}): GameSummar
       region: { regionId: "20000000-0000-4000-8000-000000000002", name: "Europa" },
       releaseDate: { precision: "day", value: "2026-02-27" },
       status: "released",
-      freshnessStatus: "stale",
     })),
     releaseSummary: { platforms: [pc], totalPlatforms: 1, earliestKnownYear: 2026, latestKnownYear: 2026 },
     ...overrides,

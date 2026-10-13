@@ -1,6 +1,5 @@
 package com.videogameplatform.catalogue.application.search;
 
-import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
@@ -35,8 +34,7 @@ public record SearchCatalogueResult(
             Taxonomy platform,
             Taxonomy region,
             CatalogueReleaseDate releaseDate,
-            CatalogueReleaseStatus status,
-            CatalogueFreshness freshnessStatus) {}
+            CatalogueReleaseStatus status) {}
 
     /**
      * Compact aggregate over the game's complete stored release set: a bounded head of the

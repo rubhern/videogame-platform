@@ -14,7 +14,6 @@ function group(overrides: Partial<ReleaseContextGroup> = {}): ReleaseContextGrou
     region: "Mundial",
     platforms: ["PlayStation 5"],
     platformIds: ["playstation-5"],
-    isStale: false,
     review: false,
     releaseCount: 1,
     ...overrides,
@@ -36,7 +35,6 @@ function item(overrides: Partial<ReleaseListItem> = {}): ReleaseListItem {
     title: "The Witcher IV",
     releaseGroups: [group()],
     hiddenReleaseCount: 0,
-    isStale: false,
     cover: providerCover,
     ...overrides,
   };

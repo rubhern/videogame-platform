@@ -80,7 +80,8 @@ class GameSearchApiIntegrationTest {
         JsonNode context = item.path("releaseContext").get(0);
         assertThat(context.path("platform").path("name").stringValue()).isNotBlank();
         assertThat(context.path("releaseDate").path("precision").stringValue()).isEqualTo("day");
-        assertThat(context.path("freshnessStatus").stringValue()).isEqualTo("stale");
+        // Synchronization timing is internal operational evidence, never player-facing (#267).
+        assertThat(context.has("freshnessStatus")).isFalse();
         assertThat(body.path("page").path("number").asInt()).isEqualTo(1);
         assertThat(body.path("page").path("size").asInt()).isEqualTo(20);
         assertThat(body.path("page").path("totalItems").asLong()).isEqualTo(1);

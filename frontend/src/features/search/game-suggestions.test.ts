@@ -18,7 +18,6 @@ function release(platformId: string, name: string, releaseDate: ReleaseDate): Re
     region: { regionId: "region-europe", name: "Europa" },
     releaseDate,
     status: "released",
-    freshnessStatus: "fresh",
   };
 }
 

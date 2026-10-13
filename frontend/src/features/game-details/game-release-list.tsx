@@ -1,4 +1,4 @@
-import { formatCalendarDay, formatReleaseDate } from "../../shared/catalogue/release-date";
+import { formatReleaseDate } from "../../shared/catalogue/release-date";
 import { releaseStages, releaseStatuses } from "../../shared/catalogue/release-labels";
 import { platformIcon, regionIcon } from "../../shared/catalogue/taxonomy-icons";
 import { SelectIcon } from "../../shared/ui/select-icon";
@@ -37,25 +37,17 @@ function partition(releases: readonly Release[]) {
   return { presented, additional };
 }
 
-/** The attribution line: every source once, in order, and the most recent synchronization. */
+/**
+ * The attribution line: every source once, in order. Synchronization timing is internal
+ * operational evidence and is never shown to players (#267).
+ */
 function sourceLine(releases: readonly Release[]) {
   const sources = [...new Set(releases.map((release) => release.provenance.sourceName))];
-  const latest = releases.reduce<Release | null>(
-    (newest, release) =>
-      newest === null || Date.parse(release.lastSyncedAt) > Date.parse(newest.lastSyncedAt)
-        ? release
-        : newest,
-    null,
-  );
-  return {
-    sources: `${sources.length === 1 ? "Fuente" : "Fuentes"}: ${sources.join(", ")}`,
-    syncedAt: latest?.lastSyncedAt ?? null,
-  };
+  return `${sources.length === 1 ? "Fuente" : "Fuentes"}: ${sources.join(", ")}`;
 }
 
 function ReleaseRow({ release }: { release: Release }) {
   const review = release.reviewStatus === "required";
-  const stale = release.freshnessStatus === "stale";
   const verified = release.verificationLevel === "verified";
   return (
     <li className="game-release-row">
@@ -98,10 +90,9 @@ function ReleaseRow({ release }: { release: Release }) {
           </dd>
         </div>
       </dl>
-      {review || stale || verified ? (
+      {review || verified ? (
         <ul className="game-release-flags">
           {review ? <li className="game-warning">Información pendiente de revisión</li> : null}
-          {stale ? <li className="game-warning">Datos locales desactualizados</li> : null}
           {verified ? <li className="game-verified">Información verificada</li> : null}
         </ul>
       ) : null}
@@ -112,8 +103,8 @@ function ReleaseRow({ release }: { release: Release }) {
 /**
  * Fechas y plataformas: every platform and region with its presented release, in the API's order,
  * so a visitor reads every date without choosing anything first. Further records of a combination
- * stay whole behind one native disclosure, and the provenance a visitor needs — the source and the
- * last synchronization — closes the block instead of repeating on every record.
+ * stay whole behind one native disclosure, and the source attribution closes the block instead of
+ * repeating on every record.
  */
 export function GameReleaseList({ releases }: { releases: readonly Release[] }) {
   const { presented, additional } = partition(releases);
@@ -149,19 +140,7 @@ export function GameReleaseList({ releases }: { releases: readonly Release[] }) 
           </ul>
         </details>
       ) : null}
-      {source ? (
-        <p className="game-panel-source">
-          {source.sources}
-          {source.syncedAt ? (
-            <>
-              {" · "}Sincronizado el{" "}
-              <time dateTime={source.syncedAt}>
-                {formatCalendarDay(source.syncedAt.slice(0, 10))}
-              </time>
-            </>
-          ) : null}
-        </p>
-      ) : null}
+      {source ? <p className="game-panel-source">{source}</p> : null}
     </section>
   );
 }

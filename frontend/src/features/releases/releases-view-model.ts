@@ -40,7 +40,6 @@ export type ReleaseContextGroup = {
   platforms: string[];
   /** Stable identifiers of `platforms`, in the same order, for presentation such as icons. */
   platformIds: string[];
-  isStale: boolean;
   review: boolean;
   releaseCount: number;
 };
@@ -55,7 +54,6 @@ export type ReleaseListItem = {
   // Number of hidden releases (not hidden groups), so the control reports releases the visitor
   // cannot see yet.
   hiddenReleaseCount: number;
-  isStale: boolean;
   cover: ReleaseCover;
   genres: NonNullable<ReleaseItem["genres"]>;
 };
@@ -72,7 +70,6 @@ export type ReleasesViewModel = {
   activePlatformIds: string[];
   activeRegionIds: string[];
   items: ReleaseListItem[];
-  staleItemCount: number;
   page: { number: number; size: number; totalItems: number; totalPages: number };
 };
 
@@ -170,7 +167,6 @@ function toReleaseContextGroups(releases: readonly Release[]): ReleaseContextGro
         region: release.region.name,
         platforms: [],
         platformIds: [],
-        isStale: false,
         review: false,
         releaseCount: 0,
       };
@@ -180,7 +176,6 @@ function toReleaseContextGroups(releases: readonly Release[]): ReleaseContextGro
     group.platforms.push(release.platform.name);
     group.platformIds.push(release.platform.platformId);
     group.releaseCount += 1;
-    group.isStale = group.isStale || release.freshnessStatus === "stale";
     group.review = group.review || release.reviewStatus === "required";
   }
   return groups;
@@ -199,7 +194,6 @@ export function toReleaseListItem(item: ReleaseItem): ReleaseListItem {
     title: item.canonicalTitle,
     releaseGroups,
     hiddenReleaseCount,
-    isStale: releaseGroups.some((group) => group.isStale),
     // Owner-provided previews are an opt-in Vite development overlay. The API cover
     // remains authoritative in tests and production builds.
     cover: localCoverPreview(item.slug, item.canonicalTitle) ?? toCover(item.primaryCover),
@@ -231,7 +225,6 @@ export function toReleasesViewModel(page: ReleasePage): ReleasesViewModel {
     activePlatformIds: page.activeFilters.platformIds,
     activeRegionIds: page.activeFilters.regionIds,
     items,
-    staleItemCount: items.filter((item) => item.isStale).length,
     page: page.page,
   };
 }

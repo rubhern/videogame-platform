@@ -32,11 +32,9 @@ export function gameDetailsFixture(): GameDetails {
           sourceName: "Publisher",
           sourceEntityType: "release",
         },
-        lastSyncedAt: "2026-08-09T10:00:00Z",
         lastVerifiedAt: "2026-08-09T10:00:00Z",
         verificationLevel: "verified",
         reviewStatus: "not_required",
-        freshnessStatus: "fresh",
       },
     ],
     ratingEligibility: {

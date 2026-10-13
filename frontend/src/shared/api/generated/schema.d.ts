@@ -26,7 +26,7 @@ export interface paths {
          *     selected bounded week window in `Europe/Madrid`. Upcoming discovery returns only releases
          *     with an exact day unless `includeApproximateDates=true` also admits month, quarter, year,
          *     and unknown (TBA) precision; the precision choice composes with the window and both filter
-         *     dimensions, and the facets reflect it. Empty, stale, review-required, imprecise-date, TBA,
+         *     dimensions, and the facets reflect it. Empty, review-required, imprecise-date, TBA,
          *     and fallback-cover results are valid states. PostgreSQL groups by game, applies filters,
          *     distinct facet discovery, presented-release selection, total ordering, count, limit, and
          *     offset before any release page reaches the application.
@@ -328,6 +328,9 @@ export interface components {
         /**
          * @description Shared full release evidence for discovery and game details. Stage naturally appears
          *     in both consumers; compact search release summaries do not expose full evidence.
+         *     Synchronization timing is internal operational evidence, not player-facing data: 3.8.0
+         *     removed `lastSyncedAt` and `freshnessStatus` without replacement (#267). Verification,
+         *     review and provider evidence keep their independent meaning.
          */
         Release: {
             releaseId: components["schemas"]["ReleaseId"];
@@ -342,24 +345,19 @@ export interface components {
             /** Format: date-time */
             providerUpdatedAt?: string;
             /** Format: date-time */
-            lastSyncedAt: string;
-            /** Format: date-time */
             lastVerifiedAt?: string;
             /** @enum {string} */
             verificationLevel: "provider_only" | "verified";
             /** @enum {string} */
             reviewStatus: "not_required" | "required";
-            /** @enum {string} */
-            freshnessStatus: "fresh" | "stale";
         };
+        /** @description Compact search release context. 3.8.0 removed `freshnessStatus` without replacement (#267). */
         ReleaseSummary: {
             platform: components["schemas"]["Platform"];
             region: components["schemas"]["Region"];
             releaseDate: components["schemas"]["ReleaseDate"];
             /** @enum {string} */
             status: "announced" | "scheduled" | "released" | "delayed" | "cancelled" | "unknown";
-            /** @enum {string} */
-            freshnessStatus: "fresh" | "stale";
         };
         Attribution: {
             label: string;

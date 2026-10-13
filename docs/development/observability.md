@@ -135,8 +135,9 @@ not affect readiness. The datasource is replaceable with the rest of telemetry.
   cumulative weighted means remain useful when manual calls are sparse. Neither is
   a percentile calculated from averages.
 - Release quality shows persisted provider status, not date-derived effective status.
-  Evidence age is time since changed synchronized evidence, not proof of a recent
-  provider recheck: unchanged records retain their timestamps. Cover availability
+  Check age is time since the last committed provider check of a release, whether or not
+  it changed; the last published change is shown separately. Releases outside every
+  scheduled window age by design, and a check is not human verification. Cover availability
   means approved stored references, not verified CDN availability.
 - The exact GET personal-rating 404 is expected absence. Other GET failures and
   PUT/DELETE 404 responses remain visible. Revisit the route/status exclusion if the

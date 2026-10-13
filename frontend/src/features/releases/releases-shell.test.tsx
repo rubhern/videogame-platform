@@ -30,13 +30,11 @@ const pragmata: ReleaseListItem = {
       region: "Mundial",
       platforms: ["Windows PC"],
       platformIds: ["windows-pc"],
-      isStale: false,
       review: false,
       releaseCount: 1,
     },
   ],
   hiddenReleaseCount: 0,
-  isStale: false,
   cover: {
     kind: "fallback",
     url: "/assets/covers/fallback.svg",
@@ -58,7 +56,6 @@ function viewModel(overrides: Partial<ReleasesViewModel> = {}): ReleasesViewMode
     activePlatformIds: [],
     activeRegionIds: [],
     items: [pragmata],
-    staleItemCount: 0,
     page: { number: 1, size: 6, totalItems: 1, totalPages: 1 },
     ...overrides,
   };
@@ -124,7 +121,7 @@ describe("releases shell", () => {
     renderShell(
       {
         status: "ready",
-        model: viewModel({ activePlatformIds: ["platform-ps5"], items: [], staleItemCount: 0 }),
+        model: viewModel({ activePlatformIds: ["platform-ps5"], items: [] }),
         isRefreshing: false,
         isPlaceholderData: false,
       },
@@ -244,25 +241,6 @@ describe("releases shell", () => {
     for (const reset of screen.getAllByRole("link", { name: "Quitar filtros" })) {
       expect(reset).toHaveAttribute("href", "/?view=upcoming&weeks=1&includeApproximateDates=true");
     }
-  });
-
-  it("distinguishes stale local data from a technical failure", () => {
-    renderShell({
-      status: "ready",
-      model: viewModel({
-        items: [{ ...pragmata, isStale: true }],
-        staleItemCount: 1,
-      }),
-      isRefreshing: false,
-      isPlaceholderData: false,
-    });
-
-    expect(screen.queryByText(
-      "Algunos lanzamientos usan la última copia local guardada y pueden estar desactualizados.",
-    )).not.toBeInTheDocument();
-    expect(screen.queryByText("Datos locales desactualizados")).not.toBeInTheDocument();
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Pragmata" })).toBeInTheDocument();
   });
 
   it("explains an unavailable catalogue and offers a retry", async () => {

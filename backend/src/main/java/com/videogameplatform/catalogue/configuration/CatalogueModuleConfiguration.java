@@ -67,10 +67,8 @@ class CatalogueModuleConfiguration {
             ReleaseBrowseReadPort readPort,
             CatalogueCoverPolicy coverPolicy,
             Clock clock,
-            ReleaseBrowsePolicy browsePolicy,
-            CatalogueFreshnessPolicy freshnessPolicy) {
-        return new ReleaseCatalogueService(
-                readPort, coverPolicy, clock, browsePolicy, freshnessPolicy);
+            ReleaseBrowsePolicy browsePolicy) {
+        return new ReleaseCatalogueService(readPort, coverPolicy, clock, browsePolicy);
     }
 
     @Bean
@@ -90,18 +88,13 @@ class CatalogueModuleConfiguration {
             GameSearchReadPort readPort,
             CatalogueCoverPolicy coverPolicy,
             Clock clock,
-            CatalogueSearchPolicy searchPolicy,
-            CatalogueFreshnessPolicy freshnessPolicy) {
-        return new CatalogueSearchService(
-                readPort, coverPolicy, clock, searchPolicy, freshnessPolicy);
+            CatalogueSearchPolicy searchPolicy) {
+        return new CatalogueSearchService(readPort, coverPolicy, clock, searchPolicy);
     }
 
     @Bean
     GetGameDetailsUseCase getGameDetailsUseCase(
-            GameDetailsReadPort readPort,
-            CatalogueCoverPolicy coverPolicy,
-            CatalogueFreshnessPolicy freshness,
-            Clock clock) {
-        return new GameDetailsService(readPort, coverPolicy, freshness, clock);
+            GameDetailsReadPort readPort, CatalogueCoverPolicy coverPolicy, Clock clock) {
+        return new GameDetailsService(readPort, coverPolicy, clock);
     }
 }

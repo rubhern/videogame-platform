@@ -218,7 +218,6 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
                 rs.getString("source_name"),
                 rs.getString("source_entity_type"),
                 instant(rs, "provider_updated_at"),
-                instant(rs, "last_synchronized_at"),
                 instant(rs, "last_verified_at"),
                 VerificationLevel.valueOf(
                         rs.getString("verification_level").toUpperCase(Locale.ROOT)),

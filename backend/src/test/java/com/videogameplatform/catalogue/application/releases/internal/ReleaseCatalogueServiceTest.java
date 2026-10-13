@@ -3,13 +3,11 @@ package com.videogameplatform.catalogue.application.releases.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.videogameplatform.catalogue.application.CatalogueFreshness;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
-import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
@@ -20,7 +18,6 @@ import com.videogameplatform.catalogue.domain.SourceKind;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
 import java.net.URI;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.Year;
 import java.time.ZoneId;
@@ -155,8 +152,6 @@ class ReleaseCatalogueServiceTest {
                                         URI.create("https://www.igdb.com/games/example"))));
         assertThat(page.items().getFirst().releases().getFirst().status())
                 .isEqualTo(CatalogueReleaseStatus.SCHEDULED);
-        assertThat(page.items().getFirst().releases().getFirst().freshnessStatus())
-                .isEqualTo(CatalogueFreshness.FRESH);
     }
 
     @Test
@@ -204,8 +199,7 @@ class ReleaseCatalogueServiceTest {
                 port,
                 new CatalogueCoverPolicy(providerCoverReferenceResolver()),
                 clock,
-                new ReleaseBrowsePolicy(25),
-                new CatalogueFreshnessPolicy(Duration.ofDays(7)));
+                new ReleaseBrowsePolicy(25));
     }
 
     private static ProviderCoverReferenceResolver providerCoverReferenceResolver() {
@@ -252,7 +246,6 @@ class ReleaseCatalogueServiceTest {
                                 "Test",
                                 "release",
                                 null,
-                                NOW,
                                 null,
                                 VerificationLevel.PROVIDER_ONLY,
                                 ReviewStatus.NOT_REQUIRED,

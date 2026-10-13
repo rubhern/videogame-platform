@@ -114,7 +114,11 @@ conflicting updates, but does not turn an absent provider reference into current
 Game and release changes are committed together per Game. Invalid updates preserve
 that Game's complete last valid state; other valid Games in a partial run remain
 committed. Identical published values do not rewrite snapshots or rotate their
-revision. Existing verified release evidence cannot be overwritten by conflicting
+revision. A committed Game still records, outside the snapshot, when it re-checked each
+provider-owned release it wrote, changed or not; skipped protected evidence, withheld
+conflicts and failed Games record no check (#267). That last check is distinct from the
+last published change and from the provider's own update time, and is internal operational
+evidence rather than player-facing data. Existing verified release evidence cannot be overwritten by conflicting
 provider evidence; verification and review remain independent of automatic acquisition. Release stage is
 normalized separately from lifecycle in the provider adapter. Enriching Unknown stage
 on otherwise unchanged date evidence preserves verification; review follows the

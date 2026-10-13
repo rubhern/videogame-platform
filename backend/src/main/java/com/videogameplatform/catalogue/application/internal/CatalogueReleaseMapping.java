@@ -7,18 +7,13 @@ import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import com.videogameplatform.catalogue.domain.ReviewStatus;
 import com.videogameplatform.catalogue.domain.SourceKind;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
-import java.time.Instant;
 import java.time.LocalDate;
 
 /** Shared full release evidence mapping for public catalogue reads. */
 public final class CatalogueReleaseMapping {
     private CatalogueReleaseMapping() {}
 
-    public static BrowseReleasesResult.Release map(
-            ReleaseRow row,
-            Instant evaluatedAt,
-            LocalDate evaluatedOn,
-            CatalogueFreshnessPolicy freshnessPolicy) {
+    public static BrowseReleasesResult.Release map(ReleaseRow row, LocalDate evaluatedOn) {
         ReleaseStatus effectiveStatus =
                 EffectiveReleaseStatusPolicy.effectiveStatus(
                         row.status(), row.releaseDate(), evaluatedOn);
@@ -36,12 +31,9 @@ public final class CatalogueReleaseMapping {
                 new BrowseReleasesResult.Provenance(
                         toSource(row.sourceKind()), row.sourceName(), row.sourceEntityType()),
                 row.providerUpdatedAt(),
-                row.lastSyncedAt(),
                 row.lastVerifiedAt(),
                 toVerification(row.verificationLevel()),
                 toReview(row.reviewStatus()),
-                CatalogueReadMapping.toFreshness(
-                        freshnessPolicy.status(row.lastSyncedAt(), evaluatedAt)),
                 com.videogameplatform.catalogue.application.CatalogueReleaseStage.valueOf(
                         row.stage().name()));
     }

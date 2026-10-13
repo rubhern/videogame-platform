@@ -12,7 +12,6 @@ import com.videogameplatform.catalogue.domain.ReleaseStatus;
 import java.sql.Array;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -62,8 +61,7 @@ final class GameSearchPageMapper {
                         resultSet.getString("platform_id"), resultSet.getString("platform_name")),
                 new Taxonomy(resultSet.getString("region_id"), resultSet.getString("region_name")),
                 ReleaseDateRowMapper.map(resultSet),
-                ReleaseStatus.fromValue(resultSet.getString("release_status")),
-                instant(resultSet));
+                ReleaseStatus.fromValue(resultSet.getString("release_status")));
     }
 
     /** The summary columns repeat on every context row of a game; only the first is read. */
@@ -94,11 +92,6 @@ final class GameSearchPageMapper {
         } finally {
             array.free();
         }
-    }
-
-    private static java.time.Instant instant(ResultSet resultSet) throws SQLException {
-        OffsetDateTime value = resultSet.getObject("last_synchronized_at", OffsetDateTime.class);
-        return value == null ? null : value.toInstant();
     }
 
     private static final class MutableItem {

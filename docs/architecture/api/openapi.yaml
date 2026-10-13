@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.7.0
+  version: 3.8.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -47,7 +47,7 @@ paths:
         selected bounded week window in `Europe/Madrid`. Upcoming discovery returns only releases
         with an exact day unless `includeApproximateDates=true` also admits month, quarter, year,
         and unknown (TBA) precision; the precision choice composes with the window and both filter
-        dimensions, and the facets reflect it. Empty, stale, review-required, imprecise-date, TBA,
+        dimensions, and the facets reflect it. Empty, review-required, imprecise-date, TBA,
         and fallback-cover results are valid states. PostgreSQL groups by game, applies filters,
         distinct facet discovery, presented-release selection, total ordering, count, limit, and
         offset before any release page reaches the application.
@@ -111,10 +111,8 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release
                             providerUpdatedAt: '2026-07-25T08:10:00Z'
-                            lastSyncedAt: '2026-07-30T05:00:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                            freshnessStatus: fresh
                           - releaseId: release_silksong_win_ww
                             stage: unknown
                             gameId: game_silksong
@@ -127,10 +125,8 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release
                             providerUpdatedAt: '2026-07-25T08:10:00Z'
-                            lastSyncedAt: '2026-07-30T05:00:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                            freshnessStatus: fresh
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 upcomingWithApproximateDates:
                   summary: Opted-in approximate dates keep their real precision
@@ -174,10 +170,8 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release
                             providerUpdatedAt: '2026-07-25T08:10:00Z'
-                            lastSyncedAt: '2026-07-30T05:00:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                            freshnessStatus: fresh
                           - releaseId: release_silksong_win_ww
                             stage: unknown
                             gameId: game_silksong
@@ -190,10 +184,8 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release
                             providerUpdatedAt: '2026-07-25T08:10:00Z'
-                            lastSyncedAt: '2026-07-30T05:00:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                            freshnessStatus: fresh
                       - gameId: game_example_tba
                         slug: juego-por-confirmar
                         canonicalTitle: Juego por confirmar
@@ -215,13 +207,11 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release
                             providerUpdatedAt: '2026-07-25T08:10:00Z'
-                            lastSyncedAt: '2026-07-30T05:00:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                            freshnessStatus: fresh
                     page: { number: 1, size: 20, totalItems: 2, totalPages: 1 }
-                staleWithFallback:
-                  summary: Last valid stale data remains usable with a fallback cover
+                fallbackCover:
+                  summary: Last valid local data remains usable with a fallback cover
                   value:
                     view: recent
                     evaluatedOn: '2026-07-31'
@@ -254,11 +244,9 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release
                             providerUpdatedAt: '2026-05-01T09:00:00Z'
-                            lastSyncedAt: '2026-05-02T05:00:00Z'
                             lastVerifiedAt: '2026-05-02T05:10:00Z'
                             verificationLevel: verified
                             reviewStatus: required
-                            freshnessStatus: stale
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 empty:
                   summary: No release matches the active filters
@@ -393,10 +381,8 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release_date
                             providerUpdatedAt: '2026-09-30T08:10:00Z'
-                            lastSyncedAt: '2026-10-02T05:00:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                            freshnessStatus: fresh
                           - releaseId: release_featured_win_ww
                             stage: full_release
                             gameId: game_featured_example
@@ -409,10 +395,8 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release_date
                             providerUpdatedAt: '2026-09-30T08:10:00Z'
-                            lastSyncedAt: '2026-10-02T05:00:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                            freshnessStatus: fresh
                       - gameId: game_featured_month
                         slug: lanzamiento-de-mes-aproximado
                         canonicalTitle: Lanzamiento de mes aproximado
@@ -445,10 +429,8 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release_date
                             providerUpdatedAt: '2026-09-12T08:10:00Z'
-                            lastSyncedAt: '2026-10-02T05:00:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                            freshnessStatus: fresh
                 stalePopularity:
                   summary: The last valid local ranking with stale popularity evidence
                   description: |
@@ -492,10 +474,8 @@ paths:
                               sourceName: IGDB
                               sourceEntityType: release_date
                             providerUpdatedAt: '2026-08-20T09:00:00Z'
-                            lastSyncedAt: '2026-09-02T05:00:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                            freshnessStatus: stale
                 popularityUnavailable:
                   summary: Qualifying releases exist but none has a popularity signal
                   value:
@@ -568,7 +548,6 @@ paths:
                             region: { regionId: region_europe, name: Europa }
                             releaseDate: { precision: day, value: '2005-03-18' }
                             status: released
-                            freshnessStatus: fresh
                         releaseSummary:
                           platforms:
                             - { platformId: platform_gamecube, name: Nintendo GameCube }
@@ -591,7 +570,6 @@ paths:
                             region: { regionId: region_europe, name: Europa }
                             releaseDate: { precision: year, value: '2023' }
                             status: released
-                            freshnessStatus: stale
                         releaseSummary:
                           platforms:
                             - { platformId: platform_ps5, name: PlayStation 5 }
@@ -678,11 +656,9 @@ paths:
                           sourceName: IGDB
                           sourceEntityType: release
                         providerUpdatedAt: '2025-06-25T09:00:00Z'
-                        lastSyncedAt: '2026-07-30T05:00:00Z'
                         lastVerifiedAt: '2026-07-01T11:00:00Z'
                         verificationLevel: verified
                         reviewStatus: not_required
-                        freshnessStatus: fresh
                     ratingEligibility:
                       eligible: true
                       reason: ELIGIBLE_RELEASE_FOUND
@@ -734,10 +710,8 @@ paths:
                           sourceName: IGDB
                           sourceEntityType: release_date
                         providerUpdatedAt: '2026-02-01T09:00:00Z'
-                        lastSyncedAt: '2026-07-30T05:00:00Z'
                         verificationLevel: provider_only
                         reviewStatus: not_required
-                        freshnessStatus: fresh
                       - releaseId: release_regional_ps5_jp_day
                         stage: unknown
                         gameId: game_regional
@@ -750,10 +724,8 @@ paths:
                           sourceName: IGDB
                           sourceEntityType: release_date
                         providerUpdatedAt: '2026-02-01T09:00:00Z'
-                        lastSyncedAt: '2026-07-30T05:00:00Z'
                         verificationLevel: provider_only
                         reviewStatus: not_required
-                        freshnessStatus: fresh
                       - releaseId: release_regional_ps5_ww_year
                         stage: unknown
                         gameId: game_regional
@@ -766,10 +738,8 @@ paths:
                           sourceName: IGDB
                           sourceEntityType: release_date
                         providerUpdatedAt: '2025-06-01T09:00:00Z'
-                        lastSyncedAt: '2026-07-30T05:00:00Z'
                         verificationLevel: provider_only
                         reviewStatus: not_required
-                        freshnessStatus: fresh
                     ratingEligibility:
                       eligible: true
                       reason: ELIGIBLE_RELEASE_FOUND
@@ -820,11 +790,9 @@ paths:
                           sourceKind: official_source
                           sourceName: Official publisher page
                           sourceEntityType: release
-                        lastSyncedAt: '2026-07-30T05:00:00Z'
                         lastVerifiedAt: '2026-07-30T06:00:00Z'
                         verificationLevel: verified
                         reviewStatus: not_required
-                        freshnessStatus: fresh
                     ratingEligibility:
                       eligible: true
                       reason: ELIGIBLE_RELEASE_FOUND
@@ -835,7 +803,7 @@ paths:
                       count: 0
                       distribution: { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0, '7': 0, '8': 0, '9': 0, '10': 0 }
                 degradedAggregate:
-                  summary: Aggregate unavailable; stale review-required release remains explicit
+                  summary: Aggregate unavailable; review-required release remains explicit
                   value:
                     gameId: game_degraded
                     slug: juego-degradado
@@ -867,10 +835,8 @@ paths:
                           sourceName: IGDB
                           sourceEntityType: release
                         providerUpdatedAt: '2026-03-01T10:00:00Z'
-                        lastSyncedAt: '2026-04-01T05:00:00Z'
                         verificationLevel: provider_only
                         reviewStatus: required
-                        freshnessStatus: stale
                     ratingEligibility:
                       eligible: false
                       reason: RELEASE_REVIEW_REQUIRED
@@ -1516,7 +1482,10 @@ components:
       description: |
         Shared full release evidence for discovery and game details. Stage naturally appears
         in both consumers; compact search release summaries do not expose full evidence.
-      required: [releaseId, gameId, platform, region, releaseDate, status, stage, provenance, lastSyncedAt, verificationLevel, reviewStatus, freshnessStatus]
+        Synchronization timing is internal operational evidence, not player-facing data: 3.8.0
+        removed `lastSyncedAt` and `freshnessStatus` without replacement (#267). Verification,
+        review and provider evidence keep their independent meaning.
+      required: [releaseId, gameId, platform, region, releaseDate, status, stage, provenance, verificationLevel, reviewStatus]
       properties:
         releaseId: { $ref: '#/components/schemas/ReleaseId' }
         gameId: { $ref: '#/components/schemas/GameId' }
@@ -1529,14 +1498,14 @@ components:
         stage: { $ref: '#/components/schemas/ReleaseStage' }
         provenance: { $ref: '#/components/schemas/Provenance' }
         providerUpdatedAt: { type: string, format: date-time }
-        lastSyncedAt: { type: string, format: date-time }
         lastVerifiedAt: { type: string, format: date-time }
         verificationLevel: { type: string, enum: [provider_only, verified] }
         reviewStatus: { type: string, enum: [not_required, required] }
-        freshnessStatus: { type: string, enum: [fresh, stale] }
     ReleaseSummary:
       type: object
-      required: [platform, region, releaseDate, status, freshnessStatus]
+      description: |
+        Compact search release context. 3.8.0 removed `freshnessStatus` without replacement (#267).
+      required: [platform, region, releaseDate, status]
       properties:
         platform: { $ref: '#/components/schemas/Platform' }
         region: { $ref: '#/components/schemas/Region' }
@@ -1544,7 +1513,6 @@ components:
         status:
           type: string
           enum: [announced, scheduled, released, delayed, cancelled, unknown]
-        freshnessStatus: { type: string, enum: [fresh, stale] }
     Attribution:
       type: object
       required: [label, sourceUrl]

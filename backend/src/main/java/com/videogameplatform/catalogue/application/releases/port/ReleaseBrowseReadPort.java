@@ -80,7 +80,6 @@ public interface ReleaseBrowseReadPort {
             String sourceName,
             String sourceEntityType,
             Instant providerUpdatedAt,
-            Instant lastSyncedAt,
             Instant lastVerifiedAt,
             VerificationLevel verificationLevel,
             ReviewStatus reviewStatus,

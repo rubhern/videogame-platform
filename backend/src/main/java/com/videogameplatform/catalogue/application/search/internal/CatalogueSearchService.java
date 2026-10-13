@@ -2,7 +2,6 @@ package com.videogameplatform.catalogue.application.search.internal;
 
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
-import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.internal.CatalogueReadMapping;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueResult;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
@@ -27,19 +26,16 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
     private final CatalogueCoverPolicy coverPolicy;
     private final Clock clock;
     private final CatalogueSearchPolicy searchPolicy;
-    private final CatalogueFreshnessPolicy freshnessPolicy;
 
     public CatalogueSearchService(
             GameSearchReadPort readPort,
             CatalogueCoverPolicy coverPolicy,
             Clock clock,
-            CatalogueSearchPolicy searchPolicy,
-            CatalogueFreshnessPolicy freshnessPolicy) {
+            CatalogueSearchPolicy searchPolicy) {
         this.readPort = readPort;
         this.coverPolicy = coverPolicy;
         this.clock = clock;
         this.searchPolicy = searchPolicy;
-        this.freshnessPolicy = freshnessPolicy;
     }
 
     @Override
@@ -66,9 +62,7 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
         LocalDate evaluatedOn = LocalDate.ofInstant(evaluatedAt, clock.getZone());
         return new SearchCatalogueResult(
                 result.publicationVersion(),
-                result.items().stream()
-                        .map(item -> toItem(item, evaluatedAt, evaluatedOn))
-                        .toList(),
+                result.items().stream().map(item -> toItem(item, evaluatedOn)).toList(),
                 new SearchCatalogueResult.PageMetadata(
                         query.pageNumber(), query.pageSize(), result.totalItems(), totalPages));
     }
@@ -91,8 +85,7 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
         return searchText;
     }
 
-    private SearchCatalogueResult.Item toItem(
-            GameSearchReadPort.Item item, Instant evaluatedAt, LocalDate evaluatedOn) {
+    private SearchCatalogueResult.Item toItem(GameSearchReadPort.Item item, LocalDate evaluatedOn) {
         List<SearchCatalogueResult.ReleaseContext> releaseContext =
                 item.releaseContext().stream()
                         .map(
@@ -111,11 +104,7 @@ public final class CatalogueSearchService implements SearchCatalogueUseCase {
                                                                 .effectiveStatus(
                                                                         context.status(),
                                                                         context.releaseDate(),
-                                                                        evaluatedOn)),
-                                                CatalogueReadMapping.toFreshness(
-                                                        freshnessPolicy.status(
-                                                                context.lastSyncedAt(),
-                                                                evaluatedAt))))
+                                                                        evaluatedOn))))
                         .toList();
         return new SearchCatalogueResult.Item(
                 item.gameId(),

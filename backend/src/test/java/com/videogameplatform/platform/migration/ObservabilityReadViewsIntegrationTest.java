@@ -44,6 +44,12 @@ class ObservabilityReadViewsIntegrationTest {
                             + "('60000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001',10),"
                             + "('60000000-0000-4000-8000-000000000002','30000000-0000-4000-8000-000000000001',8),"
                             + "('60000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000002',4)");
+            statement.execute(
+                    "INSERT INTO catalogue.release_external_reference(provider,provider_id,release_id,game_id) "
+                            + "SELECT 'IGDB','observability-1',release_id,game_id FROM catalogue.release_snapshot ORDER BY release_id LIMIT 1");
+            statement.execute(
+                    "INSERT INTO catalogue.release_reconciliation(release_id,provider,last_reconciled_at) "
+                            + "SELECT release_id,provider,TIMESTAMPTZ '2026-10-14 02:00:00Z' FROM catalogue.release_external_reference WHERE provider_id='observability-1'");
         }
         try (var connection =
                         DriverManager.getConnection(
@@ -71,6 +77,17 @@ class ObservabilityReadViewsIntegrationTest {
                 assertThat(result.getLong("games")).isEqualTo(12);
                 assertThat(result.getLong("releases")).isEqualTo(20);
             }
+            // The last recorded check is distinct from the last published change; none is invented.
+            try (var result =
+                    statement.executeQuery(
+                            "SELECT count(*) AS releases, count(last_reconciled_at) AS checked, "
+                                    + "count(*) FILTER (WHERE last_reconciled_at > last_synchronized_at) AS rechecked "
+                                    + "FROM catalogue.observability_release_quality")) {
+                result.next();
+                assertThat(result.getLong("releases")).isEqualTo(20);
+                assertThat(result.getLong("checked")).isEqualTo(1);
+                assertThat(result.getLong("rechecked")).isEqualTo(1);
+            }
             try (var result =
                     statement.executeQuery(
                             "SELECT connections FROM public.observability_database")) {
@@ -80,6 +97,11 @@ class ObservabilityReadViewsIntegrationTest {
                     .isInstanceOf(SQLException.class);
             assertThatThrownBy(
                             () -> statement.executeQuery("SELECT * FROM catalogue.game_snapshot"))
+                    .isInstanceOf(SQLException.class);
+            assertThatThrownBy(
+                            () ->
+                                    statement.executeQuery(
+                                            "SELECT * FROM catalogue.release_reconciliation"))
                     .isInstanceOf(SQLException.class);
             // Privileges, not a session read-only default, are the enforcement boundary.
             statement.execute("SET default_transaction_read_only = off");

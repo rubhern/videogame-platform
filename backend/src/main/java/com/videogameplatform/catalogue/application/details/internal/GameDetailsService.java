@@ -5,7 +5,6 @@ import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.details.GameNotFoundException;
 import com.videogameplatform.catalogue.application.details.GetGameDetailsUseCase;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
-import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.internal.CatalogueReleaseMapping;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -15,17 +14,12 @@ import java.time.ZoneId;
 public final class GameDetailsService implements GetGameDetailsUseCase {
     private final GameDetailsReadPort readPort;
     private final CatalogueCoverPolicy covers;
-    private final CatalogueFreshnessPolicy freshness;
     private final Clock clock;
 
     public GameDetailsService(
-            GameDetailsReadPort readPort,
-            CatalogueCoverPolicy covers,
-            CatalogueFreshnessPolicy freshness,
-            Clock clock) {
+            GameDetailsReadPort readPort, CatalogueCoverPolicy covers, Clock clock) {
         this.readPort = readPort;
         this.covers = covers;
-        this.freshness = freshness;
         this.clock = clock;
     }
 
@@ -46,7 +40,7 @@ public final class GameDetailsService implements GetGameDetailsUseCase {
                 game.gameModes(),
                 covers.resolve(game.cover()),
                 game.releases().stream()
-                        .map(r -> CatalogueReleaseMapping.map(r, now, evaluatedOn, freshness))
+                        .map(r -> CatalogueReleaseMapping.map(r, evaluatedOn))
                         .toList(),
                 evaluatedOn);
     }

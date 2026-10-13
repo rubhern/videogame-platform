@@ -362,6 +362,9 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         jdbc.update(
                 "UPDATE catalogue.release_snapshot s SET source_kind='official_source',source_name='Publisher',source_entity_type='announcement' FROM catalogue.release_external_reference r WHERE s.release_id=r.release_id AND r.provider_id='11'");
         jdbc.update("DELETE FROM catalogue.release_external_reference WHERE provider_id='12'");
+        // A check belongs to the IGDB reference; re-pointing the reference starts without one.
+        jdbc.update(
+                "DELETE FROM catalogue.release_reconciliation c USING catalogue.release_external_reference r WHERE c.release_id=r.release_id AND r.provider_id='13'");
         jdbc.update(
                 "UPDATE catalogue.release_external_reference SET provider='OTHER' WHERE provider_id='13'");
         jdbc.update(
@@ -378,6 +381,89 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                                 "SELECT * FROM catalogue.release_snapshot ORDER BY release_id"))
                 .isEqualTo(protectedRows);
         assertThat(count("game_release")).isEqualTo(5);
+    }
+
+    @Test
+    void anUnchangedReconciliationRecordsTheCheckWithoutRewritingTheSnapshotOrRevision() {
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put(
+                "100", work("100", release("10", "2026-05-01"), release("11", "2026-06-01")));
+        service.synchronize(WINDOW);
+        assertThat(reconciledAt("10")).isEqualTo(NOW);
+        var snapshots =
+                jdbc.queryForList("SELECT * FROM catalogue.release_snapshot ORDER BY release_id");
+        String revision = version();
+
+        Instant checked = NOW.plus(Duration.ofDays(8));
+        var unchanged = serviceAt(checked).synchronize(WINDOW);
+
+        assertThat(unchanged.counters().unchangedReleases()).isEqualTo(2);
+        assertThat(
+                        jdbc.queryForList(
+                                "SELECT * FROM catalogue.release_snapshot ORDER BY release_id"))
+                .isEqualTo(snapshots);
+        assertThat(version()).isEqualTo(revision);
+        assertThat(reconciledAt("10")).isEqualTo(checked);
+        assertThat(reconciledAt("11")).isEqualTo(checked);
+        assertThat(lastSynchronizedAt("10")).isEqualTo(NOW);
+
+        Instant changedAt = checked.plus(Duration.ofDays(1));
+        provider.works.put(
+                "100", work("100", release("10", "2026-05-01"), release("11", "2026-07-01")));
+        var changed = serviceAt(changedAt).synchronize(WINDOW);
+
+        assertThat(changed.counters().updatedReleases()).isEqualTo(1);
+        assertThat(version()).isNotEqualTo(revision);
+        assertThat(lastSynchronizedAt("11")).isEqualTo(changedAt);
+        assertThat(lastSynchronizedAt("10")).isEqualTo(NOW);
+        assertThat(reconciledAt("10")).isEqualTo(changedAt);
+        assertThat(reconciledAt("11")).isEqualTo(changedAt);
+        // An earlier or replayed check never moves the evidence backwards.
+        serviceAt(checked).synchronize(WINDOW);
+        assertThat(reconciledAt("10")).isEqualTo(changedAt);
+        // A reference that disappears from the provider takes its check with it.
+        provider.works.put("100", work("100", release("10", "2026-05-01")));
+        serviceAt(changedAt).synchronize(WINDOW);
+        assertThat(count("release_reconciliation")).isEqualTo(1);
+    }
+
+    @Test
+    void onlyCommittedProviderOwnedReleasesAreRecordedAsChecked() {
+        provider.rows = List.of(new Row(10, "100"), new Row(20, "101"));
+        provider.works.put(
+                "100",
+                work(
+                        "100",
+                        release("10", "2026-01-01"),
+                        release("11", "2026-02-01"),
+                        release("12", "2026-03-01")));
+        provider.works.put("101", work("101", release("20", "2026-04-01")));
+        service.synchronize(WINDOW);
+        jdbc.update(
+                "UPDATE catalogue.release_snapshot s SET source_kind='product_curated',source_name='Product',source_entity_type='curation' FROM catalogue.release_external_reference r WHERE s.release_id=r.release_id AND r.provider_id='11'");
+        jdbc.update(
+                "UPDATE catalogue.release_snapshot s SET verification_level='verified',last_verified_at=now() FROM catalogue.release_external_reference r WHERE s.release_id=r.release_id AND r.provider_id='12'");
+
+        // Curated evidence is skipped and a conflict with verified evidence is withheld.
+        Instant later = NOW.plus(Duration.ofDays(8));
+        provider.works.put(
+                "100",
+                work(
+                        "100",
+                        release("10", "2026-01-01"),
+                        release("11", "2026-02-01"),
+                        release("12", "2026-03-15")));
+        // Game 101 fails inside its own transaction after updating release 20: two references
+        // collide on the durable product tuple, so the whole Game rolls back.
+        provider.works.put(
+                "101", work("101", release("20", "2026-04-02"), release("21", "2026-04-02")));
+        var partial = serviceAt(later).synchronize(WINDOW);
+
+        assertThat(partial.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(reconciledAt("10")).isEqualTo(later);
+        assertThat(reconciledAt("11")).isEqualTo(NOW);
+        assertThat(reconciledAt("12")).isEqualTo(NOW);
+        assertThat(reconciledAt("20")).isEqualTo(NOW);
     }
 
     @Test
@@ -1224,6 +1310,22 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 date,
                 ProviderReleaseSignal.NONE,
                 com.videogameplatform.catalogue.domain.ReleaseStage.UNKNOWN);
+    }
+
+    private Instant reconciledAt(String providerReleaseId) {
+        return jdbc.queryForObject(
+                        "SELECT c.last_reconciled_at FROM catalogue.release_reconciliation c JOIN catalogue.release_external_reference r ON r.release_id=c.release_id AND r.provider=c.provider WHERE r.provider_id=?",
+                        java.sql.Timestamp.class,
+                        providerReleaseId)
+                .toInstant();
+    }
+
+    private Instant lastSynchronizedAt(String providerReleaseId) {
+        return jdbc.queryForObject(
+                        "SELECT s.last_synchronized_at FROM catalogue.release_snapshot s JOIN catalogue.release_external_reference r ON r.release_id=s.release_id WHERE r.provider_id=?",
+                        java.sql.Timestamp.class,
+                        providerReleaseId)
+                .toInstant();
     }
 
     private String version() {

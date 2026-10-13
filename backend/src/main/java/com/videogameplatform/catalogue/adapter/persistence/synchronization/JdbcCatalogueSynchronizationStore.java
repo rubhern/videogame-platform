@@ -27,6 +27,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -362,6 +363,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                     deletion);
         }
         int created = 0, updated = 0, unchanged = 0;
+        List<UUID> reconciled = new ArrayList<>();
         for (ReleaseWrite value : w.releases()) {
             List<UUID> ids =
                     jdbc.query(
@@ -433,6 +435,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                     w.gameId(),
                                     platformId,
                                     regionId));
+            reconciled.add(releaseId);
             if (creating) {
                 created++;
             } else if (changed > 0) {
@@ -441,6 +444,7 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                 unchanged++;
             }
         }
+        recordReconciliation(reconciled, w.synchronizedAt());
         writeFeaturedEvidence(w);
         writeFeaturedMedia(w);
         int detailChanges = writeDetails(publication, w);
@@ -480,6 +484,32 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                 updated,
                 unchanged,
                 missing.size());
+    }
+
+    /**
+     * Records that this Game transaction re-checked each provider-owned release it wrote, changed
+     * or not. Protected and withheld releases were not re-checked and keep their last check. The
+     * row lives outside the snapshot, so an identical snapshot is never rewritten and the revision
+     * never rotates; a rolled-back Game records nothing.
+     */
+    private void recordReconciliation(List<UUID> releaseIds, Instant reconciledAt) {
+        if (releaseIds.isEmpty()) {
+            return;
+        }
+        jdbc.update(
+                """
+                INSERT INTO catalogue.release_reconciliation(release_id, provider, last_reconciled_at)
+                SELECT r.release_id, r.provider, :reconciledAt
+                FROM catalogue.release_external_reference r
+                WHERE r.provider = :provider AND r.release_id IN (:ids)
+                ON CONFLICT (release_id, provider) DO UPDATE
+                    SET last_reconciled_at = EXCLUDED.last_reconciled_at
+                    WHERE release_reconciliation.last_reconciled_at < EXCLUDED.last_reconciled_at
+                """,
+                new MapSqlParameterSource()
+                        .addValue("ids", releaseIds)
+                        .addValue("provider", provider)
+                        .addValue("reconciledAt", timestamp(reconciledAt)));
     }
 
     /** Updates complete evidence in the Game transaction; mapping failure keeps its last valid state. */

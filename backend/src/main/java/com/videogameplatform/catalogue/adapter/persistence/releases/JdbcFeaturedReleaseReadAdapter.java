@@ -116,7 +116,7 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                    rel.date_precision, rel.exact_date, rel.release_year, rel.release_month,
                    rel.release_quarter, rel.release_stage, rel.release_status, rel.source_kind,
                    rel.source_name, rel.source_entity_type, rel.provider_updated_at,
-                   rel.last_synchronized_at, rel.last_verified_at, rel.verification_level,
+                   rel.last_verified_at, rel.verification_level,
                    rel.review_status
             FROM ranked_game rg
             JOIN catalogue.game_snapshot snapshot

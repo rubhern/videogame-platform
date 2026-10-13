@@ -85,7 +85,7 @@ behaviour and is never a runtime dependency or an instruction source.
   periwinkle turning to aurora violet, used for the current navigation item, primary actions
   and title accents. Scores speak the thermal language of [product identity](#product-identity-and-thermal-language)
   instead. Otherwise warm light belongs to the art alone; `warning` stays reserved for review
-  and freshness states.
+  and lifecycle states.
 - Typography: Mona Sans is the interface and display family — its wide, heavy cut sets game
   titles at poster scale and page titles at a compact size on one line, and its regular width sets everything else. A title's
   accent word is set in Instrument Serif italic and lit by the aurora gradient (**Lanzamientos
@@ -99,7 +99,7 @@ behaviour and is never a runtime dependency or an instruction source.
   edge and a restrained shadow. Its ratio is the one the approved provider actually
   delivers, so `object-fit: cover` crops nothing off real artwork.
   Global styles own the executable value. Release and search result cards show no status,
-  freshness, provenance, cover attribution or **Ver ficha** action: the game page owns those, including the
+  provenance, cover attribution or **Ver ficha** action: the game page owns those, including the
   provider attribution and source link that [ADR-0001](../decisions/0001-reference-igdb-cover-images.md)
   requires. Never truncate contract data to equalize card heights; a long value wraps inside
   its chip.
@@ -476,9 +476,10 @@ visitor reads every date without choosing anything first; no
 selector is invented and none is needed. Each row reads across one line where it fits and in two
 on phones: the platform mark and name, the region mark and name, the date at its own precision
 with its known normalized Spanish stage as quiet secondary text beneath it (an unknown stage is
-left unstated), and a status chip that states the status in words. A pending review and stale
-local data are flagged on their row with a warning marker that does not rely on colour, and
-verified evidence is credited there. Rows are a list whose values are named for assistive
+left unstated), and a status chip that states the status in words. A pending review is flagged
+on its row with a warning marker that does not rely on colour, and verified evidence is credited
+there. Synchronization age is internal operational evidence: no row, notice or source line states
+it, and the source attribution names only the sources. Rows are a list whose values are named for assistive
 technology, never a table. Further records of the same platform and region stay whole, one row
 each, in a closed native disclosure, `Otras fechas registradas (N)`, whose summary carries the
 review notice when any of them is pending review. The block closes with its attribution: the
@@ -532,7 +533,7 @@ matches, an exhausted page and load failure remain distinct.
 | Loading / new selection | One live status plus non-interactive placeholders shaped like the screen they replace; never present previous results as the new selection |
 | Refreshing | Keep valid current results usable and announce the refresh |
 | Empty | Neutral editorial notice with applicable filter reset or page recovery; never call it a failure |
-| Stale | Keep results usable without a page-wide warning or a per-card freshness label; the game page states freshness explicitly, and a release that requires review keeps its card notice |
+| Stale | Catalogue synchronization age is never shown to players, on cards or on the game page; a release that requires review keeps its notice. A stale featured ranking keeps its observed-attention caption |
 | Catalogue not ready | Informational notice, local-catalogue explanation and retry; distinguish it from technical failure |
 | Unsupported filter / invalid input | Warning notice, explanation and applicable correction; preserve labels and invalid semantics |
 | Technical error | Restrained danger notice, safe message, optional support reference and retry |
@@ -554,7 +555,7 @@ state and interaction semantics. Focused browser checks own responsive reflow, C
 focus, forced colours and automated accessibility evidence. For material visual changes:
 
 1. render representative current data at 1320px, 834px and 390px;
-2. include long titles, varied date precision, stale/review status, provider artwork and the
+2. include long titles, varied date precision, review status, provider artwork and the
    product fallback;
 3. compare the captures directly with the approved export;
 4. check all affected loading, empty, catalogue-not-ready and failure states; and

@@ -8,7 +8,7 @@
 
 | ID       | Operation                           | Actor                 | Required behaviour                                                                                                                                                                                   |
 |----------|-------------------------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status), then groups the matching releases by game so a result is one game presenting at most one of its view-and-filter-matching releases per platform, and counts, uniquely orders, and pages games; cancelled is excluded from both views and delayed from recent; upcoming shows exact-day releases unless the visitor opts into approximate dates, where TBA sorts last; stale/empty/fallback are valid states |
+| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status), then groups the matching releases by game so a result is one game presenting at most one of its view-and-filter-matching releases per platform, and counts, uniquely orders, and pages games; cancelled is excluded from both views and delayed from recent; upcoming shows exact-day releases unless the visitor opts into approximate dates, where TBA sorts last; empty/fallback are valid states |
 | `UC-002` | Search bounded catalogue            | Visitor               | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider                       |
 | `UC-003` | View game details                   | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page                                   |
 | `UC-009` | Synchronize catalogue from provider | Operator / scheduler  | Synchronize every provider Game in a caller-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
@@ -254,7 +254,8 @@ context, or returns a personal/account page to the landing page.
 ## Common result and failure rules
 
 - Product identifiers are internal; provider types/IDs do not escape their adapter.
-- Date precision, provenance, verification, review, and freshness remain explicit.
+- Date precision, provenance, verification, and review remain explicit. Catalogue
+  synchronization freshness is internal operational evidence, never a player-facing state.
 - Personal and aggregate ratings remain separate.
 - Empty, no-rating, stale-but-usable, fallback-cover, ineligible, and unavailable
   aggregate states are not generic technical errors.

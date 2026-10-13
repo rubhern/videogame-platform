@@ -25,7 +25,6 @@ function game(title: string, index: number, overrides: Partial<GameSummary> = {}
         region: { regionId: "region-europe", name: "Europa" },
         releaseDate: { precision: "day", value: "2026-03-18" },
         status: "released",
-        freshnessStatus: "fresh",
       },
     ],
     releaseSummary: {

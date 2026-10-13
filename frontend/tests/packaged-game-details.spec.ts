@@ -80,7 +80,6 @@ for (const state of [
       game.releases = game.releases.map((r) => ({
         ...r,
         reviewStatus: "required",
-        freshnessStatus: "stale",
       }));
       game.ratingEligibility = {
         ...game.ratingEligibility,
@@ -104,7 +103,6 @@ for (const state of [
             ? { precision: "year", value: "2027" }
             : { precision: "unknown", value: null },
         status: "scheduled",
-        freshnessStatus: "stale",
       }));
     }
     if (state === "degraded")
@@ -195,7 +193,6 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
         platform: { platformId: "pc", name: "Windows PC" },
         region: { regionId: "world", name: "Mundial" },
         releaseDate: { precision: "unknown", value: null },
-        freshnessStatus: "stale",
         reviewStatus: "required",
       },
       // A cancelled record of the same platform and region follows the presented one (#212).

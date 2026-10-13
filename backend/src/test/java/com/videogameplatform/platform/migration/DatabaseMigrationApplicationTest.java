@@ -53,7 +53,7 @@ class DatabaseMigrationApplicationTest {
                             singleInt(
                                     statement,
                                     "SELECT count(*) FROM flyway_schema_history WHERE success"))
-                    .isEqualTo(23);
+                    .isEqualTo(24);
             assertThat(
                             singleString(
                                     statement,

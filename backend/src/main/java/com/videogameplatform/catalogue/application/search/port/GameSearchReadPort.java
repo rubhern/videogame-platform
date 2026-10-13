@@ -4,7 +4,6 @@ import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverRefe
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStatus;
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,11 +59,7 @@ public interface GameSearchReadPort {
             List<GameDetailsResult.Term> genres) {}
 
     record ReleaseContext(
-            Taxonomy platform,
-            Taxonomy region,
-            ReleaseDate releaseDate,
-            ReleaseStatus status,
-            Instant lastSyncedAt) {}
+            Taxonomy platform, Taxonomy region, ReleaseDate releaseDate, ReleaseStatus status) {}
 
     /**
      * Aggregate over every stored release of one game, independent of the bounded context.

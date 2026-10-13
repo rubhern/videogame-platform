@@ -36,7 +36,7 @@ for (const width of [320, 390, 834, 1320]) {
           gameId: "30000000-0000-4000-8000-000000000007",
           slug: "long-title",
           canonicalTitle: "Una aventura extraordinariamente larga: más allá del horizonte",
-          releases: [{ ...pragmataRelease, gameId: "30000000-0000-4000-8000-000000000007", releaseId: "40000000-0000-4000-8000-000000000007", freshnessStatus: "stale", reviewStatus: "required", releaseDate: { precision: "unknown", value: null } }],
+          releases: [{ ...pragmataRelease, gameId: "30000000-0000-4000-8000-000000000007", releaseId: "40000000-0000-4000-8000-000000000007", reviewStatus: "required", releaseDate: { precision: "unknown", value: null } }],
         }],
         page: { number: Number(query.get("page") ?? 1), size: 6, totalItems: 8, totalPages: 2 },
       }) });

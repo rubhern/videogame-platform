@@ -15,10 +15,8 @@ export const pragmataRelease: components["schemas"]["Release"] = {
     sourceName: "VideoGame Platform clickable prototype",
     sourceEntityType: "prototype_release",
   },
-  lastSyncedAt: "2026-08-09T10:00:00Z",
   verificationLevel: "provider_only",
   reviewStatus: "not_required",
-  freshnessStatus: "fresh",
 };
 
 export const pragmata: ReleasePage["items"][number] = {
