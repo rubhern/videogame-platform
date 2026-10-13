@@ -12,7 +12,8 @@ serving/acquisition/localization scenarios functionally. The
 [authenticated/mixed harness](authenticated-harness.md) adds a short real-Keycloak
 functional proof. The [Windows/Lenovo adapter](remote-harness.md) validates the same
 flows remotely over private HTTPS with independent generator/host clock audits, and
-records two bounded 5 req/s [public capacity pilots](remote-harness.md#public-capacity-pilots).
+records three bounded [public capacity pilots](remote-harness.md#public-capacity-pilots),
+including a saturated 25 req/s `normal` run.
 Stress, capacity conclusions and production optimizations remain pending.
 
 `growth` and especially `large` are **synthetic performance/capacity profiles**.

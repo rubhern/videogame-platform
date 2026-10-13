@@ -2,8 +2,8 @@
 
 This slice of [#85](https://github.com/rubhern/videogame-platform/issues/85)
 reuses the existing public, authenticated and mixed k6 modules, synthetic SQL and
-fixture provider. It establishes remote functional evidence and two bounded public
-capacity pilots, with no capacity conclusion. It adds no
+fixture provider. It establishes remote functional evidence and three bounded public
+capacity pilots, with no sustained-capacity conclusion. It adds no
 product code, migration, contract, exporter, mandatory CI gate or releasable
 artefact version increment. This record owns the experiment method and evidence;
 the [private-dev procedure](../../../deploy/private-dev/README.md#owner-connection-from-wsl)
@@ -236,7 +236,7 @@ python3 tools/performance/remote.py capacity \
   --workload-profile normal --vus 4 --rate 5 --duration-seconds 60
 ```
 
-Both owner-approved pilots used the same SUT digest and limits (application
+The first two owner-approved pilots used the same SUT digest and limits (application
 1.5 CPU / 1536 MiB, PostgreSQL 1 CPU / 768 MiB, Hikari 10, `work_mem` 4 MB,
 `shared_buffers` 128 MB), regenerated `growth` data, native Windows k6 2.3.0 at
 5 req/s for 60 seconds with 4 VUs, and no synchronization, inference or schedules.
@@ -296,12 +296,69 @@ saturation, and does not establish sustained, peak or production capacity.
 generator. The k6 `JSON response` check expects `application/json`, so an RFC 9457
 `application/problem+json` response fails it in addition to the status check.
 
-**Next minimal test (proposed, not approved).** Repeat `normal` with the same
-limits and settle, changing only the rate, e.g. 10 req/s, with
-`--vus` sized for no drops (about 30). It measures whether habitual reads keep
-zero drops, errors and PostgreSQL throttling at a doubled arrival rate. Repeating
-`adversarial` with enough VUs is a separate exposure measurement, not a habitual
-capacity one.
+### Saturated `normal` run at 25 req/s
+
+`w943jpoq` repeated `normal` with the same SUT, limits and settle (VACUUM 4.2 s, no
+autovacuum), at 25 req/s for 60 seconds with 30 VUs, at harness revision
+`454875d`. It is retained in the same evidence file. k6 exited 99. Restoration
+reconnected private-dev with unchanged aggregates and rating fingerprint
+(21,036 Games, 37,529 Releases, 22 Ratings, 27 sync runs, none running),
+no unexpected experimental rating, the experiment DB removed, unchanged
+dependencies and readiness `UP`.
+
+| Observation | Value |
+|---|---:|
+| Scheduled / completed requests | 1,500 / 702 (11.09/s) |
+| Dropped iterations | 799 |
+| HTTP 503 / 500 / timeouts / failed checks | 35 / 1 / 0 / 108 |
+| Global p50 / p95 / p99 / max | 2,569 / 4,261 / 5,124 / 6,968 ms |
+| Mean in-flight requests (reconstructed) | 28.3; all 30 VUs busy 60% of the time |
+| PostgreSQL CPU / throttled periods | 63.7 s / 632 of 657 |
+| PostgreSQL temp files / cancellations | 0 / 0 |
+| Hikari active / pending max / timeouts | 10 of 10 / 20 / 39 |
+| Application CPU / throttled periods | 25.3 s / 18 of 688 |
+| Lenovo busy logical CPUs (of 8) / CPU PSI avg60 max | 1.61 / 56% |
+| Clock backsteps / discontinuities | 0 / 0 |
+
+Completions formed a flat plateau of 106–124 per 10-second interval throughout
+the load, with p50 2.1–2.8 s, while drops stayed at 114–144 per interval. Every
+503 is `CATALOGUE_READ_FAILED` caused by `SQLTransientConnectionException` and
+lasted 3.0 s, the Hikari connection timeout. No statement was cancelled and no
+temporary file was written. Errors were spread over release and detail cases.
+
+- **Demonstrated:** `normal` at 5 req/s for 60 s without errors or drops.
+- **Saturation observed:** at 25 offered req/s, PostgreSQL consumed its whole
+  1-CPU quota and completed about 11 req/s with multi-second latency; Hikari
+  queued up to 20 waiters and timed out 39 acquisitions. This is a saturated
+  plateau under this generator configuration, not a sustainable capacity.
+- **Not established:** the highest error-free rate between 5 and about 11 req/s.
+  Drops are a closed-loop consequence: about 64 VUs (25 req/s × 2.55 s) would
+  have been needed to sustain the arrivals, so the server never received
+  25 req/s. Hikari 10 below 30 VUs moves the queue into the pool. Snapshot
+  spacing is 10–17 s. Hikari counted 39 timeouts but 35 503 responses; that four
+  readiness probes, which use the same pool, account for the rest is unverified.
+
+**Transaction-deadline 500.** `remote-capacity-w943jpoq-652`
+(`upcoming_approximate`) returned `INTERNAL_ERROR` after 6,968 ms with
+`TransactionTimedOutException`. The 5 s read-transaction deadline starts after
+connection acquisition. Spring checks it before each statement and throws when
+nothing remains. The release, search, detail and featured catalogue adapters
+classify `QueryTimeoutException` (the same deadline reached during a statement)
+as `CatalogueReadException`, hence 503, but not `TransactionTimedOutException`
+(a `TransactionException`, not a `DataAccessException`), which reaches the
+generic 500 handler. The same exhausted budget is therefore reported as 503 or
+500 depending on timing. Synchronization and rating adapters already treat it
+as a timeout or transient failure. Since `0.29.1-SNAPSHOT` those four adapters
+also classify `TransactionTimedOutException` (not `TransactionException` in
+general) as `CatalogueReadException`, so the documented 503
+`CATALOGUE_READ_FAILED` covers both cases; timeouts, Hikari, SQL and OpenAPI are
+unchanged. `w943jpoq` ran `0.29.0-SNAPSHOT` and predates the correction.
+
+**Next minimal test (proposed, not approved).** After the corrected image is deployed,
+measure the error-free boundary between 5 and about 11 req/s with `normal`
+unchanged, for example 10 req/s with `--vus 60`, so the generator does not cap
+arrivals. Pool sizing, SQL optimization and timeout changes remain separate
+decisions supported by such a measurement.
 
 ## Prepared background scenarios; not executed
 
