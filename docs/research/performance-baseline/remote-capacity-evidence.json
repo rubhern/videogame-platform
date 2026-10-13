@@ -964,7 +964,6 @@
       "harnessRevision": "07a92afde2d40b036418401374f16e5ecb2eaa53",
       "scriptsSha256": {
         "baseline.js": "9319a9786950b79f8c91ddd32453eda56af9d52bc86ea937539c7fe76812178a",
-        "authenticated.js": "6365d365e10023c7a01eb483d62800c8f9d82023dfd47fa2b711ba8a1dfa79ac",
         "mixed.js": "c08adee9f2e733c4c92a5eed53594513ac01c369c64d5077cfa31b1b01815c34",
         "windows-k6.ps1": "f984f7207c24a4e85ddaac89d6ab7ff4e11eb0ae716c4a61758e5faca4e2456f",
         "remote_worker.py": "7466cf69ac84d5d5236ddaa0387b41d9809492c6c92d9e79b262cb49e24b45ee"
