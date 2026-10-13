@@ -2,11 +2,11 @@ package com.videogameplatform.catalogue.adapter.persistence.releases;
 
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueCoverReferenceRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader;
+import com.videogameplatform.catalogue.adapter.persistence.CatalogueReadTransaction;
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueSummaryRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
 import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
-import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverReference;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
@@ -22,12 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.dao.RecoverableDataAccessException;
-import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
-import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
@@ -177,16 +172,8 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
 
     @Override
     public Optional<Result> findFeaturedReleases(Criteria criteria) {
-        try {
-            return readTransaction.execute(status -> findInTransaction(criteria));
-        } catch (CannotCreateTransactionException
-                | DataAccessResourceFailureException
-                | RecoverableDataAccessException
-                | TransientDataAccessException exception) {
-            throw new CatalogueReadException(exception);
-        } catch (DataAccessException exception) {
-            throw new CatalogueDataInvalidException(exception);
-        }
+        return CatalogueReadTransaction.execute(
+                readTransaction, status -> findInTransaction(criteria));
     }
 
     private Optional<Result> findInTransaction(Criteria criteria) {

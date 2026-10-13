@@ -600,6 +600,362 @@
         },
         "dependenciesUnchanged": true
       }
+    },
+    {
+      "run": "remote-capacity-w943jpoq",
+      "harnessRevision": "454875df8ecba9f2c97970d35c95e6fd9d6d4c3f",
+      "workloadProfile": "normal",
+      "cases": 17,
+      "requestDistribution": {
+        "releases_recent": 89,
+        "releases_upcoming": 89,
+        "releases_featured": 89,
+        "recent_pc": 89,
+        "recent_multi_filters": 88,
+        "upcoming_north_america": 88,
+        "upcoming_approximate": 88,
+        "recent_deep": 88,
+        "upcoming_deep": 88,
+        "search_selective": 88,
+        "search_alias": 88,
+        "search_accent": 88,
+        "search_normalized": 88,
+        "detail_fanout_1": 88,
+        "detail_fanout_2": 88,
+        "detail_fanout_3": 88,
+        "detail_fanout_10": 88
+      },
+      "evaluatedOn": "2026-10-13",
+      "rate": 25,
+      "durationSeconds": 60,
+      "vus": {
+        "preAllocated": 30,
+        "max": 30,
+        "reconstructedInFlightShare": {
+          "0": 0.0,
+          "1": 0.002,
+          "2": 0.001,
+          "3": 0.001,
+          "4": 0.004,
+          "5": 0.003,
+          "6": 0.001,
+          "7": 0.006,
+          "8": 0.001,
+          "9": 0.002,
+          "10": 0.001,
+          "11": 0.001,
+          "12": 0.002,
+          "13": 0.005,
+          "14": 0.001,
+          "15": 0.006,
+          "16": 0.002,
+          "17": 0.007,
+          "18": 0.003,
+          "19": 0.002,
+          "20": 0.002,
+          "21": 0.001,
+          "22": 0.003,
+          "23": 0.004,
+          "24": 0.008,
+          "25": 0.011,
+          "26": 0.024,
+          "27": 0.037,
+          "28": 0.083,
+          "29": 0.182,
+          "30": 0.596
+        },
+        "reconstructedMeanInFlight": 28.33
+      },
+      "datasetSettle": {
+        "method": "VACUUM (ANALYZE) of the experiment database, then no autovacuum/vacuum progress there for the quiet window",
+        "vacuumSeconds": 4.18,
+        "settleSeconds": 34.898,
+        "quietSeconds": 30,
+        "autovacuumWorkersBefore": 0,
+        "largestTablesAlreadyAutovacuumedBefore": true,
+        "autovacuumWorkersDuringPolls": 0
+      },
+      "http": {
+        "scheduled": 1500,
+        "completed": 702,
+        "completedPerSecond": 11.094,
+        "dropped": 799,
+        "checksPassed": 2700,
+        "checksFailed": 108,
+        "unexpectedStatuses": {
+          "releases_recent": {
+            "200": 38,
+            "503": 4
+          },
+          "releases_upcoming": {
+            "200": 37,
+            "503": 5
+          },
+          "recent_pc": {
+            "200": 40,
+            "503": 2
+          },
+          "detail_fanout_3": {
+            "200": 33,
+            "503": 8
+          },
+          "detail_fanout_2": {
+            "200": 35,
+            "503": 6
+          },
+          "detail_fanout_10": {
+            "200": 31,
+            "503": 10
+          },
+          "upcoming_approximate": {
+            "200": 40,
+            "500": 1
+          }
+        },
+        "httpFailures": 36,
+        "timeouts": 0,
+        "p50p95p99MaxMs": [
+          2568.5,
+          4261.1,
+          5124.0,
+          6968.0
+        ]
+      },
+      "casesCountP50P95P99Ms": {
+        "detail_fanout_10": [
+          41,
+          3008.3,
+          3990.5,
+          5275.7
+        ],
+        "detail_fanout_1": [
+          41,
+          1965.0,
+          4389.1,
+          5281.5
+        ],
+        "detail_fanout_2": [
+          41,
+          1883.4,
+          3273.3,
+          3858.8
+        ],
+        "detail_fanout_3": [
+          41,
+          2202.3,
+          3786.4,
+          4077.1
+        ],
+        "recent_deep": [
+          41,
+          2912.0,
+          3830.8,
+          4539.0
+        ],
+        "recent_multi_filters": [
+          42,
+          3180.2,
+          4580.7,
+          5409.9
+        ],
+        "recent_pc": [
+          42,
+          2935.2,
+          3763.2,
+          4032.6
+        ],
+        "releases_featured": [
+          42,
+          2132.7,
+          2957.9,
+          3737.5
+        ],
+        "releases_recent": [
+          42,
+          2569.2,
+          3437.8,
+          4231.9
+        ],
+        "releases_upcoming": [
+          42,
+          2716.6,
+          3501.7,
+          3692.4
+        ],
+        "search_accent": [
+          41,
+          2748.7,
+          3633.1,
+          4179.5
+        ],
+        "search_alias": [
+          41,
+          1656.9,
+          2280.4,
+          2388.5
+        ],
+        "search_normalized": [
+          41,
+          2696.6,
+          3587.9,
+          3962.2
+        ],
+        "search_selective": [
+          41,
+          1696.8,
+          2368.3,
+          2426.7
+        ],
+        "upcoming_approximate": [
+          41,
+          4050.2,
+          5633.1,
+          6437.2
+        ],
+        "upcoming_deep": [
+          41,
+          3367.3,
+          4288.0,
+          4793.4
+        ],
+        "upcoming_north_america": [
+          41,
+          1870.7,
+          2544.5,
+          2692.7
+        ]
+      },
+      "generator": {
+        "exitCode": 99,
+        "cpuSeconds": 1.046875,
+        "maxWorkingSetMiB": 67.3
+      },
+      "server": {
+        "observedWindowSeconds": 76.1,
+        "snapshots": 7,
+        "observationFailures": 0,
+        "applicationHttpCounterDelta": 702.0,
+        "applicationHttpMaxMs": 6965.4,
+        "postgresql": {
+          "cpuSeconds": 63.7,
+          "throttledPeriods": [
+            632,
+            657
+          ],
+          "throttledSeconds": 412.5,
+          "memoryMaxEvents": 455,
+          "oomKills": 0,
+          "peakChargedMemoryMiB": 763.1,
+          "diskReadWriteMB": [
+            5.7,
+            43.4
+          ],
+          "databaseDeltas": {
+            "xact_commit": 2834,
+            "xact_rollback": 1,
+            "blks_read": 8913,
+            "blks_hit": 8710995,
+            "temp_files": 0,
+            "temp_bytes": 0,
+            "deadlocks": 0
+          },
+          "activeWaitEventsObserved": [],
+          "ungrantedLocksMax": 0,
+          "logPatternCounts": {
+            "statementCancellations": 0,
+            "temporaryFileLines": 0,
+            "errorLines": 0,
+            "fatalLines": 0
+          }
+        },
+        "application": {
+          "cpuSeconds": 25.3,
+          "throttledPeriods": [
+            18,
+            688
+          ],
+          "throttledSeconds": 1.4,
+          "memoryMaxEvents": 0,
+          "oomKills": 0,
+          "peakChargedMemoryMiB": 453.5,
+          "heapUsedMinMaxAndMaxMiB": [
+            117.8,
+            154.9,
+            371.2
+          ],
+          "gcPausesCountTotalMs": [
+            6.0,
+            376.0
+          ],
+          "liveThreadsMax": 80.0,
+          "hikari": {
+            "max": 10.0,
+            "activeMax": 10.0,
+            "pendingMax": 20.0,
+            "timeoutDelta": 39.0
+          },
+          "warnOrErrorLog": {
+            "levels": {
+              "INFO": 666,
+              "WARN": 106,
+              "ERROR": 36
+            },
+            "unparsedLines": 4,
+            "warnOrErrorEvents": 142,
+            "errorClassification": [
+              {
+                "count": 35,
+                "code": "CATALOGUE_READ_FAILED",
+                "type": "com.videogameplatform.catalogue.application.CatalogueReadException",
+                "rootCauseType": "java.sql.SQLTransientConnectionException"
+              },
+              {
+                "count": 1,
+                "code": "INTERNAL_ERROR",
+                "type": "org.springframework.transaction.TransactionTimedOutException",
+                "rootCauseType": "org.springframework.transaction.TransactionTimedOutException"
+              }
+            ]
+          }
+        },
+        "physicalHost": {
+          "busyLogicalCpusOf8": 1.61,
+          "iowaitShare": 0.0003,
+          "cpuPressureAvg60MaxPercent": 56.02,
+          "memAvailableMinMiB": 4849
+        }
+      },
+      "clockAudit": {
+        "stable": true,
+        "generatorSamples": 240,
+        "lenovoSamples": 267,
+        "httpSamples": 702,
+        "backsteps": 0,
+        "discontinuities": 0
+      },
+      "restoration": {
+        "privateDataUnchanged": true,
+        "privateAfter": {
+          "games": 21036,
+          "releases": 37529,
+          "ratings": 22,
+          "syncRuns": 27,
+          "runningSyncs": 0,
+          "ratingsFingerprint": "f5f43250abd22a3ab4738c69be778cdf"
+        },
+        "unexpectedExperimentalRatings": 0,
+        "databaseRetainedForReview": false,
+        "syntheticUsersRemoved": 0,
+        "readiness": {
+          "status": "UP"
+        },
+        "dependenciesUnchanged": true
+      },
+      "transactionTimeout500": {
+        "correlationId": "remote-capacity-w943jpoq-652",
+        "case": "upcoming_approximate",
+        "durationMs": 6968.0
+      }
     }
   ]
 }
