@@ -1,13 +1,13 @@
 package com.videogameplatform.catalogue.adapter.persistence.details;
 
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueCoverReferenceRowMapper;
+import com.videogameplatform.catalogue.adapter.persistence.CatalogueReadTransaction;
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueSummaryRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
 import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
 import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
 import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
-import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
@@ -24,13 +24,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.dao.RecoverableDataAccessException;
-import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
-import org.springframework.transaction.CannotCreateTransactionException;
-import org.springframework.transaction.TransactionTimedOutException;
 import org.springframework.transaction.support.TransactionOperations;
 
 /** Indexed per-game reads within the existing bounded repeatable-read execution policy. */
@@ -53,15 +47,8 @@ public final class JdbcGameDetailsReadAdapter implements GameDetailsReadPort {
             return Optional.empty();
         }
         try {
-            return transaction.execute(status -> read(gameId));
-        } catch (CannotCreateTransactionException
-                | DataAccessResourceFailureException
-                | RecoverableDataAccessException
-                | TransientDataAccessException
-                // The read deadline expired between statements rather than during one.
-                | TransactionTimedOutException exception) {
-            throw new CatalogueReadException(exception);
-        } catch (DataAccessException | IllegalArgumentException exception) {
+            return CatalogueReadTransaction.execute(transaction, status -> read(gameId));
+        } catch (IllegalArgumentException exception) {
             throw new CatalogueDataInvalidException(exception);
         }
     }

@@ -1,20 +1,13 @@
 package com.videogameplatform.catalogue.adapter.persistence.search;
 
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader;
+import com.videogameplatform.catalogue.adapter.persistence.CatalogueReadTransaction;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
-import com.videogameplatform.catalogue.application.CatalogueDataInvalidException;
-import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.search.port.GameSearchReadPort;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DataAccessResourceFailureException;
-import org.springframework.dao.RecoverableDataAccessException;
-import org.springframework.dao.TransientDataAccessException;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
-import org.springframework.transaction.CannotCreateTransactionException;
-import org.springframework.transaction.TransactionTimedOutException;
 import org.springframework.transaction.support.TransactionOperations;
 
 /** Coordinates a coherent publication, count and bounded page in one read transaction. */
@@ -30,18 +23,8 @@ public final class JdbcGameSearchReadAdapter implements GameSearchReadPort {
 
     @Override
     public Optional<Result> findMatchingGames(Criteria criteria) {
-        try {
-            return readTransaction.execute(status -> findInTransaction(criteria));
-        } catch (CannotCreateTransactionException
-                | DataAccessResourceFailureException
-                | RecoverableDataAccessException
-                | TransientDataAccessException
-                // The read deadline expired between statements rather than during one.
-                | TransactionTimedOutException exception) {
-            throw new CatalogueReadException(exception);
-        } catch (DataAccessException exception) {
-            throw new CatalogueDataInvalidException(exception);
-        }
+        return CatalogueReadTransaction.execute(
+                readTransaction, status -> findInTransaction(criteria));
     }
 
     private Optional<Result> findInTransaction(Criteria criteria) {
