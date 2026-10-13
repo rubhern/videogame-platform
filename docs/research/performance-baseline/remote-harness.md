@@ -2,7 +2,8 @@
 
 This slice of [#85](https://github.com/rubhern/videogame-platform/issues/85)
 reuses the existing public, authenticated and mixed k6 modules, synthetic SQL and
-fixture provider. It establishes remote functional evidence only. It adds no
+fixture provider. It establishes remote functional evidence and two bounded public
+capacity pilots, with no capacity conclusion. It adds no
 product code, migration, contract, exporter, mandatory CI gate or releasable
 artefact version increment. This record owns the experiment method and evidence;
 the [private-dev procedure](../../../deploy/private-dev/README.md#owner-connection-from-wsl)
@@ -164,6 +165,15 @@ continues to target the original database; experiment SQL statistics come from
 SSH observations, while existing application telemetry continues to flow to the
 original observability stack. No dashboard datasource is changed.
 
+Since the second capacity pilot, `stop_observation` also keeps, before restoration
+discards the experiment container, the application's WARN/ERROR events for the
+observed window with allowlisted ECS fields only (`error.code`, `error.type`,
+`error.root_cause_type`, `error.sql_state`, correlation and trace identifiers;
+free text only from the redacting API exception handler), in
+`application-errors.json`. Because PostgreSQL is shared with private-dev, its log
+yields only counts of statement cancellations, temporary-file, `ERROR` and `FATAL`
+lines; statement text never leaves the host.
+
 The [frozen remote evidence](remote-evidence.json) records physical resources,
 unchanged limits, relevant JVM/Hikari/PostgreSQL/localizer configuration, observed
 smoke metrics, clock audits and restoration. Raw files remain local and ignored;
@@ -205,23 +215,95 @@ switched, and the disposable DB was removed. Email normalization and immediate I
 receipts are now covered by a focused regression check. The full successful smoke
 followed that correction; failed raw evidence remains separate.
 
-## Prepared next phase; not executed
+## Public capacity pilots
 
-After owner review and approval of a new maintenance window, the first bounded
-**public** capacity pilot can reuse this same adapter:
+`capacity` requires `--workload-profile normal|adversarial`; the
+[growth workload](growth-read-load.md#exact-workload-and-recorded-observation) owns
+both profiles and their exact distribution. `--vus N` sets equal pre-allocated and
+maximum VUs, defaults to the original 4, and is refused outside
+`1..min(60, rate × 12)`. Constant arrival needs about rate × worst iteration
+duration; the k6 timeout bounds that at rate × 10 s. After activation and any
+background preparation, `settle` runs `VACUUM (ANALYZE)` on the owned experiment
+database only, then requires 30 consecutive seconds without an autovacuum worker or
+vacuum progress there, refusing to measure after 300 seconds. `settle.json` keeps
+the largest tables' vacuum/analyze debt before and after.
 
 ```bash
+# Only within an explicitly approved maintenance window; run plan first.
 python3 tools/performance/remote.py capacity \
   --revision 8cb6071127b65c78fc74609502df4b4189b055d2 \
   --approved-maintenance-window --scenario serving-only \
-  --rate 5 --duration-seconds 60
+  --workload-profile normal --vus 4 --rate 5 --duration-seconds 60
 ```
 
-This is a single explicit rate, not an automatic escalation. It uses all twenty
-existing growth read cases, four bounded VUs, the original limits and regenerated
-`growth` data. It is a proposed pilot, not an approved run or saturation result.
-Check the deployed SHA and run a read-only `plan` first; if the deployment changes,
-record and pass its new exact SHA rather than silently accepting drift.
+Both owner-approved pilots used the same SUT digest and limits (application
+1.5 CPU / 1536 MiB, PostgreSQL 1 CPU / 768 MiB, Hikari 10, `work_mem` 4 MB,
+`shared_buffers` 128 MB), regenerated `growth` data, native Windows k6 2.3.0 at
+5 req/s for 60 seconds with 4 VUs, and no synchronization, inference or schedules.
+[remote-capacity-evidence.json](remote-capacity-evidence.json) freezes per-case
+percentiles, resources, clock audits and restoration for both; raw evidence remains
+ignored. Each restoration reconnected private-dev with unchanged rating
+fingerprint, no running sync, unchanged dependencies and readiness `UP`.
+
+| Observation | `8bp42ph4`: `adversarial`, 20 cases | `bhet96wm`: `normal`, 17 cases |
+|---|---:|---:|
+| Scheduled / completed requests | 300 / 269 (4.45/s) | 300 / 300 (5.00/s) |
+| Dropped iterations | 32 | 0 |
+| HTTP errors / timeouts / failed checks | 1 × 503 / 0 / 3 | 0 / 0 / 0 |
+| Global p50 / p95 / p99 | 203 / 3,438 / 4,511 ms | 52 / 132 / 183 ms |
+| Mean in-flight requests (reconstructed) | 2.51; all 4 VUs busy 18% | 0.28; never more than 2 |
+| PostgreSQL CPU / throttled periods | 57.2 s / 529 of 629 | 14.0 s / 11 of 621 |
+| PostgreSQL temp files / bytes | 65 / 357 MB | 0 / 0 |
+| PostgreSQL memory-limit events / OOM | 953 / 0 | 199 / 0 |
+| Application CPU / Hikari active max, pending | 16.6 s / 4, 0 | 16.0 s / 1, 0 |
+| Lenovo busy logical CPUs (of 8) | 1.58 | 0.92 |
+| Autovacuum during load | `VacuumDelay` observed | none; settled first |
+| Clock backsteps / discontinuities | 0 / 0 | 0 / 0 |
+
+In `8bp42ph4`, every dropped iteration occurred with all four VUs busy, 31 of 32
+with `search_deep_48k` in flight, so the server never received the full 5 req/s.
+Its only 503 was `search_deep_48k` at 5,238 ms. The catalogue read transaction and
+JDBC statement timeout are both 5 s (`catalogue.jdbc.read-timeout`), the server
+maximum was 5,234 ms, `xact_rollback` rose once in the matching window and Hikari
+reported no pending connection or timeout. The k6 checks show an
+application-generated `CATALOGUE_READ_FAILED` Problem; that run predates log
+capture, so SQLSTATE `57014` remains unconfirmed. A disposable local replay of the
+production search SQL on identical `growth` data showed a 1,000-row estimate for
+50,000 matching Games, a 50,000-iteration nested loop, a spilled hash aggregate
+and a 10.8 MB external sort for both deep offsets; per-run temp volume matches
+those plans within about 10%.
+
+In `bhet96wm`, release, accented/normalized search and `detail_fanout_1` p50s among
+the 17 shared cases fell 2–6 times (for example `releases_recent` 202 → 52 ms,
+`search_normalized` 406 → 76 ms); selective, alias and the other detail p50s stayed
+at about 15–25 ms in both runs. No WARN/ERROR
+application event, statement cancellation or temporary file was observed.
+
+**Attribution.** Removing the three cases is the most likely main cause:
+PostgreSQL CPU fell from 0.83 to 0.20 CPU over the window and its quota stopped
+throttling, which also removes queueing for the shared cases. The comparison is
+not controlled: the workload **and** the settle step changed together, and
+`8bp42ph4` overlapped autovacuum of freshly generated tables. Evaluation dates
+differ (2026-10-12/13), so release windows and fixture dates move. Private-dev
+received one scheduled sync between runs and shares PostgreSQL. Caches were not
+reset and the harness bytes differ (recorded per run). Per-statement CPU, wait
+time and plans were not captured on the Lenovo.
+
+**Limits of the result.** `normal` at 5 req/s is a light 60-second load with
+under one request in flight on average; it shows no generator limitation and no
+saturation, and does not establish sustained, peak or production capacity.
+`adversarial` at 5 req/s exceeded the 1-CPU PostgreSQL quota with a capped
+generator. The k6 `JSON response` check expects `application/json`, so an RFC 9457
+`application/problem+json` response fails it in addition to the status check.
+
+**Next minimal test (proposed, not approved).** Repeat `normal` with the same
+limits and settle, changing only the rate, e.g. 10 req/s, with
+`--vus` sized for no drops (about 30). It measures whether habitual reads keep
+zero drops, errors and PostgreSQL throttling at a doubled arrival rate. Repeating
+`adversarial` with enough VUs is a separate exposure measurement, not a habitual
+capacity one.
+
+## Prepared background scenarios; not executed
 
 The native launcher also supports the separate `authenticated` and `mixed`
 modules through configuration/user-file paths. The remote smoke orchestrates their

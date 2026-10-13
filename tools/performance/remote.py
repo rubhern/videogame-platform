@@ -109,10 +109,10 @@ def plan(metadata):
         'approvalRequired':True,'capacityExecuted':False}
 
 
-def public_configuration(metadata,directory,rate,duration,growth):
+def public_configuration(metadata,directory,rate,duration,growth,profile=None,vus=None):
     base=metadata['origin']+'/api/v1'
     date=b.get(base+'/releases?view=recent&weeks=1&page=1&pageSize=20')['evaluatedOn']
-    if growth: requests=b.growth_requests(); game=a.game(4)
+    if growth: requests=b.growth_requests(profile or 'adversarial'); game=a.game(4)
     else:
         search=b.get(base+'/games?q=adventure&page=1&pageSize=20')
         if not search['items']: raise RuntimeError('Read-only search cohort is empty; pick an explicit existing cohort')
@@ -126,7 +126,20 @@ def public_configuration(metadata,directory,rate,duration,growth):
             'baseUrl':base,'origin':metadata['origin'],'keycloakOrigin':metadata['keycloakOrigin'],
             'cookieName':metadata['cookieName'],'hosts':{},'requests':requests,'gameId':game,
             'rate':rate,'durationSeconds':duration,'expectedRequests':rate*duration,
-            'preAllocatedVUs':1 if rate==1 else 4,'maxVUs':1 if rate==1 else 4}
+            'workloadProfile':(profile or 'adversarial') if growth else 'current',
+            'requestDistribution':b.request_distribution(requests,rate*duration),
+            # Equal pre-allocated/max VUs: no mid-run VU allocation inside the measured window.
+            'preAllocatedVUs':vus or default_vus(rate),'maxVUs':vus or default_vus(rate)}
+
+
+def default_vus(rate):
+    return 1 if rate==1 else 4
+
+
+def validate_vus(rate,vus):
+    """Explicit bound only: Little's law needs rate x worst latency, never above the 10 s k6 timeout."""
+    if vus is not None and not 1<=vus<=min(60,rate*12):
+        raise RuntimeError('VUs must be explicit and within 1..min(60, rate*12)')
 
 
 def report(directory,observation):
@@ -138,7 +151,9 @@ def report(directory,observation):
     result={**evidence,'generator':json.loads((directory/'generator.json').read_text()),
             'generatorExit':json.loads((directory/'generator-outcome.json').read_text()),
             'clockAudit':{'generator':generator,'lenovo':host,'http':http,'stableDuringObservedWindow':stable},
-            'observationFailures':observation['failures'],'capacityInterpretationAllowed':False}
+            'observationFailures':observation['failures'],
+            'applicationLog':{k:v for k,v in observation.get('applicationLog',{}).items() if k!='events'},
+            'postgresLog':observation.get('postgresLog'),'capacityInterpretationAllowed':False}
     b.write(directory/'evidence.json',result)
     return result
 
@@ -164,10 +179,13 @@ def execute(args):
             b.write(directory/'profile.json',remote.call('prepare',date=date))
             private=remote.call('users',specs=a.user_specs()[:2]) if args.command=='smoke' else []
             b.write(directory/'activation.json',remote.call('activate'))
-            workload=public_configuration(metadata,directory,args.rate,args.duration_seconds,True)
+            workload=public_configuration(metadata,directory,args.rate,args.duration_seconds,True,
+                                          args.workload_profile,args.vus)
         else: private=[]
         if args.command=='capacity' and args.scenario!='serving-only':
             b.write(directory/'background-preparation.json',remote.call('background_prepare',scenario=args.scenario))
+        # After every experiment write, so autovacuum debt does not overlap the measured window.
+        if args.command=='capacity': b.write(directory/'settle.json',remote.call('settle'))
         mode='mixed' if args.command=='smoke' else 'baseline'
         if mode=='mixed':
             workload.update(userPool=[{k:v for k,v in u.items() if k!='password'} for u in private],
@@ -175,6 +193,7 @@ def execute(args):
                 authStartSpacingSeconds=55,publicStartSeconds=110,maxDuration='55s')
             workload['requests']=workload['requests'][:3]+[{'name':'catalogue_search','path':'/games?q=adventure&page=1&pageSize=20'},
                 {'name':'game_detail','path':'/games/'+a.game(4)}]
+            workload.update(workloadProfile='smoke'); workload.pop('requestDistribution',None)
         b.write(directory/'workload.json',workload)
         b.write(directory/'manifest.json',{'sourceRevision':b.command('git','-C',str(b.ROOT),'rev-parse','HEAD'),
             'purpose':'functional-only' if args.command!='capacity' else 'owner-selected-capacity-pilot',
@@ -203,6 +222,7 @@ def execute(args):
                 observation=remote.call('stop_observation'); observing=False
                 b.write(directory/'observation.json',observation)
                 b.write(directory/'after.json',observation['after'])
+                b.write(directory/'application-errors.json',observation.get('applicationLog'))
             result=report(directory,observation)
             if native_failure: raise native_failure
             if result['http']['checks'].get('fails') or result['generatorExit']['exitCode'] or not result['clockAudit']['stableDuringObservedWindow']:
@@ -229,6 +249,8 @@ if __name__=='__main__':
         p.add_argument('--rate',type=int,default=5 if name=='capacity' else 1)
         p.add_argument('--duration-seconds',type=int,default=60 if name=='capacity' else 15)
         p.add_argument('--scenario',choices=['serving-only','serving-sync-reuse','serving-sync-inference'],default='serving-only')
+        p.add_argument('--workload-profile',choices=b.WORKLOAD_PROFILES,required=name=='capacity')
+        p.add_argument('--vus',type=int)
     args=parser.parse_args()
     try:
         if args.command=='install': print(json.dumps(native('Install',b.TOOL)))
@@ -244,6 +266,8 @@ if __name__=='__main__':
             if not 1<=args.rate<=25 or not 10<=args.duration_seconds<=300: raise RuntimeError('Explicit bounded rate/duration required')
             if args.command in ['probe','smoke'] and (args.rate!=1 or args.duration_seconds!=15): raise RuntimeError('Smoke/probe budgets are fixed')
             if args.command!='capacity' and args.scenario!='serving-only': raise RuntimeError('This phase has no background interference execution')
+            if args.command!='capacity' and (args.workload_profile or args.vus): raise RuntimeError('Workload profile and VUs apply only to capacity')
+            validate_vus(args.rate,args.vus)
             execute(args)
     except Exception as error:
         print(type(error).__name__+': '+str(error),file=__import__('sys').stderr)

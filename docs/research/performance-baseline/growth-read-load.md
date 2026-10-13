@@ -112,7 +112,18 @@ completion queries. Empty series or missing logs are evidence gaps.
 
 ## Exact workload and recorded observation
 
-Each row is 5% of scheduled requests. Filters use the frozen synthetic identities:
+[`growth_requests`](../../../tools/performance/baseline.py) owns two selectable
+profiles; both rotate the listed order deterministically, one call per iteration:
+
+- **`adversarial`** (default, and the only profile of this local run): all 20 rows,
+  each 5% of scheduled requests. `search_broad`, `search_deep_10k` and
+  `search_deep_48k` match every Game and page to offsets 10,000/48,000, so 15% of
+  this mix is deliberately extreme contract-reachable search.
+- **`normal`**: the other 17 rows, each 1/17 (≈5.9%); a budget of 300 schedules 18
+  calls for the first eleven rows and 17 for the last six. It is an experimental
+  approximation of habitual public reads, **not observed traffic**.
+
+Filters use the frozen synthetic identities:
 PC `7a26a1da-d414-0b7a-c3cb-4e28c51d3a07`, PS5
 `2be57ffd-b64b-2428-5be4-8cacc033f8da`, Worldwide
 `c75704d9-d54e-1529-6e7f-4e449a0872fd` and North America

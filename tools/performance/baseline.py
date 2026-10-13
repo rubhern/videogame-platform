@@ -142,7 +142,20 @@ def clock_audit(directory):
             'rawMetricsAvailable': metrics_file.exists()}
 
 
-def growth_requests():
+# Matches every Game and pages to offsets 10,000/48,000; kept only in the adversarial mix.
+ADVERSARIAL_CASES = ('search_broad', 'search_deep_10k', 'search_deep_48k')
+WORKLOAD_PROFILES = ('normal', 'adversarial')
+
+
+def request_distribution(requests, total):
+    """Exact scheduled calls per case: baseline.js rotates iterationInTest % len(requests)."""
+    return {request['name']: total // len(requests) + (1 if index < total % len(requests) else 0)
+            for index, request in enumerate(requests)}
+
+
+def growth_requests(profile='adversarial'):
+    if profile not in WORKLOAD_PROFILES:
+        raise ValueError('Unknown growth workload profile')
     def identity(value):
         import uuid
         return str(uuid.UUID(hashlib.md5(value.encode()).hexdigest()))
@@ -174,6 +187,8 @@ def growth_requests():
         game = identity('performance:game:' + str(n))
         requests.append({'name': 'detail_fanout_' + str(fanout), 'kind': 'game_detail',
                          'path': '/games/' + game, 'gameId': game, 'releaseCount': fanout})
+    if profile == 'normal':
+        requests = [request for request in requests if request['name'] not in ADVERSARIAL_CASES]
     return requests
 
 
