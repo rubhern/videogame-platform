@@ -427,29 +427,44 @@ metadata followed by the calendar. Each company role is stated separately, even 
 matches another role.
 
 From 1024px the large cover, in the shared frame with its own glow beneath it, stands at the
-left, immediately above the community reading and the compact personal reading. The right
+left, immediately above the community reading, the IGDB players' reading when one exists, and
+the compact personal reading. The right
 column opens with **Ficha del catálogo**, the canonical title and the summary as editorial
 content, without a separate summary card or visible repeated heading. **Información del juego**
 follows within that column as one card at its natural height, with no empty rows, forced
 stretching or sticky facts. Its **Fechas y plataformas** subsection uses the card's full width
-below the metadata. Tablets keep the cover beside the title and summary, then give the two
-readings a shared row with comfortable
-widths before the unified information card spans the page below. Phones open with the title,
-then cover, both readings, summary and information, with the calendar nested last. Source order
+below the metadata. Tablets keep the cover beside the title and summary, then give the
+readings a shared row with comfortable widths before the unified information card spans the
+page below: the community and personal readings side by side or, with an IGDB players' reading,
+the two sources side by side and the personal reading beneath the community's. Phones open with
+the title, then cover, the readings in that order, summary and information, with the calendar
+nested last. Source order
 follows this phone reading order, so keyboard navigation never jumps back to the identity after
 the summary. The title uses the wide display cut at a restrained scale,
 following both the available editorial width and the viewport, stepping down twice for long
 names and wrapping even an unbroken word. Normal titles retain their display scale where space
 allows. Aliases follow in the lit serif. For a mouse, the cover leans toward the pointer and
 catches a glare; touch, pen, reduced
-motion and forced colours keep it still. Card-level ratings on release and search results are
-not part of the approved MVP screens until an owner decision schedules that work.
+motion and forced colours keep it still. Release-discovery cards carry scores under the
+discovery rules above; search results and other screens carry none until #279 phase 4 reviews
+them.
 
 The community reading is the most prominent: the G-meter beside the large mean, its temperature
 in words and `Basada en N puntuaciones`. “Sin nota todavía” keeps its place with a smaller meter
 and tighter spacing, giving the empty reading less prominence; an unavailable reading retains
 room for its explanation. The distribution remains a backend/API capability and is
-not rendered on this page. **Tu puntuación** stays secondary to it: one compact reading in the
+not rendered on this page.
+
+Post-MVP (#279 phase 3, implemented; awaiting owner review): **Jugadores IGDB** follows as a
+separate reading in the community reading's shape and glass, lit by the product's aurora rather
+than a temperature. The white [IGDB mark](../../frontend/public/assets/providers/README.md)
+stands in the meter's place, so both means share one column, and is the only link, to this
+game's source work. The mean keeps its /10 scale, followed by `Basada en N valoraciones` with
+the exact count, including one. It never takes a band, a temperature or the community panel's
+climate, and without a valid mean and positive count the whole reading is omitted, never
+filled, whatever the community reading shows. Loading reserves no place for it.
+
+**Tu puntuación** stays secondary to the source readings: one compact reading in the
 language of `Mis puntuaciones` — its G-meter, the label, the band in words and the value, or
 `Puntuar` without one — is a button with a caret that opens an anchored, non-modal glass panel
 overlaying what follows, so nothing below moves. The panel holds the prompt, the shared keypad

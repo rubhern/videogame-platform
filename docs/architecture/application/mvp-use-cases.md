@@ -197,6 +197,14 @@ No rating contribution returns an empty aggregate; an isolated statistics failur
 returns an explicit unavailable aggregate while preserving the game page. Personal
 rating reads and writes are outside this public operation.
 
+Post-MVP (#279 phase 3, implemented; awaiting owner review): `UC-003` also returns the
+Game's current external player score, read for its one Game ID through the same Catalogue
+application batch that discovery uses (#255). API delivery composes it beside the
+Ratings-owned aggregate, so neither module reads the other. A missing or invalid pair is
+absent, never zero; it never blends with the aggregate or affects eligibility. A failed score
+read is a Catalogue read failure, as on discovery, never an invented absence. The public
+validator covers the score, and the read calls no provider.
+
 Post-MVP (#233, data phase and game-page redesign implemented): `UC-009`
 acquires each Game's summary, developer and publisher credits, genres and game modes with
 the existing Game request, and `UC-003` serves them from PostgreSQL only. The adapter

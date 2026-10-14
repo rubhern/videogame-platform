@@ -189,6 +189,9 @@
     .game-scores > :nth-child(2) {
       animation-delay: 220ms;
     }
+    .game-scores > :nth-child(3) {
+      animation-delay: 280ms;
+    }
     .game-summary {
       animation-delay: 260ms;
     }
@@ -218,6 +221,7 @@
 
   /* One glass surface per readable block; inside, hairlines divide instead of nested cards. */
   .game-community-score,
+  .game-external-score,
   .game-panel {
     position: relative;
     isolation: isolate;
@@ -339,7 +343,8 @@
 
   /* The community mean read on the Gameómetro: the G-meter, then the label, the number with its
      temperature in words and the count. The number stays the authority; the meter interprets it. */
-  .game-community-score {
+  .game-community-score,
+  .game-external-score {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
@@ -447,6 +452,71 @@
   .game-score-description strong {
     color: var(--color-ink);
     font-weight: 650;
+  }
+
+  /* ---------------------------------------------------------------- IGDB players' reading */
+
+  /* External sentiment shares the community reading's glass and shape, lit by the product's
+     aurora instead of a temperature: it has no Gameómetro band, and its mark stays white. */
+  .game-external-score {
+    border-color: color-mix(in srgb, var(--color-aurora) 44%, var(--glass-border));
+  }
+
+  .game-external-score::before {
+    position: absolute;
+    z-index: -1;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background:
+      radial-gradient(
+        ellipse at 10% -30%,
+        color-mix(in srgb, var(--color-aurora) 30%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse at 22% 135%,
+        color-mix(in srgb, var(--color-aurora) 26%, transparent),
+        transparent 62%
+      );
+    content: "";
+  }
+
+  .game-external-score .game-score-label {
+    color: color-mix(in srgb, var(--color-aurora) 86%, var(--color-ink));
+  }
+
+  .game-external-score .game-score-value {
+    text-shadow: 0 0 30px color-mix(in srgb, var(--color-aurora) 45%, transparent);
+  }
+
+  /* The mark stands in the meter's square, so both sources' numbers share one column; only the
+     mark itself is the link to this game's source work. */
+  .game-external-score-mark {
+    display: grid;
+    place-items: center;
+  }
+
+  .game-external-score-mark a {
+    display: block;
+    width: 100%;
+    border-radius: 6px;
+  }
+
+  .game-external-score-mark img {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .game-external-score-mark img {
+      transition: filter var(--duration-fast) var(--ease-out);
+    }
+  }
+
+  .game-external-score-mark a:hover img {
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-aurora) 70%, transparent));
   }
 
   /* ---------------------------------------------------------------- Personal reading */
@@ -1509,6 +1579,11 @@
       gap: 18px;
     }
 
+    /* With the IGDB reading, the two sources share the row and the visitor's own follows. */
+    .game-scores:has(> .game-external-score) {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .game-artwork .cover-caption {
       text-align: left;
     }
@@ -1540,7 +1615,8 @@
       content: none;
     }
 
-    .game-community-score {
+    .game-community-score,
+    .game-external-score {
       column-gap: 12px;
       padding: 18px 16px 18px 12px;
     }
@@ -1573,7 +1649,8 @@
       grid-area: auto;
     }
 
-    .game-scores {
+    .game-scores,
+    .game-scores:has(> .game-external-score) {
       grid-area: auto;
       grid-template-columns: minmax(0, 1fr);
       gap: 10px;
@@ -1607,6 +1684,7 @@
 
   @media (forced-colors: active) {
     .game-community-score,
+    .game-external-score,
     .game-panel,
     .game-rating-trigger,
     .game-rating-panel,
@@ -1635,6 +1713,7 @@
 
     .game-community-score::before,
     .game-community-score::after,
+    .game-external-score::before,
     .game-artwork::before,
     .game-status::before,
     .rating-thermal-scale::before {
@@ -1671,6 +1750,12 @@
 
     .game-fact-icon {
       color: CanvasText;
+    }
+
+    /* The provider's white mark keeps its own dark ground, as on discovery. */
+    .game-external-score-mark a {
+      forced-color-adjust: none;
+      background: black;
     }
   }
 }

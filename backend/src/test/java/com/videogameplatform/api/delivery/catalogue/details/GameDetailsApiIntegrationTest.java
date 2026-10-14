@@ -537,6 +537,80 @@ class GameDetailsApiIntegrationTest {
     }
 
     @Test
+    void servesOnlyThisGamesExternalPlayerScoreBesideCommunityStatisticsAndRevalidates()
+            throws Exception {
+        var none = get(game.toString());
+        CONTRACT.assertJsonResponse(none, 200, "GameDetails");
+        assertThat(JSON.readTree(none.body()).has("externalScore")).isFalse();
+        String etag = none.headers().firstValue("ETag").orElseThrow();
+        UUID other = UUID.randomUUID();
+        admin.update("INSERT INTO catalogue.game VALUES (?, now())", other);
+        externalScore(other, "100", 50);
+        assertThat(get(game.toString(), "If-None-Match", etag).statusCode()).isEqualTo(304);
+
+        externalScore(game, "87.5", 1);
+        admin.update(
+                "INSERT INTO ratings.rating(user_id, game_id, value) VALUES (?, ?, 7)",
+                UUID.randomUUID(),
+                game);
+        var both = get(game.toString(), "If-None-Match", etag);
+        CONTRACT.assertJsonResponse(both, 200, "GameDetails");
+        assertThat(both.headers().firstValue("Cache-Control"))
+                .contains("public, max-age=0, must-revalidate");
+        var body = JSON.readTree(both.body());
+        var external = body.path("externalScore");
+        assertThat(external.path("source").asString()).isEqualTo("igdb");
+        assertThat(external.path("kind").asString()).isEqualTo("player");
+        assertThat(external.path("value").decimalValue()).isEqualByComparingTo("8.8");
+        assertThat(external.path("scale").asInt()).isEqualTo(10);
+        assertThat(external.path("count").asLong()).isEqualTo(1);
+        assertThat(external.path("attribution").path("label").asString())
+                .isEqualTo("Jugadores IGDB");
+        assertThat(external.path("attribution").path("sourceUrl").asString())
+                .isEqualTo("https://www.igdb.com/games/game-" + game);
+        assertThat(external.path("observedAt").asString()).isEqualTo("2026-08-01T10:00:00Z");
+        assertThat(external.path("providerRecordUpdatedAt").asString())
+                .isEqualTo("2026-07-30T08:00:00Z");
+        // Two one-vote signals stay separate: the community mean is never blended with IGDB's.
+        assertThat(body.path("ratingStatistics").path("count").asInt()).isEqualTo(1);
+        assertThat(body.path("ratingStatistics").path("mean").decimalValue())
+                .isEqualByComparingTo("7");
+        etag = both.headers().firstValue("ETag").orElseThrow();
+        assertThat(get(game.toString(), "If-None-Match", etag).statusCode()).isEqualTo(304);
+
+        externalScore(game, "0", 3);
+        var zero = get(game.toString(), "If-None-Match", etag);
+        assertThat(zero.statusCode()).isEqualTo(200);
+        external = JSON.readTree(zero.body()).path("externalScore");
+        assertThat(external.path("value").decimalValue()).isEqualByComparingTo("0");
+        assertThat(external.path("count").asLong()).isEqualTo(3);
+        etag = zero.headers().firstValue("ETag").orElseThrow();
+
+        admin.update(
+                "UPDATE catalogue.game_external_score SET score = NULL, score_count = NULL WHERE game_id = ?",
+                game);
+        var removed = get(game.toString(), "If-None-Match", etag);
+        CONTRACT.assertJsonResponse(removed, 200, "GameDetails");
+        assertThat(JSON.readTree(removed.body()).has("externalScore")).isFalse();
+    }
+
+    @Test
+    void anExternalScoreReadFailureFailsTheCatalogueReadInsteadOfHidingTheScore() throws Exception {
+        externalScore(game, "75", 4);
+        admin.execute(
+                "ALTER TABLE catalogue.game_external_score RENAME TO unavailable_external_score");
+        try {
+            var response = get(game.toString());
+            CONTRACT.assertJsonResponse(response, 503, "Problem");
+            assertThat(JSON.readTree(response.body()).path("code").asString())
+                    .isEqualTo("CATALOGUE_READ_FAILED");
+        } finally {
+            admin.execute(
+                    "ALTER TABLE catalogue.unavailable_external_score RENAME TO game_external_score");
+        }
+    }
+
+    @Test
     void noPublicationReturnsNotReadyInsteadOfProviderFallback() throws Exception {
         UUID publication =
                 admin.queryForObject(
@@ -740,6 +814,22 @@ class GameDetailsApiIntegrationTest {
                 game,
                 "Alias " + game + " ");
         assertThat(get(game.toString()).statusCode()).isEqualTo(500);
+    }
+
+    private void externalScore(UUID target, String score, long count) {
+        admin.update(
+                """
+            INSERT INTO catalogue.game_external_score(game_id, source_name, score_kind, score, score_count,
+                source_url, provider_record_updated_at, observed_at, changed_at)
+            VALUES (?, 'IGDB', 'player', ?::numeric, ?, ?, timestamptz '2026-07-30 08:00:00Z',
+                timestamptz '2026-08-01 10:00:00Z', timestamptz '2026-08-01 10:00:00Z')
+            ON CONFLICT (game_id, source_name, score_kind)
+            DO UPDATE SET score = excluded.score, score_count = excluded.score_count
+            """,
+                target,
+                score,
+                count,
+                "https://www.igdb.com/games/game-" + target);
     }
 
     private HttpResponse<String> get(String id, String... headers) throws Exception {

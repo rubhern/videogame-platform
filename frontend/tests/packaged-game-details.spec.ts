@@ -390,6 +390,95 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
   });
 }
 
+for (const width of [320, 390, 760, 834, 1024, 1320]) {
+  test(`community, IGDB players and personal readings at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const game = gameDetailsFixture();
+    game.ratingStatistics = {
+      status: "available",
+      count: 1,
+      mean: 7,
+      distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 1, "8": 0, "9": 0, "10": 0 },
+    };
+    game.externalScore = {
+      source: "igdb",
+      kind: "player",
+      value: 7.8,
+      scale: 10,
+      count: 12345,
+      attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/resident-evil-requiem" },
+      observedAt: "2026-08-01T10:00:00Z",
+    };
+    await page.route("**/api/v1/games/*", (route) => route.fulfill({ json: game }));
+    await page.goto(gamePath);
+    const community = page.getByRole("region", { name: "Puntuación de la comunidad" });
+    const igdb = page.getByRole("region", { name: "Jugadores IGDB" });
+    await expect(igdb.getByLabel("Nota media: 7,8 de 10")).toBeVisible();
+    await expect(igdb.getByText(/^Basada en/)).toHaveText("Basada en 12.345 valoraciones");
+    await expect(
+      igdb.getByRole("link", { name: "Jugadores IGDB: fuente de la puntuación de Resident Evil Requiem" }),
+    ).toHaveAttribute("href", "https://www.igdb.com/games/resident-evil-requiem");
+    await page.evaluate(() => document.fonts.ready);
+
+    const cover = await page.locator(".game-artwork").boundingBox();
+    const score = await community.boundingBox();
+    const external = await igdb.boundingBox();
+    const personal = await reading(page).boundingBox();
+    const summary = await page.getByRole("region", { name: "Resumen" }).boundingBox();
+    if (!cover || !score || !external || !personal || !summary)
+      throw new Error("The readings must be visible");
+    // Both sources read their number from the same column, beside the meter or the mark.
+    const values = await page.locator(".game-scores .game-score-value").evaluateAll((nodes) =>
+      nodes.map((node) => node.getBoundingClientRect().left - (node.closest("section")?.getBoundingClientRect().left ?? 0)),
+    );
+    expect(values).toHaveLength(2);
+    expect(Math.abs((values[0] ?? 0) - (values[1] ?? 0))).toBeLessThanOrEqual(1);
+    if (width >= 1024) {
+      // The identity column stacks the community, IGDB and personal readings under the cover.
+      expect(Math.abs(external.x - cover.x)).toBeLessThanOrEqual(1);
+      expect(external.y).toBeGreaterThan(score.y + score.height);
+      expect(personal.y).toBeGreaterThan(external.y + external.height);
+    } else if (width >= 760) {
+      // Tablets give the two sources a shared row; the visitor's reading follows the community's.
+      expect(score.y).toBeGreaterThan(summary.y + summary.height);
+      expect(external.x).toBeGreaterThan(score.x + score.width);
+      expect(Math.abs(external.y + external.height / 2 - (score.y + score.height / 2))).toBeLessThanOrEqual(2);
+      expect(Math.abs(personal.x - score.x)).toBeLessThanOrEqual(1);
+      expect(personal.y).toBeGreaterThan(Math.max(score.y + score.height, external.y + external.height));
+    } else {
+      expect(external.y).toBeGreaterThan(score.y + score.height);
+      expect(personal.y).toBeGreaterThan(external.y + external.height);
+      expect(summary.y).toBeGreaterThan(personal.y + personal.height);
+    }
+
+    // The keypad still opens over what follows from the reading below the IGDB card.
+    await reading(page).focus();
+    await page.keyboard.press("Enter");
+    const panel = page.getByRole("dialog", { name: /^Tu puntuación de / });
+    await expect(panel).toBeVisible();
+    const box = await panel.boundingBox();
+    if (!box) throw new Error("The keypad panel must be visible");
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    await page.keyboard.press("Escape");
+    await expect(reading(page)).toBeFocused();
+
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath(`readings-${width}.png`), fullPage: true });
+    // Forced colours keep the white mark on its own dark ground, still a visible link.
+    await page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
+    const mark = igdb.getByRole("link");
+    await expect(mark).toBeVisible();
+    expect(await mark.evaluate((link) => getComputedStyle(link).backgroundColor)).toBe("rgb(0, 0, 0)");
+  });
+}
+
 for (const width of [320, 390, 834, 1024, 1320]) {
   test(`long title, short summary and multiple company roles at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 });

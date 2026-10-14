@@ -46,7 +46,9 @@ Discovery delivery (#255 phase 2, implemented; awaiting review) composes the pub
 Catalogue external-score batch and Ratings community-summary batch for only the
 selected Game IDs. Each adapter executes one PostgreSQL query; filtering, ranking
 and pagination remain in their existing Catalogue read paths. Catalogue never
-reads Ratings persistence, and no user request calls the provider. Wire shapes
+reads Ratings persistence, and no user request calls the provider. Game-detail
+delivery (#279 phase 3, implemented; awaiting review) reuses the same Catalogue
+external-score read for its one Game beside the existing Ratings context. Wire shapes
 remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
 [frontend guide](../development/frontend-design.md).
 

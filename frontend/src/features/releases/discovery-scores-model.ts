@@ -1,8 +1,9 @@
+import { toExternalPlayerScore, type ExternalPlayerScore } from "../../shared/score/external-player-score";
 import type { ReleasePage } from "./releases-api";
 
 export type DiscoveryScore =
   | { source: "gameometro"; value: number; count: number }
-  | { source: "igdb"; value: number; count: number; attributionUrl: string };
+  | ({ source: "igdb" } & ExternalPlayerScore);
 
 /** Preserve source identity and unknown state; absence never becomes a zero score. */
 export function toDiscoveryScores(
@@ -17,12 +18,7 @@ export function toDiscoveryScores(
       community.count > 0) {
     result.push({ source: "gameometro", value: community.mean, count: community.count });
   }
-  const external = scores.external;
-  if (external?.source === "igdb" && external.kind === "player" && external.scale === 10 &&
-      Number.isFinite(external.value) && external.value >= 0 && external.value <= 10 &&
-      Number.isInteger(external.count) && external.count > 0) {
-    result.push({ source: "igdb", value: external.value, count: external.count,
-      attributionUrl: external.attribution.sourceUrl });
-  }
+  const external = toExternalPlayerScore(scores.external);
+  if (external !== null) result.push({ source: "igdb", ...external });
   return result;
 }

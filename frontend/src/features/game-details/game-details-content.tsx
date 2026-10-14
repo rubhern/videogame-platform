@@ -1,5 +1,9 @@
 import type { CSSProperties, PointerEvent } from "react";
 
+import {
+  toExternalPlayerScore,
+  type ExternalPlayerScore,
+} from "../../shared/score/external-player-score";
 import { GameMeter } from "../../shared/score/game-meter";
 import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
@@ -115,12 +119,53 @@ function CommunityScore({ statistics }: { statistics: GameDetails["ratingStatist
   );
 }
 
+const exactCount = new Intl.NumberFormat("es-ES", { useGrouping: "always" });
+
+/**
+ * The IGDB players' reading takes the community reading's shape: the provider's mark, linked to
+ * this game's source work, in the meter's place, then the mean on its /10 scale and the exact
+ * count. It is a separate source with no Gameómetro temperature.
+ */
+function ExternalScore({ score, title }: { score: ExternalPlayerScore; title: string }) {
+  const shown = score.value.toLocaleString("es-ES", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+
+  return (
+    <section aria-labelledby="external-score-title" className="game-external-score">
+      <h2 className="game-score-label" id="external-score-title">
+        Jugadores IGDB
+      </h2>
+      <div className="game-score-meter game-external-score-mark">
+        <a
+          aria-label={`Jugadores IGDB: fuente de la puntuación de ${title}`}
+          href={score.attributionUrl}
+        >
+          <img alt="" height="41" src="/assets/providers/igdb.svg" width="82" />
+        </a>
+      </div>
+      <div className="game-score-body">
+        <p aria-label={`Nota media: ${shown} de 10`} className="game-score-value">
+          {shown}
+          <span>/ 10</span>
+        </p>
+        <p className="game-score-description">
+          Basada en <strong>{exactCount.format(score.count)}</strong>{" "}
+          {score.count === 1 ? "valoración" : "valoraciones"}
+        </p>
+      </div>
+    </section>
+  );
+}
+
 /**
  * The cover and its readings form the game's identity column. The title and summary lead the
  * editorial column, followed by the facts and calendar. Source order keeps the title first on
  * phones and keyboard navigation follows the same reading order at every width.
  */
 export function GameDetailsContent({ game }: { game: GameDetails }) {
+  const externalScore = toExternalPlayerScore(game.externalScore);
   const titleScale =
     game.canonicalTitle.length > LONGEST_TITLE
       ? " game-detail-title-longest"
@@ -153,9 +198,13 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
         >
           <CatalogueCover cover={coverForPresentation(game)} />
         </div>
-        {/* The ratings belong to the whole game and stay immediately below its cover. */}
+        {/* The ratings belong to the whole game and stay immediately below its cover. Each
+            source keeps its own reading; IGDB's is omitted, never invented, without a score. */}
         <div className="game-scores">
           <CommunityScore statistics={game.ratingStatistics} />
+          {externalScore === null ? null : (
+            <ExternalScore score={externalScore} title={game.canonicalTitle} />
+          )}
           <GameRatingPanel game={game} />
         </div>
       </div>
