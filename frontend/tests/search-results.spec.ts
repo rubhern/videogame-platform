@@ -10,6 +10,14 @@ const ps5 = { platformId: "10000000-0000-4000-8000-000000000001", name: "PlaySta
 const pc = { platformId: "10000000-0000-4000-8000-000000000003", name: "Windows PC" };
 const xbox = { platformId: "10000000-0000-4000-8000-000000000004", name: "Xbox Series X|S" };
 
+type Scores = NonNullable<GameSummary["scores"]>;
+const external = (value: number, count: number): NonNullable<Scores["external"]> => ({
+  source: "igdb", kind: "player", value, scale: 10, count,
+  attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/concepto" },
+  observedAt: "2020-01-01T00:00:00Z",
+});
+const community = (mean: number, count: number): Scores["community"] => ({ status: "available", mean, count });
+
 function result(index: number, overrides: Partial<GameSummary> = {}): GameSummary {
   const title = `Concepto ${index}`;
   return {
@@ -40,13 +48,18 @@ const firstPage: GameSearchPage = {
     result(1, {
       canonicalTitle: "Una aventura extraordinariamente larga: más allá del horizonte de sucesos",
       matchedAlias: "Una aventura extraordinariamente larga, edición definitiva y completa",
+      scores: { community: community(9, 1), external: external(8.8, 1) },
     }),
     result(2, {
       releaseSummary: { platforms: [ps5, pc, xbox], totalPlatforms: 5, earliestKnownYear: 2024, latestKnownYear: 2026 },
+      scores: { community: community(10, 9876), external: external(10, 123456) },
     }),
-    result(3, { releaseSummary: { platforms: [], totalPlatforms: 0 } }),
-    result(4),
-    result(5, { matchedAlias: "Concept Five" }),
+    result(3, {
+      releaseSummary: { platforms: [], totalPlatforms: 0 },
+      scores: { community: { status: "unavailable", reasonCode: "RATING_STATISTICS_READ_FAILED" }, external: external(0, 1) },
+    }),
+    result(4, { scores: { community: community(6.5, 42) } }),
+    result(5, { matchedAlias: "Concept Five", scores: { community: { status: "available", mean: null, count: 0 } } }),
     result(6),
   ],
   page: { number: 1, size: 6, totalItems: 16, totalPages: 3 },
@@ -59,6 +72,40 @@ async function scriptSearch(page: Page) {
     const number = Number(new URL(route.request().url()).searchParams.get("page") ?? 1);
     await route.fulfill({ json: { ...firstPage, page: { ...firstPage.page, number } } });
   });
+}
+
+/** Each card's sources sit under its title and above its genres, one compact row per source. */
+async function expectStackedScores(page: Page) {
+  const layouts = await cards(page).evaluateAll((items) => items.map((item) => {
+    const list = item.querySelector(".discovery-scores");
+    if (list === null) return null;
+    const title = item.querySelector(".card-title")?.getBoundingClientRect();
+    const genres = item.querySelector(".card-genres")?.getBoundingClientRect();
+    const body = item.querySelector(".card-body")?.getBoundingClientRect();
+    const box = list.getBoundingClientRect();
+    return {
+      belowTitle: title !== undefined && box.top >= title.bottom,
+      aboveGenres: genres !== undefined && box.bottom <= genres.top,
+      insideCard: body !== undefined && box.left >= body.left - 1 && box.right <= body.right + 1,
+      sources: Array.from(list.children, (source) => {
+        const rect = source.getBoundingClientRect();
+        const mark = source.querySelector(".discovery-score-mark")?.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom, markLeft: mark?.left ?? NaN,
+          fits: source.scrollWidth <= source.clientWidth && rect.right <= box.right + 1 };
+      }),
+    };
+  }));
+  expect(layouts.map((layout) => layout?.sources.length ?? 0)).toEqual([2, 2, 1, 1, 0, 0]);
+  for (const layout of layouts) {
+    if (layout === null) continue;
+    expect(layout).toMatchObject({ belowTitle: true, aboveGenres: true, insideCard: true });
+    for (const source of layout.sources) expect(source.fits).toBe(true);
+    const [first, second] = layout.sources;
+    if (first !== undefined && second !== undefined) {
+      expect(second.top).toBeGreaterThanOrEqual(first.bottom);
+      expect(Math.abs(second.markLeft - first.markLeft)).toBeLessThanOrEqual(1);
+    }
+  }
 }
 
 async function expectAccessibleLayout(page: Page) {
@@ -103,8 +150,20 @@ for (const [width, columns] of [[1320, 6], [834, 4], [390, 2], [320, 2]] as cons
       expect(new Set(boxes.filter((box) => box.top === top).map((box) => box.height)).size).toBe(1);
     }
 
+    await expectStackedScores(page);
+    const firstScores = cards(page).first().getByRole("list", { name: /^Puntuaciones de / });
+    await expect(firstScores.getByLabel("9,0 de 10")).toBeVisible();
+    await expect(firstScores.getByLabel("8,8 de 10")).toBeVisible();
+    await expect(firstScores.getByText("1 valoración", { exact: true })).toHaveCount(2);
+    await expect(firstScores.getByRole("link", { name: /^Jugadores IGDB:/ }))
+      .toHaveAttribute("href", "https://www.igdb.com/games/concepto");
+    const largeScores = cards(page).nth(1).getByRole("list", { name: /^Puntuaciones de / });
+    await expect(largeScores.getByText("9.876 valoraciones", { exact: true })).toBeAttached();
+    await expect(largeScores.getByText("123.456 valoraciones", { exact: true })).toBeAttached();
+    await expect(cards(page).nth(2).getByLabel("0,0 de 10")).toBeVisible();
+
     const overflowCard = cards(page).nth(1);
-    await expect(overflowCard.getByRole("listitem")).toHaveCount(4);
+    await expect(overflowCard.getByRole("list", { name: "Plataformas de Concepto 2" }).getByRole("listitem")).toHaveCount(4);
     await expect(overflowCard.getByText("+2")).toBeVisible();
     await expect(overflowCard.getByText("2024–2026")).toBeVisible();
     await expect(cards(page).nth(2).getByText("Por confirmar")).toBeVisible();
@@ -114,7 +173,7 @@ for (const [width, columns] of [[1320, 6], [834, 4], [390, 2], [320, 2]] as cons
     await expect(page.getByText("Datos locales desactualizados")).toHaveCount(0);
 
     const metadataSizes = await page
-      .locator(".search-card-alias, .search-card-year, .search-card-platform-more")
+      .locator(".search-card-alias, .search-card-year, .search-card-platform-more, .discovery-score-count")
       .evaluateAll((elements) => elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize)));
     expect(Math.min(...metadataSizes)).toBeGreaterThanOrEqual(11);
 
@@ -138,10 +197,14 @@ test("search results stay keyboard navigable across pages and into a game", asyn
   await expect(page.getByRole("navigation", { name: "Paginación de resultados" })).toContainText("Página 2 de 3");
   await expect(page.getByRole("link", { name: "Página anterior" })).toBeVisible();
 
-  // Each card is one keyboard stop: its title link opens the game.
+  // The title link opens the game; an IGDB score adds only its attribution link after it.
   await page.keyboard.press("Tab");
   const firstTitle = page.getByRole("link", { name: firstPage.items[0]?.canonicalTitle ?? "", exact: true });
   await expect(firstTitle).toBeFocused();
+  await page.keyboard.press("Tab");
+  const attribution = cards(page).first().getByRole("link", { name: /^Jugadores IGDB:/ });
+  await expect(attribution).toBeFocused();
+  await expect(attribution).not.toHaveCSS("outline-style", "none");
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Concepto 2", exact: true })).toBeFocused();
   await page.keyboard.press("Enter");

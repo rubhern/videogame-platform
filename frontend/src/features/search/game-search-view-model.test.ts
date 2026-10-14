@@ -163,6 +163,34 @@ describe("catalogue search view model", () => {
     expect(result.year).toBe("Por confirmar");
   });
 
+  it("keeps each valid score source apart and drops absent or invalid pairs", () => {
+    const external = {
+      source: "igdb", kind: "player", value: 0, scale: 10, count: 1,
+      attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/original" },
+      observedAt: "2020-01-01T00:00:00Z",
+    } as const;
+    const model = toGameSearchViewModel(page([
+      summary({ gameId: "both", scores: { community: { status: "available", mean: 9, count: 1 }, external } }),
+      summary({ gameId: "external-only", scores: {
+        community: { status: "unavailable", reasonCode: "RATING_STATISTICS_READ_FAILED" }, external } }),
+      summary({ gameId: "no-votes", scores: { community: { status: "available", mean: null, count: 0 },
+        external: { ...external, count: 0 } } }),
+      summary({ gameId: "absent" }),
+    ]));
+
+    expect(model.results.map(({ gameId, scores }) => [gameId, scores])).toEqual([
+      ["both", [
+        { source: "gameometro", value: 9, count: 1 },
+        { source: "igdb", value: 0, count: 1, attributionUrl: "https://www.igdb.com/games/original" },
+      ]],
+      ["external-only", [
+        { source: "igdb", value: 0, count: 1, attributionUrl: "https://www.igdb.com/games/original" },
+      ]],
+      ["no-votes", []],
+      ["absent", []],
+    ]);
+  });
+
   it("carries an empty result page through unchanged", () => {
     const model = toGameSearchViewModel(page([]));
 

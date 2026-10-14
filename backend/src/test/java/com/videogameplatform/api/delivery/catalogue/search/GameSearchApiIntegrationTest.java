@@ -65,8 +65,8 @@ class GameSearchApiIntegrationTest {
 
         OPENAPI.assertJsonResponse(response, 200, "GameSearchPage");
         assertThat(response.headers().firstValue("X-Correlation-ID")).isPresent();
-        assertThat(response.headers().firstValue("Cache-Control"))
-                .contains("public, max-age=60, stale-while-revalidate=300");
+        // Results carry scores that change independently, so a stored page always revalidates.
+        assertThat(response.headers().firstValue("Cache-Control")).contains("public, no-cache");
         String entityTag = response.headers().firstValue("ETag").orElseThrow();
         assertThat(entityTag).matches("\"[0-9a-f]{64}\"");
 

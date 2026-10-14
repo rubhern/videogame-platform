@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.10.0
+  version: 3.11.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -510,7 +510,9 @@ paths:
         case- and diacritic-insensitive, requires every token, and is non-fuzzy.
         It never calls a provider. Zero and multiple matches are valid outcomes.
         Each result carries a bounded `releaseContext` sample and a separate
-        `releaseSummary` computed from every locally stored release of that game.
+        `releaseSummary` computed from every locally stored release of that game, plus
+        the `scores` of only the returned page's games, read from local state after
+        matching, ranking and paging.
       security: []
       parameters:
         - $ref: '#/components/parameters/CatalogueQuery'
@@ -522,7 +524,7 @@ paths:
           description: A ranked deterministic page of bounded-catalogue games.
           headers:
             X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
-            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+            Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
             ETag: { $ref: '#/components/headers/PublicEntityTag' }
           content:
             application/json:
@@ -556,6 +558,18 @@ paths:
                           totalPlatforms: 7
                           earliestKnownYear: 2005
                           latestKnownYear: 2014
+                        scores:
+                          community: { status: available, mean: 8.4, count: 12 }
+                          external:
+                            source: igdb
+                            kind: player
+                            value: 7.8
+                            scale: 10
+                            count: 1520
+                            attribution:
+                              label: Jugadores IGDB
+                              sourceUrl: https://www.igdb.com/games/resident-evil-4
+                            observedAt: '2026-07-30T08:00:00Z'
                       - gameId: game_resident_evil_4_2023
                         slug: resident-evil-4-2023
                         canonicalTitle: Resident Evil 4 Remake
@@ -576,6 +590,8 @@ paths:
                           totalPlatforms: 1
                           earliestKnownYear: 2023
                           latestKnownYear: 2023
+                        scores:
+                          community: { status: available, mean: null, count: 0 }
                     page: { number: 1, size: 20, totalItems: 2, totalPages: 1 }
                 emptyOutsideBoundary:
                   summary: Plausible title outside the bounded catalogue
@@ -1292,7 +1308,7 @@ components:
       example: correlation-opaque
     DiscoveryCacheControl:
       required: true
-      description: Public discovery may be stored, but must revalidate before reuse so rating writes and external-score refresh/removal are reflected; no personal state.
+      description: Public discovery and search may be stored, but must revalidate before reuse so rating writes and external-score refresh/removal are reflected; no personal state.
       schema: { type: string }
       example: public, no-cache
     PublicCacheControl:
@@ -1641,6 +1657,9 @@ components:
           uniqueItems: true
           items: { $ref: '#/components/schemas/Genre' }
           description: Up to two existing localized product genres, ordered by case-insensitive name then genreId. Suggestions may omit their presentation.
+        scores:
+          $ref: '#/components/schemas/DiscoveryScores'
+          description: The game's work-level scores under the discovery rules. Suggestions may omit their presentation.
         primaryCover: { $ref: '#/components/schemas/Cover' }
         releaseContext:
           type: array
@@ -1807,12 +1826,14 @@ components:
         external: { $ref: '#/components/schemas/ExternalPlayerScore' }
       additionalProperties: false
       description: |
-        Work-level sentiment composed from local PostgreSQL state for only the selected games.
+        Work-level sentiment composed from local PostgreSQL state for only the selected or
+        returned games.
         Ratings owns the Gameómetro summary, including unavailable versus zero ratings.
         Catalogue owns the optional external player score. Show each valid mean with a positive
         count, including one vote; omit the visual block when neither has a usable score.
         No blended score, confidence threshold, personal state or observation-age suppression.
-        Discovery validators include these values; cached responses must revalidate before reuse.
+        Discovery and search validators include these values; cached responses must revalidate
+        before reuse.
     ExternalPlayerScore:
       type: object
       required: [source, kind, value, scale, count, attribution, observedAt]

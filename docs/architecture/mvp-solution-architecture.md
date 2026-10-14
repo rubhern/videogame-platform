@@ -48,7 +48,9 @@ selected Game IDs. Each adapter executes one PostgreSQL query; filtering, rankin
 and pagination remain in their existing Catalogue read paths. Catalogue never
 reads Ratings persistence, and no user request calls the provider. Game-detail
 delivery (#279 phase 3, implemented; awaiting review) reuses the same Catalogue
-external-score read for its one Game beside the existing Ratings context. Wire shapes
+external-score read for its one Game beside the existing Ratings context, and catalogue
+search delivery (#279 phase 4, implemented; awaiting review) reuses the discovery
+composition for its returned page. Wire shapes
 remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
 [frontend guide](../development/frontend-design.md).
 

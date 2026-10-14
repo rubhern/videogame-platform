@@ -83,6 +83,51 @@ describe("catalogue search page", () => {
     expect(within(results).queryByText(/Hidden/)).not.toBeInTheDocument();
   });
 
+  it("shows each available score source under the title and omits the section without any", async () => {
+    const [witcher] = resultPage.items;
+    const external = {
+      source: "igdb", kind: "player", value: 8.8, scale: 10, count: 1234,
+      attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/the-witcher-iv" },
+      observedAt: "2020-01-01T00:00:00Z",
+    } as const;
+    const game = (gameId: string, canonicalTitle: string, scores: NonNullable<GameSearchPage["items"][number]["scores"]>) =>
+      ({ ...witcher, gameId, slug: canonicalTitle.toLowerCase().replaceAll(" ", "-"), canonicalTitle, matchedAlias: canonicalTitle,
+        genres: [{ genreId: "rpg", name: "Rol" }], scores });
+    stubSearch(() => Response.json({
+      items: [
+        game("both", "Both Sources", { community: { status: "available", mean: 9, count: 1 }, external }),
+        game("igdb", "Only IGDB", {
+          community: { status: "unavailable", reasonCode: "RATING_STATISTICS_READ_FAILED" }, external }),
+        game("none", "No Scores", { community: { status: "available", mean: null, count: 0 } }),
+      ],
+      page: { number: 1, size: 6, totalItems: 3, totalPages: 1 },
+    } satisfies GameSearchPage));
+    renderApp("/search?q=sources");
+    const results = await screen.findByRole("list", { name: "Resultados de la búsqueda" });
+    const [both, igdb, none] = within(results).getAllByRole("article");
+    if (!both || !igdb || !none) throw new Error("Expected three result cards");
+
+    const bothScores = within(both).getByRole("list", { name: "Puntuaciones de Both Sources" });
+    const [community, player] = within(bothScores).getAllByRole("listitem");
+    expect(within(community as HTMLElement).getByLabelText("9,0 de 10")).toBeVisible();
+    expect(within(community as HTMLElement).getByText("1 valoración")).toBeInTheDocument();
+    expect(within(player as HTMLElement).getByLabelText("8,8 de 10")).toBeVisible();
+    expect(within(player as HTMLElement).getByText("1.234 valoraciones")).toBeInTheDocument();
+    expect(within(player as HTMLElement).getByRole("link", { name: "Jugadores IGDB: fuente de la puntuación de Both Sources" }))
+      .toHaveAttribute("href", external.attribution.sourceUrl);
+    // Placed under the title and before the genres; the title stays the card's game link.
+    const title = within(both).getByRole("heading", { level: 3, name: "Both Sources" });
+    const genres = within(both).getByLabelText("Géneros: Rol");
+    expect(title.compareDocumentPosition(bothScores) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(bothScores.compareDocumentPosition(genres) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    const igdbScores = within(igdb).getByRole("list", { name: "Puntuaciones de Only IGDB" });
+    expect(within(igdbScores).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(igdbScores).queryByText(/Comunidad/)).not.toBeInTheDocument();
+    expect(within(none).queryByRole("list", { name: /^Puntuaciones de / })).not.toBeInTheDocument();
+    expect(within(none).getByLabelText("Géneros: Rol")).toBeVisible();
+  });
+
   beforeEach(() => {
     stubSearch(() => Response.json(resultPage, { status: 200 }));
   });

@@ -6,7 +6,7 @@ import { SelectIcon } from "../../shared/ui/select-icon";
 import { FeaturedArtFrame } from "./featured-art";
 import { CalendarIcon, SparkIcon } from "./featured-icons";
 import type { FeaturedLead } from "./featured-releases-view-model";
-import { DiscoveryScores } from "./discovery-scores";
+import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { ReleaseOverflow } from "./release-overflow";
 
 type FeaturedHeroProps = {

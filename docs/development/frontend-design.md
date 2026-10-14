@@ -245,6 +245,11 @@ the executable values; these constraints hold wherever they are used:
   localized product genres as quiet text, a `Coincidencia: alias` chip only when the alias differs from the title, and up to three
   platform icons with the exact `+N` of further platforms at the card foot, all from the
   compact release summary.
+  Post-MVP (#279 phase 4, implemented; awaiting owner review), the readings of the
+  [discovery score rules](#featured-releases) follow the title as two compact rows, Gameómetro
+  above **Jugadores IGDB**, so marks and means align. A card shows only its available sources
+  and omits the block without any; the IGDB attribution is its only link besides the title. A
+  card without scores keeps no reserved space, while the platform row stays at the foot.
   It never renders release rows or status chips, so its height never follows the release
   count. Platform names stay available to assistive technology and as tooltips. Summary,
   developer, publisher and game modes stay absent. Recent/upcoming cards likewise add
@@ -445,9 +450,9 @@ following both the available editorial width and the viewport, stepping down twi
 names and wrapping even an unbroken word. Normal titles retain their display scale where space
 allows. Aliases follow in the lit serif. For a mouse, the cover leans toward the pointer and
 catches a glare; touch, pen, reduced
-motion and forced colours keep it still. Release-discovery cards carry scores under the
-discovery rules above; search results and other screens carry none until #279 phase 4 reviews
-them.
+motion and forced colours keep it still. Release-discovery cards and full search results carry
+scores under the discovery rules above; the search typeahead keeps them absent, and other
+screens carry none until #279 phase 4 reviews them.
 
 The community reading is the most prominent: the G-meter beside the large mean, its temperature
 in words and `Basada en N puntuaciones`. “Sin nota todavía” keeps its place with a smaller meter

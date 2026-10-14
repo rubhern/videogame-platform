@@ -1,12 +1,15 @@
 package com.videogameplatform.api.delivery.catalogue.search;
 
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
+import com.videogameplatform.api.delivery.catalogue.DiscoveryScoresReader;
 import com.videogameplatform.api.delivery.catalogue.details.GameDetailsEndpoint;
 import com.videogameplatform.api.generated.CatalogueApi;
 import com.videogameplatform.api.generated.model.GameDetails;
 import com.videogameplatform.api.generated.model.GameSearchPage;
+import com.videogameplatform.api.generated.model.GameSummary;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueResult;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
+import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +26,7 @@ public class GameSearchController implements CatalogueApi {
     private final ConditionalRequestSupport conditionalRequests;
     private final GameSearchApiMetrics metrics;
     private final GameSearchHttpProperties properties;
+    private final DiscoveryScoresReader scores;
 
     GameSearchController(
             SearchCatalogueUseCase useCase,
@@ -30,13 +34,15 @@ public class GameSearchController implements CatalogueApi {
             ConditionalRequestSupport conditionalRequests,
             GameSearchApiMetrics metrics,
             GameSearchHttpProperties properties,
-            GameDetailsEndpoint details) {
+            GameDetailsEndpoint details,
+            DiscoveryScoresReader scores) {
         this.details = details;
         this.useCase = useCase;
         this.mapper = mapper;
         this.conditionalRequests = conditionalRequests;
         this.metrics = metrics;
         this.properties = properties;
+        this.scores = scores;
     }
 
     @Override
@@ -45,6 +51,13 @@ public class GameSearchController implements CatalogueApi {
         SearchCatalogueResult result =
                 useCase.search(new SearchCatalogueUseCase.Query(q, page, pageSize));
         GameSearchPage body = mapper.toResponse(result);
+        // Scores enrich only the returned page, after matching, ranking and paging.
+        var scoreBatch =
+                scores.read(
+                        body.getItems().stream()
+                                .map(GameSummary::getGameId)
+                                .collect(Collectors.toSet()));
+        body.getItems().forEach(item -> item.setScores(scoreBatch.get(item.getGameId())));
         String entityTag = conditionalRequests.strongEntityTag(body);
 
         HttpHeaders headers = new HttpHeaders();

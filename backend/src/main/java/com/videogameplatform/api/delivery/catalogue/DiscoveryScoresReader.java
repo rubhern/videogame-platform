@@ -1,6 +1,5 @@
-package com.videogameplatform.api.delivery.catalogue.release;
+package com.videogameplatform.api.delivery.catalogue;
 
-import com.videogameplatform.api.delivery.catalogue.ExternalPlayerScoreMapper;
 import com.videogameplatform.api.generated.model.AvailableRatingSummary;
 import com.videogameplatform.api.generated.model.DiscoveryScores;
 import com.videogameplatform.api.generated.model.RatingSummary;
@@ -13,7 +12,10 @@ import java.util.Optional;
 import java.util.Set;
 import org.springframework.stereotype.Component;
 
-/** Delivery composes the two module contracts after selection; neither module reads the other. */
+/**
+ * Delivery composes the two module contracts after selection, for discovery and search pages
+ * alike; neither module reads the other.
+ */
 @Component
 public final class DiscoveryScoresReader {
     private final GetExternalPlayerScoresUseCase external;
@@ -25,7 +27,7 @@ public final class DiscoveryScoresReader {
         this.community = community;
     }
 
-    Map<String, DiscoveryScores> read(Set<String> gameIds) {
+    public Map<String, DiscoveryScores> read(Set<String> gameIds) {
         if (gameIds.isEmpty()) return Map.of();
         var externalScores = external.get(gameIds);
         var summaries = community.get(gameIds);

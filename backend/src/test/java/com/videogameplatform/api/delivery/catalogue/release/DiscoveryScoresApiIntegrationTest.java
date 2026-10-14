@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import com.videogameplatform.api.delivery.OpenApiResponseContract;
+import com.videogameplatform.api.delivery.catalogue.search.GameSearchHttpProperties;
 import com.videogameplatform.catalogue.application.releases.port.ExternalPlayerScoresReadPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.ratings.application.GetRatingSummariesUseCase;
@@ -42,7 +43,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-/** Real PostgreSQL, contract, validators and module collaboration on existing discovery reads. */
+/**
+ * Real PostgreSQL, contract, validators and module collaboration on the discovery reads and the
+ * full catalogue search, which carry the same scores.
+ */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = "management.server.port=0")
@@ -56,6 +60,7 @@ class DiscoveryScoresApiIntegrationTest {
     private static final String FEATURED = "/api/v1/featured-releases?month=2026-10";
     private static final String UPCOMING =
             "/api/v1/releases?view=upcoming&weeks=4&includeApproximateDates=true&pageSize=1";
+    private static final String SEARCH = "/api/v1/games?q=crimson%20desert&pageSize=1";
     private static final ObjectMapper JSON = new ObjectMapper();
     @LocalServerPort private int port;
     @Autowired private JdbcTemplate jdbc;
@@ -84,9 +89,9 @@ class DiscoveryScoresApiIntegrationTest {
     }
 
     @Test
-    void keepsAbsenceCommunityOnlyExternalOnlyAndBothIncludingOneVoteOnBothDiscoveryContracts()
+    void keepsAbsenceCommunityOnlyExternalOnlyAndBothIncludingOneVoteOnEveryScoredContract()
             throws Exception {
-        for (String path : new String[] {FEATURED, UPCOMING}) {
+        for (String path : new String[] {FEATURED, UPCOMING, SEARCH}) {
             var neither = response(path);
             assertThat(score(neither).path("community").path("count").asInt()).isZero();
             assertThat(score(neither).path("community").path("mean").isNull()).isTrue();
@@ -114,7 +119,7 @@ class DiscoveryScoresApiIntegrationTest {
 
     @Test
     void revalidatesAfterCommunityWritesAndExternalRefreshOrRemoval() throws Exception {
-        for (String path : new String[] {FEATURED, UPCOMING}) {
+        for (String path : new String[] {FEATURED, UPCOMING, SEARCH}) {
             var current = response(path);
             String tag = current.headers().firstValue("ETag").orElseThrow();
             assertThat(get(path, tag).statusCode()).isEqualTo(304);
@@ -157,6 +162,33 @@ class DiscoveryScoresApiIntegrationTest {
         assertThat(score(read).path("external").path("value").asDouble()).isZero();
         verify(ratings).get(Set.of(GAME.toString()));
         verify(external).read(Set.of(GAME.toString()));
+    }
+
+    @Test
+    void searchEnrichesOnlyTheReturnedPageAndAnEmptyPageReadsNoScores() throws Exception {
+        // "2" matches several games; the second page of one holds exactly one of them.
+        var read = get("/api/v1/games?q=2&page=2&pageSize=1", null);
+        OpenApiResponseContract.load("/games").assertJsonResponse(read, 200, "GameSearchPage");
+        var body = JSON.readTree(read.body());
+        assertThat(body.path("page").path("totalItems").asInt()).isGreaterThan(1);
+        assertThat(body.path("items")).hasSize(1);
+        String returned = body.path("items").get(0).path("gameId").stringValue();
+        assertThat(
+                        body.path("items")
+                                .get(0)
+                                .path("scores")
+                                .path("community")
+                                .path("status")
+                                .stringValue())
+                .isEqualTo("available");
+        verify(ratings).get(Set.of(returned));
+        verify(external).read(Set.of(returned));
+
+        org.mockito.Mockito.clearInvocations(ratings, external);
+        var beyond = get("/api/v1/games?q=2&page=99&pageSize=1", null);
+        assertThat(JSON.readTree(beyond.body()).path("items")).isEmpty();
+        verify(ratings, never()).get(anySet());
+        verify(external, never()).read(anySet());
     }
 
     @Test
@@ -229,6 +261,11 @@ class DiscoveryScoresApiIntegrationTest {
                         new ReleaseHttpProperties("public, max-age=60, stale-while-revalidate=300")
                                 .cacheControl())
                 .isEqualTo("public, no-cache");
+        assertThat(
+                        new GameSearchHttpProperties(
+                                        "public, max-age=60, stale-while-revalidate=300")
+                                .cacheControl())
+                .isEqualTo("public, no-cache");
     }
 
     private void vote(int value) {
@@ -253,11 +290,16 @@ class DiscoveryScoresApiIntegrationTest {
 
     private HttpResponse<String> response(String path) throws Exception {
         var response = get(path, null);
-        OpenApiResponseContract.load(path.startsWith(FEATURED) ? "/featured-releases" : "/releases")
-                .assertJsonResponse(
-                        response,
-                        200,
-                        path.startsWith(FEATURED) ? "FeaturedReleases" : "ReleasePage");
+        if (path.equals(FEATURED)) {
+            OpenApiResponseContract.load("/featured-releases")
+                    .assertJsonResponse(response, 200, "FeaturedReleases");
+        } else if (path.equals(SEARCH)) {
+            OpenApiResponseContract.load("/games")
+                    .assertJsonResponse(response, 200, "GameSearchPage");
+        } else {
+            OpenApiResponseContract.load("/releases")
+                    .assertJsonResponse(response, 200, "ReleasePage");
+        }
         assertThat(response.headers().firstValue("Cache-Control")).contains("public, no-cache");
         return response;
     }

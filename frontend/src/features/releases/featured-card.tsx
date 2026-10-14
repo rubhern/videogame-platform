@@ -5,7 +5,7 @@ import { platformIcon } from "../../shared/catalogue/taxonomy-icons";
 import { SelectIcon } from "../../shared/ui/select-icon";
 import { FeaturedArtFrame } from "./featured-art";
 import type { FeaturedItem } from "./featured-releases-view-model";
-import { DiscoveryScores } from "./discovery-scores";
+import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { ReleaseOverflow } from "./release-overflow";
 
 /** A compact row shows up to three platform marks and the exact number of further platforms. */

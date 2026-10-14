@@ -95,7 +95,9 @@ export interface paths {
          *     case- and diacritic-insensitive, requires every token, and is non-fuzzy.
          *     It never calls a provider. Zero and multiple matches are valid outcomes.
          *     Each result carries a bounded `releaseContext` sample and a separate
-         *     `releaseSummary` computed from every locally stored release of that game.
+         *     `releaseSummary` computed from every locally stored release of that game, plus
+         *     the `scores` of only the returned page's games, read from local state after
+         *     matching, ranking and paging.
          */
         get: operations["searchGames"];
         put?: never;
@@ -433,6 +435,8 @@ export interface components {
             matchedAlias?: string;
             /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. Suggestions may omit their presentation. */
             genres?: components["schemas"]["Genre"][];
+            /** @description The game's work-level scores under the discovery rules. Suggestions may omit their presentation. */
+            scores?: components["schemas"]["DiscoveryScores"];
             primaryCover: components["schemas"]["Cover"];
             /**
              * @description Bounded representative sample of the game's releases, ordered by release
@@ -558,12 +562,14 @@ export interface components {
             releases: components["schemas"]["Release"][];
         };
         /**
-         * @description Work-level sentiment composed from local PostgreSQL state for only the selected games.
+         * @description Work-level sentiment composed from local PostgreSQL state for only the selected or
+         *     returned games.
          *     Ratings owns the Gameómetro summary, including unavailable versus zero ratings.
          *     Catalogue owns the optional external player score. Show each valid mean with a positive
          *     count, including one vote; omit the visual block when neither has a usable score.
          *     No blended score, confidence threshold, personal state or observation-age suppression.
-         *     Discovery validators include these values; cached responses must revalidate before reuse.
+         *     Discovery and search validators include these values; cached responses must revalidate
+         *     before reuse.
          */
         DiscoveryScores: {
             community: components["schemas"]["RatingSummary"];
@@ -1206,7 +1212,7 @@ export interface components {
          */
         XCorrelationId: components["schemas"]["CorrelationId"];
         /**
-         * @description Public discovery may be stored, but must revalidate before reuse so rating writes and external-score refresh/removal are reflected; no personal state.
+         * @description Public discovery and search may be stored, but must revalidate before reuse so rating writes and external-score refresh/removal are reflected; no personal state.
          * @example public, no-cache
          */
         DiscoveryCacheControl: string;
@@ -1407,7 +1413,7 @@ export interface operations {
             200: {
                 headers: {
                     "X-Correlation-ID": components["headers"]["XCorrelationId"];
-                    "Cache-Control": components["headers"]["PublicCacheControl"];
+                    "Cache-Control": components["headers"]["DiscoveryCacheControl"];
                     ETag: components["headers"]["PublicEntityTag"];
                     [name: string]: unknown;
                 };

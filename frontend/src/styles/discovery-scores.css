@@ -99,6 +99,13 @@
   .release-card .card-body:has(.discovery-scores) .card-statuses { grid-row: 5; }
   .release-card .card-body:has(.discovery-scores) .release-overflow { grid-row: 6; }
 
+  /* Search results (#279) stack the sources as two compact rows under the title, so marks and
+     values line up; an especially narrow card still moves only the count to the next line. */
+  .search-card .discovery-scores-compact {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .discovery-scores-hero .discovery-score {
     grid-template-columns: 54px minmax(0, 1fr);
     gap: 5px 12px;
