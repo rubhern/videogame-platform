@@ -44,8 +44,12 @@ rules; only the owner-run host commands can provision the real account or perfor
 real deployment. Offline promotion regressions additionally cover CI trust,
 publication binding, restricted commands, runtime drift and sanitized failure evidence.
 
-Trusted `main` builds validate and publish the same non-root multi-architecture OCI
-index by immutable commit SHA/digest. Pull requests never publish. Image scanning,
+Trusted `main` builds validate and publish the same non-root AMD64 OCI
+image by immutable commit SHA/digest. Pull requests never publish. Runtime and
+scanner checks import the retained archive;
+publication copies that archive with digest preservation and verifies the published
+digest and architecture. [ADR-0026](../decisions/0026-defer-arm64-runtime-support.md)
+owns deferred ARM64 support and its restoration gate. Image scanning,
 SBOM generation, dependency submission, CodeQL, and Sonar configuration remain
 defined by their workflows rather than duplicated here.
 
@@ -64,3 +68,23 @@ Catalogue localization adds deterministic Python helper/operator boundary tests 
 backend gate and a private-helper image check/build to the container gate. CI never
 downloads model weights or requires live IGDB credentials; native quality/resource
 acceptance belongs to the [operations runbook](operations-runbook.md#catalogue-localization).
+
+## Feedback measurements
+
+[`measure-ci-latency.py`](../../scripts/measure-ci-latency.py) snapshots recent
+successful first-attempt PR quality/security pairs and trusted-main pairs, including
+job/step durations, workflow elapsed time and initial scheduling wait. Use a separate
+output directory for each snapshot. Compare like affected-area workloads and cache
+conditions; time to merge-ready is measured from the earliest paired workflow creation
+to completion of both required gates, excluding publication. Scheduling wait includes
+workflow orchestration and is not a precise per-job runner queue metric. Failed,
+cancelled and rerun attempts are excluded from the successful-run distribution and
+must be investigated separately. Keep run links, timing evidence, cache limitations,
+risks and rollback in the issue/PR, rather than copying a changing baseline here.
+
+Independent container/runtime checks may run in parallel; every applicable result
+remains required. Packaged browser/identity journeys may omit duplicate Maven tests
+only when the separate backend gate is required for that revision. Otherwise packaging
+retains tests, including local runs. Cross-job build reuse must not introduce stale
+artifacts, mix source revisions, expose trusted credentials to PRs, or lengthen the
+critical path without measured benefit.

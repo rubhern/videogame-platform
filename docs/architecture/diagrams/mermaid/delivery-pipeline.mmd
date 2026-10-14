@@ -2,7 +2,7 @@ flowchart TD
     subgraph CI["GitHub Actions"]
         PR["Pull request: selective affected-area gates<br/>no secrets, never publishes"]
         Main["Trusted main: complete integration<br/>build, scan, SBOM"]
-        GHCR["Publish immutable multi-arch image to GHCR<br/>commit SHA + content digest, never latest"]
+        GHCR["Publish immutable AMD64 image to GHCR<br/>commit SHA + content digest, never latest"]
         PR --> Main --> GHCR
     end
 

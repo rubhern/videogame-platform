@@ -16,7 +16,6 @@ trivy_cache="videogame-platform-trivy-${run_id}"
 application_container=""
 inspection_container=""
 amd64_tag="videogame-platform:image-validation-${run_id}-amd64"
-arm64_tag="videogame-platform:image-validation-${run_id}-arm64"
 migration_secret_directory="$(mktemp -d)"
 migration_secret_file="$migration_secret_directory/application-migration-db-password"
 
@@ -30,11 +29,10 @@ cleanup() {
   docker rm --force "$postgres_container" >/dev/null 2>&1 || true
   docker network rm "$network" >/dev/null 2>&1 || true
   docker volume rm "$trivy_cache" >/dev/null 2>&1 || true
-  docker image rm "$amd64_tag" "$arm64_tag" >/dev/null 2>&1 || true
+  docker image rm "$amd64_tag" >/dev/null 2>&1 || true
   rm -rf -- "$migration_secret_directory"
   rm -f -- \
-    "$evidence_directory/application-amd64.jar" \
-    "$evidence_directory/application-arm64.jar"
+    "$evidence_directory/application-amd64.jar"
 }
 
 trap cleanup EXIT
@@ -46,47 +44,6 @@ fail() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "Required command is unavailable: $1"
-}
-
-inspect_oci_archive() {
-  python3 - "$image_archive" "$evidence_directory" <<'PY'
-import json
-import pathlib
-import sys
-import tarfile
-
-archive = pathlib.Path(sys.argv[1])
-evidence = pathlib.Path(sys.argv[2])
-
-with tarfile.open(archive, "r") as image:
-    index = json.load(image.extractfile("index.json"))
-    descriptors = index.get("manifests", [])
-    if len(descriptors) != 1:
-        raise SystemExit(f"expected one OCI index descriptor, found {len(descriptors)}")
-    descriptor = descriptors[0]
-    digest = descriptor.get("digest", "")
-    algorithm, separator, value = digest.partition(":")
-    if separator != ":" or algorithm != "sha256" or len(value) != 64:
-        raise SystemExit(f"unexpected OCI index digest: {digest}")
-    manifest = json.load(image.extractfile(f"blobs/{algorithm}/{value}"))
-
-platforms = {
-    (entry.get("platform", {}).get("os"), entry.get("platform", {}).get("architecture"))
-    for entry in manifest.get("manifests", [])
-}
-expected = {("linux", "amd64"), ("linux", "arm64")}
-if platforms != expected:
-    raise SystemExit(f"expected only {sorted(expected)}, found {sorted(platforms)}")
-
-(evidence / "oci-index.json").write_text(
-    json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-)
-(evidence / "image-digest.txt").write_text(digest + "\n", encoding="utf-8")
-(evidence / "manifest-platforms.txt").write_text(
-    "linux/amd64\nlinux/arm64\n", encoding="utf-8"
-)
-print(f"Verified OCI index {digest}: linux/amd64 and linux/arm64")
-PY
 }
 
 wait_for_postgres() {
@@ -286,9 +243,7 @@ PY
 
   migration_version="$(run_packaged_migrations "$architecture" "$tag")"
 
-  if [[ "$architecture" == "amd64" ]]; then
-    seed_catalogue_for_runtime_evidence
-  fi
+  seed_catalogue_for_runtime_evidence
 
   application_container="videogame-platform-image-application-${run_id}-${architecture}"
   docker run --detach \
@@ -388,22 +343,16 @@ rm -f -- \
   "$image_archive" \
   "$evidence_directory/build-metadata.json" \
   "$evidence_directory/filesystem-amd64.txt" \
-  "$evidence_directory/filesystem-arm64.txt" \
   "$evidence_directory/history-amd64.txt" \
-  "$evidence_directory/history-arm64.txt" \
-  "$evidence_directory/oci-index.json" \
+  "$evidence_directory/oci-manifest.json" \
+  "$evidence_directory/image-config-digest.txt" \
   "$evidence_directory/image-digest.txt" \
   "$evidence_directory/jar-contents-amd64.txt" \
-  "$evidence_directory/jar-contents-arm64.txt" \
   "$evidence_directory/manifest-platforms.txt" \
   "$evidence_directory/runtime-amd64.txt" \
-  "$evidence_directory/runtime-arm64.txt" \
   "$evidence_directory/sbom-amd64.cdx.json" \
-  "$evidence_directory/sbom-arm64.cdx.json" \
   "$evidence_directory/trivy-amd64.json" \
   "$evidence_directory/trivy-amd64.txt" \
-  "$evidence_directory/trivy-arm64.json" \
-  "$evidence_directory/trivy-arm64.txt" \
   "$evidence_directory/trivy-version.txt" \
   "$evidence_directory/SHA256SUMS"
 
@@ -433,38 +382,39 @@ common_build_arguments=(
   --build-arg "SOURCE_URL=$source_url"
 )
 
-printf 'Building the immutable OCI index for linux/amd64 and linux/arm64.\n'
-# Refresh runtime security packages once; platform loads below reuse these exact layers.
+printf 'Building the immutable OCI image for linux/amd64.\n'
+# Refresh runtime security packages once; validation imports these exact bytes.
 docker buildx build \
   "${common_build_arguments[@]}" \
   "${build_cache_arguments[@]}" \
   --no-cache-filter runtime \
-  --platform linux/amd64,linux/arm64 \
+  --platform linux/amd64 \
   --output "type=oci,dest=$image_archive" \
   --metadata-file "$evidence_directory/build-metadata.json" \
   .
 
-inspect_oci_archive
+python3 scripts/inspect-application-oci.py "$image_archive" "$evidence_directory"
 (
   cd "$evidence_directory"
   sha256sum application-image.oci.tar >SHA256SUMS
 )
 
-printf 'Loading platform images for runtime and scanner evidence.\n'
-docker buildx build \
-  "${common_build_arguments[@]}" \
-  "${build_cache_arguments[@]}" \
-  --platform linux/amd64 \
-  --load \
-  --tag "$amd64_tag" \
-  .
-docker buildx build \
-  "${common_build_arguments[@]}" \
-  "${build_cache_arguments[@]}" \
-  --platform linux/arm64 \
-  --load \
-  --tag "$arm64_tag" \
-  .
+printf 'Importing the retained OCI archive for runtime and scanner evidence.\n'
+# Import the archive rather than rebuilding: every tested/scanned layer is published.
+skopeo_image="quay.io/skopeo/stable:v1.20.0@sha256:47853bb9fb24202af9110531ebd6e43c5f97701254ca290596640290d17942f4"
+docker run --rm \
+  --volume "$evidence_directory:/evidence:ro" \
+  --volume /var/run/docker.sock:/var/run/docker.sock \
+  "$skopeo_image" copy \
+  oci-archive:/evidence/application-image.oci.tar \
+  "docker-daemon:$amd64_tag"
+# Docker image IDs differ between classic and containerd stores. Hash the actual
+# imported config, which also binds the ordered uncompressed filesystem layers.
+loaded_config_digest="sha256:$(docker run --rm \
+  --volume /var/run/docker.sock:/var/run/docker.sock \
+  "$skopeo_image" inspect --raw --config "docker-daemon:$amd64_tag" | sha256sum | cut -d ' ' -f 1)"
+[[ "$loaded_config_digest" == "$(cat "$evidence_directory/image-config-digest.txt")" ]] || \
+  fail 'Imported image configuration differs from the retained OCI archive.'
 
 application_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 migration_password="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
@@ -492,16 +442,9 @@ wait_for_postgres
 
 docker run --rm "$trivy_image" --version >"$evidence_directory/trivy-version.txt"
 
-for architecture in amd64 arm64; do
-  if [[ "$architecture" == "amd64" ]]; then
-    tag="$amd64_tag"
-  else
-    tag="$arm64_tag"
-  fi
-  printf 'Verifying linux/%s runtime image.\n' "$architecture"
-  verify_runtime_image "$architecture" "$tag"
-  printf 'Scanning linux/%s runtime image and generating its CycloneDX SBOM.\n' "$architecture"
-  scan_image "$architecture" "$tag"
-done
+printf 'Verifying linux/amd64 runtime image.\n'
+verify_runtime_image amd64 "$amd64_tag"
+printf 'Scanning linux/amd64 runtime image and generating its CycloneDX SBOM.\n'
+scan_image amd64 "$amd64_tag"
 
 printf 'Container image validation passed. Evidence: %s\n' "$evidence_directory"

@@ -17,7 +17,7 @@ the lock file, Dockerfile, and Compose file.
 | Identity | Keycloak 26.7 via same-origin server-side OIDC BFF |
 | Testing/quality | JUnit/AssertJ, Spring tests, Modulith/ArchUnit, Vitest/RTL, Playwright/axe, Spotless, JaCoCo evidence, Sonar, CodeQL, dependency/secret/image checks |
 | Observability | Actuator, Micrometer, W3C tracing, OpenTelemetry-compatible optional export; private-dev and optional local Collector → Prometheus 3 LTS → Grafana 13; private-dev logging with Alloy 1 → single-instance Loki 3 → existing Grafana (#159, owner review pending) |
-| Delivery | GitHub Actions/GHCR; non-root multi-architecture OCI image; local Docker Compose |
+| Delivery | GitHub Actions/GHCR; non-root AMD64 OCI image; local Docker Compose |
 
 ## Policies
 
@@ -35,9 +35,10 @@ the lock file, Dockerfile, and Compose file.
 - Pin executable versions and lock dependency graphs. Review release notes,
   compatibility, security, licence, runtime architecture support, and rollback before
   upgrades. Do not copy patch versions into prose.
-- Supported images and application artefacts must work on `linux/amd64` and
-  `linux/arm64`; the current [private host](../deployment/mvp-platform-and-delivery.md)
-  consumes `linux/amd64`. ARM64 delivery remains a portability requirement.
+- The supported runtime architecture is `linux/amd64`. ARM64 is intentionally
+  deferred under [ADR-0026](../../decisions/0026-defer-arm64-runtime-support.md);
+  restore and validate multi-architecture delivery and its corresponding CI/runtime
+  checks before deploying to an ARM64 host.
 
 ## Deferred by default
 

@@ -145,6 +145,11 @@ run_case docker \
   'container,build,frontend,backend' \
   'browser,migrations,identity,provider_fixtures,sonar'
 
+run_case oci-inspection \
+  'scripts/inspect-application-oci.py' \
+  'container,build,frontend,backend' \
+  'browser,migrations,identity,provider_fixtures,sonar'
+
 run_case igdb \
   'tools/igdb-poc/src/test/resources/fixtures/example.json' \
   'provider_fixtures' \
@@ -267,5 +272,7 @@ if ((failures > 0)); then
   printf 'CI change-detection tests failed with %d problem(s).\n' "$failures" >&2
   exit 1
 fi
+
+python3 "$repository_root/scripts/test-ci-delivery.py"
 
 printf 'CI change-detection tests passed.\n'

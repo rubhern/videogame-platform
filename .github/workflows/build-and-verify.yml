@@ -181,10 +181,9 @@ jobs:
             pom.xml
             backend/pom.xml
 
-      - name: Install locked npm dependencies
-        run: npm ci --ignore-scripts
-
       - name: Run the pinned browser smoke test without retries
+        env:
+          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend }}
         run: bash scripts/validate-browser.sh
 
       - name: Preserve browser diagnostics
@@ -228,6 +227,8 @@ jobs:
             backend/pom.xml
 
       - name: Prove real OIDC login and opaque BFF session without retries
+        env:
+          PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend }}
         run: bash scripts/validate-identity.sh
 
       - name: Preserve sanitized identity-browser diagnostics
@@ -239,8 +240,66 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  runtime-telemetry:
+    name: Private-dev topology and telemetry
+    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    needs: detect-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate topology and bounded synthetic OTLP receipt
+        run: |
+          bash scripts/validate-private-dev-runtime.sh
+          bash scripts/validate-private-dev-runtime.sh --telemetry-smoke
+
+  runtime-logs:
+    name: Private-dev structured log collection
+    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    needs: detect-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate disposable structured log collection and search
+        run: python3 scripts/private-dev-logs-check.py --smoke
+
+  localization-image:
+    name: AMD64 localization helper image
+    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    needs: detect-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify dependency platforms
+        run: bash scripts/local-dependencies.sh verify-images
+
+      - name: Check and build the private localization helper
+        run: |
+          docker build --check tools/catalogue-localization
+          docker build --platform linux/amd64 tools/catalogue-localization
+
   container-image:
-    name: Multi-architecture application image
+    name: AMD64 application image
     if: ${{ needs.detect-changes.outputs.container == 'true' }}
     needs: detect-changes
     runs-on: ubuntu-24.04
@@ -253,21 +312,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate private-dev topology and bounded synthetic OTLP receipt
-        run: |
-          bash scripts/validate-private-dev-runtime.sh
-          bash scripts/validate-private-dev-runtime.sh --telemetry-smoke
-
-      - name: Validate disposable structured log collection and search
-        run: python3 scripts/private-dev-logs-check.py --smoke
-
-      - name: Set up pinned ARM64 emulation
-        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
-        with:
-          image: docker.io/tonistiigi/binfmt:qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0
-          platforms: arm64
-          cache-image: false
-
       - name: Set up pinned Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
         with:
@@ -275,15 +319,7 @@ jobs:
           driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
           cache-binary: false
 
-      - name: Verify dependency platforms
-        run: bash scripts/local-dependencies.sh verify-images
-
-      - name: Check and build the private localization helper for both platforms
-        run: |
-          docker build --check tools/catalogue-localization
-          docker buildx build --platform linux/amd64,linux/arm64 tools/catalogue-localization
-
-      - name: Build, inspect, run and scan both application platforms
+      - name: Build, inspect, run and scan the AMD64 application image
         env:
           SOURCE_REVISION: ${{ github.sha }}
         run: bash scripts/validate-container-image.sh
@@ -304,6 +340,7 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: application-image-oci-${{ github.sha }}
+          compression-level: 0
           path: |
             target/container-evidence/application-image.oci.tar
             target/container-evidence/SHA256SUMS
@@ -471,6 +508,9 @@ jobs:
       - browser-smoke
       - identity-compatibility
       - container-image
+      - runtime-telemetry
+      - runtime-logs
+      - localization-image
       - backend
       - migrations
       - provider-fixtures
@@ -498,6 +538,9 @@ jobs:
           IDENTITY_COMPATIBILITY: ${{ needs.identity-compatibility.result }}
           CONTAINER_EXPECTED: ${{ needs.detect-changes.outputs.container }}
           CONTAINER_IMAGE: ${{ needs.container-image.result }}
+          RUNTIME_TELEMETRY: ${{ needs.runtime-telemetry.result }}
+          RUNTIME_LOGS: ${{ needs.runtime-logs.result }}
+          LOCALIZATION_IMAGE: ${{ needs.localization-image.result }}
           BACKEND_EXPECTED: ${{ needs.detect-changes.outputs.backend }}
           BACKEND: ${{ needs.backend.result }}
           MIGRATIONS_EXPECTED: ${{ needs.detect-changes.outputs.migrations }}
@@ -514,6 +557,9 @@ jobs:
             browser-smoke "$BROWSER_EXPECTED" "$BROWSER_SMOKE" \
             identity-compatibility "$IDENTITY_EXPECTED" "$IDENTITY_COMPATIBILITY" \
             container-image "$CONTAINER_EXPECTED" "$CONTAINER_IMAGE" \
+            runtime-telemetry "$CONTAINER_EXPECTED" "$RUNTIME_TELEMETRY" \
+            runtime-logs "$CONTAINER_EXPECTED" "$RUNTIME_LOGS" \
+            localization-image "$CONTAINER_EXPECTED" "$LOCALIZATION_IMAGE" \
             backend "$BACKEND_EXPECTED" "$BACKEND" \
             migrations "$MIGRATIONS_EXPECTED" "$MIGRATIONS" \
             provider-fixtures "$PROVIDER_EXPECTED" "$PROVIDER_FIXTURES" \
@@ -551,7 +597,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Publish the already-scanned OCI index by commit SHA
+      - name: Publish the already-scanned AMD64 image by commit SHA
         run: |
           docker run --rm \
             --volume "$PWD/target/container-evidence:/evidence:ro" \
@@ -574,8 +620,11 @@ jobs:
               "$actual_digest" "$expected_digest" >&2
             exit 1
           fi
-          grep -q 'linux/amd64' <<<"$inspection"
-          grep -q 'linux/arm64' <<<"$inspection"
+          platform="$(docker run --rm \
+            --volume "$HOME/.docker/config.json:/auth.json:ro" \
+            "$SKOPEO_IMAGE" inspect --authfile /auth.json \
+            --format '{{.Os}}/{{.Architecture}}' "docker://$IMAGE_NAME@$actual_digest")"
+          [[ "$platform" == "linux/amd64" ]] || { printf 'Unexpected published platform: %s\n' "$platform" >&2; exit 1; }
           {
             printf 'tag=%s:%s\n' "$IMAGE_NAME" "$IMAGE_TAG"
             printf 'digest=%s@%s\n' "$IMAGE_NAME" "$actual_digest"
@@ -585,7 +634,7 @@ jobs:
             printf '### Published immutable OCI image\n\n'
             printf -- '- Commit tag: `%s:%s`\n' "$IMAGE_NAME" "$IMAGE_TAG"
             printf -- '- Immutable reference: `%s@%s`\n' "$IMAGE_NAME" "$actual_digest"
-            printf -- '- Platforms: `linux/amd64`, `linux/arm64`\n'
+            printf -- '- Platform: `linux/amd64`\n'
           } >>"$GITHUB_STEP_SUMMARY"
 
       - name: Preserve the publication record

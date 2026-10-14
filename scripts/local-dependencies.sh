@@ -37,7 +37,7 @@ Commands:
   logs           Follow PostgreSQL, Keycloak and Mailpit logs.
   configure-mail Apply the realm import's recovery mail settings to an existing realm.
   verify         Verify versions, health, role isolation, realm, client, local user and recovery mail.
-  verify-images  Verify linux/amd64 and linux/arm64 in both image manifests.
+  verify-images  Verify linux/amd64 in both image manifests.
   reset [--yes]  Delete only this Compose project's disposable containers and volumes.
 
 Add --observability to up or application to include the metrics and logs stack.
@@ -238,8 +238,7 @@ verify_image_platform() {
 
   manifest="$(docker buildx imagetools inspect "$image")" || die "Could not inspect $image"
   grep -q 'linux/amd64' <<<"$manifest" || die "$image has no linux/amd64 manifest"
-  grep -q 'linux/arm64' <<<"$manifest" || die "$image has no linux/arm64 manifest"
-  printf 'Verified %s: linux/amd64 and linux/arm64.\n' "$image"
+  printf 'Verified %s: linux/amd64.\n' "$image"
 }
 
 verify_runtime() {
