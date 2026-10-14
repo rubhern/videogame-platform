@@ -68,6 +68,13 @@ public final class CatalogueSynchronizationMetrics {
         record("logo_observed_games", c.logoObservedGames());
         record("logo_unavailable_games", c.logoUnavailableGames());
         record("details_unavailable_games", c.detailsUnavailableGames());
+        record("player_score_observed_games", c.playerScoreObservedGames());
+        record("player_score_absent_games", c.playerScoreAbsentGames());
+        record("player_score_unavailable_games", c.playerScoreUnavailableGames());
+        record("player_score_created_games", c.playerScoreCreatedGames());
+        record("player_score_updated_games", c.playerScoreUpdatedGames());
+        record("player_score_removed_games", c.playerScoreRemovedGames());
+        record("player_score_unchanged_games", c.playerScoreUnchangedGames());
     }
 
     public void recordTrigger(

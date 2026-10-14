@@ -28,6 +28,19 @@ releases grouped under one game are explicitly bounded, so request memory is
 `O(pageSize x releaseGroupLimit)` plus bounded taxonomy; persistent
 filtering/counting/pagination/grouping never occurs over a complete Java snapshot.
 
+Post-MVP (#255 phase 2, implemented; awaiting owner review): discovery enriches only
+its already selected Game IDs (at most one page, or six featured Games) with two
+bounded application batches. Catalogue supplies its phase-1 current external player
+scores; Ratings supplies its own community summaries. API delivery composes them,
+without Catalogue depending on Ratings or reading its tables. A missing external
+pair is absent; an unavailable community read remains unknown, distinct from zero
+ratings. Work-level scores never change release selection, ranking, pagination or
+rating-write eligibility. Discovery reads call no provider. Validators cover the
+complete represented scores and their observation times; stored responses must
+revalidate before reuse, and rating commands invalidate the frontend's discovery
+queries. HTTP caching never expires a persisted score. Presentation follows the
+[quality policy](../../product/product-brief.md#trustworthy-quality-and-community-direction).
+
 Post-MVP (#212, implemented): current legitimate releases remain distinct. Real provider
 data often holds several for one game and platform, such as regional releases, early or
 advance access beside a later date, or a still-returned approximate estimate beside an
@@ -200,6 +213,21 @@ A product editorial summary or a summary from another source is never replaced. 
 summary the read returns the product's editorial notice that none exists yet, and empty
 lists for missing credits, genres or modes; nothing is invented. The read bounds each list
 and fails rather than truncating.
+
+Post-MVP (#255 phase 1, acquisition and storage implemented; awaiting review): `UC-009` acquires the IGDB player score (`rating`) and its rating
+count with the existing Game request, under `XSC-001`–`XSC-004`. Critic and combined
+scores are never requested. The adapter declares the 0–100 scale and maps no pair or zero
+ratings to a stated absence; a partial pair, an out-of-range mean or a non-integer count is
+an invalid answer counted as `player_score_invalid`. The application records the score
+with the work's attribution page and the provider's Game-record update time, or keeps the
+last valid score when the answer is invalid or the score cannot be attributed. Inside each
+Game transaction a valid answer upserts one current row per Game, source and kind: an
+unchanged re-check advances only the check time, an earlier or replayed check never moves
+it backwards, and a failed Game rolls the score back with everything else. Explicit repair
+refreshes it with each Game. The score does not advance the catalogue revision: discovery validators include
+its current state independently of that revision. Existing Games gain a score only when a scheduled window, a manual
+interval or an explicit repair reconciles them again; there is no backfill, score expiry or
+rating-count threshold.
 
 Post-MVP (#235, architecture approved; implementation awaiting review): after each valid
 Game commits, acquisition localizes its English summary and unknown genres/game modes.

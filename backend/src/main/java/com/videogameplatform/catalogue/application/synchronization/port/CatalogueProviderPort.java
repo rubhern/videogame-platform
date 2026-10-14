@@ -1,5 +1,6 @@
 package com.videogameplatform.catalogue.application.synchronization.port;
 
+import com.videogameplatform.catalogue.domain.ExternalScore;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
@@ -75,7 +76,36 @@ public interface CatalogueProviderPort {
             List<ProviderRelease> releases,
             List<ProviderMappingFailure> mappingFailures,
             Optional<ProviderFeaturedEvidence> featuredEvidence,
-            Optional<ProviderGameDetails> details) {
+            Optional<ProviderGameDetails> details,
+            Optional<ProviderPlayerScore> playerScore) {
+
+        /** A work whose player score was not usable; the Game keeps its last valid score. */
+        public ProviderWork(
+                String providerId,
+                String title,
+                ProviderWorkType type,
+                Instant providerUpdatedAt,
+                Optional<ProviderCover> cover,
+                List<ProviderImage> images,
+                Optional<String> attributionUrl,
+                List<ProviderRelease> releases,
+                List<ProviderMappingFailure> mappingFailures,
+                Optional<ProviderFeaturedEvidence> featuredEvidence,
+                Optional<ProviderGameDetails> details) {
+            this(
+                    providerId,
+                    title,
+                    type,
+                    providerUpdatedAt,
+                    cover,
+                    images,
+                    attributionUrl,
+                    releases,
+                    mappingFailures,
+                    featuredEvidence,
+                    details,
+                    Optional.empty());
+        }
 
         /** A work whose detail metadata was not usable; the Game keeps its last valid details. */
         public ProviderWork(
@@ -131,6 +161,7 @@ public interface CatalogueProviderPort {
             featuredEvidence =
                     java.util.Objects.requireNonNull(featuredEvidence, "featuredEvidence");
             details = java.util.Objects.requireNonNull(details, "details");
+            playerScore = java.util.Objects.requireNonNull(playerScore, "playerScore");
             images = List.copyOf(images);
             attributionUrl = java.util.Objects.requireNonNull(attributionUrl, "attributionUrl");
             releases = List.copyOf(releases);
@@ -320,6 +351,21 @@ public interface CatalogueProviderPort {
             if (name == null || name.isBlank()) {
                 throw new IllegalArgumentException("A term reference requires a name");
             }
+        }
+    }
+
+    /**
+     * The work's player score in one valid provider answer: a usable score, or none when the
+     * provider states no score or zero ratings. Only the source's own player population crosses;
+     * critic and combined scores never do.
+     */
+    record ProviderPlayerScore(Optional<ExternalScore> score) {
+
+        /** The provider states no usable player score for the work. */
+        public static final ProviderPlayerScore NONE = new ProviderPlayerScore(Optional.empty());
+
+        public ProviderPlayerScore {
+            java.util.Objects.requireNonNull(score, "score");
         }
     }
 

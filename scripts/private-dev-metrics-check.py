@@ -117,6 +117,11 @@ def eventually(check, description, attempts=30):
 
 
 synthetic_start = str(time.time_ns() - 120_000_000_000)
+# One synthetic run's player-score records; each kind gets a distinct sum so a swapped series shows.
+PLAYER_SCORE_RECORDS = {'player_score_observed_games': 3, 'player_score_absent_games': 92,
+                        'player_score_unavailable_games': 1, 'player_score_created_games': 4,
+                        'player_score_updated_games': 5, 'player_score_removed_games': 6,
+                        'player_score_unchanged_games': 7}
 
 
 def synthetic_metrics(count):
@@ -142,6 +147,9 @@ def synthetic_metrics(count):
     histogram('catalogue.synchronization.run.duration', {'outcome': 'succeeded'}, 'ms')
     histogram('catalogue.synchronization.run.records', {'kind': 'unchanged_games'})
     histogram('catalogue.synchronization.run.records', {'kind': 'logo_observed_games'})
+    for kind, value in PLAYER_SCORE_RECORDS.items():
+        histogram('catalogue.synchronization.run.records', {'kind': kind}, value=value)
+    counter('catalogue.synchronization.provider.mapping.failure', {'reason': 'player_score_invalid'})
     counter('catalogue.synchronization.provider.request', {'operation': 'window', 'outcome': 'success'})
     histogram('catalogue.synchronization.provider.request.duration', {'operation': 'window'}, 'ms')
     histogram('hikaricp.connections.acquire', {'pool': 'HikariPool-1'}, 'ms', 7)
@@ -214,6 +222,11 @@ def values(uid, title):
     return [float(s['value'][1]) for s in query(panel_query(uid, title), grafana=True)]
 
 
+def sql_target(uid, title):
+    dashboard = json.loads((root / 'deploy/private-dev/grafana/dashboards' / (uid + '.json')).read_text())
+    return next(p for p in dashboard['panels'] if p['title'] == title)['targets'][0]
+
+
 def sql_query(target):
     body = {'from': str(int((time.time() - 30*86400)*1000)), 'to': str(int(time.time()*1000)),
             'queries': [dict(target, intervalMs=60000, maxDataPoints=100)]}
@@ -256,8 +269,18 @@ SELECT md5('synthetic-run-' || n)::uuid,'synthetic',current_date-30,current_date
        'SYNTHETIC_SMOKE',jsonb_build_object('counters',jsonb_build_object(
           'createdGames',n,'updatedGames',2,'unchangedGames',10,'deferredGames',1,'failedGames',n-1,
           'createdReleases',n*2,'updatedReleases',1,'unchangedReleases',20,'deletedReleases',0,
-          'inspectedReleaseDates',30,'providerRequests',4,'providerRetries',1,'providerLatencyMillis',1000))
+          'inspectedReleaseDates',30,'providerRequests',4,'providerRetries',1,'providerLatencyMillis',1000,
+          'playerScoreObservedGames',n,'playerScoreAbsentGames',10,'playerScoreUnavailableGames',0,
+          'playerScoreCreatedGames',n,'playerScoreUpdatedGames',0,'playerScoreRemovedGames',0,
+          'playerScoreUnchangedGames',1))
 FROM generate_series(1,3) n;
+-- Two usable scores and one stated absence on the seed's twelve Games; the rest never checked.
+INSERT INTO catalogue.game_external_score(game_id,source_name,score_kind,score,score_count,source_url,observed_at,changed_at)
+SELECT game_id,'IGDB','player',CASE WHEN rank<=2 THEN 80 END,CASE WHEN rank<=2 THEN rank*10 END,
+       'https://www.igdb.com/games/synthetic-' || rank,
+       now()-CASE WHEN rank=3 THEN interval '10 days' ELSE interval '1 day' END,
+       now()-CASE WHEN rank=3 THEN interval '10 days' ELSE interval '1 day' END
+FROM (SELECT game_id,row_number() OVER (ORDER BY game_id) AS rank FROM catalogue.game_snapshot) g WHERE rank<=3;
 """
     result = subprocess.run(compose + ['exec', '-T', '--user', 'postgres', 'postgres', 'psql',
                            '--username=postgres', '--dbname=videogame_platform', '--set=ON_ERROR_STOP=1', '--quiet'],
@@ -279,6 +302,19 @@ if args.synthetic:
     eventually(lambda: bool(query('http_server_requests_milliseconds_count')), 'OTLP histogram missing')
     assert values('vgp-synchronization', 'Command outcomes · observed process') == [1], 'First run lost'
     assert values('vgp-synchronization', 'Provider mean duration · observed process') == [100]
+    outcomes = query(panel_query('vgp-synchronization', 'Player-score outcomes · observed process'), grafana=True)
+    assert {s['metric']['kind']: float(s['value'][1]) for s in outcomes} == PLAYER_SCORE_RECORDS, 'Player-score series mismatch'
+    assert values('vgp-synchronization', 'Invalid score answers · observed process') == [1], 'Invalid score answers lost'
+    coverage = sql_query(sql_target('vgp-synchronization', 'Stored player-score coverage · current'))
+    assert [field['name'] for field in coverage[0]['schema']['fields']] == ['usable score', 'checked, no score', 'never checked', 'coverage %']
+    assert [float(column[0]) for column in coverage[0]['data']['values']] == [2, 1, 9, 16.7], 'Stored coverage mismatch'
+    ages = sql_query(sql_target('vgp-synchronization', 'Player-score check age · current'))[0]
+    assert {field['name']: column[0] for field, column in zip(ages['schema']['fields'], ages['data']['values'])} == \
+        {'0–7 days': 2, '7–30 days': 1, '30+ days': 0, 'future timestamp': 0}, 'Check-age bands mismatch'
+    for title in ('Player-score results per run · range', 'Stored score changes per run · range'):
+        frames = sql_query(sql_target('vgp-synchronization', title))
+        assert frames and sum(len(frame['data']['values'][0]) for frame in frames) >= 3, f'{title} has no runs'
+    print('Player-score series, invalid answers, stored coverage, check age and per-run panels passed')
     time.sleep(31)
     request('http://telemetry:4318/v1/metrics', synthetic_metrics(2))
     eventually(lambda: any(float(s['value'][1]) == 2 for s in query('http_server_requests_milliseconds_count')),

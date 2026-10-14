@@ -122,7 +122,8 @@ class StrictQueryParameterInterceptorTest {
 
     private static HandlerMethod releaseHandler() {
         try {
-            ReleaseController controller = new ReleaseController(null, null, null, null, null);
+            ReleaseController controller =
+                    new ReleaseController(null, null, null, null, null, null);
             return new HandlerMethod(
                     controller,
                     ReleaseController.class.getMethod(

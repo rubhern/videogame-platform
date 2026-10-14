@@ -37,6 +37,16 @@ class CatalogueModuleConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.releases.GetExternalPlayerScoresUseCase
+            externalPlayerScores(
+                    com.videogameplatform.catalogue.application.releases.port
+                                    .ExternalPlayerScoresReadPort
+                            read) {
+        return new com.videogameplatform.catalogue.application.releases.internal
+                .ExternalPlayerScoresService(read);
+    }
+
+    @Bean
     ReleaseBrowsePolicy releaseBrowsePolicy(CatalogueReleaseProperties properties) {
         return new ReleaseBrowsePolicy(properties.releaseGroupLimit());
     }

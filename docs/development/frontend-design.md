@@ -360,11 +360,35 @@ model; discovery does not display technical translation/provider copy. The game 
 its discreet attribution. Missing
 enrichment is omitted without invented values. Ordinary lifecycle and Full Release labels are
 absent; only exceptional delay, cancellation, unknown-date or pending-review notices carry a chip.
-The entire rounded hero frame is one native game link, named by its canonical title, with visible
-keyboard focus and restrained hover/focus feedback. Its metadata carries no controls. Further
+The canonical title is the native game link, with its pointer target stretched over the
+rounded frame and its keyboard focus outlining that frame. The IGDB score attribution
+remains a separate native link above that target; links never nest. Metadata carries no
+controls beyond the score attribution. Further
 release dates retain their overflow control immediately below and outside the linked frame, so no
 interactive element nests inside the link. **Ver todos los lanzamientos** below opens the release
 lists. Developer, publisher and game modes stay absent from featured discovery.
+
+Post-MVP (#255 phase 2, implemented; awaiting owner review): the owner-supplied score
+mock is the composition reference for discovery alone. The hero places two equal,
+horizontal glass readings beneath its release metadata and genres and before the
+synopsis. Compact cards in all three discovery views place their readings side by
+side beneath the title and before platforms, at their natural widths. Featured cards
+use tighter spacing between the mark, value and count to fit both readings with
+three-digit counts on one line at the reference width without reducing logos or text.
+Only **Otros lanzamientos destacados** shows counts from 1000 as `+XK`, using whole
+thousands rounded down (`3548` becomes `+3K`); the exact count remains in the tooltip
+and accessible text. Sources wrap whole onto
+a second line only when the card cannot fit both legibly; within an
+especially narrow source, the count can move to the next line without shrinking or
+truncating its text. Omit each unavailable source and the whole block
+when neither has a valid mean and positive count; never invent an empty reading.
+Gameómetro reuses the existing G-meter, thermal bands and labels, while IGDB keeps
+neutral ink and its [locally served official mark](../../frontend/public/assets/providers/README.md).
+Both retain their /10 value and their own vote count, including one vote; compact
+counts expose the exact number to assistive technology. IGDB attribution links to
+that Game's source work and is named **Jugadores IGDB**. An external score has no
+Gameómetro temperature. On phones the hero keeps equal source columns that wrap
+labels and counts within the frame; compact readings do not widen the page.
 
 **Otros lanzamientos _destacados_** follows, with **Ver todos los lanzamientos** (Recientes)
 and up to five wide artwork cards straight on the stage, not inside glass. Each card's

@@ -1996,6 +1996,502 @@
         "w": 24,
         "h": 8
       }
+    },
+    {
+      "id": 32,
+      "title": "IGDB player scores \u00b7 stored coverage, run activity and process diagnostics",
+      "type": "row",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 86,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "title": "Stored player-score coverage \u00b7 current",
+      "type": "stat",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Catalogue Games holding a usable IGDB player score, checked Games whose last valid answer stated none, and Games never checked (no score state yet). Coverage is usable scores over all catalogue Games. This is stored state, not synchronization activity; its history is not kept.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT player_score_games AS \"usable score\", player_score_checked_games - player_score_games AS \"checked, no score\", games - player_score_checked_games AS \"never checked\", round(100.0 * player_score_games / NULLIF(games, 0), 1) AS \"coverage %\" FROM catalogue.observability_inventory",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "coverage %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 33,
+      "gridPos": {
+        "x": 0,
+        "y": 87,
+        "w": 12,
+        "h": 6
+      }
+    },
+    {
+      "title": "Player-score check age \u00b7 current",
+      "type": "bargauge",
+      "description": "Current database state, independent of the selected time range. SQL is read-only and limited to deliberate module-owned views. Age of each checked Game's last successful IGDB player-score check, usable or stated absent. Games outside every scheduled window age by design; age never invalidates or hides a score. Bands are descriptive, not alerts.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT count(*) FILTER (WHERE observed_at >= now() - interval '7 days' AND observed_at <= now()) AS \"0\u20137 days\", count(*) FILTER (WHERE observed_at < now() - interval '7 days' AND observed_at >= now() - interval '30 days') AS \"7\u201330 days\", count(*) FILTER (WHERE observed_at < now() - interval '30 days') AS \"30+ days\", count(*) FILTER (WHERE observed_at > now()) AS \"future timestamp\" FROM catalogue.observability_player_scores",
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 34,
+      "gridPos": {
+        "x": 12,
+        "y": 87,
+        "w": 12,
+        "h": 6
+      }
+    },
+    {
+      "title": "Player-score results per run \u00b7 range",
+      "type": "timeseries",
+      "description": "One point per retained run report (synchronization or repair batch) in the selected range: committed Games with a usable IGDB player score, with a valid answer stating none, and whose answer was discarded as invalid or unattributable (their last valid score is kept). Runs before these counters existed are omitted.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT started_at AS time, player_score_observed_games AS \"usable score\", player_score_absent_games AS \"no score\", player_score_unavailable_games AS \"discarded\" FROM catalogue.observability_runs WHERE $__timeFilter(started_at) AND player_score_observed_games IS NOT NULL ORDER BY started_at, ordering_key",
+          "format": "time_series",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 0,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "spanNulls": false,
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 35,
+      "gridPos": {
+        "x": 0,
+        "y": 93,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Stored score changes per run \u00b7 range",
+      "type": "timeseries",
+      "description": "What each retained run did to stored usable scores: created where none was, updated value or count, removed by a valid answer stating none, and re-checked unchanged. Classified by the writing statement itself; a sudden removed or updated burst is the anomaly to investigate.",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT started_at AS time, player_score_created_games AS \"created\", player_score_updated_games AS \"updated\", player_score_removed_games AS \"removed\", player_score_unchanged_games AS \"unchanged\" FROM catalogue.observability_runs WHERE $__timeFilter(started_at) AND player_score_created_games IS NOT NULL ORDER BY started_at, ordering_key",
+          "format": "time_series",
+          "editorMode": "code",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 0,
+            "fillOpacity": 0,
+            "showPoints": "always",
+            "spanNulls": false,
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 36,
+      "gridPos": {
+        "x": 12,
+        "y": 93,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "title": "Player-score outcomes \u00b7 observed process",
+      "type": "bargauge",
+      "description": "Per-run record sums since process start for manual and scheduled synchronization commands (not repair batches). Observed, absent and unavailable classify committed Games; created, updated, removed and unchanged classify stored-score changes. Reset on application restart; missing is not zero.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (kind) (catalogue_synchronization_run_records_sum{job=\"application-otlp\",kind=~\"player_score_.*\"})",
+          "legendFormat": "{{kind}}",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "basic",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": false,
+        "text": {
+          "titleSize": 12,
+          "valueSize": 18
+        },
+        "namePlacement": "top"
+      },
+      "id": 37,
+      "gridPos": {
+        "x": 0,
+        "y": 101,
+        "w": 8,
+        "h": 11
+      }
+    },
+    {
+      "title": "Player-score outcomes over retained metric history",
+      "type": "timeseries",
+      "description": "Cumulative per-run record sums in Prometheus retention; steps mark runs and drops mark restarts. Not a durable event count; the per-run panels above use retained run reports.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (kind) (catalogue_synchronization_run_records_sum{job=\"application-otlp\",kind=~\"player_score_.*\"})",
+          "legendFormat": "{{kind}}",
+          "editorMode": "code",
+          "range": true,
+          "instant": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "pointSize": 4
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "id": 38,
+      "gridPos": {
+        "x": 8,
+        "y": 101,
+        "w": 8,
+        "h": 11
+      }
+    },
+    {
+      "title": "Invalid score answers \u00b7 observed process",
+      "type": "stat",
+      "description": "Provider answers whose player score and count formed no usable pair or stated absence (the existing player_score_invalid mapping reason), since process start. Counted per provider answer, including Games that later fail or are deferred. A failed score write fails its whole Game and appears in the existing failed-Game counts.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum(catalogue_synchronization_provider_mapping_failure_total{job=\"application-otlp\",reason=\"player_score_invalid\"})",
+          "legendFormat": "invalid answers",
+          "editorMode": "code",
+          "range": false,
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "No data",
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "id": 39,
+      "gridPos": {
+        "x": 16,
+        "y": 101,
+        "w": 8,
+        "h": 11
+      }
     }
   ]
 }

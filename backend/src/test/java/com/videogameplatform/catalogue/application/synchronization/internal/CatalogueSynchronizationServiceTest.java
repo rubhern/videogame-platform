@@ -20,11 +20,14 @@ import com.videogameplatform.catalogue.application.synchronization.Synchronizati
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.LogoBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlayerScore;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWork;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderWorkBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ReleasePage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.CoverSelection;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ExternalScoreChange;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ExternalScoreWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedMediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameState;
@@ -40,7 +43,9 @@ import com.videogameplatform.catalogue.application.synchronization.port.Synchron
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException.Reason;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
+import com.videogameplatform.catalogue.domain.ExternalScore;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
+import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -420,6 +425,178 @@ class CatalogueSynchronizationServiceTest {
         assertThat(report.counters().popularityUnavailableGames()).isEqualTo(1);
         assertThat(report.counters().logoUnavailableGames()).isZero();
         verify(provider, never()).logos(any());
+    }
+
+    @Test
+    void recordsTheObservedPlayerScoreAbsenceOrKeepsTheLastValidOneInsideEachGameWrite() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1", "2", "3", "4"), 4, 4L, true, ONE_REQUEST));
+        var score = new ExternalScore(new BigDecimal("87.4"), 1434);
+        workWithScore("1", Optional.of(new ProviderPlayerScore(Optional.of(score))), SOURCE);
+        workWithScore("2", Optional.of(ProviderPlayerScore.NONE), SOURCE);
+        workWithScore("3", Optional.empty(), SOURCE);
+        // A score that cannot be attributed to its own work is incomplete evidence.
+        workWithScore("4", Optional.of(new ProviderPlayerScore(Optional.of(score))), null);
+        List<GameWrite> writes = recordWrites();
+
+        var report = service.synchronize(REQUEST);
+
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(writes)
+                .extracting(GameWrite::playerScore)
+                .containsExactly(
+                        new ExternalScoreWrite.Observe(
+                                Optional.of(score), Optional.of(SOURCE), Optional.of(UPDATED)),
+                        new ExternalScoreWrite.Observe(
+                                Optional.empty(), Optional.of(SOURCE), Optional.of(UPDATED)),
+                        ExternalScoreWrite.KEEP,
+                        ExternalScoreWrite.KEEP);
+        assertThat(report.counters().playerScoreObservedGames()).isEqualTo(1);
+        assertThat(report.counters().playerScoreAbsentGames()).isEqualTo(1);
+        assertThat(report.counters().playerScoreUnavailableGames()).isEqualTo(2);
+    }
+
+    @Test
+    void anAbsenceNeedsNoAttributionAndAnUnknownRecordUpdateTimeIsNeverInvented() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1"), 1, 1L, true, ONE_REQUEST));
+        when(provider.fetchWorks(List.of("1")))
+                .thenReturn(
+                        new ProviderWorkBatch(
+                                List.of(
+                                        new ProviderWork(
+                                                "1",
+                                                "Game 1",
+                                                ProviderWorkType.MAIN_GAME,
+                                                null,
+                                                Optional.empty(),
+                                                List.of(),
+                                                Optional.empty(),
+                                                List.of(),
+                                                List.of(),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                Optional.of(ProviderPlayerScore.NONE))),
+                                ONE_REQUEST));
+        List<GameWrite> writes = recordWrites();
+
+        service.synchronize(REQUEST);
+
+        assertThat(writes)
+                .extracting(GameWrite::playerScore)
+                .containsExactly(
+                        new ExternalScoreWrite.Observe(
+                                Optional.empty(), Optional.empty(), Optional.empty()));
+    }
+
+    @Test
+    void repairRefreshesThePlayerScoreBecauseItArrivesWithTheWork() {
+        startRun();
+        var score = new ExternalScore(new BigDecimal("83.67"), 604);
+        workWithScore("2", Optional.of(new ProviderPlayerScore(Optional.of(score))), SOURCE);
+        known("2", KNOWN_GAME);
+        List<GameWrite> writes = recordWrites();
+
+        var report = service.repairGames(List.of("2"), false);
+
+        assertThat(writes)
+                .extracting(GameWrite::playerScore)
+                .containsExactly(
+                        new ExternalScoreWrite.Observe(
+                                Optional.of(score), Optional.of(SOURCE), Optional.of(UPDATED)));
+        assertThat(report.counters().playerScoreObservedGames()).isEqualTo(1);
+    }
+
+    @Test
+    void aFailedGameWriteNeverCountsItsPlayerScore() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1"), 1, 1L, true, ONE_REQUEST));
+        workWithScore(
+                "1",
+                Optional.of(
+                        new ProviderPlayerScore(
+                                Optional.of(new ExternalScore(new BigDecimal("70"), 9)))),
+                SOURCE);
+        when(store.saveGame(eq(RUN), any()))
+                .thenThrow(new SynchronizationWriteException(Reason.PERSISTENCE_WRITE_FAILED));
+
+        var report = service.synchronize(REQUEST);
+
+        assertThat(report.counters().failedGames()).isEqualTo(1);
+        assertThat(report.counters().playerScoreObservedGames()).isZero();
+        assertThat(report.counters().playerScoreUnavailableGames()).isZero();
+    }
+
+    @Test
+    void countsTheStoredScoreChangeEachCommittedWriteReports() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(
+                        new ReleasePage(
+                                List.of("1", "2", "3", "4", "5"), 5, 5L, true, ONE_REQUEST));
+        var score =
+                Optional.of(
+                        new ProviderPlayerScore(Optional.of(new ExternalScore(BigDecimal.TEN, 1))));
+        for (String id : List.of("1", "2", "3", "4", "5")) {
+            workWithScore(id, score, SOURCE);
+        }
+        var changes =
+                List.of(
+                        ExternalScoreChange.CREATED,
+                        ExternalScoreChange.UPDATED,
+                        ExternalScoreChange.REMOVED,
+                        ExternalScoreChange.UNCHANGED,
+                        ExternalScoreChange.NONE);
+        var next = new java.util.concurrent.atomic.AtomicInteger();
+        when(store.saveGame(eq(RUN), any()))
+                .thenAnswer(
+                        invocation ->
+                                new WriteResult(
+                                        false,
+                                        false,
+                                        0,
+                                        0,
+                                        0,
+                                        0,
+                                        changes.get(next.getAndIncrement())));
+
+        var counters = service.synchronize(REQUEST).counters();
+
+        assertThat(
+                        List.of(
+                                counters.playerScoreCreatedGames(),
+                                counters.playerScoreUpdatedGames(),
+                                counters.playerScoreRemovedGames(),
+                                counters.playerScoreUnchangedGames()))
+                .containsExactly(1L, 1L, 1L, 1L);
+        assertThat(counters.playerScoreObservedGames()).isEqualTo(5);
+    }
+
+    private static final Instant UPDATED = Instant.parse("2026-05-01T00:00:00Z");
+
+    private void workWithScore(
+            String providerId, Optional<ProviderPlayerScore> score, String attributionUrl) {
+        when(provider.fetchWorks(List.of(providerId)))
+                .thenReturn(
+                        new ProviderWorkBatch(
+                                List.of(
+                                        new ProviderWork(
+                                                providerId,
+                                                "Game " + providerId,
+                                                ProviderWorkType.MAIN_GAME,
+                                                UPDATED,
+                                                Optional.empty(),
+                                                List.of(),
+                                                Optional.ofNullable(attributionUrl),
+                                                List.of(),
+                                                List.of(),
+                                                Optional.empty(),
+                                                Optional.empty(),
+                                                score)),
+                                ONE_REQUEST));
     }
 
     private List<GameWrite> recordWrites() {

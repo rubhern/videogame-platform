@@ -95,8 +95,7 @@ class FeaturedReleaseApiIntegrationTest {
                 .isEqualTo("no_qualifying_releases");
         assertThat(body.path("selection").has("popularityFreshness")).isFalse();
         assertThat(body.path("items")).isEmpty();
-        assertThat(response.headers().firstValue("Cache-Control"))
-                .contains("public, max-age=60, stale-while-revalidate=300");
+        assertThat(response.headers().firstValue("Cache-Control")).contains("public, no-cache");
         String entityTag = response.headers().firstValue("ETag").orElseThrow();
         assertThat(entityTag).matches("\"[0-9a-f]{64}\"");
 

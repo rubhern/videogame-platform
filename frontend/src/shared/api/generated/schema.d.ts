@@ -459,6 +459,7 @@ export interface components {
             slug: string;
             canonicalTitle: string;
             primaryCover: components["schemas"]["Cover"];
+            scores?: components["schemas"]["DiscoveryScores"];
             /** @description Up to two existing localized product genres, ordered by case-insensitive name then genreId. */
             genres?: components["schemas"]["Genre"][];
             releases: components["schemas"]["Release"][];
@@ -538,6 +539,7 @@ export interface components {
             slug: string;
             canonicalTitle: string;
             primaryCover: components["schemas"]["Cover"];
+            scores?: components["schemas"]["DiscoveryScores"];
             featuredImage: components["schemas"]["FeaturedImage"];
             logo?: components["schemas"]["FeaturedLogo"];
             /**
@@ -552,6 +554,41 @@ export interface components {
              */
             summary?: components["schemas"]["GameSummaryText"];
             releases: components["schemas"]["Release"][];
+        };
+        /**
+         * @description Work-level sentiment composed from local PostgreSQL state for only the selected games.
+         *     Ratings owns the Gameómetro summary, including unavailable versus zero ratings.
+         *     Catalogue owns the optional external player score. Show each valid mean with a positive
+         *     count, including one vote; omit the visual block when neither has a usable score.
+         *     No blended score, confidence threshold, personal state or observation-age suppression.
+         *     Discovery validators include these values; cached responses must revalidate before reuse.
+         */
+        DiscoveryScores: {
+            community: components["schemas"]["RatingSummary"];
+            external?: components["schemas"]["ExternalPlayerScore"];
+        };
+        /**
+         * @description Only the adopted external player sentiment. The source's persisted 0–100 decimal mean
+         *     is divided by ten and rounded half up to one decimal on the declared /10 display scale.
+         *     Zero is valid when count is positive; missing/invalid pairs are absent, never zero-filled.
+         *     Attribution links to this internal Game's source work, never another edition/remake.
+         *     observedAt is the last successful check, not an expiry. providerRecordUpdatedAt, when
+         *     present, describes the provider's Game record, never the score's own update time.
+         */
+        ExternalPlayerScore: {
+            /** @enum {string} */
+            source: "igdb";
+            /** @enum {string} */
+            kind: "player";
+            value: number;
+            scale: number;
+            /** Format: int64 */
+            count: number;
+            attribution: components["schemas"]["Attribution"];
+            /** Format: date-time */
+            observedAt: string;
+            /** Format: date-time */
+            providerRecordUpdatedAt?: string;
         };
         /**
          * @description The landscape image of a featured game, chosen deterministically from image metadata
@@ -1161,6 +1198,11 @@ export interface components {
          */
         XCorrelationId: components["schemas"]["CorrelationId"];
         /**
+         * @description Public discovery may be stored, but must revalidate before reuse so rating writes and external-score refresh/removal are reflected; no personal state.
+         * @example public, no-cache
+         */
+        DiscoveryCacheControl: string;
+        /**
          * @description Explicit public caching; exact freshness is deployment configuration.
          * @example public, max-age=60, stale-while-revalidate=300
          */
@@ -1264,7 +1306,7 @@ export interface operations {
             200: {
                 headers: {
                     "X-Correlation-ID": components["headers"]["XCorrelationId"];
-                    "Cache-Control": components["headers"]["PublicCacheControl"];
+                    "Cache-Control": components["headers"]["DiscoveryCacheControl"];
                     ETag: components["headers"]["PublicEntityTag"];
                     [name: string]: unknown;
                 };
@@ -1308,7 +1350,7 @@ export interface operations {
             200: {
                 headers: {
                     "X-Correlation-ID": components["headers"]["XCorrelationId"];
-                    "Cache-Control": components["headers"]["PublicCacheControl"];
+                    "Cache-Control": components["headers"]["DiscoveryCacheControl"];
                     ETag: components["headers"]["PublicEntityTag"];
                     [name: string]: unknown;
                 };

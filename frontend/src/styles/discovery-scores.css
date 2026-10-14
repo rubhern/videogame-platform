@@ -1,0 +1,166 @@
+/* Discovery shares the G-meter and thermal tokens with the existing community readings.
+   External sentiment keeps neutral ink and its own attribution; it has no temperature. */
+@layer components {
+  .discovery-scores {
+    display: grid;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    color: var(--color-ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .discovery-score {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: 36px max-content minmax(0, 1fr);
+    align-items: center;
+    gap: 0 10px;
+  }
+
+  .discovery-score-mark {
+    display: block;
+    width: 32px;
+    height: 26px;
+    object-fit: contain;
+  }
+
+  .discovery-score-attribution {
+    position: relative;
+    z-index: 3;
+    display: inline-flex;
+    width: fit-content;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+  }
+
+  .discovery-score-attribution:hover {
+    filter: brightness(1.2);
+  }
+
+  .discovery-score-source {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .discovery-score-reading, .discovery-score-count {
+    margin: 0;
+  }
+
+  .discovery-score-reading {
+    font-size: 0.875rem;
+    line-height: 1.25;
+    white-space: nowrap;
+  }
+
+  .discovery-score-reading strong { font-weight: 750; }
+  .discovery-score-reading > span, .discovery-score-count { color: var(--color-muted); }
+  .discovery-score-count { font-size: 0.75rem; line-height: 1.4; }
+
+  .discovery-scores-compact {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 16px;
+  }
+
+  .discovery-scores-compact .discovery-score {
+    display: flex;
+    max-width: 100%;
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+
+  .discovery-scores-compact .discovery-score > * { flex: none; }
+  .discovery-scores-compact .discovery-score-count { white-space: nowrap; }
+
+  .discovery-scores-featured { column-gap: 6px; }
+  .discovery-scores-featured .discovery-score { column-gap: 3px; }
+
+  .discovery-scores-hero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    max-width: 580px;
+  }
+
+  /* Release cards assign explicit grid rows to title, platform and genre metadata. */
+  .release-card .card-body:has(.discovery-scores) {
+    grid-template-rows: calc(2 * 1.22 * var(--release-title-size, 1rem)) auto 1.125rem 1.125rem auto 1fr;
+  }
+  .release-card .card-body:has(.discovery-scores) .discovery-scores { grid-row: 2; }
+  .release-card .card-body:has(.discovery-scores) .card-release { grid-row: 3; }
+  .release-card .card-body:has(.discovery-scores) .card-genres { grid-row: 4; }
+  .release-card .card-body:has(.discovery-scores) .card-statuses { grid-row: 5; }
+  .release-card .card-body:has(.discovery-scores) .release-overflow { grid-row: 6; }
+
+  .discovery-scores-hero .discovery-score {
+    grid-template-columns: 54px minmax(0, 1fr);
+    gap: 5px 12px;
+    align-content: center;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 14px;
+    background: color-mix(in srgb, var(--color-surface) 83%, transparent);
+    box-shadow: var(--glass-highlight);
+  }
+
+  .discovery-scores-hero .discovery-score-mark {
+    width: 54px;
+    height: 50px;
+  }
+
+  .discovery-scores-hero .discovery-score > .game-meter,
+  .discovery-scores-hero .discovery-score-attribution {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    align-self: start;
+  }
+
+  .discovery-scores-hero .discovery-score-source {
+    position: static;
+    width: auto;
+    height: auto;
+    grid-column: 2;
+    overflow: visible;
+    clip-path: none;
+    margin: 0 0 3px;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .discovery-score-source b { color: var(--thermal); font-weight: 600; }
+  .discovery-scores-hero .discovery-score-reading { grid-column: 2; font-size: 1.875rem; }
+  .discovery-scores-hero .discovery-score-reading > span { color: inherit; font-weight: 700; }
+  .discovery-scores-hero .discovery-score-count { grid-column: 2; font-size: 0.875rem; }
+
+  /* Each source keeps equal weight when both are present; one never grows to replace the other. */
+  @container (max-width: 450px) {
+    .discovery-scores-hero { gap: 8px; }
+    .discovery-scores-hero .discovery-score { grid-template-columns: 28px minmax(0, 1fr); gap: 4px 6px; padding: 10px; }
+    .discovery-scores-hero .discovery-score-mark { width: 28px; height: 32px; }
+    .discovery-scores-hero .discovery-score-source { font-size: 0.6875rem; letter-spacing: 0; }
+    .discovery-scores-hero .discovery-score-reading { font-size: 1.375rem; }
+    .discovery-scores-hero .discovery-score-count { font-size: 0.75rem; }
+  }
+
+  @media (min-width: 620px) {
+    .featured-hero:has(.discovery-scores) .featured-hero-body { gap: 8px; padding-block: 20px; }
+  }
+
+  @media (forced-colors: active) {
+    .discovery-score-source b { color: CanvasText; }
+    .discovery-score-attribution { background: black; forced-color-adjust: none; }
+    .discovery-scores-hero .discovery-score { border-color: CanvasText; }
+  }
+}

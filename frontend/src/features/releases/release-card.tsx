@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { GameGenres } from "../../shared/catalogue/game-genres";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
+import { DiscoveryScores } from "./discovery-scores";
 import { ReleaseOverflow } from "./release-overflow";
 import type { ReleaseListItem } from "./releases-view-model";
 
@@ -28,6 +29,7 @@ export function ReleaseCard({ item }: ReleaseCardProps) {
         <h3 className="card-title">
           <Link to={gamePath}>{item.title}</Link>
         </h3>
+        <DiscoveryScores scores={item.scores} title={item.title} />
         {primaryGroup === undefined ? null : (
           <>
             {/* One compact row for the first relevant release: its date (shown on the cover chip,

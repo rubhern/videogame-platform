@@ -11,6 +11,8 @@ public record IgdbGamePayload(
         Long createdAt,
         Long updatedAt,
         java.math.BigDecimal hypes,
+        java.math.BigDecimal rating,
+        java.math.BigDecimal ratingCount,
         Long firstReleaseDate,
         Long versionParent,
         IgdbCoverPayload cover,

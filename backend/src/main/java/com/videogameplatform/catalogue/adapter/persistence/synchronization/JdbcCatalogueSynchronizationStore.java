@@ -11,10 +11,13 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderTerm;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.DetailsWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ExternalScoreChange;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ExternalScoreWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.MediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizedGameIdentity;
+import com.videogameplatform.catalogue.domain.ExternalScore;
 import com.videogameplatform.catalogue.domain.RegionLabel;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
@@ -46,6 +49,7 @@ import tools.jackson.databind.json.JsonMapper;
 public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchronizationStore {
     private static final String PRODUCT_OWNED_COVER = "product_owned";
     private static final String PROVIDER_COVER = "provider_cdn_reference";
+    private static final String PLAYER_SCORE_KIND = "player";
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
     private final String provider;
@@ -447,10 +451,12 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
         recordReconciliation(reconciled, w.synchronizedAt());
         writeFeaturedEvidence(w);
         writeFeaturedMedia(w);
+        ExternalScoreChange playerScoreChange = writePlayerScore(w);
         int detailChanges = writeDetails(publication, w);
         // Popularity and featured media serve featured discovery only, so they never advance the
         // catalogue revision; that read's validators hash its actual response instead. Game
-        // details are catalogue content, so a detail change does.
+        // details are catalogue content, so a detail change does. No public read serves the
+        // external player score yet: it records its own change time and leaves the revision alone.
         boolean changed =
                 gameChanges > 0
                         || created > 0
@@ -483,7 +489,8 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                 created,
                 updated,
                 unchanged,
-                missing.size());
+                missing.size(),
+                playerScoreChange);
     }
 
     /**
@@ -540,6 +547,85 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                     .addValue("observedAt", timestamp(w.synchronizedAt())));
             case FeaturedEvidenceWrite.Keep _ -> {}
         }
+    }
+
+    /**
+     * Records the Game's external player score inside the Game's own transaction, so a rolled-back
+     * Game keeps its last valid score and its last successful check. An observed answer advances the
+     * check; the change time moves only when the score, its count or its presence changes. An
+     * earlier or replayed check never moves either backwards, and a kept score is not touched.
+     * The same statement returns the previous and the written state, so classifying the change
+     * costs no further query.
+     */
+    private ExternalScoreChange writePlayerScore(GameWrite w) {
+        if (!(w.playerScore() instanceof ExternalScoreWrite.Observe observed)) {
+            return ExternalScoreChange.NONE;
+        }
+        List<ExternalScoreChange> changes =
+                jdbc.query(
+                        """
+                INSERT INTO catalogue.game_external_score AS stored (
+                    game_id, source_name, score_kind, score, score_count, source_url,
+                    provider_record_updated_at, observed_at, changed_at)
+                VALUES (:game, :source, :kind, :score, :count, :sourceUrl,
+                        :recordUpdatedAt, :observedAt, :observedAt)
+                ON CONFLICT (game_id, source_name, score_kind) DO UPDATE SET
+                    changed_at = CASE
+                        WHEN (stored.score, stored.score_count)
+                            IS NOT DISTINCT FROM (EXCLUDED.score, EXCLUDED.score_count)
+                        THEN stored.changed_at
+                        ELSE EXCLUDED.observed_at
+                    END,
+                    score = EXCLUDED.score,
+                    score_count = EXCLUDED.score_count,
+                    source_url = EXCLUDED.source_url,
+                    provider_record_updated_at = EXCLUDED.provider_record_updated_at,
+                    observed_at = EXCLUDED.observed_at
+                WHERE stored.observed_at <= EXCLUDED.observed_at
+                RETURNING old.score IS NOT NULL AS had_score, new.score IS NOT NULL AS has_score,
+                    (old.score, old.score_count)
+                        IS NOT DISTINCT FROM (new.score, new.score_count) AS same_score
+                """,
+                        new MapSqlParameterSource()
+                                .addValue("game", w.gameId())
+                                .addValue("source", provider)
+                                .addValue("kind", PLAYER_SCORE_KIND)
+                                .addValue(
+                                        "score",
+                                        observed.score().map(ExternalScore::value).orElse(null),
+                                        java.sql.Types.NUMERIC)
+                                .addValue(
+                                        "count",
+                                        observed.score().map(ExternalScore::count).orElse(null),
+                                        java.sql.Types.BIGINT)
+                                .addValue(
+                                        "sourceUrl",
+                                        observed.sourceUrl().orElse(null),
+                                        java.sql.Types.VARCHAR)
+                                .addValue(
+                                        "recordUpdatedAt",
+                                        observed.providerRecordUpdatedAt()
+                                                .map(JdbcCatalogueSynchronizationStore::timestamp)
+                                                .orElse(null),
+                                        java.sql.Types.TIMESTAMP_WITH_TIMEZONE)
+                                .addValue("observedAt", timestamp(w.synchronizedAt())),
+                        (rs, row) ->
+                                scoreChange(
+                                        rs.getBoolean("had_score"),
+                                        rs.getBoolean("has_score"),
+                                        rs.getBoolean("same_score")));
+        // No returned row: the stored check is newer than this answer, so nothing was written.
+        return changes.isEmpty() ? ExternalScoreChange.NONE : changes.getFirst();
+    }
+
+    private static ExternalScoreChange scoreChange(
+            boolean hadScore, boolean hasScore, boolean sameScore) {
+        if (hasScore) {
+            return !hadScore
+                    ? ExternalScoreChange.CREATED
+                    : sameScore ? ExternalScoreChange.UNCHANGED : ExternalScoreChange.UPDATED;
+        }
+        return hadScore ? ExternalScoreChange.REMOVED : ExternalScoreChange.NONE;
     }
 
     /**
@@ -1092,15 +1178,15 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                     rs.getString("outcome_code"),
                                     new CatalogueSynchronizationReport.Counters(
                                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                            0)));
+                                            0, 0, 0, 0, 0, 0, 0, 0)));
                 });
     }
 
     private CatalogueSynchronizationReport readReport(String stored) {
         var tree = json.readTree(stored);
         // Reports written before current-set reconciliation have no deletion counter, and those
-        // written before popularity and media acquisition have no counters for them. Default only
-        // those absent fields; keep strict validation of all existing data.
+        // written before popularity, media, detail or player-score acquisition have no counters for
+        // them. Default only those absent fields; keep strict validation of all existing data.
         if (tree.get("counters") instanceof tools.jackson.databind.node.ObjectNode counters) {
             for (String field :
                     List.of(
@@ -1111,7 +1197,14 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                             "featuredImageObservedGames",
                             "logoObservedGames",
                             "logoUnavailableGames",
-                            "detailsUnavailableGames")) {
+                            "detailsUnavailableGames",
+                            "playerScoreObservedGames",
+                            "playerScoreAbsentGames",
+                            "playerScoreUnavailableGames",
+                            "playerScoreCreatedGames",
+                            "playerScoreUpdatedGames",
+                            "playerScoreRemovedGames",
+                            "playerScoreUnchangedGames")) {
                 if (!counters.has(field)) {
                     counters.put(field, 0L);
                 }

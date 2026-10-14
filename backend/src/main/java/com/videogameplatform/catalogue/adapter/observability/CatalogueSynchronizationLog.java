@@ -294,6 +294,13 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                     .addKeyValue("sync.media.logos_observed", c.logoObservedGames())
                     .addKeyValue("sync.media.logos_unavailable", c.logoUnavailableGames())
                     .addKeyValue("sync.details.unavailable", c.detailsUnavailableGames())
+                    .addKeyValue("sync.player_score.observed", c.playerScoreObservedGames())
+                    .addKeyValue("sync.player_score.absent", c.playerScoreAbsentGames())
+                    .addKeyValue("sync.player_score.unavailable", c.playerScoreUnavailableGames())
+                    .addKeyValue("sync.player_score.created", c.playerScoreCreatedGames())
+                    .addKeyValue("sync.player_score.updated", c.playerScoreUpdatedGames())
+                    .addKeyValue("sync.player_score.removed", c.playerScoreRemovedGames())
+                    .addKeyValue("sync.player_score.unchanged", c.playerScoreUnchangedGames())
                     .addKeyValue("sync.provider.latency_ms", c.providerLatencyMillis())
                     .addKeyValue("sync.failures", failureSummary)
                     .log(
@@ -304,6 +311,8 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                                     + " popularity[observed={} cleared={} unavailable={}]"
                                     + " media[images={} logos={} logos_unavailable={}]"
                                     + " details[unavailable={}]"
+                                    + " player_score[observed={} absent={} unavailable={}"
+                                    + " created={} updated={} removed={} unchanged={}]"
                                     + " release_dates_inspected={} provider[requests={}"
                                     + " retries={} latency_ms={}] failures={}",
                             runId,
@@ -328,6 +337,13 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                             c.logoObservedGames(),
                             c.logoUnavailableGames(),
                             c.detailsUnavailableGames(),
+                            c.playerScoreObservedGames(),
+                            c.playerScoreAbsentGames(),
+                            c.playerScoreUnavailableGames(),
+                            c.playerScoreCreatedGames(),
+                            c.playerScoreUpdatedGames(),
+                            c.playerScoreRemovedGames(),
+                            c.playerScoreUnchangedGames(),
                             c.inspectedReleaseDates(),
                             c.providerRequests(),
                             c.providerRetries(),

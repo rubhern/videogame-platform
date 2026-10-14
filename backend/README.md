@@ -22,6 +22,12 @@ This generates the Spring HTTP boundary from OpenAPI, checks formatting and modu
 rules, runs unit and PostgreSQL/Testcontainers integration tests, produces JaCoCo
 reports, and packages the executable JAR. Docker is required for persistence tests.
 
+Integration tests share one PostgreSQL container across isolated databases. Their
+cached Spring contexts use small, lazy connection pools configured by
+`PostgreSqlTestDatabase`, leaving capacity for concurrent commands and direct JDBC
+assertions. These bounds apply only to tests; application pool configuration stays
+in `application.yaml`.
+
 Useful focused commands:
 
 ```bash
@@ -126,8 +132,9 @@ One POST paginates internally until every IGDB Game with a release date in the
 interval has been reconciled; there is no total Game limit. Each provider page reads
 its Games' logos; each Game request carries Hypes, first-release
 and edition evidence along with artwork and screenshot metadata for featured discovery
-(`UC-010`); the report counts signals observed, cleared and kept unavailable,
-and featured images and logos observed. The GET reports the last
+(`UC-010`), and the IGDB player score with its rating count; the report counts signals
+observed, cleared and kept unavailable, featured images and logos observed, and player
+scores observed, absent and kept unavailable, with what those writes did to stored scores. The GET reports the last
 run or `never_run`. Apply the Flyway schema before enabling the command. Without
 `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` it reports `SYNCHRONIZATION_DISABLED` and
 changes nothing, which is how CI and a normal local run behave; automated provider

@@ -67,8 +67,7 @@ class ReleaseApiIntegrationTest {
 
         OPENAPI.assertJsonResponse(response, 200, "ReleasePage");
         assertThat(response.headers().firstValue("X-Correlation-ID")).isPresent();
-        assertThat(response.headers().firstValue("Cache-Control"))
-                .contains("public, max-age=60, stale-while-revalidate=300");
+        assertThat(response.headers().firstValue("Cache-Control")).contains("public, no-cache");
         String entityTag = response.headers().firstValue("ETag").orElseThrow();
         assertThat(entityTag).matches("\"[0-9a-f]{64}\"");
         assertThat(

@@ -1,6 +1,6 @@
 # External quality signals for catalogue discovery
 
-- **Status:** Owner-approved research decisions; implementation pending
+- **Status:** Owner-approved research decisions; #255 phase 1 (acquisition and storage) implemented, awaiting review; presentation pending
 - **Evidence date:** 2026-10-14
 - **Decision owner:** Ruben Hernandez; approved 2026-10-14
 - **Consumer:** Owner and implementer of [#255](https://github.com/rubhern/videogame-platform/issues/255)
@@ -9,11 +9,12 @@
 
 IGDB's player score is a viable complement during Gameómetro's community cold start.
 Use the existing acquisition path; keep local community and external sentiment
-separate. The owner approved the source and presentation direction; no integration,
-API, schema or runtime behaviour has been implemented.
+separate. The owner approved the source and presentation direction. #255 phase 1
+acquires and stores the adopted player pair; no API or presentation exists yet.
 The [Product Brief](../product/product-brief.md#trustworthy-quality-and-community-direction)
 owns the approved product rules; this record retains the spike's evidence, source
-decisions and unimplemented technical proposal.
+decisions, the original technical proposal and the
+[actual-catalogue measurement](#actual-catalogue-coverage-255-phase-1).
 
 | Candidate | Owner decision | Reason and permitted next step |
 |---|---|---|
@@ -64,9 +65,9 @@ Six purposive groups of eight cover different ages, popularity, low-volume games
 potential disagreement, upcoming records and original/remake identities. This is
 diversity evidence, **not a random sample or catalogue-wide coverage estimate**.
 The disagreement group is a selection hypothesis, not proof of controversy.
-#255 must measure a representative sample of the actual catalogue during
-implementation, recording selection, coverage, missingness and limitations; these
-spike percentages must not be extrapolated to the complete catalogue.
+#255 measured a representative sample of the actual catalogue
+[below](#actual-catalogue-coverage-255-phase-1); these spike percentages must not be
+extrapolated to the complete catalogue.
 
 A usable pair requires a resolved identity, finite score in the proposed 0–100
 range and positive integer count. An unresolved work stays outside coverage
@@ -149,8 +150,11 @@ termination; Twitch requires deletion. Do not choose the more convenient text or
 claim perpetual retention. Before public score exposure, the owner must record which
 agreement governs score storage/display, retention/removal and attribution; obtain
 provider clarification if the applicable terms cannot resolve the conflict. No
-provider contact was sent. Use plain linked “Jugadores IGDB” attribution and the
-existing static source acknowledgement; no logo permission is inferred.
+provider contact was sent. The original investigation approved plain linked “Jugadores IGDB” attribution.
+The owner later requested the official mark for discovery (#255 phase 2); its
+verified source, limited attribution permission and local asset handling are owned
+by the [provider asset record](../../frontend/public/assets/providers/README.md).
+This does not resolve the score-retention conflict or grant public/commercial exposure.
 
 This score-specific gate feeds [#274](https://github.com/rubhern/videogame-platform/issues/274)
 and the [canonical public-release gates](../development/delivery-lifecycle.md#public-production-gates).
@@ -243,11 +247,90 @@ Final API and visual delivery follow their canonical owners during #255.
 
 #255 is prepared to implement the approved product decisions, including measurement
 of the actual catalogue; public/commercial authorization remains #274's independent
-gate. The PostgreSQL/application representation above is an implementation proposal,
-not an implemented schema or an additional owner-approved architecture decision.
-Update the affected canonical domain/application and synchronization records with
-implementation, and OpenAPI first when its wire contract changes.
+gate. The PostgreSQL/application representation above was the spike's proposal. #255
+phase 1 implemented it as Catalogue-owned current state; the
+[domain model](../architecture/domain/mvp-domain-model.md) (`XSC-001`–`XSC-004`),
+[use cases](../architecture/application/mvp-use-cases.md) and Flyway SQL now own the
+implemented behaviour and schema. OpenAPI changes first when a wire contract follows.
 
 Documentation/evidence only: no executable artefact version bump. Local validation
 is link/ownership validation plus CSV measurement reconciliation; runtime, SQL-plan,
 browser and integration checks are deferred to #255's affected-area gates.
+
+## Actual catalogue coverage (#255 phase 1)
+
+Measured on **2026-10-14, 10:19–10:33 UTC** with the #255 phase-1 backend
+(`0.31.0-SNAPSHOT`, working tree under review) against live IGDB v4, using owner-approved
+private credentials passed to a disposable container without being read. The target was
+a disposable copy of the owner's local PostgreSQL catalogue (last real synchronization
+2026-10-04); the original volume was only read. The new migration applied on top of
+that real Flyway history. All provider work went through existing UC-009 paths: two runs
+of the normal date-window command and the existing private current-release repair
+command, one known Game per call. No new import path, provider query or backfill was
+used. About 950 provider requests were made at the configured 3 requests/s, without
+retries or provider failures.
+
+**Frame and selection.** The frame is every accepted Game with a typed IGDB Game
+reference, frozen in PostgreSQL before any acquisition: **20,241 Games**, none excluded
+for missing identity. Seven disjoint strata use stored provider first-release evidence
+(Madrid date 2026-10-14) and, for remakes/remasters, a title heuristic (`remake`,
+`remaster(ed)`, `definitive edition`, `reloaded`, `redux`, `HD`), because work type is
+not stored. That heuristic also catches editions and parody titles. Within each stratum,
+PostgreSQL ordered Games by `md5(game_id || 'issue-255-2026-10-14')` and kept a fixed
+count. Every sampled Game was then refreshed once. [Per-Game results](external-quality-signals-catalogue-sample.csv)
+keep stratum, provider identity, stored first-release evidence, state, pair and check time.
+
+| Stratum (first release) | Frame | Sampled | Usable pair | Stated absence | Usable % | Count min / median / max |
+|---|---:|---:|---:|---:|---:|---|
+| Before 2020 | 197 | 30 | 14 | 16 | 46.7 | 2 / 59.5 / 1,829 |
+| 2020–2024 | 602 | 30 | 12 | 18 | 40.0 | 5 / 11.5 / 686 |
+| 2025-01-01 to 2026-09-13 | 14,894 | 60 | 2 | 58 | 3.3 | 5 / 5 / 5 |
+| Last 30 days | 1,259 | 40 | 1 | 39 | 2.5 | 12 |
+| Upcoming | 2,657 | 40 | 0 | 40 | 0.0 | — |
+| Unknown first release | 553 | 20 | 0 | 20 | 0.0 | — |
+| Remake/remaster title | 79 | 30 | 4 | 26 | 13.3 | 7 / 65.5 / 500 |
+| **Total** | **20,241** | **250** | **33** | **217** | — | 2 / 14 / 1,829 |
+
+The stratum-weighted estimate of Games holding a usable IGDB player pair is **4.3%**
+(standard error 1.7 percentage points; a normal approximation that is rough at such
+low proportions). The catalogue is dominated by 2025–2026 releases acquired through
+date windows, most of them without IGDB player ratings; older works are much better
+covered but are a small part of the catalogue. All 250 sampled Games resolved and
+returned a valid answer: no identity exclusion, no invalid, partial or out-of-range
+pair (`player_score_invalid` stayed zero) and no unchecked Game. Among the 33 usable
+pairs, 4 have fewer than five ratings and 14 fewer than ten. None has exactly one,
+although one-rating scores remain valid and visible by policy.
+
+**Real acquisition checks.** A normal window run for 2026-10-10..13 committed 95 Games
+(23 created, 39 updated, 33 unchanged, 5 deferred by import policy, none failed):
+3 usable pairs and 92 stated absences. Repeating it changed nothing. All 95 score rows
+advanced their check time while value, count, attribution and change time stayed
+identical, and the catalogue revision did not rotate. Attribution URLs pointed to each
+work's own IGDB page. The 13 #256 sample Games present in the catalogue were refreshed as
+named controls, outside the denominators. The 5 stated absences and 5 of 8 usable pairs
+matched the 00:18 UTC capture exactly; Resident Evil 2 (2019) and Resident Evil Requiem
+had each gained one rating, and Starfield's mean moved slightly with an unchanged count.
+In the catalogue, Fatal Frame II: Crimson Butterfly Remake (80.0 / 7) and its separate
+Digital Deluxe Edition work (stated absence) kept separate scores. None of the originals
+of the sampled remakes is in the catalogue, so original/remake separation rests on the
+automated PostgreSQL tests.
+
+**Reach of current synchronization.** With the default scheduled windows (28 days back
+and forward daily, 180 days ahead weekly), about **1,966 frame Games (9.7%)** had a
+stored day- or month-precision release inside a window on 2026-10-14. This is an
+approximation: windows move daily, and quarter, year and unknown dates were not counted.
+The remaining Games gain a score only through a manual interval containing one of their
+releases, the existing operator repair of all known Games (two provider requests per Game)
+or the future #246 hydration. Until then they have no score state, which differs from a
+stated absence.
+
+**Limitations.** This is one dated snapshot of one local catalogue and one provider
+state, not a longitudinal freshness measurement. The 13 controls show that counts change
+within hours. Stratum sizes give coarse per-stratum precision. The remake stratum is
+heuristic. The "last 30 days" and "upcoming" strata depend on stored provider
+first-release evidence, not verified commercial release. The measurement says nothing
+about the public, commercial or rights suitability tracked in #274. A wall-clock step
+backwards on the WSL2 host made eleven repair calls fail when recording their run
+(`synchronization_run` requires completion at or after start). Their Game writes had
+already committed. The scratch runs were marked abandoned and those Games replayed
+idempotently. This affects only the operational run record, not score evidence.

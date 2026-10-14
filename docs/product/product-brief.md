@@ -130,7 +130,7 @@ learning; they are not market targets.
 | Demand/differentiation unvalidated | Keep claims narrow; use real observations before expanding product scope |
 | Provider quality | Explicit import policy, validation before publication, explicit uncertainty/provenance/review state, local reads |
 | Spanish data gaps | Product-owned aliases/editorial content; never present translation as provider content |
-| Provider/licensing scope | Private non-commercial baseline remains; public metadata/media acceptance is a launch gate under the [public-use investigation](../research/public-production-topology.md#provider-and-image-review); the external-score direction below is approved but unimplemented, with public/commercial authorization pending #274; no copied image binaries |
+| Provider/licensing scope | Private non-commercial baseline remains; public metadata/media acceptance is a launch gate under the [public-use investigation](../research/public-production-topology.md#provider-and-image-review); the external-score direction below is approved, with acquisition, local storage and discovery presentation implemented (#255, awaiting review), and public/commercial authorization pending #274; no copied game image binaries |
 | Provider coupling/outage | Internal identity, anti-corruption adapter, last valid local snapshot, no request-path IGDB; provider drives acquisition, never serving |
 | Scope/architecture expansion | Focused product journeys and modular monolith; complexity requires evidence or bounded learning objective |
 | Accounts/personal ratings | Delegated identity, principal-derived ownership, privacy/security controls |
@@ -151,8 +151,10 @@ scale remains a direction, without evidence of a real community or demand yet.
 
 - A Gameómetro score represents only ratings from Gameómetro users. Never fabricate,
   estimate, or derive it from press or external scores.
-- **Approved future, not implemented:** adopt IGDB player scores (`rating` and
-  `rating_count`) as a complement. Defer IGDB critic scores and OpenCritic; reject
+- **Approved; acquisition and discovery presentation implemented, awaiting review:** adopt IGDB player scores
+  (`rating` and `rating_count`) as a complement. #255 acquires and stores them locally, then presents them alongside the
+  Ratings-owned community signal on release-discovery cards. The game page and
+  other screens remain deferred to #279. Defer IGDB critic scores and OpenCritic; reject
   combined `total_rating` scores. Public/commercial authorization remains pending
   [#274](https://github.com/rubhern/videogame-platform/issues/274).
 - Always show each available valid score with its source and positive vote count,
@@ -172,7 +174,8 @@ scale remains a direction, without evidence of a real community or demand yet.
 
 The [research record](../research/external-quality-signals.md) owns provider evidence
 and its limitations. [#255](https://github.com/rubhern/videogame-platform/issues/255)
-owns delivery of this approved direction; implementation has not started.
+owns delivery of this approved direction; its first phase covers acquisition and local
+storage only.
 
 ## Public release and sustainability
 

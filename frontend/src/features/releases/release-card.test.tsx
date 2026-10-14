@@ -30,6 +30,7 @@ const providerCover = {
 function item(overrides: Partial<ReleaseListItem> = {}): ReleaseListItem {
   return {
     gameId: "game-witcher",
+    scores: [],
   genres: [],
     slug: "the-witcher-iv",
     title: "The Witcher IV",

@@ -20,6 +20,10 @@
 
 - **Extended:** 2026-10-05, owner-requested #155: recurring inbound policies reuse UC-009;
   reconciliation, paging, identity, per-Game atomicity and database fencing remain unchanged.
+- **Extended:** 2026-10-14, #255 phase 1: the same Game request also acquires the IGDB player
+  score and its rating count under the per-Game atomicity and last-valid-state rules below;
+  the [domain model](../architecture/domain/mvp-domain-model.md) (`XSC-001`–`XSC-004`) and
+  [use cases](../architecture/application/mvp-use-cases.md) own the behaviour
 
 ## Context
 

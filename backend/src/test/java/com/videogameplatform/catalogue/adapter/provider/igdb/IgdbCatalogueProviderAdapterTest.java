@@ -8,6 +8,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderGameDetails;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlayerScore;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRelease;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderSummary;
@@ -18,6 +19,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Provider
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderReleaseSignal;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderWorkType;
+import com.videogameplatform.catalogue.domain.ExternalScore;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -697,7 +699,87 @@ class IgdbCatalogueProviderAdapterTest {
         assertThat(fetchInlineWork(summary).details()).isEmpty();
     }
 
+    @Test
+    void acquiresOnlyThePlayerScoreAndItsCountWithTheWorkRequest() {
+        // Critic and combined values in the same answer never become the player score.
+        ProviderWork work =
+                fetchInlineWork(
+                        "\"url\":\"https://www.igdb.com/games/resident-evil-2\","
+                                + "\"rating\":83.67289380364453,\"rating_count\":604,"
+                                + "\"aggregated_rating\":55.0,\"aggregated_rating_count\":2,"
+                                + "\"total_rating\":69.33,\"total_rating_count\":606");
+
+        assertThat(work.playerScore())
+                .contains(
+                        new ProviderPlayerScore(
+                                Optional.of(
+                                        new ExternalScore(
+                                                new java.math.BigDecimal("83.67289380364453"),
+                                                604))));
+        assertThat(work.attributionUrl()).contains("https://www.igdb.com/games/resident-evil-2");
+        assertThat(work.mappingFailures()).isEmpty();
+        assertThat(server.requests())
+                .filteredOn(r -> r.path().equals("/v4/games"))
+                .singleElement()
+                .satisfies(
+                        request -> {
+                            assertThat(request.body()).contains(",rating,rating_count,");
+                            assertThat(request.body())
+                                    .doesNotContain("aggregated_rating")
+                                    .doesNotContain("total_rating");
+                        });
+        assertThat(server.requests()).noneMatch(r -> r.path().contains("rating"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "\"slug\":\"no-score\"",
+                "\"rating\":null,\"rating_count\":null",
+                "\"rating\":80,\"rating_count\":0",
+                "\"rating_count\":0",
+                "\"aggregated_rating\":80,\"aggregated_rating_count\":3,\"total_rating\":80"
+            })
+    void aStatedAbsenceOrZeroRatingsIsAValidAnswerWithoutAScore(String fields) {
+        ProviderWork work = fetchInlineWork(fields);
+
+        assertThat(work.playerScore()).contains(ProviderPlayerScore.NONE);
+        assertThat(work.mappingFailures()).isEmpty();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(
+            strings = {
+                "\"rating\":75",
+                "\"rating_count\":12",
+                "\"rating\":100.5,\"rating_count\":12",
+                "\"rating\":-1,\"rating_count\":12",
+                "\"rating\":75,\"rating_count\":1.5",
+                "\"rating\":75,\"rating_count\":-3",
+                "\"rating\":75,\"rating_count\":9223372036854775808"
+            })
+    void anIncoherentPlayerScoreKeepsTheWorkUsableAndReportsABoundedFailure(String fields) {
+        var registry = new SimpleMeterRegistry();
+        ProviderWork work = fetchInlineWork(fields, registry);
+
+        assertThat(work.playerScore()).isEmpty();
+        assertThat(work.title()).isEqualTo("Game");
+        assertThat(work.featuredEvidence()).isPresent();
+        assertThat(work.mappingFailures())
+                .containsExactly(ProviderMappingFailure.PLAYER_SCORE_INVALID);
+        assertThat(
+                        registry.get("catalogue.synchronization.provider.mapping.failure")
+                                .tag("reason", "player_score_invalid")
+                                .counter()
+                                .count())
+                .isEqualTo(1);
+    }
+
     private ProviderWork fetchInlineWork(String fields) {
+        return fetchInlineWork(fields, new SimpleMeterRegistry());
+    }
+
+    private ProviderWork fetchInlineWork(String fields, SimpleMeterRegistry registry) {
         if (server != null) {
             server.close();
         }
@@ -713,7 +795,7 @@ class IgdbCatalogueProviderAdapterTest {
                                                 200,
                                                 "[{\"id\":100,\"name\":\"Game\"," + fields + "}]"),
                                 "/v4/release_dates", IgdbFixtureServer.always(200, "[]")));
-        return adapter().fetchWorks(List.of("100")).works().getFirst();
+        return adapter(registry).fetchWorks(List.of("100")).works().getFirst();
     }
 
     private ProviderWork fetchWorkFixture(String gameFixture) {

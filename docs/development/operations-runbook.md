@@ -351,6 +351,35 @@ what the provider no longer states; `details[unavailable]` on the finished line 
 that kept their last valid details because that metadata was invalid. Existing Games gain
 these details only when a run or repair reconciles them again.
 
+The same Game request also acquires the IGDB player score and its rating count (#255
+phase 1 acquisition; phase 2 discovery presentation). The finished line's
+`player_score[observed absent unavailable created updated removed unchanged]` group
+reports what each run did:
+- The first three count committed Games with a usable score, with a valid answer
+  stating none or zero ratings, and that kept their last valid score because the
+  answer was invalid or had no attribution page.
+- The other four say what those writes did to stored usable scores.
+- `player_score_invalid` mapping failures name the invalid answers.
+
+There is no score backfill, expiry or vote threshold. A Game gains or refreshes its score
+only when something reconciles it again:
+- the scheduled near-term and upcoming windows refresh the Games those windows select;
+- a manual interval refreshes the Games with a release date in it;
+- the explicit current-release repair below can refetch every known Game under its
+  existing approval rules.
+
+Games outside those paths keep no score state, which Grafana reports as never checked
+rather than as missing scores.
+
+To check acquisition, open the synchronization dashboard's **IGDB player scores** row:
+- After a run, its point in *Player-score results per run* should match the finished line.
+- Normal re-runs are mostly *unchanged*. A burst of *removed* or *updated* scores, any
+  *discarded* answers, or nonzero *Invalid score answers* deserves a look at the run's
+  log and mapping failures.
+- *Never checked* and the *30+ days* check-age band show how much of the catalogue the
+  current windows leave untouched. That is expected for older Games and is never a
+  reason to hide a score.
+
 PostgreSQL allows one active run; an abandoned
 worker is fenced after `CATALOGUE_SYNC_ABANDON_RUN_AFTER` before a successor can
 write. Provider failure never deletes local Games, Releases or covers; the previous

@@ -18,6 +18,7 @@ const search: ReleasesSearch = {
 };
 
 const pragmata: ReleaseListItem = {
+  scores: [],
   gameId: "game-pragmata",
   genres: [],
   slug: "pragmata",

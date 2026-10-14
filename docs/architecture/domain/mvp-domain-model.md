@@ -7,9 +7,9 @@
 ## Boundaries and concepts
 
 `Catalogue and Releases` owns the bounded catalogue, games, aliases, covers,
-commercial releases, platform/region taxonomy, external references, provenance,
-verification, review, and freshness. `Ratings` owns personal rating lifecycle,
-eligibility, and aggregate calculation. Identity supplies only authenticated
+commercial releases, platform/region taxonomy, external references, external player
+scores, provenance, verification, review, and freshness. `Ratings` owns personal rating
+lifecycle, eligibility, and aggregate calculation. Identity supplies only authenticated
 `UserId`; provider credentials, sessions, and accounts are outside the domain.
 
 | Concept | Meaning |
@@ -23,6 +23,7 @@ eligibility, and aggregate calculation. Identity supplies only authenticated
 | `ReleaseDate` | Closed day, month, quarter, year, or unknown value; precision is never invented |
 | `ExternalReference` | Typed provider/entity/provider-ID link; never product identity |
 | Popularity signal | One game's current provider-observed attention (IGDB Hypes) with its source and acquisition time; ranks featured releases, never measures quality |
+| External player score | One source's own player mean of a game on its declared 0–100 scale with the positive count of that source's ratings (currently IGDB players), attributed to the source's page of the work, with its last successful check and last change; external sentiment, never a Gameómetro rating |
 | Featured releases | A calendar month's automatic selection: its qualifying-release games ranked by popularity signal, the first being the month's featured release |
 | Featured media | Context-selected hero and card landscape images and an optional secondary-card logo, kept as approved CDN references, never binaries |
 | Game details | A game's summary, the companies credited as its developers and publishers, its genres and its game modes; current provider-acquired state that may be empty |
@@ -137,6 +138,10 @@ Downstream documents may reference these IDs but must not redefine them.
 | `POP-001` | A popularity signal is provider-observed attention: it never states quality, a rating, an award or an editorial recommendation, and its value is not product presentation. |
 | `POP-002` | A popularity signal is never invented: a game without one is not ranked and remains a normal catalogue and discovery member. |
 | `POP-003` | A valid provider answer records a game's positive signal, or clears it when the provider states zero attention, with that game's accepted state; a game the answer does not mention, an unavailable or invalid answer, or a failed game preserves the last valid signal. |
+| `XSC-001` | An external player score belongs to one internal `GameId`, one approved source and one kind, and is never transferred between games, including an original and its remake. Provider identity stays in the external reference. |
+| `XSC-002` | A usable score has a value inside its declared 0–100 scale and a positive rating count, including one rating; it is kept without truncation and is never invented, estimated, derived from critics, combined with another population or mixed into the Gameómetro aggregate. |
+| `XSC-003` | A complete valid provider answer without a score, or with zero ratings, clears the usable score and still records the check. A partial, out-of-range, malformed, unattributed or failed answer preserves the last valid score and does not advance its last successful check. A game never checked has no score state at all, which differs from a check that found none. |
+| `XSC-004` | An unchanged re-check advances only the last successful check, never the last change; neither time is the provider's own score update time. Age alone never invalidates, expires or hides a score, and no minimum rating count applies. |
 | `FEAT-001` | A featured candidate has a Full Release inside the month (an exact day of it, or month precision equal to it), neither cancelled, delayed nor pending review; it is an accepted import type and a distinct product rather than an edition, its own known first release is in that month, and its current Hypes count is positive. Remakes and remasters follow the same rule. Missing evidence never becomes eligibility. |
 | `FEAT-002` | Featured ranking orders candidates by Hypes descending, then unique `GameId` ascending; it shows up to six games and never fills a slot artificially. |
 | `FEAT-003` | The hero sets the title itself, so hero media prefer high-quality artwork without a provider-declared title, then high-quality screenshot, then high-quality title artwork, then the same three among the other accepted landscape media. Accepted media are opaque, still, at least 640×360 and between 3:2 and 16:5, and never artwork the provider labels as a cover, a game logo or an icon; high quality for the hero means covering a 1280×480 frame. Within each hero step prefer less crop to the 8:3 hero frame, then larger pixel area, then stable image reference ASC. Secondary cards select across both media types: the same accepted gate plus at least 80% retained area at 16:9.4; order by least crop, largest usable pixel area capped at 1280×720, provider-declared title key art before screenshot before ordinary artwork on equal suitability, then stable reference ASC. The provider adapter normalizes the optional image-type label: title key art into a boolean, covers, logos and icons out of the candidates; missing/unknown labels receive no preference. Without a suitable image the hero uses the designed product fallback, which its cover may only light; a card uses an intentional cover treatment, then product fallback. A portrait cover is never distorted to landscape. |

@@ -59,6 +59,14 @@ class RatingsConfiguration {
     }
 
     @Bean
+    com.videogameplatform.ratings.application.GetRatingSummariesUseCase ratingSummaries(
+            RatingJdbcExecution execution) {
+        return new com.videogameplatform.ratings.application.internal.RatingSummariesService(
+                new com.videogameplatform.ratings.adapter.persistence
+                        .JdbcRatingSummariesReadAdapter(execution.jdbc()));
+    }
+
+    @Bean
     RatingStatisticsReadPort ratingStatisticsReadPort(RatingJdbcExecution execution) {
         return new JdbcRatingStatisticsReadAdapter(execution.jdbc());
     }

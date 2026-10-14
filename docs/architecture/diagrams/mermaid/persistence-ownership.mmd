@@ -20,6 +20,10 @@ erDiagram
         date first_release_date "known own first release or absent"
         boolean eligible_product "accepted import type and not an edition"
     }
+    game_external_score["catalogue.game_external_score"] {
+        numeric score "source player mean on 0-100 with positive count, or none after a valid check"
+        timestamptz observed_at "last successful check; changed_at moves only on a score change"
+    }
     game_featured_media["catalogue.game_featured_media"] {
         varchar image_reference "selected hero/card image or secondary-card logo; CDN reference, never a binary"
     }
@@ -52,6 +56,7 @@ erDiagram
     game ||--o{ game_release : owns
     game ||--o| game_featured_evidence : "current popularity signal, written with the Game"
     game ||--o{ game_featured_media : "at most one hero image, card image and card logo, written with the Game"
+    game ||--o{ game_external_score : "current score per source and kind, written with the Game"
     game_release ||--o| release_snapshot : "current state"
     game_release ||--o{ release_external_reference : "provider identity"
     release_external_reference ||--o| release_reconciliation : "last check, written with the Game"
