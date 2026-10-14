@@ -224,7 +224,7 @@ async function updateRealm(request: APIRequestContext, changes: Record<string, u
 }
 
 async function createPlayer(request: APIRequestContext): Promise<Player> {
-  const username = `recovery-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const username = `recovery-${crypto.randomUUID()}`;
   const player = { username, email: `${username}@example.test`, password: "Antigua-Clave-2026!" };
   const response = await request.post(`${keycloakOrigin}${realmPath}/users`, {
     headers: await adminToken(request),
