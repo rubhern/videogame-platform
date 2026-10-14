@@ -72,6 +72,9 @@ public final class PostgreSqlTestDatabase {
         registry.add("spring.datasource.url", () -> runtimeUrl(databaseName));
         registry.add("spring.datasource.username", PostgreSqlTestDatabase::runtimeUsername);
         registry.add("spring.datasource.password", PostgreSqlTestDatabase::runtimePassword);
+        // Cached test contexts share one server; lazy pools leave room for direct JDBC probes.
+        registry.add("spring.datasource.hikari.maximum-pool-size", () -> 2);
+        registry.add("spring.datasource.hikari.minimum-idle", () -> 0);
         registry.add("spring.flyway.enabled", () -> true);
         registry.add("spring.flyway.url", () -> adminUrl(databaseName));
         registry.add("spring.flyway.user", PostgreSqlTestDatabase::migratorUsername);

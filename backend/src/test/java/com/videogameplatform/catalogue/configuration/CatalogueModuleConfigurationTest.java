@@ -11,9 +11,12 @@ import com.videogameplatform.catalogue.application.details.port.GameListingReadP
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.GetExternalPlayerScoresUseCase;
+import com.videogameplatform.catalogue.application.releases.internal.ExternalPlayerScoresService;
 import com.videogameplatform.catalogue.application.releases.internal.FeaturedReleaseService;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseCatalogueService;
+import com.videogameplatform.catalogue.application.releases.port.ExternalPlayerScoresReadPort;
 import com.videogameplatform.catalogue.application.releases.port.FeaturedReleaseReadPort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import com.videogameplatform.catalogue.application.search.SearchCatalogueUseCase;
@@ -24,6 +27,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -52,6 +56,9 @@ class CatalogueModuleConfigurationTest {
                             .isEqualTo(new ReleaseBrowsePolicy(12));
                     assertThat(context.getBean(BrowseFeaturedReleasesUseCase.class))
                             .isInstanceOf(FeaturedReleaseService.class);
+                    assertThat(context).hasSingleBean(GetExternalPlayerScoresUseCase.class);
+                    assertThat(context.getBean(GetExternalPlayerScoresUseCase.class))
+                            .isInstanceOf(ExternalPlayerScoresService.class);
                     assertThat(context.getBean(CatalogueFreshnessPolicy.class))
                             .isEqualTo(new CatalogueFreshnessPolicy(Duration.ofDays(14)));
                     assertThat(context).hasSingleBean(ProviderCoverReferenceResolver.class);
@@ -99,6 +106,11 @@ class CatalogueModuleConfigurationTest {
         @Bean
         FeaturedReleaseReadPort featuredReleaseReadPort() {
             return criteria -> Optional.empty();
+        }
+
+        @Bean
+        ExternalPlayerScoresReadPort externalPlayerScoresReadPort() {
+            return gameIds -> Map.of();
         }
 
         @Bean

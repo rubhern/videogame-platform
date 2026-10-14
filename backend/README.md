@@ -22,6 +22,12 @@ This generates the Spring HTTP boundary from OpenAPI, checks formatting and modu
 rules, runs unit and PostgreSQL/Testcontainers integration tests, produces JaCoCo
 reports, and packages the executable JAR. Docker is required for persistence tests.
 
+Integration tests share one PostgreSQL container across isolated databases. Their
+cached Spring contexts use small, lazy connection pools configured by
+`PostgreSqlTestDatabase`, leaving capacity for concurrent commands and direct JDBC
+assertions. These bounds apply only to tests; application pool configuration stays
+in `application.yaml`.
+
 Useful focused commands:
 
 ```bash
