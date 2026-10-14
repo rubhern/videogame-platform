@@ -2,6 +2,7 @@ package com.videogameplatform.api.delivery.catalogue.release;
 
 import com.videogameplatform.api.delivery.ApiRequestException;
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
+import com.videogameplatform.api.delivery.catalogue.DiscoveryScoresReader;
 import com.videogameplatform.api.generated.ReleasesApi;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ReleasePage;

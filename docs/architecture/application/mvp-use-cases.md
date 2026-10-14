@@ -165,6 +165,16 @@ cover, title, explaining alias, and the platforms and year of the #187 compact r
 summary, never the bounded release context. Matching, ranking, page size and pagination
 are unchanged; the game page keeps the complete release context.
 
+Post-MVP (#279 phase 4, implemented; awaiting owner review): `UC-002` also returns the work-level
+scores of only the returned page's Games, through the same two bounded application batches
+that discovery composes (#255): Catalogue's current external player scores and Ratings' own
+community summaries, one PostgreSQL query each and none for an empty page. API delivery
+composes them after matching, ranking, counting and paging, which they never change. Missing
+pairs, unavailable statistics and a failed external read keep the discovery semantics, and
+the search calls no provider. Its validator covers the scores and a stored page revalidates
+before reuse; rating commands also invalidate the frontend's search results. Typeahead
+suggestions receive the same response but never present the scores.
+
 `UC-009` reconciles all relevant new and known Games in the requested date interval through one operation.
 Post-MVP (#155, implemented; private-dev exercise pending): manual and scheduled inbound
 adapters supply that same request. Recurrence and moving-window policy stay in the

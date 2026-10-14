@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { DiscoveryScores } from "./discovery-scores";
 import { toDiscoveryScores } from "./discovery-scores-model";
-import type { ReleasePage } from "./releases-api";
+import type { components } from "../api/generated/schema";
 
-type Scores = NonNullable<ReleasePage["items"][number]["scores"]>;
+type Scores = components["schemas"]["DiscoveryScores"];
 const external: NonNullable<Scores["external"]> = {
   source: "igdb", kind: "player", value: 8.8, scale: 10, count: 1,
   attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/original" },

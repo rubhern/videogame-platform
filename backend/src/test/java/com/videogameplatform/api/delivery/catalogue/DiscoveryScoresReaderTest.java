@@ -1,4 +1,4 @@
-package com.videogameplatform.api.delivery.catalogue.release;
+package com.videogameplatform.api.delivery.catalogue;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

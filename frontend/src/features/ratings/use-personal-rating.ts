@@ -92,6 +92,7 @@ export function useRatingCommand(gameId: string) {
       void queryClient.invalidateQueries({ queryKey: MY_RATINGS_KEY });
       void queryClient.invalidateQueries({ queryKey: ["releases"] });
       void queryClient.invalidateQueries({ queryKey: ["featured-releases"] });
+      void queryClient.invalidateQueries({ queryKey: ["game-search"] });
     },
     onError: (error) => {
       // The local view of the personal rating or session is stale: re-read it (a read, never a
@@ -104,6 +105,7 @@ export function useRatingCommand(gameId: string) {
         void queryClient.invalidateQueries({ queryKey: MY_RATINGS_KEY });
         void queryClient.invalidateQueries({ queryKey: ["releases"] });
         void queryClient.invalidateQueries({ queryKey: ["featured-releases"] });
+        void queryClient.invalidateQueries({ queryKey: ["game-search"] });
       }
       if (error.kind === "authentication" || error.kind === "csrf") {
         void queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });

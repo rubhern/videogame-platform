@@ -51,7 +51,7 @@ browser path with `bash scripts/validate-browser.sh`.
 | `src/shared/api/` | Generated contract and product-facing transport boundary |
 | `src/shared/brand/` | Canonical Gameómetro mark, wordmark and lockup SVGs and their inline components |
 | `src/shared/catalogue/` | Catalogue presentation shared by release browsing and search |
-| `src/shared/score/` | Score temperature bands and the G-meter shared by the game page and personal ratings; the external player score check shared by discovery and the game page |
+| `src/shared/score/` | Score temperature bands and the G-meter shared by the game page and personal ratings; the external player score check shared by discovery and the game page; the compact score readings shared by release discovery and search results |
 | `src/shared/ui/` | UI patterns with demonstrated cross-feature reuse |
 | `src/styles/` | Global Tailwind entry and shared visual foundations |
 | `src/test/` | Shared component-test setup |

@@ -1,5 +1,6 @@
 import { platformIcon } from "../../shared/catalogue/taxonomy-icons";
 import type { SelectIconName } from "../../shared/ui/select-icon";
+import { toDiscoveryScores, type DiscoveryScore } from "../../shared/score/discovery-scores-model";
 import type { GameSearchPage } from "./game-search-api";
 
 type GameSummary = GameSearchPage["items"][number];
@@ -32,6 +33,8 @@ export type GameSearchResult = {
   hiddenPlatformCount: number;
   year: string;
   genres: NonNullable<GameSummary["genres"]>;
+  /** The discovery reading of each valid source; empty when neither has a usable score. */
+  scores: DiscoveryScore[];
 };
 
 export type GameSearchViewModel = {
@@ -108,6 +111,7 @@ export function toGameSearchViewModel(page: GameSearchPage): GameSearchViewModel
       cover: toCover(item.primaryCover),
       ...compactPlatforms(item.releaseSummary),
       year: releaseYearLabel(item.releaseSummary),
+      scores: toDiscoveryScores(item.scores),
     })),
     page: page.page,
   };

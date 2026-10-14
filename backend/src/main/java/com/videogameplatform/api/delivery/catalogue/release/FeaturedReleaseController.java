@@ -2,6 +2,7 @@ package com.videogameplatform.api.delivery.catalogue.release;
 
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
 import com.videogameplatform.api.delivery.catalogue.CatalogueSummaryMapper;
+import com.videogameplatform.api.delivery.catalogue.DiscoveryScoresReader;
 import com.videogameplatform.api.generated.FeaturedReleasesApi;
 import com.videogameplatform.api.generated.model.Attribution;
 import com.videogameplatform.api.generated.model.FallbackFeaturedImage;

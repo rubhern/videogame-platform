@@ -97,7 +97,7 @@ api:
   releases:
     cache-control: ${CATALOGUE_RELEASES_CACHE_CONTROL:public, no-cache}
   games:
-    cache-control: ${CATALOGUE_SEARCH_CACHE_CONTROL:public, max-age=60, stale-while-revalidate=300}
+    cache-control: ${CATALOGUE_SEARCH_CACHE_CONTROL:public, no-cache}
 
 platform:
   readiness:

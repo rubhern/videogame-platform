@@ -1,5 +1,5 @@
-import { GameMeter } from "../../shared/score/game-meter";
-import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
+import { GameMeter } from "./game-meter";
+import { thermalBand, thermalLabels } from "./thermal-band";
 import type { DiscoveryScore } from "./discovery-scores-model";
 
 const decimal = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -13,7 +13,10 @@ function formatCompactCount(count: number, layout: ScoreLayout): string {
   return count < 10_000 ? exactCount.format(count) : compactCount.format(count);
 }
 
-/** Shared discovery reading: Gameómetro's existing thermal semantics, neutral external sentiment. */
+/**
+ * Shared discovery and search reading: Gameómetro's existing thermal semantics, neutral external
+ * sentiment.
+ */
 export function DiscoveryScores({ scores, title, layout = "compact" }: {
   scores: DiscoveryScore[];
   title: string;

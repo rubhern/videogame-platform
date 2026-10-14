@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { GameGenres } from "../../shared/catalogue/game-genres";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { SelectIcon } from "../../shared/ui/select-icon";
+import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { hiddenPlatformsLabel, type GameSearchResult } from "./game-search-view-model";
 
 type GameSearchCardProps = {
@@ -11,9 +12,10 @@ type GameSearchCardProps = {
 };
 
 /**
- * A bounded search result (#188): cover, title, an explaining alias, the year context and the
- * compact platform summary. Its height never depends on how many releases the game has; the
- * game page owns the complete release context and the cover attribution.
+ * A bounded search result (#188): cover, title, the discovery score readings (#279), an
+ * explaining alias, the year context and the compact platform summary. Its height never depends
+ * on how many releases the game has; the game page owns the complete release context and the
+ * cover attribution.
  */
 export function GameSearchCard({ result }: GameSearchCardProps) {
   const gamePath = `/games/${result.gameId}/${result.slug}`;
@@ -28,6 +30,7 @@ export function GameSearchCard({ result }: GameSearchCardProps) {
         <h3 className="card-title">
           <Link to={gamePath}>{result.title}</Link>
         </h3>
+        <DiscoveryScores scores={result.scores} title={result.title} />
         <GameGenres genres={result.genres} />
         {result.matchedAlias === null ? null : (
           <p className="search-card-alias">

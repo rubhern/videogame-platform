@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 import { GameGenres } from "../../shared/catalogue/game-genres";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
-import { DiscoveryScores } from "./discovery-scores";
+import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { ReleaseOverflow } from "./release-overflow";
 import type { ReleaseListItem } from "./releases-view-model";
 

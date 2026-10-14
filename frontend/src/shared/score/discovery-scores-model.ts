@@ -1,5 +1,5 @@
-import { toExternalPlayerScore, type ExternalPlayerScore } from "../../shared/score/external-player-score";
-import type { ReleasePage } from "./releases-api";
+import type { components } from "../api/generated/schema";
+import { toExternalPlayerScore, type ExternalPlayerScore } from "./external-player-score";
 
 export type DiscoveryScore =
   | { source: "gameometro"; value: number; count: number }
@@ -7,7 +7,7 @@ export type DiscoveryScore =
 
 /** Preserve source identity and unknown state; absence never becomes a zero score. */
 export function toDiscoveryScores(
-  scores: ReleasePage["items"][number]["scores"],
+  scores: components["schemas"]["DiscoveryScores"] | undefined,
 ): DiscoveryScore[] {
   if (scores === undefined) return [];
   const result: DiscoveryScore[] = [];

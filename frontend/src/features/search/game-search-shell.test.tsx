@@ -24,6 +24,7 @@ const requiem: GameSearchResult = {
   platforms: [{ id: "platform-ps5", name: "PlayStation 5", icon: "playstation-5" }],
   hiddenPlatformCount: 0,
   year: "2026",
+  scores: [],
 };
 
 function viewModel(overrides: Partial<GameSearchViewModel> = {}): GameSearchViewModel {

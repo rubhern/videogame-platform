@@ -4,7 +4,7 @@ import {
   formatReleaseDate,
   formatReleaseDateShort,
 } from "../../shared/catalogue/release-date";
-import { toDiscoveryScores, type DiscoveryScore } from "./discovery-scores-model";
+import { toDiscoveryScores, type DiscoveryScore } from "../../shared/score/discovery-scores-model";
 import type { ReleasePage } from "./releases-api";
 import type { ReleaseView } from "./releases-search";
 
