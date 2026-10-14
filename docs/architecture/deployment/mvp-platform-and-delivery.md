@@ -55,7 +55,7 @@ owns local startup and reset procedures.
 
 ## Private dev runtime boundary
 
-The default stack starts PostgreSQL, Keycloak and one internal OpenTelemetry
+The default stack starts PostgreSQL, Keycloak, the Mailpit mail sink and one internal OpenTelemetry
 Collector, Prometheus, Grafana, Alloy, single-instance Loki and catalogue-localizer.
 The application is profile-gated and receives only runtime database
 credentials; the deployment profile adds a one-shot migration actor and a browser
@@ -72,6 +72,17 @@ the expected acquisition runtime to be present and healthy before migration/acti
 supersedes the initial private-dev optionality in ADR-0022; the
 [private-dev README](../../../deploy/private-dev/README.md#catalogue-localization-helper)
 owns migration, activation and rollback commands. Workstation activation stays opt-in.
+
+Mailpit captures Keycloak's password-recovery email (#273) so local and private-dev
+recovery is exercised without an external provider, credential or purchase. It
+shares a dedicated network only with Keycloak; that network is non-internal solely so
+its web UI can bind to host IPv4 loopback for the owner's SSH tunnel, without a
+Tailscale Serve route. SMTP and POP3 publish nothing, nothing is relayed or forwarded,
+and messages, which carry live reset links, stay in a temporary in-memory store
+bounded by count and age and lost on restart. Mailpit is never an application
+dependency. It is a non-production sink: real delivery, sender reputation and the
+production realm's mail policy stay with the
+[public release gates](../../development/delivery-lifecycle.md#public-production-gates).
 
 PostgreSQL, Prometheus, Loki and the collector publish no host port.
 Alloy accepts Docker syslog only on host IPv4 loopback UDP through a separate
@@ -203,7 +214,7 @@ GitHub/API/network failures refuse promotion. Retained publication evidence may
 expire; successful old runs without that evidence cannot be promoted through Actions.
 
 Application promotion recreates **only the application** after the one-shot
-migration. PostgreSQL, Keycloak, Grafana, Prometheus, Loki, Alloy, the Collector and
+migration. PostgreSQL, Keycloak, Mailpit, Grafana, Prometheus, Loki, Alloy, the Collector and
 catalogue-localizer keep their explicit owner-reviewed rollout procedures.
 The deployment preflight checks localizer health, the resolved Compose service hash
 (including the protected immutable model directory) and local image identity without

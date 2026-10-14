@@ -63,7 +63,7 @@ APPLICATION_VERSION=validation docker compose --env-file "$temporary_directory/l
 python3 - "$temporary_directory/default.json" <<'PYTHON'
 import json, pathlib, sys
 services = json.loads(pathlib.Path(sys.argv[1]).read_text())['services']
-assert set(services) == {'postgres', 'keycloak', 'application'}
+assert set(services) == {'postgres', 'keycloak', 'mailpit', 'application'}
 assert services['application'].get('logging', {}).get('driver') != 'syslog'
 assert services['application']['environment']['SPRING_PROFILES_ACTIVE'] == 'oidc'
 print('Default application topology excludes optional observability and syslog transport.')
@@ -78,7 +78,7 @@ import sys
 config = json.loads(pathlib.Path(sys.argv[1]).read_text())
 root = pathlib.Path(sys.argv[2])
 services = config['services']
-assert set(services) == {'postgres', 'keycloak', 'application', 'telemetry', 'prometheus', 'grafana', 'alloy', 'loki'}
+assert set(services) == {'postgres', 'keycloak', 'mailpit', 'application', 'telemetry', 'prometheus', 'grafana', 'alloy', 'loki'}
 assert config['networks']['telemetry']['internal']
 for name in ('telemetry', 'prometheus', 'grafana', 'alloy', 'loki'):
     service = services[name]

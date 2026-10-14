@@ -133,7 +133,7 @@ for path in "${changed_paths[@]}"; do
       enable build frontend browser backend container
       matched=true
       ;;
-    scripts/validate-identity.sh | docker/keycloak/* | backend/src/main/resources/application-oidc.yaml)
+    scripts/validate-identity.sh | scripts/test-keycloak-mail-configuration.py | docker/keycloak/* | backend/src/main/resources/application-oidc.yaml)
       enable identity browser backend
       matched=true
       ;;
@@ -190,7 +190,7 @@ for path in "${changed_paths[@]}"; do
       enable frontend codeql_javascript
       matched=true
       ;;
-    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts)
+    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts | frontend/tests/password-recovery.spec.ts)
       # These journeys run only inside the real Keycloak identity gate.
       enable frontend browser identity codeql_javascript
       matched=true

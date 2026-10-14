@@ -21,7 +21,8 @@ diagnostics rather than maintaining a parallel checklist here.
 
 ## Local topology
 
-The default Compose topology provides loopback-only PostgreSQL and Keycloak. The
+The default Compose topology provides loopback-only PostgreSQL, Keycloak and the
+Mailpit mail sink that captures Keycloak's password-recovery email. The
 `full` profile adds the packaged application; the frontend is embedded, not a
 separate container. The optional observability overlay adds the same bounded metrics and logs
 stack and provisioned Grafana datasources/dashboards used by private dev, with independent local volumes
@@ -33,6 +34,7 @@ helper, adding loopback access for a host/IDE backend and container wiring for `
 | PostgreSQL | `127.0.0.1:5432` | Separate application and Keycloak databases/roles |
 | Keycloak | `http://localhost:8180` | Development-mode OIDC provider |
 | Keycloak management | `127.0.0.1:9000` | Local health and metrics |
+| Mailpit web UI and API | `http://127.0.0.1:8025` | Captured recovery email; its SMTP port is reachable only by Keycloak on the Compose network |
 | Application (`full` only) | `http://localhost:8080` | Frontend + BFF/API + modular monolith |
 | Application management | `127.0.0.1:8081` | Local Actuator health, info, and metrics |
 | Grafana (optional) | `http://127.0.0.1:3000` | Authenticated dashboards; no SSH tunnel needed locally |
@@ -40,7 +42,8 @@ helper, adding loopback access for a host/IDE backend and container wiring for `
 | Catalogue localizer (optional) | `127.0.0.1:8092` | Acquisition/backfill only; one loaded, locally installed model |
 
 Exact images, health checks, ports, resources, and wiring are authoritative in
-[`compose.yaml`](../../compose.yaml) and its optional
+[`compose.yaml`](../../compose.yaml), the shared
+[mail sink definition](../../deploy/private-dev/compose.mail.yaml) and the optional
 [observability overlay](../../compose.observability.yaml) and
 [localization overlay](../../compose.localization.yaml). `.env.example` and `backend/.env.example` own
 configuration names and safe placeholders.
@@ -94,6 +97,36 @@ synthetic account; additional self-registered accounts do not invalidate that ch
 For separate development loops, use the commands in the
 [backend README](../../backend/README.md) and
 [frontend README](../../frontend/README.md).
+
+## Password recovery and Mailpit
+
+Keycloak's native reset-credentials flow sends its single-use, time-limited link
+through Mailpit; no product form, API or external mail service takes part. The realm
+import owns the SMTP target, sender and the `gameometro` email theme, so a fresh realm
+is ready. Startup import ignores an existing realm: apply only those reviewed settings,
+without touching accounts, clients or sessions, then verify:
+
+```bash
+bash scripts/local-dependencies.sh configure-mail
+bash scripts/local-dependencies.sh verify
+```
+
+Open `http://127.0.0.1:8025` to read captured messages. To exercise the journey, open
+the application's sign-in, choose **¿Has olvidado tu contraseña?**, enter the
+username (the realm signs in by username, so an email address finds no account),
+open the link from Mailpit in the same browser and choose a new password; Keycloak
+then completes the original sign-in and returns to the product. The response never
+reveals whether the username exists. The link expires after Keycloak's default five
+minutes and works once.
+
+Mailpit keeps at most 100 messages for 24 hours in a temporary in-memory store, so
+`down`, a container restart or `reset` discards them. Delete them earlier with the UI's
+**Delete all** or `curl -X DELETE http://127.0.0.1:8025/api/v1/messages`. Diagnose
+delivery with `bash scripts/local-dependencies.sh logs`: Keycloak logs a failed send as
+`KC-SERVICES0026: Failed to send password reset email`, while Mailpit logs each
+accepted message. Only this local
+mail sink is configured; production delivery belongs to the
+[public release gates](delivery-lifecycle.md#public-production-gates).
 
 ## Local catalogue translations
 
@@ -270,14 +303,13 @@ or remote data.
 Keycloak runs over loopback HTTP and uses a non-personal synthetic test account.
 The local and private-dev images build the lightweight `gameometro` theme from
 [`Dockerfile`](../../deploy/private-dev/keycloak/Dockerfile), copying brand, fonts and
-art from their canonical frontend sources. After changing theme sources, rebuild the
-Keycloak service and recreate its container; inherited Keycloak templates own credential
+art from their canonical frontend sources. `up` rebuilds that image from cached
+layers, so theme changes recreate the Keycloak container; inherited Keycloak templates own credential
 forms and validation. Existing realms are not overwritten by startup import. Set the
 `gameometro` Login theme, `Gameómetro` display name and supported/default Spanish
-locale in Realm Settings, and enable Forgot password in Login
-settings, or reset only a verified disposable local database to re-import the configuration.
-Recovery rendering is available; email delivery requires operator-configured SMTP in
-Keycloak. No SMTP service or paid resource is provisioned by this repository.
+locale in Realm Settings, run `configure-mail` for
+[password recovery](#password-recovery-and-mailpit), or reset only a verified
+disposable local database to re-import the configuration.
 The shared imported realm contains environment-neutral identity/client policy; its
 origins come from `APPLICATION_PUBLIC_ORIGIN`. A separate local-only user import adds
 the synthetic account and is not mounted by private dev. The realm enables

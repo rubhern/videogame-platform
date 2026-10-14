@@ -97,6 +97,7 @@ services:
     networks:
       - edge
       - data
+      - mail
     ports:
       - "127.0.0.1:${KEYCLOAK_LOOPBACK_PORT:-8180}:8080"
     depends_on:
@@ -121,6 +122,16 @@ services:
     cpus: 1.5
     pids_limit: 384
     logging: *bounded-logging
+
+  mailpit:
+    extends:
+      file: ./compose.mail.yaml
+      service: mailpit
+    networks:
+      - mail
+    # Owner-only UI through the SSH tunnel; SMTP stays on the Keycloak-only mail network.
+    ports:
+      - "127.0.0.1:8025:8025"
 
   telemetry:
     extends:
@@ -375,3 +386,5 @@ networks:
     internal: true
   # Separate non-internal bridge for loopback publishing; Alloy cannot join product edge.
   log-ingress:
+  # Keycloak and Mailpit only. Non-internal solely so Docker can publish the loopback UI.
+  mail:

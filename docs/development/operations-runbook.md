@@ -557,6 +557,18 @@ issue comment in the form used on #44 and #45 (what was proven, the backup id,
 digest, migration version and outcome, and the explicit evidence limitation). Open a
 follow-up issue when a cause remains unresolved or corrective work is still needed.
 
+## Password-recovery mail
+
+Owner: [private-dev README](../../deploy/private-dev/README.md#password-recovery-mail-sink).
+**Local and disposable-gate evidence, 2026-10-14 (#273):** Keycloak sends through
+Mailpit; request, single-use link, successful reset and sign-in, reused, expired and
+tampered links, unknown usernames and email addresses, and the existing-realm
+configuration command are proven in the real identity gate. The workstation
+`configure-mail`/`verify` path on an existing local realm
+([local setup](local-setup.md#password-recovery-and-mailpit)), and the rollout, live
+validation, end-to-end reset through the owner tunnel and reboot persistence on
+`vgpdev` are **not exercised**; record their first run in #273.
+
 ## Not covered
 
 Public production, high availability, staging, automatic rollback, scheduled

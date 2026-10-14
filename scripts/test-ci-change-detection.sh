@@ -70,6 +70,16 @@ run_case frontend-identity-journey \
   'frontend,browser,identity,codeql_javascript' \
   'backend,migrations,provider_fixtures,container,sonar'
 
+run_case password-recovery-journey \
+  'frontend/tests/password-recovery.spec.ts' \
+  'frontend,browser,identity,codeql_javascript' \
+  'backend,migrations,provider_fixtures,container,sonar'
+
+run_case keycloak-mail-configuration \
+  'scripts/test-keycloak-mail-configuration.py' \
+  'identity,browser,backend' \
+  'frontend,migrations,provider_fixtures,container'
+
 run_case backend \
   'backend/src/main/java/com/videogameplatform/catalogue/application/internal/ReleaseCatalogueService.java' \
   'backend,sonar,codeql_java' \
