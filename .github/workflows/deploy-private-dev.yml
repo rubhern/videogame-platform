@@ -119,6 +119,11 @@ jobs:
           SOURCE_RUN_ID: ${{ needs.verify.outputs.source_run_id }}
           SOURCE_RUN_ATTEMPT: ${{ needs.verify.outputs.source_run_attempt }}
         run: |
+          if [[ ! -s promotion-receipt.json ]]; then
+            # A missing receipt never proves the deployment stopped or succeeded.
+            echo '::error::The private host returned no receipt. The previous step logs any host refusal; otherwise inspect the host before another promotion.'
+            exit 1
+          fi
           python3 scripts/private_dev_promotion.py --receipt promotion-receipt.json \
             --revision "$SOURCE_REVISION" --digest "$IMAGE_DIGEST" \
             --run-id "$SOURCE_RUN_ID" --attempt "$SOURCE_RUN_ATTEMPT"
