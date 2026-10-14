@@ -1,0 +1,42 @@
+# Shared Mailpit test mail sink for Keycloak. Consuming Compose files own networks and
+# the loopback UI publish. SMTP is never published: only Keycloak reaches it in-network.
+# Messages live in a temporary database on tmpfs, so a restart discards them.
+x-logging: &bounded-logging
+  driver: local
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  mailpit:
+    image: axllent/mailpit:v1.31.3@sha256:ed9b00c609e77e99c79b93f1178255ebc271868920f2c69a8d166bd5634ed10d
+    command:
+      - --max=100
+      - --max-age=24h
+      - --max-message-size=1
+      - --smtp-max-recipients=5
+      - --smtp-disable-rdns
+      - --disable-version-check
+      - --block-remote-css-and-fonts
+      # Reject DNS-rebinding Host headers; the owner opens the UI through a loopback tunnel.
+      - --allowed-hosts=127.0.0.1:8025,localhost:8025
+    user: "65534:65534"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 10s
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    logging: *bounded-logging

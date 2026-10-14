@@ -8,10 +8,12 @@ playwright_image="mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814
 java_image="eclipse-temurin@sha256:f9e65324a37f28209ce7dd0e5149a7aa954520ed936fb87813cf6ded2400a112"
 postgres_image="postgres:18.4-bookworm"
 keycloak_image="videogame-platform/keycloak-identity:26.7.0"
+mailpit_image="$(sed -n 's/^ *image: //p' "$repository_root/deploy/private-dev/compose.mail.yaml")"
 identity_run_id="${RANDOM}-$$"
 identity_network="videogame-platform-identity-${identity_run_id}"
 postgres_container="videogame-platform-identity-postgres-${identity_run_id}"
 keycloak_container="videogame-platform-identity-keycloak-${identity_run_id}"
+mailpit_container="videogame-platform-identity-mailpit-${identity_run_id}"
 application_container="videogame-platform-identity-application-${identity_run_id}"
 identity_tmp_dir="$(mktemp -d)"
 test_failed=false
@@ -20,13 +22,17 @@ cleanup() {
   if [[ "$test_failed" == "true" ]]; then
     docker logs "$application_container" >"$identity_tmp_dir/application.log" 2>&1 || true
     docker logs "$keycloak_container" >"$identity_tmp_dir/keycloak.log" 2>&1 || true
+    docker logs "$mailpit_container" >"$identity_tmp_dir/mailpit.log" 2>&1 || true
     printf '%s\n' 'Application diagnostics:' >&2
     tail -200 "$identity_tmp_dir/application.log" >&2 || true
     printf '%s\n' 'Keycloak diagnostics:' >&2
     tail -200 "$identity_tmp_dir/keycloak.log" >&2 || true
+    printf '%s\n' 'Mailpit diagnostics:' >&2
+    tail -50 "$identity_tmp_dir/mailpit.log" >&2 || true
   fi
   docker rm --force "$application_container" >/dev/null 2>&1 || true
   docker rm --force "$keycloak_container" >/dev/null 2>&1 || true
+  docker rm --force "$mailpit_container" >/dev/null 2>&1 || true
   docker rm --force "$postgres_container" >/dev/null 2>&1 || true
   docker network rm "$identity_network" >/dev/null 2>&1 || true
   rm -r -- "$identity_tmp_dir"
@@ -57,6 +63,18 @@ docker build --file deploy/private-dev/keycloak/Dockerfile --tag "$keycloak_imag
 application_jar="$(resolve_backend_jar)"
 
 docker network create --internal "$identity_network" >/dev/null
+
+# The same pinned mail sink as local and private dev; its API is reachable only in-network.
+docker run --detach \
+  --name "$mailpit_container" \
+  --network "$identity_network" \
+  --network-alias mailpit \
+  --user 65534:65534 \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=32m \
+  --cap-drop ALL \
+  "$mailpit_image" \
+  --max=100 --smtp-disable-rdns --disable-version-check --allowed-hosts=mailpit:8025 >/dev/null
 
 docker run --detach \
   --name "$postgres_container" \
@@ -140,6 +158,18 @@ docker run --rm \
   "$playwright_image" \
   python3 scripts/test-private-dev-oidc-provisioning-keycloak.py
 
+docker run --rm \
+  --network "$identity_network" \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+  --env KEYCLOAK_TEST_ORIGIN=http://keycloak:8080 \
+  --env KEYCLOAK_TEST_ADMIN_USERNAME=local-admin \
+  --env KEYCLOAK_TEST_ADMIN_PASSWORD="$keycloak_admin_password" \
+  --volume "$repository_root:/work:ro" \
+  --workdir /work \
+  "$playwright_image" \
+  python3 scripts/test-keycloak-mail-configuration.py
+
 docker run --detach \
   --name "$application_container" \
   --network "$identity_network" \
@@ -190,14 +220,19 @@ docker run --rm \
   --env PLAYWRIGHT_BASE_URL=http://application:8080 \
   --env OIDC_TEST_USERNAME="$smoke_user_username" \
   --env OIDC_TEST_PASSWORD="$test_user_password" \
+  --env KEYCLOAK_TEST_ORIGIN=http://keycloak:8080 \
+  --env KEYCLOAK_TEST_ADMIN_USERNAME=local-admin \
+  --env KEYCLOAK_TEST_ADMIN_PASSWORD="$keycloak_admin_password" \
+  --env MAILPIT_API_ORIGIN=http://mailpit:8025 \
   --volume "$repository_root:/work" \
   --workdir /work \
   "$playwright_image" \
   npm --prefix frontend run test:e2e -- \
     tests/oidc-session.spec.ts \
     tests/rating-boundary.spec.ts \
+    tests/password-recovery.spec.ts \
     --reporter=line \
     --trace=off
 
 test_failed=false
-printf '%s\n' 'Real Keycloak 26.7 browser/BFF/session compatibility proof passed.'
+printf '%s\n' 'Real Keycloak 26.7 browser/BFF/session and Mailpit password-recovery proof passed.'

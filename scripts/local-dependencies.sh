@@ -16,6 +16,7 @@ source "$repository_root/scripts/backend-artifact.sh"
 
 readonly postgres_image="postgres:18.4-bookworm"
 readonly keycloak_image="quay.io/keycloak/keycloak:26.7.0"
+mail_configuration="$repository_root/deploy/private-dev/bin/configure-keycloak-mail"
 readonly expected_project_name="videogame-platform"
 
 usage() {
@@ -24,7 +25,7 @@ Usage: bash scripts/local-dependencies.sh <command> [options]
 
 Commands:
   up             Create the ignored infrastructure/backend env files when absent,
-                 then start PostgreSQL and Keycloak.
+                 then start PostgreSQL, Keycloak and the Mailpit mail sink.
   application    Build and run the complete packaged application topology.
   observability  Start only Collector, Prometheus, Grafana, Alloy and Loki.
   verify-observability  Check provisioning, authentication and metrics queries.
@@ -33,8 +34,9 @@ Commands:
 
   down           Stop containers without deleting local data.
   status         Show container and health status.
-  logs           Follow PostgreSQL and Keycloak logs.
-  verify         Verify versions, health, role isolation, realm, confidential PKCE client and local user.
+  logs           Follow PostgreSQL, Keycloak and Mailpit logs.
+  configure-mail Apply the realm import's recovery mail settings to an existing realm.
+  verify         Verify versions, health, role isolation, realm, client, local user and recovery mail.
   verify-images  Verify linux/amd64 and linux/arm64 in both image manifests.
   reset [--yes]  Delete only this Compose project's disposable containers and volumes.
 
@@ -43,6 +45,7 @@ Add --localization to up or application to include catalogue translation.
 Add --recreate to observability to repair stale Docker Desktop bind mounts, preserving data.
 Both flags can be combined. Install the pinned model using backend/README.md first.
 Grafana: http://127.0.0.1:3000 (owner; .local-secrets/grafana-admin-password).
+Mailpit: http://127.0.0.1:8025 (captured recovery mail; no SMTP port is published).
 EOF
 }
 
@@ -370,7 +373,18 @@ SQL
   [[ "$secret_matches" == "t" ]] \
     || die "The persisted BFF client secret differs from KEYCLOAK_BFF_CLIENT_SECRET in .env; the realm was imported with an earlier value. Run the reset command and start again, or align the stored client secret."
 
-  printf 'Runtime verification passed: PostgreSQL %s, Keycloak 26.7.x, health, database isolation, realm, confidential PKCE client and local user.\n' "$postgres_version"
+  compose exec -T mailpit /mailpit readyz >/dev/null || die "Mailpit is not ready"
+  env_value KEYCLOAK_ADMIN_PASSWORD | keycloak_mail_configuration --check \
+    || die "The realm does not send recovery mail through Mailpit; run the configure-mail command"
+
+  printf 'Runtime verification passed: PostgreSQL %s, Keycloak 26.7.x, health, database isolation, realm, confidential PKCE client, local user and Mailpit recovery mail.\n' "$postgres_version"
+}
+
+keycloak_mail_configuration() {
+  python3 "$mail_configuration" \
+    --origin "$(env_value KEYCLOAK_HOSTNAME)" \
+    --admin-username "$(env_value KEYCLOAK_ADMIN_USERNAME)" \
+    --admin-password-file /dev/stdin "$@"
 }
 
 command_name="${1:-}"
@@ -407,9 +421,11 @@ case "$command_name" in
     fi
     if [[ "$with_observability" == true ]]; then prepare_local_metrics_secret; fi
     compose config --quiet
-    compose up --detach --wait "${localization_wait_options[@]}"
+    # Rebuild from the cached layers so theme and email-copy changes reach Keycloak.
+    compose up --detach --wait "${localization_wait_options[@]}" --build
     printf 'PostgreSQL is available on 127.0.0.1:%s.\n' "$(env_value POSTGRES_PORT)"
     printf 'Keycloak is available at %s.\n' "$(env_value KEYCLOAK_HOSTNAME)"
+    printf 'Mailpit captures recovery mail at http://127.0.0.1:8025.\n'
     ;;
   application)
     ensure_compose_available
@@ -479,7 +495,14 @@ case "$command_name" in
   logs)
     ensure_compose_available
     require_env
-    compose logs --follow postgres keycloak
+    compose logs --follow postgres keycloak mailpit
+    ;;
+  configure-mail)
+    ensure_compose_available
+    require_env
+    [[ -n "$(compose ps --status running --quiet keycloak)" ]] \
+      || die "Keycloak is not running; start the dependencies with the up command first"
+    env_value KEYCLOAK_ADMIN_PASSWORD | keycloak_mail_configuration
     ;;
   verify)
     ensure_compose_available
@@ -491,6 +514,7 @@ case "$command_name" in
     docker buildx version >/dev/null 2>&1 || die "Docker Buildx is required to inspect OCI manifests"
     verify_image_platform "$postgres_image"
     verify_image_platform "$keycloak_image"
+    verify_image_platform "$(sed -n 's/^ *image: //p' "$repository_root/deploy/private-dev/compose.mail.yaml")"
     ;;
   reset)
     with_observability=true

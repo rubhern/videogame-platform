@@ -209,6 +209,7 @@ services = {
         ("keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"),
         build={"context": str(repository / "deploy/private-dev/keycloak")},
         environment={"KC_HOSTNAME": keycloak_origin},
+        networks={"edge": None, "data": None, "mail": None},
         ports=[{"host_ip": "127.0.0.1", "published": 8180, "target": 8080}],
         volumes=[{
             "source": str(repository / "docker/keycloak/import/videogame-platform-realm.json"),
@@ -237,6 +238,10 @@ services = {
         ports=[{"host_ip": "127.0.0.1", "published": 1514, "target": 1514, "protocol": "udp"}]),
     "loki": service("unless-stopped", image="grafana/loki@sha256:" + "6" * 64,
         networks={"logs": None}, read_only=True, cap_drop=["ALL"]),
+    "mailpit": service("unless-stopped", image="axllent/mailpit@sha256:" + "7" * 64,
+        networks={"mail": None}, read_only=True, cap_drop=["ALL"], tmpfs=["/tmp:rw,noexec,nosuid,size=32m"],
+        command=["--max=100", "--max-age=24h", "--disable-version-check", "--block-remote-css-and-fonts"],
+        ports=[{"host_ip": "127.0.0.1", "published": 8025, "target": 8025}]),
     "application": service(
         "unless-stopped",
         ("application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"),

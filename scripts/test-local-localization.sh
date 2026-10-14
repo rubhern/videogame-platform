@@ -77,9 +77,13 @@ python3 - "$repository_root" "$temporary_directory" "$model" <<'PYTHON'
 import json, pathlib, sys
 root, directory, model = map(pathlib.Path, sys.argv[1:])
 load = lambda name: json.loads((directory / name).read_text())
-assert set(load('default.json')['services']) == {'postgres', 'keycloak', 'application'}
+default_services = load('default.json')['services']
+assert set(default_services) == {'postgres', 'keycloak', 'mailpit', 'application'}
+mail_sink = default_services['mailpit']
+assert [(port['host_ip'], int(port['published']), int(port['target'])) for port in mail_sink['ports']] == [('127.0.0.1', 8025, 8025)]
+assert mail_sink['read_only'] and mail_sink['cap_drop'] == ['ALL'] and not mail_sink.get('volumes')
 services = load('localization.json')['services']
-assert set(services) == {'postgres', 'keycloak', 'application', 'catalogue-localizer'}
+assert set(services) == {'postgres', 'keycloak', 'mailpit', 'application', 'catalogue-localizer'}
 helper = services['catalogue-localizer']
 assert pathlib.Path(helper['build']['context']) == root / 'tools/catalogue-localization'
 assert set(helper['networks']) == {'default'}

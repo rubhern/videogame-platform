@@ -2,6 +2,7 @@
   "realm": "videogame-platform",
   "displayName": "Gameómetro",
   "loginTheme": "gameometro",
+  "emailTheme": "gameometro",
   "internationalizationEnabled": true,
   "supportedLocales": ["es"],
   "defaultLocale": "es",
@@ -16,6 +17,15 @@
   "accessTokenLifespan": 300,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
+  "smtpServer": {
+    "host": "mailpit",
+    "port": "1025",
+    "from": "no-reply@gameometro.invalid",
+    "fromDisplayName": "Gameómetro",
+    "auth": "false",
+    "ssl": "false",
+    "starttls": "false"
+  },
   "components": {
     "org.keycloak.userprofile.UserProfileProvider": [
       {
