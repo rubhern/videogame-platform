@@ -16,9 +16,10 @@ Local use of the same provisioned metrics stack is documented in
 ## Boundaries
 
 - `compose.yaml` defines digest-pinned PostgreSQL, a locally optimized Keycloak image
-  built from a digest-pinned upstream, the bounded OpenTelemetry collector, Prometheus and Grafana, the
+  built from a digest-pinned upstream, the Mailpit recovery mail sink, the bounded
+  OpenTelemetry collector, Prometheus and Grafana, the
   digest-selected application, a one-shot migration actor and a one-shot browser
-  smoke runner. PostgreSQL, Keycloak, observability and catalogue-localizer start without an explicit
+  smoke runner. PostgreSQL, Keycloak, Mailpit, observability and catalogue-localizer start without an explicit
   profile or service selection; the application runtime receives `videogame_app`
   credentials and cannot migrate, and the migration actor receives only
   `videogame_app_migrator` credentials on the internal data network.
@@ -201,9 +202,119 @@ to apply a theme. Recreate the service to clear its theme cache after changing a
 To roll back, select the previous built-in login theme and restore the previous realm
 settings; no product schema migration is involved.
 
-Password-recovery email requires SMTP configured privately in Keycloak. No mail service,
-credentials or paid infrastructure is added here. Rendering a recovery screen does not
-prove email delivery; test that separately against the owner's configured transport.
+Password-recovery email goes through the [Mailpit mail sink](#password-recovery-mail-sink).
+
+## Password-recovery mail sink
+
+Post-MVP (#273), Keycloak's native reset-credentials flow emails its single-use link
+to Mailpit, which captures every message and delivers nothing outward. The
+[platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#private-dev-runtime-boundary)
+owns the boundary; `compose.mail.yaml`, `compose.yaml` and the realm import own the
+mechanics. No credential, provider or paid service is involved, and real delivery to
+users stays with the [public release gates](../../docs/development/delivery-lifecycle.md#public-production-gates).
+
+### Reviewed rollout
+
+Run only after owner review, merge and separate approval to operate on `vgpdev`. The
+change adds one service and recreates only Keycloak, which is briefly unavailable for
+sign-in; the application, its BFF sessions, PostgreSQL and every other service keep
+their containers. The realm, its accounts and their credentials are not re-imported.
+
+1. Install the reviewed merged revision and hold the deployment lock exactly as in
+   [step 1 of the localization migration](#one-time-migration-to-the-standard-runtime),
+   then validate and record the runtime inventory:
+
+   ```bash
+   bash scripts/validate-private-dev-runtime.sh \
+     --env-file /etc/videogame-platform/dev/runtime.env
+   compose=(docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+     --file /opt/videogame-platform/deploy/private-dev/compose.yaml --profile application)
+   "${compose[@]}" ps --all --format json \
+     >/var/lib/videogame-platform/dev/mail-runtime-before.json
+   ```
+
+2. Start Mailpit, then rebuild Keycloak (its image gains the Spanish recovery email
+   copy) and recreate only that service so it joins the mail network:
+
+   ```bash
+   "${compose[@]}" pull mailpit
+   "${compose[@]}" up --detach --no-deps --wait mailpit
+   "${compose[@]}" build --pull keycloak
+   "${compose[@]}" up --detach --no-deps --force-recreate --wait --wait-timeout 300 keycloak
+   ```
+
+3. Apply the realm import's SMTP target, sender, `gameometro` email theme and
+   recovery switch to the existing realm. The command authenticates through the
+   private HTTPS origin with the protected admin secret, changes only those settings,
+   rereads them and prints no credential. It is idempotent; `--check` only reports:
+
+   ```bash
+   python3 deploy/private-dev/bin/configure-keycloak-mail \
+     --private-dev-env-file /etc/videogame-platform/dev/runtime.env
+   python3 deploy/private-dev/bin/configure-keycloak-mail \
+     --private-dev-env-file /etc/videogame-platform/dev/runtime.env --check
+   "${compose[@]}" ps --all --format json \
+     >/var/lib/videogame-platform/dev/mail-runtime-after.json
+   ```
+
+   Compare both inventories: only Keycloak may have a new container ID and Mailpit is
+   the only new service. Then perform the
+   [applied-runtime acknowledgement](#acknowledge-the-applied-runtime-contract) and
+   release the lock as in the localization migration's step 4.
+
+### Owner access and acceptance
+
+Mailpit's UI binds only to host IPv4 loopback and has no Tailscale Serve route or
+login of its own: the owner SSH session is its access control. From WSL, open the
+tunnel over the existing [owner connection](#owner-connection-from-wsl), adding the
+Grafana forward when both are needed:
+
+```bash
+ssh -N -L 127.0.0.1:8025:127.0.0.1:8025 videogame-platform-lenovo
+```
+
+Browse to `http://127.0.0.1:8025` from WSL or Windows (WSL forwards loopback ports to
+Windows by default). Close the tunnel with Ctrl+C when finished. SMTP (1025) and POP3
+have no host listener; only Keycloak shares Mailpit's network.
+
+Accept the rollout with real evidence recorded in #273:
+
+1. `bash scripts/validate-private-dev-runtime.sh --env-file <runtime.env> --live`
+   passes, including Mailpit health and its loopback-only UI listener.
+2. With a dedicated synthetic account created through normal registration (never the
+   deployment-smoke account or a personal one), request a reset from the private
+   sign-in, open the captured email through the tunnel, complete the new password and
+   sign in again. An unknown username shows the same message and captures nothing.
+3. After a host reboot, Mailpit is healthy again under its restart policy, previous
+   messages are gone by design, and a new request is captured.
+
+### Diagnosis, cleanup and rollback
+
+```bash
+"${compose[@]}" ps mailpit keycloak
+"${compose[@]}" logs --since 30m mailpit keycloak | grep -E 'smtpd|KC-SERVICES0026'
+"${compose[@]}" exec mailpit /mailpit readyz
+python3 deploy/private-dev/bin/configure-keycloak-mail \
+  --private-dev-env-file /etc/videogame-platform/dev/runtime.env --check
+```
+
+`KC-SERVICES0026: Failed to send password reset email` with no Mailpit `smtpd` entry
+means Keycloak cannot reach the sink: check that Mailpit is healthy and Keycloak was
+recreated onto the `mail` network. While sending fails, an existing username gets
+Keycloak's send-error message and an unknown one the usual confirmation, so restore
+Mailpit promptly. Mailpit logs the recipient and subject of each message, within the
+bounded local Docker logs; it never logs the link.
+
+Messages hold live reset links until they expire. Mailpit keeps at most 100 for 24
+hours in container memory; delete them sooner with **Delete all** in the UI,
+`curl -X DELETE http://127.0.0.1:8025/api/v1/messages` through the tunnel, or
+`"${compose[@]}" restart mailpit`.
+
+To withdraw recovery, first turn off **Forgot password** in the Admin Console's realm
+Login settings, so the entry point disappears instead of failing per account, then
+stop Mailpit. A full rollback also clears the realm Email host and recreates Keycloak
+from the previous reviewed checkout. No account, session or product data changes in
+either direction.
 
 ## Metrics dashboards
 

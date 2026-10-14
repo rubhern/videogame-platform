@@ -71,6 +71,14 @@ services:
     cpus: 1.0
     stop_grace_period: 30s
 
+  mailpit:
+    extends:
+      file: ./deploy/private-dev/compose.mail.yaml
+      service: mailpit
+    # Keycloak reaches SMTP on the project network; only the UI is published, on loopback.
+    ports:
+      - "127.0.0.1:8025:8025"
+
   application:
     profiles: ["full"]
     image: videogame-platform/application:${APPLICATION_VERSION:?Use scripts/local-dependencies.sh application so the version is derived from Maven}

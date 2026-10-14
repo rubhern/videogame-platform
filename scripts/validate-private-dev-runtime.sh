@@ -181,6 +181,7 @@ expected_services = {
     "migration",
     "deployment-smoke",
     "catalogue-localizer",
+    "mailpit",
 }
 assert set(services) == expected_services, f"unexpected services: {set(services)}"
 
@@ -201,6 +202,7 @@ expected_secret_access = {
     "migration": {"application_migration_db_password"},
     "deployment-smoke": {"oidc_smoke_username", "oidc_smoke_password"},
     "catalogue-localizer": set(),
+    "mailpit": set(),
 }
 
 for service_name, service in services.items():
@@ -247,6 +249,7 @@ assert sorted(published) == [
     ("application", "127.0.0.1", 8080, 8080),
     ("grafana", "127.0.0.1", 3000, 3000),
     ("keycloak", "127.0.0.1", 8180, 8080),
+    ("mailpit", "127.0.0.1", 8025, 8025),
 ], f"unexpected published ports: {published}"
 assert all(host_ip == "127.0.0.1" for _, host_ip, _, _ in published), (
     f"IPv4/IPv6 exposure boundary requires explicit IPv4 loopback binds: {published}"
@@ -260,6 +263,14 @@ assert set(services["alloy"]["networks"]) == {"logs", "log-ingress"}
 assert "logs" in services["grafana"]["networks"]
 assert services["alloy"]["ports"][0]["protocol"] == "udp"
 assert "ports" not in services["loki"]
+assert services["mailpit"]["networks"] == {"mail": None}
+assert {name for name, service in services.items() if "mail" in (service.get("networks") or {})} == {"keycloak", "mailpit"}
+mailpit = services["mailpit"]
+assert not mailpit.get("volumes"), "Mailpit must keep captured messages only on tmpfs"
+assert any(mount.startswith("/tmp:") for mount in mailpit["tmpfs"]), "Mailpit temporary message store"
+for option in ("--max=100", "--max-age=24h", "--disable-version-check", "--block-remote-css-and-fonts"):
+    assert option in mailpit["command"], f"Mailpit retention/isolation option {option}"
+assert not any(option.startswith(("--smtp-relay", "--smtp-forward", "--webhook", "--database", "--pop3")) for option in mailpit["command"])
 for name, service in services.items():
     for mount in service.get("volumes") or []:
         assert "docker.sock" not in mount.get("source", ""), f"{name} Docker daemon access"
@@ -376,11 +387,11 @@ realm_source, realm_target = next(iter(keycloak_imports))
 assert realm_source.endswith("/docker/keycloak/import/videogame-platform-realm.json")
 assert realm_target == "/opt/keycloak/data/import/videogame-platform-realm.json"
 
-for service_name in ("keycloak", "telemetry", "prometheus", "grafana", "alloy", "loki", "application", "migration", "deployment-smoke"):
+for service_name in ("keycloak", "telemetry", "prometheus", "grafana", "alloy", "loki", "mailpit", "application", "migration", "deployment-smoke"):
     assert services[service_name].get("read_only") is True, f"{service_name} root filesystem"
     assert services[service_name].get("cap_drop") == ["ALL"], f"{service_name} capabilities"
 
-for service_name in ("postgres", "telemetry", "prometheus", "grafana", "alloy", "loki"):
+for service_name in ("postgres", "telemetry", "prometheus", "grafana", "alloy", "loki", "mailpit"):
     assert "@sha256:" in services[service_name]["image"], f"{service_name} image is not digest-pinned"
 for service_name in ("application", "migration"):
     assert "@sha256:" in services[service_name]["image"], f"{service_name} image is not digest-pinned"
@@ -416,6 +427,8 @@ sh -n "$repository_root/deploy/private-dev/bin/run-application"
 sh -n "$repository_root/deploy/private-dev/bin/run-migrations"
 python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
   "$repository_root/deploy/private-dev/bin/provision-oidc-smoke-user"
+python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
+  "$repository_root/deploy/private-dev/bin/configure-keycloak-mail"
 if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
   node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
   node --test \
@@ -506,7 +519,7 @@ if [[ "$live" == false ]]; then
 fi
 
 compose=(docker compose --env-file "$runtime_env" --file "$compose_file")
-required_services=(postgres keycloak telemetry prometheus grafana alloy loki catalogue-localizer)
+required_services=(postgres keycloak telemetry prometheus grafana alloy loki catalogue-localizer mailpit)
 for service_name in "${required_services[@]}"; do
   container_id="$("${compose[@]}" ps --quiet "$service_name")"
   [[ -n "$container_id" ]] || {
@@ -518,9 +531,9 @@ for service_name in "${required_services[@]}"; do
     printf '%s is not running: %s\n' "$service_name" "$state" >&2
     exit 1
   }
-  if [[ "$service_name" == catalogue-localizer ]]; then
+  if [[ "$service_name" == catalogue-localizer || "$service_name" == mailpit ]]; then
     [[ "$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{end}}' "$container_id")" == healthy ]] || {
-      printf 'Required acquisition runtime is not healthy: %s\n' "$service_name" >&2
+      printf 'Required runtime service is not healthy: %s\n' "$service_name" >&2
       exit 1
     }
   fi
@@ -589,7 +602,8 @@ assert_ipv4_loopback_only() {
 assert_ipv4_loopback_only "${KEYCLOAK_LOOPBACK_PORT:-8180}" true
 assert_ipv4_loopback_only "${APPLICATION_LOOPBACK_PORT:-8080}" false
 assert_ipv4_loopback_only 3000 true
-for unpublished_port in 5432 4317 4318 8081 8092 9000 9090 9464 3100 9095 12345; do
+assert_ipv4_loopback_only 8025 true
+for unpublished_port in 1025 1110 5432 4317 4318 8081 8092 9000 9090 9464 3100 9095 12345; do
   assert_no_host_listener "$unpublished_port"
 done
 syslog_port="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["services"]["alloy"]["ports"][0]["published"])' "$rendered_config")"

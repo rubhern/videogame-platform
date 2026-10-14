@@ -1,0 +1,164 @@
+#!/usr/bin/env python3
+
+"""Align an existing Keycloak realm with the reviewed password-recovery mail settings."""
+
+from __future__ import annotations
+
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import pathlib
+import socket
+import sys
+import urllib.parse
+
+sys.dont_write_bytecode = True
+
+repository_root = pathlib.Path(__file__).resolve().parents[3]
+realm_import = repository_root / "docker/keycloak/import/videogame-platform-realm.json"
+# The shared admin client and protected-input readers stay owned by the smoke provisioning.
+_loader = importlib.machinery.SourceFileLoader(
+    "private_dev_oidc_provisioning",
+    str(repository_root / "deploy/private-dev/bin/provision-oidc-smoke-user"),
+)
+_spec = importlib.util.spec_from_loader(_loader.name, _loader)
+assert _spec is not None
+provisioning = importlib.util.module_from_spec(_spec)
+_loader.exec_module(provisioning)
+
+ProvisioningError = provisioning.ProvisioningError
+REALM = provisioning.REALM
+# Startup import ignores an existing realm, so only these reviewed import keys are applied.
+MANAGED_SETTINGS = ("resetPasswordAllowed", "emailTheme", "smtpServer")
+
+
+def desired_settings() -> dict[str, object]:
+    realm = json.loads(realm_import.read_text(encoding="utf-8"))
+    settings = {name: realm[name] for name in MANAGED_SETTINGS}
+    smtp = settings["smtpServer"]
+    if not isinstance(smtp, dict) or smtp.get("auth") != "false" or "password" in smtp:
+        raise ProvisioningError("The realm import must keep an unauthenticated mail sink without credentials")
+    return settings
+
+
+def realm_representation(admin: object) -> dict[str, object]:
+    payload, _ = admin._request("GET", f"/admin/realms/{REALM}", expected={200})
+    realm = json.loads(payload)
+    if not isinstance(realm, dict) or realm.get("realm") != REALM:
+        raise ProvisioningError("Keycloak returned an invalid realm representation")
+    return realm
+
+
+def differing_settings(realm: dict[str, object], desired: dict[str, object]) -> list[str]:
+    differing = []
+    for name, value in desired.items():
+        actual = realm.get(name)
+        if isinstance(value, dict):
+            actual = actual if isinstance(actual, dict) else {}
+            if any(actual.get(key) != expected for key, expected in value.items()):
+                differing.append(name)
+        elif actual != value:
+            differing.append(name)
+    return differing
+
+
+def private_dev_connection(env_file: pathlib.Path) -> tuple[str, str, str]:
+    if socket.gethostname().split(".", 1)[0] != provisioning.EXPECTED_HOST:
+        raise ProvisioningError(f"Refusing private-dev mail configuration outside {provisioning.EXPECTED_HOST}")
+    values = provisioning.parse_runtime_environment(env_file.resolve(strict=True))
+    origin = provisioning.required(values, "PRIVATE_DEV_KEYCLOAK_ORIGIN")
+    parsed = urllib.parse.urlparse(origin)
+    if (
+        parsed.scheme != "https"
+        or not parsed.hostname
+        or not parsed.hostname.startswith("vgpdev.")
+        or parsed.port != 8443
+        or parsed.path not in ("", "/")
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise ProvisioningError("PRIVATE_DEV_KEYCLOAK_ORIGIN is not the approved private HTTPS origin")
+    secrets_directory = pathlib.Path(provisioning.required(values, "PRIVATE_DEV_SECRETS_DIR"))
+    if not secrets_directory.is_absolute() or not secrets_directory.is_dir():
+        raise ProvisioningError("PRIVATE_DEV_SECRETS_DIR must be an existing absolute directory")
+    return (
+        origin,
+        provisioning.required(values, "KEYCLOAK_ADMIN_USERNAME"),
+        provisioning.read_secret(secrets_directory, "keycloak-admin-password"),
+    )
+
+
+def explicit_connection(origin: str, username: str, password_file: pathlib.Path) -> tuple[str, str, str]:
+    parsed = urllib.parse.urlparse(origin)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.path not in ("", "/"):
+        raise ProvisioningError("--origin must be a Keycloak origin without a path")
+    password = password_file.read_text(encoding="utf-8").rstrip("\r\n")
+    if not password or "\n" in password:
+        raise ProvisioningError("The admin password input is empty or malformed")
+    return origin, username, password
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Apply or check the realm import's recovery mail settings on an existing realm."
+    )
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--private-dev-env-file", type=pathlib.Path)
+    target.add_argument("--origin", help="Keycloak origin for local or disposable environments")
+    parser.add_argument("--admin-username", help="Master-realm administrator, with --origin")
+    parser.add_argument(
+        "--admin-password-file", type=pathlib.Path, help="Password input (for example /dev/stdin), with --origin"
+    )
+    parser.add_argument("--check", action="store_true", help="Report alignment without changing Keycloak")
+    arguments = parser.parse_args()
+
+    if arguments.origin:
+        if not arguments.admin_username or not arguments.admin_password_file:
+            parser.error("--origin requires --admin-username and --admin-password-file")
+        origin, username, password = explicit_connection(
+            arguments.origin, arguments.admin_username, arguments.admin_password_file
+        )
+    else:
+        if arguments.admin_username or arguments.admin_password_file:
+            parser.error("--private-dev-env-file reads the administrator from protected runtime files")
+        origin, username, password = private_dev_connection(arguments.private_dev_env_file)
+
+    desired = desired_settings()
+    admin = provisioning.KeycloakAdmin(origin)
+    admin.authenticate(username, password)
+    differing = differing_settings(realm_representation(admin), desired)
+    smtp = desired["smtpServer"]
+    target_description = f"{smtp['host']}:{smtp['port']} as {smtp['from']}"
+
+    if arguments.check:
+        if differing:
+            print(f"Realm {REALM} recovery mail settings differ: {', '.join(differing)}", file=sys.stderr)
+            return 1
+        print(f"Realm {REALM} sends recovery mail through {target_description}.")
+        return 0
+
+    if differing:
+        # A partial representation changes only these keys; users, clients and sessions are untouched.
+        admin._request(
+            "PUT",
+            f"/admin/realms/{REALM}",
+            body={name: desired[name] for name in differing},
+            expected={204},
+        )
+        remaining = differing_settings(realm_representation(admin), desired)
+        if remaining:
+            raise ProvisioningError(f"Keycloak did not retain the recovery mail settings: {', '.join(remaining)}")
+        print(f"Updated realm {REALM}: {', '.join(differing)}; recovery mail uses {target_description}.")
+    else:
+        print(f"Realm {REALM} already sends recovery mail through {target_description}; nothing changed.")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, ProvisioningError, ValueError, KeyError) as error:
+        print(f"Keycloak recovery mail configuration failed: {error}", file=sys.stderr)
+        raise SystemExit(1) from None
