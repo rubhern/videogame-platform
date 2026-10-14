@@ -130,7 +130,7 @@ learning; they are not market targets.
 | Demand/differentiation unvalidated | Keep claims narrow; use real observations before expanding product scope |
 | Provider quality | Explicit import policy, validation before publication, explicit uncertainty/provenance/review state, local reads |
 | Spanish data gaps | Product-owned aliases/editorial content; never present translation as provider content |
-| Provider/licensing scope | Private non-commercial baseline remains; public metadata/media acceptance is a launch gate under the [public-use investigation](../research/public-production-topology.md#provider-and-image-review); no copied image binaries or adopted external scores |
+| Provider/licensing scope | Private non-commercial baseline remains; public metadata/media acceptance is a launch gate under the [public-use investigation](../research/public-production-topology.md#provider-and-image-review); the external-score direction below is approved but unimplemented, with public/commercial authorization pending #274; no copied image binaries |
 | Provider coupling/outage | Internal identity, anti-corruption adapter, last valid local snapshot, no request-path IGDB; provider drives acquisition, never serving |
 | Scope/architecture expansion | Focused product journeys and modular monolith; complexity requires evidence or bounded learning objective |
 | Accounts/personal ratings | Delegated identity, principal-derived ownership, privacy/security controls |
@@ -151,20 +151,28 @@ scale remains a direction, without evidence of a real community or demand yet.
 
 - A Gameómetro score represents only ratings from Gameómetro users. Never fabricate,
   estimate, or derive it from press or external scores.
-- External scores may help the early community cold start if their use is approved;
-  preserve visible source/type and meaningful rating counts. Personal and community
-  ratings remain distinct, and user and critic scores never become one opaque number.
-- Missing scores and small samples must be presented honestly, without implying
-  precision or consensus the evidence does not support.
-- Player/community sentiment fits the product direction most closely; professional
-  criticism is complementary.
-- Evaluate IGDB first because it is already integrated. OpenCritic or another
-  provider needs material additional value and permitted usage.
+- **Approved future, not implemented:** adopt IGDB player scores (`rating` and
+  `rating_count`) as a complement. Defer IGDB critic scores and OpenCritic; reject
+  combined `total_rating` scores. Public/commercial authorization remains pending
+  [#274](https://github.com/rubhern/videogame-platform/issues/274).
+- Always show each available valid score with its source and positive vote count,
+  including a single vote. No minimum sample threshold may hide either Gameómetro
+  or IGDB scores. Keep the two sources separate; sample size never changes provenance
+  or blends their values. Personal and community ratings also remain distinct.
+- Missing or invalid score/count pairs have no numeric score; unavailable statistics
+  must not be presented as zero votes. Counts communicate sample size without
+  implying consensus or statistical confidence.
+- Keep observation time for traceability. Age alone never expires or hides a score:
+  information not checked recently is not evidence of incorrect information. No
+  seven-day score expiry or automatic age-based suppression is approved.
+- The purposive [#256 sample](../research/external-quality-signals.md#authenticated-sample)
+  cannot establish coverage of the complete catalogue. #255 must measure a
+  representative sample of the actual catalogue during implementation and record
+  selection, coverage, missingness and limitations.
 
-Evaluation and delivery details belong to
-[#256](https://github.com/rubhern/videogame-platform/issues/256) and
-[#255](https://github.com/rubhern/videogame-platform/issues/255), respectively; no
-external-score source, display threshold, or implementation is adopted here.
+The [research record](../research/external-quality-signals.md) owns provider evidence
+and its limitations. [#255](https://github.com/rubhern/videogame-platform/issues/255)
+owns delivery of this approved direction; implementation has not started.
 
 ## Public release and sustainability
 

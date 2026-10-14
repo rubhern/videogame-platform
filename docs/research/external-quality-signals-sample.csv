@@ -1,0 +1,49 @@
+cohort,identity_status,provider_game_id,title,work_type,supported_work_type,first_release_date,user_score,user_count,critic_score,critic_count,blended_score,blended_count,provider_record_updated_at,source_url,identity_note
+historical,resolved,1802,Chrono Trigger,Main Game,true,1995-03-11,93.245489,1393,91.333333,1,92.289411,1394,2026-10-11T18:11:21+00:00,https://www.igdb.com/games/chrono-trigger,
+historical,resolved,72,Portal 2,Main Game,true,2011-04-18,91.330433,4508,92.444444,9,91.887439,4517,2026-10-13T21:52:57+00:00,https://www.igdb.com/games/portal-2,
+historical,resolved,1942,The Witcher 3: Wild Hunt,Main Game,true,2015-05-19,93.773598,5493,91.730769,26,92.752184,5519,2026-10-13T21:52:26+00:00,https://www.igdb.com/games/the-witcher-3-wild-hunt,
+historical,resolved,673,Doom,Main Game,true,1993-12-10,85.277932,1003,80.000000,0,82.638966,1003,2026-10-11T01:45:25+00:00,https://www.igdb.com/games/doom,Corrected initial slug using exact title/type/year; never transfer score from initial edition; Critic score returned with zero contributing scores; unusable pair
+historical,resolved,233,Half-Life 2,Main Game,true,2004-11-16,90.365401,3470,79.125000,7,84.745201,3477,2026-10-13T02:55:27+00:00,https://www.igdb.com/games/half-life-2,
+historical,resolved,393025,Final Fantasy VII,Main Game,true,1997-01-31,90.797204,9,,,90.797204,9,2026-10-10T18:25:46+00:00,https://www.igdb.com/games/final-fantasy-vii--12,Corrected initial slug using exact title/type/year; never transfer score from initial edition
+historical,resolved,1103,Super Metroid,Main Game,true,1994-03-19,92.360330,1083,100.000000,1,96.180165,1084,2026-10-13T18:03:27+00:00,https://www.igdb.com/games/super-metroid,
+historical,resolved,1029,The Legend of Zelda: Ocarina of Time,Main Game,true,1998-11-21,91.529232,2178,,,91.529232,2178,2026-10-12T11:24:27+00:00,https://www.igdb.com/games/the-legend-of-zelda-ocarina-of-time,
+recent_high_profile,resolved,305152,Clair Obscur: Expedition 33,Main Game,true,2025-04-24,91.811420,979,87.000000,5,89.405710,984,2026-10-13T21:53:06+00:00,https://www.igdb.com/games/clair-obscur-expedition-33,
+recent_high_profile,resolved,325594,Split Fiction,Main Game,true,2025-03-06,88.548858,242,92.000000,6,90.274429,248,2026-10-13T18:07:48+00:00,https://www.igdb.com/games/split-fiction,
+recent_high_profile,resolved,298526,Kingdom Come: Deliverance II,Main Game,true,2025-02-04,92.553944,269,93.000000,4,92.776972,273,2026-10-13T21:53:52+00:00,https://www.igdb.com/games/kingdom-come-deliverance-ii,
+recent_high_profile,resolved,279661,Monster Hunter Wilds,Main Game,true,2025-02-28,83.765527,70,86.666667,6,85.216097,76,2026-10-13T10:48:41+00:00,https://www.igdb.com/games/monster-hunter-wilds,
+recent_high_profile,resolved,228530,Death Stranding 2: On the Beach,Main Game,true,2025-06-26,89.467557,117,92.166667,6,90.817112,123,2026-10-13T18:13:50+00:00,https://www.igdb.com/games/death-stranding-2-on-the-beach,
+recent_high_profile,resolved,115289,Hollow Knight: Silksong,Main Game,true,2025-09-04,92.473560,516,89.500000,4,90.986780,520,2026-10-13T21:53:09+00:00,https://www.igdb.com/games/hollow-knight-silksong,
+recent_high_profile,resolved,347668,Resident Evil Requiem,Main Game,true,2026-02-27,89.172403,342,90.500000,6,89.836201,348,2026-10-13T18:02:45+00:00,https://www.igdb.com/games/resident-evil-requiem,
+recent_high_profile,unresolved,,Crimson Desert (unresolved),,,,,,,,,,,,Search returned Crimson Desert Enhanced (125633) and editions; intended work identity unverified; no substitution
+niche,resolved,24054,Caves of Qud,Main Game,true,2024-12-05,82.155138,21,94.000000,1,88.077569,22,2026-10-13T18:26:23+00:00,https://www.igdb.com/games/caves-of-qud,
+niche,resolved,54555,UFO 50,Bundle,false,2024-09-18,83.853230,27,89.333333,3,86.593282,30,2026-10-10T04:47:40+00:00,https://www.igdb.com/games/ufo-50,; Provider classifies this work as Bundle; excluded by current import policy
+niche,resolved,253558,Straftat,Main Game,true,2024-10-24,77.564490,15,,,77.564490,15,2026-10-13T12:14:12+00:00,https://www.igdb.com/games/straftat,
+niche,resolved,228516,Tiny Glade,Main Game,true,2024-09-23,76.222290,18,60.000000,1,68.111145,19,2026-10-09T12:50:06+00:00,https://www.igdb.com/games/tiny-glade,
+niche,resolved,310904,Keep Driving,Main Game,true,2025-02-06,72.598924,11,90.000000,1,81.299462,12,2026-10-10T18:39:43+00:00,https://www.igdb.com/games/keep-driving,
+niche,resolved,276492,The Roottrees Are Dead,Main Game,true,2023-11-08,,,,,,,2026-10-09T12:55:50+00:00,https://www.igdb.com/games/the-roottrees-are-dead,"; This is the 2023 original, not the 2025 remake"
+niche,resolved,206806,Lorelei and the Laser Eyes,Main Game,true,2024-05-16,89.061758,26,88.500000,4,88.780879,30,2026-10-05T23:12:57+00:00,https://www.igdb.com/games/lorelei-and-the-laser-eyes,
+niche,resolved,264410,Mouthwashing,Main Game,true,2024-09-26,82.253468,120,87.000000,1,84.626734,121,2026-10-11T17:05:12+00:00,https://www.igdb.com/games/mouthwashing,
+disagreement_candidate,resolved,26192,The Last of Us Part II,Main Game,true,2020-06-19,90.396538,1812,95.181818,11,92.789178,1823,2026-10-13T21:53:39+00:00,https://www.igdb.com/games/the-last-of-us-part-ii,
+disagreement_candidate,resolved,1877,Cyberpunk 2077,Main Game,true,2020-12-10,83.266857,1652,75.238095,21,79.252476,1673,2026-10-13T21:59:33+00:00,https://www.igdb.com/games/cyberpunk-2077,
+disagreement_candidate,resolved,96437,Starfield,Main Game,true,2023-09-06,71.336865,348,85.400000,10,78.368432,358,2026-10-13T18:11:08+00:00,https://www.igdb.com/games/starfield,
+disagreement_candidate,resolved,19564,Death Stranding,Main Game,true,2019-11-08,86.037397,904,84.411765,17,85.224581,921,2026-10-13T21:57:40+00:00,https://www.igdb.com/games/death-stranding,
+disagreement_candidate,resolved,125165,Diablo IV,Main Game,true,2023-06-06,77.164832,379,89.666667,6,83.415749,385,2026-10-13T01:37:00+00:00,https://www.igdb.com/games/diablo-iv,
+disagreement_candidate,resolved,3225,No Man's Sky,Main Game,true,2016-08-09,71.659359,636,73.842105,38,72.750732,674,2026-10-13T11:14:10+00:00,https://www.igdb.com/games/no-man-s-sky,Corrected initial slug using exact title/type/year; never transfer score from initial edition
+disagreement_candidate,resolved,7349,Mass Effect: Andromeda,Main Game,true,2017-03-21,70.360544,534,73.217391,23,71.788968,557,2026-10-13T18:16:10+00:00,https://www.igdb.com/games/mass-effect-andromeda--1,Corrected initial slug using exact title/type/year; never transfer score from initial edition
+disagreement_candidate,resolved,3048,The Order: 1886,Main Game,true,2015-02-20,70.037651,258,62.500000,10,66.268826,268,2026-10-13T18:25:08+00:00,https://www.igdb.com/games/the-order-1886,
+remake_remaster,resolved,880,Resident Evil 2,Main Game,true,1998-01-21,83.673907,604,55.000000,2,69.336954,606,2026-10-13T16:21:32+00:00,https://www.igdb.com/games/resident-evil-2,
+remake_remaster,resolved,19686,Resident Evil 2,Remake,true,2019-01-25,87.402802,1434,92.833333,12,90.118068,1446,2026-10-13T18:02:47+00:00,https://www.igdb.com/games/resident-evil-2--1,
+remake_remaster,resolved,481,Silent Hill 2,Main Game,true,2001-09-24,91.017468,1222,90.000000,1,90.508734,1223,2026-10-13T11:52:31+00:00,https://www.igdb.com/games/silent-hill-2,
+remake_remaster,resolved,222341,Silent Hill 2,Remake,true,2024-10-08,90.556060,296,86.600000,5,88.578030,301,2026-10-12T12:38:26+00:00,https://www.igdb.com/games/silent-hill-2--1,
+remake_remaster,resolved,134606,Demon's Souls,Remake,true,2020-11-12,86.586905,215,92.333333,9,89.460119,224,2026-10-11T18:16:26+00:00,https://www.igdb.com/games/demons-souls,
+remake_remaster,resolved,5619,Demon's Souls,Main Game,true,2009-02-05,85.500034,401,88.250000,7,86.875017,408,2026-10-09T18:22:40+00:00,https://www.igdb.com/games/demon-s-souls,Corrected initial slug using exact title/type/year; never transfer score from initial edition
+remake_remaster,resolved,6036,The Last of Us Remastered,Remaster,true,2014-07-26,93.349441,1698,97.400000,10,95.374721,1708,2026-10-10T13:02:29+00:00,https://www.igdb.com/games/the-last-of-us-remastered,
+remake_remaster,resolved,204350,The Last of Us Part I,Remake,true,2022-09-02,92.840394,810,77.333333,12,85.086864,822,2026-10-12T01:53:09+00:00,https://www.igdb.com/games/the-last-of-us-part-i,
+upcoming,resolved,23163,Knights Province,Main Game,true,2026-12-01,,,,,,,2026-10-07T03:24:38+00:00,https://www.igdb.com/games/knights-province,
+upcoming,resolved,26200,Infinitesimals,Main Game,true,2026-12-31,,,,,,,2026-10-08T16:22:01+00:00,https://www.igdb.com/games/infinitesimals,
+upcoming,resolved,52189,Grand Theft Auto VI,Main Game,true,2026-11-19,,,,,,,2026-10-12T17:54:27+00:00,https://www.igdb.com/games/grand-theft-auto-vi,
+upcoming,resolved,58718,Desolus,Main Game,true,2026-10-15,,,,,,,2026-10-13T14:21:49+00:00,https://www.igdb.com/games/desolus,
+upcoming,resolved,67195,Witchbrook,Main Game,true,2026-12-31,,,,,,,2026-10-10T01:33:57+00:00,https://www.igdb.com/games/witchbrook,
+upcoming,resolved,92550,Fable,Main Game,true,2027-02-23,,,,,,,2026-10-13T17:31:54+00:00,https://www.igdb.com/games/fable--1,
+upcoming,resolved,105490,Altiros,Main Game,true,2027-03-15,,,,,,,2026-10-10T02:41:49+00:00,https://www.igdb.com/games/altiros--1,
+upcoming,resolved,106319,Outcast Tales,Main Game,true,2026-10-26,,,,,,,2026-10-13T02:14:20+00:00,https://www.igdb.com/games/outcast-tales,
