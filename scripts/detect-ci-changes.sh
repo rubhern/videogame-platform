@@ -125,7 +125,7 @@ for path in "${changed_paths[@]}"; do
       enable documentation
       matched=true
       ;;
-    Dockerfile | .dockerignore | scripts/validate-container-image.sh)
+    Dockerfile | .dockerignore | scripts/validate-container-image.sh | scripts/inspect-application-oci.py)
       enable container build frontend backend
       matched=true
       ;;

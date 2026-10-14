@@ -35,8 +35,9 @@ additional hosts and orchestration add cost or complexity outside the approved s
 The owner operates the OS, disk, power, cooling and home-network dependencies;
 availability has no guarantee. Existing electricity and connectivity are consumed;
 this is not evidence of zero physical operating cost. Initial 8 GB RAM remains until
-runtime measurements justify reconsideration. Multi-architecture image delivery and
-the single-host application design remain approved. Runtime composition/secrets/
+runtime measurements justify reconsideration. The single-host application design
+remains approved; [ADR-0026](0026-defer-arm64-runtime-support.md) amends delivery
+to AMD64-only and owns the ARM64 restoration gate. Runtime composition/secrets/
 telemetry (#43), deployment (#36) and backup/restore (#44) remain separate work;
 foundation evidence proves none of their acceptance criteria.
 

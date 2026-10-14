@@ -16,8 +16,9 @@ paid runners or building unreviewed source on the target VM.
   deployment orchestration.
 - Publish the packaged application as an OCI image to GHCR, identified for deployment
   by immutable digest.
-- Build the required `linux/arm64` image and retain `linux/amd64` compatibility where
-  the workflow declares it.
+- Build the supported `linux/amd64` image. The original ARM64 requirement is
+  amended by [ADR-0026](0026-defer-arm64-runtime-support.md), which owns deferral
+  and the gate for restoring multi-architecture delivery.
 - Keep untrusted pull-request jobs read-only and secret-free; only trusted protected
   contexts may publish or deploy.
 - Keep the target host a pull-and-run environment; do not compile application source

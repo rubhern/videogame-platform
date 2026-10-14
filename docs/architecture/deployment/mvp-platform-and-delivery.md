@@ -173,14 +173,18 @@ repository configuration from host evidence.
 
 ## Artefact and delivery
 
-One immutable multi-architecture OCI image contains the compiled frontend, BFF/API,
+The current supported runtime is `linux/amd64`. [ADR-0026](../../decisions/0026-defer-arm64-runtime-support.md)
+defers ARM64 and owns the required restoration/verification gate before deploying
+to an ARM64 host. Existing AMD64 deployment and rollback remain digest-based.
+
+One immutable AMD64 OCI image contains the compiled frontend, BFF/API,
 and modular monolith. It runs non-root, contains no environment configuration,
 secrets, raw provider data, personal data, dev seed, or copied provider images, and
 is identified by commit SHA and content digest rather than `latest`.
 
 GitHub Actions validates pull requests without provider or deployment secrets and
 never publishes or deploys from them. Trusted `main` builds and scans the same
-index, produces SBOM/provenance evidence, and publishes to GHCR. Application delivery
+image, produces SBOM/provenance evidence, and publishes to GHCR. Application delivery
 remains **Continuous Delivery**: the owner dispatches the promotion workflow on main.
 That dispatch is the sole human deployment approval and selects GitHub's exact dispatch
 SHA. The workflow derives its unique trusted-main push build, current attempt and
