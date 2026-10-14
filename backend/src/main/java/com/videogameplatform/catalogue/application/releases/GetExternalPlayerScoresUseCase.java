@@ -3,7 +3,7 @@ package com.videogameplatform.catalogue.application.releases;
 import java.util.Map;
 import java.util.Set;
 
-/** Only the selected discovery page's internal Game identities; absent entries have no score. */
+/** Only Game identities a public read already selected; absent entries have no score. */
 public interface GetExternalPlayerScoresUseCase {
     int MAX_GAMES = 100;
 

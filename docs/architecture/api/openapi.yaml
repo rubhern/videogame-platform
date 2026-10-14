@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.9.0
+  version: 3.10.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -600,6 +600,8 @@ paths:
       description: |
         Never varies by session or embeds a personal rating. Unavailable aggregate
         statistics and fallback covers are explicit degraded states in a coherent `200`.
+        The Game's own external player score is optional local evidence; its absence is not
+        a degraded state. The validator covers it, so every reuse reflects its refresh or removal.
       security: []
       parameters:
         - $ref: '#/components/parameters/PublicIfNoneMatch'
@@ -668,6 +670,17 @@ paths:
                       mean: 8.4
                       count: 17
                       distribution: { '1': 0, '2': 0, '3': 0, '4': 1, '5': 1, '6': 2, '7': 3, '8': 3, '9': 5, '10': 2 }
+                    externalScore:
+                      source: igdb
+                      kind: player
+                      value: 7.8
+                      scale: 10
+                      count: 23
+                      attribution:
+                        label: Jugadores IGDB
+                        sourceUrl: https://www.igdb.com/games/example-game
+                      observedAt: '2026-07-30T08:00:00Z'
+                      providerRecordUpdatedAt: '2026-07-28T16:30:00Z'
                 severalRecordsForOnePlatform:
                   summary: Several records for one platform in presentation order
                   description: |
@@ -2025,6 +2038,12 @@ components:
           items: { $ref: '#/components/schemas/Release' }
         ratingEligibility: { $ref: '#/components/schemas/RatingEligibility' }
         ratingStatistics: { $ref: '#/components/schemas/RatingStatistics' }
+        externalScore:
+          $ref: '#/components/schemas/ExternalPlayerScore'
+          description: |
+            Catalogue's current player score for this Game, with the same semantics as the
+            discovery external score: absent without a valid pair, never zero-filled, blended
+            with `ratingStatistics` or personalized, and attributed to this Game's source work.
     AnonymousSession:
       type: object
       required: [authenticated]

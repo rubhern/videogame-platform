@@ -153,8 +153,9 @@ scale remains a direction, without evidence of a real community or demand yet.
   estimate, or derive it from press or external scores.
 - **Approved; acquisition and discovery presentation implemented, awaiting review:** adopt IGDB player scores
   (`rating` and `rating_count`) as a complement. #255 acquires and stores them locally, then presents them alongside the
-  Ratings-owned community signal on release-discovery cards. The game page and
-  other screens remain deferred to #279. Defer IGDB critic scores and OpenCritic; reject
+  Ratings-owned community signal on release-discovery cards. #279 phase 3 adds them to the
+  game page as a separate reading (implemented, awaiting review); other screens remain
+  pending its phase 4. Defer IGDB critic scores and OpenCritic; reject
   combined `total_rating` scores. Public/commercial authorization remains pending
   [#274](https://github.com/rubhern/videogame-platform/issues/274).
 - Always show each available valid score with its source and positive vote count,

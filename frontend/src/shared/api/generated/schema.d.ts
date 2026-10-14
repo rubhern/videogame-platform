@@ -123,6 +123,8 @@ export interface paths {
          * Read public game details
          * @description Never varies by session or embeds a personal rating. Unavailable aggregate
          *     statistics and fallback covers are explicit degraded states in a coherent `200`.
+         *     The Game's own external player score is optional local evidence; its absence is not
+         *     a degraded state. The validator covers it, so every reuse reflects its refresh or removal.
          */
         get: operations["getGame"];
         put?: never;
@@ -735,6 +737,12 @@ export interface components {
             releases: components["schemas"]["Release"][];
             ratingEligibility: components["schemas"]["RatingEligibility"];
             ratingStatistics: components["schemas"]["RatingStatistics"];
+            /**
+             * @description Catalogue's current player score for this Game, with the same semantics as the
+             *     discovery external score: absent without a valid pair, never zero-filled, blended
+             *     with `ratingStatistics` or personalized, and attributed to this Game's source work.
+             */
+            externalScore?: components["schemas"]["ExternalPlayerScore"];
         };
         AnonymousSession: {
             authenticated: boolean;

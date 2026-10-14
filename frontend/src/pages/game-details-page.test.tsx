@@ -1,6 +1,7 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { GameDetails } from "../features/game-details/game-details-api";
 import { gameDetailsFixture } from "../test/game-details-fixture";
 import { renderApp } from "../test/render-app";
 
@@ -64,6 +65,30 @@ function credited(game = gameDetailsFixture()) {
   ];
   game.gameModes = [{ gameModeId: "mode-single", name: "Single player" }];
   return game;
+}
+
+function oneCommunityVote(): GameDetails["ratingStatistics"] {
+  return {
+    status: "available",
+    mean: 7,
+    count: 1,
+    distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 1, "8": 0, "9": 0, "10": 0 },
+  };
+}
+
+function igdbScore(): NonNullable<GameDetails["externalScore"]> {
+  return {
+    source: "igdb",
+    kind: "player",
+    value: 7.8,
+    scale: 10,
+    count: 1,
+    attribution: {
+      label: "Jugadores IGDB",
+      sourceUrl: "https://www.igdb.com/games/resident-evil-requiem",
+    },
+    observedAt: "2026-08-01T10:00:00Z",
+  };
 }
 
 describe("public game details", () => {
@@ -130,6 +155,77 @@ describe("public game details", () => {
     expect(screen.getByText("Ardiendo")).toHaveTextContent("Temperatura: Ardiendo");
     expect(screen.getByText(/^Basada en/)).toHaveTextContent("Basada en 2 puntuaciones");
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+  it("reads IGDB players between the community and the visitor's own reading, each with its one vote", async () => {
+    const game = gameDetailsFixture();
+    game.ratingStatistics = oneCommunityVote();
+    game.externalScore = igdbScore();
+    serve(game);
+    renderApp(path);
+    const igdb = await screen.findByRole("region", { name: "Jugadores IGDB" });
+    const community = screen.getByRole("region", { name: "Puntuación de la comunidad" });
+    const personal = screen.getByRole("region", { name: "Tu puntuación" });
+    expect(within(community).getByText(/^Basada en/)).toHaveTextContent("Basada en 1 puntuación");
+    expect(within(igdb).getByLabelText("Nota media: 7,8 de 10")).toBeVisible();
+    expect(within(igdb).getByText(/^Basada en/)).toHaveTextContent("Basada en 1 valoración");
+    // The attribution names its source and opens this game's own work on IGDB.
+    expect(
+      within(igdb).getByRole("link", {
+        name: "Jugadores IGDB: fuente de la puntuación de Resident Evil Requiem",
+      }),
+    ).toHaveAttribute("href", "https://www.igdb.com/games/resident-evil-requiem");
+    expect(igdb.querySelector("img")).toHaveAttribute("src", "/assets/providers/igdb.svg");
+    // An external score has no Gameómetro temperature; only the community reading carries one.
+    expect(within(igdb).queryByText(/^Temperatura:/)).not.toBeInTheDocument();
+    expect(within(community).getByText("Caliente")).toHaveTextContent("Temperatura: Caliente");
+    expect(community.compareDocumentPosition(igdb) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(igdb.compareDocumentPosition(personal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+  it("keeps a real IGDB zero and states large counts exactly", async () => {
+    const game = gameDetailsFixture();
+    game.externalScore = { ...igdbScore(), value: 0, count: 1234 };
+    serve(game);
+    renderApp(path);
+    const igdb = await screen.findByRole("region", { name: "Jugadores IGDB" });
+    expect(within(igdb).getByLabelText("Nota media: 0,0 de 10")).toBeVisible();
+    expect(within(igdb).getByText(/^Basada en/)).toHaveTextContent("Basada en 1.234 valoraciones");
+    // The community reading keeps its own empty state; IGDB never fills it.
+    expect(
+      within(screen.getByRole("region", { name: "Puntuación de la comunidad" })).getByText(
+        "Sin nota todavía",
+      ),
+    ).toBeVisible();
+  });
+  it.each([
+    ["no external score", undefined],
+    ["a zero count", { ...igdbScore(), count: 0 }],
+    ["a mean beyond the scale", { ...igdbScore(), value: 10.5 }],
+    ["another scale", { ...igdbScore(), scale: 100 }],
+  ] as const)("omits the IGDB reading with %s instead of inventing one", async (_, externalScore) => {
+    const game = gameDetailsFixture();
+    if (externalScore !== undefined) game.externalScore = externalScore;
+    serve(game);
+    renderApp(path);
+    expect(await screen.findByRole("region", { name: "Puntuación de la comunidad" })).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Jugadores IGDB" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/valoraci/)).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tu puntuación" })).toBeInTheDocument();
+  });
+  it("keeps the IGDB reading when Gameómetro statistics are unavailable", async () => {
+    const game = gameDetailsFixture();
+    game.ratingStatistics = { status: "unavailable", reasonCode: "RATING_STATISTICS_READ_FAILED" };
+    game.externalScore = igdbScore();
+    serve(game);
+    renderApp(path);
+    const community = await screen.findByRole("region", { name: "Puntuación de la comunidad" });
+    expect(within(community).getByRole("status")).toHaveTextContent(
+      "Las estadísticas no están disponibles temporalmente",
+    );
+    expect(
+      within(screen.getByRole("region", { name: "Jugadores IGDB" })).getByLabelText(
+        "Nota media: 7,8 de 10",
+      ),
+    ).toBeVisible();
   });
   it("states credits, genres and game modes once, exactly as the catalogue serves them", async () => {
     const game = credited();

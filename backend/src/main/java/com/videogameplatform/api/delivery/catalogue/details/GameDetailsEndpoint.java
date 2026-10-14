@@ -3,6 +3,7 @@ package com.videogameplatform.api.delivery.catalogue.details;
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
 import com.videogameplatform.api.delivery.catalogue.CatalogueCoverMapper;
 import com.videogameplatform.api.delivery.catalogue.CatalogueSummaryMapper;
+import com.videogameplatform.api.delivery.catalogue.ExternalPlayerScoreMapper;
 import com.videogameplatform.api.delivery.catalogue.release.ReleaseApiMapper;
 import com.videogameplatform.api.generated.model.AvailableRatingStatistics;
 import com.videogameplatform.api.generated.model.Company;
@@ -15,6 +16,7 @@ import com.videogameplatform.api.generated.model.RatingStatistics;
 import com.videogameplatform.api.generated.model.UnavailableRatingStatistics;
 import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import com.videogameplatform.catalogue.application.details.GetGameDetailsUseCase;
+import com.videogameplatform.catalogue.application.releases.GetExternalPlayerScoresUseCase;
 import com.videogameplatform.ratings.application.GetRatingContextUseCase;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.LinkedHashSet;
@@ -30,6 +32,7 @@ import org.springframework.stereotype.Component;
 public final class GameDetailsEndpoint {
     private final GetGameDetailsUseCase games;
     private final GetRatingContextUseCase ratings;
+    private final GetExternalPlayerScoresUseCase externalScores;
     private final CatalogueCoverMapper covers;
     private final ReleaseApiMapper releases;
     private final ConditionalRequestSupport conditional;
@@ -38,12 +41,14 @@ public final class GameDetailsEndpoint {
     public GameDetailsEndpoint(
             GetGameDetailsUseCase games,
             GetRatingContextUseCase ratings,
+            GetExternalPlayerScoresUseCase externalScores,
             CatalogueCoverMapper covers,
             ReleaseApiMapper releases,
             ConditionalRequestSupport conditional,
             MeterRegistry metrics) {
         this.games = games;
         this.ratings = ratings;
+        this.externalScores = externalScores;
         this.covers = covers;
         this.releases = releases;
         this.conditional = conditional;
@@ -82,6 +87,9 @@ public final class GameDetailsEndpoint {
                                 RatingEligibility.ReasonEnum.valueOf(context.reason()),
                                 context.evaluatedOn()),
                         statistics(context.statistics()));
+        // Catalogue's own evidence for this one Game; Ratings' statistics stay a separate signal.
+        var external = externalScores.get(Set.of(game.gameId())).get(game.gameId());
+        if (external != null) body.setExternalScore(ExternalPlayerScoreMapper.toResponse(external));
         String etag = conditional.strongEntityTag(body);
         // Eligibility can change at Madrid midnight; every reuse revalidates the actual response.
         String cache = unavailable ? "no-store" : "public, max-age=0, must-revalidate";
