@@ -69,15 +69,18 @@ class DiscoveryScoresApiIntegrationTest {
     }
 
     @BeforeEach
-    @AfterEach
     void clearScores() {
         jdbc.update("DELETE FROM ratings.rating WHERE user_id=?", USER);
         jdbc.update("DELETE FROM catalogue.game_external_score WHERE game_id=?", GAME);
     }
 
     @AfterEach
-    void neverCallsTheProvider() {
-        verify(provider, never()).fetchWorks(org.mockito.ArgumentMatchers.any());
+    void clearScoresAndVerifyNoProviderCalls() {
+        try {
+            verify(provider, never()).fetchWorks(org.mockito.ArgumentMatchers.any());
+        } finally {
+            clearScores();
+        }
     }
 
     @Test
