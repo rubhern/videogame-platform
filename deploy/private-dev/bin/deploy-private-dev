@@ -299,8 +299,12 @@ published_digest="$(sed -n 's/^Digest:[[:space:]]*//p' <<<"$tag_inspection" | he
   fail "The explicit source revision has no valid published GHCR digest: $source_tag"
 [[ "$application_image" == "$expected_image_repository@$published_digest" ]] ||
   fail "Approved image digest does not match the image published for source revision $source_revision."
-grep -q 'linux/amd64' <<<"$tag_inspection" ||
-  fail "The approved image does not publish the linux/amd64 platform required by vgpdev."
+# The image is a single-platform manifest (ADR-0026): its own configuration states the platform.
+image_platform="$(docker buildx imagetools inspect --format '{{json .Image}}' "$application_image" |
+  python3 -c 'import json, sys; image = json.load(sys.stdin); print(image.get("os"), image.get("architecture"), sep="/")')" ||
+  fail "The approved image configuration could not be inspected."
+[[ "$image_platform" == linux/amd64 ]] ||
+  fail "The approved image is not the linux/amd64 image required by vgpdev: $image_platform"
 
 docker pull "$application_image" >/dev/null
 docker image inspect --format '{{range .RepoDigests}}{{println .}}{{end}}' "$application_image" |

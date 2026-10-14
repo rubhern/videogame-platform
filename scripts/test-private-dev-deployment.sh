@@ -88,8 +88,14 @@ if [[ "$1" == info ]]; then
   exit 0
 fi
 
+if [[ "$1 ${2:-} ${3:-} ${4:-}" == "buildx imagetools inspect --format" ]]; then
+  printf '{"architecture":"%s","os":"linux"}\n' "${FAKE_IMAGE_ARCHITECTURE:-amd64}"
+  exit 0
+fi
+
 if [[ "$1 ${2:-} ${3:-}" == "buildx imagetools inspect" ]]; then
-  printf 'Name: ghcr.io/rubhern/videogame-platform:test\nDigest: %s\nPlatform: linux/amd64\n' "$FAKE_DIGEST"
+  # A single-platform OCI manifest names no platform in the plain inspection.
+  printf 'Name: ghcr.io/rubhern/videogame-platform:test\nMediaType: application/vnd.oci.image.manifest.v1+json\nDigest: %s\n' "$FAKE_DIGEST"
   exit 0
 fi
 
@@ -502,6 +508,19 @@ assert_evidence "$digest_evidence" failure immutable-image-verification
 assert_lock_released
 if grep -q '^pull ' "$command_log"; then
   printf 'Mismatched source-revision digest was pulled.\n' >&2
+  exit 1
+fi
+
+: >"$command_log"
+platform_evidence="$temporary_directory/platform-evidence"
+if FAKE_IMAGE_ARCHITECTURE=arm64 run_deployment success "$platform_evidence" >/dev/null 2>&1; then
+  printf 'A non-linux/amd64 image was reported as success.\n' >&2
+  exit 1
+fi
+assert_evidence "$platform_evidence" failure immutable-image-verification
+assert_lock_released
+if grep -q '^pull ' "$command_log"; then
+  printf 'A non-linux/amd64 image was pulled.\n' >&2
   exit 1
 fi
 
