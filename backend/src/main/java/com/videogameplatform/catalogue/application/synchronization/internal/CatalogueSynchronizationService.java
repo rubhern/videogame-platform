@@ -15,6 +15,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.CoverSelection;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.DetailsWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ExternalScoreWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedEvidenceWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.FeaturedMediaWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameState;
@@ -549,7 +550,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                                 evidence.logos().forGame(work.providerId(), work.attributionUrl())),
                         work.details()
                                 .<DetailsWrite>map(DetailsWrite.Observe::new)
-                                .orElse(DetailsWrite.KEEP));
+                                .orElse(DetailsWrite.KEEP),
+                        playerScore(work));
         WriteResult result = dryRun ? store.previewGame(write) : store.saveGame(runId, write);
         if (!dryRun) {
             localization.accept(gameId, () -> store.heartbeat(runId));
@@ -565,6 +567,20 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         }
         if (write.details() instanceof DetailsWrite.Keep) {
             counts.detailsUnavailable++;
+        }
+        switch (write.playerScore()) {
+            case ExternalScoreWrite.Observe observed -> {
+                if (observed.score().isPresent()) counts.playerScoreObserved++;
+                else counts.playerScoreAbsent++;
+            }
+            case ExternalScoreWrite.Keep _ -> counts.playerScoreUnavailable++;
+        }
+        switch (result.playerScoreChange()) {
+            case CREATED -> counts.playerScoreCreated++;
+            case UPDATED -> counts.playerScoreUpdated++;
+            case REMOVED -> counts.playerScoreRemoved++;
+            case UNCHANGED -> counts.playerScoreUnchanged++;
+            case NONE -> {}
         }
         GameResult gameResult;
         if (result.createdGame()) {
@@ -637,7 +653,14 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                 c.featuredImageObserved,
                 c.logoObserved,
                 c.logoUnavailable,
-                c.detailsUnavailable);
+                c.detailsUnavailable,
+                c.playerScoreObserved,
+                c.playerScoreAbsent,
+                c.playerScoreUnavailable,
+                c.playerScoreCreated,
+                c.playerScoreUpdated,
+                c.playerScoreRemoved,
+                c.playerScoreUnchanged);
     }
 
     /**
@@ -699,6 +722,24 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                                                 && !evidence.edition(),
                                         evidence.hypes()))
                 .orElse(FeaturedEvidenceWrite.KEEP);
+    }
+
+    /**
+     * The work's external player score. A valid answer records its usable score or that the provider
+     * states none; an invalid answer, or a score that cannot be attributed to the provider page of
+     * its own work, keeps the Game's last valid score. The provider's Game-record update time is
+     * recorded as such, never as the score's own update time.
+     */
+    private static ExternalScoreWrite playerScore(ProviderWork work) {
+        return work.playerScore()
+                .filter(evidence -> evidence.score().isEmpty() || work.attributionUrl().isPresent())
+                .<ExternalScoreWrite>map(
+                        evidence ->
+                                new ExternalScoreWrite.Observe(
+                                        evidence.score(),
+                                        work.attributionUrl(),
+                                        Optional.ofNullable(work.providerUpdatedAt())))
+                .orElse(ExternalScoreWrite.KEEP);
     }
 
     /**
@@ -766,6 +807,13 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         long logoObserved;
         long logoUnavailable;
         long detailsUnavailable;
+        long playerScoreObserved;
+        long playerScoreAbsent;
+        long playerScoreUnavailable;
+        long playerScoreCreated;
+        long playerScoreUpdated;
+        long playerScoreRemoved;
+        long playerScoreUnchanged;
         ProviderCallStatistics statistics = ProviderCallStatistics.none();
     }
 }

@@ -5,6 +5,7 @@ import { platformIcon } from "../../shared/catalogue/taxonomy-icons";
 import { SelectIcon } from "../../shared/ui/select-icon";
 import { FeaturedArtFrame } from "./featured-art";
 import type { FeaturedItem } from "./featured-releases-view-model";
+import { DiscoveryScores } from "./discovery-scores";
 import { ReleaseOverflow } from "./release-overflow";
 
 /** A compact row shows up to three platform marks and the exact number of further platforms. */
@@ -58,6 +59,7 @@ export function FeaturedCard({ item }: { item: FeaturedItem }) {
             {item.title}
           </Link>
         </h3>
+        <DiscoveryScores layout="featured" scores={item.scores} title={item.title} />
         {primaryGroup === undefined ? null : (
           <p className="featured-card-release">
             <span className="sr-only">

@@ -283,6 +283,7 @@ class CatalogueSynchronizationSchedulerTest {
                 outcome,
                 code,
                 new CatalogueSynchronizationReport.Counters(
-                        0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+                        0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0));
     }
 }

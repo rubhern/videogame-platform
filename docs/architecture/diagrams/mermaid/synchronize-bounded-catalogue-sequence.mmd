@@ -32,12 +32,12 @@ sequenceDiagram
 
         loop Each Game ID once
             Sync->>Adapter: Fetch current Game and all bounded Releases
-            Adapter->>IGDB: Query Game with Hypes, first release, edition and image metadata, and release_dates
+            Adapter->>IGDB: Query Game with Hypes, first release, edition, player score and image metadata, and release_dates
             IGDB-->>Adapter: Current provider aggregate
-            Adapter-->>Sync: Normalized Game, Releases, featured evidence, cover and image candidates
+            Adapter-->>Sync: Normalized Game, Releases, featured evidence, player score, cover and image candidates
             Sync->>Sync: Select featured image and logo from metadata
             Sync->>DB: Resolve Game external reference
-            Sync->>DB: Create or reconcile Game, stable Release references, featured evidence and media atomically
+            Sync->>DB: Create or reconcile Game, stable Release references, featured evidence, player score and media atomically
             Note over Sync,DB: Invalid input preserves the Game's last valid state
             Sync->>Localization: Enrich committed Game and taxonomy sources
             Localization->>DB: Reuse completed content or reserve normalized source

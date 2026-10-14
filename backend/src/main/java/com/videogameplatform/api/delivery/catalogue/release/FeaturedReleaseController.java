@@ -39,18 +39,21 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
     private final ConditionalRequestSupport conditionalRequests;
     private final FeaturedReleaseApiMetrics metrics;
     private final ReleaseHttpProperties properties;
+    private final DiscoveryScoresReader scores;
 
     public FeaturedReleaseController(
             BrowseFeaturedReleasesUseCase useCase,
             ReleaseApiMapper releases,
             ConditionalRequestSupport conditionalRequests,
             FeaturedReleaseApiMetrics metrics,
-            ReleaseHttpProperties properties) {
+            ReleaseHttpProperties properties,
+            DiscoveryScoresReader scores) {
         this.useCase = useCase;
         this.releases = releases;
         this.conditionalRequests = conditionalRequests;
         this.metrics = metrics;
         this.properties = properties;
+        this.scores = scores;
     }
 
     @Override
@@ -60,6 +63,12 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
         FeaturedReleasesResult result =
                 useCase.browse(new BrowseFeaturedReleasesUseCase.Query(requested));
         FeaturedReleases body = toResponse(result);
+        var scoreBatch =
+                scores.read(
+                        body.getItems().stream()
+                                .map(FeaturedReleaseItem::getGameId)
+                                .collect(Collectors.toSet()));
+        body.getItems().forEach(item -> item.setScores(scoreBatch.get(item.getGameId())));
         String entityTag = conditionalRequests.strongEntityTag(body);
 
         HttpHeaders headers = new HttpHeaders();

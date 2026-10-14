@@ -326,7 +326,9 @@ describe("compact personal rating", () => {
       remove: () =>
         Response.json({ personalRating: null, ratingStatistics: statistics(null, 0) }),
     });
-    renderPanel();
+    const { queryClient } = renderPanel();
+    queryClient.setQueryData(["releases", "cached-window"], { items: [] });
+    queryClient.setQueryData(["featured-releases", "2026-10"], { items: [] });
 
     await waitFor(() => expect(reading()).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/));
 
@@ -343,6 +345,8 @@ describe("compact personal rating", () => {
     expect(scale()).not.toBeInTheDocument();
     expect(reading()).toHaveFocus();
     expect(await screen.findByText("Puntuación guardada: 9/10.")).toHaveClass("sr-only");
+    expect(queryClient.getQueryState(["releases", "cached-window"])?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(["featured-releases", "2026-10"])?.isInvalidated).toBe(true);
     expect(server.commands()[0]?.headers.get("If-Match")).toBe('"rating-version-1"');
     expect(server.commands()[0]?.headers.get("If-None-Match")).toBeNull();
     expect(reading()).toHaveAccessibleName("Tu puntuación Ardiendo 9/10. Cambiar o eliminar");

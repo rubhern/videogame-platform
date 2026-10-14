@@ -185,7 +185,7 @@ describe("featured releases page", () => {
     expect(document.body).not.toHaveTextContent(/mejor|juego del mes|visitas/i);
   });
 
-  it("shows only discovery metadata, with one whole-hero link and no nested controls", async () => {
+  it("shows only discovery metadata, with a stretched title link and no nested controls", async () => {
     const summary = {
       kind: "sourced" as const, text: "Explora un mundo lleno de historias. ".repeat(30), language: "es",
       provenance: { sourceKind: "external_provider" as const, sourceName: "IGDB", sourceEntityType: "game" },
@@ -208,12 +208,12 @@ describe("featured releases page", () => {
     const hero = await screen.findByRole("article", { name: "Juego destacado" });
     const link = within(hero).getByRole("link", { name: "Juego destacado" });
     expect(link).toHaveAttribute("href", "/games/game-lead/juego-destacado");
-    expect(within(link).getByRole("heading", { name: "Juego destacado" })).toBeVisible();
-    expect(within(link).getByRole("list", { name: "Géneros" })).toHaveTextContent("AventuraRol (RPG)");
-    const text = within(link).getByText(summary.text.trim());
+    expect(within(hero).getByRole("heading", { name: "Juego destacado" })).toBeVisible();
+    expect(within(hero).getByRole("list", { name: "Géneros" })).toHaveTextContent("AventuraRol (RPG)");
+    const text = within(hero).getByText(summary.text.trim());
     expect(text.textContent).toBe(summary.text);
     expect(text).toHaveAttribute("lang", "es");
-    expect(within(link).queryByText(/Traducción|Fuente del original|IGDB/)).not.toBeInTheDocument();
+    expect(within(hero).queryByText(/Traducción|Fuente del original|IGDB/)).not.toBeInTheDocument();
     expect(link.querySelector("a, button, input, select, summary, [tabindex]")).toBeNull();
     const overflow = within(hero).getByRole("button", { name: /lanzamientos? más/ });
     expect(link.contains(overflow)).toBe(false);

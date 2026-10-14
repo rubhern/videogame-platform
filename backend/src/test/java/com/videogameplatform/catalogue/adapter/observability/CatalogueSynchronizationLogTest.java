@@ -126,8 +126,12 @@ class CatalogueSynchronizationLogTest {
         assertThat(finished.getFormattedMessage())
                 .contains(
                         "popularity[observed=3 cleared=0 unavailable=0]",
-                        "media[images=3 logos=0 logos_unavailable=0]");
+                        "media[images=3 logos=0 logos_unavailable=0]",
+                        "player_score[observed=3 absent=0 unavailable=0"
+                                + " created=3 updated=0 removed=0 unchanged=0]");
         assertThat(keyValue(finished, "sync.media.images_observed")).isEqualTo(3L);
+        assertThat(keyValue(finished, "sync.player_score.observed")).isEqualTo(3L);
+        assertThat(keyValue(finished, "sync.player_score.created")).isEqualTo(3L);
     }
 
     @Test
@@ -327,6 +331,13 @@ class CatalogueSynchronizationLogTest {
                 created * 2,
                 0,
                 10,
+                0,
+                created,
+                0,
+                0,
+                created,
+                0,
+                0,
                 0,
                 created,
                 0,

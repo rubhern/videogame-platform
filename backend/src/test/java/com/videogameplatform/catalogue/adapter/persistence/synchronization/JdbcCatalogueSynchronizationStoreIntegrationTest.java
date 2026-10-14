@@ -261,10 +261,11 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         provider.works.put("100", work("100", release("10", "2026-10-02")));
         var result = service.synchronize(WINDOW);
         jdbc.update(
-                "UPDATE catalogue.synchronization_run SET report=jsonb_set(report,'{counters}',(report->'counters')-'deletedReleases') WHERE run_id=?",
+                "UPDATE catalogue.synchronization_run SET report=jsonb_set(report,'{counters}',(report->'counters')-'deletedReleases'-'playerScoreObservedGames'-'playerScoreAbsentGames'-'playerScoreUnavailableGames') WHERE run_id=?",
                 result.runId());
         var old = store.lastRun().orElseThrow();
         assertThat(old.counters().deletedReleases()).isZero();
+        assertThat(old.counters().playerScoreUnavailableGames()).isZero();
         assertThat(old.counters().createdReleases()).isEqualTo(1);
         jdbc.update(
                 "UPDATE catalogue.synchronization_run SET report=jsonb_set(report,'{counters,createdGames}','null'::jsonb) WHERE run_id=?",

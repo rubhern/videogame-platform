@@ -902,5 +902,48 @@
       },
       "response": []
     }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code === 200 || pm.response.code === 304) {",
+          "    pm.test(\"Discovery always revalidates stored scores\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-cache\"));",
+          "}",
+          "if (pm.response.code === 200) {",
+          "    pm.test(\"Work-level scores preserve source, scale, count and absence\", () => {",
+          "        pm.response.json().items.forEach(item => {",
+          "            pm.expect(item.scores).to.be.an(\"object\");",
+          "            const community = item.scores.community;",
+          "            pm.expect([\"available\", \"unavailable\"]).to.include(community.status);",
+          "            if (community.status === \"available\") {",
+          "                pm.expect(community.count).to.be.at.least(0);",
+          "                if (community.count === 0) pm.expect(community.mean).to.eql(null);",
+          "                else pm.expect(community.mean).to.be.within(1, 10);",
+          "            } else {",
+          "                pm.expect(community.reasonCode).to.eql(\"RATING_STATISTICS_READ_FAILED\");",
+          "                pm.expect(community).not.to.have.property(\"count\");",
+          "            }",
+          "            if (item.scores.external) {",
+          "                const external = item.scores.external;",
+          "                pm.expect(external.source).to.eql(\"igdb\");",
+          "                pm.expect(external.kind).to.eql(\"player\");",
+          "                pm.expect(external.scale).to.eql(10);",
+          "                pm.expect(external.value).to.be.within(0, 10);",
+          "                pm.expect(external.count).to.be.at.least(1);",
+          "                pm.expect(Number.isInteger(external.count)).to.eql(true);",
+          "                pm.expect(external.attribution.label).to.eql(\"Jugadores IGDB\");",
+          "                pm.expect(external.attribution.sourceUrl).to.match(/^https:\\/\\/www\\.igdb\\.com\\/games\\/[^/?#]+$/);",
+          "                pm.expect(Number.isNaN(Date.parse(external.observedAt))).to.eql(false);",
+          "            }",
+          "            pm.expect(item.scores).not.to.have.property(\"personalRating\");",
+          "        });",
+          "    });",
+          "}"
+        ]
+      }
+    }
   ]
 }

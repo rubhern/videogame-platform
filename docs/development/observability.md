@@ -56,8 +56,17 @@ with a dedicated short statement timeout; health details remain hidden.
   signals observed, absent for zero/missing Hypes, and kept because featured evidence
   was unavailable or invalid,
   featured images observed, logos observed or kept because the logo lookup was
-  unavailable, and Games whose summary, credits, genres and game modes were kept because
-  that detail metadata was invalid. Deferral is import policy, not failure.
+  unavailable, Games whose summary, credits, genres and game modes were kept because
+  that detail metadata was invalid, and external player scores observed, absent because
+  the provider states none or zero ratings, and kept because the answer was invalid or
+  unattributable (`player_score_*`). Deferral is import policy, not failure.
+  Player-score change kinds (`player_score_created|updated|removed|unchanged_games`)
+  say what committed writes did to the stored usable score. The upsert's own
+  `RETURNING old/new` classifies it, so there is no extra query per Game. A Game that
+  neither held nor now holds a usable score, a kept score and an answer older than the
+  stored check change none of them. Only manual and scheduled commands record these
+  meters; repair batches appear in the retained run reports only. A failed score write
+  rolls back its whole Game and is counted only as a failed Game.
 - Trigger meters `catalogue.synchronization.trigger{trigger,policy,outcome}` and
   `.trigger.duration{trigger,policy,outcome}` distinguish `manual/none` from
   `scheduled/near_term` and `scheduled/upcoming`, with the closed synchronization
@@ -71,7 +80,8 @@ with a dedicated short statement timeout; health details remain hidden.
   Operations are the closed `window`, `works`, `release_dates`, `logos`
   vocabulary. An artwork, screenshot or logo that does not satisfy ADR-0001 or states no
   usable dimensions is ignored and counted as `image_reference_invalid`. Incoherent game
-  detail metadata is counted as `details_invalid` and never fails the Game.
+  detail metadata is counted as `details_invalid` and an incoherent player score/count
+  pair as `player_score_invalid`; neither fails the Game.
 - Durable run reports hold the requested window, provider request/retry/latency
   totals and aggregate counters. The synchronization log adds lifecycle, progress and
   per-Game failure stage/reason; it never contains titles, raw payloads or provider
@@ -110,6 +120,23 @@ time series and bounded API activity proxies. A dedicated PostgreSQL datasource 
 [the forward migration](../../backend/src/main/resources/db/migration/V20261004_150000__expose_observability_read_views.sql).
 These expose retained manual-run reports, current catalogue evidence, database
 resource diagnostics and active-rating aggregates. They add no stored analytics state.
+The catalogue inventory also counts Games whose external player score was ever checked
+and those holding a usable score; a Game never checked is not a Game without a score.
+[A later migration](../../backend/src/main/resources/db/migration/V20261014_160000__observe_external_player_scores.sql)
+adds the per-run player-score counters to the run view and a player-score check view
+without identities.
+
+The synchronization dashboard's **IGDB player scores** row separates stored state from
+activity:
+- **Stored coverage and check age** are current PostgreSQL state. Their history is not
+  kept, and computing it would need a periodic snapshot that does not exist.
+- **Per-run results and stored-score changes** come from retained run reports for the
+  selected range, including repair batches.
+- **Observed-process totals and history** come from Prometheus and cover manual and
+  scheduled commands.
+- **Invalid score answers** reuse the existing `player_score_invalid` mapping reason.
+  They are counted per provider answer, so the figure can exceed the committed Games
+  whose score was kept.
 Ratings rankings use its existing public game-listing projection; no dashboard joins
 Catalogue tables to Ratings tables. Rating-owner identities never leave an aggregate.
 Public titles/slugs can appear in bounded SQL rankings, never in Prometheus labels.

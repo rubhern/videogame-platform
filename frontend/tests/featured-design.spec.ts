@@ -211,8 +211,8 @@ for (const width of [320, 390, 834, 1320]) {
     await previous.focus();
     await page.keyboard.press("Tab");
     await expect(action).toBeFocused();
-    await expect(action).toHaveCSS("outline-style", "solid");
-    await expect(action).toHaveCSS("outline-width", "2px");
+    await expect(hero.locator(".featured-hero")).toHaveCSS("outline-style", "solid");
+    await expect(hero.locator(".featured-hero")).toHaveCSS("outline-width", "2px");
     await page.screenshot({ path: test.info().outputPath(`featured-${width}.png`), fullPage: true });
     if (width === 390 || width === 1320) {
       const destination = await action.getAttribute("href");
@@ -387,8 +387,8 @@ for (const forcedColors of ["none", "active"] as const) {
     await page.getByRole("link", { name: "Mes siguiente: septiembre de 2026" }).focus();
     await page.keyboard.press("Tab");
     await expect(link).toBeFocused();
-    await expect(link).toHaveCSS("outline-style", "solid");
-    await expect(link.locator(".featured-hero-summary")).toHaveCSS("-webkit-line-clamp", "3");
+    await expect(page.locator(".featured-hero")).toHaveCSS("outline-style", "solid");
+    await expect(page.locator(".featured-hero-summary")).toHaveCSS("-webkit-line-clamp", "3");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`featured-forced-${forcedColors}.png`), fullPage: true });
   });

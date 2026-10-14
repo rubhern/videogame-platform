@@ -5,6 +5,7 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderGameDetails;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
+import com.videogameplatform.catalogue.domain.ExternalScore;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy;
 import com.videogameplatform.catalogue.domain.ReleaseDate;
 import com.videogameplatform.catalogue.domain.ReleaseStage;
@@ -60,7 +61,40 @@ public interface CatalogueSynchronizationStore {
             int maxReleases,
             FeaturedEvidenceWrite featuredEvidence,
             FeaturedMediaWrite media,
-            DetailsWrite details) {
+            DetailsWrite details,
+            ExternalScoreWrite playerScore) {
+
+        /** A write that keeps the Game's last valid player score. */
+        public GameWrite(
+                String providerId,
+                UUID gameId,
+                boolean creating,
+                String title,
+                String slug,
+                CoverSelection cover,
+                List<ReleaseWrite> releases,
+                Instant synchronizedAt,
+                java.util.Set<String> returnedReleaseReferences,
+                int maxReleases,
+                FeaturedEvidenceWrite featuredEvidence,
+                FeaturedMediaWrite media,
+                DetailsWrite details) {
+            this(
+                    providerId,
+                    gameId,
+                    creating,
+                    title,
+                    slug,
+                    cover,
+                    releases,
+                    synchronizedAt,
+                    returnedReleaseReferences,
+                    maxReleases,
+                    featuredEvidence,
+                    media,
+                    details,
+                    ExternalScoreWrite.KEEP);
+        }
 
         /** A write that keeps the Game's last valid details. */
         public GameWrite(
@@ -94,6 +128,7 @@ public interface CatalogueSynchronizationStore {
 
         public GameWrite {
             java.util.Objects.requireNonNull(details, "details");
+            java.util.Objects.requireNonNull(playerScore, "playerScore");
             releases = List.copyOf(releases);
             returnedReleaseReferences = java.util.Set.copyOf(returnedReleaseReferences);
             java.util.Objects.requireNonNull(featuredEvidence, "featuredEvidence");
@@ -131,6 +166,40 @@ public interface CatalogueSynchronizationStore {
         }
 
         record Keep() implements DetailsWrite {}
+    }
+
+    /**
+     * The Game's external player score from one valid provider answer, or last-valid-state
+     * preservation. An observed answer records the score, or that the source currently states none,
+     * as the Game's successful check at the write's time; the stored score changes only when its
+     * value, count or presence does. A kept score is not touched, so its last check never advances.
+     * A score is attributed to the provider page of its own work; the Game-record update time is
+     * the provider's claim about its record, never the score's own update time.
+     */
+    sealed interface ExternalScoreWrite {
+        ExternalScoreWrite KEEP = new Keep();
+
+        record Observe(
+                Optional<ExternalScore> score,
+                Optional<String> sourceUrl,
+                Optional<Instant> providerRecordUpdatedAt)
+                implements ExternalScoreWrite {
+            public Observe {
+                java.util.Objects.requireNonNull(score, "score");
+                java.util.Objects.requireNonNull(sourceUrl, "sourceUrl");
+                java.util.Objects.requireNonNull(
+                        providerRecordUpdatedAt, "providerRecordUpdatedAt");
+                if (sourceUrl.isPresent() && sourceUrl.orElseThrow().isBlank()) {
+                    throw new IllegalArgumentException("An attribution page cannot be blank");
+                }
+                if (score.isPresent() && sourceUrl.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            "An external score requires attribution to its source work");
+                }
+            }
+        }
+
+        record Keep() implements ExternalScoreWrite {}
     }
 
     /** Complete normalized featured evidence, or last-valid-state preservation on mapping failure. */
@@ -219,7 +288,48 @@ public interface CatalogueSynchronizationStore {
             int createdReleases,
             int updatedReleases,
             int unchangedReleases,
-            int deletedReleases) {}
+            int deletedReleases,
+            ExternalScoreChange playerScoreChange) {
+
+        /** A write that changed no stored player score. */
+        public WriteResult(
+                boolean createdGame,
+                boolean updatedGame,
+                int createdReleases,
+                int updatedReleases,
+                int unchangedReleases,
+                int deletedReleases) {
+            this(
+                    createdGame,
+                    updatedGame,
+                    createdReleases,
+                    updatedReleases,
+                    unchangedReleases,
+                    deletedReleases,
+                    ExternalScoreChange.NONE);
+        }
+
+        public WriteResult {
+            java.util.Objects.requireNonNull(playerScoreChange, "playerScoreChange");
+        }
+    }
+
+    /**
+     * What one Game write did to its stored usable player score, judged by the same statement that
+     * wrote it. {@code NONE} covers every write that neither held nor now holds a usable score, a
+     * kept score, and an answer older than the stored check, which writes nothing.
+     */
+    enum ExternalScoreChange {
+        /** A usable score is stored where none was. */
+        CREATED,
+        /** A usable score replaced a different usable value or count. */
+        UPDATED,
+        /** A valid answer stating no score cleared a usable one. */
+        REMOVED,
+        /** A usable score was re-checked identical. */
+        UNCHANGED,
+        NONE
+    }
 
     /**
      * A previously published release, matched by its provider release reference. Platform and region

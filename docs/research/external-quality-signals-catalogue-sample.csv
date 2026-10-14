@@ -1,0 +1,251 @@
+stratum,provider_game_id,title,first_release_date,player_score_state,user_score,user_count,observed_at
+historical_pre_2020,1559,Pokémon FireRed Version,2004-01-29,usable,83.251068,560,2026-10-14T10:27:45Z
+historical_pre_2020,3210,Star Conflict,2012-07-24,usable,75.702960,11,2026-10-14T10:27:03Z
+historical_pre_2020,7081,Battlefield Hardline,2015-03-17,usable,67.755160,320,2026-10-14T10:25:12Z
+historical_pre_2020,9804,MapleStory,2003-04-29,usable,73.604825,56,2026-10-14T10:24:04Z
+historical_pre_2020,17000,Stardew Valley,2016-02-26,usable,85.983960,1829,2026-10-14T10:28:17Z
+historical_pre_2020,17832,Don't Starve Together,2016-04-21,usable,76.389201,270,2026-10-14T10:26:45Z
+historical_pre_2020,19244,Forward to the Sky,2015-01-29,usable,60.000000,4,2026-10-14T10:24:26Z
+historical_pre_2020,19562,Resident Evil 7: Biohazard,2017-01-24,usable,84.158295,1097,2026-10-14T10:26:07Z
+historical_pre_2020,22872,One-Dot Enemies,2009-03-05,absent,,,2026-10-14T10:28:35Z
+historical_pre_2020,27794,Aerea,2017-06-02,absent,,,2026-10-14T10:26:33Z
+historical_pre_2020,33564,Afterbeat,2019-06-14,usable,70.000000,4,2026-10-14T10:24:12Z
+historical_pre_2020,34124,Bad End,2015-11-25,usable,80.000000,2,2026-10-14T10:25:14Z
+historical_pre_2020,36616,They Are Billions,2019-06-18,usable,73.226229,63,2026-10-14T10:29:13Z
+historical_pre_2020,57585,Heartlight,1991-12-31,absent,,,2026-10-14T10:29:21Z
+historical_pre_2020,87048,Dancing Line,2016-12-12,usable,70.400336,4,2026-10-14T10:26:31Z
+historical_pre_2020,93727,Golfing Over It with Alva Majo,2018-03-28,usable,41.298784,5,2026-10-14T10:23:58Z
+historical_pre_2020,95811,Stray Cat Doors,2018-02-28,absent,,,2026-10-14T10:27:53Z
+historical_pre_2020,122938,Fireboy & Watergirl 3: The Ice Temple,2012-04-05,absent,,,2026-10-14T10:28:02Z
+historical_pre_2020,123395,Arknights,2019-05-01,usable,83.431849,65,2026-10-14T10:28:37Z
+historical_pre_2020,129505,3-D Body Adventure,1994-12-31,absent,,,2026-10-14T10:27:10Z
+historical_pre_2020,129852,Monster King,2012-06-15,absent,,,2026-10-14T10:25:09Z
+historical_pre_2020,135815,Tobari 2: Dream Ocean,2018-12-30,absent,,,2026-10-14T10:25:18Z
+historical_pre_2020,140491,Forward Assault,2017-06-12,absent,,,2026-10-14T10:28:21Z
+historical_pre_2020,140591,BattleTabs,2019-11-15,absent,,,2026-10-14T10:28:50Z
+historical_pre_2020,207851,Runic Curse,2019-04-12,absent,,,2026-10-14T10:28:46Z
+historical_pre_2020,301718,Spooky Cooking,2019-10-25,absent,,,2026-10-14T10:28:58Z
+historical_pre_2020,392472,Dino Quest,2013-08-05,absent,,,2026-10-14T10:23:52Z
+historical_pre_2020,395951,Trick-or-Treat Adventure!,2007-10-31,absent,,,2026-10-14T10:27:12Z
+historical_pre_2020,404020,Big Shark,2016-02-06,absent,,,2026-10-14T10:28:05Z
+historical_pre_2020,418090,Ragdoll Fists,2019-08-26,absent,,,2026-10-14T10:25:05Z
+recent_30d,25455,Little Ghost,2026-09-22,absent,,,2026-10-14T10:28:06Z
+recent_30d,247812,Crying Booth,2026-10-01,absent,,,2026-10-14T10:26:43Z
+recent_30d,251749,Doggy Don't Care,2026-09-24,absent,,,2026-10-14T10:26:44Z
+recent_30d,262799,Day Off Simulator,2026-09-19,absent,,,2026-10-14T10:29:10Z
+recent_30d,270967,Mystic Land: The search for Maphaldo,2026-10-01,absent,,,2026-10-14T10:24:14Z
+recent_30d,277846,EVE Vanguard,2026-09-30,absent,,,2026-10-14T10:28:26Z
+recent_30d,298096,Tomboy Adventure 2,2026-09-25,absent,,,2026-10-14T10:24:22Z
+recent_30d,326403,Hand Cooking Simulator: Multi-Chef,2026-09-15,absent,,,2026-10-14T10:26:42Z
+recent_30d,347850,Colorbound,2026-10-12,absent,,,2026-10-14T10:26:15Z
+recent_30d,348202,Aniimo,2026-09-16,usable,88.222222,12,2026-10-14T10:27:47Z
+recent_30d,348824,Wizzo PopOut,2026-09-29,absent,,,2026-10-14T10:23:59Z
+recent_30d,366369,Save Mom,2026-09-18,absent,,,2026-10-14T10:24:03Z
+recent_30d,366612,Souls Alive: Origins,2026-09-30,absent,,,2026-10-14T10:27:26Z
+recent_30d,377862,Drillbound,2026-10-08,absent,,,2026-10-14T10:27:04Z
+recent_30d,380760,Civics Scribble,2026-09-17,absent,,,2026-10-14T10:28:50Z
+recent_30d,387850,Brazilian Drug Dealer Before 4: Demons From the Portal to Hell I Opened Are Still in the Favela and Now I Have to Save Mamadas From Ronaldo,2026-09-16,absent,,,2026-10-14T10:26:54Z
+recent_30d,390248,WomboCombo,2026-09-18,absent,,,2026-10-14T10:29:04Z
+recent_30d,391018,All Roads Connected,2026-09-24,absent,,,2026-10-14T10:27:08Z
+recent_30d,391169,Night of the Living Bubble,2026-09-19,absent,,,2026-10-14T10:26:00Z
+recent_30d,398874,Driving Test Simulator,2026-09-16,absent,,,2026-10-14T10:24:16Z
+recent_30d,402203,The Last Camp: Dawn,2026-09-29,absent,,,2026-10-14T10:28:31Z
+recent_30d,404252,Meeple Incremental,2026-09-14,absent,,,2026-10-14T10:26:52Z
+recent_30d,404477,Tumblebee,2026-09-17,absent,,,2026-10-14T10:26:10Z
+recent_30d,405950,Monkey Bizniz,2026-10-12,absent,,,2026-10-14T10:29:14Z
+recent_30d,407720,Marie Android,2026-09-30,absent,,,2026-10-14T10:29:01Z
+recent_30d,408724,Sharehouse,2026-09-18,absent,,,2026-10-14T10:26:41Z
+recent_30d,411263,Train Station Tycoon,2026-10-01,absent,,,2026-10-14T10:27:51Z
+recent_30d,411431,Tower of Insolence,2026-09-30,absent,,,2026-10-14T10:24:15Z
+recent_30d,415000,Chill Drive Together,2026-09-17,absent,,,2026-10-14T10:25:13Z
+recent_30d,415612,Knightbane,2026-09-30,absent,,,2026-10-14T10:27:56Z
+recent_30d,415827,That Cloud Looks Like,2026-09-19,absent,,,2026-10-14T10:24:10Z
+recent_30d,416193,Starbase Tactics,2026-09-15,absent,,,2026-10-14T10:27:02Z
+recent_30d,416605,Thank You Bus Driver,2026-10-14,absent,,,2026-10-14T10:26:35Z
+recent_30d,416643,Gem Quest: Rush,2026-09-17,absent,,,2026-10-14T10:27:28Z
+recent_30d,417024,Brixonia,2026-09-17,absent,,,2026-10-14T10:27:16Z
+recent_30d,417034,Oath of Stigmata,2026-09-30,absent,,,2026-10-14T10:24:11Z
+recent_30d,417348,Cozy Farm: Tidy Up!,2026-09-25,absent,,,2026-10-14T10:24:09Z
+recent_30d,419887,Sort The Toys,2026-09-16,absent,,,2026-10-14T10:27:36Z
+recent_30d,420713,Canvas Puzzle,2026-10-01,absent,,,2026-10-14T10:28:44Z
+recent_30d,420743,Disconnected,2026-10-01,absent,,,2026-10-14T10:25:08Z
+released_2020_2024,55163,Resident Evil Village,2021-05-06,usable,83.909217,602,2026-10-14T10:27:30Z
+released_2020_2024,115491,Sail Forth,2022-12-21,usable,70.020848,9,2026-10-14T10:24:20Z
+released_2020_2024,119159,Fuga: Melodies of Steel,2021-07-28,usable,86.287984,21,2026-10-14T10:27:36Z
+released_2020_2024,132181,Resident Evil 4,2023-03-24,usable,90.441226,686,2026-10-14T10:27:42Z
+released_2020_2024,142185,Lost Lands: Redemption,2020-12-30,absent,,,2026-10-14T10:29:01Z
+released_2020_2024,145513,Populus Run,2021-01-29,absent,,,2026-10-14T10:28:25Z
+released_2020_2024,152033,Manafinder,2022-10-05,absent,,,2026-10-14T10:27:19Z
+released_2020_2024,175690,Wasteland Punk,2021-06-25,absent,,,2026-10-14T10:24:59Z
+released_2020_2024,192969,(Dis)assemble,2023-09-25,absent,,,2026-10-14T10:29:30Z
+released_2020_2024,204508,I am Future,2024-11-13,usable,49.285145,15,2026-10-14T10:28:28Z
+released_2020_2024,206806,Lorelei and the Laser Eyes,2024-05-16,usable,89.061758,26,2026-10-14T10:31:15Z
+released_2020_2024,220797,Sokobear: Cave,2022-11-11,absent,,,2026-10-14T10:29:16Z
+released_2020_2024,224619,Drug Dealer Simulator 2,2024-06-20,usable,62.002748,6,2026-10-14T10:26:46Z
+released_2020_2024,230797,Bugscraper,2022-08-25,absent,,,2026-10-14T10:25:01Z
+released_2020_2024,232718,"Buy the Game, I Have a Gun: Sheesh-Man",2023-01-29,absent,,,2026-10-14T10:27:34Z
+released_2020_2024,234734,Hopping Girl Kohane EX,2023-02-16,absent,,,2026-10-14T10:28:30Z
+released_2020_2024,237468,Another Shadow,2022-12-25,absent,,,2026-10-14T10:26:47Z
+released_2020_2024,244287,Once Alive,2024-11-18,usable,50.909091,5,2026-10-14T10:29:18Z
+released_2020_2024,259816,Dirt Bicycle Rider Simulator,2023-08-15,absent,,,2026-10-14T10:24:01Z
+released_2020_2024,262791,Clarity: The Seven Demons of Vanguardia,2024-10-09,absent,,,2026-10-14T10:26:50Z
+released_2020_2024,265641,WiZmans World ReTry,2024-05-30,absent,,,2026-10-14T10:28:16Z
+released_2020_2024,269032,Dong Wu: Odyssey,2024-10-30,absent,,,2026-10-14T10:25:02Z
+released_2020_2024,275392,No Case Should Remain Unsolved,2024-01-17,usable,71.150116,14,2026-10-14T10:28:19Z
+released_2020_2024,280628,The Monty Mole Collection,2023-12-18,absent,,,2026-10-14T10:28:11Z
+released_2020_2024,288487,Voidwrought,2024-10-24,usable,49.961259,6,2026-10-14T10:27:38Z
+released_2020_2024,300993,Risky Roads,2024-05-17,absent,,,2026-10-14T10:25:09Z
+released_2020_2024,303304,Murky Divers,2024-12-12,usable,66.431905,6,2026-10-14T10:27:27Z
+released_2020_2024,314136,Kong: Survivor Instinct,2024-10-22,usable,62.641398,8,2026-10-14T10:26:53Z
+released_2020_2024,388076,All Me Action Game,2020-04-23,absent,,,2026-10-14T10:29:23Z
+released_2020_2024,392152,Race Max Pro,2023-11-20,absent,,,2026-10-14T10:25:10Z
+released_2025_to_2026_09_13,241785,Poke All Toads,2026-03-20,absent,,,2026-10-14T10:28:34Z
+released_2025_to_2026_09_13,258013,Cthulhu's Reach: Devil Reef,2026-08-14,absent,,,2026-10-14T10:27:13Z
+released_2025_to_2026_09_13,258242,Sky Harvest,2026-01-23,absent,,,2026-10-14T10:24:00Z
+released_2025_to_2026_09_13,274802,Volkolak: The Will of Gods,2026-08-24,absent,,,2026-10-14T10:24:17Z
+released_2025_to_2026_09_13,278348,Vampires: Bloodlord Rising,2026-01-30,absent,,,2026-10-14T10:26:13Z
+released_2025_to_2026_09_13,307780,Magia y Demonios,2026-06-12,absent,,,2026-10-14T10:27:55Z
+released_2025_to_2026_09_13,312279,Kletka,2026-02-19,usable,60.894591,5,2026-10-14T10:25:56Z
+released_2025_to_2026_09_13,327408,Archwizard,2026-06-01,absent,,,2026-10-14T10:28:48Z
+released_2025_to_2026_09_13,334179,The Artifactory,2026-03-10,absent,,,2026-10-14T10:26:40Z
+released_2025_to_2026_09_13,337907,Demon Slayer: Kimetsu no Yaiba - The Hinokami Chronicles 2,2025-08-05,absent,,,2026-10-14T10:27:39Z
+released_2025_to_2026_09_13,339091,Impartial,2026-08-06,absent,,,2026-10-14T10:25:19Z
+released_2025_to_2026_09_13,346030,Gnaughty Gnomes,2026-03-03,absent,,,2026-10-14T10:27:54Z
+released_2025_to_2026_09_13,348997,Car Service Together,2026-02-04,absent,,,2026-10-14T10:26:45Z
+released_2025_to_2026_09_13,350089,Unknown: Foggins,2026-03-05,absent,,,2026-10-14T10:28:02Z
+released_2025_to_2026_09_13,355170,Bobo's Big Tower,2026-03-03,absent,,,2026-10-14T10:29:11Z
+released_2025_to_2026_09_13,361256,Darkodai,2026-09-11,absent,,,2026-10-14T10:27:48Z
+released_2025_to_2026_09_13,366390,Polyjump,2026-02-07,absent,,,2026-10-14T10:27:17Z
+released_2025_to_2026_09_13,372028,Baking Bad,2026-02-19,absent,,,2026-10-14T10:28:59Z
+released_2025_to_2026_09_13,372311,Carnedge,2026-01-19,absent,,,2026-10-14T10:27:23Z
+released_2025_to_2026_09_13,372804,Burgle Supply Company,2026-05-12,absent,,,2026-10-14T10:26:08Z
+released_2025_to_2026_09_13,372838,Deep Sheol,2026-09-11,absent,,,2026-10-14T10:26:14Z
+released_2025_to_2026_09_13,373936,Lead to Gold,2026-02-09,absent,,,2026-10-14T10:26:59Z
+released_2025_to_2026_09_13,380650,M.A.U.S,2025-12-04,absent,,,2026-10-14T10:25:04Z
+released_2025_to_2026_09_13,381237,Orbitals,2026-09-03,usable,85.183855,5,2026-10-14T10:25:59Z
+released_2025_to_2026_09_13,382606,Super Shout Showdown,2026-08-07,absent,,,2026-10-14T10:28:51Z
+released_2025_to_2026_09_13,382737,Static Voice,2026-01-14,absent,,,2026-10-14T10:28:41Z
+released_2025_to_2026_09_13,383466,Some of You May Die,2026-07-24,absent,,,2026-10-14T10:27:24Z
+released_2025_to_2026_09_13,383739,Weed Supermarket Simulator,2026-08-12,absent,,,2026-10-14T10:29:09Z
+released_2025_to_2026_09_13,384355,Forest Hustle,2026-01-09,absent,,,2026-10-14T10:27:49Z
+released_2025_to_2026_09_13,385923,Mochiko the Samurai,2026-04-10,absent,,,2026-10-14T10:24:02Z
+released_2025_to_2026_09_13,385948,Bit Breaker,2026-08-10,absent,,,2026-10-14T10:27:21Z
+released_2025_to_2026_09_13,387742,Jesus Simulator,2026-01-30,absent,,,2026-10-14T10:28:12Z
+released_2025_to_2026_09_13,390046,Gorotsuki Paradise,2026-07-07,absent,,,2026-10-14T10:29:17Z
+released_2025_to_2026_09_13,390694,Drifting Dots,2026-05-11,absent,,,2026-10-14T10:27:58Z
+released_2025_to_2026_09_13,391171,Shadows of War 2,2026-03-31,absent,,,2026-10-14T10:26:58Z
+released_2025_to_2026_09_13,391186,Tick Hop 2,2026-04-07,absent,,,2026-10-14T10:27:29Z
+released_2025_to_2026_09_13,391386,Chosen Garden,2026-03-12,absent,,,2026-10-14T10:27:07Z
+released_2025_to_2026_09_13,391578,Fly2k,2026-03-16,absent,,,2026-10-14T10:28:15Z
+released_2025_to_2026_09_13,391918,The Shore: Enhanced Edition,2026-04-30,absent,,,2026-10-14T10:28:00Z
+released_2025_to_2026_09_13,392099,Chicken TD: Defenders of the Coop,2026-05-31,absent,,,2026-10-14T10:27:31Z
+released_2025_to_2026_09_13,393233,Selective Memory,2026-02-21,absent,,,2026-10-14T10:27:01Z
+released_2025_to_2026_09_13,395564,Evo Defense,2026-01-11,absent,,,2026-10-14T10:25:55Z
+released_2025_to_2026_09_13,397810,Borderlands Mobile,2026-04-09,absent,,,2026-10-14T10:27:46Z
+released_2025_to_2026_09_13,397924,Intelligence,2026-04-08,absent,,,2026-10-14T10:28:32Z
+released_2025_to_2026_09_13,402122,Cthulhu: The Cosmic Abyss - R'lyeh Edition,2026-04-16,absent,,,2026-10-14T10:26:05Z
+released_2025_to_2026_09_13,402375,Nocturne,2026-05-08,absent,,,2026-10-14T10:29:06Z
+released_2025_to_2026_09_13,403983,Eldara,2026-09-02,absent,,,2026-10-14T10:29:05Z
+released_2025_to_2026_09_13,404428,Pick Ball,2026-08-06,absent,,,2026-10-14T10:23:55Z
+released_2025_to_2026_09_13,405891,Coloring Game: Girls 3,2026-04-24,absent,,,2026-10-14T10:26:12Z
+released_2025_to_2026_09_13,406707,Deep Soup,2026-04-18,absent,,,2026-10-14T10:27:12Z
+released_2025_to_2026_09_13,406893,The Obedience Experiment,2026-08-03,absent,,,2026-10-14T10:29:24Z
+released_2025_to_2026_09_13,407935,Find the Cats,2026-06-18,absent,,,2026-10-14T10:27:43Z
+released_2025_to_2026_09_13,408864,Mischief House,2026-08-01,absent,,,2026-10-14T10:26:51Z
+released_2025_to_2026_09_13,408962,Ganbaru Kimi to no Futari Gurashi: Iede Gal Icha Love Seikatsu SLG,2026-06-27,absent,,,2026-10-14T10:27:44Z
+released_2025_to_2026_09_13,409671,99% Can't Spot It! Common Sense Battle,2026-07-16,absent,,,2026-10-14T10:28:38Z
+released_2025_to_2026_09_13,409910,Nasubi,2026-06-28,absent,,,2026-10-14T10:24:08Z
+released_2025_to_2026_09_13,411491,Dino Jump Deluxe,2026-07-23,absent,,,2026-10-14T10:29:29Z
+released_2025_to_2026_09_13,411582,Space Bar,2026-07-30,absent,,,2026-10-14T10:27:40Z
+released_2025_to_2026_09_13,413767,Mile 27,2026-08-05,absent,,,2026-10-14T10:24:18Z
+released_2025_to_2026_09_13,414989,First Draft,2026-09-10,absent,,,2026-10-14T10:29:08Z
+remake_remaster_title,11169,Final Fantasy VII Remake,2020-04-10,usable,87.889036,500,2026-10-14T10:25:57Z
+remake_remaster_title,131927,Sin: Reloaded,2026-09-24,absent,,,2026-10-14T10:26:56Z
+remake_remaster_title,148227,Gothic 1 Remake,2026-06-05,usable,86.502308,33,2026-10-14T10:28:14Z
+remake_remaster_title,217552,Front Mission 3: Remake,2025-06-26,absent,,,2026-10-14T10:28:34Z
+remake_remaster_title,267306,The Elder Scrolls IV: Oblivion Remastered,2025-04-22,usable,67.784923,98,2026-10-14T10:28:43Z
+remake_remaster_title,280253,TableTop Soccer: Redux,2026-03-03,absent,,,2026-10-14T10:29:03Z
+remake_remaster_title,291874,Bleak Remastered,2026-12-31,absent,,,2026-10-14T10:27:50Z
+remake_remaster_title,349075,Bot Colony _redux,,absent,,,2026-10-14T10:24:07Z
+remake_remaster_title,361823,Outlaws + Handful of Missions: Remaster,2025-11-20,absent,,,2026-10-14T10:25:14Z
+remake_remaster_title,366890,Fatal Frame II: Crimson Butterfly Remake,2026-03-12,usable,80.000465,7,2026-10-14T10:25:58Z
+remake_remaster_title,369991,Dynasty Warriors 3: Complete Edition Remastered,2026-10-01,absent,,,2026-10-14T10:27:57Z
+remake_remaster_title,374967,Grayland Remastered,2025-10-23,absent,,,2026-10-14T10:28:36Z
+remake_remaster_title,378859,Tales of Berseria Remastered: Deluxe Edition,2026-02-27,absent,,,2026-10-14T10:25:20Z
+remake_remaster_title,382289,Cyndefense Remastered,2026-01-08,absent,,,2026-10-14T10:29:15Z
+remake_remaster_title,386209,Horror Tale: Remaster,2026-01-22,absent,,,2026-10-14T10:27:00Z
+remake_remaster_title,387683,Fatal Frame II: Crimson Butterfly Remake - Digital Deluxe Edition,2026-03-12,absent,,,2026-10-14T10:27:32Z
+remake_remaster_title,387763,Smile Remaster,2025-12-31,absent,,,2026-10-14T10:27:05Z
+remake_remaster_title,389423,Legacy of Kain: Defiance Remastered,2026-03-03,absent,,,2026-10-14T10:24:21Z
+remake_remaster_title,390498,Horror Tale 2: Remaster,2026-02-19,absent,,,2026-10-14T10:25:15Z
+remake_remaster_title,393441,The House of the Dead 2: Remake - Infect Edition,2025-11-07,absent,,,2026-10-14T10:26:28Z
+remake_remaster_title,397638,Anna Redux,2026-03-03,absent,,,2026-10-14T10:26:02Z
+remake_remaster_title,405044,1997 Reloaded,2026-06-04,absent,,,2026-10-14T10:26:34Z
+remake_remaster_title,408335,Arma: Cold War Assault Remastered,2026-07-16,absent,,,2026-10-14T10:28:55Z
+remake_remaster_title,408785,DVD Screensaver Simulator Rebirth Reimagined Definitive Reloaded Special Intergrade Ultimate HD Legacy Collection Remastered (2027 Edition),2026-07-15,absent,,,2026-10-14T10:28:07Z
+remake_remaster_title,409295,Tanky Tanks: Reloaded,2026-07-02,absent,,,2026-10-14T10:29:19Z
+remake_remaster_title,412552,Tom Clancy's Ghost Recon: Wildlands - Definitive Edition,2026-08-06,absent,,,2026-10-14T10:23:52Z
+remake_remaster_title,413311,Jonah Lomu Rugby Challenge 4 Remastered,2026-08-28,absent,,,2026-10-14T10:26:48Z
+remake_remaster_title,416469,Cozy Jigsaw HD,2026-09-01,absent,,,2026-10-14T10:29:29Z
+remake_remaster_title,416992,The Rhapsody of Zephyr Remastered,2026-09-18,absent,,,2026-10-14T10:26:11Z
+remake_remaster_title,417182,Dragon Quest Heroes: Torneko's Mystery Dungeon Classic HD,2026-09-09,absent,,,2026-10-14T10:28:33Z
+unknown_first_release,133447,Adrorium,,absent,,,2026-10-14T10:26:02Z
+unknown_first_release,210974,Ending Tau,,absent,,,2026-10-14T10:27:15Z
+unknown_first_release,347288,Gunny Ascend,,absent,,,2026-10-14T10:28:27Z
+unknown_first_release,358460,Horror Tales Eats The World,,absent,,,2026-10-14T10:27:20Z
+unknown_first_release,358582,Trade Anchor,,absent,,,2026-10-14T10:26:06Z
+unknown_first_release,376031,Ruin and Rebirth,,absent,,,2026-10-14T10:26:31Z
+unknown_first_release,387964,Breezevale,,absent,,,2026-10-14T10:28:08Z
+unknown_first_release,388241,Geocraft,,absent,,,2026-10-14T10:27:40Z
+unknown_first_release,390589,Daily Burden,,absent,,,2026-10-14T10:27:59Z
+unknown_first_release,391114,Santa's Legacy,,absent,,,2026-10-14T10:26:09Z
+unknown_first_release,397711,Deviled Dice,,absent,,,2026-10-14T10:23:56Z
+unknown_first_release,401511,Murdoku,,absent,,,2026-10-14T10:28:56Z
+unknown_first_release,404900,Voxenvale,,absent,,,2026-10-14T10:24:05Z
+unknown_first_release,406375,Teeny Quests,,absent,,,2026-10-14T10:28:13Z
+unknown_first_release,408996,Voidrel,,absent,,,2026-10-14T10:29:22Z
+unknown_first_release,409172,Dead Stadium: The Extinction Protocol,,absent,,,2026-10-14T10:23:57Z
+unknown_first_release,409697,Stoneheart Archive,,absent,,,2026-10-14T10:26:39Z
+unknown_first_release,418600,P--,,absent,,,2026-10-14T10:26:38Z
+unknown_first_release,420223,Apocalypse Intern,,absent,,,2026-10-14T10:29:25Z
+unknown_first_release,420791,Journey TD,,absent,,,2026-10-14T10:28:29Z
+upcoming,258341,Neo Junk City,2026-11-09,absent,,,2026-10-14T10:28:08Z
+upcoming,258775,Queen's Domain,2026-10-30,absent,,,2026-10-14T10:28:57Z
+upcoming,276990,Witchhammer,2026-10-30,absent,,,2026-10-14T10:28:22Z
+upcoming,292508,Reports from Vera Cruz,2026-12-31,absent,,,2026-10-14T10:26:49Z
+upcoming,312664,Dashoot: Abya's Adventure,2026-12-31,absent,,,2026-10-14T10:24:24Z
+upcoming,332402,Tape Us Out,2026-12-31,absent,,,2026-10-14T10:27:09Z
+upcoming,338318,Terror Type: A.L.C.H.E.M.Y.,2026-12-01,absent,,,2026-10-14T10:29:07Z
+upcoming,339805,Rain98,2026-12-31,absent,,,2026-10-14T10:28:09Z
+upcoming,339989,Do Not Play,2026-12-31,absent,,,2026-10-14T10:28:47Z
+upcoming,353364,Death and Tactics,2026-12-04,absent,,,2026-10-14T10:27:11Z
+upcoming,366850,TrailRail,2026-12-31,absent,,,2026-10-14T10:29:28Z
+upcoming,375006,B.O.D.E.,2026-12-31,absent,,,2026-10-14T10:28:45Z
+upcoming,376815,Slaughterhouse,2026-12-31,absent,,,2026-10-14T10:26:03Z
+upcoming,378426,Night Plane,2026-10-26,absent,,,2026-10-14T10:29:30Z
+upcoming,382365,Curse Chapter: Dawnthief,2026-12-31,absent,,,2026-10-14T10:27:33Z
+upcoming,382467,Fortune x World: Bokura ga Game wo Tsukuru Riyuu,2026-10-30,absent,,,2026-10-14T10:25:00Z
+upcoming,384793,The Other Order,2026-12-31,absent,,,2026-10-14T10:28:40Z
+upcoming,386477,I Can Offer You Flowers,2026-12-31,absent,,,2026-10-14T10:26:55Z
+upcoming,386758,Comeback,2026-12-31,absent,,,2026-10-14T10:27:39Z
+upcoming,390577,MioAquaria,2026-12-31,absent,,,2026-10-14T10:29:12Z
+upcoming,392633,Powerfuel,2026-11-13,absent,,,2026-10-14T10:28:54Z
+upcoming,392686,Topdeck Automat,2026-11-16,absent,,,2026-10-14T10:25:21Z
+upcoming,397823,CrackSword,2026-12-31,absent,,,2026-10-14T10:25:06Z
+upcoming,400042,Static Between Stations,2026-12-31,absent,,,2026-10-14T10:28:04Z
+upcoming,400236,BoomScroll,2026-12-31,absent,,,2026-10-14T10:25:17Z
+upcoming,400252,Last Floor,2026-10-26,absent,,,2026-10-14T10:28:24Z
+upcoming,400336,Red Chat Ritual: Tsumimi Time,2026-10-22,absent,,,2026-10-14T10:23:54Z
+upcoming,400494,Skatebound,2026-12-31,absent,,,2026-10-14T10:28:10Z
+upcoming,405520,Corrupted Dice,2026-12-31,absent,,,2026-10-14T10:26:36Z
+upcoming,405994,Omea,2026-12-31,absent,,,2026-10-14T10:23:58Z
+upcoming,406284,Pubes,2026-12-31,absent,,,2026-10-14T10:25:03Z
+upcoming,407598,Tileburg,2026-12-31,absent,,,2026-10-14T10:28:20Z
+upcoming,409993,Turbo Turkey,2026-11-25,absent,,,2026-10-14T10:24:23Z
+upcoming,412415,Hacking Into Erebus,2026-12-01,absent,,,2026-10-14T10:27:14Z
+upcoming,415080,Minato,2026-12-31,absent,,,2026-10-14T10:28:42Z
+upcoming,415649,Plum,2026-11-01,absent,,,2026-10-14T10:27:22Z
+upcoming,418300,Ame Nochi Hare Onna,2026-12-31,absent,,,2026-10-14T10:29:02Z
+upcoming,418547,The Sky Project: Land of Noris,2026-12-01,absent,,,2026-10-14T10:28:53Z
+upcoming,419239,Drum Incremental,2026-11-02,absent,,,2026-10-14T10:23:59Z
+upcoming,420341,Exit Liquidity,2026-12-31,absent,,,2026-10-14T10:29:26Z

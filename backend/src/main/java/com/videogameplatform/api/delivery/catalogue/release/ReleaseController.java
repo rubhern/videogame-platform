@@ -25,18 +25,21 @@ public class ReleaseController implements ReleasesApi {
     private final ConditionalRequestSupport conditionalRequests;
     private final ReleaseApiMetrics metrics;
     private final ReleaseHttpProperties properties;
+    private final DiscoveryScoresReader scores;
 
     public ReleaseController(
             BrowseReleasesUseCase useCase,
             ReleaseApiMapper mapper,
             ConditionalRequestSupport conditionalRequests,
             ReleaseApiMetrics metrics,
-            ReleaseHttpProperties properties) {
+            ReleaseHttpProperties properties,
+            DiscoveryScoresReader scores) {
         this.useCase = useCase;
         this.mapper = mapper;
         this.conditionalRequests = conditionalRequests;
         this.metrics = metrics;
         this.properties = properties;
+        this.scores = scores;
     }
 
     @Override
@@ -66,6 +69,14 @@ public class ReleaseController implements ReleasesApi {
                                 page,
                                 pageSize));
         ReleasePage body = mapper.toResponse(result);
+        var scoreBatch =
+                scores.read(
+                        body.getItems().stream()
+                                .map(
+                                        com.videogameplatform.api.generated.model.ReleaseItem
+                                                ::getGameId)
+                                .collect(java.util.stream.Collectors.toSet()));
+        body.getItems().forEach(item -> item.setScores(scoreBatch.get(item.getGameId())));
         String entityTag = conditionalRequests.strongEntityTag(body);
 
         HttpHeaders headers = new HttpHeaders();

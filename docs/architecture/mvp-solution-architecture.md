@@ -25,7 +25,8 @@ Browser
 Scheduled inbound adapter (opt-in) / Operator (exceptional management-port command)
   -> single catalogue synchronization use case
       -> IGDB adapter -> normalize/validate -> import or update
-          -> atomic current Game state, featured evidence + catalogue revision in PostgreSQL
+          -> atomic current Game state, featured evidence, external player score
+             + catalogue revision in PostgreSQL
               -> public reads, including the monthly featured releases (ADR-0021)
 
 External boundaries:
@@ -40,6 +41,14 @@ The first deployment is deliberately one application and one relational consiste
 boundary. This meets the journey and solo-operability needs without microservices,
 broker, distributed cache, search engine, multiple databases, service mesh, or
 Kubernetes.
+
+Discovery delivery (#255 phase 2, implemented; awaiting review) composes the public
+Catalogue external-score batch and Ratings community-summary batch for only the
+selected Game IDs. Each adapter executes one PostgreSQL query; filtering, ranking
+and pagination remain in their existing Catalogue read paths. Catalogue never
+reads Ratings persistence, and no user request calls the provider. Wire shapes
+remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
+[frontend guide](../development/frontend-design.md).
 
 ## Context and trust
 

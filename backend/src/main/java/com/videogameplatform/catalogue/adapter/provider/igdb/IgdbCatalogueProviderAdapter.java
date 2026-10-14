@@ -9,6 +9,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Provider
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderFailureCode;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderMappingFailure;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException;
+import com.videogameplatform.catalogue.domain.ExternalScore;
 import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy.ImageKind;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -283,6 +284,10 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
         if (details.isEmpty()) {
             failures.add(ProviderMappingFailure.DETAILS_INVALID);
         }
+        var playerScore = playerScore(game);
+        if (playerScore.isEmpty()) {
+            failures.add(ProviderMappingFailure.PLAYER_SCORE_INVALID);
+        }
         metrics.recordMappingFailures(failures);
 
         return new ProviderWork(
@@ -296,7 +301,33 @@ public final class IgdbCatalogueProviderAdapter implements CatalogueProviderPort
                 releases,
                 failures,
                 featured,
-                details);
+                details,
+                playerScore);
+    }
+
+    /**
+     * The IGDB user rating as the work's player score. The provider documents {@code rating} as
+     * the average rating of its users and {@code rating_count} as their number; the adapter declares
+     * the 0–100 scale its answers use. No pair, or zero ratings whatever the mean says, is the
+     * provider stating no usable score. A partial pair, a mean outside the scale or a count that is
+     * not a whole number is not evidence at all, so the Game keeps its last valid score.
+     */
+    private static Optional<ProviderPlayerScore> playerScore(IgdbGamePayload game) {
+        java.math.BigDecimal rating = game.rating();
+        java.math.BigDecimal count = game.ratingCount();
+        if ((rating == null && count == null) || (count != null && count.signum() == 0)) {
+            return Optional.of(ProviderPlayerScore.NONE);
+        }
+        if (rating == null || count == null) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(
+                    new ProviderPlayerScore(
+                            Optional.of(new ExternalScore(rating, count.longValueExact()))));
+        } catch (ArithmeticException | IllegalArgumentException invalid) {
+            return Optional.empty();
+        }
     }
 
     private static Optional<ProviderFeaturedEvidence> featuredEvidence(

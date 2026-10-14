@@ -19,7 +19,7 @@ ALTER ROLE videogame_grafana SET idle_in_transaction_session_timeout = '5s';
 GRANT CONNECT ON DATABASE videogame_platform TO videogame_grafana;
 GRANT USAGE ON SCHEMA catalogue, ratings, public TO videogame_grafana;
 GRANT SELECT ON catalogue.observability_inventory, catalogue.observability_release_quality,
-    catalogue.observability_runs, ratings.observability_summary,
+    catalogue.observability_runs, catalogue.observability_player_scores, ratings.observability_summary,
     ratings.observability_score_distribution, ratings.observability_game_rankings,
     public.observability_database TO videogame_grafana;
 COMMIT;

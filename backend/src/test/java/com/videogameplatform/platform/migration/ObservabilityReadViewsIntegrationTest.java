@@ -50,6 +50,21 @@ class ObservabilityReadViewsIntegrationTest {
             statement.execute(
                     "INSERT INTO catalogue.release_reconciliation(release_id,provider,last_reconciled_at) "
                             + "SELECT release_id,provider,TIMESTAMPTZ '2026-10-14 02:00:00Z' FROM catalogue.release_external_reference WHERE provider_id='observability-1'");
+            // One Game checked with a player score, one checked without one; the rest never
+            // checked.
+            statement.execute(
+                    "INSERT INTO catalogue.game_external_score(game_id,source_name,score_kind,score,score_count,source_url,observed_at,changed_at) "
+                            + "SELECT game_id,'IGDB','player',CASE WHEN rank=1 THEN 81.5 END,CASE WHEN rank=1 THEN 12 END,"
+                            + "'https://www.igdb.com/games/observability',TIMESTAMPTZ '2026-10-14 02:00:00Z',TIMESTAMPTZ '2026-10-14 02:00:00Z' "
+                            + "FROM (SELECT game_id,row_number() OVER (ORDER BY game_id) AS rank FROM catalogue.game_snapshot) g WHERE rank<=2");
+            // One retained run report carrying player-score counters.
+            statement.execute(
+                    "INSERT INTO catalogue.synchronization_run(run_id,provider,window_from,window_to,started_at,heartbeat_at,completed_at,run_status,outcome_code,report) "
+                            + "VALUES ('70000000-0000-4000-8000-000000000001','IGDB',DATE '2026-10-10',DATE '2026-10-13',"
+                            + "TIMESTAMPTZ '2026-10-14 02:00:00Z',TIMESTAMPTZ '2026-10-14 02:00:30Z',TIMESTAMPTZ '2026-10-14 02:01:00Z','succeeded','SYNCHRONIZATION_COMPLETED',"
+                            + "jsonb_build_object('counters',jsonb_build_object('playerScoreObservedGames',3,'playerScoreAbsentGames',92,"
+                            + "'playerScoreUnavailableGames',0,'playerScoreCreatedGames',3,'playerScoreUpdatedGames',0,"
+                            + "'playerScoreRemovedGames',0,'playerScoreUnchangedGames',0)))");
         }
         try (var connection =
                         DriverManager.getConnection(
@@ -72,10 +87,36 @@ class ObservabilityReadViewsIntegrationTest {
             }
             try (var result =
                     statement.executeQuery(
-                            "SELECT games,releases FROM catalogue.observability_inventory")) {
+                            "SELECT games,releases,player_score_checked_games,player_score_games FROM catalogue.observability_inventory")) {
                 result.next();
                 assertThat(result.getLong("games")).isEqualTo(12);
                 assertThat(result.getLong("releases")).isEqualTo(20);
+                // Never checked is not the same as checked without a score.
+                assertThat(result.getLong("player_score_checked_games")).isEqualTo(2);
+                assertThat(result.getLong("player_score_games")).isEqualTo(1);
+            }
+            try (var result =
+                    statement.executeQuery(
+                            "SELECT count(*) AS checked, count(*) FILTER (WHERE has_score) AS scored, "
+                                    + "max(score_count) AS max_count, min(observed_at) AS oldest_check "
+                                    + "FROM catalogue.observability_player_scores")) {
+                result.next();
+                assertThat(result.getLong("checked")).isEqualTo(2);
+                assertThat(result.getLong("scored")).isEqualTo(1);
+                assertThat(result.getLong("max_count")).isEqualTo(12);
+                assertThat(result.getTimestamp("oldest_check")).isNotNull();
+            }
+            try (var result =
+                    statement.executeQuery(
+                            "SELECT player_score_observed_games, player_score_absent_games, "
+                                    + "player_score_created_games, player_score_removed_games "
+                                    + "FROM catalogue.observability_runs WHERE player_score_observed_games IS NOT NULL")) {
+                result.next();
+                assertThat(result.getLong("player_score_observed_games")).isEqualTo(3);
+                assertThat(result.getLong("player_score_absent_games")).isEqualTo(92);
+                assertThat(result.getLong("player_score_created_games")).isEqualTo(3);
+                assertThat(result.getLong("player_score_removed_games")).isZero();
+                assertThat(result.next()).isFalse();
             }
             // The last recorded check is distinct from the last published change; none is invented.
             try (var result =
@@ -102,6 +143,11 @@ class ObservabilityReadViewsIntegrationTest {
                             () ->
                                     statement.executeQuery(
                                             "SELECT * FROM catalogue.release_reconciliation"))
+                    .isInstanceOf(SQLException.class);
+            assertThatThrownBy(
+                            () ->
+                                    statement.executeQuery(
+                                            "SELECT * FROM catalogue.game_external_score"))
                     .isInstanceOf(SQLException.class);
             // Privileges, not a session read-only default, are the enforcement boundary.
             statement.execute("SET default_transaction_read_only = off");

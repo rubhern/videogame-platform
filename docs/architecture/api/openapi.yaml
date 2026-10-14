@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.8.0
+  version: 3.9.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -66,7 +66,7 @@ paths:
           description: A deterministic page of bounded-catalogue games with their matching releases, possibly empty.
           headers:
             X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
-            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+            Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
             ETag: { $ref: '#/components/headers/PublicEntityTag' }
           content:
             application/json:
@@ -308,7 +308,7 @@ paths:
           description: The month's featured selection, possibly empty.
           headers:
             X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
-            Cache-Control: { $ref: '#/components/headers/PublicCacheControl' }
+            Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
             ETag: { $ref: '#/components/headers/PublicEntityTag' }
           content:
             application/json:
@@ -1277,6 +1277,11 @@ components:
       required: true
       schema: { $ref: '#/components/schemas/CorrelationId' }
       example: correlation-opaque
+    DiscoveryCacheControl:
+      required: true
+      description: Public discovery may be stored, but must revalidate before reuse so rating writes and external-score refresh/removal are reflected; no personal state.
+      schema: { type: string }
+      example: public, no-cache
     PublicCacheControl:
       description: Explicit public caching; exact freshness is deployment configuration.
       required: true
@@ -1640,6 +1645,7 @@ components:
         slug: { type: string, minLength: 1 }
         canonicalTitle: { type: string, minLength: 1 }
         primaryCover: { $ref: '#/components/schemas/Cover' }
+        scores: { $ref: '#/components/schemas/DiscoveryScores' }
         genres:
           type: array
           maxItems: 2
@@ -1759,6 +1765,7 @@ components:
         slug: { type: string, minLength: 1 }
         canonicalTitle: { type: string, minLength: 1 }
         primaryCover: { $ref: '#/components/schemas/Cover' }
+        scores: { $ref: '#/components/schemas/DiscoveryScores' }
         featuredImage: { $ref: '#/components/schemas/FeaturedImage' }
         logo: { $ref: '#/components/schemas/FeaturedLogo' }
         genres:
@@ -1779,6 +1786,40 @@ components:
           type: array
           minItems: 1
           items: { $ref: '#/components/schemas/Release' }
+    DiscoveryScores:
+      type: object
+      required: [community]
+      properties:
+        community: { $ref: '#/components/schemas/RatingSummary' }
+        external: { $ref: '#/components/schemas/ExternalPlayerScore' }
+      additionalProperties: false
+      description: |
+        Work-level sentiment composed from local PostgreSQL state for only the selected games.
+        Ratings owns the Gameómetro summary, including unavailable versus zero ratings.
+        Catalogue owns the optional external player score. Show each valid mean with a positive
+        count, including one vote; omit the visual block when neither has a usable score.
+        No blended score, confidence threshold, personal state or observation-age suppression.
+        Discovery validators include these values; cached responses must revalidate before reuse.
+    ExternalPlayerScore:
+      type: object
+      required: [source, kind, value, scale, count, attribution, observedAt]
+      properties:
+        source: { type: string, enum: [igdb] }
+        kind: { type: string, enum: [player] }
+        value: { type: number, minimum: 0, maximum: 10, multipleOf: 0.1 }
+        scale: { type: integer, minimum: 10, maximum: 10 }
+        count: { type: integer, format: int64, minimum: 1 }
+        attribution: { $ref: '#/components/schemas/Attribution' }
+        observedAt: { type: string, format: date-time }
+        providerRecordUpdatedAt: { type: string, format: date-time }
+      additionalProperties: false
+      description: |
+        Only the adopted external player sentiment. The source's persisted 0–100 decimal mean
+        is divided by ten and rounded half up to one decimal on the declared /10 display scale.
+        Zero is valid when count is positive; missing/invalid pairs are absent, never zero-filled.
+        Attribution links to this internal Game's source work, never another edition/remake.
+        observedAt is the last successful check, not an expiry. providerRecordUpdatedAt, when
+        present, describes the provider's Game record, never the score's own update time.
     FeaturedImage:
       description: |
         The landscape image of a featured game, chosen deterministically from image metadata

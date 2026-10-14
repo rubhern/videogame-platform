@@ -4,6 +4,7 @@ import {
   formatReleaseDate,
   formatReleaseDateShort,
 } from "../../shared/catalogue/release-date";
+import { toDiscoveryScores, type DiscoveryScore } from "./discovery-scores-model";
 import type { ReleasePage } from "./releases-api";
 import type { ReleaseView } from "./releases-search";
 
@@ -45,6 +46,7 @@ export type ReleaseContextGroup = {
 };
 
 export type ReleaseListItem = {
+  scores: DiscoveryScore[];
   gameId: string;
   slug: string;
   title: string;
@@ -189,6 +191,7 @@ export function toReleaseListItem(item: ReleaseItem): ReleaseListItem {
     .reduce((total, group) => total + group.releaseCount, 0);
   return {
     genres: (item.genres ?? []).slice(0, 2),
+    scores: toDiscoveryScores(item.scores),
     gameId: item.gameId,
     slug: item.slug,
     title: item.canonicalTitle,

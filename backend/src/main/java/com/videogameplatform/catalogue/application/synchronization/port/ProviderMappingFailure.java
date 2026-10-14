@@ -13,6 +13,12 @@ public enum ProviderMappingFailure {
      * valid details and is otherwise synchronized.
      */
     DETAILS_INVALID,
+    /**
+     * The player score and its rating count did not form one usable pair or a stated absence: a
+     * partial pair, a mean outside its declared scale or a count that is not a whole number. The
+     * Game keeps its last valid score and is otherwise synchronized.
+     */
+    PLAYER_SCORE_INVALID,
     /** Date value and precision did not form one valid closed variant (REL-003). */
     RELEASE_DATE_INVALID,
     /** The cover reference did not satisfy the approved ADR-0001 shape. */

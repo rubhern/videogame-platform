@@ -20,8 +20,13 @@ final class IgdbQueries {
     /** Genre and game-mode identity plus the descriptive fields that seed a product entity. */
     private static final String TERM_FIELDS = "id,name,slug";
 
+    /**
+     * Everything one Game request reads. Of the provider's scores only the player pair
+     * ({@code rating}, {@code rating_count}) is requested; critic and combined scores are not
+     * adopted, so they are never read.
+     */
     private static final String WORK_FIELDS =
-            "fields id,name,url,created_at,updated_at,hypes,first_release_date,version_parent,game_type.type,game_status.status,"
+            "fields id,name,url,created_at,updated_at,hypes,first_release_date,version_parent,rating,rating_count,game_type.type,game_status.status,"
                     + "cover.image_id,"
                     + nested("artworks", IMAGE_FIELDS + ",image_type.name")
                     + ","

@@ -46,6 +46,13 @@ class CataloguePersistenceConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.releases.port.ExternalPlayerScoresReadPort
+            externalPlayerScoresReadPort(CatalogueReadExecution execution) {
+        return new com.videogameplatform.catalogue.adapter.persistence.releases
+                .JdbcExternalPlayerScoresReadAdapter(execution.jdbcOperations());
+    }
+
+    @Bean
     ReleaseBrowseReadPort releaseBrowseReadPort(CatalogueReadExecution execution) {
         return new JdbcReleaseBrowseReadAdapter(
                 execution.jdbcOperations(), execution.readTransaction());

@@ -6,6 +6,7 @@ import { SelectIcon } from "../../shared/ui/select-icon";
 import { FeaturedArtFrame } from "./featured-art";
 import { CalendarIcon, SparkIcon } from "./featured-icons";
 import type { FeaturedLead } from "./featured-releases-view-model";
+import { DiscoveryScores } from "./discovery-scores";
 import { ReleaseOverflow } from "./release-overflow";
 
 type FeaturedHeroProps = {
@@ -19,7 +20,7 @@ function longestWord(text: string): number {
   return Math.max(...text.split(/\s+/u).map((word) => word.length));
 }
 
-/** The complete featured frame is one native link; release overflow sits outside it. */
+/** The title link spans the frame; source attribution and release overflow remain separate. */
 export function FeaturedHero({ lead }: FeaturedHeroProps) {
   const gamePath = `/games/${lead.gameId}/${lead.slug}`;
   const [primaryGroup, ...hiddenGroups] = lead.releaseGroups;
@@ -33,7 +34,7 @@ export function FeaturedHero({ lead }: FeaturedHeroProps) {
 
   return (
     <article aria-labelledby="featured-lead-title" className="featured-hero-section">
-      <Link aria-labelledby="featured-lead-title" className="featured-hero" style={style} to={gamePath}>
+      <div className="featured-hero" style={style}>
         <div aria-hidden="true" className="featured-hero-light" />
         <div className="featured-hero-visual">
           <FeaturedArtFrame art={lead.art} scale="hero" />
@@ -44,18 +45,20 @@ export function FeaturedHero({ lead }: FeaturedHeroProps) {
             Lanzamiento del mes
           </p>
           <h2 className="featured-hero-title" id="featured-lead-title">
-            <span className="featured-wordmark-main">
-              {wordmark.main}
+            <Link className="featured-hero-game-link" to={gamePath}>
+              <span className="featured-wordmark-main">
+                {wordmark.main}
+                {wordmark.sub === null ? null : (
+                  <span className="featured-wordmark-delimiter">{wordmark.delimiter}</span>
+                )}
+              </span>
               {wordmark.sub === null ? null : (
-                <span className="featured-wordmark-delimiter">{wordmark.delimiter}</span>
+                <>
+                  {" "}
+                  <span className="featured-wordmark-sub">{wordmark.sub}</span>
+                </>
               )}
-            </span>
-            {wordmark.sub === null ? null : (
-              <>
-                {" "}
-                <span className="featured-wordmark-sub">{wordmark.sub}</span>
-              </>
-            )}
+            </Link>
           </h2>
           {primaryGroup === undefined ? null : (
             <ul aria-label="Lanzamiento" className="featured-hero-meta">
@@ -102,6 +105,7 @@ export function FeaturedHero({ lead }: FeaturedHeroProps) {
               ))}
             </ul>
           )}
+          <DiscoveryScores scores={lead.scores} title={lead.title} layout="hero" />
           {lead.summary === null ? null : (
             <div className="featured-hero-description">
               <p className="featured-hero-summary" lang={lead.summary.language}>
@@ -117,7 +121,7 @@ export function FeaturedHero({ lead }: FeaturedHeroProps) {
             </ul>
           )}
         </div>
-      </Link>
+      </div>
       {lead.hiddenReleaseCount > 0 ? (
         <div className="featured-hero-overflow">
           <ReleaseOverflow
