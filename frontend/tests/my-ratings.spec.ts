@@ -119,6 +119,9 @@ test.describe("Mis puntuaciones", () => {
   test("the score opens its editor over the row without moving it, at every reference width", async ({
     page,
   }, testInfo) => {
+    // Four widths, each with an accessibility scan and a full-page capture, in one page: the
+    // geometry check relies on the scroll position each width leaves for the next.
+    test.slow();
     await page.emulateMedia({ reducedMotion: "reduce" });
     const backend = new ScriptedCollection(page);
     await backend.install();

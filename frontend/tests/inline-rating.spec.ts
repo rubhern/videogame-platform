@@ -161,6 +161,9 @@ async function openScale(page: Page) {
 test("anonymous pick, authentication return, automatic create, update and delete stay in game-page context", async ({
   page,
 }) => {
+  // One continuous journey (sign-in return, reload, three commands, accessibility scan) that a
+  // slow shared runner can stretch past the default budget; splitting it would lose the ETag chain.
+  test.slow();
   const backend = new ScriptedBackend(page);
   await backend.install();
   await page.goto(gamePath);
