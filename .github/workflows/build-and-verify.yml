@@ -280,6 +280,23 @@ jobs:
           bash scripts/validate-private-dev-runtime.sh
           bash scripts/validate-private-dev-runtime.sh --telemetry-smoke
 
+  runtime-alerts:
+    name: Private-dev alert rules and Grafana lifecycle
+    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    needs: detect-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate Promtool rules and the original-timing Grafana alert lifecycle
+        run: python3 deploy/private-dev/grafana/check-alerts.py --smoke
+
   runtime-logs:
     name: Private-dev structured log collection
     if: ${{ needs.detect-changes.outputs.container == 'true' }}
@@ -530,6 +547,7 @@ jobs:
       - identity-compatibility
       - container-image
       - runtime-telemetry
+      - runtime-alerts
       - runtime-logs
       - localization-image
       - backend
@@ -560,6 +578,7 @@ jobs:
           CONTAINER_EXPECTED: ${{ needs.detect-changes.outputs.container }}
           CONTAINER_IMAGE: ${{ needs.container-image.result }}
           RUNTIME_TELEMETRY: ${{ needs.runtime-telemetry.result }}
+          RUNTIME_ALERTS: ${{ needs.runtime-alerts.result }}
           RUNTIME_LOGS: ${{ needs.runtime-logs.result }}
           LOCALIZATION_IMAGE: ${{ needs.localization-image.result }}
           BACKEND_EXPECTED: ${{ needs.detect-changes.outputs.backend }}
@@ -579,6 +598,7 @@ jobs:
             identity-compatibility "$IDENTITY_EXPECTED" "$IDENTITY_COMPATIBILITY" \
             container-image "$CONTAINER_EXPECTED" "$CONTAINER_IMAGE" \
             runtime-telemetry "$CONTAINER_EXPECTED" "$RUNTIME_TELEMETRY" \
+            runtime-alerts "$CONTAINER_EXPECTED" "$RUNTIME_ALERTS" \
             runtime-logs "$CONTAINER_EXPECTED" "$RUNTIME_LOGS" \
             localization-image "$CONTAINER_EXPECTED" "$LOCALIZATION_IMAGE" \
             backend "$BACKEND_EXPECTED" "$BACKEND" \

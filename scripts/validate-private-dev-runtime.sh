@@ -517,8 +517,7 @@ if [[ "$telemetry_smoke" == true ]]; then
   fi
   python3 "$repository_root/scripts/private-dev-metrics-check.py" \
     --env-file "$runtime_env" --config "$temporary_directory/smoke.json" --synthetic
-  python3 "$repository_root/deploy/private-dev/grafana/check-alerts.py" --smoke
-  printf 'Initial bounded OTLP receipt and extended metrics/alerts smoke passed; initial signal contents were absent from Collector logs.\n'
+  printf 'Initial bounded OTLP receipt and extended metrics smoke passed; initial signal contents were absent from Collector logs.\n'
 fi
 
 if [[ "$live" == false ]]; then
