@@ -342,7 +342,12 @@ Test spoofed Host/forwarded values and exact redirect/logout origins. Preserve C
 principal ownership, secure cookies and production-only HSTS/CSP/referrer controls.
 Disabling or deleting an account must stop its new operations immediately, including
 through an already-open BFF session; a maximum session lifetime only bounds exposure
-and is not revocation.
+and is not revocation. The requirement fixes no mechanism: revocation must reach every
+store that can authenticate the account and verify its outcome, failing closed.
+[ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)
+selects direct invalidation of BFF sessions over a per-request database check; its
+operation stays on the application's private management interface, which production
+keeps on container loopback. Approved, not yet implemented.
 
 [Caddy automatic HTTPS](https://caddyserver.com/docs/automatic-https) requires
 correct DNS, reachable validation ports and persistent writable certificate state.
@@ -352,6 +357,32 @@ qualification. Docker NAT/published ports and host firewall must both be assesse
 on IPv4/IPv6; do not claim protection from an SSH/HTTP-only firewall screenshot.
 Private administration must work before opening the edge; provider console is a
 protected break-glass path.
+
+### Production realm contract
+
+**Prepared, not deployed (#274 phase 2).** The production identity policy is the
+[realm import](../../../deploy/public-production/keycloak/import/gameometro-realm.json)
+in its own directory, independent of the shared local/private-dev realm; #274 owns its
+content and [`validate-production-identity.sh`](../../../scripts/validate-production-identity.sh)
+proves it with disposable Keycloak and Mailpit. The
+[#274 research](../../research/public-release-rights-and-privacy.md#71-increment-1-production-realm-2026-10-15)
+records the reviewed policy and its limits. #275 owns its runtime integration:
+
+- Mount only `deploy/public-production/keycloak/import/`, read-only, as Keycloak's
+  import directory; never add the shared realm or the local user import to it.
+- Supply every `${…}` input the import names, plus the theme's `APPLICATION_PUBLIC_ORIGIN`
+  (`https://` and the same public host), from protected production files, and refuse to
+  start when one is empty: startup import keeps an unresolved placeholder literally.
+- Use the themed image built from the shared Dockerfile at a pinned identity; set the
+  canonical HTTPS hostname, proxy trust and TLS; keep `info` logging, the HTTP access
+  log off and no event listener added outside the realm.
+- Startup import applies only when the realm is absent. A later policy change needs a
+  reviewed apply step against the live realm, never a re-import over accounts.
+
+The approved realm name fixes the issuer path `/realms/gameometro`. The full issuer,
+the identity HTTPS origin plus that path, must be fixed before the first real account
+is created and must then stay stable: every rating is keyed by a `UserId` derived from
+it, so a changed issuer detaches all ratings from their accounts.
 
 ### Resource and work envelope (proposal, not capacity evidence)
 

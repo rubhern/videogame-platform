@@ -141,6 +141,11 @@ for path in "${changed_paths[@]}"; do
       enable identity browser backend
       matched=true
       ;;
+    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | deploy/public-production/keycloak/*)
+      # The production realm is proven only by the real Keycloak identity gate.
+      enable identity
+      matched=true
+      ;;
     backend/src/main/resources/db/dev-seed/*)
       # The packaged browser journey asserts the demonstration catalogue it browses.
       enable migrations backend browser

@@ -75,6 +75,11 @@ run_case password-recovery-journey \
   'frontend,browser,identity,codeql_javascript' \
   'backend,migrations,provider_fixtures,container,sonar'
 
+run_case production-identity \
+  $'deploy/public-production/keycloak/import/gameometro-realm.json\nscripts/validate-production-identity.sh\nscripts/test-production-realm.py\nscripts/test-production-identity-keycloak.py' \
+  'identity' \
+  'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
 run_case keycloak-mail-configuration \
   'scripts/test-keycloak-mail-configuration.py' \
   'identity,browser,backend' \

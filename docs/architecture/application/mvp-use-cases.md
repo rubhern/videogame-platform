@@ -303,7 +303,10 @@ general authentication consumes the context and returns to its safe product dest
 without automatically restarting authentication; a rating failure keeps its game
 outcome and never executes a command. Authenticated account navigation exposes only
 existing personal ratings and session logout. Logout preserves a public browsing
-context, or returns a personal/account page to the landing page.
+context, or returns a personal/account page to the landing page. **Approved, not yet
+implemented (#274, [ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)):** logout also ends that browser's Keycloak session
+through standard OIDC, so the next sign-in asks for credentials again; other devices
+and users keep their sessions.
 
 ## Common result and failure rules
 
