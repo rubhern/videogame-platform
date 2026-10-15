@@ -507,6 +507,12 @@ so they are written only by a `DEBUG` event that is off by default. Enabling it 
 shared environment is a reviewed, temporary exception. A failed OIDC login is one
 `WARN` with an allowlisted OAuth 2.0 error code or `other`.
 
+BFF session revocation: one `INFO` per management command with
+`identity.revocation.sessions` (the count) and `identity.revocation.settled`, or
+`identity.revocation.code=INVALID_USER_ID` for a rejected value. The `UserId`, the
+OIDC subject, session IDs and tokens never appear. No meter is added: revocation is a
+rare owner command whose evidence is its answer and this event.
+
 Catalogue synchronization (`CatalogueSynchronizationLog`):
 
 | Event                       | Level                                            | Bounded context                                                                                |
@@ -570,7 +576,10 @@ endpoints are open on that port because it is already private, they hold no
 cookie-authenticated session, and any state-changing request that a browser initiated
 from another site is rejected. Local direct execution binds that port to loopback;
 container profiles bind it only inside the private container network and do not
-publish it on the product port. Routine liveness/readiness probes do not emit
+publish it on the product port. Production keeps it on container loopback because
+`sessionrevocation` can sign any account out; the
+[platform design](../architecture/deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)
+owns that requirement. Routine liveness/readiness probes do not emit
 application access logs; their status remains available from Actuator.
 
 ## Catalogue localization

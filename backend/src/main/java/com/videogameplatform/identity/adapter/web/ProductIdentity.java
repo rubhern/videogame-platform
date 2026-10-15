@@ -17,9 +17,15 @@ public final class ProductIdentity {
     private ProductIdentity() {}
 
     public static Optional<UserId> resolve(Authentication authentication) {
-        if (authentication instanceof OAuth2AuthenticationToken token
-                && token.isAuthenticated()
-                && token.getPrincipal() instanceof OidcUser user
+        if (authentication instanceof OAuth2AuthenticationToken token && token.isAuthenticated()) {
+            return resolvePrincipal(token.getPrincipal());
+        }
+        return Optional.empty();
+    }
+
+    /** Resolves a principal as Spring Security's session registry recorded it at sign-in. */
+    public static Optional<UserId> resolvePrincipal(Object principal) {
+        if (principal instanceof OidcUser user
                 && user.getIssuer() != null
                 && user.getSubject() != null) {
             return Optional.of(

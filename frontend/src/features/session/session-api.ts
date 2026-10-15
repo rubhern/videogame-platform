@@ -39,3 +39,14 @@ export async function logout(
     throw new LogoutError();
   }
 }
+
+/** BFF navigation route that ends the browser's identity-provider session after `logout`. */
+export const LOGOUT_COMPLETION_PATH = "/auth/logout";
+
+/**
+ * Full document navigation through the BFF to the identity provider's logout and back to the
+ * application root, so the next sign-in on this browser asks for credentials again.
+ */
+export function completeLogout(): void {
+  window.location.assign(LOGOUT_COMPLETION_PATH);
+}

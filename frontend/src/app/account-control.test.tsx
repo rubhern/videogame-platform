@@ -78,6 +78,8 @@ describe("header account control", () => {
       );
     });
     vi.stubGlobal("fetch", fetchMock);
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
 
     renderControl();
 
@@ -108,6 +110,28 @@ describe("header account control", () => {
     await waitFor(() =>
       expect(screen.queryByText("Mi cuenta")).not.toBeInTheDocument(),
     );
+    // The browser then leaves through the BFF to end its identity-provider session too.
+    expect(assign).toHaveBeenCalledExactlyOnceWith("/auth/logout");
+  });
+
+  it("stays signed in and offers a retry when the logout command fails", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const request = input instanceof Request ? input : new Request(input);
+      return request.method === "POST"
+        ? new Response(null, { status: 403 })
+        : Response.json({ authenticated: true, csrfToken: "opaque-token" });
+    }));
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    renderControl();
+    const user = userEvent.setup();
+
+    await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
+    await user.click(screen.getByRole("button", { name: "Cerrar sesión" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo cerrar la sesión");
+    expect(screen.getByRole("button", { name: "Mi cuenta" })).toBeInTheDocument();
+    expect(assign).not.toHaveBeenCalled();
   });
 
   it("navigates to personal ratings from the dropdown", async () => {

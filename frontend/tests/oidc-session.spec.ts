@@ -86,7 +86,17 @@ test("real Keycloak smoke account establishes and terminates only an opaque BFF 
   }, authenticatedSession.csrfToken);
   expect(logoutStatus).toBe(204);
   expect(await sessionState(page)).toEqual({ authenticated: false });
+  // Only an unauthenticated carrier of the pending Keycloak logout remains until the browser
+  // completes it through the BFF, which then clears it and returns to the landing page.
+  expect((await context.cookies(applicationOrigin)).map((cookie) => cookie.value)).not.toContain(
+    sessionCookie?.value,
+  );
+  await page.goto("/auth/logout");
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  expect(await sessionState(page)).toEqual({ authenticated: false });
   expect(await context.cookies(applicationOrigin)).toEqual([]);
+  await page.goto("/auth/login/keycloak");
+  await expect(page.getByLabel("Usuario", { exact: true })).toBeVisible();
 });
 
 async function sessionState(page: import("@playwright/test").Page) {
@@ -104,7 +114,7 @@ async function sessionState(page: import("@playwright/test").Page) {
   });
 }
 
-test("account entry returns to the game without inventing a rating and logout preserves browsing", async ({ page }) => {
+test("account entry returns to the game without inventing a rating and logout signs out of Keycloak too", async ({ page }) => {
   const gamePath = "/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem?platformId=platform_ps5&regionId=region_europe";
   await page.goto(gamePath);
   await page.getByRole("link", { name: "Iniciar sesión", exact: true }).click();
@@ -119,8 +129,9 @@ test("account entry returns to the game without inventing a rating and logout pr
   await page.getByRole("button", { name: "Mi cuenta" }).click();
   await expect(page.getByRole("link", { name: "Mis puntuaciones", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  // Keycloak returns only to the realm's exact post-logout URI, the landing page.
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
   await expect(page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(gamePath.replace("?", "\\?")));
 });
 
 for (const width of [1320, 390, 320]) {

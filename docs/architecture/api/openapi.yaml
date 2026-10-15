@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.12.0
+  version: 3.13.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -910,15 +910,24 @@ paths:
       operationId: logoutSession
       summary: Terminate the current BFF session
       description: |
-        Invalidates the opaque application session. OAuth/OIDC tokens remain
-        server-side and are never returned in the response or redirect URL.
+        Invalidates the opaque application session immediately. To also end this
+        browser's identity-provider session, the client then navigates the top-level
+        browsing context to the `/auth/logout` authentication route: it redirects once
+        through the provider's standard OIDC end-session endpoint, which returns the
+        browser to the application root. Other sessions, including the same account's
+        on other devices, are unaffected. The response never contains a token; the
+        ended session's ID token travels only in that redirect, as the standard
+        `id_token_hint`. Without the navigation, only the application session ends.
       security:
         - sessionCookie: []
       parameters:
         - $ref: '#/components/parameters/CsrfToken'
       responses:
         '204':
-          description: The application session is no longer authenticated.
+          description: |
+            The application session is no longer authenticated. A fresh,
+            unauthenticated session cookie carries only the pending identity-provider
+            logout until `/auth/logout` consumes it.
           headers:
             X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
             Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -1160,7 +1169,9 @@ components:
         Opaque BFF cookie issued with `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`,
         and no `Domain` attribute. The loopback HTTP compatibility profile uses the
         unprefixed `vgp_session` name because browsers require `Secure` for
-        `__Host-` cookies. OAuth/OIDC tokens remain server-side.
+        `__Host-` cookies. OAuth/OIDC tokens remain server-side. An authenticated
+        session reads as anonymous from its next request once it is idle too long,
+        reaches its absolute lifetime counted from sign-in, or is revoked by an operator.
 
   parameters:
     GameIdPath:

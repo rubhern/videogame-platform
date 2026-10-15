@@ -667,6 +667,60 @@ configuration command are proven in the real identity gate. The workstation
 validation, end-to-end reset through the owner tunnel and reboot persistence on
 `vgpdev` are **not exercised**; record their first run in #273.
 
+## Account disable, session revocation and rating deletion
+
+Policy: [platform design](../architecture/deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)
+and [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md).
+**Disposable-gate evidence only (#274):** the real identity gate and backend
+integration tests prove every step below with synthetic accounts; it is **not
+exercised** on `vgpdev`. The deletion ledger, export and restore replay belong to a
+later #274 increment; until then record each run by hand: date, Keycloak user ID,
+`UserId`, both revocation counts, any restart and the remaining rating count. Never
+record email addresses or rating values.
+
+Keep the order: identity first, then the BFF sessions, then the data.
+
+1. Derive the product `UserId` from the exact `OIDC_ISSUER_URI` the application runs
+   with and the Keycloak user ID; an operator never trusts an identifier supplied by
+   the account holder:
+
+   ```bash
+   python3 -I -c 'import hashlib, sys, uuid; print(uuid.UUID(bytes=hashlib.md5(f"{sys.argv[1]}\n{sys.argv[2]}".encode()).digest(), version=3))' \
+     "<issuer>" "<keycloak-user-id>"
+   ```
+
+2. In Keycloak, disable or delete the user and sign it out of every Keycloak session
+   (user **Sessions → Sign out**, or the Admin API `POST …/users/<id>/logout`). No new
+   sign-in or pending code exchange can succeed after this.
+3. Revoke its BFF sessions from inside the application container, because the
+   management port is container-internal (private-dev form; production follows the
+   same contract):
+
+   ```bash
+   docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+     --file deploy/private-dev/compose.yaml --profile application \
+     exec application wget -q -O - --header 'Content-Type: application/json' \
+     --post-data '{"userId":"<UserId>"}' \
+     http://127.0.0.1:8081/actuator/sessionrevocation
+   ```
+
+   `200 {"revokedSessions":N}` means every active session of the account is expired
+   and no personal write by those sessions is running or can start. `400
+   INVALID_USER_ID` means the value is not a derived `UserId`; fix it, never accept a
+   zero from a mistyped value. A `503 SESSION_REVOCATION_NOT_SETTLED`, a failed call or
+   any doubt means the guarantee is missing: restart the application (every user is
+   signed out) and record it before continuing.
+4. Repeat step 3 and expect `{"revokedSessions":0}`.
+5. Only then delete the account's ratings in the product database with the runtime
+   role, `DELETE FROM ratings.rating WHERE user_id = '<UserId>'`, and verify that
+   `SELECT count(*) FROM ratings.rating WHERE user_id = '<UserId>'` returns `0`. Public
+   aggregates read ratings at request time, so nothing else is recomputed.
+6. For an erasure, delete the Keycloak user last, if step 2 only disabled it.
+
+Re-enabling a disabled account later needs nothing in the application: its next
+sign-in creates a new session. A restart is always a valid fallback for step 3,
+because BFF sessions live only in the application's memory.
+
 ## Not covered
 
 Real owner Telegram delivery remains unverified; use the [reviewed procedure](#telegram-delivery)

@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createProductApiClient } from "../../shared/api/product-api-client";
-import { getSession, logout, LogoutError } from "./session-api";
+import { completeLogout, getSession, logout, LogoutError } from "./session-api";
+
+afterEach(() => vi.unstubAllGlobals());
 
 function client(fetchMock: typeof fetch) {
   return createProductApiClient({
@@ -56,5 +58,14 @@ describe("session API", () => {
     await expect(logout("stale-token", client(fetchMock))).rejects.toBeInstanceOf(
       LogoutError,
     );
+  });
+
+  it("completes logout through the BFF navigation route, never with a token", () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+
+    completeLogout();
+
+    expect(assign).toHaveBeenCalledExactlyOnceWith("/auth/logout");
   });
 });

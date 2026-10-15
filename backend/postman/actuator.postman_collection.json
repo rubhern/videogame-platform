@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "b4809a0d-07fe-4eb3-b232-491bb0759df3",
     "name": "VideoGame Platform Backend - Actuator",
-    "description": "Read-only operational checks for the Spring Boot Actuator endpoints exposed by the backend, plus the internal catalogue-synchronization operator command exercised in its safe credential-free form. Select the VideoGame Platform - Local environment before running the collection.",
+    "description": "Read-only operational checks for the Spring Boot Actuator endpoints exposed by the backend, plus the internal catalogue-synchronization operator command exercised in its safe credential-free form and the BFF session-revocation command exercised with a synthetic identifier that has no session. Select the VideoGame Platform - Local environment before running the collection.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -23,7 +23,7 @@
                   "pm.test(\"Response exposes only the expected resource links\", function () {",
                   "    const body = pm.response.json();",
                   "    pm.expect(body).to.have.property(\"_links\");",
-                  "    pm.expect(body._links).to.have.all.keys(\"self\", \"health\", \"health-path\", \"info\", \"metrics\", \"metrics-requiredMetricName\", \"cataloguesync\");",
+                  "    pm.expect(body._links).to.have.all.keys(\"self\", \"health\", \"health-path\", \"info\", \"metrics\", \"metrics-requiredMetricName\", \"cataloguesync\", \"releasestagerepair\", \"cataloguelocalize\", \"sessionrevocation\");",
                   "});"
                 ],
                 "type": "text/javascript",
@@ -511,6 +511,115 @@
               ]
             },
             "description": "Synchronize the complete inclusive date interval; without configured credentials no state changes."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Session revocation",
+      "item": [
+        {
+          "name": "Revoke the BFF sessions of an account without sessions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Answers only the count; a repeat is the verification and stays zero\", function () {",
+                  "    pm.expect(pm.response.json()).to.eql({ revokedSessions: 0 });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\":\"b2a16d5b-54cd-3847-a590-722d16f8f000\"}"
+            },
+            "url": {
+              "raw": "{{managementBaseUrl}}/actuator/sessionrevocation",
+              "host": [
+                "{{managementBaseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "sessionrevocation"
+              ]
+            },
+            "description": "Owner procedure step (ADR-0027): expires every active BFF session of one derived UserId and returns how many. The body holds a synthetic UserId with no session, so nothing changes. Derive real values as the operations runbook describes; never track one here."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a value that is not a derived UserId",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Stable code without echoing the input\", function () {",
+                  "    pm.expect(pm.response.json()).to.eql({ code: \"INVALID_USER_ID\" });",
+                  "});"
+                ],
+                "type": "text/javascript",
+                "packages": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"userId\":\"not-a-user\"}"
+            },
+            "url": {
+              "raw": "{{managementBaseUrl}}/actuator/sessionrevocation",
+              "host": [
+                "{{managementBaseUrl}}"
+              ],
+              "path": [
+                "actuator",
+                "sessionrevocation"
+              ]
+            },
+            "description": "Only canonical name-based UserIds are accepted, so a mistyped value cannot report a misleading zero."
           },
           "response": []
         }
