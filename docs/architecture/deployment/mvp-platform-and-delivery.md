@@ -328,6 +328,9 @@ headers, trust only the proxy and restrict backend access; see
 production proxy peer/network rather than copying the private-dev loopback trust.
 Test spoofed Host/forwarded values and exact redirect/logout origins. Preserve CSRF,
 principal ownership, secure cookies and production-only HSTS/CSP/referrer controls.
+Disabling or deleting an account must stop its new operations immediately, including
+through an already-open BFF session; a maximum session lifetime only bounds exposure
+and is not revocation.
 
 [Caddy automatic HTTPS](https://caddyserver.com/docs/automatic-https) requires
 correct DNS, reachable validation ports and persistent writable certificate state.
@@ -388,7 +391,8 @@ from private-dev fixtures or database cloning.
 
 Start from forward migrations, an independently configured realm and fresh local
 catalogue synchronization after provider acceptance. Production registration/email
-policy must satisfy [release readiness](../../research/public-production-topology.md#identity-and-abuse-findings-from-the-repository).
+policy must satisfy [release readiness](../../research/public-production-topology.md#identity-and-abuse-findings-from-the-repository)
+and the [owner-approved account baseline](../../product/product-brief.md#public-release-and-sustainability).
 Seed no local users; an isolated, non-personal deployment-smoke account requires
 separate credentials/lifecycle and does not prove real email delivery.
 
@@ -396,7 +400,8 @@ Reuse logical dumps encrypted to the owner's public key, checksummed manifests,
 bounded retention and isolated restore. Proposed initial recovery objectives for
 owner acceptance are **RPO <=24 hours for the last verified off-host pair** and
 **RTO <=48 hours after incident detection**; neither is measured or a commercial SLA.
-Propose seven daily copies plus one weekly copy for four weeks. Size the independent
+Backup history, off-host copies included, is owner-limited to **35 days** (#274);
+propose seven daily copies plus one weekly copy for four weeks. Size the independent
 destination and prove the scheduled copy/check cadence; a dump left on the VPS is
 not a backup against host/account loss. Failure/age must reach the owner through a
 tested private channel. If this cannot operate within the budget, do not open accounts.
@@ -405,8 +410,11 @@ Two per-database dumps do not create one cross-database transaction. Quiesce rat
 writes and registration/identity mutation while capturing the pair, verify the
 application-principal/Keycloak relationship on isolated restore, and record the
 common recovery point. Restoration must reapply post-backup deletion requests before
-reopening and invalidate old sessions as appropriate. Preserve only the minimum
-protected deletion ledger needed for that bounded backup window. Roles/secrets are
+reopening and invalidate old sessions as appropriate. Keep a minimal protected deletion
+ledger outside both databases and the VPS while any backup able to restore the deleted
+data exists; replay it idempotently and verify the result before reopening. The
+[#274 research](../../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion)
+holds the proposed procedure. Roles/secrets are
 reconstructed separately. Provider snapshots can aid rollback but cannot replace
 independent, encrypted, tested recovery. Rehearse host-loss reconstruction privately
 before public acceptance; measure achieved RPO/RTO and record limitations.

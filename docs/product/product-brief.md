@@ -202,6 +202,19 @@ owns the technical proposal and environment boundaries; the
 separates permission to contract from permission to expose. Best effort does not
 waive personal-data protection, account recovery, provider rights or security.
 
+**Owner-approved public account baseline (#274), unbuilt:** accounts are for adults
+(18+) by explicit declaration, without collecting a birth date or identity document;
+email is the sign-in identifier and names are not required. The owner, a natural
+person, is the data controller, with a dedicated public identity and contact email;
+whether LSSI also requires a postal address or tax ID is settled before publication.
+Accounts and ratings are kept until deleted unless a legal obligation applies. Access,
+export, rectification and deletion use manual administrative procedures; no privacy
+portal is built for launch. Provider content of uncertain authorization (translations,
+decorative images, IGDB scores) is verified before exposure, otherwise replaced by
+originals or disabled; private-dev keeps its current behaviour. The
+[#274 research](../research/public-release-rights-and-privacy.md) records evidence,
+legal uncertainties and remaining gates.
+
 Commercial sustainability is exploratory. A plausible initial goal is a small
 community of real users and modest, non-intrusive monetization that offsets basic
 operating costs while preserving a clean, low-friction experience. This is not

@@ -368,11 +368,13 @@ or retained traces. The [platform target](../architecture/deployment/mvp-platfor
 owns topology/resource budgets. No private-dev collector configuration is modified.
 
 Start with seven days / 512 MiB of Prometheus history, including bounded label sets;
-WAL/head/compaction need extra disk, so this is not a filesystem quota. Propose at
-most seven days or 100 MiB per service of diagnostic logs, whichever expires first,
-with an enforced age/rotation procedure. Ordinary byte rotation alone does not
-implement age deletion. Disable detailed identity events/edge access logging by
-default; retain only necessary redacted outcomes. Do not collect tokens, cookies,
+WAL/head/compaction need extra disk, so this is not a filesystem quota. Diagnostic
+logs are owner-limited to seven days (#274); propose at most 100 MiB per service as
+well, whichever expires first, with an enforced age/rotation procedure. Ordinary byte
+rotation alone does not implement age deletion. Disable detailed identity events/edge
+access logging by default; retain only necessary redacted outcomes. Keycloak's default
+event logging writes the username and IP of failed logins, so production configures
+it explicitly. Do not collect tokens, cookies,
 email/name, raw IP, full URLs/query strings or rating-owner IDs. If a security
 investigation requires exceptional personal metadata, record purpose/access/expiry
 separately and keep it out of metrics. Never send real account data to public GitHub
