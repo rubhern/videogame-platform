@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
 import { GameGenres } from "../../shared/catalogue/game-genres";
+import { DiscoveryScores } from "../../shared/score/discovery-scores";
+import { toDiscoveryScores } from "../../shared/score/discovery-scores-model";
 import { GameMeter } from "../../shared/score/game-meter";
 import { thermalBand, thermalLabels } from "../../shared/score/thermal-band";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
@@ -55,9 +57,10 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
   const deleteButton = useRef<HTMLButtonElement>(null);
   const keepButton = useRef<HTMLButtonElement>(null);
   const command = useRatingCommand(item.game.gameId);
-  const { game, personalRating, ratingSummary } = item;
-  const community = ratingSummary && "mean" in ratingSummary ? ratingSummary : null;
-  const communityBand = community?.mean == null ? null : thermalBand(community.mean);
+  const { game, personalRating, ratingSummary, externalScore } = item;
+  // The same readings as discovery and search cards: only valid sources, never an invented one.
+  const scores = toDiscoveryScores(ratingSummary === undefined ? undefined
+    : { community: ratingSummary, ...(externalScore === undefined ? {} : { external: externalScore }) });
   const createdDate = formatDate(personalRating.createdAt);
   const updatedDate = formatDate(personalRating.updatedAt);
   const current = personalRating.value;
@@ -152,13 +155,13 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
     <div className="my-rating-body">
       <h2 className="card-title" id={id}><Link to={path}>{game.canonicalTitle}</Link></h2>
       <GameGenres genres={game.genres} />
+      <DiscoveryScores scores={scores} title={game.canonicalTitle} />
       <p className="my-rating-dates">
         {createdDate === updatedDate ? <>Puntuado el <time dateTime={personalRating.createdAt}>{createdDate}</time></>
           : <>Actualizado el <time dateTime={personalRating.updatedAt}>{updatedDate}</time>
             <span> · Puntuado el <time dateTime={personalRating.createdAt}>{createdDate}</time></span></>}
       </p>
     </div>
-    <div className="my-rating-comparison">
     <div className="my-rating-score" onBlur={(event) => {
       const next = event.relatedTarget;
       if (open && next instanceof Node && !event.currentTarget.contains(next)) close(false);
@@ -219,17 +222,6 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
           </div> : null}
         </div>
       </div> : null}
-    </div>
-    <div className="my-rating-community" data-thermal={communityBand ?? undefined} aria-label="Comunidad">
-      <GameMeter className="my-rating-meter" value={community?.mean ?? null} />
-      <p className="my-rating-label">Comunidad {communityBand ? <b>{thermalLabels[communityBand]}</b> : null}</p>
-      {community === null ? <p className="my-rating-community-empty">No disponible</p>
-        : community.mean === null ? <p className="my-rating-community-empty">Sin puntuaciones</p>
-          : <>
-            <strong>{new Intl.NumberFormat("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(community.mean)}/10</strong>
-            <p className="my-rating-community-count">{new Intl.NumberFormat("es-ES").format(community.count)} {community.count === 1 ? "puntuación" : "puntuaciones"}</p>
-          </>}
-    </div>
     </div>
   </article>;
 }

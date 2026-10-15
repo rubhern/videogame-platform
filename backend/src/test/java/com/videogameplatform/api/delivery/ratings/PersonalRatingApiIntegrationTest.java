@@ -1,6 +1,10 @@
 package com.videogameplatform.api.delivery.ratings;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anySet;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -11,12 +15,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.videogameplatform.api.delivery.OpenApiResponseContract;
+import com.videogameplatform.catalogue.application.releases.port.ExternalPlayerScoresReadPort;
 import com.videogameplatform.identity.domain.UserId;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,6 +47,7 @@ import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequ
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import tools.jackson.databind.JsonNode;
@@ -435,6 +442,68 @@ class PersonalRatingApiIntegrationTest {
         mockMvc.perform(get("/api/v1/me/ratings").with(login(BOB)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items").isEmpty());
+    }
+
+    @MockitoSpyBean ExternalPlayerScoresReadPort externalScores;
+
+    @Test
+    void listingAddsOnlyThePagesOwnExternalPlayerScoresInOneBatch() throws Exception {
+        create(ALICE, 7);
+        UUID second = addListedGame("Second rated game", 4);
+        UUID unrated = UUID.randomUUID();
+        admin.update("INSERT INTO catalogue.game(game_id,created_at) VALUES (?,now())", unrated);
+        externalScore(game, "87.5", 1L);
+        externalScore(second, null, null);
+        externalScore(unrated, "100", 50L);
+        clearInvocations(externalScores);
+        var response =
+                mockMvc.perform(
+                                get("/api/v1/me/ratings")
+                                        .with(login(ALICE))
+                                        .param("sort", "canonicalTitle")
+                                        .param("direction", "desc"))
+                        .andExpect(status().isOk())
+                        .andExpect(header().string("Cache-Control", "no-store"))
+                        .andExpect(jsonPath("$.items.length()").value(2))
+                        .andExpect(jsonPath("$.items[0].game.gameId").value(second.toString()))
+                        .andExpect(jsonPath("$.items[0].externalScore").doesNotExist())
+                        .andExpect(jsonPath("$.items[1].game.gameId").value(game.toString()))
+                        .andExpect(jsonPath("$.items[1].personalRating.value").value(7))
+                        .andExpect(jsonPath("$.items[1].ratingSummary.mean").value(7.0))
+                        .andExpect(jsonPath("$.items[1].ratingSummary.count").value(1))
+                        .andExpect(jsonPath("$.items[1].externalScore.source").value("igdb"))
+                        .andExpect(jsonPath("$.items[1].externalScore.kind").value("player"))
+                        .andExpect(jsonPath("$.items[1].externalScore.value").value(8.8))
+                        .andExpect(jsonPath("$.items[1].externalScore.scale").value(10))
+                        .andExpect(jsonPath("$.items[1].externalScore.count").value(1))
+                        .andExpect(
+                                jsonPath("$.items[1].externalScore.attribution.label")
+                                        .value("Jugadores IGDB"))
+                        .andExpect(
+                                jsonPath("$.items[1].externalScore.attribution.sourceUrl")
+                                        .value("https://www.igdb.com/games/rated-" + game))
+                        .andReturn();
+        OpenApiResponseContract.load("/me/ratings")
+                .assertJsonResponse(response.getResponse(), 200, "PersonalRatingPage");
+        // One batch for exactly the user-scoped page, never the unrated Game's score.
+        verify(externalScores, times(1)).read(anySet());
+        verify(externalScores).read(Set.of(game.toString(), second.toString()));
+        mockMvc.perform(get("/api/v1/me/ratings").with(login(BOB)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items").isEmpty());
+    }
+
+    private void externalScore(UUID target, String score, Long count) {
+        admin.update(
+                """
+                INSERT INTO catalogue.game_external_score(game_id, source_name, score_kind, score,
+                    score_count, source_url, observed_at, changed_at)
+                VALUES (?, 'IGDB', 'player', ?::numeric, ?, ?, now(), now())
+                """,
+                target,
+                score,
+                count,
+                "https://www.igdb.com/games/rated-" + target);
     }
 
     @Autowired RatingApiMapper mapper;

@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.11.0
+  version: 3.12.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -937,7 +937,8 @@ paths:
         case- and diacritic-insensitive all-token word-prefix rules for canonical titles
         and approved aliases. Every sort ends with gameId ascending as its unique
         tie-breaker. Each item's entityTag is the current strong rating validator for
-        conditional update and delete; it is not a collection cache validator.
+        conditional update and delete; it is not a collection cache validator. Community
+        and external scores are read afterwards for only the selected page's Games.
       security:
         - sessionCookie: []
       parameters:
@@ -976,6 +977,17 @@ paths:
                           createdAt: '2026-07-20T10:15:30Z'
                           updatedAt: '2026-07-30T10:15:30Z'
                           entityTag: '"rating-version-opaque"'
+                        ratingSummary: { status: available, mean: 8.4, count: 17 }
+                        externalScore:
+                          source: igdb
+                          kind: player
+                          value: 7.8
+                          scale: 10
+                          count: 23
+                          attribution:
+                            label: Jugadores IGDB
+                            sourceUrl: https://www.igdb.com/games/example-game
+                          observedAt: '2026-07-30T08:00:00Z'
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 empty:
                   value:
@@ -2134,6 +2146,12 @@ components:
         ratingSummary:
           $ref: '#/components/schemas/RatingSummary'
           description: Community context for this game, returned with the user-scoped page without per-game browser requests. An isolated aggregate failure preserves the personal collection with explicit unavailable statistics.
+        externalScore:
+          $ref: '#/components/schemas/ExternalPlayerScore'
+          description: |
+            Catalogue's current player score for this Game, with the discovery semantics: absent
+            without a valid pair, never zero-filled, and never blended with `ratingSummary` or
+            the personal rating.
     PersonalRatingPage:
       type: object
       required: [items, page]

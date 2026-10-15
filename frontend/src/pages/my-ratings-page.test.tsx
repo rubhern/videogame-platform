@@ -12,6 +12,9 @@ function page(value = rating, total = 1, number = 1) {
   return { items: total ? [{ game, personalRating: value }] : [],
     page: { number, size: 10, totalItems: total, totalPages: Math.ceil(total / 10) } };
 }
+const igdb = { source: "igdb", kind: "player", value: 7.8, scale: 10, count: 23,
+  attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/elite-dangerous" },
+  observedAt: "2026-08-01T10:00:00Z" };
 const stats = { status: "available", mean: 9, count: 1,
   distribution: { "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7": 0, "8": 0, "9": 1, "10": 0 } };
 
@@ -41,20 +44,34 @@ async function openEditor() {
 }
 
 describe("Mis puntuaciones", () => {
-  it("compares the editable personal reading with read-only community and only two genres, without detail requests", async () => {
+  it("keeps the editable personal reading apart from the shared community and IGDB readings, without detail requests", async () => {
     const extras = { summary: { text: "Hidden summary" }, developers: [{ name: "Hidden developer" }], publishers: [{ name: "Hidden publisher" }], gameModes: [{ name: "Hidden mode" }], releases: [{ platform: { name: "Hidden platform" } }] };
     const fetchMock = stub(() => Response.json({ ...page(), items: [
-      { game: { ...game, ...extras, genres: [{ genreId: "rpg", name: "Rol" }, { genreId: "adventure", name: "Aventura" }, { genreId: "hidden", name: "Hidden genre" }] }, personalRating: rating, ratingSummary: { status: "available", mean: 8.2, count: 1247 } },
+      { game: { ...game, ...extras, genres: [{ genreId: "rpg", name: "Rol" }, { genreId: "adventure", name: "Aventura" }, { genreId: "hidden", name: "Hidden genre" }] }, personalRating: rating,
+        ratingSummary: { status: "available", mean: 8.2, count: 1247 }, externalScore: igdb },
       { game: { ...game, gameId: "game-2", canonicalTitle: "Second game" }, personalRating: { ...rating, gameId: "game-2" }, ratingSummary: { status: "available", mean: null, count: 0 } },
-      { game: { ...game, gameId: "game-3", canonicalTitle: "Third game" }, personalRating: { ...rating, gameId: "game-3" }, ratingSummary: { status: "unavailable", reasonCode: "RATING_STATISTICS_READ_FAILED" } },
+      { game: { ...game, gameId: "game-3", canonicalTitle: "Third game" }, personalRating: { ...rating, gameId: "game-3" },
+        ratingSummary: { status: "unavailable", reasonCode: "RATING_STATISTICS_READ_FAILED" }, externalScore: { ...igdb, value: 0, count: 1 } },
+      { game: { ...game, gameId: "game-4", canonicalTitle: "Fourth game" }, personalRating: { ...rating, gameId: "game-4" },
+        ratingSummary: { status: "available", mean: 6, count: 1 }, externalScore: { ...igdb, count: 0 } },
     ] }));
     renderApp("/mis-puntuaciones");
     const card = await screen.findByRole("article", { name: "Élite Dangerous" });
     expect(within(card).getByLabelText("Géneros: Rol · Aventura")).toBeVisible();
     expect(within(card).getByRole("button", { name: /^Tu puntuación Caliente 7\/10/ })).toBeVisible();
-    const community = within(card).getByLabelText("Comunidad");
-    expect(community).toHaveTextContent("Comunidad Ardiendo8,2/101247 puntuaciones");
-    expect(within(community).queryByRole("button")).not.toBeInTheDocument();
+    // The discovery readings: both sources, their /10 means and exact accessible counts.
+    const scores = within(card).getByRole("list", { name: "Puntuaciones de Élite Dangerous" });
+    expect(within(scores).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(scores).getByLabelText("8,2 de 10")).toBeVisible();
+    expect(within(scores).getByLabelText("7,8 de 10")).toBeVisible();
+    expect(within(scores).getByText("1.247 valoraciones")).toBeInTheDocument();
+    expect(within(scores).getByText("23 valoraciones")).toBeInTheDocument();
+    expect(within(scores).getByRole("link", { name: "Jugadores IGDB: fuente de la puntuación de Élite Dangerous" }))
+      .toHaveAttribute("href", igdb.attribution.sourceUrl);
+    expect(within(scores).queryByRole("button")).not.toBeInTheDocument();
+    // The separate community panel is gone; the personal reading is the row's only score control.
+    expect(within(card).queryByLabelText("Comunidad")).not.toBeInTheDocument();
+    expect(within(card).getAllByRole("button")).toHaveLength(1);
     expect(card).toHaveTextContent("Puntuado el 13 ago 2026");
     expect(card).not.toHaveTextContent("Actualizado");
     expect(card).not.toHaveTextContent("10:00");
@@ -62,11 +79,21 @@ describe("Mis puntuaciones", () => {
     expect(card.querySelector("a button, a a")).toBeNull();
     expect(within(card).queryByText(/Ver ficha/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Hidden/)).not.toBeInTheDocument();
-    expect(within(screen.getByRole("article", { name: "Second game" })).getByText("Sin puntuaciones")).toBeVisible();
-    expect(within(screen.getByRole("article", { name: "Third game" })).getByText("No disponible")).toBeVisible();
+    // Only valid sources: no zero for an empty or unavailable community, no invented IGDB score.
+    const second = screen.getByRole("article", { name: "Second game" });
+    expect(within(second).queryByRole("list", { name: /^Puntuaciones de/ })).not.toBeInTheDocument();
+    const third = within(screen.getByRole("article", { name: "Third game" })).getByRole("list", { name: "Puntuaciones de Third game" });
+    expect(within(third).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(third).getByLabelText("0,0 de 10")).toBeVisible();
+    const fourth = within(screen.getByRole("article", { name: "Fourth game" })).getByRole("list", { name: "Puntuaciones de Fourth game" });
+    expect(within(fourth).getAllByRole("listitem")).toHaveLength(1);
+    expect(within(fourth).queryByRole("link")).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([request]) => new URL((request as Request).url).pathname).filter(path => path.startsWith("/api/v1/games"))).toEqual([]);
+    // Keyboard order follows the row: title, the IGDB attribution, then the personal reading.
     const link = within(card).getByRole("link", { name: "Élite Dangerous" });
     link.focus();
+    await userEvent.tab();
+    expect(within(scores).getByRole("link")).toHaveFocus();
     await userEvent.tab();
     expect(within(card).getByRole("button", { name: /^Tu puntuación/ })).toHaveFocus();
     await userEvent.keyboard("{Enter}");

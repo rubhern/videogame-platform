@@ -1,6 +1,7 @@
 package com.videogameplatform.api.delivery.ratings;
 
 import com.videogameplatform.api.delivery.ApiRequestException;
+import com.videogameplatform.api.delivery.catalogue.ExternalPlayerScoreMapper;
 import com.videogameplatform.api.generated.RatingsApi;
 import com.videogameplatform.api.generated.model.PersonalRating;
 import com.videogameplatform.api.generated.model.PersonalRatingPage;
@@ -8,11 +9,13 @@ import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.RatingDeleteResult;
 import com.videogameplatform.api.generated.model.RatingWrite;
 import com.videogameplatform.api.generated.model.RatingWriteResult;
+import com.videogameplatform.catalogue.application.releases.GetExternalPlayerScoresUseCase;
 import com.videogameplatform.identity.application.CurrentUser;
 import com.videogameplatform.ratings.application.DeletePersonalRatingUseCase;
 import com.videogameplatform.ratings.application.GetPersonalRatingUseCase;
 import com.videogameplatform.ratings.application.PutPersonalRatingUseCase;
 import java.net.URI;
+import java.util.stream.Collectors;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,6 +31,7 @@ public class PersonalRatingController implements RatingsApi {
     private final DeletePersonalRatingUseCase deletes;
     private final RatingApiMapper mapper;
     private final com.videogameplatform.ratings.application.ListPersonalRatingsUseCase listing;
+    private final GetExternalPlayerScoresUseCase externalScores;
 
     PersonalRatingController(
             CurrentUser currentUser,
@@ -35,13 +39,15 @@ public class PersonalRatingController implements RatingsApi {
             PutPersonalRatingUseCase writes,
             DeletePersonalRatingUseCase deletes,
             RatingApiMapper mapper,
-            com.videogameplatform.ratings.application.ListPersonalRatingsUseCase listing) {
+            com.videogameplatform.ratings.application.ListPersonalRatingsUseCase listing,
+            GetExternalPlayerScoresUseCase externalScores) {
         this.currentUser = currentUser;
         this.reads = reads;
         this.writes = writes;
         this.deletes = deletes;
         this.mapper = mapper;
         this.listing = listing;
+        this.externalScores = externalScores;
     }
 
     @Override
@@ -109,9 +115,21 @@ public class PersonalRatingController implements RatingsApi {
                                 direction,
                                 page == null ? 1 : page,
                                 pageSize == null ? 20 : pageSize));
-        return ResponseEntity.ok()
-                .cacheControl(CacheControl.noStore())
-                .body(mapper.toResponse(result));
+        var body = mapper.toResponse(result);
+        // Catalogue's evidence for only the user-scoped page already selected: one batch read.
+        var external =
+                externalScores.get(
+                        body.getItems().stream()
+                                .map(item -> item.getGame().getGameId())
+                                .collect(Collectors.toSet()));
+        body.getItems()
+                .forEach(
+                        item -> {
+                            var score = external.get(item.getGame().getGameId());
+                            if (score != null)
+                                item.setExternalScore(ExternalPlayerScoreMapper.toResponse(score));
+                        });
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
     }
 
     private String userId() {

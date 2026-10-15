@@ -176,7 +176,8 @@ export interface paths {
          *     case- and diacritic-insensitive all-token word-prefix rules for canonical titles
          *     and approved aliases. Every sort ends with gameId ascending as its unique
          *     tie-breaker. Each item's entityTag is the current strong rating validator for
-         *     conditional update and delete; it is not a collection cache validator.
+         *     conditional update and delete; it is not a collection cache validator. Community
+         *     and external scores are read afterwards for only the selected page's Games.
          */
         get: operations["listMyRatings"];
         put?: never;
@@ -787,6 +788,12 @@ export interface components {
             personalRating: components["schemas"]["PersonalRating"];
             /** @description Community context for this game, returned with the user-scoped page without per-game browser requests. An isolated aggregate failure preserves the personal collection with explicit unavailable statistics. */
             ratingSummary?: components["schemas"]["RatingSummary"];
+            /**
+             * @description Catalogue's current player score for this Game, with the discovery semantics: absent
+             *     without a valid pair, never zero-filled, and never blended with `ratingSummary` or
+             *     the personal rating.
+             */
+            externalScore?: components["schemas"]["ExternalPlayerScore"];
         };
         PersonalRatingPage: {
             items: components["schemas"]["PersonalRatingItem"][];

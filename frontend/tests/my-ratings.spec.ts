@@ -52,7 +52,7 @@ class ScriptedCollection {
     await this.page.route(/\/api\/v1\/me\/ratings(\?.*)?$/, (route) => {
       const url = new URL(route.request().url());
       this.listReads.push(url);
-      const items = this.ratings.map(({ title, rating }) => ({
+      const items = this.ratings.map(({ title, rating }, index) => ({
         game: {
           gameId: rating.gameId,
           slug: title.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -67,6 +67,12 @@ class ScriptedCollection {
         },
         personalRating: rating,
         ratingSummary: { status: "available", mean: 8.2, count: 1247 },
+        // The middle row has no IGDB score: only valid sources are shown.
+        ...(index === 1 ? {} : { externalScore: {
+          source: "igdb", kind: "player", value: 7.8, scale: 10, count: 12345,
+          attribution: { label: "Jugadores IGDB", sourceUrl: `https://www.igdb.com/games/game-${index + 1}` },
+          observedAt: "2026-08-01T10:00:00Z",
+        } }),
       }));
       return route.fulfill({
         json: {
@@ -119,7 +125,7 @@ test.describe("Mis puntuaciones", () => {
   test("the score opens its editor over the row without moving it, at every reference width", async ({
     page,
   }, testInfo) => {
-    // Four widths, each with an accessibility scan and a full-page capture, in one page: the
+    // Five widths, each with an accessibility scan and a full-page capture, in one page: the
     // geometry check relies on the scroll position each width leaves for the next.
     test.slow();
     await page.emulateMedia({ reducedMotion: "reduce" });
@@ -131,19 +137,38 @@ test.describe("Mis puntuaciones", () => {
     await expect(page.getByRole("button", { name: "Actualizar resultados" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Editar puntuación" })).toHaveCount(0);
 
-    for (const width of [1320, 834, 390, 320]) {
+    for (const width of [1320, 834, 760, 390, 320]) {
       await page.setViewportSize({ width, height: 900 });
       const first = card(page, titles[0] ?? "");
-      await expect(first.getByLabel("Géneros: Acción · Rol")).toBeVisible();
-      await expect(first.getByLabel("Comunidad")).toContainText("8,2/10");
-      await expect(first.getByLabel("Comunidad").getByRole("button")).toHaveCount(0);
+      const genres = first.getByLabel("Géneros: Acción · Rol");
+      await expect(genres).toBeVisible();
+      // The shared discovery readings sit under the genres; the separate community panel is gone.
+      const readings = first.getByRole("list", { name: `Puntuaciones de ${titles[0]}` });
+      await expect(readings.getByLabel("8,2 de 10")).toBeVisible();
+      await expect(readings.getByLabel("7,8 de 10")).toBeVisible();
+      await expect(first.getByLabel("Comunidad")).toHaveCount(0);
+      await expect(card(page, titles[1] ?? "").getByRole("list", { name: /^Puntuaciones de/ }).getByRole("listitem"))
+        .toHaveCount(1);
       await expect(first.getByText("Ver ficha →")).toHaveCount(0);
+      const [genresBox, readingsBox, bodyBox, personalBox, rowBox] = await Promise.all([
+        genres.boundingBox(), readings.boundingBox(), first.locator(".my-rating-body").boundingBox(),
+        score(first).boundingBox(), first.boundingBox(),
+      ]);
+      if (!genresBox || !readingsBox || !bodyBox || !personalBox || !rowBox) throw new Error("Row parts must be visible");
+      expect(readingsBox.y).toBeGreaterThanOrEqual(genresBox.y + genresBox.height - 1);
+      expect(readingsBox.x + readingsBox.width).toBeLessThanOrEqual(bodyBox.x + bodyBox.width + 1);
+      // The personal reading keeps the row's right edge: beside the game from tablet, beneath it on phones.
+      expect(rowBox.x + rowBox.width - (personalBox.x + personalBox.width)).toBeLessThanOrEqual(26);
+      if (width >= 760) expect(personalBox.x).toBeGreaterThanOrEqual(bodyBox.x + bodyBox.width);
+      else expect(personalBox.y).toBeGreaterThanOrEqual(bodyBox.y + bodyBox.height);
       const title = first.getByRole("link", { name: titles[0], exact: true });
       await title.focus();
       await page.keyboard.press("Shift+Tab");
       await page.keyboard.press("Tab");
       await expect(title).toBeFocused();
       await expect(title).toHaveCSS("outline-style", "solid");
+      await page.keyboard.press("Tab");
+      await expect(readings.getByRole("link")).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(score(first)).toBeFocused();
       const before = await geometry(page);

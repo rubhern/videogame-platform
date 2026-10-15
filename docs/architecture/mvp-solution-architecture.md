@@ -50,7 +50,9 @@ reads Ratings persistence, and no user request calls the provider. Game-detail
 delivery (#279 phase 3, implemented; awaiting review) reuses the same Catalogue
 external-score read for its one Game beside the existing Ratings context, and catalogue
 search delivery (#279 phase 4, implemented; awaiting review) reuses the discovery
-composition for its returned page. Wire shapes
+composition for its returned page. `Mis puntuaciones` delivery (#279, implemented; awaiting
+review) adds the same external-score read for its user-scoped page beside the Ratings-owned
+summary it already returns. Wire shapes
 remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
 [frontend guide](../development/frontend-design.md).
 

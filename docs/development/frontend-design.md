@@ -450,9 +450,9 @@ following both the available editorial width and the viewport, stepping down twi
 names and wrapping even an unbroken word. Normal titles retain their display scale where space
 allows. Aliases follow in the lit serif. For a mouse, the cover leans toward the pointer and
 catches a glare; touch, pen, reduced
-motion and forced colours keep it still. Release-discovery cards and full search results carry
-scores under the discovery rules above; the search typeahead keeps them absent, and other
-screens carry none until #279 phase 4 reviews them.
+motion and forced colours keep it still. Release-discovery cards, full search results and
+`Mis puntuaciones` rows carry scores under the discovery rules above; the search typeahead keeps
+them absent, and other screens carry none until #279 phase 4 reviews them.
 
 The community reading is the most prominent: the G-meter beside the large mean, its temperature
 in words and `Basada en N puntuaciones`. “Sin nota todavía” keeps its place with a smaller meter
@@ -535,13 +535,17 @@ says “No hay lanzamientos comerciales registrados.”.
 
 `Mis puntuaciones` reuses the catalogue shell, page opening, cover treatment, tokens and
 native controls. Present cover-led glass rows, each washed by its own cover's light, with
-native cover/title links, up to two localized genres beneath the title, and distinct
-**Tu puntuación** and read-only **Comunidad** readings. No summary, developer, publisher,
+native cover/title links, up to two localized genres beneath the title, and the editable
+**Tu puntuación** reading. No summary, developer, publisher,
 game mode or release-specific platform/region context is shown: these are Game ratings.
-There is no **Ver ficha** CTA and the complete row is never a link. On phones the readings
-sit beneath the cover/title; at wider widths they sit side by side. The community retains
-the mean, scale and temperature with its count secondary; unavailable and no-rating states
-never invent a zero mean. Calendar dates are quiet secondary text without hours: one
+There is no **Ver ficha** CTA and the complete row is never a link. Post-MVP (#279,
+implemented; awaiting owner review), the read-only community and IGDB readings are the
+compact readings of the [discovery score rules](#featured-releases), unchanged, in one row
+directly beneath the genres: secondary context in the game's column, never a second panel
+competing with the personal score. A row shows only its valid sources and omits the readings
+without any; the IGDB attribution is its only link besides the title. **Tu puntuación** keeps
+the row's right edge: beside the game from tablet width and beneath it on phones, where the
+readings wrap within the game's column. Calendar dates are quiet secondary text without hours: one
 **Puntuado el …** when creation and update have the same visible date; otherwise compact
 **Actualizado el …** with the original date. The personal score
 is a Gameómetro reading — its G-meter, its temperature in words and the number — lit by its

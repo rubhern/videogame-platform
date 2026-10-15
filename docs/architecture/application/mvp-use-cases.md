@@ -279,6 +279,14 @@ The client never supplies a trusted user/evaluation date. Scoped absence returns
 or invalid/expired/replayed context creates no rating. Any failed rating command
 preserves personal and aggregate state.
 
+Post-MVP (#279, `Mis puntuaciones`, implemented; awaiting owner review): `UC-008` also returns
+each paged Game's current external player score. After the user-scoped search, sort, count
+and page, API delivery reads it for only that page's Game IDs through the same Catalogue
+application batch as discovery (#255): one PostgreSQL query, none for an empty page. Ratings
+keeps its own community summary. A missing pair is absent, never zero, and a failed external
+read keeps the discovery semantics. Neither changes the personal rating, its order or the
+page, and the read calls no provider.
+
 Post-MVP (#162, implemented): `UC-004` also supports general account entry from the
 anonymous header directly through BFF/OIDC to the Spanish-first Gameómetro Keycloak
 theme. `Crear cuenta` adds Keycloak's supported `prompt=create` to the same
