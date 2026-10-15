@@ -342,7 +342,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "sum (increase(catalogue_game_details_total{job=\"application-otlp\"}[$__range]))",
-          "legendFormat": "",
+          "legendFormat": "Successful detail API reads",
           "editorMode": "code",
           "range": false,
           "instant": true
@@ -405,7 +405,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "sum (increase(catalogue_search_result_outcome_total{job=\"application-otlp\"}[$__range]))",
-          "legendFormat": "",
+          "legendFormat": "Successful searches",
           "editorMode": "code",
           "range": false,
           "instant": true
@@ -468,7 +468,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "sum (increase(catalogue_releases_result_count_count{job=\"application-otlp\"}[$__range]))",
-          "legendFormat": "",
+          "legendFormat": "Release pages returned",
           "editorMode": "code",
           "range": false,
           "instant": true
@@ -531,7 +531,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "sum (increase(catalogue_search_result_outcome_total{job=\"application-otlp\",outcome=\"zero_results\"}[$__range]))",
-          "legendFormat": "",
+          "legendFormat": "Searches without results",
           "editorMode": "code",
           "range": false,
           "instant": true

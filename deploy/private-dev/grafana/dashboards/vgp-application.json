@@ -122,7 +122,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "sum (increase(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__range]))",
-          "legendFormat": "",
+          "legendFormat": "API requests",
           "editorMode": "code",
           "range": false,
           "instant": true
@@ -185,7 +185,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))",
-          "legendFormat": "",
+          "legendFormat": "Throughput",
           "editorMode": "code",
           "range": false,
           "instant": true
@@ -248,7 +248,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "(sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"2..|3..\"}[$__rate_interval]))) / ((sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))) > 0)",
-          "legendFormat": "",
+          "legendFormat": "Successful 2xx / 3xx share",
           "editorMode": "code",
           "range": false,
           "instant": true
@@ -311,7 +311,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "(sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\",status=~\"4..|5..\"}[$__rate_interval]) unless rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=\"/api/v1/me/ratings/{gameId}\",method=\"GET\",status=\"404\"}[$__rate_interval]))) / ((sum (rate(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"$route\",method=~\"$method\"}[$__rate_interval]))) > 0)",
-          "legendFormat": "",
+          "legendFormat": "4xx / 5xx rejection rate",
           "editorMode": "code",
           "range": false,
           "instant": true
@@ -1027,7 +1027,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "sum (increase(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=\"/api/v1/me/ratings/{gameId}\",method=\"GET\",status=\"404\"}[$__range]))",
-          "legendFormat": "",
+          "legendFormat": "Expected unrated-game reads",
           "editorMode": "code",
           "range": false,
           "instant": true
@@ -1203,7 +1203,7 @@
             "uid": "private-dev-prometheus"
           },
           "expr": "sum (increase(catalogue_game_details_total{job=\"application-otlp\",aggregate=\"unavailable\"}[$__range]))",
-          "legendFormat": "",
+          "legendFormat": "Detail aggregate degradation",
           "editorMode": "code",
           "range": false,
           "instant": true

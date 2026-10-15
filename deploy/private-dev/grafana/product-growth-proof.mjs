@@ -55,7 +55,7 @@ async function registrationRule() {
   });
   assert(response.ok);
   const body=await response.json();
-  const rule=body.data.groups.flatMap(g=>g.rules).find(r=>r.name==='Registro observado en ventana');
+  const rule=body.data.groups.flatMap(g=>g.rules).find(r=>r.name==='Registration activity observed');
   // The native API also retains Normal (NoData) instances after a lazy series appears.
   if(rule) rule.firingAlerts=(rule.alerts ?? []).filter(a=>a.state==='Alerting');
   return rule;
@@ -131,7 +131,7 @@ try {
         const r=await registrationRule();
         return r?.state==='firing' && r.firingAlerts.length===1 && r;
       },'Observed registration increase did not fire the native Grafana rule');
-      assert(Number(rule.firingAlerts[0].annotations.estimated_registrations)>0);
+      assert(Number(rule.firingAlerts[0].annotations.observed_registrations)>=1);
       firingFingerprint=JSON.stringify(rule.firingAlerts[0].labels);
       console.log('Actual optimized registration metrics fire one native Grafana activity instance with an estimated count.');
     }
@@ -167,6 +167,18 @@ try {
   assert(scraped.every(sample=>(sample.metric.error ?? '')==='' && sample.metric.realm==='videogame-platform'));
   assert(scraped.every(sample=>Object.keys(sample.metric).every(key=>['__name__','event','error','realm','job','instance'].includes(key))));
   console.log('Actual Prometheus scrape retains only two successful event series; quiet configured source is zero.');
+  // Grafana returns the provisioned series name, never the PromQL, for the real registration panels.
+  const growth=JSON.parse(readFileSync('/work/deploy/private-dev/grafana/dashboards/vgp-growth.json','utf8'));
+  for(const panel of growth.panels.filter(p=>p.targets?.some(t=>t.expr?.includes('event="register"')))) {
+    const response=await fetch('http://grafana:3000/api/ds/query',{method:'POST',
+      headers:{Authorization:'Basic '+Buffer.from('fixture-admin:'+fixturePassword).toString('base64'),'Content-Type':'application/json'},
+      body:JSON.stringify({from:'now-1h',to:'now',queries:panel.targets.map(t=>({...t,expr:t.expr.replace('$__range','1h'),intervalMs:15000,maxDataPoints:100}))})});
+    assert(response.ok);
+    const frames=Object.values((await response.json()).results).flatMap(result=>result.frames ?? []);
+    const names=frames.flatMap(frame=>frame.schema.fields.slice(1).map(field=>field.config?.displayNameFromDS));
+    assert(names.length>0 && names.every(name=>name==='Registrations'),'Registration series name is not human-readable');
+  }
+  console.log('Grafana names real registration series "Registrations", not their PromQL.');
   console.log('Three successful registrations and email verifications counted; failed/admin/imported accounts and PII excluded.');
   // The real private theme/realm password-recovery flow still works in the optimized image.
   const context=await browser.newContext();

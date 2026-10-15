@@ -18,6 +18,8 @@ from importlib.machinery import SourceFileLoader
 alerts = SourceFileLoader('alerts', str(Path(__file__).with_name('check-alerts.py'))).load_module()
 DEPLOY = alerts.DEPLOY
 run = alerts.run
+# Message links use the configured private origin; this placeholder is never resolved.
+ROOT_URL = 'https://grafana.private-dev.invalid'
 
 
 def poll(check, message, seconds=90):
@@ -67,15 +69,21 @@ def main(smoke):
             enabled = operational == 'true'
             assert ops['receiver'] == native['receiver'] == ('private-dev-telegram' if enabled else 'empty')
             assert bool(ops['mute_time_intervals']) != enabled
-            assert growth['receiver'] == ('private-dev-telegram' if product == 'true' else 'empty')
+            assert growth['receiver'] == ('private-dev-telegram-product' if product == 'true' else 'empty')
             assert bool(growth['mute_time_intervals']) != (product == 'true')
             assert policy['repeat_interval']=='4h' and growth['repeat_interval']=='24h'
             if enabled:
-                cp, = config['contactPoints']
-                receiver, = cp['receivers']
-                assert receiver['settings']['bottoken']==token and receiver['settings']['chatid']==chat
-                assert receiver['settings']['message']=='{{ template "gameometro.telegram" . }}'
-                assert receiver['settings']['parse_mode']=='None' and not receiver['disableResolveMessage']
+                # Both contact points reuse the same protected values; only resolved delivery differs.
+                points = {cp['name']: cp for cp in config['contactPoints']}
+                assert set(points) == {'private-dev-telegram'} | ({'private-dev-telegram-product'} if product == 'true' else set())
+                for name, template, resolved in (('private-dev-telegram', 'gameometro.telegram', True),
+                                                 ('private-dev-telegram-product', 'gameometro.telegram.product', False)):
+                    if name not in points:
+                        continue
+                    receiver, = points[name]['receivers']
+                    assert receiver['settings']['bottoken']==token and receiver['settings']['chatid']==chat
+                    assert receiver['settings']['message']=='{{ template "'+template+'" . }}'
+                    assert receiver['settings']['parse_mode']=='None' and receiver['disableResolveMessage'] is not resolved
             else:
                 assert not config['contactPoints'] and token not in output and chat not in output
         for invalid in ('', token+'\n$INJECTION', 'invalid-token'):
@@ -86,7 +94,7 @@ def main(smoke):
         (temp/'bot-token').write_text(token)
         bad=subprocess.run(base+['--env','GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED=true',image,'-c','/bin/sh /renderer'],capture_output=True,text=True)
         assert bad.returncode and 'Invalid or unavailable Telegram' in bad.stderr
-        print('Default disabled, independent product opt-in, fail-closed secrets, JSON rendering and policy ownership passed.',flush=True)
+        print('Default disabled, independent product opt-in, separate no-resolve product receiver, fail-closed secrets, JSON rendering and policy ownership passed.',flush=True)
         if not smoke:
             return
         # TLS interception exists ONLY in the internal test network; production URL/CA are unchanged.
@@ -100,7 +108,7 @@ def main(smoke):
         template = (DEPLOY/'grafana/notifications.json.template').read_text().replace('"1m"','"1s"').replace('"5m"','"2s"').replace('"4h"','"30s"')
         (temp/'notifications.json.template').write_text(template)
         definition = {'services': {'grafana': {'extends':{'file':str(DEPLOY/'compose.observability.yaml'),'service':'grafana'},
-                       'environment':{'GF_UNIFIED_ALERTING_ENABLED':'true','GF_UNIFIED_ALERTING_ALERTMANAGER_CONFIG_POLL_INTERVAL':'1s','GF_SMTP_ENABLED':'false','GF_LOG_LEVEL':'info',
+                       'environment':{'GF_UNIFIED_ALERTING_ENABLED':'true','GF_SERVER_ROOT_URL':ROOT_URL,'GF_UNIFIED_ALERTING_ALERTMANAGER_CONFIG_POLL_INTERVAL':'1s','GF_SMTP_ENABLED':'false','GF_LOG_LEVEL':'info',
                                       'GF_LOG_FILTERS':'ngalert.notifier.telegram:info','GRAFANA_TELEGRAM_ENABLED':'false',
                                       'GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED':'false','SSL_CERT_FILE':'/fixture/mock.crt'},
                        'secrets':['grafana_telegram_bot_token','grafana_telegram_chat_id'],
@@ -148,6 +156,7 @@ def main(smoke):
         fixture_folder=None
         fixture_rules={}
         fixture_values={}
+        provisioned_rules={r['uid']:r for r in alerts.all_rules()}
         def alert(category='operational', severity='warning', resolved=False, sync=False, tag='', registrations=1):
             key='fixture-'+category+'-'+severity+('-sync' if sync else '')+tag
             fixture_values[key]=0 if resolved else registrations
@@ -162,12 +171,10 @@ def main(smoke):
             rule={k:v for k,v in model.items() if k not in {'uid','isPaused'}}
             rule.update({'uid':key,'title':'Fixture '+('sync' if sync else category)+' '+severity+tag,
                          'folderUID':fixture_folder,'ruleGroup':'fixture','for':'0s'})
-            rule['labels']={'environment':'private-dev','service':'application','category':category,'severity':severity}
-            rule['annotations']={'summary_es':'Presión de conexiones de prueba','hint_es':'Consulta el panel privado.',
-                'resolution_kind':'window_expiry' if sync or category=='product' else '',
-                'runbook_url':'https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts'}
-            if category=='product':
-                rule['annotations']['estimated_registrations']='{{ with $values.A }}{{ printf "%.2f" .Value }}{{ end }}'
+            # Real provisioned annotations (texts, dashboard links, count template) drive the messages.
+            source=provisioned_rules['vgp-registration-window' if category=='product' else 'vgp-sync-failures' if sync else 'vgp-pool-pressure']
+            rule['labels']=dict(source['labels'], severity=severity)
+            rule['annotations']=dict(source['annotations'])
             rule['data'][0].update({'datasourceUid':'fixture-prometheus','model':{
                 'refId':'A','expr':key,'instant':True,'range':False,'format':'table'}})
             api('/api/v1/provisioning/alert-rules',rule,method='POST')
@@ -210,52 +217,82 @@ def main(smoke):
             perms=run(compose+['exec','-T','grafana','stat','-c','%a','/tmp/grafana-provisioning','/tmp/grafana-provisioning/alerting/notifications.json'])
             assert perms.split()==['700','600']
             alert()
-            poll(lambda:len(messages())>=1,'Native Telegram Spanish firing notification delivered to HTTPS mock')
+            poll(lambda:len(messages())>=1,'Native Telegram English firing notification delivered to HTTPS mock')
             assert all('Gameómetro' in m['text'] and len(m['text'])<=4096 for m in messages())
-            assert 'AVISO' in messages()[-1]['text']
+            firing=messages()[-1]['text']
+            for line in ('Gameómetro — Operational warning\n','Severity: warning\n','Environment: private-dev\n',
+                         'Problem: Database connection pool pressure\n','First action: Check Hikari pending',
+                         'Dashboard: '+ROOT_URL+'/d/vgp-runtime','Alert list: '+ROOT_URL+'/alerting/list',
+                         'Runbook: https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts'):
+                assert line in firing, 'Operational firing message lacks '+line.strip()+':\n'+firing
+            examples={'operational firing':firing}
             count=len(messages()); alert(); time.sleep(4)
             assert len(messages())==count, 'Identical alerts must deduplicate'
             alert(resolved=True)
-            poll(lambda:any('ya no se cumple' in m['text'] for m in messages()),'Operational resolution delivered')
+            poll(lambda:any('Recovered: Database connection pool pressure' in m['text'] and 'no longer met' in m['text'] for m in messages()),'Operational recovery delivered')
+            examples['operational recovery']=next(m['text'] for m in messages() if 'Recovered:' in m['text'])
+            assert examples['operational recovery'].startswith('Gameómetro — Operational alert closed\n')
             count=len(messages()); alert(category='product',severity='info'); time.sleep(12)
             assert len(messages())==count, 'Product delivery remains independent and muted'
+            alert(category='product',severity='info',resolved=True)
             activate(product=True)
-            alert(category='product',severity='info')
-            poll(lambda:any('Actividad de registro detectada' in m['text'] and 'estimados: 1.00' in m['text'] for m in messages()),'Product route delivers an estimated count')
+            cp={c['uid']:c for c in api('/api/v1/provisioning/contact-points')}
+            assert not cp['vgp-telegram']['disableResolveMessage'] and cp['vgp-telegram-product']['disableResolveMessage']
+            assert token not in json.dumps(cp)
+            assert api('/api/v1/provisioning/policies')['routes'][2]['receiver']=='private-dev-telegram-product'
+            product_messages=lambda:[m for m in messages() if 'registration' in m['text']]
+            single=('Gameómetro — New user registration detected\nNew registrations observed: 1\n'
+                    'Environment: private-dev\nView in Grafana: '+ROOT_URL+'/d/vgp-growth')
+            # A fractional increase estimate above zero is reported as one observed registration.
+            alert(category='product',severity='info',registrations=0.6)
+            poll(lambda:any(m['text'].startswith(single) for m in messages()),'Product route delivers the English registration notice with a Growth link')
+            examples['registration']=product_messages()[-1]['text']
             def product_state(expected):
                 groups=api('/api/prometheus/grafana/api/v1/rules')['data']['groups']
                 rule=next(r for g in groups for r in g['rules'] if r['name']=='Fixture product info')
                 firing=[a for a in rule.get('alerts',[]) if a['state']=='Alerting']
-                return firing[0] if len(firing)==1 and firing[0]['annotations'].get('estimated_registrations')==expected else None
-            first=product_state('1.00')
+                return firing[0] if len(firing)==1 and firing[0]['annotations'].get('observed_registrations')==expected else None
+            first=product_state('1')
             assert first and first['activeAt']
-            product_messages=lambda:[m for m in messages() if 'Actividad de registro detectada' in m['text']]
             count=len(product_messages())
             alert(category='product',severity='info',registrations=2)
-            poll(lambda:product_state('2.00'),'The same product alert observes two registrations')
+            poll(lambda:product_state('2'),'The same product alert observes two registrations')
             time.sleep(12)
             assert len(product_messages())==count, 'Two observations in the firing window are grouped, not per-user deliveries'
             alert(category='product',severity='info',registrations=3)
-            poll(lambda:product_state('3.00'),'The same product alert observes three registrations')
+            poll(lambda:product_state('3'),'The same product alert observes three registrations')
             time.sleep(12)
             assert len(product_messages())==count, 'More registrations while firing must not create individual notifications'
-            current=product_state('3.00')
+            current=product_state('3')
             assert current['labels']==first['labels'] and current['activeAt']==first['activeAt'], 'Observed values must not reset the firing identity/lifecycle'
+            count=len(messages())
             alert(category='product',severity='info',resolved=True)
-            poll(lambda:any('Ventana de registros cerrada' in m['text'] for m in messages()),'Product resolution closes activity window honestly')
+            poll(lambda:product_state('3') is None and not any(a['labels'].get('alertname')=='Fixture product info' and a['status']['state']=='active'
+                     for a in api('/api/alertmanager/grafana/api/v2/alerts')),'Product rule returned to Normal')
+            # Several accelerated group intervals pass; the no-resolve receiver must stay silent.
+            time.sleep(15)
+            assert len(messages())==count, 'Registration-window resolution must not send any Telegram message'
+            print('Registration-window resolution produced no Telegram message.',flush=True)
             count=len(product_messages())
-            alert(category='product',severity='info')
+            alert(category='product',severity='info',registrations=2.6)
             poll(lambda:len(product_messages())>count,'A new activity window notifies after previous resolution')
+            examples['registrations']=product_messages()[-1]['text']
+            assert examples['registrations'].startswith('Gameómetro — New user registrations detected\nNew registrations observed: 3 (estimate;')
+            count=len(messages())
             alert(category='product',severity='info',resolved=True)
+            time.sleep(15)
+            assert len(messages())==count, 'Every product resolution remains silent'
             alert(sync=True)
-            poll(lambda:any('Fixture sync' in m['text'] for m in messages()),'Synchronization route delivered')
+            poll(lambda:any('Problem: Catalogue synchronization failed or partial' in m['text'] for m in messages()),'Synchronization route delivered')
             alert(sync=True,resolved=True)
-            poll(lambda:any('NO confirma' in m['text'] for m in messages()),'Synchronization resolution does not claim recovery')
+            poll(lambda:any('Window expired: Catalogue synchronization' in m['text'] and 'does NOT confirm a later successful run' in m['text'] for m in messages()),'Synchronization resolution does not claim recovery')
+            examples['synchronization window expired']=next(m['text'] for m in messages() if 'Window expired:' in m['text'])
+            assert 'Recovered' not in examples['synchronization window expired']
             (temp/'mode').write_text('fail')
             count=len(messages()); alert(severity='critical')
             poll(lambda:any(m['mode']=='fail' for m in messages()[count:]),'Telegram API failure exercised')
             (temp/'mode').write_text('ok')
-            poll(lambda:any(m['mode']=='ok' and 'CRÍTICO' in m['text'] for m in messages()[count:]),'A later notification cycle succeeds after a failed attempt (no in-attempt retry)')
+            poll(lambda:any(m['mode']=='ok' and 'Operational critical alert' in m['text'] for m in messages()[count:]),'A later notification cycle succeeds after a failed attempt (no in-attempt retry)')
             (temp/'mode').write_text('timeout')
             count=len(messages()); alert(severity='critical',sync=True)
             poll(lambda:any(m['mode']=='timeout' for m in messages()[count:]),'Telegram HTTPS timeout exercised')
@@ -265,17 +302,33 @@ def main(smoke):
             assert token not in logs and chat not in logs
             assert 'webhook response status 503' in logs and '<redacted>' in logs
             (temp/'mode').write_text('ok')
-            poll(lambda:any(m['mode']=='ok' and 'CRÍTICO' in m['text'] for m in messages()[count:]),'Timeout retry recovers; acknowledgement may still be ambiguous')
+            poll(lambda:any(m['mode']=='ok' and 'Operational critical alert' in m['text'] for m in messages()[count:]),'Timeout retry recovers; acknowledgement may still be ambiguous')
             for index in range(6):
                 alert(tag='-batch-'+str(index))
-            poll(lambda:any('4 de 6 avisos' in m['text'] for m in messages()),'Large group renders four entries plus full-group link')
+            poll(lambda:any('Showing 4 of 6 alerts' in m['text'] for m in messages()),'Large group renders four entries plus full-group link')
             assert all(len(m['text'])<4096 for m in messages())
+            assert not any(re.search(r'[¿¡ñ]|\b(?:AVISO|CRÍTICO|registros|Panel privado|Guía)\b',m['text']) for m in messages()), 'Spanish notification text remains'
             activate(product=True)
             assert api('/api/v1/provisioning/policies')['routes'][0]['receiver']=='private-dev-telegram'
-            assert len([c for c in api('/api/v1/provisioning/contact-points') if c['uid']=='vgp-telegram'])==1
+            assert len([c for c in api('/api/v1/provisioning/contact-points') if c['uid'] in ('vgp-telegram','vgp-telegram-product')])==2
             # Exercise disabling on the same persisted database with production polling,
-            # including the previous contact point and active alert instances.
+            # including the previous contact points and active alert instances.
             rendered['services']['grafana']['environment']['GF_UNIFIED_ALERTING_ALERTMANAGER_CONFIG_POLL_INTERVAL']='60s'
+            # Product alone off: operational delivery stays on, the product route becomes muted.
+            count=len(product_messages())
+            alert(category='product',severity='info',registrations=1)
+            poll(lambda:len(product_messages())>count,'Product notice delivered before disabling only the product route')
+            count=len(product_messages())
+            activate(product=False)
+            policy=api('/api/v1/provisioning/policies')
+            assert policy['routes'][0]['receiver']=='private-dev-telegram' and policy['routes'][2]['receiver']=='empty'
+            alert(category='product',severity='info',resolved=True)
+            alert(category='product',severity='info',registrations=1)
+            until=time.monotonic()+65
+            while time.monotonic()<until:
+                assert len(product_messages())==count, 'Disabled product route must never send'
+                time.sleep(1)
+            print('Disabled product route stays silent through recreation while operational delivery remains enabled.',flush=True)
             count=len(messages())
             activate(enabled=False)
             assert api('/api/v1/provisioning/policies')['routes'][0]['receiver']=='empty'
@@ -286,7 +339,9 @@ def main(smoke):
                 time.sleep(1)
             assert len(messages())==count, 'Disabling delivery must silence persisted active alerts immediately'
             print('Disabled persisted receiver stays silent through recreation with production config polling.',flush=True)
-            print('Native provisioning, grouping/deduplication, later cycles, Spanish resolutions, redacted failures and recreation passed. No real Telegram access.',flush=True)
+            for name, text in examples.items():
+                print('--- Example '+name+' message (fixture values) ---\n'+text,flush=True)
+            print('Native provisioning, English templates, grouping/deduplication, silent product resolutions, later windows, operational recoveries, redacted failures and recreation passed. No real Telegram access.',flush=True)
         except Exception:
             logs=run(compose+['logs','--no-color','--tail','30','grafana','mock'])
             print(logs.replace(token,'[redacted]').replace(chat,'[redacted]').replace(password,'[redacted]'),flush=True)

@@ -28,7 +28,9 @@ if [ "${GRAFANA_TELEGRAM_ENABLED:-false}" = true ]; then
   receiver=private-dev-telegram
   mute='[]'
   if [ "${GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED:-false}" = true ]; then
-    product_receiver=$receiver
+    # Informational activity has no recovery to report: its own receiver never
+    # sends resolved notices, while operational recovery messages stay enabled.
+    product_receiver=private-dev-telegram-product
     product_mute='[]'
   fi
 fi
@@ -37,6 +39,10 @@ while IFS= read -r line || [ -n "$line" ]; do
     *'__TELEGRAM_CONTACT_POINT__'*)
       if [ "$receiver" != empty ]; then
         printf '{"orgId":1,"name":"private-dev-telegram","receivers":[{"uid":"vgp-telegram","type":"telegram","disableResolveMessage":false,"settings":{"bottoken":"%s","chatid":"%s","message":"{{ template \"gameometro.telegram\" . }}","parse_mode":"None","disable_web_page_preview":true,"protect_content":true}}]}\n' "$token" "$chat"
+      fi ;;
+    *'__TELEGRAM_PRODUCT_CONTACT_POINT__'*)
+      if [ "$product_receiver" != empty ]; then
+        printf ',{"orgId":1,"name":"private-dev-telegram-product","receivers":[{"uid":"vgp-telegram-product","type":"telegram","disableResolveMessage":true,"settings":{"bottoken":"%s","chatid":"%s","message":"{{ template \"gameometro.telegram.product\" . }}","parse_mode":"None","disable_web_page_preview":true,"protect_content":true}}]}\n' "$token" "$chat"
       fi ;;
     *)
       # Replacement material here is public routing state, never a secret.

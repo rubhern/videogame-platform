@@ -107,8 +107,11 @@ never stack traces or SQL.
 
 The [provisioned dashboards](../../deploy/private-dev/grafana/dashboards/)
 separate **Runtime / Resources**, **Application / HTTP**, **Catalogue Synchronization**
-and **Product / Business**, with the separate Spanish **Gameómetro · Crecimiento**
-activity view described below. Their JSON owns panels, queries, units, ranges and tooltips.
+and **Product / Business**, with the separate **Gameómetro · Growth** activity view
+described below. Their JSON owns panels, queries, units, ranges and tooltips.
+Grafana-facing text is English. Every Prometheus target declares an explicit series
+name, so legends and tooltips show names such as `Registrations` or
+`Ratings created`; raw PromQL remains available through query inspection and Explore.
 The [private-dev procedure](../../deploy/private-dev/README.md#metrics-dashboards)
 owns access/rollout; [local setup](local-setup.md#local-metrics-and-logs) owns
 optional local startup. Provisioning removes the replaced journey dashboard.
@@ -217,7 +220,7 @@ exemplars are not promoted into application dimensions.
 
 The [file-provisioned rule inventory](../../deploy/private-dev/grafana/provisioning/alerting/private-dev.json)
 is the executable owner of PromQL, thresholds, pending periods and labels. The [notification template](../../deploy/private-dev/grafana/notifications.json.template)
-and its small startup renderer own the single policy tree and optional contact point. Private-dev enables Grafana-managed evaluation; the optional workstation
+and its small startup renderer own the single policy tree and optional contact points. Private-dev enables Grafana-managed evaluation; the optional workstation
 stack retains alerting disabled. No Prometheus rule evaluator, exporter or service is
 added. The [operator procedure](../../deploy/private-dev/README.md#private-dev-alerts)
 owns rollout/rollback and validation; the [runbook](operations-runbook.md#private-dev-alerts)
@@ -301,8 +304,11 @@ instances, deduplicates identical alerts and repeats persistent incidents. Nativ
 The current rule settings normally convert missing/error evidence into their own
 Normal/Alerting/KeepLast states; native instances matter for later rules using the
 native modes. Exact routing/timings belong to the executable template, not UI edits.
-A separate product route needs its own opt-in; closing a registration window and
-closing a sync failure window use wording distinct from service recovery. Large
+A separate product route needs its own opt-in and its own informational contact
+point, which reuses the protected bot token and chat ID but has Grafana's native
+resolved notifications disabled. The operational contact point keeps them enabled:
+a recovered predicate and an expired sync failure window use distinct wording, and
+the latter never claims a successful run. Large
 groups render a bounded preview and direct the owner to the full group in Grafana,
 keeping the plain-text message below Telegram's size limit for this fixed rule set.
 
@@ -374,7 +380,7 @@ event can establish a baseline without a visible increase. Resets between sample
 points are handled, but process restarts, collection gaps and increments before the
 last export/scrape can lose activity. When Keycloak is configured and up but has no
 events, the dashboard displays zero; absent/down sources without evidence display
-**Sin datos**. Historical windows may retain earlier observations during an outage;
+**No data**. Historical windows may retain earlier observations during an outage;
 inspect target health before interpreting freshness. Rating counters export zeros
 once the application exporter runs. Seven-day retention is a maximum horizon, not a
 complete seven-day or lifetime ledger, especially after activation/retention eviction.
@@ -385,12 +391,15 @@ The separate file-provisioned product rule detects an observed increase in succe
 registrations within five minutes, without a pending delay. It is informational and
 independently muted by default. Multiple registrations while firing remain one alert
 instance; grouping/repeat timing, first lazy samples, restarts or failures can batch
-or miss notices. The Spanish message therefore says activity was observed within a
-window. It includes the estimated counter increase, which can be fractional and
-must not be represented as an exact account count. An annotation change does not
+or miss notices. The English message therefore reports registrations *observed*,
+with a Growth dashboard link. An estimated increase above zero but below 1.5 is
+shown as one; a larger rounded estimate is labelled as an estimate that can group or
+miss registrations, never as an exact account count. An annotation change does not
 create another alert identity. Product notifications retain their separate grouping
-and repetition policy; a new window can notify after the preceding one resolves.
-Resolution only closes that window. No identifying data or unsupported
+and repetition policy. The rule still returns to Normal when the window closes, but
+that resolution is never delivered; a new window can notify after it. A new window
+that starts within one group interval of the previous resolution can be merged into
+the earlier notice. No identifying data or unsupported
 account total is sent. **This does not meet one-notification-per-user semantics.**
 Registration and rating writes do not depend on Telegram availability.
 
@@ -427,8 +436,9 @@ prove optimized-runtime compatibility and has been replaced.
 
 Promtool covers the original expressions/windows, including one or several observed
 registrations, activity while firing, a later window, failures, missing/lazy data and
-counter resets. The native Telegram TLS mock separately exercises opt-ins, estimated
-counts, grouping, later windows, honest closing text, redacted errors and disabling
+counter resets. The native Telegram TLS mock separately exercises opt-ins, English
+messages and links, observed counts, grouping, silent registration resolutions,
+later windows, operational recoveries, redacted errors and disabling
 on a persisted Grafana database. It never uses real credentials or Telegram egress.
 
 [Issue #269](https://github.com/rubhern/videogame-platform/issues/269) owns point-in-time

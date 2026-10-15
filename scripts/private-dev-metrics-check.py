@@ -43,6 +43,9 @@ for path in dashboards:
             assert uid in {'private-dev-prometheus', 'private-dev-postgres'}
             if uid == 'private-dev-prometheus':
                 expression = target['expr']
+                # Operators read explicit series names; raw PromQL stays in inspection/Explore.
+                assert target.get('legendFormat') not in (None, '', '__auto'), f'{path.stem} panel {panel["id"]} lacks a series name'
+                assert not re.search(r'[a-z_]+\{|\(|="', target['legendFormat']), f'{path.stem} panel {panel["id"]} series name looks like PromQL'
                 assert 'job=' in expression
                 assert 'or vector(0)' not in expression
                 assert not re.search(r'(?i)(user_id|game_id|release_id|session_id|correlation|trace_id|token|password|search_term)', expression)
@@ -55,8 +58,12 @@ for path in dashboards:
                 assert not re.search(r'(?i)\b(user_id|INSERT|UPDATE|DELETE|DROP|ALTER)\b', target['rawSql'])
                 if 'rankings' in target['rawSql'] or 'ORDER BY started_at DESC' in target['rawSql']:
                     assert 'ordering_key' in target['rawSql'] and 'LIMIT ' in target['rawSql']
+    # Grafana-facing dashboard text is English; the product name keeps its accent.
+    visible = json.dumps(dashboard, ensure_ascii=False).replace('Gameómetro', '')
+    assert not re.search(r'[áéíóúñ¿¡]|\b(?:de|del|los|las|sin|datos|hoy|registros?|puntuaci\w*|ventana|estado|crecimiento)\b', visible, re.I), \
+        f'{path.stem} contains non-English text'
 if args.static:
-    print('Dashboard JSON, datasource references, bounded queries and refresh passed')
+    print('Dashboard JSON, English text, explicit series names, datasource references, bounded queries and refresh passed')
     raise SystemExit(0)
 if not args.config or not args.env_file:
     parser.error('--config and --env-file are required for runtime checks')
@@ -362,8 +369,18 @@ for path in sorted((root / 'deploy/private-dev/grafana/dashboards').glob('*.json
                 nonempty += 1
     if not args.local and expected['uid']!='vgp-growth':
         assert nonempty, f'No real query data for {expected["uid"]}; generate representative activity first'
+    # Grafana itself names each returned series; raw PromQL or label sets must not reach legends.
+    batch = [dict(target, refId=f'{panel["id"]}_{target["refId"]}', expr=expand(target['expr']), intervalMs=60000, maxDataPoints=100)
+             for panel in expected['panels'] for target in panel.get('targets', [])
+             if target['datasource']['uid'] == 'private-dev-prometheus']
+    named = request('http://grafana:3000/api/ds/query', {'from': 'now-1h', 'to': 'now', 'queries': batch}, authenticated=True)
+    series_names = {field.get('config', {}).get('displayNameFromDS') for result in named['results'].values()
+                    for frame in result.get('frames', []) for field in frame['schema']['fields'][1:]}
+    assert all(name and not re.search(r'[a-z_]+\{|\(|="', name) for name in series_names), f'{expected["uid"]} renders raw series names'
+    if args.synthetic and expected['uid'] == 'vgp-growth':
+        assert {'Ratings created', 'Ratings updated', 'Ratings deleted'} <= series_names, 'Rating series names missing'
     seen.add(expected['uid'])
-    print(f'{expected["uid"]}: provisioning matches; queries succeed; {nonempty} queries have finite data')
+    print(f'{expected["uid"]}: provisioning matches; queries succeed; {nonempty} queries have finite data; {len(series_names)} series names are human-readable')
 assert seen == expected_uids
 assert {item["uid"] for item in request("http://grafana:3000/api/search?type=dash-db", authenticated=True)} == expected_uids, "Obsolete or duplicate dashboards remain"
 series = query('{job="application-otlp"}')

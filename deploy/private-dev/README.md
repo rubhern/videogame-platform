@@ -414,9 +414,10 @@ checks; it does not include alert smoke, which runs independently as listed abov
 Notification smoke provisions the real native Telegram integration but pins
 `api.telegram.org` to an internal HTTPS fixture with a disposable trusted certificate.
 It never uses runtime secrets or real Telegram DNS/delivery. It accelerates only test
-policy/config-poll timings, tests disabled/enabled/product routing, Spanish firing and
-closing messages, deduplication, API failure, timeout redaction, later delivery cycles
-and recreation. Keycloak proof uses the pinned 26.7 base image, a disposable realm/H2
+policy/config-poll timings, tests disabled/enabled/product routing, English firing
+and recovery messages with dashboard links, silent registration resolutions,
+deduplication, API failure, timeout redaction, later delivery cycles and recreation,
+including disabling only the product route. Keycloak proof uses the pinned 26.7 base image, a disposable realm/H2
 volume, existing Mailpit test sink and the matching locked Playwright dependency. It
 checks actual event names/tags, rejected registration, two successful registrations
 and verifications, imported-account exclusion and reset after restart. H2 is a test
@@ -516,7 +517,9 @@ without user/request information.
    A test message proves connectivity, not a live operational firing/resolved cycle.
 5. Product delivery needs the additional explicit flag
    `GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED=true` and the growth source below. It
-   requires the master Telegram flag; enabling it alone refuses startup. Registration
+   requires the master Telegram flag; enabling it alone refuses startup. It adds a
+   separate informational contact point with the same protected values and resolved
+   notifications disabled, so a closing registration window sends nothing. Registration
    notices are best-effort window activity, not one notice per account. No lifetime
    milestone messages exist. Verify the product route separately before enabling it.
 
@@ -528,17 +531,19 @@ in Grafana's existing persistent database; the chat ID is an ordinary administra
 readable contact setting. Protect the database/volume backups and administrators too.
 Never dump rendered provisioning or contact-point exports into diagnostics/artifacts.
 Keep the fixed info-level notifier logs; native debug logging can expose URL tokens.
-Spanish plain-text templates avoid Telegram markup failures and sensitive error bodies.
+English plain-text templates avoid Telegram markup failures and sensitive error bodies.
 
 To disable, set both flags false and recreate only Grafana; routes become muted/empty.
+To stop only registration notices, set the product flag false and recreate only
+Grafana; operational delivery continues and the product route becomes muted/empty.
 A closed-loopback HTTPS proxy setting in the private-dev wrapper blocks native sends
 immediately, including the interval before Grafana reconciles the previous persisted
 policy. No proxy service is installed; existing internal HTTP datasources stay direct.
-The previously stored contact point can remain encrypted in the database but is no
+Previously stored contact points can remain encrypted in the database but are no
 longer referenced once provisioning reconciles. For compromise or full revocation, revoke/regenerate
 the token via BotFather (`/revoke` or its bot-management flow) first, replace the
 protected file privately, and recreate Grafana only after choosing whether to enable
-again. Rotation reprovisions the same contact UID; disabling is not token revocation.
+again. Rotation reprovisions the same contact UIDs; disabling is not token revocation.
 Retain backup access controls and do not delete the Grafana volume as a cleanup shortcut.
 A successful send may have an ambiguous acknowledgement: do not promise duplicate-free
 manual retries or exactly-once delivery.
@@ -622,7 +627,7 @@ with **base Compose**, `--no-build` and the captured old image. Preserve every
 PostgreSQL and telemetry volume. Verify discovery/login/recovery and the original
 application readiness before restoring the prior runtime acknowledgement; a failed
 rollout must never be acknowledged. Removing the growth overlay also removes its
-scrape, so the dashboard may return to **Sin datos**. Historical samples can remain.
+scrape, so the dashboard may return to **No data**. Historical samples can remain.
 If Grafana was separately recreated, restore its prior reviewed provisioning and
 HTTPS overlay with its volume retained. Keep normal application rollback/promotion
 separate; never use project-wide `down`, volume removal or realm reinitialization.
