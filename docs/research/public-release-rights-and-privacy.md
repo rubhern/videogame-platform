@@ -3,7 +3,9 @@
 - **Status:** Phase 1 complete; owner decisions recorded 2026-10-15; IGDB reply pending.
   Phase 2 increment 1 (production realm) complete with decisions D12–D19; increment 2
   (revocation, session bound, coordinated logout) implemented and proven in disposable
-  gates on 2026-10-15, pending owner review and not deployed
+  gates on 2026-10-15, pending owner review and not deployed. Increment 3 (email
+  provider) closed on 2026-10-15 with owner decisions E1–E6: Mailjet preferred,
+  nothing contracted, real delivery unproven
 - **Research date:** 2026-10-14 (sources); code re-checked 2026-10-15; production realm
   exercised against disposable Keycloak 26.7.0 on 2026-10-15
 - **Source revision:** `cda7185cced99ecc8a6d3aa08c1e96831772f86f` (`main`)
@@ -142,7 +144,7 @@ procedures; it is not a launch blocker.
 | Keycloak database | Username, email, **first and last name (required)**, password hash, verification flag, timestamps; admin-only smoke marker | Until an administrator deletes the user | Private dev: login by username; registration open; `verifyEmail=false`; no password policy; brute force off (Keycloak default). The production realm keeps only the email (section 7.1) |
 | Keycloak sessions | SSO session metadata, persisted in the database by default (Keycloak docs) | Idle 30 min, max 10 h; production realm idle 30 min, max 8 h | **[V]** (phase 2) each persisted row holds the client IP and a device note (IP, OS, browser); paired backups therefore copy the IPs of sessions open at capture time. The brute-force record keeps the last failing IP per account |
 | Keycloak server log | Error events with user ID, username and IP (default logging listener); success events not logged | Private dev: Docker `local` driver, 3 × 10 MiB, no age limit; not sent to Loki | User events are not stored (`eventsEnabled` unset). **[V]** (phase 2) the production realm has no listener; replaying a consumed authorization code still logs its ID and session ID at WARN |
-| Keycloak email | Recovery messages | Private dev: Mailpit, 100 messages / 24 h | Production provider unselected |
+| Keycloak email | Verification and recovery messages | Private dev: Mailpit, 100 messages / 24 h | Preferred provider selected (7.3); not contracted |
 | Application database | `ratings.rating`: `user_id`, game, value, created/updated time, version token | Until the user deletes the rating | No email/name in the application; aggregates are computed live from this table |
 | BFF session | Servlet session with OIDC user and tokens, CSRF token, return context; cookie `vgp_session` (HttpOnly, SameSite=Lax) | 30 min idle, no absolute limit; in memory only, lost on restart | **[I]** ID-token claims probably include profile/email (no client scopes set, so realm defaults apply); not inspected |
 | Application logs | Method, route template, status, duration, error code | Private dev: Loki 24 h plus syslog cache | No IP, user ID, email, query string or stack trace by default |
@@ -276,7 +278,7 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
 | R1 | No privacy notice, terms, adult declaration or contact exists | Critical | **Blocks accounts** |
 | R2 | Unverified email registration, no password policy or brute-force protection | Critical | **Blocks accounts**; production realm prepared and tested (7.1), not deployed |
 | R3 | An open BFF session survives account disable/delete and can recreate ratings | High | **Blocks accounts** until operated on the production host; mechanism implemented and proven with synthetic accounts (7.2) |
-| R4 | No production email route for verification/recovery | High | **Blocks accounts**; phase 2 |
+| R4 | No production email route for verification/recovery | High | **Blocks accounts**; preferred provider selected (7.3, E1–E6); account acceptance, professional-use confirmation and delivery proof (#276) pending |
 | R5 | Erasure, ledger and restore replay not implemented or rehearsed | High | **Blocks accounts**; privacy phase |
 | R6 | LSSI may require a published postal address and tax ID | High | **Blocks publishing the legal notice** until answered |
 | R7 | Translated summaries may breach the no-modification clause | High | Blocks public translations unless IGDB or a legal answer allows them |
@@ -286,7 +288,7 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
 | R11 | Keycloak logs keep failed-login IP and username with no age limit | Medium | Production realm logs no events (7.1); 7-day ceiling before accounts (D9) |
 | R12 | Issuer URL change would orphan every rating | Medium | Fix the canonical issuer before accounts |
 | R13 | Twitch licence revocable at any time | Medium | Contingency runbook; can follow launch |
-| R14 | Unrecorded processors (email, backup storage) | Medium | DPAs before personal data reaches them |
+| R14 | Unrecorded processors (email, backup storage) | Medium | DPAs before personal data reaches them; the preferred email provider's DPA is part of its terms (7.3) |
 | R15 | Bulk scraping of public JSON as third-party sharing | Low | Abuse phase limits; can follow |
 | R16 | Rights requests exceed manual capacity | Low | Reassess after launch |
 | R17 | Registration answers "El email ya existe", disclosing that an address has an account (enumeration); recovery already answers uniformly | Medium | **Blocks launch**; resolve in the abuse phase without a custom Keycloak flow unless one is justified |
@@ -317,6 +319,7 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
 | D17 | Logging out of Gameómetro also ends that browser's Keycloak session with standard OIDC | Implemented (7.2, [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)) |
 | D18 | Administrative revocation invalidates BFF sessions directly with standard Spring Security capabilities; no per-request PostgreSQL check, no new dependency | Implemented (7.2, ADR-0027) |
 | D19 | Keep Keycloak's native registration declaration (18+ and conditions) | No per-account evidence of the accepted text; no complex customization without a justified need |
+| E1–E6 | Transactional email: Mailjet Free preferred and conditional, Scaleway as documented replacement, no card or overage, dedicated sending subdomain, real reply address, account created only with the domain | Section 7.3; nothing contracted |
 
 ### 6.2 Implementation requirements for later phases
 
@@ -364,14 +367,12 @@ None of these items is passed by this document.
 ## 7. Phase 2 plan: production identity
 
 Prioritized; each increment is reviewable alone. Increments 1 and 2 are implemented;
-increment 3 is next.
+increment 3 is decided (provider preferred, not contracted); increment 4 is next.
 
 1. **Production realm baseline** (configuration and tests): section 7.1.
 2. **Revocation, session bound and coordinated logout** (code): section 7.2.
-3. **Email provider selection** (desk research, owner decision): EU processing, DPA,
-   free quota with hard cap, custom-domain SPF/DKIM/DMARC, Keycloak SMTP fit
-   (authenticated STARTTLS, as the realm expects), price within the EUR 2/month
-   allowance. No contract without approval; real delivery is proven on the VPS (#276).
+3. **Email provider selection** (desk research, owner decision): section 7.3. No
+   contract without approval; real delivery is proven on the VPS (#276).
 4. **Canonical issuer and cookies:** fix the identity hostname rule that completes the
    issuer (the realm already fixes `/realms/gameometro`) and inventory Keycloak's
    browser cookies in the validation stack (section 6.3).
@@ -458,6 +459,120 @@ application clock, used only by browser test topologies, the lifetime may never 
 The registry and the lock are process-local like the sessions, so a second replica or a
 shared session store reopens ADR-0027.
 
+### 7.3 Increment 3: transactional email provider (2026-10-15)
+
+Desk research on official provider pages, consulted on 2026-10-15 and, for Mailjet,
+rechecked the same day after the owner's decisions E1–E6. **A preferred provider is
+selected; no service is contracted, no account exists and no real mail has been
+validated.** No message was sent. The need is the realm's
+verification and recovery mail only: low volume, no marketing, Keycloak's built-in
+SMTP client with authenticated STARTTLS (7.1), EUR 0–2/month inside the EUR 20
+envelope ([cost evidence](public-production-topology.md#cost-evidence-estimate-not-an-order)).
+Prices exclude VAT unless stated. Cells marked **[U]** depend on registering,
+contracting or a real test, or the official page could not be read.
+
+| Provider | Price and free quota **[V]** | Card / approval | Keycloak SMTP **[V]** | Own domain | Processing and DPA | Spend control | Retention |
+|---|---|---|---|---|---|---|---|
+| [Scaleway Transactional Email](https://www.scaleway.com/en/pricing/managed-services/) (Scaleway SAS, France) | Essential plan: 300 emails/month per organization free, then EUR 0.25 per 1,000; no monthly fee; billed monthly on emails sent ([FAQ](https://www.scaleway.com/en/docs/transactional-email/faq/)) | Natural or legal person may subscribe ([TEM conditions](https://www-uploads.scaleway.com/Specific_Conditions_Transactionnal_Email_Services_v042026_3f5487a93c.pdf), v. 07/04/2026); "Personal project" account type; ordering requires a valid credit card, EUR 1 authorization refunded ([account creation](https://www.scaleway.com/en/docs/account/how-to/create-an-account/)); identity check only to raise quotas | `smtp.tem.scaleway.com`, STARTTLS on 587/2587, TLS on 465/2465, PLAIN/LOGIN; user = Project ID, password = secret of an IAM API key; encryption mandatory ([SMTP](https://www.scaleway.com/en/docs/transactional-email/reference-content/smtp-configuration/), [IAM keys](https://www.scaleway.com/en/docs/transactional-email/how-to/generate-api-keys-for-tem-with-iam/)) | Required; SPF `include:_spf.tem.scaleway.com`, console-issued DKIM, DMARC, MX or Scaleway blackhole MX ([DNS](https://www.scaleway.com/en/docs/transactional-email/how-to/add-spf-dkim-records-to-your-domain/)); recursive SPF include unsupported | `fr-par` only; FAQ: all TEM data hosted and processed in the EU, no non-EU sub-processor; [DPA](https://www-uploads.scaleway.com/DPA_2024_ENG_b0abb5cc26.pdf) (1 June 2024) "forms an integral part" of the contract, SCCs only for any exceptional transfer | Default quota 10,000 emails/month ([limits](https://www.scaleway.com/en/docs/transactional-email/reference-content/tem-capabilities-and-limits/)); alert at 70% of it; [billing alerts](https://www.scaleway.com/en/docs/billing/how-to/use-billing-alerts/) notify only. No hard EUR cap | Message content "transmitted and then automatically deleted after processing" (conditions 4.3); console activity (recipient, subject, status) filterable up to a year, period not stated **[U]** |
+| [Mailjet](https://www.mailjet.com/pricing/) (Sinch Email; EU contracting entity Mailjet SAS, France **[I]**) | Free: 6,000/month, 200/day, "APIs, SMTP Relay, Webhooks"; Starter USD 9/month. Pricing FAQ: no card required for the free plan at sign-up | [Terms of Service](https://www.mailjet.com/legal/terms/) (last revised 01/15/2025): "exclusively reserved for a professional use" and not for minors. Account review: no official criteria; the help centre describes compliance reviews, 7-day limits and blocks (excerpt; page 403) | `in-v3.mailjet.com`, 587 and 2525 with optional TLS, 465 SSL; credentials from the account ([SMTP](https://dev.mailjet.com/docs/smtp-relay/configuration)) | Domain or subdomain verification "strongly recommend[ed]"; Mailjet generates the SPF record and a DKIM key pair shown in the account ([verify domain](https://dev.mailjet.com/docs/email-api/getting-started/verify-your-domain)); DMARC is the owner's record | Hosting on Google Cloud, Germany and Belgium; support, ticketing and billing sub-processors in the USA, including Mailgun Technologies, Atlassian and Zendesk ([sub-processors](https://sinch.com/legal/data-protection-agreement-sub-processors/)). [Sinch DPA](https://sinch.com/legal/terms-and-conditions/other-sinch-terms-conditions/data-protection-agreement/) v8 (29 October 2025) "shall become part of the Agreement" (Terms 4.3), with SCCs and, for Sinch Email, the EU-US DPF | No card, so nothing to charge; daily overflow is queued to the next day and deleted after 3 days (help centre excerpt). The FAQ's over-limit billing describes paid plans; free monthly-cap behaviour **[U]** | Deletion of all personal data within 90 days of account termination (DPA). Retention of message content, recipient addresses, events and statistics during the account's life is **not published [U]**. Sinch may use "message routing data" (hostnames, IPs, timestamps) for its own business purposes (Terms 8) |
+| Brevo (Sendinblue, France) | Free: 300 sends/day; free mail "always include the Sent with Brevo sticker" (help centre, via official search excerpt; page returned 403) | **[U]**: only third-party reports of manual activation | Ports 587/2525, 465 with TLS; dedicated SMTP key ([developers](https://developers.brevo.com/docs/smtp-integration)); host not stated there **[U]** | SPF/DKIM/DMARC advertised **[U]** | Pricing, terms and GDPR pages render no readable text; EU hosting, DPA and sub-processors **[U]** | Free plan stops at its limits | Logs and previews kept **indefinitely by default**, configurable 1 month–5 years (help centre excerpt) |
+| [Amazon SES](https://aws.amazon.com/ses/pricing/) (AWS) | USD 0.10 per 1,000; new accounts get up to USD 200 Free Tier credits, free plan 6 months | Sandbox: verified recipients only, 200/24 h, 1/s; production access by manual review, first answer within 96 h, may need more information ([sandbox](https://docs.aws.amazon.com/ses/latest/dg/request-production-access.html)); card **[U]** | SMTP endpoints in Paris, Frankfurt, Ireland, Stockholm, none in Spain; STARTTLS on 25/587/2587 ([endpoints](https://docs.aws.amazon.com/general/latest/gr/ses.html), [SMTP](https://docs.aws.amazon.com/ses/latest/dg/smtp-connect.html)); IAM-derived SMTP credentials | Domain identity with DKIM; custom MAIL FROM | EU region selectable; Service Terms include the 2021 SCCs ([GDPR centre](https://aws.amazon.com/compliance/gdpr-center/)); US parent | [Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html) alert hours late and do not stop sending; quotas bound volume | **[U]** |
+| [Resend](https://resend.com/pricing) (Plus Five Five, Inc., USA) | Free: 3,000/month, 100/day, 30-day data retention; Pro USD 20/month | **[U]** | `smtp.resend.com`, STARTTLS on 25/587/2587, user `resend`, password = API key ([SMTP](https://resend.com/docs/send-with-smtp)) | Yes, 3 domains on free | "Primary processing operations take place in the United States"; account data stored in the US whatever the sending region ([regions](https://resend.com/docs/dashboard/domains/regions)); [DPA](https://resend.com/legal/dpa) 2025-12-31 with SCCs and DPF; deletion within 90 days of termination | Free stops at limits; paid overage USD 0.90/1,000 | 30 days (free) |
+
+Common facts **[V]**: every candidate offers authenticated SMTP with STARTTLS or
+implicit TLS, which Keycloak's realm SMTP settings use without an adapter. Not
+verified for any: deliverability to Spanish mailbox providers, new-account
+throttling in practice and whether the VPS provider lets outbound 587 through.
+
+**Evaluation [I]** (initial, before the owner's decisions): Scaleway was the only
+candidate with documented EU-only processing and natural-person customers; Mailjet the
+best zero-commitment option; Brevo unverifiable on its own pages, with indefinite log
+retention by default; Amazon SES disproportionate to operate with no hard cap; Resend
+stores in the United States and its paid tier equals the whole contingency.
+
+#### Owner decisions (2026-10-15)
+
+| ID | Decision | Consequence |
+|---|---|---|
+| E1 | Preferred provider: **Mailjet Free**, conditional on Mailjet accepting the account and on Keycloak sending through its SMTP relay in practice | Selected, not contracted. The professional-use clause below must be resolved before relying on it |
+| E2 | Replacement option: **Scaleway Transactional Email**, documented only | No second integration and never both services contracted. Switching changes only runtime SMTP inputs and DNS |
+| E3 | Free plan, no card, no automatic overage charges; sending should stop at the quota rather than cost money | Excludes card-backed pay-as-you-go while Mailjet qualifies. Scaleway, the replacement, needs a card and has no hard EUR cap (worst case about EUR 2.94/month within its default quota): choosing it later reopens E3 |
+| E4 | Dedicated sending subdomain, for example `mail.gameometro.es`, subject to the final domain | SPF, DKIM and DMARC of the subdomain stay independent of the contact mailbox (D1) |
+| E5 | Replies go to a real, operated contact address; no blackhole mailbox by default; user replies and technical bounces kept apart, bounces diagnosable | `Reply-To` set to the contact address; bounces stay with the provider's return path and are read in its statistics or event webhooks |
+| E6 | Create the provider account only when the domain and the public environment are being prepared; domain configuration may precede the VPS purchase with a separate authorization | No account, DNS change or contract now |
+
+#### Mailjet evidence recheck (2026-10-15)
+
+| # | Owner question | Finding | Status |
+|---|---|---|---|
+| 1 | Free plan | 6,000 emails/month, 200/day, SMTP relay, no card at sign-up. Daily overflow is queued and dropped after 3 days, not billed. Nothing can be charged without a payment method; the free-plan monthly-cap behaviour is not stated | **[V]** confirmed; monthly cap **[U]** |
+| 2 | DPA for a natural person on a free account | The Terms incorporate the Sinch DPA without plan distinction; its parties are those of the Agreement. The same Terms reserve the services "exclusively" for professional use | DPA **[V]**; eligibility **conflict, see below** |
+| 3 | Storage, processing, transfers | Hosting in Google Cloud Germany and Belgium; US sub-processors for support, ticketing and billing; SCCs and DPF; group-internal transfers allowed. The earlier "exclusively within the European Union" refers to data centres only | **Corrected**: not EU-only processing |
+| 4 | Retention | Only the 90-day deletion after termination is published. No published period for message content, recipient addresses, events or statistics; the privacy policy's retention table covers Sinch's own customer records, not mail data. Free plan offers only basic statistics, which says nothing about retention | **[U]**: ask support or observe after sign-up |
+| 5 | Mailjet branding on SMTP mail | Help centre: the logo appears only in templates built with the Email Editor or the Subscription Form Builder; removing it is not offered on Free or Starter (excerpt; page 403). Keycloak builds its own messages, so SMTP mail should be unbranded | **[V]** by official excerpt; prove in #276 |
+| 6 | Approval, domain, SPF/DKIM/DMARC, bounces | Domain or subdomain verification with Mailjet-generated SPF and DKIM; DMARC is ours; hard bounces and spam reports block the address, pre-blocking exists, the reason is visible in statistics; Webhooks are in the free plan. No published account-approval criteria; reviews and temporary limits exist | Mechanisms **[V]**; approval **[U]** |
+
+**Condition that may invalidate E1:** Mailjet's Terms state "The Services are
+exclusively reserved for a professional use". Gameómetro is a free, non-commercial
+service run by a natural person. Whether that counts as professional use is an
+interpretation **[I]**; if it does not, Mailjet may suspend the account for breach
+(Terms 3.4), which would stop verification and recovery mail without warning. This is
+not resolved by documentation. Keep E1 only if, at sign-up (E6), Mailjet confirms in
+writing that this use is accepted; otherwise move to E2 and decide E3 again. Scaleway's
+conditions name natural persons explicitly.
+
+Further differences from the initial assessment: Mailjet is not EU-only (US support
+sub-processors under SCCs and DPF, which section 3 asks to disclose) and keeps routing
+metadata for its own purposes. Neither invalidates E1 on its own; both belong in the
+privacy notice and the record of processing.
+
+**Cost:** EUR 0/month with Mailjet Free; no payment method, so no charge is possible.
+The EUR 2.00 allowance stays unused. With Scaleway (E2) expected EUR 0 and at most
+about EUR 2.94/month within its default quota, still inside the envelope.
+
+#### Future configuration (not implemented)
+
+1. **Keycloak.** The realm import's runtime inputs stay as they are and #275 supplies
+   `KEYCLOAK_SMTP_HOST=in-v3.mailjet.com`, `KEYCLOAK_SMTP_PORT=587`,
+   `KEYCLOAK_SMTP_FROM` an address on the sending subdomain (for example
+   `no-reply@mail.gameometro.es`), and `KEYCLOAK_SMTP_USER`/`KEYCLOAK_SMTP_PASSWORD`
+   the Mailjet SMTP credentials. `auth`, `starttls=true` and `ssl=false` already match;
+   2525 is the documented fallback port. E5 needs one **realm import change**, made with
+   #275 and covered by the identity gate: `replyTo` (and optionally
+   `replyToDisplayName`) set to the contact address from a runtime input. With E2 only the
+   host (`smtp.tem.scaleway.com`), user (Project ID) and password (IAM API key secret)
+   change.
+2. **DNS on the sending subdomain.** The SPF and DKIM records exactly as Mailjet's
+   domain page shows them; `_dmarc` starting at `p=none` with `rua` to an owner-read
+   mailbox, tightened to `quarantine`/`reject` after clean reports; no blackhole MX.
+   Whether Mailjet's return path aligns with the subdomain (SPF alignment) or DMARC
+   relies on DKIM alone is **[U]** until the domain page is seen. The contact mailbox's
+   own records stay on the apex domain.
+3. **Diagnosis (E5).** User replies arrive in the contact mailbox; bounces and blocks
+   are read in Mailjet's statistics ("details" column) or through its event webhook if
+   a later need justifies one. No webhook or receiving service is planned now.
+4. **Account (E6).** Free plan, no card; sub-processor change notifications subscribed
+   (DPA, 30 days' notice); the Terms, DPA version and the professional-use answer
+   captured with their dates.
+
+#### Launch requirements and pending verification
+
+Carried to the launch proof (#276) and the public gates; none is passed by this
+document:
+
+- Mailjet's written acceptance of the use (professional-use clause) and account
+  approval; otherwise E2 with a new E3 decision.
+- Real delivery of verification and recovery mail from Keycloak through the relay to
+  at least two large mailbox providers; SPF, DKIM and DMARC `pass` in received
+  headers; no Mailjet branding; replies reaching the contact mailbox; a deliberate
+  bounce visible and diagnosable.
+- Limits observed: 200/day queueing and the free monthly-cap behaviour.
+- Data handling: Mailjet's actual retention of content, addresses, events and
+  statistics; the US support transfers and routing-data use disclosed in the privacy
+  notice and record of processing; DPA version recorded (R14).
+- Outbound 587 or 2525 permitted from the chosen VPS; no SMTP secret or address in
+  Keycloak's log. The SMTP secret stays in the Keycloak database and backups (7.1).
+
 ## 8. Dependencies and conflicts
 
 | Issue | Dependency or conflict | Handling |
@@ -476,6 +591,9 @@ pages could not be read; Fashion ID and the Digital Services Act were not re-rea
 Keycloak cookies were not inventoried in a browser; ID-token claims and session rows
 were inspected only in the disposable phase 2 stack, with synthetic accounts and a
 mail sink. No provider was contacted by this work; the owner's IGDB query is
-unanswered. Prices, terms and policies can change after the research date.
+unanswered. Email providers were assessed only from public pages (7.3): Brevo's
+pricing, terms and help pages and Mailjet's help centre returned 403 (their content
+is cited from official search excerpts), and no account, quota or delivery was
+tested. Prices, terms and policies can change after the research date.
 Phase 1 and increment 1 changed no versioned artefact. Increment 2 is a compatible
 capability: backend reactor `0.38.0-SNAPSHOT`, frontend `0.29.0`, OpenAPI `3.13.0`.
