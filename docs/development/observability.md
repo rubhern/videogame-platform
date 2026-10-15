@@ -562,7 +562,8 @@ Product-specific meters should be added only when they answer an operational or
 product decision and have a bounded cardinality review.
 
 `POST /actuator/cataloguesync` is the internal operator command for one complete
-synchronization run and `GET` reports the latest result; the
+synchronization run and `GET` reports the latest result. `GET /actuator/cataloguecoverage`
+reads durable interval coverage under the same boundary. The
 [backend README](../../backend/README.md#persistence-and-observability) owns
 invocation and the [operations runbook](operations-runbook.md#catalogue-synchronization)
 owns the private-dev procedure. The command remains an exceptional operator path

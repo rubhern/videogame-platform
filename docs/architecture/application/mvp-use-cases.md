@@ -176,6 +176,13 @@ before reuse; rating commands also invalidate the frontend's search results. Typ
 suggestions receive the same response but never present the scores.
 
 `UC-009` reconciles all relevant new and known Games in the requested date interval through one operation.
+Post-MVP (#245, implemented; awaiting owner review): a run that read every provider page
+of its interval and committed at least one Game records the whole interval as durable
+coverage, with its failed Game count, together with its completion. An interrupted run
+covers nothing. A separate bounded
+application read reports covered and never-covered periods without calling the provider;
+[ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md#coverage-and-freshness)
+owns the semantics.
 Post-MVP (#155, implemented; private-dev exercise pending): manual and scheduled inbound
 adapters supply that same request. Recurrence and moving-window policy stay in the
 scheduled adapter, outside application reconciliation and domain rules; the

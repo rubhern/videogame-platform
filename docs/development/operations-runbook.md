@@ -307,7 +307,7 @@ roughly six months ahead, keeping wider acquisition less frequent. The default s
 times are staggered to reduce contention; the precise crons/offsets stay in
 `application.yaml` and can be tuned after observing run duration and provider volume.
 Their overlap is deliberate and uses stable-reference idempotence, with no scheduling
-de-duplication or coverage claim.
+de-duplication; each successful run refreshes the coverage of its own window.
 
 One dedicated scheduler thread serializes recurring work. If a long run delays the
 other policy, its date window is evaluated at actual invocation. Missed occurrences
@@ -319,8 +319,19 @@ and does no provider work. Existing provider request paging, request timeouts an
 bounded rate-aware retries remain unchanged;
 total time/network/database work grows with Games in the configured window, while
 memory stays bounded by page/aggregate size. Revisit cadence/windows if runs consume
-an unacceptable part of their interval; historical maintenance/coverage remains in
-#246/#245.
+an unacceptable part of their interval; historical maintenance remains in #246.
+
+Coverage answers whether, and when, a release-date period was last scanned completely.
+For example: has December 1997 ever been loaded? Read it with
+`GET /actuator/cataloguecoverage?from=…&to=…`, which the
+[backend README](../../backend/README.md#persistence-and-observability) documents.
+[ADR-0017](../decisions/0017-discover-catalogue-members-automatically-from-igdb.md#coverage-and-freshness)
+owns its semantics. A covered period with `failedGames` above zero was read completely, but
+some Games kept their last valid state; look in that run's log for the reason. Investigate a
+run that did not cover its window, such as `SYNCHRONIZATION_INTERRUPTED`, through the
+retained run reports above. Judge a covered period's scan age against the decision at hand,
+because no staleness threshold exists. An uncovered period is input for a deliberate
+operator interval, never an automatic backfill.
 
 Runtime provider/trigger failure preserves last-valid Game state and stays outside
 readiness and product reads. Inspect trigger outcome/duration and existing run/provider

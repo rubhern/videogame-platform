@@ -2,14 +2,17 @@ package com.videogameplatform.catalogue.configuration;
 
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationLog;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
+import com.videogameplatform.catalogue.adapter.operator.CatalogueCoverageEndpoint;
 import com.videogameplatform.catalogue.adapter.operator.CatalogueSynchronizationEndpoint;
 import com.videogameplatform.catalogue.adapter.persistence.synchronization.JdbcCatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbApiClient;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbApiSettings;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCatalogueProviderAdapter;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverageQuery;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import com.videogameplatform.catalogue.application.synchronization.internal.CatalogueSynchronizationService;
 import com.videogameplatform.catalogue.application.synchronization.internal.CoverSelectionPolicy;
+import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationCoverageService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
@@ -166,6 +169,16 @@ class CatalogueSynchronizationConfiguration {
                             repair) {
         return new com.videogameplatform.catalogue.adapter.operator.ReleaseStageRepairEndpoint(
                 repair);
+    }
+
+    @Bean
+    SynchronizationCoverageQuery synchronizationCoverageQuery(CatalogueSynchronizationStore store) {
+        return new SynchronizationCoverageService(store);
+    }
+
+    @Bean
+    CatalogueCoverageEndpoint catalogueCoverageEndpoint(SynchronizationCoverageQuery coverage) {
+        return new CatalogueCoverageEndpoint(coverage);
     }
 
     @Bean

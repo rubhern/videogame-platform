@@ -161,6 +161,9 @@ class CatalogueSynchronizationServiceTest {
 
         assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
         assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_COMPLETED_WITH_FAILURES");
+        // Every page was read, so failed Games are counted with the coverage instead of hiding it.
+        verify(store).completeCoveredRun(report, 50);
+        verify(store, never()).completeRun(any(), anyInt());
         assertThat(report.counters().createdGames()).isEqualTo(1);
         assertThat(report.counters().deferredGames()).isEqualTo(1);
         assertThat(report.counters().failedGames()).isEqualTo(6);
@@ -210,6 +213,8 @@ class CatalogueSynchronizationServiceTest {
 
         assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.FAILED);
         assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_FAILED");
+        verify(store).completeRun(report, 50);
+        verify(store, never()).completeCoveredRun(any(), anyInt());
         assertThat(progress.events)
                 .containsExactly(
                         "started:" + RUN,

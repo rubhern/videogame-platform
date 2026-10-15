@@ -122,6 +122,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         Run run = progress.started(runId, request, started, policy.providerPageSize());
         long afterGameId = 0;
         int pageNumber = 0;
+        boolean intervalRead = false;
         try {
             while (true) {
                 pageNumber++;
@@ -163,6 +164,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                 run.pageCompleted(pageNumber, counters(counts));
                 afterGameId = page.nextGameId();
                 if (page.completed()) {
+                    intervalRead = true;
                     break;
                 }
             }
@@ -173,13 +175,23 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                             request,
                             started,
                             outcome,
-                            outcome == SynchronizationOutcome.SUCCEEDED
-                                    ? "SYNCHRONIZATION_COMPLETED"
-                                    : outcome == SynchronizationOutcome.PARTIAL
-                                            ? "SYNCHRONIZATION_COMPLETED_WITH_FAILURES"
-                                            : "SYNCHRONIZATION_FAILED",
+                            switch (outcome) {
+                                case SUCCEEDED -> "SYNCHRONIZATION_COMPLETED";
+                                case PARTIAL ->
+                                        intervalRead
+                                                ? "SYNCHRONIZATION_COMPLETED_WITH_FAILURES"
+                                                : "SYNCHRONIZATION_INTERRUPTED";
+                                default -> "SYNCHRONIZATION_FAILED";
+                            },
                             counts);
-            store.completeRun(result, policy.retainedRuns());
+            // A run that read every page covers its interval even when single Games failed: they
+            // are counted with the coverage. Paging is by Game, not date, so an interrupted run
+            // leaves no complete sub-interval, and a run in which no Game succeeded covers nothing.
+            if (intervalRead && outcome != SynchronizationOutcome.FAILED) {
+                store.completeCoveredRun(result, policy.retainedRuns());
+            } else {
+                store.completeRun(result, policy.retainedRuns());
+            }
             run.finished(result);
             return result;
         } catch (RuntimeException failure) {
