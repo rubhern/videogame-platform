@@ -408,8 +408,8 @@ zero-pending clones test native No Data/Error/KeepLast/recovery and native datas
 instances; those accelerated tests do not establish live-host timing. Recreation
 checks rule UIDs/expressions and all five dashboards. Only the temporary Grafana HTTP
 port is published, on random IPv4 loopback; Prometheus/OTLP publish nothing.
-The existing `--telemetry-smoke` gate also includes alert smoke and synthetic rating
-counter translation/dashboard SQL checks.
+The `--telemetry-smoke` gate covers synthetic rating counter translation/dashboard SQL
+checks; it does not include alert smoke, which runs independently as listed above.
 
 Notification smoke provisions the real native Telegram integration but pins
 `api.telegram.org` to an internal HTTPS fixture with a disposable trusted certificate.
