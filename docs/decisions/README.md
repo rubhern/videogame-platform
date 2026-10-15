@@ -38,6 +38,7 @@ historical decision.
 - [ADR-0024: Maintain catalogue localization in the private-dev runtime](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md)
 
 - [ADR-0026: Defer ARM64 runtime support](0026-defer-arm64-runtime-support.md) — amends ADR-0008/ADR-0019; AMD64-only with a pre-deployment restoration gate.
+- [ADR-0027: Revoke and end BFF sessions in the application](0027-revoke-and-end-bff-sessions-in-the-application.md) — #274; direct session invalidation, eight-hour absolute lifetime and OIDC logout; implementation follows in #274 phase 2.
 
 ## Proposed
 

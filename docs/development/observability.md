@@ -373,10 +373,14 @@ logs are owner-limited to seven days (#274); propose at most 100 MiB per service
 well, whichever expires first, with an enforced age/rotation procedure. Ordinary byte
 rotation alone does not implement age deletion. Disable detailed identity events/edge
 access logging by default; retain only necessary redacted outcomes. Keycloak's default
-event logging writes the username and IP of failed logins, so production configures
-it explicitly. Do not collect tokens, cookies,
-email/name, raw IP, full URLs/query strings or rating-owner IDs. If a security
-investigation requires exceptional personal metadata, record purpose/access/expiry
+event logging writes the username and IP of failed logins, so the
+[production realm](../architecture/deployment/mvp-platform-and-delivery.md#production-realm-contract)
+stores no events and registers no event listener; its gate proves that synthetic
+credentials, addresses and client IPs stay out of the Keycloak log. That policy is
+provisional: before launch, the abuse and observability work defines sufficient
+bounded identity security signals without unnecessary personal data. Do not collect
+tokens, cookies, email/name, raw IP, full URLs/query strings or rating-owner IDs. If a
+security investigation requires exceptional personal metadata, record purpose/access/expiry
 separately and keep it out of metrics. Never send real account data to public GitHub
 reports or monitoring SaaS. Backups follow their independent protected retention.
 
