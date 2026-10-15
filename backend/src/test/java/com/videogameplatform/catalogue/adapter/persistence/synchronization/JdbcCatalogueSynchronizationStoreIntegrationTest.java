@@ -1264,14 +1264,16 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         assertThat(withFailures.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
         assertThat(withFailures.outcomeCode()).isEqualTo("SYNCHRONIZATION_COMPLETED_WITH_FAILURES");
         var covered = coverage.coverage(wider.from(), wider.to()).periods();
-        assertThat(covered).singleElement().satisfies(
-                period -> {
-                    assertThat(period.from()).isEqualTo(wider.from());
-                    assertThat(period.to()).isEqualTo(wider.to());
-                    assertThat(period.lastScan().orElseThrow().runId())
-                            .isEqualTo(withFailures.runId());
-                    assertThat(period.lastScan().orElseThrow().failedGames()).isEqualTo(1);
-                });
+        assertThat(covered)
+                .singleElement()
+                .satisfies(
+                        period -> {
+                            assertThat(period.from()).isEqualTo(wider.from());
+                            assertThat(period.to()).isEqualTo(wider.to());
+                            assertThat(period.lastScan().orElseThrow().runId())
+                                    .isEqualTo(withFailures.runId());
+                            assertThat(period.lastScan().orElseThrow().failedGames()).isEqualTo(1);
+                        });
     }
 
     private ScheduledTaskRegistrar scheduledTasks(CatalogueSynchronizationMetrics metrics) {

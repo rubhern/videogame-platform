@@ -143,7 +143,10 @@ class SynchronizationCoverageIntegrationTest {
         LastScan second = cover("1997-02-01", "1997-02-28", T2, 1);
         LastScan third = cover("1997-03-01", "1997-03-31", T3, 1);
 
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM catalogue.synchronization_run", Integer.class))
+        assertThat(
+                        jdbc.queryForObject(
+                                "SELECT count(*) FROM catalogue.synchronization_run",
+                                Integer.class))
                 .isEqualTo(1);
         assertThat(periods("1997-01-01", "1997-03-31"))
                 .containsExactly(
@@ -163,7 +166,11 @@ class SynchronizationCoverageIntegrationTest {
                                 systemNow.minus(Duration.ofHours(2)),
                                 Duration.ofMinutes(30))
                         .orElseThrow();
-        store.beginRun("IGDB", request("1990-01-01", "1990-01-31"), systemNow, Duration.ofMinutes(30))
+        store.beginRun(
+                        "IGDB",
+                        request("1990-01-01", "1990-01-31"),
+                        systemNow,
+                        Duration.ofMinutes(30))
                 .orElseThrow();
 
         assertThatThrownBy(
@@ -322,8 +329,33 @@ class SynchronizationCoverageIntegrationTest {
     /** Only the failed Game count matters to coverage. */
     private static CatalogueSynchronizationReport.Counters counters(long failedGames) {
         return new CatalogueSynchronizationReport.Counters(
-                0, 0, 0, 0, 0, 0, 0, 0, failedGames, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0);
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                failedGames,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0);
     }
 
     private List<Period> periods(String from, String to) {

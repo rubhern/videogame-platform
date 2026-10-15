@@ -54,7 +54,8 @@ public interface CatalogueSynchronizationStore {
     List<CoveredInterval> coveredIntervals(LocalDate from, LocalDate to, int limit);
 
     /** One stored disjoint interval and the latest complete scan that covered it. */
-    record CoveredInterval(LocalDate from, LocalDate to, SynchronizationCoverage.LastScan lastScan) {}
+    record CoveredInterval(
+            LocalDate from, LocalDate to, SynchronizationCoverage.LastScan lastScan) {}
 
     record GameState(
             UUID gameId,

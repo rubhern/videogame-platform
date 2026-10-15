@@ -33,7 +33,8 @@ class SynchronizationCoverageServiceTest {
                     3);
 
     private final CatalogueSynchronizationStore store = mock(CatalogueSynchronizationStore.class);
-    private final SynchronizationCoverageService service = new SynchronizationCoverageService(store);
+    private final SynchronizationCoverageService service =
+            new SynchronizationCoverageService(store);
 
     @Test
     void neverCoveredRangeIsOneUncoveredPeriod() {
@@ -42,7 +43,8 @@ class SynchronizationCoverageServiceTest {
         var coverage = service.coverage(day("1997-12-01"), day("1997-12-31"));
 
         assertThat(coverage.periods())
-                .containsExactly(new Period(day("1997-12-01"), day("1997-12-31"), Optional.empty()));
+                .containsExactly(
+                        new Period(day("1997-12-01"), day("1997-12-31"), Optional.empty()));
         assertThat(coverage.continuesFrom()).isEmpty();
     }
 
@@ -97,7 +99,9 @@ class SynchronizationCoverageServiceTest {
 
     private void stored(String from, String to, List<CoveredInterval> intervals) {
         when(store.coveredIntervals(
-                        day(from), day(to), SynchronizationCoverageService.MAX_COVERED_INTERVALS + 1))
+                        day(from),
+                        day(to),
+                        SynchronizationCoverageService.MAX_COVERED_INTERVALS + 1))
                 .thenReturn(intervals);
     }
 
