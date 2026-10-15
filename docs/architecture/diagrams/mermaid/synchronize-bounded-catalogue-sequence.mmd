@@ -18,7 +18,7 @@ sequenceDiagram
         Operator->>Sync: POST(from, to)
     end
     Sync->>DB: Acquire synchronization_run(from, to), one active provider
-    Note over Sync,DB: Busy run skips without provider work; only acquired ownership enters the loop
+    Note over Sync,DB: Busy run skips without provider work, only acquired ownership enters the loop
 
     loop Pages until the inclusive interval is exhausted
         Sync->>Adapter: Release Games from..to after Game ID

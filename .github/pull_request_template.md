@@ -19,6 +19,7 @@ Remove this section when no issue exists.
 - [ ] Relevant automated checks pass.
 - [ ] The complete diff has been reviewed.
 - [ ] Documentation and contracts are updated when affected.
+- [ ] Added or changed documentation satisfies [portal inclusion](https://github.com/rubhern/videogame-platform/blob/main/docs/README.md#portal-inclusion), including navigation and applicable validation.
 
 ## Impact and risk
 

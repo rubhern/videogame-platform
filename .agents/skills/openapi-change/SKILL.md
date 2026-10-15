@@ -1,6 +1,6 @@
 ---
 name: openapi-change
-description: Change a VideoGame Platform product-facing HTTP API contract-first, in the required order: OpenAPI, regeneration, backend delivery, frontend consumer, Postman, tests. Use whenever an endpoint, parameter, schema, header, status code, or error response is added or modified. Do not use for internal refactoring that leaves the wire contract unchanged.
+description: "Change a VideoGame Platform product-facing HTTP API contract-first, in the required order: OpenAPI, regeneration, backend delivery, frontend consumer, Postman, tests. Use whenever an endpoint, parameter, schema, header, status code, or error response is added or modified. Do not use for internal refactoring that leaves the wire contract unchanged."
 ---
 
 # OpenAPI change
@@ -62,3 +62,9 @@ before the first edit; this skill only enforces the order and the stop condition
   tie-breaker, and the query work stays bounded; load `scalability-by-design` for any
   collection, filter, or search operation.
 - Postman, tests, and documentation changed atomically with the contract.
+
+## Documentation portal
+
+When this skill adds or changes documentation, apply the mandatory
+[portal inclusion rule](../../../docs/README.md#portal-inclusion) before handoff.
+The canonical rule owns source inclusion, reader navigation and focused validation.

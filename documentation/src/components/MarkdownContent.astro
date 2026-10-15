@@ -1,0 +1,14 @@
+---
+import Default from '@astrojs/starlight/components/MarkdownContent.astro';
+---
+<Default><slot /></Default>
+<script>
+  document.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('[data-diagram-zoom]') : null;
+    if (!button) return;
+    const expanded = button.getAttribute('aria-pressed') !== 'true';
+    button.setAttribute('aria-pressed',String(expanded));
+    button.textContent = expanded ? 'Fit to column' : 'Read at full size';
+    button.closest('figure')?.classList.toggle('expanded',expanded);
+  });
+</script>

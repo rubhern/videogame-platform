@@ -69,3 +69,9 @@ and use the new run rather than compensating with an exhaustive local sweep.
 
 Never turn an unreliable test green by retrying. Diagnose it, or record a waiver with
 the failed control, reason, risk, compensating control, owner, and expiry.
+
+## Documentation portal
+
+When this skill adds or changes documentation, apply the mandatory
+[portal inclusion rule](../../../docs/README.md#portal-inclusion) before handoff.
+The canonical rule owns source inclusion, reader navigation and focused validation.

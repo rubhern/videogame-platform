@@ -1,0 +1,26 @@
+:root { --sl-color-accent-low:#242449; --sl-color-accent:#8d88ed; --sl-color-accent-high:#d7d5ff; --sl-content-width:56rem; --sl-font:system-ui,sans-serif; }
+:root[data-theme='light'] { --sl-color-accent-low:#ecebff; --sl-color-accent:#5144b4; --sl-color-accent-high:#30286d; }
+.breadcrumbs { display:flex; flex-wrap:wrap; gap:.6rem; font-size:.82rem; color:var(--sl-color-gray-2); }
+.breadcrumbs a { color:inherit; text-decoration:none; }
+.portal-intro { font-size:clamp(1.35rem,3vw,2rem); font-weight:600; line-height:1.35; color:var(--sl-color-white); max-width:30ch; }
+.portal-start { display:flex; flex-wrap:wrap; gap:.8rem 1.8rem; padding-block:1rem; font-weight:600; }
+.knowledge-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,19rem),1fr)); gap:1rem; margin-block:2rem; }
+.sl-markdown-content .knowledge-grid section { border:1px solid var(--sl-color-hairline); border-radius:.65rem; padding:1.25rem; margin:0; }
+.sl-markdown-content .knowledge-grid h2 { font-size:1.1rem; margin:0 0 .8rem; }
+.sl-markdown-content .knowledge-grid ul { margin:0; padding-left:1.15rem; }
+.source-context { border-inline-start:3px solid var(--sl-color-accent); padding:.7rem 1rem; background:var(--sl-color-gray-6); font-size:.85rem; }
+.sl-markdown-content .source-context p { margin:.25rem 0; }
+.source-context a { overflow-wrap:anywhere; }
+.diagram { margin:1.5rem 0; border:1px solid var(--sl-color-hairline); border-radius:.5rem; overflow:hidden; }
+.diagram-tools { display:flex; flex-wrap:wrap; gap:.5rem 1rem; align-items:center; padding:.7rem; font-size:.85rem; background:var(--sl-color-gray-6); }
+.diagram-tools button { padding:.4rem .65rem; border:1px solid var(--sl-color-gray-4); background:var(--sl-color-bg); border-radius:.3rem; color:var(--sl-color-white); cursor:pointer; font:inherit; }
+.diagram-viewport { overflow:auto; max-height:75vh; padding:.75rem; background:#17191f; }
+[data-theme='light'] .diagram-viewport { background:#fff; }
+.diagram-viewport img { display:block; max-width:100%; height:auto; margin:0 auto; }
+.diagram.expanded .diagram-viewport img { max-width:none; width:auto; margin:0; }
+.sl-markdown-content .diagram figcaption { padding:.65rem .8rem; margin:0; font-size:.85rem; color:var(--sl-color-gray-2); }
+[data-theme='light'] .diagram-dark, [data-theme='dark'] .diagram-light { display:none; }
+.sl-markdown-content { overflow-wrap:break-word; }
+.sl-markdown-content table { display:block; overflow:auto; }
+:focus-visible { outline:2px solid var(--sl-color-accent); outline-offset:3px; }
+@media (max-width:35rem) { .diagram-tools a, .diagram-tools button { min-height:2.75rem; display:inline-flex; align-items:center; } }

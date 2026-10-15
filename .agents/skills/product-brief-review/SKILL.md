@@ -57,3 +57,9 @@ For edits, keep the diff focused and run:
 ```bash
 bash scripts/validate-docs.sh
 ```
+
+## Documentation portal
+
+When this skill adds or changes documentation, apply the mandatory
+[portal inclusion rule](../../../docs/README.md#portal-inclusion) before handoff.
+The canonical rule owns source inclusion, reader navigation and focused validation.

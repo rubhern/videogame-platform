@@ -75,3 +75,9 @@ Report:
 - residual risk, known limitations, and anything deliberately left out of scope.
 
 Leave the working tree ready for the owner's review of the complete diff.
+
+## Documentation portal
+
+When this skill adds or changes documentation, apply the mandatory
+[portal inclusion rule](../../../docs/README.md#portal-inclusion) before handoff.
+The canonical rule owns source inclusion, reader navigation and focused validation.

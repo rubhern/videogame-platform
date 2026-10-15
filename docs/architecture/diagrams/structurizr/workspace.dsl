@@ -93,17 +93,29 @@ workspace "VideoGame Platform" "C4 model for the approved private learning MVP t
             title "VideoGame Platform — System Context"
             description "People and external systems that interact with VideoGame Platform."
             include *
-            autoLayout lr
+            autoLayout lr 450 350
         }
 
         container videoGamePlatform "Containers" {
             title "VideoGame Platform — Containers"
             description "Runtime responsibilities and data stores of the private learning MVP."
             include *
-            autoLayout lr
+            autoLayout tb 450 350
+        }
+
+        properties {
+            "structurizr.metadata" "false"
+            "c4plantuml.tags" "true"
+            "c4plantuml.stdlib" "true"
+            "c4plantuml.legend" "false"
         }
 
         styles {
+            dark {
+                relationship "Relationship" {
+                    color #b8c2d1
+                }
+            }
             element "Person" {
                 shape person
                 background #08427b
@@ -121,12 +133,12 @@ workspace "VideoGame Platform" "C4 model for the approved private learning MVP t
             }
 
             element "Container" {
-                background #438dd5
+                background #24659f
                 color #ffffff
             }
 
             element "External Container" {
-                background #888888
+                background #666666
                 color #ffffff
             }
 
@@ -175,9 +187,10 @@ workspace "VideoGame Platform" "C4 model for the approved private learning MVP t
             }
 
             relationship "Relationship" {
-                color #707070
-                fontSize 12
-                width 150
+                color #4b5563
+                fontSize 20
+                width 260
+                routing Curved
             }
         }
     }

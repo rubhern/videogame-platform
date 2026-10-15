@@ -113,6 +113,10 @@ for path in "${changed_paths[@]}"; do
   matched=false
 
   case "$path" in
+    documentation/*)
+      enable documentation
+      matched=true
+      ;;
     docs/architecture/api/openapi.yaml | docs/architecture/api/reference/* | redocly.yaml | tools/openapi-validation/* | scripts/build-openapi-docs.sh | scripts/validate-openapi.sh)
       enable documentation openapi frontend backend
       matched=true

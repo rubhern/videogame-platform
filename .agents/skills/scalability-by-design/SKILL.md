@@ -138,3 +138,9 @@ pagination strategy, integrity/concurrency decisions, query-plan evidence,
 cacheability, horizontal-scaling behavior, failure mode, and remaining evidence-based
 triggers. Keep future risks as explicit follow-ups rather than speculative
 infrastructure.
+
+## Documentation portal
+
+When this skill adds or changes documentation, apply the mandatory
+[portal inclusion rule](../../../docs/README.md#portal-inclusion) before handoff.
+The canonical rule owns source inclusion, reader navigation and focused validation.

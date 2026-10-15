@@ -971,3 +971,141 @@ targeted command before resuming promotion. Once running, its restart policy rec
 it after a host reboot; an intentionally stopped container must first be started.
 The [operations runbook](../../docs/development/operations-runbook.md#catalogue-localization)
 owns retry/diagnosis and the pending real-host lifecycle acceptance.
+
+## Documentation portal
+
+**Prepared configuration; owner review, deployment approval and real-host acceptance
+are still required.** This independent static service uses
+[the portal workflow](../../documentation/README.md) and the separate
+[Compose project](../../documentation/deploy/compose.private-dev.yaml). Application promotion, migration,
+telemetry and identity procedures do not start or replace it.
+
+### Endpoint and policy preflight
+
+The executable route owner is [`documentation-serve`](../../documentation/deploy/documentation-serve):
+tailnet HTTPS **9443** proxies only **127.0.0.1:4322**. Keep application **443**,
+Keycloak **8443** and the separate Grafana route in #296 intact; **10000** is reserved
+for that Grafana work pending its own operator review. A repository reservation is
+not evidence that a live port is free. Before every first install/rebuild:
+
+1. From an authorized owner device, read `tailscale serve status --json` and
+   `tailscale funnel status` on `vgpdev`. Save a protected snapshot outside Git.
+   Inspect all Serve/Services configuration, Docker mappings and `ss -4 -lntp` /
+   `ss -6 -lntp`. Stop if 9443 or 4322 has another owner. Never use `serve reset`.
+2. Review the **effective** tailnet ACL/grants in the Tailscale admin policy editor.
+   Merge the [policy example](../../documentation/deploy/tailscale-policy.hujson.example), substituting
+   the owner identity and host address only in the protected policy. Permit only
+   the owner on host TCP 9443. Remove any wider overlapping allow; grants are
+   additive, so the example alone cannot restrict an existing allow-all policy.
+   Preserve the promoter's SSH-only restriction and all other approved access.
+3. Run the policy editor's tests against the whole policy: owner accept, a real
+   non-owner tailnet identity deny, and `tag:vgp-deploy` deny for 9443. Repeat
+   for the host's Tailscale IPv6 address when used. Inspect group membership,
+   wildcard/autogroup rules, tags, shared-node access and any separate grants that
+   could authorize this destination. Keep the policy/test evidence protected.
+   Do not apply ingress until those tests pass; the script's explicit review flag
+   acknowledges this operator step and does not evaluate remote policy itself.
+4. Keep Funnel, router forwarding/UPnP and public ingress disabled. Public IPv4 and
+   every global IPv6 address require separate non-tailnet denied-access evidence.
+   No extra login, OAuth client or authentication proxy is needed: this entire
+   knowledge base is private to authorized owner devices.
+
+### Build and install after approval
+
+Build on the owner workstation/CI runner, not the 8 GB host. Use a clean reviewed
+source revision after the owner has approved publication of that revision; a build
+from uncommitted work is only local review evidence. The source label and saved
+image ID bind the install to the reviewed content. No registry is required.
+
+```bash
+npm ci --prefix documentation --ignore-scripts
+(cd documentation && npx playwright install --with-deps chromium && npm run validate)
+bash documentation/scripts/test-container.sh
+revision="$(git rev-parse HEAD)"
+docker build --build-arg SOURCE_REVISION="$revision" \
+  --tag "vgp-documentation:$revision" documentation
+image_id="$(docker image inspect --format '{{.Id}}' "vgp-documentation:$revision")"
+docker save --output documentation/.cache/documentation-image.tar "$image_id"
+sha256sum documentation/.cache/documentation-image.tar
+```
+
+Transfer only the reviewed static image and portal deployment sources after approval.
+These files are installed independently of the application's privileged checkout:
+
+```bash
+# Owner workstation, after review and deployment approval:
+scp documentation/.cache/documentation-image.tar vgpdev:/var/tmp/vgp-documentation-image.tar
+rsync --archive --relative documentation/deploy/ vgpdev:~/vgp-documentation/
+```
+
+On `vgpdev`, compare the printed tar checksum with the workstation checksum before
+loading it. Verify the loaded image ID and revision label against the reviewed build:
+
+```bash
+cd ~/vgp-documentation
+sha256sum /var/tmp/vgp-documentation-image.tar
+docker load --input /var/tmp/vgp-documentation-image.tar
+image_id="sha256:<verified-image-id>"
+docker image inspect --format '{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_id"
+```
+
+Keep the previous image and protected `documentation.env` for rollback. Create
+`/etc/videogame-platform/dev/documentation.env` with
+`DOCUMENTATION_IMAGE=sha256:<verified-image-id>` using the host-foundation ownership
+and protected-file procedure; the operator running Compose must be able to read it.
+The image must already be loaded. The file contains an immutable identity, no
+credentials. From `~/vgp-documentation` on the host:
+
+```bash
+docker compose --env-file /etc/videogame-platform/dev/documentation.env \
+  --file documentation/deploy/compose.private-dev.yaml up --detach --no-deps --wait documentation
+curl --fail http://127.0.0.1:4322/
+documentation/deploy/documentation-serve apply --owner-policy-reviewed
+documentation/deploy/documentation-serve check
+```
+
+The container is non-root, read-only and bounded, with no application/data/telemetry
+networks or secrets. Compose owns resource/log limits. `restart: unless-stopped`
+and Serve `--bg` persist across restart; Docker and `tailscaled` must remain enabled
+under the host-foundation procedure. On rebuild, reload the reviewed image, recreate
+only this project and reapply the route after the effective policy preflight.
+
+### Host acceptance
+
+From an authorized Tailscale owner device, open
+`https://<vgpdev-tailnet-dns-name>:9443/` without an SSH tunnel. Verify trusted TLS,
+landing/sidebar/breadcrumb navigation, a deep link with a heading fragment, Pagefind
+search returning a result, both C4 views and the long synchronization/OIDC sequences
+in light/dark themes at desktop and phone widths. Check the diagram full-size control,
+scrolling, SVG and original-source links. Search in the deployed production build
+must work with third-party requests blocked.
+
+Confirm with Docker inspection and both `ss` address families that only host IPv4
+loopback publishes 4322 and no global/LAN/IPv6 upstream is bound. From outside the
+tailnet probe public IPv4 and every global IPv6 address on 4322 and 9443; also probe
+the LAN address. Every request must fail. Verify a disallowed tailnet identity is
+denied (or retain the official effective-policy denied-test evidence where that
+identity cannot be exercised). Recheck Funnel and compare the saved Serve snapshot,
+excluding only 9443. Recheck application browsing/login, Keycloak discovery, and any
+installed Grafana route. After reboot, repeat HTTPS, search, links, bindings and policy
+checks. Measure idle/representative RAM/CPU and host headroom; configured limits alone
+do not establish capacity. Record acceptance in the issue/PR and the runbook's evidence
+boundary; local browser/container checks cannot supply this evidence.
+
+### Isolated rollback and removal
+
+To revert content, restore the previous immutable `DOCUMENTATION_IMAGE` in the
+protected file and run only the same documentation Compose `up` command. To remove:
+
+```bash
+documentation/deploy/documentation-serve remove
+docker compose --env-file /etc/videogame-platform/dev/documentation.env \
+  --file documentation/deploy/compose.private-dev.yaml down
+```
+
+Remove only the portal grant/test entries after removing the endpoint; retain other
+policy rules and image evidence until rollback is no longer needed. Verify the
+application, Keycloak and Grafana endpoints still work. The helper refuses unrelated
+9443 configuration and checks that every other Serve route is preserved. Never reset
+Serve, run application migrations, or bring down the application's Compose project
+as part of portal removal.

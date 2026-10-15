@@ -30,7 +30,23 @@ bash docs/architecture/diagrams/scripts/render-mermaid.sh
 ```
 
 The script owns the pinned renderer and the ignored output path. To view the C4
-model, mount `docs/architecture/diagrams/structurizr/` in the local Structurizr Lite
-container; the DSL is canonical and `workspace.json` only retains manual layout.
+model, mount `docs/architecture/diagrams/structurizr/` in the maintained Structurizr local editor; the DSL is canonical and `workspace.json` only retains manual layout.
 Generated exports stay ignored unless a repository consumer requires them and drift
 validation is added in the same change.
+
+## Portal rendering
+
+The [documentation portal](../../../documentation/README.md) renders every catalogue
+source and inline Mermaid block into ignored light/dark SVGs at build time. It uses
+the same pinned Mermaid CLI as the command above. The official digest-pinned
+Structurizr C4-PlantUML exporter derives both C4 views directly from `workspace.dsl`,
+with no second relationship model. A digest-pinned offline PlantUML renderer and
+bundled C4 library produce the SVGs; intermediate definitions stay ignored. Existing automatic layout is authoritative for these
+exports; `workspace.json` remains an editor layout artefact, never a replacement model.
+The portal provides full-size scrolling, standalone SVGs and original sources.
+
+Portal validation rejects missing catalogue entries, render errors, broken assets
+and internal links. Browser checks cover both themes and phone/desktop layouts;
+inspect the resulting diagrams for connectors, labels, multiline text, spacing,
+clipping and contrast before accepting a visual change. Rendering success alone
+is insufficient.

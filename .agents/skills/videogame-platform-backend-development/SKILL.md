@@ -452,3 +452,9 @@ Before declaring backend work complete, inspect for:
 - unrelated refactoring.
 
 Prefer boring, explicit and maintainable code over clever infrastructure.
+
+## Documentation portal
+
+When this skill adds or changes documentation, apply the mandatory
+[portal inclusion rule](../../../docs/README.md#portal-inclusion) before handoff.
+The canonical rule owns source inclusion, reader navigation and focused validation.

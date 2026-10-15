@@ -1,0 +1,32 @@
+# Independent project: do not combine with the application Compose file.
+# Build the reviewed source locally; load the resulting image on vgpdev after approval.
+name: videogame-platform-documentation
+services:
+  documentation:
+    image: ${DOCUMENTATION_IMAGE:?Set a reviewed immutable image ID or digest}
+    user: "101:101"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    ports:
+      - "127.0.0.1:4322:8080"
+    networks: [documentation]
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=101,gid=101,mode=1770
+    mem_limit: 64m
+    cpus: 0.25
+    pids_limit: 32
+    restart: unless-stopped
+    healthcheck:
+      test: [CMD, wget, --quiet, --spider, http://127.0.0.1:8080/]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    logging:
+      driver: local
+      options:
+        max-size: 5m
+        max-file: "2"
+networks:
+  documentation: {}
