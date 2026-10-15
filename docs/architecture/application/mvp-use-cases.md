@@ -302,11 +302,15 @@ rating intent, and starting a rating intent replaces general return context. Fai
 general authentication consumes the context and returns to its safe product destination
 without automatically restarting authentication; a rating failure keeps its game
 outcome and never executes a command. Authenticated account navigation exposes only
-existing personal ratings and session logout. Logout preserves a public browsing
-context, or returns a personal/account page to the landing page. **Approved, not yet
-implemented (#274, [ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)):** logout also ends that browser's Keycloak session
-through standard OIDC, so the next sign-in asks for credentials again; other devices
-and users keep their sessions.
+existing personal ratings and session logout. Post-MVP (#274,
+[ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)):
+logout ends the application session and then that browser's Keycloak session through
+standard OIDC, so the next sign-in on the device asks for credentials again; other
+devices and users keep their sessions. Keycloak returns only to the realm's exact
+post-logout URI, so logout always lands on the landing page instead of preserving the
+previous public page. A session revoked by the owner, or older than eight hours since
+authentication, acts as anonymous from its next request, and a personal command that
+would start after revocation is refused with `AUTHENTICATION_REQUIRED`.
 
 ## Common result and failure rules
 

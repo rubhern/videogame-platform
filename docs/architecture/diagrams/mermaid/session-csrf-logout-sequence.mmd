@@ -4,8 +4,9 @@ sequenceDiagram
     participant Browser as Browser / React
     participant OriginFilter as SameOriginStateChangeFilter
     participant Security as CsrfFilter + LogoutFilter
-    participant SessionApi as SessionController
+    participant SessionApi as SessionController / logout route
     participant Session as Server-side HTTP session
+    participant Keycloak as Keycloak end-session endpoint
 
     Note over Browser,Session: The browser already holds the session cookie and the session-bound CSRF token from GET /api/v1/session
 
@@ -21,10 +22,15 @@ sequenceDiagram
             Security-->>Browser: 403 CSRF_VALIDATION_FAILED, session remains authenticated
         else Current CSRF token
             Security->>Session: Clear SecurityContext and invalidate HTTP session
-            Session-->>Security: Session invalidated
-            Security-->>Browser: 204 + expire vgp_session + Cache-Control:no-store
-            Browser->>Security: GET /api/v1/session without application session
-            Security->>SessionApi: Dispatch anonymous request
+            Security->>Session: Keep the end-session URL with the ID token hint in a fresh unauthenticated session
+            Security-->>Browser: 204, no body, Cache-Control:no-store
+            Browser->>SessionApi: Top-level GET /auth/logout
+            SessionApi->>Session: Take the pending URL once and invalidate that session
+            SessionApi-->>Browser: 302 to the end-session endpoint + expire the session cookie
+            Browser->>Keycloak: GET with id_token_hint and the exact post-logout URI
+            Keycloak->>Keycloak: End only this browser's Keycloak session
+            Keycloak-->>Browser: 302 to the application root
+            Browser->>SessionApi: GET /api/v1/session without application session
             SessionApi-->>Browser: 200 {authenticated:false} + Cache-Control:no-store
         end
     end

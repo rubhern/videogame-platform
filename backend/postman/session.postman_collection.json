@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "4c9dc52f-47d7-4209-afeb-5c5de51d6dc7",
     "name": "VideoGame Platform Backend - BFF Session",
-    "description": "Executable anonymous-session and CSRF rejection examples for the contract-first same-origin BFF boundary. Complete OIDC login remains a real-browser flow.",
+    "description": "Executable anonymous-session, CSRF rejection and logout-completion examples for the contract-first same-origin BFF boundary. Complete OIDC login and logout through Keycloak remain real-browser flows.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -95,6 +95,44 @@
           ]
         },
         "description": "Demonstrates that logout is state-changing and cannot be invoked without current session-bound CSRF material."
+      },
+      "response": []
+    },
+    {
+      "name": "Complete logout without a pending logout",
+      "protocolProfileBehavior": {
+        "followRedirects": false
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Without a pending logout the route only returns home\", function () {",
+              "    pm.response.to.have.status(302);",
+              "    pm.expect(pm.response.headers.get(\"Location\")).to.eql(\"/\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+              "    pm.expect(pm.response.headers.has(\"Set-Cookie\")).to.eql(false);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/logout",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "logout"
+          ]
+        },
+        "description": "BFF navigation outside the JSON API. After a successful POST /api/v1/session the browser navigates here and is redirected once through Keycloak's OIDC end-session endpoint; run anonymously, it changes nothing and returns to the landing page. The real redirect is covered by the browser identity gate."
       },
       "response": []
     },

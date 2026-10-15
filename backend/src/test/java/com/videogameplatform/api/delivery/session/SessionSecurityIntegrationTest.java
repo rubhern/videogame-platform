@@ -1,7 +1,7 @@
 package com.videogameplatform.api.delivery.session;
 
+import static com.videogameplatform.test.RegisteredOidcSession.oidcSession;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -99,15 +99,13 @@ class SessionSecurityIntegrationTest {
                 mockMvc.perform(
                                 get("/api/v1/session")
                                         .with(
-                                                oidcLogin()
-                                                        .clientRegistration(clientRegistration())
-                                                        .idToken(
-                                                                token ->
-                                                                        token.subject(
-                                                                                        "provider-subject")
-                                                                                .audience(
-                                                                                        List.of(
-                                                                                                CLIENT_ID))))
+                                                oidcSession(
+                                                        clientRegistration(),
+                                                        token ->
+                                                                token.subject("provider-subject")
+                                                                        .audience(
+                                                                                List.of(
+                                                                                        CLIENT_ID))))
                                         .accept(MediaType.APPLICATION_JSON))
                         .andExpect(status().isOk())
                         .andExpect(header().string("Cache-Control", "no-store"))
@@ -351,8 +349,7 @@ class SessionSecurityIntegrationTest {
 
     private MvcResult authenticatedSession() throws Exception {
         return mockMvc.perform(
-                        get("/api/v1/session")
-                                .with(oidcLogin().clientRegistration(clientRegistration())))
+                        get("/api/v1/session").with(oidcSession(clientRegistration(), token -> {})))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.authenticated").value(true))
                 .andReturn();

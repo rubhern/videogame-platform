@@ -2,7 +2,8 @@
 
 - **Status:** Phase 1 complete; owner decisions recorded 2026-10-15; IGDB reply pending.
   Phase 2 increment 1 (production realm) complete with decisions D12–D19; increment 2
-  not started
+  (revocation, session bound, coordinated logout) implemented and proven in disposable
+  gates on 2026-10-15, pending owner review and not deployed
 - **Research date:** 2026-10-14 (sources); code re-checked 2026-10-15; production realm
   exercised against disposable Keycloak 26.7.0 on 2026-10-15
 - **Source revision:** `cda7185cced99ecc8a6d3aa08c1e96831772f86f` (`main`)
@@ -17,8 +18,9 @@ deployed or sent to a provider in this work. It extends, without repeating, the
 [ADR-0001](../decisions/0001-reference-igdb-cover-images.md). Approved decisions live in
 their canonical owners: the account baseline in the
 [Product Brief](../product/product-brief.md#public-release-and-sustainability) and
-[Q-013](../product/assumptions-and-decisions.md); revocation, backup ceiling and
-deletion ledger in the [platform design](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery);
+[Q-013](../product/assumptions-and-decisions.md); revocation and the management
+interface in the [platform design](../architecture/deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface),
+backup ceiling and deletion ledger in its [recovery section](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery);
 log ceiling in [observability](../development/observability.md#public-production-observability-proposal);
 acceptance checks in the [public gates](../development/delivery-lifecycle.md#public-production-gates).
 
@@ -232,7 +234,7 @@ fail-closed fallback. A per-request PostgreSQL check is justified only if sessio
 become self-contained (no store to act on) or a revocation must originate where the
 procedure cannot reach every store; replicas with a shared session store use the
 same operation against that store. Back-channel logout (b) remains a later complement
-for sign-outs started in Keycloak. Section 7.2 sets the requirements for increment 2.
+for sign-outs started in Keycloak. Section 7.2 records the implementation of increment 2.
 
 ### 4.2 Deletion ledger: partial failures, retries and restores
 
@@ -273,7 +275,7 @@ for sign-outs started in Keycloak. Section 7.2 sets the requirements for increme
 |---|---|---|---|
 | R1 | No privacy notice, terms, adult declaration or contact exists | Critical | **Blocks accounts** |
 | R2 | Unverified email registration, no password policy or brute-force protection | Critical | **Blocks accounts**; production realm prepared and tested (7.1), not deployed |
-| R3 | An open BFF session survives account disable/delete and can recreate ratings | High | **Blocks accounts**; design revised (4.1), phase 2 increment 2 |
+| R3 | An open BFF session survives account disable/delete and can recreate ratings | High | **Blocks accounts** until operated on the production host; mechanism implemented and proven with synthetic accounts (7.2) |
 | R4 | No production email route for verification/recovery | High | **Blocks accounts**; phase 2 |
 | R5 | Erasure, ledger and restore replay not implemented or rehearsed | High | **Blocks accounts**; privacy phase |
 | R6 | LSSI may require a published postal address and tax ID | High | **Blocks publishing the legal notice** until answered |
@@ -310,10 +312,10 @@ for sign-outs started in Keycloak. Section 7.2 sets the requirements for increme
 | D12 | Public realm `gameometro` | The full OIDC issuer (identity HTTPS origin plus `/realms/gameometro`) is fixed before the first real account and never changes, because every rating is keyed by a `UserId` derived from it (R12) |
 | D13 | Passwords of 12 to 128 characters, no artificial composition rules | Realm password policy (7.1) |
 | D14 | Per-account temporary lockout after five failures, from one minute up to 15 | Realm brute-force policy (7.1) |
-| D15 | Keycloak sessions: 30 minutes idle, 8 hours maximum | The BFF gets an 8-hour absolute limit in increment 2 |
+| D15 | Keycloak sessions: 30 minutes idle, 8 hours maximum | The BFF has an 8-hour absolute limit from the same authentication (7.2) |
 | D16 | Email changes stay a manual administrative procedure | Keycloak's update-email flow is not enabled or extended |
-| D17 | Logging out of Gameómetro also ends that browser's Keycloak session with standard OIDC | Increment 2 ([ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)) |
-| D18 | Administrative revocation invalidates BFF sessions directly with standard Spring Security capabilities; no per-request PostgreSQL check, no new dependency | Increment 2 (ADR-0027) |
+| D17 | Logging out of Gameómetro also ends that browser's Keycloak session with standard OIDC | Implemented (7.2, [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)) |
+| D18 | Administrative revocation invalidates BFF sessions directly with standard Spring Security capabilities; no per-request PostgreSQL check, no new dependency | Implemented (7.2, ADR-0027) |
 | D19 | Keep Keycloak's native registration declaration (18+ and conditions) | No per-account evidence of the accepted text; no complex customization without a justified need |
 
 ### 6.2 Implementation requirements for later phases
@@ -361,8 +363,8 @@ None of these items is passed by this document.
 
 ## 7. Phase 2 plan: production identity
 
-Prioritized; each increment is reviewable alone. Increment 1 is complete; increment 2
-is designed and not started.
+Prioritized; each increment is reviewable alone. Increments 1 and 2 are implemented;
+increment 3 is next.
 
 1. **Production realm baseline** (configuration and tests): section 7.1.
 2. **Revocation, session bound and coordinated logout** (code): section 7.2.
@@ -419,49 +421,42 @@ of never-verified accounts. The SMTP password is stored in the Keycloak database
 so in its backups; keeping it in a Keycloak vault, or adding bounded user-event
 metrics, needs build options in the production image (#275).
 
-### 7.2 Increment 2: revocation, session bound and coordinated logout
+### 7.2 Increment 2: revocation, session bound and coordinated logout (2026-10-15)
 
-Approved design (D15, D17, D18, [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md));
-not implemented. No migration, per-request query or new dependency.
+Implemented as approved (D15, D17, D18, [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)),
+with one refinement for requests in flight; pending owner review and not deployed. No
+migration, per-request query or new dependency. The
+[platform design](../architecture/deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)
+owns the resulting guarantees and the management-interface requirements for #275; the
+[operations runbook](../development/operations-runbook.md#account-disable-session-revocation-and-rating-deletion)
+owns the owner procedure. Code, tests and the OpenAPI contract own the mechanics.
 
-- **All sessions of a `UserId`:** register every authenticated session in Spring
-  Security's session registry, with unlimited concurrent sessions, so each device's
-  session is found. The operation resolves the `UserId` of each registered principal
-  from its issuer and subject, as `ProductIdentity` does, and expires every match;
-  Spring's own filter then rejects those sessions on their next request.
-- **Strict protection of the operation:** it lives on the management interface,
-  never the public port, and the edge never routes it (#275). Because the operation
-  can sign any account out, production keeps that interface on container loopback (the
-  application default), reached only by the owner through private administration;
-  private-dev's all-interfaces binding must not carry over to it. It accepts only a
-  `UserId`, returns only a count, and puts no user identifier in logs or metric labels.
-- **Revoked means no new operation:** after invalidation, the session reads as
-  anonymous, personal reads and state changes return 401, and nothing is stored.
-- **Requests already in flight:** a request authenticated just before invalidation may
-  still finish. The ledger deletes ratings only after revocation is verified and after
-  waiting longer than the configured Ratings connection-acquisition and operation
-  timeouts that bound a write; it then verifies zero ratings and reruns the idempotent
-  deletion if a late write appeared.
-- **Emergency restart:** if invalidation cannot be guaranteed (operation unreachable,
-  failed or inconsistent), restart the application before marking the step done; every
-  user is signed out and the ledger records it.
-- **Absolute lifetime:** an authenticated session older than 8 hours since sign-in
-  becomes anonymous; the 30-minute idle timeout is unchanged.
-- **Coordinated logout:** logout keeps the CSRF-protected same-origin request, ends the
-  BFF session, then sends the browser through Keycloak's OIDC end-session endpoint with
-  that session's ID token and the realm's exact post-logout URI. Only that browser's
-  Keycloak session ends; other devices and users are unaffected. The changed logout
-  response follows the OpenAPI workflow.
+| Area | Implementation | Evidence **[V]** |
+|---|---|---|
+| All sessions of a `UserId` | Spring Security's session registry, unlimited sessions per user, kept current by container session events. Revocation derives each registered principal's `UserId` from issuer and subject and expires every match; Spring's concurrent-session filter ends it on its next request, which continues anonymously | Two devices of one account and one of another: count 2, repeat 0, the other account and the same subject under another issuer unaffected |
+| Fail closed | An authenticated OIDC session absent from the registry, or whose ID token has neither `auth_time` nor `iat`, is ended | Backend tests |
+| Management operation | `POST /actuator/sessionrevocation` with `{"userId"}`, created only when the management server has its own port; accepts only canonical derived (version 3) `UserId`s and answers only the count; one `INFO` event with the count and the settled flag | Product port never answers `200`; a browser-initiated call `403`; malformed, upper-case or random UUIDs `400 INVALID_USER_ID`; logs hold no `UserId`, subject or token |
+| Requests in flight | Refinement of the plan: waiting longer than the Ratings timeouts bounds the database work but not a request stalled before it, so it guarantees nothing. Personal writes now run through `CurrentUser.changeAsCurrentUser`, which holds a shared lock and rechecks the session; revocation holds it exclusively. A `200` means no write by a revoked session is running or can start; `503 SESSION_REVOCATION_NOT_SETTLED` after 30 seconds means restart | PostgreSQL test: a write held inside the store keeps revocation waiting until it commits, the following deletion removes it and the other device's write gets `401`; a request admitted before revocation but stalled before the lock gets `401` after the deletion; no rating remains |
+| Absolute lifetime | Eight hours from the ID token's `auth_time` (`iat` otherwise) on the application clock; activity never extends it; the 30-minute idle timeout is unchanged | Requests at 25 minutes, 4, 7 and 8 hours minus one second keep the session; at 8 hours it is anonymous |
+| Coordinated logout | `POST /api/v1/session` stays a CSRF command answering `204`. Spring's OIDC logout handler builds the end-session URL (configured endpoint, ID token hint, exact post-logout URI); a fresh unauthenticated session carries it until the SPA navigates to `/auth/logout`, which consumes it once and redirects. OpenAPI 3.13.0, compatible | Slice tests; real Keycloak: the account's Keycloak sessions drop from two to one, the next sign-in shows the credential form, the other device and other accounts stay signed in, no application cookie remains |
+| Keycloak compatibility | Keycloak 26.7.0's end-session endpoint checks only the hint's signature and token type, not its expiry, so logout works long after the 5-minute ID token lifetime. The BFF bound equals the production realm's 8-hour SSO maximum from the same authentication; private-dev's 10-hour maximum outlasts it harmlessly | Bytecode of `LogoutEndpoint` and `TokenManager` in the 26.7.0 image; realm imports |
 
-Tests: two devices for account A and one for B; revoking A makes both A sessions
-anonymous on their next request, a rating write returns 401 and stores nothing, the
-count is 2, a repeat returns 0, and B is unaffected; the same for a deleted account; a
-code issued before the disable fails at the callback (**[V]** Keycloak answers "User
-disabled") and creates no session; a write in flight during revocation is removed by the
-delayed deletion and verification; a session past a short test lifetime is anonymous;
-a restart drops every session; the operation is unreachable from the public port;
-after logout a new sign-in asks for credentials while A's other device and B stay
-signed in; CSRF, same-origin and ownership tests stay green.
+The real identity gate now also proves, with synthetic accounts: a disabled account's
+two devices revoked (2, then 0), a rating write with a still-current CSRF token refused
+with `401`, the other account still reading its ratings and a new sign-in refused
+(Keycloak `user_disabled`); and a deleted account's open session revoked and anonymous.
+
+**Limitations [V]:** logout lands on the landing page, because Keycloak returns only to
+the exact post-logout URI, instead of preserving the public page (UC-004 updated); a
+validated path in the OIDC `state` could restore that. The ID token reaches the browser
+in the end-session redirect, which RP-initiated logout requires, never in JavaScript or
+an API response. If Keycloak is unreachable, logout ends only the BFF session. Personal
+writes of every user pause while a revocation waits, normally for milliseconds and 30
+seconds at most. A session opened through single sign-on keeps the original
+`auth_time`, so it ends eight hours after the credentials were entered. With a fixed
+application clock, used only by browser test topologies, the lifetime may never elapse.
+The registry and the lock are process-local like the sessions, so a second replica or a
+shared session store reopens ADR-0027.
 
 ## 8. Dependencies and conflicts
 
@@ -482,5 +477,5 @@ Keycloak cookies were not inventoried in a browser; ID-token claims and session 
 were inspected only in the disposable phase 2 stack, with synthetic accounts and a
 mail sink. No provider was contacted by this work; the owner's IGDB query is
 unanswered. Prices, terms and policies can change after the research date.
-Neither phase changes a versioned artefact (Maven reactor, npm package, OpenAPI, IGDB
-PoC): no SemVer increment.
+Phase 1 and increment 1 changed no versioned artefact. Increment 2 is a compatible
+capability: backend reactor `0.38.0-SNAPSHOT`, frontend `0.29.0`, OpenAPI `3.13.0`.

@@ -105,10 +105,18 @@ the same change.
 
 Flyway SQL under `src/main/resources/db/migration/` is the executable schema
 authority; the [migration workflow](../docs/development/database-migrations.md) owns
-the policy. Actuator exposes health groups, build information, metrics, and the
-synchronization command on the separate management port (`8081` by default, loopback
-only), never on the product port; [observability](../docs/development/observability.md)
-owns the signal catalogue.
+the policy. Actuator exposes health groups, build information, metrics, the
+synchronization commands and the BFF session-revocation command on the separate
+management port (`8081` by default, loopback only), never on the product port;
+[observability](../docs/development/observability.md) owns the signal catalogue and the
+[operations runbook](../docs/development/operations-runbook.md#account-disable-session-revocation-and-rating-deletion)
+the revocation procedure. Locally, with a derived `UserId`:
+
+```bash
+curl --fail -X POST -H 'Content-Type: application/json' \
+  -d '{"userId":"<derived-user-id>"}' \
+  http://localhost:8081/actuator/sessionrevocation
+```
 
 Catalogue synchronization (`UC-009`) has opt-in recurring near-term/upcoming inbound
 policies and an exceptional management command, all using the same application path.

@@ -1,6 +1,6 @@
 package com.videogameplatform.identity.adapter.web;
 
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
+import static com.videogameplatform.test.RegisteredOidcSession.oidcSession;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -229,11 +229,9 @@ class RatingIntentControllerIntegrationTest {
     }
 
     private static RequestPostProcessor authenticated(String subject) {
-        return oidcLogin()
-                .clientRegistration(clientRegistration())
-                .idToken(
-                        token ->
-                                token.issuer(ISSUER).subject(subject).audience(List.of(CLIENT_ID)));
+        return oidcSession(
+                clientRegistration(),
+                token -> token.issuer(ISSUER).subject(subject).audience(List.of(CLIENT_ID)));
     }
 
     static ClientRegistration clientRegistration() {

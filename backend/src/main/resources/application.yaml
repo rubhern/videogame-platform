@@ -43,6 +43,20 @@ server:
         same-site: lax
         path: /
 
+identity:
+  session:
+    # Absolute BFF session lifetime from the OIDC authentication (ID token auth_time); requests
+    # never extend it, unlike the idle server.servlet.session.timeout above. ADR-0027.
+    absolute-timeout: ${APPLICATION_SESSION_ABSOLUTE_TIMEOUT:8h}
+    # How long administrative revocation waits for running personal writes before it reports an
+    # unsettled outcome; personal writes pause meanwhile. It bounds availability, not safety.
+    revocation-settle-timeout: 30s
+  oidc:
+    # Explicit like the other provider endpoints: the browser-facing issuer's RP-initiated logout.
+    end-session-uri: ${OIDC_END_SESSION_URI:${OIDC_ISSUER_URI:http://localhost:8180/realms/videogame-platform}/protocol/openid-connect/logout}
+    # Must equal the realm client's registered post-logout URI exactly.
+    post-logout-redirect-uri: "${APPLICATION_OIDC_POST_LOGOUT_REDIRECT_URI:{baseUrl}/}"
+
 catalogue:
   localization:
     endpoint: ${CATALOGUE_TRANSLATION_ENDPOINT:http://127.0.0.1:8092/translate}
@@ -120,7 +134,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize
+        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize,sessionrevocation
   metrics:
     distribution:
       percentiles-histogram:

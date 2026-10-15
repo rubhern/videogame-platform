@@ -1,12 +1,12 @@
 package com.videogameplatform.api.delivery.ratings;
 
+import static com.videogameplatform.test.RegisteredOidcSession.oidcSession;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -43,13 +43,13 @@ import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.OidcLoginRequestPostProcessor;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -1063,13 +1063,9 @@ class PersonalRatingApiIntegrationTest {
         return "/api/v1/me/ratings/" + game;
     }
 
-    private static OidcLoginRequestPostProcessor login(String subject) {
-        return oidcLogin()
-                .idToken(
-                        token ->
-                                token.issuer(ISSUER)
-                                        .subject(subject)
-                                        .audience(List.of("test-bff")));
+    private static RequestPostProcessor login(String subject) {
+        return oidcSession(
+                token -> token.issuer(ISSUER).subject(subject).audience(List.of("test-bff")));
     }
 
     @TestConfiguration(proxyBeanMethods = false)

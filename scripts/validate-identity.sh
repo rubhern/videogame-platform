@@ -218,6 +218,7 @@ docker run --rm \
   --network "$identity_network" \
   --user "$(id -u):$(id -g)" \
   --env PLAYWRIGHT_BASE_URL=http://application:8080 \
+  --env APPLICATION_MANAGEMENT_ORIGIN=http://application:8081 \
   --env OIDC_TEST_USERNAME="$smoke_user_username" \
   --env OIDC_TEST_PASSWORD="$test_user_password" \
   --env KEYCLOAK_TEST_ORIGIN=http://keycloak:8080 \
@@ -231,8 +232,9 @@ docker run --rm \
     tests/oidc-session.spec.ts \
     tests/rating-boundary.spec.ts \
     tests/password-recovery.spec.ts \
+    tests/session-revocation.spec.ts \
     --reporter=line \
     --trace=off
 
 test_failed=false
-printf '%s\n' 'Real Keycloak 26.7 browser/BFF/session and Mailpit password-recovery proof passed.'
+printf '%s\n' 'Real Keycloak 26.7 browser/BFF/session, revocation/logout and Mailpit password-recovery proof passed.'

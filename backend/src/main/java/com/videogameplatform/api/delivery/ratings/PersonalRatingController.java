@@ -74,11 +74,17 @@ public class PersonalRatingController implements RatingsApi {
             throw headerMalformed("/headers/If-None-Match");
         }
 
+        String expectedVersion = create ? null : versionToken(ifMatch);
         var result =
-                create
-                        ? writes.create(userId(), gameId, ratingWrite.getValue())
-                        : writes.update(
-                                userId(), gameId, ratingWrite.getValue(), versionToken(ifMatch));
+                currentUser.changeAsCurrentUser(
+                        userId ->
+                                create
+                                        ? writes.create(userId, gameId, ratingWrite.getValue())
+                                        : writes.update(
+                                                userId,
+                                                gameId,
+                                                ratingWrite.getValue(),
+                                                expectedVersion));
         PersonalRating personal = mapper.toResponse(result.personalRating());
         RatingWriteResult body =
                 new RatingWriteResult(personal, mapper.toResponse(result.statistics()));
@@ -96,7 +102,10 @@ public class PersonalRatingController implements RatingsApi {
     @Override
     public ResponseEntity<RatingDeleteResult> deleteMyRating(
             String csrfToken, String ifMatch, String gameId) {
-        var statistics = deletes.delete(userId(), gameId, versionToken(ifMatch));
+        String expectedVersion = versionToken(ifMatch);
+        var statistics =
+                currentUser.changeAsCurrentUser(
+                        userId -> deletes.delete(userId, gameId, expectedVersion));
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(new RatingDeleteResult(null, mapper.toResponse(statistics)));

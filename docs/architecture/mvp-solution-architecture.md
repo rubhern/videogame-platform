@@ -134,7 +134,9 @@ imply physical CQRS, messaging, or event sourcing.
   preserves each Game's last valid state on failure. Successful Games commit independently;
   one failed Game does not stop later valid Games in the interval (ADR-0017).
 - Public reads can use cache validators; session/personal data is never publicly
-  cacheable. The application remains correct without process-local state.
+  cacheable. The application remains correct without process-local state, except for
+  BFF sessions, whose registry and revocation fence share the single replica's
+  in-memory session store (ADR-0027).
 
 ## Identity and API boundary
 
@@ -142,6 +144,11 @@ The BFF is a confidential OAuth client using Authorization Code, PKCE, and OIDC.
 keeps tokens server-side and gives the browser an opaque HttpOnly session cookie.
 State changes require CSRF proof; redirects are allowlisted; return context is short
 lived and replay-safe. Public catalogue and personal resources remain separate.
+Sessions are registered per derived `UserId`, bounded to eight hours from
+authentication, revocable by a private management operation that personal writes
+cannot outrun, and ended in Keycloak too on logout
+([ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md),
+[platform design](deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)).
 
 The product API is contract-first HTTP/JSON. OpenAPI generates frontend types and
 backend Spring interfaces/transport models; manual delivery adapters map to

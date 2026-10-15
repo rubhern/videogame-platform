@@ -152,8 +152,14 @@ export interface paths {
         put?: never;
         /**
          * Terminate the current BFF session
-         * @description Invalidates the opaque application session. OAuth/OIDC tokens remain
-         *     server-side and are never returned in the response or redirect URL.
+         * @description Invalidates the opaque application session immediately. To also end this
+         *     browser's identity-provider session, the client then navigates the top-level
+         *     browsing context to the `/auth/logout` authentication route: it redirects once
+         *     through the provider's standard OIDC end-session endpoint, which returns the
+         *     browser to the application root. Other sessions, including the same account's
+         *     on other devices, are unaffected. The response never contains a token; the
+         *     ended session's ID token travels only in that redirect, as the standard
+         *     `id_token_hint`. Without the navigation, only the application session ends.
          */
         post: operations["logoutSession"];
         delete?: never;
@@ -1517,7 +1523,11 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The application session is no longer authenticated. */
+            /**
+             * @description The application session is no longer authenticated. A fresh,
+             *     unauthenticated session cookie carries only the pending identity-provider
+             *     logout until `/auth/logout` consumes it.
+             */
             204: {
                 headers: {
                     "X-Correlation-ID": components["headers"]["XCorrelationId"];

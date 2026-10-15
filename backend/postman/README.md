@@ -18,8 +18,8 @@ backend API changes, update its tracked requests and assertions in the same chan
 | `catalogue-search` | Canonical-title and approved-alias matching, diacritic-insensitive prefix matching, ambiguous and zero-result outcomes, deterministic pagination, separate work-level scores with revalidating public headers, conditional reads |
 | `game-details` | Public details, release evidence listed platform by platform with each presented record first, empty statistics, the optional separate IGDB player score, conditional requests, missing games, strict query rejection |
 | `personal-ratings` | Authenticated read, conditional create/update/delete, strong ETag reuse from the private collection, scoped search and ordering, the optional separate IGDB player score, duplicate/stale-write and CSRF rejection |
-| `session` | Anonymous session state and CSRF-protected logout rejection; the successful OIDC flow is covered by the real-browser identity gate instead |
-| `actuator` | Discovery, health groups, build info, metrics, and the `cataloguesync` operator command asserting the credential-free `SYNCHRONIZATION_DISABLED` outcome |
+| `session` | Anonymous session state, CSRF-protected logout rejection and the inert logout-completion route; successful OIDC login and Keycloak logout are covered by the real-browser identity gate instead |
+| `actuator` | Discovery, health groups, build info, metrics, the `cataloguesync` operator command asserting the credential-free `SYNCHRONIZATION_DISABLED` outcome, and `sessionrevocation` with a synthetic `UserId` that has no session plus its malformed-identifier rejection |
 | `igdb-exploration` | Development-only IGDB queries; uses `igdb.postman_environment.json`, private provider credentials and the [quick guide](igdb-exploration.md), independently of the backend and its local environment |
 
 `local.postman_environment.json` holds the product `baseUrl` (`http://localhost:8080`)

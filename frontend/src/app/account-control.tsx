@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type FocusEvent } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { useLogout, useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
@@ -9,11 +9,9 @@ export function AccountControl() {
   const session = useSession();
   const logout = useLogout();
   const location = useLocation();
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const controlRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const signinRef = useRef<HTMLAnchorElement>(null);
   const panelId = useId();
 
   const closeOnBlur = (event: FocusEvent<HTMLDivElement>) => {
@@ -54,7 +52,7 @@ export function AccountControl() {
           <svg aria-hidden="true" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.6" /><path d="M5 20v-1a7 7 0 0 1 14 0v1" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
         </button>
         <nav className="account-entry-links" id={panelId} aria-label="Acceso a tu cuenta">
-          <a className="account-signin" ref={signinRef} href={authenticationStartUrl(returnTo)}>Iniciar sesión</a>
+          <a className="account-signin" href={authenticationStartUrl(returnTo)}>Iniciar sesión</a>
           <a className="account-register" href={authenticationStartUrl(returnTo, true)}>Crear cuenta</a>
         </nav>
       </div>
@@ -93,16 +91,7 @@ export function AccountControl() {
           <button
             className="account-option"
             disabled={logout.isPending}
-            onClick={() => logout.mutate(csrfToken, {
-              onSuccess: () => {
-                setOpen(false);
-                if (location.pathname === "/mis-puntuaciones") navigate("/");
-                else requestAnimationFrame(() => {
-                  if (triggerRef.current?.getClientRects().length) triggerRef.current.focus();
-                  else signinRef.current?.focus();
-                });
-              },
-            })}
+            onClick={() => logout.mutate(csrfToken)}
             type="button"
           >
             <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">

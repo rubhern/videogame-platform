@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { getSession, logout, type SessionState } from "./session-api";
+import { completeLogout, getSession, logout, type SessionState } from "./session-api";
 
 export const SESSION_QUERY_KEY = ["session"] as const;
 
@@ -14,7 +14,7 @@ export function useSession() {
   });
 }
 
-/** Terminates the session and refreshes the header to its anonymous state. */
+/** Terminates the application session, then the browser's identity-provider session. */
 export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -22,7 +22,8 @@ export function useLogout() {
     onSuccess: () => {
       // Personal server state must not outlive the session that read it.
       queryClient.removeQueries({ queryKey: ["me"] });
-      return queryClient.invalidateQueries({ queryKey: SESSION_QUERY_KEY });
+      queryClient.setQueryData<SessionState>(SESSION_QUERY_KEY, { authenticated: false });
+      completeLogout();
     },
   });
 }

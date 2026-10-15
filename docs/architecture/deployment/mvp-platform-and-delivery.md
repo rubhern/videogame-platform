@@ -345,14 +345,8 @@ headers, trust only the proxy and restrict backend access; see
 production proxy peer/network rather than copying the private-dev loopback trust.
 Test spoofed Host/forwarded values and exact redirect/logout origins. Preserve CSRF,
 principal ownership, secure cookies and production-only HSTS/CSP/referrer controls.
-Disabling or deleting an account must stop its new operations immediately, including
-through an already-open BFF session; a maximum session lifetime only bounds exposure
-and is not revocation. The requirement fixes no mechanism: revocation must reach every
-store that can authenticate the account and verify its outcome, failing closed.
-[ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)
-selects direct invalidation of BFF sessions over a per-request database check; its
-operation stays on the application's private management interface, which production
-keeps on container loopback. Approved, not yet implemented.
+Account revocation and its management interface follow
+[below](#account-revocation-and-the-management-interface).
 
 [Caddy automatic HTTPS](https://caddyserver.com/docs/automatic-https) requires
 correct DNS, reachable validation ports and persistent writable certificate state.
@@ -362,6 +356,61 @@ qualification. Docker NAT/published ports and host firewall must both be assesse
 on IPv4/IPv6; do not claim protection from an SSH/HTTP-only firewall screenshot.
 Private administration must work before opening the edge; provider console is a
 protected break-glass path.
+
+### Account revocation and the management interface
+
+Disabling or deleting an account must stop its new operations immediately, including
+through an already-open BFF session; a maximum session lifetime only bounds exposure
+and is not revocation. Revocation must reach every store that can authenticate the
+account and verify its outcome, failing closed.
+[ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)
+selects direct invalidation of BFF sessions. **Implemented in the application (#274),
+not yet operated on a host:**
+
+- Every OIDC sign-in registers its session in Spring Security's in-memory session
+  registry. An authenticated session that is missing from it, or that is eight hours
+  past the ID token's authentication time, ends on its next request; requests never
+  extend that bound, and the 30-minute idle timeout is unchanged.
+- The private `sessionrevocation` management operation expires every active session of
+  one derived `UserId`, on every device, and answers only the count; a repeat answers
+  zero. A revoked session reads as anonymous: personal APIs answer `401`, public reads
+  continue, nothing is stored.
+- Personal state changes run behind an in-process fence and recheck their session
+  inside it, while revocation holds the fence exclusively. A successful answer
+  therefore guarantees that no write by a revoked session is still running or can
+  start, so deletion can follow at once instead of after a waiting period. Personal
+  writes pause only while revocation waits, bounded by a 30-second settle limit; an
+  unsettled answer or any failure requires an application restart, which discards
+  every in-memory session. The [operations runbook](../../development/operations-runbook.md#account-disable-session-revocation-and-rating-deletion)
+  owns the owner procedure.
+- Logging out ends the application session and then, through standard OIDC
+  RP-initiated logout with the session's ID token and the realm's exact post-logout
+  URI, only that browser's Keycloak session. The token reaches the browser only in that
+  redirect, never in an API response or JavaScript.
+- These guarantees hold for one application replica with in-memory sessions; the ADR
+  names what reopens the decision.
+
+Management-interface requirements that #275 must preserve in the production runtime:
+
+- Bind the management server to container loopback, the application default
+  (`MANAGEMENT_SERVER_ADDRESS=127.0.0.1`), never to all interfaces as local Compose and
+  private-dev do; publish no port and route nothing to it at the edge. The owner
+  reaches it with `docker compose exec` over private administration, and smoke or
+  health checks use the same in-container path instead of a peer network.
+- Keep the management port separate from the product port. The revocation operation
+  exists only on a separate management server, so merging the ports removes it rather
+  than exposing it, and the procedure falls back to a restart.
+- Keep the rejection of browser-initiated state-changing management requests; add no
+  proxy, tunnel or credential-free route to the management server.
+- Pin `OIDC_ISSUER_URI`, from which every `UserId` derives, and the post-logout URI
+  (`APPLICATION_OIDC_POST_LOGOUT_REDIRECT_URI`) to the canonical public values, as the
+  callback is.
+
+Private-dev binds the management server to all container interfaces for its smoke
+runner, so every peer on its edge and data networks, Keycloak, PostgreSQL, Grafana,
+the localizer and the migration actor included, can invoke any management operation,
+revocation as well as synchronization. Its owner-only tailnet and unpublished port
+accept that for a private environment; changing it is a separate operational decision.
 
 ### Production realm contract
 

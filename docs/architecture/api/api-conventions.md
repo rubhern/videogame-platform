@@ -85,8 +85,12 @@ documented non-`Secure` local cookie only.
 `GET /session` reveals only authentication state and, when authenticated, opaque
 session-bound CSRF material. Authenticated state changes require `X-CSRF-Token` and
 same-origin browser metadata; CORS is disabled by default. API fetches return `401`
-rather than redirecting. Login navigation and callback destinations are allowlisted.
-Session/personal/command responses use `Cache-Control: no-store`.
+rather than redirecting, including the first request after a session is revoked or
+reaches its absolute lifetime. Login navigation and callback destinations are
+allowlisted. Logout is a CSRF-protected command followed by top-level navigation to a
+BFF route that redirects through the identity provider's end-session endpoint; the ID
+token appears only in that redirect, as the standard `id_token_hint`, never in an API
+response. Session/personal/command responses use `Cache-Control: no-store`.
 
 ## Caching, observability, and compatibility
 

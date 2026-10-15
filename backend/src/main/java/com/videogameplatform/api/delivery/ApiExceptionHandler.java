@@ -11,6 +11,7 @@ import com.videogameplatform.catalogue.application.details.GameNotFoundException
 import com.videogameplatform.catalogue.application.releases.FeaturedMonthOutOfRangeException;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
+import com.videogameplatform.identity.application.CurrentUserUnavailableException;
 import com.videogameplatform.ratings.application.PersonalRatingReadException;
 import com.videogameplatform.ratings.application.PersonalRatingsReadException;
 import com.videogameplatform.ratings.application.RatingAlreadyExistsException;
@@ -136,6 +137,31 @@ public class ApiExceptionHandler {
                     case PAGINATION -> "/query/page";
                 };
         return requestInvalid(new ApiRequestException(code, pointer), response);
+    }
+
+    /**
+     * The session was revoked or ended after the security filters admitted the request; answers
+     * exactly like the authentication entry point.
+     */
+    @ExceptionHandler(CurrentUserUnavailableException.class)
+    ResponseEntity<Problem> currentUserUnavailable(HttpServletResponse response) {
+        String correlationId = correlationId(response);
+        reportErrorCode(ProblemCode.AUTHENTICATION_REQUIRED);
+        Problem body =
+                new Problem(
+                        "urn:videogame-platform:problem:authentication-required",
+                        "Authentication is required",
+                        HttpStatus.UNAUTHORIZED.value(),
+                        "Establish a session before accessing this resource.",
+                        "urn:videogame-platform:problem-instance:" + correlationId,
+                        ProblemCode.AUTHENTICATION_REQUIRED,
+                        ErrorCategory.AUTHENTICATION,
+                        correlationId);
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header(CORRELATION_ID_HEADER, correlationId)
+                .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+                .cacheControl(CacheControl.noStore())
+                .body(body);
     }
 
     @ExceptionHandler(RatingNotFoundException.class)
