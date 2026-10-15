@@ -1,9 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, rmSync, symlinkSync, lstatSync, statSync, readdirSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, symlinkSync, openSync, closeSync, fstatSync, constants, readdirSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { repo, portal, sources, resolveLink, transform, statusFor, writePage } from './content.mjs';
 import { routeFor } from '../content-map.mjs';
+function pageSnapshot(file) {
+  const descriptor = openSync(file,constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const metadata = fstatSync(descriptor,{bigint:true});
+    return {inode:metadata.ino,modified:metadata.mtimeNs,content:readFileSync(descriptor,'utf8')};
+  } finally { closeSync(descriptor); }
+}
 test('page generation replaces destination symlinks and leaves unchanged pages untouched',()=>{
   mkdirSync(path.join(portal,'src/content/docs'),{recursive:true});
   const directory = mkdtempSync(path.join(portal,'src/content/docs/write-test-'));
@@ -15,13 +22,12 @@ test('page generation replaces destination symlinks and leaves unchanged pages u
     symlinkSync(target,output);
     writePage(route,'Test page','Initial content');
     assert.equal(readFileSync(target,'utf8'),'Must remain unchanged');
-    assert.equal(lstatSync(output).isSymbolicLink(),false);
-    assert.match(readFileSync(output,'utf8'),/Initial content/);
-    const before = statSync(output,{bigint:true}).mtimeNs;
+    const before = pageSnapshot(output);
+    assert.match(before.content,/Initial content/);
     writePage(route,'Test page','Initial content');
-    assert.equal(statSync(output,{bigint:true}).mtimeNs,before);
+    assert.deepEqual(pageSnapshot(output),before);
     writePage(route,'Test page','Updated content');
-    assert.match(readFileSync(output,'utf8'),/Updated content/);
+    assert.match(pageSnapshot(output).content,/Updated content/);
     assert.deepEqual(readdirSync(directory).sort(),['local-file','page.md']);
   } finally { rmSync(directory,{recursive:true,force:true}); }
 });
