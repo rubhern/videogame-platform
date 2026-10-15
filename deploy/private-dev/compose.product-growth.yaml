@@ -1,0 +1,12 @@
+# Optional, separable private-dev growth observations; never a production realm policy.
+services:
+  keycloak:
+    environment:
+      KC_EVENT_METRICS_USER_ENABLED: "true"
+      KC_EVENT_METRICS_USER_EVENTS: register,verify_email
+      KC_EVENT_METRICS_USER_TAGS: realm
+    networks:
+      - telemetry
+  prometheus:
+    volumes:
+      - ./prometheus/product-growth:/etc/prometheus/product-growth:ro

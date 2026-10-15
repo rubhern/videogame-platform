@@ -1,6 +1,7 @@
 package com.videogameplatform.ratings.configuration;
 
 import com.videogameplatform.catalogue.application.details.GetGameDetailsUseCase;
+import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics;
 import com.videogameplatform.ratings.adapter.persistence.JdbcPersonalRatingStore;
 import com.videogameplatform.ratings.adapter.persistence.JdbcRatingStatisticsReadAdapter;
 import com.videogameplatform.ratings.application.GetRatingContextUseCase;
@@ -8,6 +9,7 @@ import com.videogameplatform.ratings.application.internal.PersonalRatingService;
 import com.videogameplatform.ratings.application.internal.RatingContextService;
 import com.videogameplatform.ratings.application.port.PersonalRatingStore;
 import com.videogameplatform.ratings.application.port.RatingStatisticsReadPort;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import javax.sql.DataSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -72,8 +74,9 @@ class RatingsConfiguration {
     }
 
     @Bean
-    PersonalRatingStore personalRatingStore(RatingJdbcExecution execution) {
-        return new JdbcPersonalRatingStore(execution.jdbc(), execution.transaction());
+    PersonalRatingStore personalRatingStore(RatingJdbcExecution execution, MeterRegistry registry) {
+        return new JdbcPersonalRatingStore(
+                execution.jdbc(), execution.transaction(), new RatingActivityMetrics(registry));
     }
 
     @Bean

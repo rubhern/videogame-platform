@@ -1,0 +1,93 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "product-activity",
+      "folder": "VideoGame Platform",
+      "interval": "60s",
+      "rules": [
+        {
+          "uid": "vgp-registration-window",
+          "title": "Registro observado en ventana",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"register\",error=\"\"}[5m])) > bool 0",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "0s",
+          "annotations": {
+            "summary": "Registration activity observed within a window",
+            "summary_es": "Nuevo usuario registrado (actividad observada)",
+            "hint_es": "Consulta Crecimiento; este aviso puede agrupar registros y perder eventos.",
+            "description": "Best-effort window activity, not one delivery per registration. A first lazy sample, restart or scrape gap can lose events. Resolution only closes the window.",
+            "resolution_kind": "window_expiry",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#product-growth",
+            "__dashboardUid__": "vgp-growth",
+            "__panelId__": "2"
+          },
+          "labels": {
+            "environment": "private-dev",
+            "service": "identity",
+            "category": "product",
+            "severity": "info"
+          },
+          "isPaused": false
+        }
+      ]
+    }
+  ]
+}

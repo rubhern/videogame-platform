@@ -12,6 +12,7 @@ import com.videogameplatform.ratings.application.RatingWriteException;
 import com.videogameplatform.ratings.application.port.PersonalRatingStore;
 import com.videogameplatform.ratings.domain.RatingValue;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -28,6 +29,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest(properties = "management.server.port=0")
 @Execution(ExecutionMode.SAME_THREAD)
@@ -37,6 +40,8 @@ class JdbcPersonalRatingStoreIntegrationTest {
     private static final Instant NOW = Instant.parse("2026-09-10T10:00:00Z");
 
     @Autowired PersonalRatingStore store;
+    @Autowired MeterRegistry meters;
+    @Autowired PlatformTransactionManager transactionManager;
     private JdbcTemplate admin;
     private String game;
     private String user;
@@ -66,6 +71,9 @@ class JdbcPersonalRatingStoreIntegrationTest {
 
     @Test
     void createsReadsUpdatesAndDeletesWithCoherentDatabaseAggregates() {
+        double createdBefore = activity("created");
+        double updatedBefore = activity("updated");
+        double deletedBefore = activity("deleted");
         String otherUser = UUID.randomUUID().toString();
         store.create(otherUser, game, new RatingValue(7), NOW, UUID.randomUUID().toString());
 
@@ -96,6 +104,9 @@ class JdbcPersonalRatingStoreIntegrationTest {
         assertThat(afterDelete.count()).isEqualTo(1);
         assertThat(afterDelete.mean()).isEqualByComparingTo("7.0");
         assertThat(store.find(user, game)).isEmpty();
+        assertThat(activity("created") - createdBefore).isEqualTo(2);
+        assertThat(activity("updated") - updatedBefore).isEqualTo(1);
+        assertThat(activity("deleted") - deletedBefore).isEqualTo(1);
     }
 
     @Test
@@ -120,6 +131,7 @@ class JdbcPersonalRatingStoreIntegrationTest {
 
     @Test
     void concurrentCreatesHaveOneWinnerAndOneAlreadyExistsOutcome() throws Exception {
+        double before = activity("created");
         CountDownLatch start = new CountDownLatch(1);
         Callable<Object> create =
                 () -> {
@@ -142,12 +154,14 @@ class JdbcPersonalRatingStoreIntegrationTest {
 
         assertThat(outcomes).filteredOn(RatingCommandResult.class::isInstance).hasSize(1);
         assertThat(outcomes).filteredOn(RatingAlreadyExistsException.class::isInstance).hasSize(1);
+        assertThat(activity("created") - before).isEqualTo(1);
         assertThat(admin.queryForObject("SELECT count(*) FROM ratings.rating", Integer.class))
                 .isEqualTo(1);
     }
 
     @Test
     void concurrentUpdatesWithOneVersionNeverOverwriteTheWinner() throws Exception {
+        double before = activity("updated");
         PersonalRating initial =
                 store.create(user, game, new RatingValue(4), NOW, UUID.randomUUID().toString())
                         .personalRating();
@@ -165,6 +179,7 @@ class JdbcPersonalRatingStoreIntegrationTest {
 
         assertThat(outcomes).filteredOn(RatingCommandResult.class::isInstance).hasSize(1);
         assertThat(outcomes).filteredOn(RatingWriteConflictException.class::isInstance).hasSize(1);
+        assertThat(activity("updated") - before).isEqualTo(1);
         RatingCommandResult winner =
                 outcomes.stream()
                         .filter(RatingCommandResult.class::isInstance)
@@ -177,6 +192,8 @@ class JdbcPersonalRatingStoreIntegrationTest {
 
     @Test
     void ownershipScopeLooksAbsentAndCannotMutateAnotherUsersRating() {
+        double updatedBefore = activity("updated");
+        double deletedBefore = activity("deleted");
         PersonalRating ownerRating =
                 store.create(user, game, new RatingValue(8), NOW, UUID.randomUUID().toString())
                         .personalRating();
@@ -200,10 +217,13 @@ class JdbcPersonalRatingStoreIntegrationTest {
         assertThatThrownBy(() -> store.delete(otherUser, game, ownerVersion))
                 .isInstanceOf(RatingNotFoundException.class);
         assertThat(store.find(user, game)).contains(ownerRating);
+        assertThat(activity("updated")).isEqualTo(updatedBefore);
+        assertThat(activity("deleted")).isEqualTo(deletedBefore);
     }
 
     @Test
     void failureAfterTheUpdateStatementRollsBackPersonalAndAggregateState() {
+        double beforeMetric = activity("updated");
         PersonalRating before =
                 store.create(user, game, new RatingValue(6), NOW, UUID.randomUUID().toString())
                         .personalRating();
@@ -238,6 +258,7 @@ class JdbcPersonalRatingStoreIntegrationTest {
                 .isInstanceOf(RatingWriteException.class);
 
         assertThat(store.find(user, game)).contains(before);
+        assertThat(activity("updated")).isEqualTo(beforeMetric);
         var statistics = new JdbcRatingStatisticsReadAdapter(namedRuntimeJdbc()).read(game);
         assertThat(statistics)
                 .isInstanceOfSatisfying(
@@ -246,6 +267,49 @@ class JdbcPersonalRatingStoreIntegrationTest {
                             assertThat(available.count()).isEqualTo(1);
                             assertThat(available.mean()).isEqualByComparingTo("6.0");
                         });
+    }
+
+    @Test
+    void outerRollbackNeverPublishesSuccessfulActivity() {
+        double before = activity("created");
+        new TransactionTemplate(transactionManager)
+                .executeWithoutResult(
+                        status -> {
+                            store.create(
+                                    user,
+                                    game,
+                                    new RatingValue(6),
+                                    NOW,
+                                    UUID.randomUUID().toString());
+                            assertThat(activity("created")).isEqualTo(before);
+                            status.setRollbackOnly();
+                        });
+        assertThat(store.find(user, game)).isEmpty();
+        assertThat(activity("created")).isEqualTo(before);
+    }
+
+    @Test
+    void directFixtureWritesAreNotObservedCommands() {
+        double before = activity("created");
+        admin.update(
+                "INSERT INTO ratings.rating(user_id, game_id, value) VALUES (?, ?, 6)",
+                UUID.fromString(user),
+                UUID.fromString(game));
+        assertThat(activity("created")).isEqualTo(before);
+        assertThat(meters.find("ratings.personal.activity").counters())
+                .hasSize(3)
+                .allSatisfy(
+                        counter ->
+                                assertThat(counter.getId().getTags())
+                                        .hasSize(1)
+                                        .allSatisfy(
+                                                tag ->
+                                                        assertThat(tag.getKey())
+                                                                .isEqualTo("action")));
+    }
+
+    private double activity(String action) {
+        return meters.get("ratings.personal.activity").tag("action", action).counter().count();
     }
 
     private Callable<Object> update(CountDownLatch start, String version, int value) {

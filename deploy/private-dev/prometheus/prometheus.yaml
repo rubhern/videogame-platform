@@ -2,6 +2,10 @@ global:
   scrape_interval: 30s
   scrape_timeout: 5s
 
+# Optional native Keycloak target is mounted only by compose.product-growth.yaml.
+scrape_config_files:
+  - /etc/prometheus/product-growth/*.yaml
+
 scrape_configs:
   - job_name: application-otlp
     static_configs:
@@ -15,7 +19,7 @@ scrape_configs:
     metric_relabel_configs:
       # Drop target_info/resource metadata and unrelated meter families before storage.
       - source_labels: [__name__]
-        regex: '(http_server_requests_.*|jvm_.*|process_.*|system_cpu_.*|jdbc_connections_.*|hikaricp_.*|catalogue_.*|platform_http_errors_.*|issue43_synthetic_receipt.*)'
+        regex: '(http_server_requests_.*|jvm_.*|process_.*|system_cpu_.*|jdbc_connections_.*|hikaricp_.*|catalogue_.*|platform_http_errors_.*|ratings_personal_activity_total|issue43_synthetic_receipt.*)'
         action: keep
       # id denotes a bounded JVM pool/buffer name, never a product identifier.
       - regex: '__name__|job|instance|uri|method|status|outcome|exception|error|le|area|id|action|cause|state|pool|name|view|eligibility|aggregate|kind|operation|reason|code|freshness|month|lead_image'

@@ -80,7 +80,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "process_uptime_seconds{job=\"application-otlp\"}",
+          "expr": "process_uptime_milliseconds{job=\"application-otlp\"} / 1000",
           "legendFormat": "Process uptime",
           "editorMode": "code",
           "range": false,
@@ -1525,7 +1525,7 @@
             "type": "prometheus",
             "uid": "private-dev-prometheus"
           },
-          "expr": "time() - max(timestamp(process_uptime_seconds{job=\"application-otlp\"}))",
+          "expr": "time() - max(timestamp(process_uptime_milliseconds{job=\"application-otlp\"}))",
           "legendFormat": "Application metric sample age",
           "editorMode": "code",
           "range": true,

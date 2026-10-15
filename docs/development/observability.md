@@ -105,9 +105,10 @@ never stack traces or SQL.
 
 ## Private-dev dashboards
 
-The [four provisioned dashboards](../../deploy/private-dev/grafana/dashboards/)
+The [provisioned dashboards](../../deploy/private-dev/grafana/dashboards/)
 separate **Runtime / Resources**, **Application / HTTP**, **Catalogue Synchronization**
-and **Product / Business**. Their JSON owns panels, queries, units, ranges and tooltips.
+and **Product / Business**, with the separate Spanish **Gameómetro · Crecimiento**
+activity view described below. Their JSON owns panels, queries, units, ranges and tooltips.
 The [private-dev procedure](../../deploy/private-dev/README.md#metrics-dashboards)
 owns access/rollout; [local setup](local-setup.md#local-metrics-and-logs) owns
 optional local startup. Provisioning removes the replaced journey dashboard.
@@ -209,6 +210,238 @@ Prometheus keeps only reviewed families and closed tag vocabularies, including t
 existing featured `freshness`, `month` and `lead_image` dimensions. JVM `id` denotes
 fixed memory pools, never product identity. OTLP resource/instance metadata and
 exemplars are not promoted into application dimensions.
+
+## Private-dev alerts
+
+**Repository configuration; not yet applied to the live host.**
+
+The [file-provisioned rule inventory](../../deploy/private-dev/grafana/provisioning/alerting/private-dev.json)
+is the executable owner of PromQL, thresholds, pending periods and labels. The [notification template](../../deploy/private-dev/grafana/notifications.json.template)
+and its small startup renderer own the single policy tree and optional contact point. Private-dev enables Grafana-managed evaluation; the optional workstation
+stack retains alerting disabled. No Prometheus rule evaluator, exporter or service is
+added. The [operator procedure](../../deploy/private-dev/README.md#private-dev-alerts)
+owns rollout/rollback and validation; the [runbook](operations-runbook.md#private-dev-alerts)
+owns first diagnostic actions and the boundary of proven behaviour.
+
+These are provisional owner-attention thresholds, not SLOs or capacity guarantees.
+[#85's assessment](../research/performance-baseline/remote-harness.md) prioritizes
+pool acquisition and HTTP degradation; it does not establish a universal throughput,
+latency or synchronization-duration limit. The five operational rules have `warning` severity: actionable degradation/risk.
+`critical` is reserved for confirmed sustained unavailability or a measured failure
+requiring prompt intervention; no current signal justifies that claim. Pending and
+timeout Hikari symptoms share one warning, avoiding duplicate incidents. #85
+supports acquisition failure as a concern, but does not establish a separately
+validated critical timeout boundary. `info` belongs only to optional product activity.
+
+| Rule | Existing source and operational intent | Evidence required before firing |
+|---|---|---|
+| Unexpected server errors | `platform_http_errors_total`, summed across unexpected server-error codes; excludes the approved `CATALOGUE_NOT_READY` state and client errors | At least five estimated failures across codes in five minutes, sustained for two minutes; an absolute count avoids sparse-traffic error percentages |
+| Sustained product-route latency | `http_server_requests_milliseconds_bucket` and `_count`, pooled by route template/method across successful, conditional and server-error responses | Histogram p95 above one second with at least 100 estimated requests on that same route/method in five minutes, sustained for five minutes; session/auth and client-error responses are excluded |
+| Hikari connection acquisition pressure | `hikaricp_connections_pending` and `hikaricp_connections_timeout_total`, combined into one application alert | Any pending request or at least two estimated acquisition timeouts in five minutes, sustained for two minutes; #85 demonstrated this failure mechanism |
+| Application telemetry unavailable | Both fixed `up` targets plus changes in `process_uptime_milliseconds` over three minutes | A failed/missing scrape or non-advancing/missing application heartbeat persists for five minutes; this allows ordinary restarts and detects frozen OTLP even while the Collector still exposes cached series |
+| Catalogue synchronization failed or partial | Preinitialized `catalogue_synchronization_run_total` outcomes `failed`/`partial`, retaining their distinction in alert instances | At least one estimated completed failure in fifteen minutes, sustained for two minutes; successful/skipped commands and inactivity are quiet |
+
+Each rule links to its existing diagnostic dashboard and the runbook. Aggregation
+retains only route templates/methods or the two sync outcomes; HTTP errors,
+pool and telemetry each produce one instance. Error codes remain on the diagnostic
+dashboard. The exclusion is the specific approved empty-catalogue business code,
+not HTTP 503 generally; genuine server degradation returning 503 is included. Evaluation scans at most fifteen minutes of the
+already bounded series once per minute, with no SQL, provider call, new recording
+series or request-path work. HTTP histogram cost follows the existing route/method/
+status/bucket cardinality, not catalogue size or user identities. No throughput,
+CPU-throttling, cgroup memory-max or PostgreSQL alert is added. Database diagnostics
+remain available in the runtime dashboard; the current stack has no host/PostgreSQL
+exporter warranting a separate resource alert.
+
+### Quiet traffic, missing data and recovery
+
+HTTP error series are lazy. Missing/idle HTTP and sync series do not indicate failure;
+latency below its volume guard is quiet. A newly created error series can lose its
+first observed event; counters cannot reconstruct events before their first export
+or between an unobserved event and a restart. `increase()` extrapolates, so threshold
+counts are estimates. The existing initialized run outcomes improve sync detection,
+but do not turn metrics into a durable incident ledger.
+
+Symptom rules use Grafana `OK` on empty results and retain their last state on query
+errors; the separate telemetry rule identifies loss of evidence. Its failed-query
+and unexpected no-data states use its configured pending period rather than claiming
+application downtime. In the pinned native API, KeepLast can retain `health=ok` and
+omit `lastError` despite failed queries; inspect the separate telemetry rule and
+Grafana query logs instead of treating that health field as datasource proof.
+A missing individual Hikari/error/histogram family while uptime
+continues is an instrumentation gap not covered by this heartbeat. No current signal
+proves end-to-end application availability: confirm readiness and product reads
+through the existing private operator path before diagnosing an outage. Grafana or
+host failure cannot be reported by the same Grafana instance.
+
+Fresh advancing uptime and healthy scrapes clear telemetry failure; other rules clear
+on the next evaluation when their predicates clear or their range-window evidence
+ages out. There is no additional recovery hold. A sync alert clearing after fifteen
+minutes means its evidence expired, **not** that a retry succeeded; inspect the
+retained run report. Pool gauges can miss queues shorter than the export interval;
+timeout counters complement that gap. Short restarts/queues and single errors are
+intentionally quieter than persistent degradation.
+
+Completed run metrics cover both manual and opt-in scheduled commands in the current
+implementation. No rule assumes a periodic job or treats a missing run as failure.
+Skips can be expected mutual exclusion. Completed-duration timers cannot detect a
+currently stuck run, and the fixture-paced #85 sync is no real-provider duration
+baseline. Failures before a run report exists are only in lazy trigger metrics;
+Prometheus currently strips their trigger/policy labels. No trigger/duration/skipped
+alert or instrumentation change is justified here: inspect the durable run and logs
+when a manually requested command fails to complete.
+
+### Notification boundary
+
+Alerts remain visible in authenticated, private Grafana **Alerting → Alert rules**.
+Native Telegram delivery is **off by default**. One rendered policy tree groups
+operational alerts by environment/service/category/severity, waits to collect related
+instances, deduplicates identical alerts and repeats persistent incidents. Native
+`DatasourceError`/`DatasourceNoData` have an explicit operational fallback route.
+The current rule settings normally convert missing/error evidence into their own
+Normal/Alerting/KeepLast states; native instances matter for later rules using the
+native modes. Exact routing/timings belong to the executable template, not UI edits.
+A separate product route needs its own opt-in; closing a registration window and
+closing a sync failure window use wording distinct from service recovery. Large
+groups render a bounded preview and direct the owner to the full group in Grafana,
+keeping the plain-text message below Telegram's size limit for this fixed rule set.
+
+The [operator procedure](../../deploy/private-dev/README.md#telegram-setup-and-delivery)
+owns protected files, activation, rotation and rollback. SMTP remains disabled;
+Mailpit remains the password-recovery test sink. Native Telegram uses outgoing HTTPS
+only, adding no service, inbound webhook or public monitoring endpoint. Grafana
+stores the token encrypted in its existing database; the chat ID is a normal contact
+setting and therefore remains readable to authorized Grafana administrators. The
+rendered file contains both values on bounded tmpfs (directory 0700, file 0600).
+No token/chat value enters Compose environment/metadata, rule labels or annotations.
+When delivery is disabled, the private-dev start wrapper routes proxy-aware outbound
+HTTPS to a closed loopback port and fixes the internal bypass list. This is a native
+sender kill switch, not a new proxy service: the pinned sender honors HTTPS_PROXY.
+It prevents an old persisted receiver sending during Grafana's file-policy reload
+interval after restart. Existing internal HTTP datasources keep working. The normal
+policy subsequently becomes muted/empty; disabling does not revoke the stored token.
+Notifier debug logs must remain disabled because the pinned upstream HTTP sender
+can log the token-bearing URL at debug level. Transport errors redact that URL at
+the configured info level; upstream API error responses are outside our control.
+
+Delivery is best effort. The pinned native Telegram receiver reports failed requests
+as non-retryable within an attempt; later notification cycles may try again. Failed
+attempts remain visible in Grafana/logs. A timeout can mean a delivered message whose
+acknowledgement was lost; neither deduplication nor persistence guarantees exactly-once
+external delivery. Host/Grafana failure still needs independent owner inspection.
+No real Telegram delivery or live-host alert rollout has been proven by this change.
+
+## Product growth observations
+
+**Implemented in the review worktree; not enabled on Lenovo.** This separable package adds no identity policy, durable ledger, warehouse or database
+migration. The optional [private-dev overlay](../../deploy/private-dev/compose.product-growth.yaml)
+enables only Keycloak 26.7 built-in successful `register` and `verify_email` event
+observations and an internal Prometheus scrape. The [Keycloak event-metrics contract](https://www.keycloak.org/observability/event-metrics)
+and pinned source distinguish events from accounts. `keycloak_user_events_total` has only
+`realm`, `event`, `error` labels; the scrape retains the application realm, these two
+events and `error=""`. In particular, a failed registration also uses `event="register"`
+with a nonempty error and must be excluded. Admin/imported accounts and first login
+are not successful self-registration events. No user, email, address, client or IdP
+label is collected. Email verification records an action, not distinct verified
+accounts or proof that every registered account finished onboarding.
+
+The dashboard shows observed registrations/rating creations today (Europe/Madrid),
+seven-day activity, verification events, update/delete activity, current active
+ratings and moving 24-hour trends. The JSON owns exact queries and labels. Trend
+points are overlapping rolling windows, **not** independent calendar-day totals.
+Current account totals and distinct verified-account totals are explicitly
+unsupported: no approved persistent identity aggregate exists, and this package
+neither queries Keycloak tables nor adds privileged Admin API polling.
+
+`ratings.personal.activity{action=created|updated|deleted}` is preinitialized with
+three zero counters. The persistence adapter registers a Spring `afterCommit`
+callback only after the successful command's SQL and aggregate read; rollback,
+rejected writes and losing concurrent writes do not increment it. Metric failure
+cannot turn an already committed write into a failed product response. Application
+and domain retain no monitoring dependencies. OTLP exposes
+`ratings_personal_activity_total`; action is its only application tag. Direct SQL
+fixtures/imports are outside this command path. Synthetic callers using the same
+commands are included, so these observations are **not organic adoption**. Current
+active ratings come from the existing module-owned SQL view and include fixtures.
+Deletion and recreation produce a deleted and a new created observation; they are
+not a monotonic account/rating inventory.
+
+Counter `increase` estimates can be fractional. Keycloak meters are lazy: the first
+event can establish a baseline without a visible increase. Resets between sampled
+points are handled, but process restarts, collection gaps and increments before the
+last export/scrape can lose activity. When Keycloak is configured and up but has no
+events, the dashboard displays zero; absent/down sources without evidence display
+**Sin datos**. Historical windows may retain earlier observations during an outage;
+inspect target health before interpreting freshness. Rating counters export zeros
+once the application exporter runs. Seven-day retention is a maximum horizon, not a
+complete seven-day or lifetime ledger, especially after activation/retention eviction.
+
+### Informational registration-window notices
+
+The separate file-provisioned product rule detects an observed increase in successful
+registrations within five minutes, without a pending delay. It is informational and
+independently muted by default. Multiple registrations while firing remain one alert
+instance; grouping/repeat timing, first lazy samples, restarts or failures can batch
+or miss notices. The Spanish message therefore says activity was observed within a
+window. Resolution only closes that window. No identifying data or unsupported
+account total is sent. **This does not meet one-notification-per-user semantics.**
+Registration and rating writes do not depend on Telegram availability.
+
+### Proposed durable notification follow-up
+
+Per the owner's scope decision, exact community milestones and exact per-registration
+business delivery remain a dedicated linked follow-up proposal, not an implementation
+claim for #269. Existing individual achievements (#253) do not own community-wide
+creation milestones. No suitable issue currently owns the complete requirement.
+
+The follow-up must decide organic/synthetic provenance, deletion/recreation counting,
+and an activation baseline (prefer prospective counting with no historical storm).
+A minimal Ratings-owned PostgreSQL counter/unique milestone ledger and transactional
+outbox could atomically reserve each next multiple of ten under concurrent commits;
+a bounded asynchronous sender would acknowledge/retry independently of product writes.
+It would need tests for rollback, races, restarts, ambiguous sends and suppression of
+already acknowledged milestones. Do not reconstruct lifetime creations from current
+rows or rolling metrics. Exact registration delivery would additionally need a
+reviewed durable after-completion identity bridge; its maintenance/privacy boundary
+must be coordinated with #274. No such bridge, ledger, worker or schema is added here.
+Even a durable outbox cannot promise exactly-once Telegram delivery across an
+ambiguous API acknowledgement.
+
+### Review validation evidence (2026-10-15)
+
+This extension was tested locally with pinned disposable images, not deployed to
+Lenovo. The earlier #269 comment retains its historical read-only host inventory
+and initial isolated lifecycle evidence. The extended checks now cover:
+
+- 25 original-expression/pending-period Promtool scenarios and valid base/optional
+  Prometheus configuration; mixed errors, genuine 503s, sparse/idle traffic, resets,
+  restart tolerance, recovery, separate sync outcomes and registration filtering.
+- Real Collector/Prometheus/Grafana ingestion, Ratings OTLP counter translation,
+  dashboard SQL/PromQL/authentication, data persistence and file provisioning.
+  The original-timing pool rule fired at 11:21:14 and cleared at 11:22:14
+  (Europe/Madrid) in the final integrated run;
+  native zero-pending fixtures separately checked No Data/Error, DatasourceError/
+  DatasourceNoData and KeepLast during a stopped disposable datasource, then recovery.
+- Native Telegram via an internal TLS mock: disabled/enabled/product policies,
+  malformed secrets, no token/chat in Docker metadata/environment or info logs,
+  Spanish firing/closing messages, deduplication, bounded grouped messages, 503,
+  transport timeout and later-cycle recovery. Recreation preserves one contact UID;
+  disabling with persisted active alerts remains silent through the production
+  configuration-poll interval, including the previously discovered startup race.
+- Actual Keycloak 26.7 registration/verification events and Prometheus filtering:
+  two successful registrations and verifications, rejected registration plus admin/
+  import exclusions, healthy zero, no personal labels, and counters resetting while
+  accounts persist. The fixture uses H2/Mailpit only; private-dev stays PostgreSQL.
+- 17 focused backend/architecture tests, including real PostgreSQL concurrent winners,
+  outer rollback, rejected/failed writes and metric-failure isolation. Existing
+  deployment orchestration, runtime static, syntax and documentation checks passed.
+
+The [operator procedure](../../deploy/private-dev/README.md#private-dev-alerts) lists
+reproducible commands. Broader product checks remain CI's responsibility. Current
+code has no new dependency/schema/HTTP contract; the compatible backend capability
+increments parent/backend together to `0.37.0-SNAPSHOT`. Real-host acceptance,
+resources/reboot behavior, actual Telegram delivery, exact registration notices and
+durable milestones remain unproven or deliberately deferred as described above.
 
 ## Private-dev log exploration
 

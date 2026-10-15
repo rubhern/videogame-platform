@@ -125,7 +125,7 @@ Prometheus retains local operational history with the approved initial seven-day
 free disk: this threshold is not a filesystem quota. Metrics history is disposable,
 not part of the irreplaceable PostgreSQL backup set.
 
-Grafana provisions four dashboards and its metrics/read-model datasources from Git,
+Grafana provisions its dashboards and metrics/read-model datasources from Git,
 with anonymous access and self-registration disabled. Its admin password comes from the protected
 secret directory; the persistent Grafana database retains that credential, so file
 replacement alone does not rotate it. Prometheus data and Grafana state survive
@@ -166,7 +166,12 @@ Review headroom under representative load rather than treating ceilings as
 capacity evidence. Logs are excluded from the irreplaceable PostgreSQL backup set.
 
 Telemetry, metrics/log storage and Grafana are never application startup/readiness
-or request dependencies. Trace storage, alerting and remote export remain deferred.
+or request dependencies. Trace storage and remote export remain deferred. Private-dev
+[Grafana-visible alerts](../../development/observability.md#private-dev-alerts) use
+the existing stack. Native Telegram is prepared but disabled by default; its protected
+activation and the separable optional Keycloak growth scrape are owned by the
+[private-dev procedure](../../../deploy/private-dev/README.md#telegram-setup-and-delivery).
+No live delivery or public monitoring access is implied.
 The [logs operator procedure](../../../deploy/private-dev/README.md#log-aggregation-and-exploration)
 owns rollout, disk-pressure handling and recovery; the runbook distinguishes
 repository configuration from host evidence.
