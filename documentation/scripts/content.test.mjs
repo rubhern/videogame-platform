@@ -1,9 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync, symlinkSync, lstatSync, statSync, readdirSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
-import { repo, sources, resolveLink, transform, statusFor } from './content.mjs';
+import { repo, portal, sources, resolveLink, transform, statusFor, writePage } from './content.mjs';
 import { routeFor } from '../content-map.mjs';
+test('page generation replaces destination symlinks and leaves unchanged pages untouched',()=>{
+  mkdirSync(path.join(portal,'src/content/docs'),{recursive:true});
+  const directory = mkdtempSync(path.join(portal,'src/content/docs/write-test-'));
+  const route = '/' + path.basename(directory) + '/page/';
+  const output = path.join(directory,'page.md');
+  const target = path.join(directory,'local-file');
+  try {
+    writeFileSync(target,'Must remain unchanged');
+    symlinkSync(target,output);
+    writePage(route,'Test page','Initial content');
+    assert.equal(readFileSync(target,'utf8'),'Must remain unchanged');
+    assert.equal(lstatSync(output).isSymbolicLink(),false);
+    assert.match(readFileSync(output,'utf8'),/Initial content/);
+    const before = statSync(output,{bigint:true}).mtimeNs;
+    writePage(route,'Test page','Initial content');
+    assert.equal(statSync(output,{bigint:true}).mtimeNs,before);
+    writePage(route,'Test page','Updated content');
+    assert.match(readFileSync(output,'utf8'),/Updated content/);
+    assert.deepEqual(readdirSync(directory).sort(),['local-file','page.md']);
+  } finally { rmSync(directory,{recursive:true,force:true}); }
+});
 test('content boundary excludes ignored/generated/configuration trees',()=>{
   const selected = sources();
   assert(selected.includes('docs/README.md'));

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync, existsSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, mkdtempSync, renameSync, writeFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { unified } from 'unified';
@@ -70,7 +70,18 @@ export function writePage(route, title, body, source, status) {
   const metadata = {title, editUrl: source ? github.replace('/blob/', '/edit/') + source : false};
   const context = source ? `<aside class="source-context" aria-label="Document context"><strong>${escapeHtml(status[0])}</strong><p>${escapeHtml(status[1])}</p><a href="${github + source}">Canonical source · ${escapeHtml(source)}</a></aside>\n\n` : '';
   const output = `---\n${JSON.stringify(metadata)}\n---\n\n${context}${body}`;
-  if (!existsSync(out) || readFileSync(out,'utf8') !== output) writeFileSync(out, output);
+  try {
+    if (readFileSync(out,'utf8') === output) return;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  // Replace the destination atomically; never follow a changed destination symlink.
+  const temporary = mkdtempSync(path.join(path.dirname(out),'.portal-'));
+  try {
+    const file = path.join(temporary,'page');
+    writeFileSync(file,output,{flag:'wx',mode:0o644});
+    renameSync(file,out);
+  } finally { rmSync(temporary,{recursive:true,force:true}); }
 }
 export function escapeHtml(text) { return text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'); }
 export function cleanContent() {

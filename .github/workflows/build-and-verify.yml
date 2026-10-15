@@ -115,7 +115,7 @@ jobs:
 
       - name: Install portal browser
         working-directory: documentation
-        run: npx playwright install --with-deps chromium
+        run: node node_modules/@playwright/test/cli.js install --with-deps chromium
 
       - name: Validate static portal, links, search and diagrams
         working-directory: documentation

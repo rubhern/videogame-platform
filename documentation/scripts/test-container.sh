@@ -39,10 +39,10 @@ for resource in / /docs/ /diagrams/c4/ /diagrams/Containers-dark.svg /diagrams/o
 done
 [[ "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/no-such-page/")" == 404 ]]
 [[ "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/50x.html")" == 404 ]]
-curl --silent --head --header 'Host: documentation.test:9443' "$base_url/docs" | tr -d '\r' | rg --quiet '^Location: /docs/$'
+curl --silent --head --header 'Host: documentation.test:9443' "$base_url/docs" | tr -d '\r' | grep -E '^Location: /docs/$' >/dev/null
 
 [[ "$(curl --silent --output /dev/null --write-out '%{http_code}' "$base_url/.env")" == 403 ]]
-curl --silent --head "$base_url/" | rg --quiet 'Content-Security-Policy:.*connect-src .self.'
+curl --silent --head "$base_url/" | grep -E 'Content-Security-Policy:.*connect-src .self.' >/dev/null
 [[ "$(docker inspect --format '{{.Config.User}}' "$container_id")" == '101:101' ]]
 echo 'Static container smoke passed: non-root, restricted resources, loopback, real 404, CSP, diagrams and search assets.'
 
