@@ -551,16 +551,40 @@ registration-window rule. It changes no production realm, verification policy, B
 contract or database schema. [Growth semantics and durable follow-up](../../docs/development/observability.md#product-growth-observations)
 own the supported/unsupported indicators.
 
-After separate owner review/host authorization, promote the reviewed application
-normally for Ratings counters. Under the deployment lock, review the overlay-rendered
-configuration privately and recreate **only Keycloak and Prometheus** with the base
-plus optional file:
+The private Compose build selects event-metrics support before `start --optimized`;
+the shared Dockerfile defaults it off for local and production-identity consumers.
+Base Compose limits collection to the supported events and realm tag. The overlay
+only connects the management scrape. A runtime-only enable flag cannot change a
+previously optimized image. Rebuilding is mandatory for the correction; the former
+`start-dev` proof did not establish compatibility. One bounded private image avoids
+a second variant and its additional build/rollback combinations. Base operation
+retains its identity policy and keeps management isolated from Prometheus until opt-in.
+
+Before host changes, run the focused optimized-image and notification-mock checks
+above, review the complete diff, and obtain approval for the exact targeted rollout.
+Use the reviewed published revision and the existing clean-checkout/installed-revision
+procedure, holding the deployment lock. Use `umask 0022` for checkout/build inputs so
+container users can read mounted configuration; protected secret directories retain
+their existing restrictive ownership/modes. Record service IDs, free memory/disk,
+the old immutable Keycloak image ID and previous source/runtime acknowledgement.
+Do not print runtime secrets or publish rendered Compose configuration.
+
+Build the reviewed Keycloak image while the existing container remains running:
+
+```bash
+docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+  --file deploy/private-dev/compose.yaml build keycloak
+```
+
+Review the overlay-rendered configuration privately and recreate **only Keycloak
+and Prometheus** with the base plus optional file:
 
 ```bash
 docker compose --env-file /etc/videogame-platform/dev/runtime.env \
   --file deploy/private-dev/compose.yaml \
   --file deploy/private-dev/compose.product-growth.yaml \
-  up --detach --no-deps --force-recreate keycloak prometheus
+  up --detach --no-deps --no-build --force-recreate \
+  --wait --wait-timeout 180 keycloak prometheus
 ```
 
 Retain all volumes. Keycloak's brief restart needs a maintenance window. This attaches
@@ -580,10 +604,28 @@ series, with no personal tags. A configured healthy source without an event is z
 an absent source is unsupported/no data. Do not create real accounts solely to force
 an event without separate approval. Check Ratings activity after normal committed
 commands and the existing SQL active total; no thresholds or Hikari settings change.
-Optional product delivery stays off until explicitly enabled/tested. To roll back
-identity observations, recreate only those two services using base Compose; retained
-historical samples can remain until normal retention. The dashboard may stay with
-**Sin datos**. Roll back a bad application through normal promotion, preserving data.
+Check private OIDC discovery, normal login and password recovery after recreation;
+record the observed identity interruption and idle/normal resource use. Synthetic
+host registrations need separate owner approval. Apply the protected runtime
+acknowledgement only after the selected configuration, image and checks actually pass.
+The existing Ratings capability needs no application promotion for this correction.
+
+To load changed registration-rule annotations/message templates, obtain approval
+for a separate targeted Grafana recreation as well. Preserve its named volume,
+current HTTPS origin and any installed HTTPS ingress overlay. Do not enable either
+Telegram flag without protected credentials and explicit real-send authorization.
+The native TLS mock proves routing, not real Telegram delivery.
+
+For rollback, restore the previous reviewed checkout and immutable Keycloak image
+using a protected Compose image override, then recreate only Keycloak/Prometheus
+with **base Compose**, `--no-build` and the captured old image. Preserve every
+PostgreSQL and telemetry volume. Verify discovery/login/recovery and the original
+application readiness before restoring the prior runtime acknowledgement; a failed
+rollout must never be acknowledged. Removing the growth overlay also removes its
+scrape, so the dashboard may return to **Sin datos**. Historical samples can remain.
+If Grafana was separately recreated, restore its prior reviewed provisioning and
+HTTPS overlay with its volume retained. Keep normal application rollback/promotion
+separate; never use project-wide `down`, volume removal or realm reinitialization.
 
 ## Log aggregation and exploration
 

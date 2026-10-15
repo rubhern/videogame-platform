@@ -156,14 +156,22 @@ def rule_tests():
         series('catalogue_synchronization_run_total{job="application-otlp",outcome="succeeded"}','0+0x5 1+0x74')],
         {('vgp-sync-failures','8m'):[{'outcome':'failed'}]})
     reg='keycloak_user_events_total{job="keycloak-product",realm="videogame-platform",event="register",error=""}'
+    case('one observed registration opens one window', [series(reg,'0+0x3 1+0x76')],
+         {('vgp-registration-window','4m'):[{}]},checks=('1m','4m','10m'))
     case('registration window fires once for multiple events then closes', [series(reg,'0+0x3 3+0x76')],
          {('vgp-registration-window','4m'):[{}]},checks=('1m','4m','10m'))
+    case('another registration while firing extends the same window', [series(reg,'0+0x3 1+0x4 2+0x71')],
+         {('vgp-registration-window','4m'):[{}],('vgp-registration-window','6m'):[{}]},checks=('4m','6m','12m'))
+    case('a new registration opens a later window', [series(reg,'0+0x3 1+0x16 2+0x59')],
+         {('vgp-registration-window','4m'):[{}],('vgp-registration-window','12m'):[{}]},checks=('4m','9m','12m'))
     case('failed registrations, other realms, email checks and logins excluded', [
         series(reg.replace('error=""','error="invalid_registration"'),'0+1x80'),
         series(reg.replace('videogame-platform','master'),'0+1x80'),
         series(reg.replace('register','verify_email'),'0+1x80'),
         series(reg.replace('register','login'),'0+1x80')])
     case('Keycloak reset without new event is quiet', [series(reg,'100+0x3 0+0x76')])
+    case('a real registration after counter reset is observed', [series(reg,'100+0x3 0+0x8 1+0x67')],
+         {('vgp-registration-window','8m'):[{}]},checks=('1m','8m','15m'))
     case('first lazy registration is an unobservable increase', [series(reg,'_ _ _ _ 1+0x76')])
     with tempfile.TemporaryDirectory(prefix='vgp-alert-rules-') as directory:
         temp = Path(directory)

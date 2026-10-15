@@ -28,6 +28,9 @@ class DeliveryTests(unittest.TestCase):
         gate = jobs['required-quality-gate']
         for job, variable in [('container-image', 'CONTAINER_IMAGE'),
                               ('runtime-telemetry', 'RUNTIME_TELEMETRY'),
+                              ('runtime-alerts', 'RUNTIME_ALERTS'),
+                              ('runtime-product-growth', 'RUNTIME_PRODUCT_GROWTH'),
+                              ('runtime-notifications', 'RUNTIME_NOTIFICATIONS'),
                               ('runtime-logs', 'RUNTIME_LOGS'),
                               ('localization-image', 'LOCALIZATION_IMAGE')]:
             self.assertIn("if: ${{ needs.detect-changes.outputs.container == 'true' }}", jobs[job])

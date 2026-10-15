@@ -184,14 +184,22 @@ Telegram cannot notify when this same host or Grafana is unavailable.
 Open **Gameómetro · Crecimiento** for observed registrations, verification actions and
 rating commands. Check source/target health and the activation date before treating
 an empty or zero value as no activity. The optional Keycloak overlay needs a separately
-reviewed rollout; do not change public identity/verification policy for these metrics.
+reviewed rollout and a rebuilt private image with event metrics compiled before
+optimized startup. Runtime enablement alone caused the earlier rolled-back startup
+failure; keep the base rollback state until the corrected targeted rollout is approved.
+The [operator procedure](../../deploy/private-dev/README.md#separable-product-growth-rollout)
+owns preparation, old-image recovery and post-rollout acknowledgement. Do not change
+public identity/verification policy for these metrics.
 No growth activity while idle is normal, and an email-verification event is not a new
 registration. Current accounts, distinct verified accounts, organic totals and lifetime
 milestones are unsupported; the dashboard states those limits.
 
 Registration notices are opt-in window observations. A closing notification is not
 an account deletion or a service recovery; several registrations can share one notice,
-and sparse/restarted collection can miss one. Ratings counters only observe committed
+and sparse/restarted collection can miss one. The displayed increase is an estimate,
+not an exact account total. Live Telegram remains pending owner credentials and
+separate send approval; a passing TLS mock is not delivery evidence. Ratings counters
+only observe committed
 commands; direct SQL fixtures are excluded, synthetic API callers are included. Use
 the current active SQL total for inventory, never counter subtraction or a rolling
 window for a lifetime milestone. The [durable follow-up proposal](observability.md#proposed-durable-notification-follow-up)

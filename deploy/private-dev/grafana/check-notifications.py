@@ -95,8 +95,9 @@ def main(smoke):
         (temp/'mock.key').chmod(0o644)
         (temp/'mode').write_text('ok')
         (temp/'messages').touch()
+        (temp/'values.json').write_text('{}')
         # Fast policy intervals are a notification transport test seam, not deployed settings.
-        template = (DEPLOY/'grafana/notifications.json.template').read_text().replace('"1m"','"1s"').replace('"5m"','"2s"').replace('"4h"','"30s"').replace('"24h"','"30s"')
+        template = (DEPLOY/'grafana/notifications.json.template').read_text().replace('"1m"','"1s"').replace('"5m"','"2s"').replace('"4h"','"30s"')
         (temp/'notifications.json.template').write_text(template)
         definition = {'services': {'grafana': {'extends':{'file':str(DEPLOY/'compose.observability.yaml'),'service':'grafana'},
                        'environment':{'GF_UNIFIED_ALERTING_ENABLED':'true','GF_UNIFIED_ALERTING_ALERTMANAGER_CONFIG_POLL_INTERVAL':'1s','GF_SMTP_ENABLED':'false','GF_LOG_LEVEL':'info',
@@ -146,8 +147,17 @@ def main(smoke):
             return [json.loads(line) for line in (temp/'messages').read_text().splitlines()]
         fixture_folder=None
         fixture_rules={}
-        def alert(category='operational', severity='warning', resolved=False, sync=False, tag=''):
+        fixture_values={}
+        def alert(category='operational', severity='warning', resolved=False, sync=False, tag='', registrations=1):
             key='fixture-'+category+'-'+severity+('-sync' if sync else '')+tag
+            fixture_values[key]=0 if resolved else registrations
+            pending=temp/'values.pending.json'
+            pending.write_text(json.dumps(fixture_values))
+            pending.replace(temp/'values.json')
+            # Updating a rule's expression resets Grafana's state. Change only the
+            # observed value so grouping/deduplication exercise one continuous alert.
+            if key in fixture_rules:
+                return
             model=json.loads((DEPLOY/'grafana/provisioning/alerting/private-dev.json').read_text())['groups'][0]['rules'][0]
             rule={k:v for k,v in model.items() if k not in {'uid','isPaused'}}
             rule.update({'uid':key,'title':'Fixture '+('sync' if sync else category)+' '+severity+tag,
@@ -156,11 +166,11 @@ def main(smoke):
             rule['annotations']={'summary_es':'Presión de conexiones de prueba','hint_es':'Consulta el panel privado.',
                 'resolution_kind':'window_expiry' if sync or category=='product' else '',
                 'runbook_url':'https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts'}
-            rule['data'][0].update({'datasourceUid':'__expr__','model':{'refId':'A','type':'math','expression':'0' if resolved else '1'}})
-            if key in fixture_rules:
-                api('/api/v1/provisioning/alert-rules/'+key,rule,method='PUT')
-            else:
-                api('/api/v1/provisioning/alert-rules',rule,method='POST')
+            if category=='product':
+                rule['annotations']['estimated_registrations']='{{ with $values.A }}{{ printf "%.2f" .Value }}{{ end }}'
+            rule['data'][0].update({'datasourceUid':'fixture-prometheus','model':{
+                'refId':'A','expr':key,'instant':True,'range':False,'format':'table'}})
+            api('/api/v1/provisioning/alert-rules',rule,method='POST')
             fixture_rules[key]=rule
             api('/api/v1/provisioning/folder/'+fixture_folder+'/rule-groups/fixture',
                 {'title':'fixture','folderUid':fixture_folder,'interval':10,'rules':list(fixture_rules.values())},method='PUT')
@@ -180,6 +190,9 @@ def main(smoke):
             source.write_text(json.dumps(rendered))
             run(compose+['up','--detach','grafana'])
             poll(connect,'Isolated Grafana authenticated; native file provisioning loaded')
+            api('/api/datasources',{'uid':'fixture-prometheus','name':'Disposable notification values',
+                'type':'prometheus','access':'proxy','url':'http://mock:9090',
+                'jsonData':{'httpMethod':'GET'}},method='POST')
             fixture_folder=api('/api/folders',{'title':'Disposable notification fixture'},method='POST')['uid']
             policy=api('/api/v1/provisioning/policies')
             assert policy['routes'][0]['receiver']=='empty'
@@ -208,9 +221,32 @@ def main(smoke):
             assert len(messages())==count, 'Product delivery remains independent and muted'
             activate(product=True)
             alert(category='product',severity='info')
-            poll(lambda:any('Nuevo usuario registrado' in m['text'] for m in messages()),'Independent informational product route delivered')
+            poll(lambda:any('Actividad de registro detectada' in m['text'] and 'estimados: 1.00' in m['text'] for m in messages()),'Product route delivers an estimated count')
+            def product_state(expected):
+                groups=api('/api/prometheus/grafana/api/v1/rules')['data']['groups']
+                rule=next(r for g in groups for r in g['rules'] if r['name']=='Fixture product info')
+                firing=[a for a in rule.get('alerts',[]) if a['state']=='Alerting']
+                return firing[0] if len(firing)==1 and firing[0]['annotations'].get('estimated_registrations')==expected else None
+            first=product_state('1.00')
+            assert first and first['activeAt']
+            product_messages=lambda:[m for m in messages() if 'Actividad de registro detectada' in m['text']]
+            count=len(product_messages())
+            alert(category='product',severity='info',registrations=2)
+            poll(lambda:product_state('2.00'),'The same product alert observes two registrations')
+            time.sleep(12)
+            assert len(product_messages())==count, 'Two observations in the firing window are grouped, not per-user deliveries'
+            alert(category='product',severity='info',registrations=3)
+            poll(lambda:product_state('3.00'),'The same product alert observes three registrations')
+            time.sleep(12)
+            assert len(product_messages())==count, 'More registrations while firing must not create individual notifications'
+            current=product_state('3.00')
+            assert current['labels']==first['labels'] and current['activeAt']==first['activeAt'], 'Observed values must not reset the firing identity/lifecycle'
             alert(category='product',severity='info',resolved=True)
             poll(lambda:any('Ventana de registros cerrada' in m['text'] for m in messages()),'Product resolution closes activity window honestly')
+            count=len(product_messages())
+            alert(category='product',severity='info')
+            poll(lambda:len(product_messages())>count,'A new activity window notifies after previous resolution')
+            alert(category='product',severity='info',resolved=True)
             alert(sync=True)
             poll(lambda:any('Fixture sync' in m['text'] for m in messages()),'Synchronization route delivered')
             alert(sync=True,resolved=True)
