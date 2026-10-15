@@ -75,8 +75,7 @@
             "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
             "__dashboardUid__": "vgp-application",
             "__panelId__": "18",
-            "summary_es": "Errores de servidor repetidos",
-            "hint_es": "Revisa los c\u00f3digos de error y los registros; comprueba readiness."
+            "action": "Check error codes and routes in Application / HTTP and the Platform logs; confirm private readiness."
           },
           "labels": {
             "environment": "private-dev",
@@ -154,8 +153,7 @@
             "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
             "__dashboardUid__": "vgp-application",
             "__panelId__": "10",
-            "summary_es": "Latencia elevada en una ruta",
-            "hint_es": "Revisa la ruta, Hikari y las consultas; el umbral es provisional."
+            "action": "Check the route in Application / HTTP, then Hikari and database diagnostics; the threshold is provisional."
           },
           "labels": {
             "environment": "private-dev",
@@ -228,13 +226,12 @@
           "execErrState": "KeepLast",
           "for": "2m",
           "annotations": {
-            "summary": "Hikari connection acquisition pressure",
+            "summary": "Database connection pool pressure",
             "description": "Pending connections persist or at least two estimated acquisition timeouts occurred in five minutes. Inspect Hikari pending/timeouts, HTTP failures and database activity; do not increase pool size automatically.",
             "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
             "__dashboardUid__": "vgp-runtime",
             "__panelId__": "18",
-            "summary_es": "Presi\u00f3n al adquirir conexiones",
-            "hint_es": "Revisa esperas, timeouts y HTTP 503; no aumentes el pool autom\u00e1ticamente."
+            "action": "Check Hikari pending connections, timeouts and HTTP 503s in Runtime / Resources; do not raise the pool size automatically."
           },
           "labels": {
             "environment": "private-dev",
@@ -312,8 +309,7 @@
             "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
             "__dashboardUid__": "vgp-runtime",
             "__panelId__": "23",
-            "summary_es": "Telemetr\u00eda de la aplicaci\u00f3n no disponible",
-            "hint_es": "Comprueba scrapes y uptime; confirma el servicio por la v\u00eda privada."
+            "action": "Check both scrape targets and application uptime in Runtime / Resources, then confirm readiness through the private operator path."
           },
           "labels": {
             "environment": "private-dev",
@@ -391,9 +387,8 @@
             "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
             "__dashboardUid__": "vgp-synchronization",
             "__panelId__": "10",
-            "summary_es": "Sincronizaci\u00f3n fallida o parcial",
-            "hint_es": "Consulta el \u00faltimo informe y los registros antes de reintentar.",
-            "resolution_kind": "window_expiry"
+            "resolution_kind": "window_expiry",
+            "action": "Open the latest run report and synchronization logs before any bounded retry."
           },
           "labels": {
             "environment": "private-dev",

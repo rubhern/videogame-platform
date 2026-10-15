@@ -50,13 +50,17 @@ def static():
         assert not re.search(r'\$(?:route|method|__range|__rate_interval)|(?i:password|token|user_id|game_id|correlation)', a['model']['expr'])
         assert rule['labels'] == ({'environment':'private-dev','service':'identity','severity':'info','category':'product'} if rule['uid']=='vgp-registration-window' else {'environment':'private-dev','service':'application','severity':'warning','category':'operational'})
         assert rule['annotations']['runbook_url'].endswith(('#private-dev-alerts','#product-growth'))
+        # Titles, annotations and notification guidance are English.
+        assert not re.search(r'[áéíóúñ¿¡]', json.dumps({k: rule[k] for k in ('title', 'annotations')}, ensure_ascii=False))
+        assert not any(key.endswith('_es') for key in rule['annotations'])
+        assert {'summary', 'action' if rule['labels']['category'] == 'operational' else 'observed_registrations'} <= set(rule['annotations'])
         dashboard = json.loads((DEPLOY / ('grafana/dashboards/' + rule['annotations']['__dashboardUid__'] + '.json')).read_text())
         assert int(rule['annotations']['__panelId__']) in {p['id'] for p in dashboard['panels']}
         assert rule['noDataState'] == ('Alerting' if rule['uid'] == 'vgp-telemetry-unavailable' else 'OK')
         assert rule['execErrState'] == ('Alerting' if rule['uid'] == 'vgp-telemetry-unavailable' else 'KeepLast')
     assert 'policies' not in config and 'contactPoints' not in config
     template = json.loads((DEPLOY/'grafana/notifications.json.template').read_text()
-                          .replace('__TELEGRAM_CONTACT_POINT__','')
+                          .replace('__TELEGRAM_CONTACT_POINT__','').replace('__TELEGRAM_PRODUCT_CONTACT_POINT__','')
                           .replace('__OPERATIONAL_RECEIVER__','empty').replace('__PRODUCT_RECEIVER__','empty')
                           .replace('__OPERATIONAL_MUTE__','["private-dev-ui-only"]').replace('__PRODUCT_MUTE__','["private-dev-ui-only"]'))
     policy, = template['policies']

@@ -9,7 +9,7 @@
       "rules": [
         {
           "uid": "vgp-registration-window",
-          "title": "Registro observado en ventana",
+          "title": "Registration activity observed",
           "condition": "B",
           "data": [
             {
@@ -70,12 +70,9 @@
           "execErrState": "KeepLast",
           "for": "0s",
           "annotations": {
-            "summary": "Registration activity observed within a window",
-            "summary_es": "Actividad de registro observada",
-            "estimated_registrations": "{{ with $values.A }}{{ printf \"%.2f\" .Value }}{{ end }}",
-            "hint_es": "Consulta Crecimiento; este aviso puede agrupar registros y perder eventos.",
-            "description": "Best-effort window activity, not one delivery per registration. A first lazy sample, restart or scrape gap can lose events. Resolution only closes the window.",
-            "resolution_kind": "window_expiry",
+            "summary": "New user registration activity observed",
+            "observed_registrations": "{{ with $values.A }}{{ if lt .Value 1.5 }}1{{ else }}{{ printf \"%.0f\" .Value }}{{ end }}{{ end }}",
+            "description": "Best-effort five-minute window activity, not one delivery per registration; several registrations can share one notice and the count is an estimate. A first lazy sample, restart or scrape gap can lose events. Resolution only closes the window and is never sent to Telegram.",
             "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#product-growth",
             "__dashboardUid__": "vgp-growth",
             "__panelId__": "2"

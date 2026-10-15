@@ -1,6 +1,6 @@
 {
   "uid": "vgp-growth",
-  "title": "Gameómetro · Crecimiento",
+  "title": "Gameómetro · Growth",
   "tags": [
     "private-dev",
     "product",
@@ -17,27 +17,27 @@
   },
   "links": [
     {
-      "title": "Recursos",
+      "title": "Resources",
       "url": "/d/vgp-runtime",
       "type": "link"
     },
     {
-      "title": "HTTP",
+      "title": "Application",
       "url": "/d/vgp-application",
       "type": "link"
     },
     {
-      "title": "Sincronización",
+      "title": "Synchronization",
       "url": "/d/vgp-synchronization",
       "type": "link"
     },
     {
-      "title": "Producto",
+      "title": "Product",
       "url": "/d/vgp-product",
       "type": "link"
     },
     {
-      "title": "Crecimiento",
+      "title": "Growth",
       "url": "/d/vgp-growth",
       "type": "link"
     }
@@ -45,7 +45,7 @@
   "panels": [
     {
       "id": 2,
-      "title": "Registros hoy · estimado",
+      "title": "Registrations today",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -57,7 +57,7 @@
         "w": 6,
         "h": 5
       },
-      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "description": "Estimated from observed activity, including tests; not organic sign-ups or a complete history. Restarts, first samples, collection gaps and retention limit these estimates. Earlier data can remain visible if a source stops responding.",
       "targets": [
         {
           "refId": "A",
@@ -67,14 +67,15 @@
           },
           "expr": "(sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"register\",error=\"\"}[$__range]))) or ((max(up{job=\"keycloak-product\"}) == 1) * 0)",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Registrations"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
         "overrides": []
       },
@@ -83,7 +84,7 @@
     },
     {
       "id": 3,
-      "title": "Registros · últimos 7 días · estimado",
+      "title": "Registrations — last 7 days",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -95,7 +96,7 @@
         "w": 6,
         "h": 5
       },
-      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "description": "Estimated from observed activity, including tests; not organic sign-ups or a complete history. Restarts, first samples, collection gaps and retention limit these estimates. Earlier data can remain visible if a source stops responding.",
       "targets": [
         {
           "refId": "A",
@@ -105,14 +106,15 @@
           },
           "expr": "(sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"register\",error=\"\"}[7d]))) or ((max(up{job=\"keycloak-product\"}) == 1) * 0)",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Registrations"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
         "overrides": []
       },
@@ -120,7 +122,7 @@
     },
     {
       "id": 4,
-      "title": "Verificaciones de email · 7 días · eventos",
+      "title": "Email verifications — last 7 days",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -132,7 +134,7 @@
         "w": 6,
         "h": 5
       },
-      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "description": "Estimated from observed activity, including tests; not organic sign-ups or a complete history. Restarts, first samples, collection gaps and retention limit these estimates. Earlier data can remain visible if a source stops responding. Counts verification events, not distinct verified accounts.",
       "targets": [
         {
           "refId": "A",
@@ -142,14 +144,15 @@
           },
           "expr": "(sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"verify_email\",error=\"\"}[7d]))) or ((max(up{job=\"keycloak-product\"}) == 1) * 0)",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Email verifications"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
         "overrides": []
       },
@@ -157,7 +160,7 @@
     },
     {
       "id": 5,
-      "title": "Puntuaciones personales activas · actual",
+      "title": "Active personal ratings",
       "type": "stat",
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -169,7 +172,7 @@
         "w": 6,
         "h": 5
       },
-      "description": "Estado actual en PostgreSQL: incluye datos de prueba y no cuenta creaciones históricas ni usuarios registrados.",
+      "description": "Current state in PostgreSQL: includes test data and counts neither historical creations nor registered users.",
       "targets": [
         {
           "refId": "A",
@@ -186,7 +189,7 @@
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
         "overrides": []
       },
@@ -194,7 +197,7 @@
     },
     {
       "id": 6,
-      "title": "Puntuaciones creadas hoy · estimado",
+      "title": "New ratings today",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -206,7 +209,7 @@
         "w": 6,
         "h": 5
       },
-      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "description": "Estimated from observed activity, including tests; not organic sign-ups or a complete history. Restarts, first samples, collection gaps and retention limit these estimates. Earlier data can remain visible if a source stops responding.",
       "targets": [
         {
           "refId": "A",
@@ -216,14 +219,15 @@
           },
           "expr": "sum(increase(ratings_personal_activity_total{job=\"application-otlp\",action=\"created\"}[$__range]))",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Ratings created"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
         "overrides": []
       },
@@ -232,7 +236,7 @@
     },
     {
       "id": 7,
-      "title": "Puntuaciones creadas · 7 días · estimado",
+      "title": "New ratings — last 7 days",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -244,7 +248,7 @@
         "w": 6,
         "h": 5
       },
-      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "description": "Estimated from observed activity, including tests; not organic sign-ups or a complete history. Restarts, first samples, collection gaps and retention limit these estimates. Earlier data can remain visible if a source stops responding.",
       "targets": [
         {
           "refId": "A",
@@ -254,14 +258,15 @@
           },
           "expr": "sum(increase(ratings_personal_activity_total{job=\"application-otlp\",action=\"created\"}[7d]))",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Ratings created"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
         "overrides": []
       },
@@ -269,7 +274,7 @@
     },
     {
       "id": 8,
-      "title": "Cambios de puntuación · 7 días · estimado",
+      "title": "Rating updates — last 7 days",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -281,7 +286,7 @@
         "w": 6,
         "h": 5
       },
-      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "description": "Estimated from observed activity, including tests; not organic sign-ups or a complete history. Restarts, first samples, collection gaps and retention limit these estimates. Earlier data can remain visible if a source stops responding.",
       "targets": [
         {
           "refId": "A",
@@ -291,14 +296,15 @@
           },
           "expr": "sum(increase(ratings_personal_activity_total{job=\"application-otlp\",action=\"updated\"}[7d]))",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Ratings updated"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
         "overrides": []
       },
@@ -306,7 +312,7 @@
     },
     {
       "id": 9,
-      "title": "Borrados de puntuación · 7 días · estimado",
+      "title": "Rating deletions — last 7 days",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -318,7 +324,7 @@
         "w": 6,
         "h": 5
       },
-      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "description": "Estimated from observed activity, including tests; not organic sign-ups or a complete history. Restarts, first samples, collection gaps and retention limit these estimates. Earlier data can remain visible if a source stops responding.",
       "targets": [
         {
           "refId": "A",
@@ -328,14 +334,15 @@
           },
           "expr": "sum(increase(ratings_personal_activity_total{job=\"application-otlp\",action=\"deleted\"}[7d]))",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Ratings deleted"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
         "overrides": []
       },
@@ -343,7 +350,7 @@
     },
     {
       "id": 10,
-      "title": "Registros · evolución por ventanas de 24 h",
+      "title": "Registrations — rolling 24-hour count",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -355,7 +362,7 @@
         "w": 12,
         "h": 8
       },
-      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "description": "Estimated from observed activity, including tests; not organic sign-ups or a complete history. Restarts, first samples, collection gaps and retention limit these estimates. Earlier data can remain visible if a source stops responding. Each point is an overlapping rolling 24-hour window, not a calendar-day total.",
       "targets": [
         {
           "refId": "A",
@@ -365,14 +372,15 @@
           },
           "expr": "(sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"register\",error=\"\"}[1d]))) or ((max(up{job=\"keycloak-product\"}) == 1) * 0)",
           "instant": false,
-          "range": true
+          "range": true,
+          "legendFormat": "Registrations"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
         "overrides": []
       },
@@ -380,7 +388,7 @@
     },
     {
       "id": 11,
-      "title": "Puntuaciones · evolución por ventanas de 24 h",
+      "title": "Rating activity — rolling 24-hour count",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -392,7 +400,7 @@
         "w": 12,
         "h": 8
       },
-      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "description": "Estimated from observed activity, including tests; not organic sign-ups or a complete history. Restarts, first samples, collection gaps and retention limit these estimates. Earlier data can remain visible if a source stops responding. Each point is an overlapping rolling 24-hour window, not a calendar-day total.",
       "targets": [
         {
           "refId": "A",
@@ -402,59 +410,23 @@
           },
           "expr": "sum by (action) (increase(ratings_personal_activity_total{job=\"application-otlp\"}[1d]))",
           "instant": false,
-          "range": true
+          "range": true,
+          "legendFormat": "Ratings {{action}}"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 1,
-          "noValue": "Sin datos"
+          "noValue": "No data"
         },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "created"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Creaciones"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "updated"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Cambios"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "deleted"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "Borrados"
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {}
     },
     {
       "id": 13,
-      "title": "Recogida de registros · estado",
+      "title": "Registration metrics health",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -466,7 +438,7 @@
         "w": 24,
         "h": 5
       },
-      "description": "Disponibilidad del origen de métricas de identidad; no confirma la disponibilidad del recorrido de registro del producto.",
+      "description": "Availability of the identity metrics source; it does not confirm that the product registration journey works.",
       "targets": [
         {
           "refId": "A",
@@ -476,24 +448,25 @@
           },
           "expr": "max(up{job=\"keycloak-product\"})",
           "instant": true,
-          "range": false
+          "range": false,
+          "legendFormat": "Identity metrics source"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "decimals": 0,
-          "noValue": "Sin configurar / sin datos",
+          "noValue": "Not configured / no data",
           "mappings": [
             {
               "type": "value",
               "options": {
                 "0": {
-                  "text": "Sin conexión",
+                  "text": "Unreachable",
                   "color": "red"
                 },
                 "1": {
-                  "text": "Disponible",
+                  "text": "Available",
                   "color": "green"
                 }
               }
@@ -507,7 +480,7 @@
     {
       "id": 12,
       "type": "text",
-      "title": "Qué medimos y qué falta",
+      "title": "What is measured and what is missing",
       "gridPos": {
         "x": 0,
         "y": 23,
@@ -516,7 +489,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "**Cuentas actuales y usuarios únicos verificados: no disponibles.** No se consulta la base de identidad ni el Admin API. Un registro correcto, una verificación de email y una cuenta existente son cantidades diferentes.\n\nLos contadores describen actividad observada y confirmada, incluyendo pruebas realizadas por las mismas vías. No son adopción orgánica ni totales históricos duraderos. Las estimaciones de 7 días pueden cubrir menos historia por retención, reinicios o huecos. “Hoy” usa Europe/Madrid; las tendencias usan ventanas móviles de 24 h. Cero sólo es válido con la fuente configurada y sana.\n\n**Hitos de 10 creaciones acumuladas: pendientes de una fuente duradera y exclusión fiable de actividad sintética.** No se simulan con ventanas Prometheus."
+        "content": "**Current accounts and distinct verified users: not available.** Neither the identity database nor the Admin API is queried. A successful registration, an email verification and an existing account are different quantities.\n\nCounters describe observed, confirmed activity, including tests that use the same paths. They are neither organic adoption nor durable historical totals, and values are estimates that can be fractional. Seven-day estimates can cover less history because of retention, restarts or collection gaps. “Today” uses Europe/Madrid; trends use rolling 24-hour windows. Zero is only valid when the source is configured and healthy.\n\n**Milestones of 10 cumulative rating creations: pending a durable source and reliable exclusion of synthetic activity.** They are not simulated with Prometheus windows."
       }
     }
   ]

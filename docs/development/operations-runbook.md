@@ -149,7 +149,7 @@ no real message delivery or independent detection of host/Grafana failure is pro
 |---|---|
 | Unexpected server errors | Open Application / HTTP and Platform logs for contributing error codes and time range; check private readiness and correlate deployment changes. Expected personal-rating absence and empty-catalogue responses are excluded. |
 | Sustained product-route latency | Open Application / HTTP for the route/method, then Runtime / Resources for Hikari and bounded database diagnostics; inspect expensive search patterns without logging raw search input. |
-| Hikari connection acquisition pressure | Inspect pending, acquisition timeouts and HTTP 503s in Runtime / Resources; examine database activity/locks and query durations. Reduce an optional operator workload if safe; do not tune pool/quota/SQL without evidence and a separate decision. |
+| Hikari connection acquisition pressure (Telegram: *Database connection pool pressure*) | Inspect pending, acquisition timeouts and HTTP 503s in Runtime / Resources; examine database activity/locks and query durations. Reduce an optional operator workload if safe; do not tune pool/quota/SQL without evidence and a separate decision. |
 | Application telemetry unavailable | Check both scrape targets and advancing application uptime in Runtime / Resources, then private readiness/product reads. Healthy scrapes with frozen uptime suggest broken export or an unavailable application; failed scrapes locate a collection problem. A Prometheus query error identifies unavailable telemetry, not proven application downtime. |
 | Catalogue synchronization failed or partial | Open Catalogue Synchronization's retained run reports and logs, inspect failure stage/credentials/provider response, and retry only a justified bounded interval. Confirm success in the durable ledger; automatic alert resolution only expires recent failure evidence. |
 
@@ -181,7 +181,7 @@ Telegram cannot notify when this same host or Grafana is unavailable.
 
 ## Product growth
 
-Open **Gameómetro · Crecimiento** for observed registrations, verification actions and
+Open **Gameómetro · Growth** for observed registrations, verification actions and
 rating commands. Check source/target health and the activation date before treating
 an empty or zero value as no activity. The optional Keycloak overlay needs a separately
 reviewed rollout and a rebuilt private image with event metrics compiled before
@@ -194,10 +194,10 @@ No growth activity while idle is normal, and an email-verification event is not 
 registration. Current accounts, distinct verified accounts, organic totals and lifetime
 milestones are unsupported; the dashboard states those limits.
 
-Registration notices are opt-in window observations. A closing notification is not
-an account deletion or a service recovery; several registrations can share one notice,
-and sparse/restarted collection can miss one. The displayed increase is an estimate,
-not an exact account total. Live Telegram remains pending owner credentials and
+Registration notices are opt-in window observations. No closing message is sent when
+the window ends; several registrations can share one notice, and sparse/restarted
+collection can miss one. The displayed count is an estimate, not an exact account
+total. Live Telegram remains pending owner credentials and
 separate send approval; a passing TLS mock is not delivery evidence. Ratings counters
 only observe committed
 commands; direct SQL fixtures are excluded, synthetic API callers are included. Use
