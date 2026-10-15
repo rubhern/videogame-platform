@@ -158,10 +158,19 @@ for (const width of [320, 390, 834, 1320]) {
     const compact = page.locator(".release-card .discovery-scores").first();
     await expect(compact).toBeVisible();
     const card = page.locator(".release-card").first();
-    const titleBottom = await card.locator(".card-title").evaluate(el => el.getBoundingClientRect().bottom);
-    const platformTop = await card.locator(".card-release").evaluate(el => el.getBoundingClientRect().top);
-    const scoreBox = await compact.boundingBox();
-    if (scoreBox === null) throw new Error("Compact scores have no visible box");
+    // The card can still be rising in: compare geometry from the same frame.
+    const { titleBottom, platformTop, scoreBox } = await card.evaluate(el => {
+      const title = el.querySelector(".card-title");
+      const platform = el.querySelector(".card-release");
+      const scores = el.querySelector(".discovery-scores");
+      if (!title || !platform || !scores) throw new Error("Release card content is missing");
+      const box = scores.getBoundingClientRect();
+      return {
+        titleBottom: title.getBoundingClientRect().bottom,
+        platformTop: platform.getBoundingClientRect().top,
+        scoreBox: { y: box.y, height: box.height },
+      };
+    });
     expect(scoreBox.y).toBeGreaterThanOrEqual(titleBottom);
     expect(scoreBox.y + scoreBox.height).toBeLessThanOrEqual(platformTop);
     await expect(compact.getByText("1 valoración", { exact: true })).toHaveCount(2);
