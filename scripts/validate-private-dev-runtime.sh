@@ -90,7 +90,9 @@ if [[ -z "$runtime_env" ]]; then
     oidc-smoke-username \
     oidc-smoke-password \
     grafana-admin-password \
-    grafana-database-password; do
+    grafana-database-password \
+    grafana-telegram-bot-token \
+    grafana-telegram-chat-id; do
     printf 'static-validation-%s\n' "$name" >"$secrets_directory/$name"
     chmod 0644 "$secrets_directory/$name"
   done
@@ -195,7 +197,7 @@ expected_secret_access = {
     "keycloak": {"keycloak_db_password", "keycloak_admin_password", "keycloak_bff_client_secret"},
     "telemetry": set(),
     "prometheus": set(),
-    "grafana": {"grafana_admin_password", "grafana_database_password"},
+    "grafana": {"grafana_admin_password", "grafana_database_password", "grafana_telegram_bot_token", "grafana_telegram_chat_id"},
     "alloy": set(),
     "loki": set(),
     "application": {"application_db_password", "keycloak_bff_client_secret", "igdb_client_id", "igdb_client_secret"},
@@ -283,6 +285,14 @@ assert services["telemetry"]["networks"] == {"telemetry": None}
 assert "--storage.tsdb.retention.time=7d" in services["prometheus"]["command"]
 assert "--storage.tsdb.retention.size=512MiB" in services["prometheus"]["command"]
 assert services["grafana"]["environment"]["GF_AUTH_ANONYMOUS_ENABLED"] == "false"
+assert services["grafana"]["environment"]["GF_UNIFIED_ALERTING_ENABLED"] == "true"
+assert services["grafana"]["environment"]["GF_SMTP_ENABLED"] == "false"
+grafana_env = services["grafana"]["environment"]
+assert grafana_env["GF_LOG_LEVEL"] == "info"
+assert grafana_env["GF_LOG_FILTERS"] == "ngalert.notifier.telegram:info"
+for flag in ("GRAFANA_TELEGRAM_ENABLED", "GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED"):
+    assert grafana_env.get(flag, "false") in {"true", "false"}
+assert grafana_env.get("GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED", "false") != "true" or grafana_env.get("GRAFANA_TELEGRAM_ENABLED") == "true"
 assert services["grafana"]["environment"]["GF_SECURITY_ADMIN_PASSWORD__FILE"] == "/run/secrets/grafana_admin_password"
 assert set(services["application"]["depends_on"]) == {"postgres", "keycloak"}
 assert services["application"]["environment"]["CATALOGUE_TRANSLATION_ENDPOINT"] == "http://catalogue-localizer:8092/translate"
@@ -414,6 +424,7 @@ print("Private-dev Compose topology, isolation, secret grants, limits and restar
 PY
 
 python3 "$repository_root/scripts/private-dev-metrics-check.py" --static
+python3 "$repository_root/deploy/private-dev/grafana/check-alerts.py" --static
 python3 "$repository_root/scripts/private-dev-logs-check.py" --static
 
 grep -q 'verbosity: basic' "$repository_root/deploy/private-dev/otel/collector.yaml"
@@ -506,7 +517,8 @@ if [[ "$telemetry_smoke" == true ]]; then
   fi
   python3 "$repository_root/scripts/private-dev-metrics-check.py" \
     --env-file "$runtime_env" --config "$temporary_directory/smoke.json" --synthetic
-  printf 'Initial bounded OTLP receipt and extended metrics smoke passed; initial signal contents were absent from Collector logs.\n'
+  python3 "$repository_root/deploy/private-dev/grafana/check-alerts.py" --smoke
+  printf 'Initial bounded OTLP receipt and extended metrics/alerts smoke passed; initial signal contents were absent from Collector logs.\n'
 fi
 
 if [[ "$live" == false ]]; then

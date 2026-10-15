@@ -1,0 +1,29 @@
+{
+  "apiVersion": 1,
+  "contactPoints": [
+    __TELEGRAM_CONTACT_POINT__
+  ],
+  "templates": [{
+    "orgId": 1,
+    "name": "gameometro-telegram",
+    "template": "{{ define \"gameometro.telegram\" }}Gameómetro — {{ if eq .CommonLabels.category \"product\" }}Actividad del producto{{ else }}Aviso operativo{{ end }} [{{ if .CommonLabels.environment }}{{ .CommonLabels.environment }}{{ else }}private-dev{{ end }}]\n{{ if gt (len .Alerts) 4 }}Se muestran 4 de {{ len .Alerts }} avisos; revisa el grupo completo en Grafana.\n{{ range (slice .Alerts 0 4) }}{{ template \"gameometro.alert\" . }}{{ end }}{{ else }}{{ range .Alerts }}{{ template \"gameometro.alert\" . }}{{ end }}{{ end }}Grafana privado: {{ .ExternalURL }}/alerting/list\n{{ if .CommonAnnotations.runbook_url }}Guía: {{ .CommonAnnotations.runbook_url }}{{ end }}{{ end }}{{ define \"gameometro.alert\" }}{{ if eq .Labels.category \"product\" }}{{ if eq .Status \"firing\" }}Nuevo usuario registrado (actividad observada en una ventana; puede agrupar varios registros).{{ else }}Ventana de registros cerrada; no indica bajas ni recuperación.{{ end }}{{ else }}{{ if eq .Status \"firing\" }}{{ if eq .Labels.severity \"critical\" }}CRÍTICO{{ else }}AVISO{{ end }} — {{ if .Annotations.summary_es }}{{ .Annotations.summary_es }}{{ else }}Error o ausencia de datos al evaluar una regla{{ end }}{{ else }}{{ if eq .Annotations.resolution_kind \"window_expiry\" }}Aviso de sincronización cerrado al caducar la ventana; NO confirma una ejecución posterior correcta.{{ else }}La condición observada ya no se cumple; confirma el estado del servicio.{{ end }}{{ end }}\n{{ .Labels.alertname }} / {{ if .Labels.service }}{{ .Labels.service }}{{ else }}telemetría{{ end }}{{ if .Labels.outcome }} / {{ .Labels.outcome }}{{ end }}\n{{ if .Annotations.hint_es }}{{ .Annotations.hint_es }}{{ else }}Revisa las fuentes de datos y la regla en Grafana; no confirma una caída del servicio.{{ end }}{{ end }}\n{{ if .DashboardURL }}Panel privado: {{ .DashboardURL }}{{ end }}\n{{ end }}"
+  }],
+  "muteTimes": [{"orgId":1,"name":"private-dev-ui-only","time_intervals":[{"times":[{"start_time":"00:00","end_time":"24:00"}]}]}],
+  "policies": [{
+    "orgId":1,
+    "receiver":"empty",
+    "group_by":["environment","service","category","severity"],
+    "group_wait":"1m",
+    "group_interval":"5m",
+    "repeat_interval":"4h",
+    "routes":[
+      {"receiver":"__OPERATIONAL_RECEIVER__","object_matchers":[["category","=","operational"]],
+       "mute_time_intervals":__OPERATIONAL_MUTE__},
+      {"receiver":"__OPERATIONAL_RECEIVER__","object_matchers":[["alertname","=~","Datasource(Error|NoData)"]],
+       "mute_time_intervals":__OPERATIONAL_MUTE__},
+      {"receiver":"__PRODUCT_RECEIVER__","object_matchers":[["category","=","product"]],
+       "group_by":["environment","service","category","alertname"],"repeat_interval":"24h",
+       "mute_time_intervals":__PRODUCT_MUTE__}
+    ]
+  }]
+}

@@ -1,0 +1,26 @@
+scrape_configs:
+  - job_name: keycloak-product
+    static_configs:
+      - targets: [keycloak:9000]
+    metrics_path: /metrics
+    sample_limit: 100
+    body_size_limit: 8MB
+    label_limit: 8
+    label_name_length_limit: 80
+    label_value_length_limit: 80
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: keycloak_user_events_total
+        action: keep
+      - source_labels: [realm]
+        regex: videogame-platform
+        action: keep
+      - source_labels: [event]
+        regex: register|verify_email
+        action: keep
+      # Failure detail is unnecessary: retain only committed successful events.
+      - source_labels: [error]
+        regex: ''
+        action: keep
+      - regex: __name__|job|instance|realm|event|error
+        action: labelkeep

@@ -43,7 +43,9 @@ for name in \
   oidc-smoke-username \
   oidc-smoke-password \
   grafana-admin-password \
-  grafana-database-password; do
+  grafana-database-password \
+  grafana-telegram-bot-token \
+  grafana-telegram-chat-id; do
   printf 'test-%s\n' "$name" >"$secrets_directory/$name"
 done
 cat >"$runtime_env" <<EOF
@@ -72,7 +74,7 @@ EOF
 # The real disposable telemetry smoke owns that integration evidence.
 cat >"$fake_bin/python3" <<'EOF'
 #!/bin/bash
-if [[ "${1:-}" == */scripts/private-dev-metrics-check.py ]]; then
+if [[ "${1:-}" == */scripts/private-dev-metrics-check.py || "${1:-}" == */deploy/private-dev/grafana/check-alerts.py ]]; then
   exit 0
 fi
 exec /usr/bin/python3 "$@"
@@ -184,6 +186,8 @@ secret_files = {
         "oidc-smoke-password",
         "grafana-admin-password",
         "grafana-database-password",
+        "grafana-telegram-bot-token",
+        "grafana-telegram-chat-id",
     )
 }
 
@@ -234,8 +238,8 @@ services = {
     "prometheus": service("unless-stopped", image="prom/prometheus@sha256:" + "3" * 64,
         networks={"telemetry": None}, read_only=True, cap_drop=["ALL"],
         command=["--storage.tsdb.retention.time=7d", "--storage.tsdb.retention.size=512MiB"]),
-    "grafana": service("unless-stopped", ("grafana_admin_password", "grafana_database_password"),
-        {"GF_AUTH_ANONYMOUS_ENABLED": "false", "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/grafana_admin_password"},
+    "grafana": service("unless-stopped", ("grafana_admin_password", "grafana_database_password", "grafana_telegram_bot_token", "grafana_telegram_chat_id"),
+        {"GF_AUTH_ANONYMOUS_ENABLED": "false", "GF_UNIFIED_ALERTING_ENABLED": "true", "GF_SMTP_ENABLED": "false", "GF_LOG_LEVEL": "info", "GF_LOG_FILTERS": "ngalert.notifier.telegram:info", "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/grafana_admin_password"},
         image="grafana/grafana@sha256:" + "4" * 64, read_only=True, cap_drop=["ALL"],
         networks={"logs": None},
         ports=[{"host_ip": "127.0.0.1", "published": 3000, "target": 3000}]),

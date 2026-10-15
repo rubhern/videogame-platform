@@ -1,5 +1,7 @@
 package com.videogameplatform.ratings.adapter.persistence;
 
+import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics;
+import com.videogameplatform.ratings.adapter.observability.RatingActivityMetrics.Action;
 import com.videogameplatform.ratings.application.PersonalRating;
 import com.videogameplatform.ratings.application.PersonalRatingReadException;
 import com.videogameplatform.ratings.application.RatingAlreadyExistsException;
@@ -50,11 +52,15 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
 
     private final NamedParameterJdbcOperations jdbc;
     private final TransactionOperations transaction;
+    private final RatingActivityMetrics activity;
 
     public JdbcPersonalRatingStore(
-            NamedParameterJdbcOperations jdbc, TransactionOperations transaction) {
+            NamedParameterJdbcOperations jdbc,
+            TransactionOperations transaction,
+            RatingActivityMetrics activity) {
         this.jdbc = jdbc;
         this.transaction = transaction;
+        this.activity = activity;
     }
 
     @Override
@@ -75,6 +81,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     public RatingCommandResult create(
             String userId, String gameId, RatingValue value, Instant now, String versionToken) {
         return write(
+                Action.CREATED,
                 () -> {
                     MapSqlParameterSource parameters =
                             parameters(userId, gameId)
@@ -99,6 +106,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
             String expectedVersion,
             String nextVersion) {
         return write(
+                Action.UPDATED,
                 () -> {
                     UUID user = UUID.fromString(userId);
                     UUID game = UUID.fromString(gameId);
@@ -121,6 +129,7 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
     @Override
     public RatingStatistics.Available delete(String userId, String gameId, String expectedVersion) {
         return write(
+                Action.DELETED,
                 () -> {
                     UUID user = UUID.fromString(userId);
                     UUID game = UUID.fromString(gameId);
@@ -193,10 +202,15 @@ public final class JdbcPersonalRatingStore implements PersonalRatingStore {
         }
     }
 
-    private <T> T write(Command<T> command) {
+    private <T> T write(Action action, Command<T> command) {
         try {
             return Objects.requireNonNull(
-                    transaction.execute(status -> command.execute()),
+                    transaction.execute(
+                            status -> {
+                                T result = command.execute();
+                                activity.afterCommit(action);
+                                return result;
+                            }),
                     "Rating transaction returned no result");
         } catch (RatingAlreadyExistsException
                 | RatingNotFoundException

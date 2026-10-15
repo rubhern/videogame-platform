@@ -200,7 +200,7 @@ and credentials never use private-dev state; no Docker socket is mounted.
    `http://127.0.0.1:3000`. Sign in to Grafana as `owner`, reading the password from
    `.local-secrets/grafana-admin-password` in a local editor. Do not paste it into
    issues or commit the file. Open the **VideoGame Platform** folder; both datasources
-   and all four dashboards are already provisioned. After application migrations
+   and the [dashboards](observability.md#private-dev-dashboards) are already provisioned. After application migrations
    complete, enable SQL view access in a second terminal:
 
    ```bash

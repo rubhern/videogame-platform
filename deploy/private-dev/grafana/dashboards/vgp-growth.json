@@ -1,0 +1,523 @@
+{
+  "uid": "vgp-growth",
+  "title": "Gameómetro · Crecimiento",
+  "tags": [
+    "private-dev",
+    "product",
+    "growth"
+  ],
+  "timezone": "Europe/Madrid",
+  "editable": false,
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "links": [
+    {
+      "title": "Recursos",
+      "url": "/d/vgp-runtime",
+      "type": "link"
+    },
+    {
+      "title": "HTTP",
+      "url": "/d/vgp-application",
+      "type": "link"
+    },
+    {
+      "title": "Sincronización",
+      "url": "/d/vgp-synchronization",
+      "type": "link"
+    },
+    {
+      "title": "Producto",
+      "url": "/d/vgp-product",
+      "type": "link"
+    },
+    {
+      "title": "Crecimiento",
+      "url": "/d/vgp-growth",
+      "type": "link"
+    }
+  ],
+  "panels": [
+    {
+      "id": 2,
+      "title": "Registros hoy · estimado",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"register\",error=\"\"}[$__range]))) or ((max(up{job=\"keycloak-product\"}) == 1) * 0)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "Sin datos"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "timeFrom": "now/d"
+    },
+    {
+      "id": 3,
+      "title": "Registros · últimos 7 días · estimado",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"register\",error=\"\"}[7d]))) or ((max(up{job=\"keycloak-product\"}) == 1) * 0)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "Sin datos"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 4,
+      "title": "Verificaciones de email · 7 días · eventos",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"verify_email\",error=\"\"}[7d]))) or ((max(up{job=\"keycloak-product\"}) == 1) * 0)",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "Sin datos"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 5,
+      "title": "Puntuaciones personales activas · actual",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "private-dev-postgres"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "Estado actual en PostgreSQL: incluye datos de prueba y no cuenta creaciones históricas ni usuarios registrados.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "private-dev-postgres"
+          },
+          "rawSql": "SELECT active_ratings FROM ratings.observability_summary",
+          "format": "table",
+          "rawQuery": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "Sin datos"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 6,
+      "title": "Puntuaciones creadas hoy · estimado",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 6,
+        "h": 5
+      },
+      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum(increase(ratings_personal_activity_total{job=\"application-otlp\",action=\"created\"}[$__range]))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "Sin datos"
+        },
+        "overrides": []
+      },
+      "options": {},
+      "timeFrom": "now/d"
+    },
+    {
+      "id": 7,
+      "title": "Puntuaciones creadas · 7 días · estimado",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 5,
+        "w": 6,
+        "h": 5
+      },
+      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum(increase(ratings_personal_activity_total{job=\"application-otlp\",action=\"created\"}[7d]))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "Sin datos"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 8,
+      "title": "Cambios de puntuación · 7 días · estimado",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 6,
+        "h": 5
+      },
+      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum(increase(ratings_personal_activity_total{job=\"application-otlp\",action=\"updated\"}[7d]))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "Sin datos"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 9,
+      "title": "Borrados de puntuación · 7 días · estimado",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 5,
+        "w": 6,
+        "h": 5
+      },
+      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum(increase(ratings_personal_activity_total{job=\"application-otlp\",action=\"deleted\"}[7d]))",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "Sin datos"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 10,
+      "title": "Registros · evolución por ventanas de 24 h",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "(sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"register\",error=\"\"}[1d]))) or ((max(up{job=\"keycloak-product\"}) == 1) * 0)",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "Sin datos"
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 11,
+      "title": "Puntuaciones · evolución por ventanas de 24 h",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 8
+      },
+      "description": "Actividad observada, incluidas pruebas; no es un registro orgánico ni histórico completo. Los reinicios, primeras muestras, huecos de recogida y retención limitan estas estimaciones. Los datos previos pueden seguir visibles si una fuente deja de responder.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "sum by (action) (increase(ratings_personal_activity_total{job=\"application-otlp\"}[1d]))",
+          "instant": false,
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 1,
+          "noValue": "Sin datos"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "created"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Creaciones"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "updated"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Cambios"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "deleted"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Borrados"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {}
+    },
+    {
+      "id": 13,
+      "title": "Recogida de registros · estado",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "private-dev-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 5
+      },
+      "description": "Disponibilidad del origen de métricas de identidad; no confirma la disponibilidad del recorrido de registro del producto.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "private-dev-prometheus"
+          },
+          "expr": "max(up{job=\"keycloak-product\"})",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "Sin configurar / sin datos",
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "Sin conexión",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "Disponible",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "id": 12,
+      "type": "text",
+      "title": "Qué medimos y qué falta",
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 7
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Cuentas actuales y usuarios únicos verificados: no disponibles.** No se consulta la base de identidad ni el Admin API. Un registro correcto, una verificación de email y una cuenta existente son cantidades diferentes.\n\nLos contadores describen actividad observada y confirmada, incluyendo pruebas realizadas por las mismas vías. No son adopción orgánica ni totales históricos duraderos. Las estimaciones de 7 días pueden cubrir menos historia por retención, reinicios o huecos. “Hoy” usa Europe/Madrid; las tendencias usan ventanas móviles de 24 h. Cero sólo es válido con la fuente configurada y sana.\n\n**Hitos de 10 creaciones acumuladas: pendientes de una fuente duradera y exclusión fiable de actividad sintética.** No se simulan con ventanas Prometheus."
+      }
+    }
+  ]
+}

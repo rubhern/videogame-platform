@@ -381,6 +381,210 @@ retained samples after recreation, and continued readiness/product reads during 
 bounded metrics-stack outage. Record measured idle/load CPU, memory and PIDs plus
 metrics-volume disk usage in #158; the repository smoke does not prove host capacity.
 
+## Private-dev alerts
+
+The [observability inventory](../../docs/development/observability.md#private-dev-alerts)
+owns operational rule semantics, provisional thresholds and delivery limits. Grafana
+loads file-provisioned rules and a rendered notification configuration at startup.
+No UI creation is required. Only private-dev enables evaluation; delivery defaults
+off. Resource ceilings, retention and private listeners remain unchanged.
+
+Focused validation from the worktree (local Unix Docker engine only):
+
+```bash
+python3 deploy/private-dev/grafana/check-alerts.py --rules
+python3 deploy/private-dev/grafana/check-alerts.py --smoke
+python3 deploy/private-dev/grafana/check-notifications.py --smoke
+npm ci --ignore-scripts --no-audit --no-fund
+python3 deploy/private-dev/grafana/check-product-growth.py
+bash scripts/validate-private-dev-runtime.sh
+```
+
+`--rules` runs original expressions/pending periods through Promtool and checks the
+base/optional scrape configuration. Alert smoke starts disposable Collector,
+Prometheus and Grafana with generated fake credentials and separate volumes. Pool
+samples exercise the original firing/resolved lifecycle. Separate disposable
+zero-pending clones test native No Data/Error/KeepLast/recovery and native datasource
+instances; those accelerated tests do not establish live-host timing. Recreation
+checks rule UIDs/expressions and all five dashboards. Only the temporary Grafana HTTP
+port is published, on random IPv4 loopback; Prometheus/OTLP publish nothing.
+The existing `--telemetry-smoke` gate also includes alert smoke and synthetic rating
+counter translation/dashboard SQL checks.
+
+Notification smoke provisions the real native Telegram integration but pins
+`api.telegram.org` to an internal HTTPS fixture with a disposable trusted certificate.
+It never uses runtime secrets or real Telegram DNS/delivery. It accelerates only test
+policy/config-poll timings, tests disabled/enabled/product routing, Spanish firing and
+closing messages, deduplication, API failure, timeout redaction, later delivery cycles
+and recreation. Keycloak proof uses the pinned 26.7 base image, a disposable realm/H2
+volume, existing Mailpit test sink and the matching locked Playwright dependency. It
+checks actual event names/tags, rejected registration, two successful registrations
+and verifications, imported-account exclusion and reset after restart. H2 is a test
+fixture, not a change to private-dev's PostgreSQL identity database. All helpers remove
+only their random test projects/volumes. No real-host or delivery guarantee follows.
+
+### Reviewed alert rollout and rollback
+
+**No Lenovo configuration or real Telegram message was changed/sent by this work.**
+After owner diff review, publication and separate host authorization, install the
+reviewed checkout under the existing deployment lock using the
+[installed-revision procedure](#one-time-migration-to-the-standard-runtime).
+Run static validation, record service identities/headroom, and rerun `bin/prepare-secrets`
+with the existing protected directory/group to add the two **empty optional** Telegram
+files without replacing any credential. Empty files are valid with delivery disabled.
+Recreate **only Grafana**, retaining its named volume:
+
+```bash
+docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+  --file deploy/private-dev/compose.yaml up --detach --no-deps --force-recreate grafana
+```
+
+For the operational package alone, application/database/Collector/identity/localizer
+restarts are unnecessary. The separable growth package below needs its own application
+promotion and targeted Prometheus/Keycloak recreation. Record that distinction when
+acknowledging the [applied runtime contract](#acknowledge-the-applied-runtime-contract);
+do not acknowledge unapplied service changes or run project-wide `up`/`down`.
+
+Through the existing SSH tunnel, verify five operational rules plus the separate
+informational registration rule in **Alerting → Alert rules**, evaluation health,
+five dashboards, existing metrics/log/SQL datasources and muted empty routes when
+flags are false. Idle HTTP/sync/product rules can have no instances. Allow normal
+OTLP exports and a scrape before interpreting telemetry; compare private readiness
+and service identities. Record real-host evaluation/resource/persistence evidence on
+#269. Do not inject synthetic metrics, exhaust pools or interrupt live services to
+trigger an alert. Startup reconciles stable UIDs; removing a file alone does not
+remove persisted rules. A future removal must provision `deleteRules` by UID.
+
+For rollback, restore the prior reviewed Grafana definition with evaluation disabled,
+recreate only Grafana and retain its volume. Confirm dashboards/product readiness.
+Rules may remain stored while evaluation is disabled. Never delete telemetry or
+application volumes, and never acknowledge a failed rollout.
+
+### Telegram setup and delivery
+
+This is an **owner-executed later procedure**, requiring separate authorization for
+real sends. Native Grafana needs only outgoing HTTPS to `api.telegram.org`: no SMTP,
+inbound webhook, public Grafana, Funnel, router forwarding, new account integration
+or notification service is deployed here. Messages contain fixed operational/activity text and private links,
+without user/request information.
+
+1. In Telegram, open the official verified **@BotFather**, use `/newbot`, and keep the
+   issued token private. Open the new bot's private chat and send `/start`. Do not use
+   third-party chat-ID/token websites or paste credentials into chat, issue comments,
+   shell command arguments/history or Compose environment.
+2. On the authorized host, use a protected root editor (without swap/backup files) to
+   place the token into the existing protected file
+   `/etc/videogame-platform/dev/secrets/grafana-telegram-bot-token`. Retain the
+   root/runtime-group ownership and 0644 file mode established by `prepare-secrets`;
+   the protected 0750 parent is the host access boundary and only Grafana is granted
+   these mounts. Do not move secrets under the checkout.
+3. Capture the private chat ID using the official `getUpdates` API. The following
+   optional root-only snippet reads the token from its file, keeps response identities
+   in memory and writes the single private `/start` chat ID without printing it. It
+   fails closed for zero/multiple candidate chats; resolve the intended chat privately.
+   Do not use `curl -v`, shell tracing, or a token-bearing URL in argv/browser history.
+
+   ```bash
+   sudo python3 - <<'PY_TELEGRAM'
+   import json
+   from pathlib import Path
+   import urllib.request
+   base = Path('/etc/videogame-platform/dev/secrets')
+   try:
+       token = (base / 'grafana-telegram-bot-token').read_text().strip()
+       with urllib.request.urlopen('https://api.telegram.org/bot' + token + '/getUpdates', timeout=20) as response:
+           updates = json.load(response)
+       candidates = {item['message']['chat']['id'] for item in updates.get('result', [])
+                     if item.get('message', {}).get('text') == '/start'
+                     and item['message']['chat'].get('type') == 'private'}
+       if not updates.get('ok') or len(candidates) != 1:
+           raise ValueError()
+       (base / 'grafana-telegram-chat-id').write_text(str(candidates.pop()) + '\n')
+   except Exception:
+       raise SystemExit('Chat capture failed; values withheld. Check the private bot/chat configuration.') from None
+   print('Chat ID saved; no values printed.')
+   PY_TELEGRAM
+   ```
+
+4. Keep `GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED=false` initially. Explicitly set
+   `GRAFANA_TELEGRAM_ENABLED=true` in the protected runtime env, preserving all other
+   values. Set `PRIVATE_DEV_GRAFANA_ORIGIN` to the existing approved private access
+   origin (default loopback tunnel); this sets message links, not listeners or ingress.
+   Do not publish Grafana to make a phone link work. Recreate only Grafana under the
+   lock, verify file contact-point/policy ownership and unmuted operational routes,
+   then use Grafana's contact-point test **only with explicit real-send approval**.
+   A test message proves connectivity, not a live operational firing/resolved cycle.
+5. Product delivery needs the additional explicit flag
+   `GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED=true` and the growth source below. It
+   requires the master Telegram flag; enabling it alone refuses startup. Registration
+   notices are best-effort window activity, not one notice per account. No lifetime
+   milestone messages exist. Verify the product route separately before enabling it.
+
+Missing/malformed credentials fail startup with a fixed redacted error when enabled;
+disabled startup reads neither value. Rendering uses non-exported shell variables and
+builtin `printf`, then removes them. The single resulting policy/contact-point file
+lives in Grafana's existing tmpfs with 0700/0600 permissions. The bot token is encrypted
+in Grafana's existing persistent database; the chat ID is an ordinary administrator-
+readable contact setting. Protect the database/volume backups and administrators too.
+Never dump rendered provisioning or contact-point exports into diagnostics/artifacts.
+Keep the fixed info-level notifier logs; native debug logging can expose URL tokens.
+Spanish plain-text templates avoid Telegram markup failures and sensitive error bodies.
+
+To disable, set both flags false and recreate only Grafana; routes become muted/empty.
+A closed-loopback HTTPS proxy setting in the private-dev wrapper blocks native sends
+immediately, including the interval before Grafana reconciles the previous persisted
+policy. No proxy service is installed; existing internal HTTP datasources stay direct.
+The previously stored contact point can remain encrypted in the database but is no
+longer referenced once provisioning reconciles. For compromise or full revocation, revoke/regenerate
+the token via BotFather (`/revoke` or its bot-management flow) first, replace the
+protected file privately, and recreate Grafana only after choosing whether to enable
+again. Rotation reprovisions the same contact UID; disabling is not token revocation.
+Retain backup access controls and do not delete the Grafana volume as a cleanup shortcut.
+A successful send may have an ambiguous acknowledgement: do not promise duplicate-free
+manual retries or exactly-once delivery.
+
+### Separable product-growth rollout
+
+This package is independently reviewable: committed Ratings counters/backend minor
+version, one growth dashboard, optional Keycloak/Prometheus overlay and an informational
+registration-window rule. It changes no production realm, verification policy, BFF
+contract or database schema. [Growth semantics and durable follow-up](../../docs/development/observability.md#product-growth-observations)
+own the supported/unsupported indicators.
+
+After separate owner review/host authorization, promote the reviewed application
+normally for Ratings counters. Under the deployment lock, review the overlay-rendered
+configuration privately and recreate **only Keycloak and Prometheus** with the base
+plus optional file:
+
+```bash
+docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+  --file deploy/private-dev/compose.yaml \
+  --file deploy/private-dev/compose.product-growth.yaml \
+  up --detach --no-deps --force-recreate keycloak prometheus
+```
+
+Retain all volumes. Keycloak's brief restart needs a maintenance window. This attaches
+its existing internal management metrics to the telemetry network and selects only
+successful register/verification observations. No management port is published. The
+base Prometheus config also retains the new Ratings counter family; restarting it
+activates that allowlist without changing retention. Keep ordinary application
+promotion on **base Compose**: its trusted entrypoint rejects application containers
+created with arbitrary overlays. The targeted overlay above creates no application
+container, and normal promotion leaves persistent services in place. Future targeted
+Keycloak/Prometheus maintenance must include this overlay to retain collection; base
+recreation intentionally rolls it back. Do not acknowledge only Git while affected
+runtime changes remain unapplied.
+
+Verify `keycloak-product` is up and exposes only the expected realm/event/empty-error
+series, with no personal tags. A configured healthy source without an event is zero;
+an absent source is unsupported/no data. Do not create real accounts solely to force
+an event without separate approval. Check Ratings activity after normal committed
+commands and the existing SQL active total; no thresholds or Hikari settings change.
+Optional product delivery stays off until explicitly enabled/tested. To roll back
+identity observations, recreate only those two services using base Compose; retained
+historical samples can remain until normal retention. The dashboard may stay with
+**Sin datos**. Roll back a bad application through normal promotion, preserving data.
+
 ## Log aggregation and exploration
 
 Post-MVP #159 is prepared in the repository; rollout/acceptance on `vgpdev` is not

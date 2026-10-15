@@ -14,7 +14,7 @@ and recorded the outcome in the linked issue or pull request. Anything else is m
 `scripts/test-private-dev-backup-recovery.sh`) proves logic, not host behaviour.
 
 The accepted MVP is private, single-host and zero-cost. Nothing here claims public production,
-high availability, automatic recovery or alerting. Retained private-dev metrics and aggregated logs are
+high availability or automatic recovery. Retained private-dev metrics and aggregated logs are
 disposable operational history.
 
 The [public target](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
@@ -135,6 +135,67 @@ failure isolates the handoff; absent application series with a healthy scrape ca
 mean an OTLP export failure. Never recover telemetry by exposing Actuator or changing
 product readiness. Follow the linked procedure for recreation and recovery without
 touching PostgreSQL volumes.
+
+## Private-dev alerts
+
+Owner: [alert semantics and limits](observability.md#private-dev-alerts) and
+[provisioning/rollout procedure](../../deploy/private-dev/README.md#private-dev-alerts).
+**Live alert rollout/evaluation is not exercised.** Isolated validation proves rule
+logic and provisioned behaviour only; #269 records controlled lifecycle evidence and
+the earlier read-only host inventory. Telegram is prepared but disabled by default;
+no real message delivery or independent detection of host/Grafana failure is proven.
+
+| Alert | First owner action |
+|---|---|
+| Unexpected server errors | Open Application / HTTP and Platform logs for contributing error codes and time range; check private readiness and correlate deployment changes. Expected personal-rating absence and empty-catalogue responses are excluded. |
+| Sustained product-route latency | Open Application / HTTP for the route/method, then Runtime / Resources for Hikari and bounded database diagnostics; inspect expensive search patterns without logging raw search input. |
+| Hikari connection acquisition pressure | Inspect pending, acquisition timeouts and HTTP 503s in Runtime / Resources; examine database activity/locks and query durations. Reduce an optional operator workload if safe; do not tune pool/quota/SQL without evidence and a separate decision. |
+| Application telemetry unavailable | Check both scrape targets and advancing application uptime in Runtime / Resources, then private readiness/product reads. Healthy scrapes with frozen uptime suggest broken export or an unavailable application; failed scrapes locate a collection problem. A Prometheus query error identifies unavailable telemetry, not proven application downtime. |
+| Catalogue synchronization failed or partial | Open Catalogue Synchronization's retained run reports and logs, inspect failure stage/credentials/provider response, and retry only a justified bounded interval. Confirm success in the durable ledger; automatic alert resolution only expires recent failure evidence. |
+
+A single ordinary error, short queue or restart, idle traffic, normal sync, skip or
+lack of sync is intentionally quiet. During planned maintenance, allow the pending
+period to absorb short interruptions; a longer interruption remains visible and
+must be interpreted with maintenance context. Follow [incident handling](#incident-handling)
+for persistent degradation. If Grafana is unavailable, use existing SSH/container
+inspection; this alert set has no independent watchdog.
+
+## Telegram delivery
+
+Follow the [single setup/activation procedure](../../deploy/private-dev/README.md#telegram-setup-and-delivery).
+In Grafana, inspect Alerting's rule instances, notification policies, contact point
+and notification errors. A firing rule does not prove message delivery. For failed
+HTTPS sends, inspect the bounded Grafana info logs for redacted errors, token revocation,
+chat access, outbound DNS/TLS/connectivity or Telegram rate limiting. Do not print the
+rendered contact settings, enable notifier debug logs, or paste token-bearing URLs.
+When delivery is disabled, a brief closed-loopback HTTPS error from an old persisted
+receiver is expected while policy reconciliation finishes; the wrapper prevents a send.
+A timeout is ambiguous; do not assume safe duplicate-free manual replay. Native
+integration retries are limited as described in [observability](observability.md#notification-boundary).
+
+Operational resolved messages mean the predicate cleared. Sync resolved messages mean
+the failure window closed; inspect the durable report for a subsequent successful run.
+Ordinary restarts fit within the operational pending windows. Planned longer work
+should have an owner-managed Grafana silence, without changing provisioned rules.
+Telegram cannot notify when this same host or Grafana is unavailable.
+
+## Product growth
+
+Open **Gameómetro · Crecimiento** for observed registrations, verification actions and
+rating commands. Check source/target health and the activation date before treating
+an empty or zero value as no activity. The optional Keycloak overlay needs a separately
+reviewed rollout; do not change public identity/verification policy for these metrics.
+No growth activity while idle is normal, and an email-verification event is not a new
+registration. Current accounts, distinct verified accounts, organic totals and lifetime
+milestones are unsupported; the dashboard states those limits.
+
+Registration notices are opt-in window observations. A closing notification is not
+an account deletion or a service recovery; several registrations can share one notice,
+and sparse/restarted collection can miss one. Ratings counters only observe committed
+commands; direct SQL fixtures are excluded, synthetic API callers are included. Use
+the current active SQL total for inventory, never counter subtraction or a rolling
+window for a lifetime milestone. The [durable follow-up proposal](observability.md#proposed-durable-notification-follow-up)
+owns the remaining business-delivery semantics. No milestone notification is enabled.
 
 ## Log aggregation and search
 
@@ -600,9 +661,12 @@ validation, end-to-end reset through the owner tunnel and reboot persistence on
 
 ## Not covered
 
-Public production, high availability, staging, automatic rollback, scheduled
-synchronization, alerting, OS and Docker update cadence, pinned-image refresh, disk
-pruning and hardware monitoring cadence. The
+Real owner Telegram delivery remains unverified; use the [reviewed procedure](#telegram-delivery)
+after explicit authorization. Independent host-loss notification is not implemented.
+
+Public production, high availability, staging, automatic rollback,
+OS and Docker update cadence, pinned-image refresh, disk pruning and hardware
+monitoring cadence. The
 [infrastructure review](../research/mvp-closeout-review/infrastructure-review.md)
 lists these as proposals; none has an exercised procedure yet.
 

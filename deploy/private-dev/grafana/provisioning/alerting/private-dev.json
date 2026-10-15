@@ -1,0 +1,409 @@
+{
+  "apiVersion": 1,
+  "groups": [
+    {
+      "orgId": 1,
+      "name": "private-dev",
+      "folder": "VideoGame Platform",
+      "interval": "60s",
+      "rules": [
+        {
+          "uid": "vgp-http-failures",
+          "title": "Unexpected server errors",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum (increase(platform_http_errors_total{job=\"application-otlp\",kind=\"server_failure\",code!=\"CATALOGUE_NOT_READY\"}[5m])) >= bool 5",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "2m",
+          "annotations": {
+            "summary": "Unexpected server errors",
+            "description": "At least five estimated unexpected server failures across all error codes in five minutes. Inspect Application / HTTP and Platform logs for codes/routes. Only the approved empty-catalogue code is excluded; other HTTP 503 failures are included.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
+            "__dashboardUid__": "vgp-application",
+            "__panelId__": "18",
+            "summary_es": "Errores de servidor repetidos",
+            "hint_es": "Revisa los c\u00f3digos de error y los registros; comprueba readiness."
+          },
+          "labels": {
+            "environment": "private-dev",
+            "service": "application",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "vgp-http-latency",
+          "title": "Sustained product-route latency",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "(histogram_quantile(0.95, sum by (le,uri,method) (rate(http_server_requests_milliseconds_bucket{job=\"application-otlp\",uri=~\"/api/v1/(releases|featured-releases|games|games/[^/]+|me/ratings|me/ratings/[^/]+)\",method=~\"GET|PUT|DELETE\",status=~\"2..|3..|5..\"}[5m]))) > bool 1000) * on (uri,method) (sum by (uri,method) (increase(http_server_requests_milliseconds_count{job=\"application-otlp\",uri=~\"/api/v1/(releases|featured-releases|games|games/[^/]+|me/ratings|me/ratings/[^/]+)\",method=~\"GET|PUT|DELETE\",status=~\"2..|3..|5..\"}[5m])) >= bool 100)",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "5m",
+          "annotations": {
+            "summary": "Sustained product-route latency",
+            "description": "Route p95 exceeds the provisional 1000 ms threshold with at least 100 estimated requests in five minutes. Inspect route latency, Hikari and database diagnostics before changing anything.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
+            "__dashboardUid__": "vgp-application",
+            "__panelId__": "10",
+            "summary_es": "Latencia elevada en una ruta",
+            "hint_es": "Revisa la ruta, Hikari y las consultas; el umbral es provisional."
+          },
+          "labels": {
+            "environment": "private-dev",
+            "service": "application",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "vgp-pool-pressure",
+          "title": "Hikari connection acquisition pressure",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "clamp_max(((max(hikaricp_connections_pending{job=\"application-otlp\"}) > bool 0) or vector(0)) + ((sum(increase(hikaricp_connections_timeout_total{job=\"application-otlp\"}[5m])) >= bool 2) or vector(0)), 1)",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "2m",
+          "annotations": {
+            "summary": "Hikari connection acquisition pressure",
+            "description": "Pending connections persist or at least two estimated acquisition timeouts occurred in five minutes. Inspect Hikari pending/timeouts, HTTP failures and database activity; do not increase pool size automatically.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
+            "__dashboardUid__": "vgp-runtime",
+            "__panelId__": "18",
+            "summary_es": "Presi\u00f3n al adquirir conexiones",
+            "hint_es": "Revisa esperas, timeouts y HTTP 503; no aumentes el pool autom\u00e1ticamente."
+          },
+          "labels": {
+            "environment": "private-dev",
+            "service": "application",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "vgp-telemetry-unavailable",
+          "title": "Application telemetry unavailable",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "1 - ((min(up{job=\"application-otlp\"}) or vector(0)) * (min(up{job=\"collector\"}) or vector(0)) * ((sum(changes(process_uptime_milliseconds{job=\"application-otlp\"}[3m])) > bool 0) or vector(0)))",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "Alerting",
+          "execErrState": "Alerting",
+          "for": "5m",
+          "annotations": {
+            "summary": "Application telemetry unavailable",
+            "description": "Scrape targets are unavailable/missing or application uptime has stopped advancing. Check Runtime / Resources, then application readiness through the private operator path. This cannot distinguish application downtime from broken OTLP; do not assume either.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
+            "__dashboardUid__": "vgp-runtime",
+            "__panelId__": "23",
+            "summary_es": "Telemetr\u00eda de la aplicaci\u00f3n no disponible",
+            "hint_es": "Comprueba scrapes y uptime; confirma el servicio por la v\u00eda privada."
+          },
+          "labels": {
+            "environment": "private-dev",
+            "service": "application",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        },
+        {
+          "uid": "vgp-sync-failures",
+          "title": "Catalogue synchronization failed or partial",
+          "condition": "B",
+          "data": [
+            {
+              "refId": "A",
+              "relativeTimeRange": {
+                "from": 900,
+                "to": 0
+              },
+              "datasourceUid": "private-dev-prometheus",
+              "model": {
+                "refId": "A",
+                "expr": "sum by (outcome) (increase(catalogue_synchronization_run_total{job=\"application-otlp\",outcome=~\"failed|partial\"}[15m])) > bool 0",
+                "instant": true,
+                "range": false,
+                "format": "table",
+                "intervalMs": 1000,
+                "maxDataPoints": 1
+              }
+            },
+            {
+              "refId": "B",
+              "relativeTimeRange": {
+                "from": 0,
+                "to": 0
+              },
+              "datasourceUid": "__expr__",
+              "model": {
+                "refId": "B",
+                "type": "threshold",
+                "expression": "A",
+                "conditions": [
+                  {
+                    "evaluator": {
+                      "params": [
+                        0
+                      ],
+                      "type": "gt"
+                    },
+                    "operator": {
+                      "type": "and"
+                    },
+                    "reducer": {
+                      "type": "last",
+                      "params": []
+                    },
+                    "type": "query",
+                    "query": {
+                      "params": [
+                        "A"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          ],
+          "noDataState": "OK",
+          "execErrState": "KeepLast",
+          "for": "2m",
+          "annotations": {
+            "summary": "Catalogue synchronization failed or partial",
+            "description": "A completed synchronization failed or was partial in the last fifteen minutes. Inspect the retained run report and synchronization logs before a bounded retry. Skips and inactivity do not trigger this rule; resolution is window expiry, not proof of a successful retry.",
+            "runbook_url": "https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts",
+            "__dashboardUid__": "vgp-synchronization",
+            "__panelId__": "10",
+            "summary_es": "Sincronizaci\u00f3n fallida o parcial",
+            "hint_es": "Consulta el \u00faltimo informe y los registros antes de reintentar.",
+            "resolution_kind": "window_expiry"
+          },
+          "labels": {
+            "environment": "private-dev",
+            "service": "application",
+            "severity": "warning",
+            "category": "operational"
+          },
+          "isPaused": false
+        }
+      ]
+    }
+  ]
+}

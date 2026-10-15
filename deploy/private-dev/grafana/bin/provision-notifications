@@ -1,0 +1,51 @@
+#!/bin/sh
+# Render native provisioning into the existing bounded tmpfs. No secret in argv/env.
+set -eu
+umask 077
+fail() { printf '%s\n' 'Invalid or unavailable Telegram configuration; values withheld.' >&2; exit 1; }
+case "${GRAFANA_TELEGRAM_ENABLED:-false}" in true|false) ;; *) fail ;; esac
+case "${GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED:-false}" in true|false) ;; *) fail ;; esac
+if [ "${GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED:-false}" = true ] && [ "${GRAFANA_TELEGRAM_ENABLED:-false}" != true ]; then
+  fail
+fi
+runtime=/tmp/grafana-provisioning
+mkdir -p "$runtime/alerting"
+chmod 0700 "$runtime" "$runtime/alerting"
+cp -R /etc/grafana/provisioning/. "$runtime/"
+receiver=empty
+mute='["private-dev-ui-only"]'
+product_receiver=empty
+product_mute=$mute
+if [ "${GRAFANA_TELEGRAM_ENABLED:-false}" = true ]; then
+  [ -r /run/secrets/grafana_telegram_bot_token ] && [ -r /run/secrets/grafana_telegram_chat_id ] || fail
+  token=$(cat /run/secrets/grafana_telegram_bot_token)
+  chat=$(cat /run/secrets/grafana_telegram_chat_id)
+  # Telegram-issued tokens and integer chat IDs cannot inject JSON, shell or Grafana interpolation.
+  case "$token" in *[!A-Za-z0-9_:-]*) fail ;; esac
+  case "$chat" in *[!0-9-]*) fail ;; esac
+  printf '%s' "$token" | grep -Eq '^[0-9]{1,20}:[A-Za-z0-9_-]{20,128}$' || fail
+  printf '%s' "$chat" | grep -Eq '^-?[0-9]{1,20}$' || fail
+  receiver=private-dev-telegram
+  mute='[]'
+  if [ "${GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED:-false}" = true ]; then
+    product_receiver=$receiver
+    product_mute='[]'
+  fi
+fi
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in
+    *'__TELEGRAM_CONTACT_POINT__'*)
+      if [ "$receiver" != empty ]; then
+        printf '{"orgId":1,"name":"private-dev-telegram","receivers":[{"uid":"vgp-telegram","type":"telegram","disableResolveMessage":false,"settings":{"bottoken":"%s","chatid":"%s","message":"{{ template \"gameometro.telegram\" . }}","parse_mode":"None","disable_web_page_preview":true,"protect_content":true}}]}\n' "$token" "$chat"
+      fi ;;
+    *)
+      # Replacement material here is public routing state, never a secret.
+      printf '%s\n' "$line" | sed \
+        -e "s/__OPERATIONAL_RECEIVER__/$receiver/g" \
+        -e "s/__PRODUCT_RECEIVER__/$product_receiver/g" \
+        -e "s/__OPERATIONAL_MUTE__/$mute/g" \
+        -e "s/__PRODUCT_MUTE__/$product_mute/g" ;;
+  esac
+done < /etc/grafana/notifications.json.template > "$runtime/alerting/notifications.json"
+chmod 0600 "$runtime/alerting/notifications.json"
+unset token chat

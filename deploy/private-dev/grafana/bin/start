@@ -4,4 +4,18 @@ set -eu
 GRAFANA_ANALYTICS_PASSWORD="$(cat /run/secrets/grafana_database_password)"
 [ -n "$GRAFANA_ANALYTICS_PASSWORD" ] || { echo 'Grafana database secret is empty' >&2; exit 1; }
 export GRAFANA_ANALYTICS_PASSWORD
+if [ -r /etc/grafana/provision-notifications ]; then
+  /bin/sh /etc/grafana/provision-notifications
+  export GF_PATHS_PROVISIONING=/tmp/grafana-provisioning
+  if [ "${GRAFANA_TELEGRAM_ENABLED:-false}" = false ]; then
+    # Grafana can load its previous persisted policy before file provisioning is
+    # reconciled. Its native sender honors HTTPS_PROXY: fail closed locally while
+    # delivery is off, even if an old encrypted contact point still exists.
+    # Existing approved Prometheus/Loki datasources use internal HTTP, not HTTPS.
+    export HTTPS_PROXY=http://127.0.0.1:9
+    export https_proxy=http://127.0.0.1:9
+    export NO_PROXY=localhost,127.0.0.1,prometheus,loki,postgres
+    export no_proxy=localhost,127.0.0.1,prometheus,loki,postgres
+  fi
+fi
 exec /run.sh

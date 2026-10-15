@@ -20,13 +20,13 @@ parser.add_argument('--local', action='store_true')
 args = parser.parse_args()
 root = pathlib.Path(__file__).resolve().parent.parent
 dashboards = sorted((root / 'deploy/private-dev/grafana/dashboards').glob('*.json'))
-expected_uids = {'vgp-runtime', 'vgp-application', 'vgp-synchronization', 'vgp-product'}
+expected_uids = {'vgp-runtime', 'vgp-application', 'vgp-synchronization', 'vgp-product', 'vgp-growth'}
 assert {p.stem for p in dashboards} == expected_uids
 for path in dashboards:
     dashboard = json.loads(path.read_text())
     assert dashboard['uid'] == path.stem and dashboard['editable'] is False
     assert dashboard['refresh'] in {'1m', '5m'}
-    assert {link['url'] for link in dashboard['links']} == {'/d/' + uid for uid in expected_uids}
+    assert {link['url'] for link in dashboard['links']} == {'/d/' + uid for uid in (expected_uids if path.stem == 'vgp-growth' else expected_uids - {'vgp-growth'})}
     ids = set()
     cells = set()
     for panel in dashboard['panels']:
@@ -143,6 +143,8 @@ def synthetic_metrics(count):
                                   ('PUT', '404', 1000), ('DELETE', '404', 1000)]:
         histogram('http.server.requests', {'uri': '/api/v1/me/ratings/{gameId}',
                   'method': method, 'status': status, 'outcome': 'CLIENT_ERROR'}, 'ms', value)
+    for action in ('created','updated','deleted'):
+        counter('ratings.personal.activity', {'action':action})
     counter('catalogue.synchronization.run', {'outcome': 'succeeded'})
     histogram('catalogue.synchronization.run.duration', {'outcome': 'succeeded'}, 'ms')
     histogram('catalogue.synchronization.run.records', {'kind': 'unchanged_games'})
@@ -168,7 +170,7 @@ def synthetic_metrics(count):
     for name, unit, labels, value in [
         ('jvm.memory.used', 'bytes', {'area': 'heap', 'id': 'G1 Eden Space'}, 1024),
         ('jvm.memory.max', 'bytes', {'area': 'heap', 'id': 'G1 Eden Space'}, 2048),
-        ('process.uptime', 'seconds', {}, 120),
+        ('process.uptime', 'ms', {}, (now - int(synthetic_start)) / 1_000_000),
         ('jvm.memory.committed', 'bytes', {'area': 'heap', 'id': 'G1 Eden Space'}, 2048),
         ('jvm.memory.used', 'bytes', {'area': 'nonheap', 'id': 'Metaspace'}, 512),
         ('jvm.threads.peak', 'threads', {}, 20),
@@ -300,6 +302,8 @@ request('http://grafana:3000/api/datasources/uid/private-dev-postgres/health', a
 if args.synthetic:
     request('http://telemetry:4318/v1/metrics', synthetic_metrics(1))
     eventually(lambda: bool(query('http_server_requests_milliseconds_count')), 'OTLP histogram missing')
+    activity=query('ratings_personal_activity_total{job="application-otlp"}',grafana=True)
+    assert {s['metric']['action']:float(s['value'][1]) for s in activity}=={'created':1,'updated':1,'deleted':1}
     assert values('vgp-synchronization', 'Command outcomes · observed process') == [1], 'First run lost'
     assert values('vgp-synchronization', 'Provider mean duration · observed process') == [100]
     outcomes = query(panel_query('vgp-synchronization', 'Player-score outcomes · observed process'), grafana=True)
@@ -319,6 +323,8 @@ if args.synthetic:
     request('http://telemetry:4318/v1/metrics', synthetic_metrics(2))
     eventually(lambda: any(float(s['value'][1]) == 2 for s in query('http_server_requests_milliseconds_count')),
                'Second cumulative sample missing')
+    assert 60 <= values('vgp-runtime', 'Process uptime')[0] < 600, 'Uptime metric name/unit mismatch'
+    assert values('vgp-runtime', 'Application metric sample age')[0] >= 0, 'Uptime sample missing'
     assert values('vgp-runtime', 'Heap occupancy') == [0.5]
     assert values('vgp-runtime', 'Pool occupancy') == [0.1]
     assert values('vgp-runtime', 'Process CPU consumed')[0] > 0, 'CPU timer translation/rate missing'
@@ -354,7 +360,7 @@ for path in sorted((root / 'deploy/private-dev/grafana/dashboards').glob('*.json
             finite = any('value' in s and math.isfinite(float(s['value'][1])) for s in data)
             if finite:
                 nonempty += 1
-    if not args.local:
+    if not args.local and expected['uid']!='vgp-growth':
         assert nonempty, f'No real query data for {expected["uid"]}; generate representative activity first'
     seen.add(expected['uid'])
     print(f'{expected["uid"]}: provisioning matches; queries succeed; {nonempty} queries have finite data')

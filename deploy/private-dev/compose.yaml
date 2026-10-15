@@ -157,7 +157,24 @@ services:
     extends:
       file: ./compose.observability.yaml
       service: grafana
+    environment:
+      GF_UNIFIED_ALERTING_ENABLED: "true"
+      GF_UNIFIED_ALERTING_EVALUATION_TIMEOUT: 15s
+      GF_UNIFIED_ALERTING_MAX_ATTEMPTS: "1"
+      GF_SMTP_ENABLED: "false"
+      # Native Telegram URLs contain the token; never enable notifier debug logs.
+      GF_LOG_LEVEL: info
+      GF_LOG_FILTERS: ngalert.notifier.telegram:info
+      GRAFANA_TELEGRAM_ENABLED: ${GRAFANA_TELEGRAM_ENABLED:-false}
+      GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED: ${GRAFANA_PRODUCT_NOTIFICATIONS_ENABLED:-false}
+      GF_SERVER_ROOT_URL: ${PRIVATE_DEV_GRAFANA_ORIGIN:-http://127.0.0.1:3000}
+    secrets:
+      - grafana_telegram_bot_token
+      - grafana_telegram_chat_id
     volumes:
+      - ./grafana/bin/provision-notifications:/etc/grafana/provision-notifications:ro
+      - ./grafana/notifications.json.template:/etc/grafana/notifications.json.template:ro
+      - ./grafana/provisioning/alerting:/etc/grafana/provisioning/alerting:ro
       - ./grafana/logs-provisioning/loki.yaml:/etc/grafana/provisioning/datasources/loki.yaml:ro
     networks:
       - logs
@@ -345,6 +362,10 @@ services:
     logging: *bounded-logging
 
 secrets:
+  grafana_telegram_bot_token:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/grafana-telegram-bot-token
+  grafana_telegram_chat_id:
+    file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/grafana-telegram-chat-id
   grafana_database_password:
     file: ${PRIVATE_DEV_SECRETS_DIR:?Set PRIVATE_DEV_SECRETS_DIR in runtime.env}/grafana-database-password
   grafana_admin_password:
