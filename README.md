@@ -45,6 +45,7 @@ module commands.
 | `backend/` | Java/Spring modular monolith, BFF/API, persistence adapters, Postman assets, and backend tests |
 | `frontend/` | React/TypeScript SPA and browser/component tests |
 | `deploy/private-dev/` | Operator entry point for the private `dev` host |
+| `deploy/public-production/` | Prepared public-production configuration, not deployed; currently the Keycloak realm import |
 | `docs/` | Product, architecture, decisions, development, research; [`docs/README.md`](docs/README.md) is the map |
 | `scripts/` | Executable development and validation entry points |
 | `tools/igdb-poc/` | Isolated provider proof-of-concept tool |
