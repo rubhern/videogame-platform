@@ -11,6 +11,7 @@ import com.videogameplatform.catalogue.application.synchronization.CatalogueSync
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.internal.CatalogueSynchronizationService;
 import com.videogameplatform.catalogue.application.synchronization.internal.CoverSelectionPolicy;
+import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationCoverageService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.LogoBatch;
@@ -1219,6 +1220,60 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         }
     }
 
+    @Test
+    void aRunThatReadEveryPageCoversItsIntervalWhileInterruptedFailedAndRepairRunsDoNot() {
+        var coverage = new SynchronizationCoverageService(store);
+        provider.rows = List.of(new Row(10, "100"));
+        provider.works.put("100", work("100", release("10", "2026-05-01")));
+        var clean = service.synchronize(WINDOW);
+        assertThat(clean.outcome()).isEqualTo(SynchronizationOutcome.SUCCEEDED);
+
+        var wider =
+                new CatalogueSynchronizationRequest(
+                        LocalDate.parse("2025-01-01"), LocalDate.parse("2026-12-31"));
+        provider.rows = List.of(new Row(10, "100"), new Row(20, "101"), new Row(30, "102"));
+        provider.works.put("101", work("101", release("20", "2025-05-01")));
+        provider.laterPageFailure =
+                new com.videogameplatform.catalogue.application.synchronization.port
+                        .ProviderRequestException(
+                        com.videogameplatform.catalogue.application.synchronization.port
+                                .ProviderFailureCode.PROVIDER_RESPONSE_INVALID,
+                        ProviderCallStatistics.none());
+        var interrupted = service.synchronize(wider);
+        assertThat(interrupted.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(interrupted.outcomeCode()).isEqualTo("SYNCHRONIZATION_INTERRUPTED");
+        provider.laterPageFailure = null;
+        provider.works.clear();
+        assertThat(service.synchronize(wider).outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        provider.works.put("100", work("100", release("10", "2026-05-01")));
+        var repair = service.repairGames(List.of("100"), false);
+        assertThat(repair.outcome()).isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(repair.from()).isBetween(WINDOW.from(), WINDOW.to());
+
+        var unchanged = coverage.coverage(wider.from(), wider.to()).periods();
+        assertThat(unchanged).hasSize(2);
+        assertThat(unchanged.getFirst().covered()).isFalse();
+        assertThat(unchanged.getFirst().to()).isEqualTo(LocalDate.parse("2025-12-31"));
+        assertThat(unchanged.getLast().from()).isEqualTo(WINDOW.from());
+        assertThat(unchanged.getLast().lastScan().orElseThrow().runId()).isEqualTo(clean.runId());
+        assertThat(unchanged.getLast().lastScan().orElseThrow().clean()).isTrue();
+
+        // Every page read, one Game kept its last valid state: covered, with that failure counted.
+        provider.works.put("101", work("101", release("20", "2025-05-01")));
+        var withFailures = service.synchronize(wider);
+        assertThat(withFailures.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(withFailures.outcomeCode()).isEqualTo("SYNCHRONIZATION_COMPLETED_WITH_FAILURES");
+        var covered = coverage.coverage(wider.from(), wider.to()).periods();
+        assertThat(covered).singleElement().satisfies(
+                period -> {
+                    assertThat(period.from()).isEqualTo(wider.from());
+                    assertThat(period.to()).isEqualTo(wider.to());
+                    assertThat(period.lastScan().orElseThrow().runId())
+                            .isEqualTo(withFailures.runId());
+                    assertThat(period.lastScan().orElseThrow().failedGames()).isEqualTo(1);
+                });
+    }
+
     private ScheduledTaskRegistrar scheduledTasks(CatalogueSynchronizationMetrics metrics) {
         var registrar = new ScheduledTaskRegistrar();
         new CatalogueSynchronizationScheduler(
@@ -1450,6 +1505,8 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         Map<String, List<ProviderImage>> logos = new HashMap<>();
         com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException
                 logoFailure;
+        com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException
+                laterPageFailure;
 
         public String providerName() {
             return "IGDB";
@@ -1461,6 +1518,9 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
 
         public ReleasePage releaseGames(LocalDate from, LocalDate to, long afterGameId, int limit) {
             pageLimits.add(limit);
+            if (laterPageFailure != null && afterGameId > 0) {
+                throw laterPageFailure;
+            }
             List<Row> page =
                     rows.stream()
                             .filter(row -> Long.parseLong(row.game()) > afterGameId)

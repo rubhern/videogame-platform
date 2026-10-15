@@ -126,6 +126,7 @@ curl --fail -X POST -H 'Content-Type: application/json' \
   -d '{"from":"2026-01-01","to":"2026-12-31"}' \
   http://localhost:8081/actuator/cataloguesync
 curl --fail http://localhost:8081/actuator/cataloguesync
+curl --fail 'http://localhost:8081/actuator/cataloguecoverage?from=1997-01-01&to=1997-12-31'
 ```
 
 One POST paginates internally until every IGDB Game with a release date in the
@@ -135,7 +136,11 @@ and edition evidence along with artwork and screenshot metadata for featured dis
 (`UC-010`), and the IGDB player score with its rating count; the report counts signals
 observed, cleared and kept unavailable, featured images and logos observed, and player
 scores observed, absent and kept unavailable, with what those writes did to stored scores. The GET reports the last
-run or `never_run`. Apply the Flyway schema before enabling the command. Without
+run or `never_run`. The coverage GET reads PostgreSQL only. It answers the inclusive range
+as consecutive `covered` periods, each with the run that last scanned it completely, when,
+and that run's `failedGames`, and `never_covered` periods. A long answer stops at a bound and returns
+`continuesFrom` for the next request; an invalid range is `400 INVALID_COVERAGE_RANGE`.
+Apply the Flyway schema before enabling the command. Without
 `IGDB_CLIENT_ID` and `IGDB_CLIENT_SECRET` it reports `SYNCHRONIZATION_DISABLED` and
 changes nothing, which is how CI and a normal local run behave; automated provider
 evidence uses the fixtures under `src/test/resources/provider/igdb/`, and live

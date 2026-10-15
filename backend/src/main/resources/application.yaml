@@ -120,7 +120,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize
+        include: health,info,metrics,cataloguesync,cataloguecoverage,releasestagerepair,cataloguelocalize
   metrics:
     distribution:
       percentiles-histogram:

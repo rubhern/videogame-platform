@@ -2,6 +2,7 @@ package com.videogameplatform.catalogue.application.synchronization.port;
 
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderGameDetails;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
@@ -15,6 +16,7 @@ import com.videogameplatform.catalogue.domain.SourceKind;
 import com.videogameplatform.catalogue.domain.VerificationLevel;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,7 +41,20 @@ public interface CatalogueSynchronizationStore {
 
     void completeRun(CatalogueSynchronizationReport report, int retainedRuns);
 
+    /**
+     * Completes a run that read every provider page of its requested interval, with at least one
+     * Game succeeded, and in the same fenced transaction records that interval as covered by it,
+     * together with its failed Game count. Coverage is never pruned with runs.
+     */
+    void completeCoveredRun(CatalogueSynchronizationReport report, int retainedRuns);
+
     Optional<CatalogueSynchronizationReport> lastRun();
+
+    /** At most {@code limit} stored covered intervals overlapping the inclusive range, by start. */
+    List<CoveredInterval> coveredIntervals(LocalDate from, LocalDate to, int limit);
+
+    /** One stored disjoint interval and the latest complete scan that covered it. */
+    record CoveredInterval(LocalDate from, LocalDate to, SynchronizationCoverage.LastScan lastScan) {}
 
     record GameState(
             UUID gameId,

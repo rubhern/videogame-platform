@@ -291,7 +291,8 @@ is disabled by default until an owner-authorized exercise; executable Compose/ru
 configuration owns environment passthrough. The
 [runbook](../../development/operations-runbook.md#catalogue-synchronization) owns
 policy operation and the remaining evidence. PostgreSQL enforces one active run and
-fences an abandoned worker before a successor can write; run history is retained in bounded quantity.
+fences an abandoned worker before a successor can write; run history is retained in bounded quantity,
+while durable interval coverage is kept apart from it and is never pruned with it.
 [ADR-0017](../../decisions/0017-discover-catalogue-members-automatically-from-igdb.md)
 owns the date interval, paging and partial-failure decisions.
 
