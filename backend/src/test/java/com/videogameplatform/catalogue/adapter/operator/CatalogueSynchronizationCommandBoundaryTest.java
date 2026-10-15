@@ -108,6 +108,27 @@ class CatalogueSynchronizationCommandBoundaryTest {
     }
 
     @Test
+    void offersCoverageOnlyOnTheManagementPortAndRejectsInvalidRanges() throws Exception {
+        String range = "/actuator/cataloguecoverage?from=1997-12-01&to=1997-12-31";
+        assertThat(get(port, range).statusCode()).isEqualTo(404);
+        HttpResponse<String> answer = get(managementPort, range);
+        assertThat(answer.statusCode()).isEqualTo(200);
+        assertThat(answer.body())
+                .contains("\"from\":\"1997-12-01\"")
+                .contains("\"status\":\"never_covered\"");
+        for (String invalid :
+                new String[] {
+                    "/actuator/cataloguecoverage",
+                    "/actuator/cataloguecoverage?from=bad&to=1997-12-31",
+                    "/actuator/cataloguecoverage?from=1998-01-01&to=1997-12-31"
+                }) {
+            var response = get(managementPort, invalid);
+            assertThat(response.statusCode()).isEqualTo(400);
+            assertThat(response.body()).contains("INVALID_COVERAGE_RANGE");
+        }
+    }
+
+    @Test
     void stageRepairStaysPrivateRejectsCrossSiteWritesAndDefaultsSafely() throws Exception {
         assertThat(get(port, "/actuator/releasestagerepair").statusCode()).isEqualTo(404);
         assertThat(post(port, "/actuator/releasestagerepair", "{}").statusCode()).isNotEqualTo(200);

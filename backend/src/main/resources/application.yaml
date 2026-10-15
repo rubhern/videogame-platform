@@ -134,7 +134,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize,sessionrevocation
+        include: health,info,metrics,cataloguesync,releasestagerepair,cataloguelocalize,cataloguecoverage,sessionrevocation
   metrics:
     distribution:
       percentiles-histogram:

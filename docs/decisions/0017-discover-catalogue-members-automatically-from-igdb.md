@@ -24,6 +24,9 @@
   score and its rating count under the per-Game atomicity and last-valid-state rules below;
   the [domain model](../architecture/domain/mvp-domain-model.md) (`XSC-001`–`XSC-004`) and
   [use cases](../architecture/application/mvp-use-cases.md) own the behaviour
+- **Extended:** 2026-10-15, #245: durable release-date coverage records which intervals a run
+  scanned completely and when, independently of bounded run history; see
+  [Coverage and freshness](#coverage-and-freshness)
 
 ## Context
 
@@ -149,6 +152,54 @@ provider; writes fence abandoned runs before a successor can publish.
 Public readers continue using repeatable-read local PostgreSQL state and never call
 IGDB. Provider DTOs remain inside the adapter; domain/application use normalized
 provider-independent values.
+
+### Coverage and freshness
+
+A run *covers* its requested interval when it read every provider page of that interval
+and at least one Game succeeded, with outcome `SUCCEEDED` or `PARTIAL`. Coverage means
+that the complete interval was scanned at a known time. It does not mean the data is
+permanently correct, that the provider cannot change old evidence later, or that Games
+outside the interval were refreshed.
+
+Games that fail individually do not prevent coverage. Each one keeps its last valid state,
+and coverage records the run's failed Game count with the interval: zero is a clean scan.
+A failed Game has no known date, so the count describes the whole run, never one day.
+
+Some runs cover nothing:
+- A run interrupted before its last page, by a provider page failure or an unexpected run
+  error. Paging is keyset by Game ID rather than date, so an interrupted run leaves no
+  complete date sub-interval.
+- A run in which no Game succeeded (`FAILED`).
+- A skipped command and a repair batch.
+
+Their outcome stays in the run report, and coverage recorded earlier remains in place. An
+interrupted run that still committed Games reports `PARTIAL` with
+`SYNCHRONIZATION_INTERRUPTED`, never `SYNCHRONIZATION_COMPLETED_WITH_FAILURES`.
+Before #245 that code also named page interruptions.
+
+PostgreSQL keeps coverage as disjoint inclusive date intervals per provider. Each interval
+records the run that last covered it, when that scan started and completed, and its failed
+Game count. The
+covering run's completion writes it in the same fenced transaction, so a run's outcome and
+its coverage commit together and an abandoned worker cannot record either. A newer covering
+run replaces the overlapped part of earlier intervals and leaves their remainder untouched,
+even when the newer scan has failed Games and the older one was clean, because it is the
+latest complete observation. A
+deferred exclusion constraint keeps intervals disjoint. Storage therefore grows with the
+distinct days ever covered rather than with the number of runs. Coverage has no foreign key
+to `synchronization_run`, so pruning bounded run history never removes it. Coverage does
+not contain provider payloads and does not change Game or Release invariants.
+
+*Freshness* is the age of a covered period's last complete scan, and only a caller's
+explicit presentation policy can judge it. No threshold is stored and nothing becomes
+stale automatically. A provider-independent application read answers an inclusive range
+as consecutive covered and never-covered periods. The answer is bounded, and a longer
+answer continues from its first unanswered day.
+
+Alternatives considered: deriving coverage from retained runs would lose it to pruning.
+An append-only ledger of successes grows with every recurring run and needs history-wide
+interval arithmetic on every read. One row per covered day is bounded too, but turns a
+multi-year read into one row per day and couples storage to a calendar projection.
 
 ### Recurring inbound triggers (#155)
 

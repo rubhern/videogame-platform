@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.adapter.persistence.synchronization;
 import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderCompany;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
@@ -10,6 +11,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderSummary;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderTerm;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.CoveredInterval;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.DetailsWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ExternalScoreChange;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.ExternalScoreWrite;
@@ -1120,34 +1122,132 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
 
     @Override
     public void completeRun(CatalogueSynchronizationReport report, int retainedRuns) {
+        transaction.executeWithoutResult(status -> complete(report, retainedRuns));
+    }
+
+    @Override
+    public void completeCoveredRun(CatalogueSynchronizationReport report, int retainedRuns) {
+        if (report.outcome() != SynchronizationOutcome.SUCCEEDED
+                && report.outcome() != SynchronizationOutcome.PARTIAL) {
+            throw new IllegalArgumentException("A run without a succeeded Game covers nothing");
+        }
         transaction.executeWithoutResult(
                 status -> {
-                    fence(report.runId());
-                    jdbc.update(
-                            """
-                    UPDATE catalogue.synchronization_run SET completed_at=:completed,
-                        run_status=:status,outcome_code=:code,report=CAST(:report AS jsonb)
-                    WHERE run_id=:id
-                    """,
-                            Map.of(
-                                    "completed",
-                                    timestamp(report.completedAt()),
-                                    "status",
-                                    report.outcome().name().toLowerCase(Locale.ROOT),
-                                    "code",
-                                    report.outcomeCode(),
-                                    "report",
-                                    json.writeValueAsString(report),
-                                    "id",
-                                    report.runId()));
-                    jdbc.update(
-                            """
-                    DELETE FROM catalogue.synchronization_run WHERE run_id IN
-                      (SELECT run_id FROM catalogue.synchronization_run WHERE provider=:provider AND run_status<>'running'
-                       ORDER BY started_at DESC,run_id DESC OFFSET :retained)
-                    """,
-                            Map.of("provider", provider, "retained", retainedRuns));
+                    complete(report, retainedRuns);
+                    cover(report);
                 });
+    }
+
+    /** Fences, records the report and prunes run history; never touches coverage. */
+    private void complete(CatalogueSynchronizationReport report, int retainedRuns) {
+        fence(report.runId());
+        jdbc.update(
+                """
+                UPDATE catalogue.synchronization_run SET completed_at=:completed,
+                    run_status=:status,outcome_code=:code,report=CAST(:report AS jsonb)
+                WHERE run_id=:id
+                """,
+                Map.of(
+                        "completed",
+                        timestamp(report.completedAt()),
+                        "status",
+                        report.outcome().name().toLowerCase(Locale.ROOT),
+                        "code",
+                        report.outcomeCode(),
+                        "report",
+                        json.writeValueAsString(report),
+                        "id",
+                        report.runId()));
+        jdbc.update(
+                """
+                DELETE FROM catalogue.synchronization_run WHERE run_id IN
+                  (SELECT run_id FROM catalogue.synchronization_run WHERE provider=:provider AND run_status<>'running'
+                   ORDER BY started_at DESC,run_id DESC OFFSET :retained)
+                """,
+                Map.of("provider", provider, "retained", retainedRuns));
+    }
+
+    /**
+     * Makes the run, with its failed Game count, the latest coverage of its whole interval. Earlier intervals keep only their
+     * parts outside it: one crossing its end keeps a new remainder after it, one crossing its start
+     * is trimmed before it, and those inside it are replaced. The exclusion index finds the two
+     * boundary intervals and the primary key those inside, so the work follows the replaced
+     * intervals, not the stored history. The fenced run row serializes this per provider; the
+     * deferred exclusion constraint proves the result disjoint at commit.
+     */
+    private void cover(CatalogueSynchronizationReport report) {
+        var interval =
+                new MapSqlParameterSource()
+                        .addValue("provider", provider)
+                        .addValue("from", report.from())
+                        .addValue("to", report.to())
+                        .addValue("after", report.to().plusDays(1))
+                        .addValue("before", report.from().minusDays(1));
+        jdbc.update(
+                """
+                INSERT INTO catalogue.synchronization_coverage(provider,covered_from,covered_to,
+                    run_id,scan_started_at,scan_completed_at,failed_games)
+                SELECT provider,:after,covered_to,run_id,scan_started_at,scan_completed_at,failed_games
+                FROM catalogue.synchronization_coverage
+                WHERE provider=:provider AND covered_to>:to
+                  AND daterange(covered_from,covered_to,'[]') @> CAST(:to AS date)
+                """,
+                interval);
+        jdbc.update(
+                """
+                UPDATE catalogue.synchronization_coverage SET covered_to=:before
+                WHERE provider=:provider AND covered_from<:from
+                  AND daterange(covered_from,covered_to,'[]') @> CAST(:from AS date)
+                """,
+                interval);
+        jdbc.update(
+                """
+                DELETE FROM catalogue.synchronization_coverage
+                WHERE provider=:provider AND covered_from BETWEEN :from AND :to
+                """,
+                interval);
+        jdbc.update(
+                """
+                INSERT INTO catalogue.synchronization_coverage(provider,covered_from,covered_to,
+                    run_id,scan_started_at,scan_completed_at,failed_games)
+                VALUES (:provider,:from,:to,:run,:started,:completed,:failed)
+                """,
+                interval.addValue("run", report.runId())
+                        .addValue("started", timestamp(report.startedAt()))
+                        .addValue("completed", timestamp(report.completedAt()))
+                        .addValue("failed", report.counters().failedGames()));
+    }
+
+    @Override
+    public List<CoveredInterval> coveredIntervals(
+            java.time.LocalDate from, java.time.LocalDate to, int limit) {
+        // Intervals are disjoint, so the one containing `from` is the last starting on or before
+        // it; from there the primary key yields the overlapping intervals in order.
+        return jdbc.query(
+                """
+                SELECT covered_from,covered_to,run_id,scan_started_at,scan_completed_at,failed_games
+                FROM catalogue.synchronization_coverage
+                WHERE provider=:provider AND covered_from<=:to AND covered_to>=:from
+                  AND covered_from>=COALESCE((SELECT max(covered_from)
+                      FROM catalogue.synchronization_coverage
+                      WHERE provider=:provider AND covered_from<=:from),:from)
+                ORDER BY covered_from
+                LIMIT :limit
+                """,
+                new MapSqlParameterSource()
+                        .addValue("provider", provider)
+                        .addValue("from", from)
+                        .addValue("to", to)
+                        .addValue("limit", limit),
+                (rs, row) ->
+                        new CoveredInterval(
+                                rs.getObject("covered_from", java.time.LocalDate.class),
+                                rs.getObject("covered_to", java.time.LocalDate.class),
+                                new SynchronizationCoverage.LastScan(
+                                        rs.getObject("run_id", UUID.class),
+                                        instant(rs, "scan_started_at"),
+                                        instant(rs, "scan_completed_at"),
+                                        rs.getLong("failed_games"))));
     }
 
     @Override
