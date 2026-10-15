@@ -297,6 +297,46 @@ jobs:
       - name: Validate Promtool rules and the original-timing Grafana alert lifecycle
         run: python3 deploy/private-dev/grafana/check-alerts.py --smoke
 
+  runtime-product-growth:
+    name: Private-dev optimized Keycloak registration metrics
+    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    needs: detect-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install locked browser-test dependencies
+        run: npm ci --ignore-scripts
+      - name: Prove optimized image, PostgreSQL identity persistence and registration metrics
+        run: python3 deploy/private-dev/grafana/check-product-growth.py
+
+  runtime-notifications:
+    name: Private-dev native Telegram routing against isolated mock
+    if: ${{ needs.detect-changes.outputs.container == 'true' }}
+    needs: detect-changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate native Telegram routing without real credentials or egress
+        run: python3 deploy/private-dev/grafana/check-notifications.py --smoke
+
   runtime-logs:
     name: Private-dev structured log collection
     if: ${{ needs.detect-changes.outputs.container == 'true' }}
@@ -548,6 +588,8 @@ jobs:
       - container-image
       - runtime-telemetry
       - runtime-alerts
+      - runtime-product-growth
+      - runtime-notifications
       - runtime-logs
       - localization-image
       - backend
@@ -579,6 +621,8 @@ jobs:
           CONTAINER_IMAGE: ${{ needs.container-image.result }}
           RUNTIME_TELEMETRY: ${{ needs.runtime-telemetry.result }}
           RUNTIME_ALERTS: ${{ needs.runtime-alerts.result }}
+          RUNTIME_PRODUCT_GROWTH: ${{ needs.runtime-product-growth.result }}
+          RUNTIME_NOTIFICATIONS: ${{ needs.runtime-notifications.result }}
           RUNTIME_LOGS: ${{ needs.runtime-logs.result }}
           LOCALIZATION_IMAGE: ${{ needs.localization-image.result }}
           BACKEND_EXPECTED: ${{ needs.detect-changes.outputs.backend }}
@@ -599,6 +643,8 @@ jobs:
             container-image "$CONTAINER_EXPECTED" "$CONTAINER_IMAGE" \
             runtime-telemetry "$CONTAINER_EXPECTED" "$RUNTIME_TELEMETRY" \
             runtime-alerts "$CONTAINER_EXPECTED" "$RUNTIME_ALERTS" \
+            runtime-product-growth "$CONTAINER_EXPECTED" "$RUNTIME_PRODUCT_GROWTH" \
+            runtime-notifications "$CONTAINER_EXPECTED" "$RUNTIME_NOTIFICATIONS" \
             runtime-logs "$CONTAINER_EXPECTED" "$RUNTIME_LOGS" \
             localization-image "$CONTAINER_EXPECTED" "$LOCALIZATION_IMAGE" \
             backend "$BACKEND_EXPECTED" "$BACKEND" \

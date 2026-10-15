@@ -333,10 +333,13 @@ No real Telegram delivery or live-host alert rollout has been proven by this cha
 
 ## Product growth observations
 
-**Implemented in the review worktree; not enabled on Lenovo.** This separable package adds no identity policy, durable ledger, warehouse or database
-migration. The optional [private-dev overlay](../../deploy/private-dev/compose.product-growth.yaml)
-enables only Keycloak 26.7 built-in successful `register` and `verify_email` event
-observations and an internal Prometheus scrape. The [Keycloak event-metrics contract](https://www.keycloak.org/observability/event-metrics)
+**Implemented; corrected optimized-runtime rollout awaits owner review and host approval.**
+This separable package adds no identity policy, durable ledger, warehouse or database
+migration. The optimized private image compiles native event-metrics support;
+base runtime configuration collects only `register` and `verify_email` with realm
+tags, including the bounded failure dimension that Prometheus filters out. The optional
+[private-dev overlay](../../deploy/private-dev/compose.product-growth.yaml) connects
+the existing management endpoint to an internal Prometheus scrape. The [Keycloak event-metrics contract](https://www.keycloak.org/observability/event-metrics)
 and pinned source distinguish events from accounts. `keycloak_user_events_total` has only
 `realm`, `event`, `error` labels; the scrape retains the application realm, these two
 events and `error=""`. In particular, a failed registration also uses `event="register"`
@@ -383,7 +386,11 @@ registrations within five minutes, without a pending delay. It is informational 
 independently muted by default. Multiple registrations while firing remain one alert
 instance; grouping/repeat timing, first lazy samples, restarts or failures can batch
 or miss notices. The Spanish message therefore says activity was observed within a
-window. Resolution only closes that window. No identifying data or unsupported
+window. It includes the estimated counter increase, which can be fractional and
+must not be represented as an exact account count. An annotation change does not
+create another alert identity. Product notifications retain their separate grouping
+and repetition policy; a new window can notify after the preceding one resolves.
+Resolution only closes that window. No identifying data or unsupported
 account total is sent. **This does not meet one-notification-per-user semantics.**
 Registration and rating writes do not depend on Telegram availability.
 
@@ -407,41 +414,28 @@ must be coordinated with #274. No such bridge, ledger, worker or schema is added
 Even a durable outbox cannot promise exactly-once Telegram delivery across an
 ambiguous API acknowledgement.
 
-### Review validation evidence (2026-10-15)
+### Validation boundary
 
-This extension was tested locally with pinned disposable images, not deployed to
-Lenovo. The earlier #269 comment retains its historical read-only host inventory
-and initial isolated lifecycle evidence. The extended checks now cover:
+The [operator procedure](../../deploy/private-dev/README.md#private-dev-alerts) owns
+focused checks. The growth regression builds the actual private Dockerfile and runs
+its installed wrapper with `start --optimized` against disposable PostgreSQL. It
+exercises the private theme, registration/verification, failed/admin/imported-account
+exclusions, password recovery/login, internal Prometheus and the native Grafana rule.
+A fresh image rebuild and container recreation must retain account IDs and realm
+settings while the event counters reset. The earlier `start-dev`/H2 fixture does not
+prove optimized-runtime compatibility and has been replaced.
 
-- 25 original-expression/pending-period Promtool scenarios and valid base/optional
-  Prometheus configuration; mixed errors, genuine 503s, sparse/idle traffic, resets,
-  restart tolerance, recovery, separate sync outcomes and registration filtering.
-- Real Collector/Prometheus/Grafana ingestion, Ratings OTLP counter translation,
-  dashboard SQL/PromQL/authentication, data persistence and file provisioning.
-  The original-timing pool rule fired at 11:21:14 and cleared at 11:22:14
-  (Europe/Madrid) in the final integrated run;
-  native zero-pending fixtures separately checked No Data/Error, DatasourceError/
-  DatasourceNoData and KeepLast during a stopped disposable datasource, then recovery.
-- Native Telegram via an internal TLS mock: disabled/enabled/product policies,
-  malformed secrets, no token/chat in Docker metadata/environment or info logs,
-  Spanish firing/closing messages, deduplication, bounded grouped messages, 503,
-  transport timeout and later-cycle recovery. Recreation preserves one contact UID;
-  disabling with persisted active alerts remains silent through the production
-  configuration-poll interval, including the previously discovered startup race.
-- Actual Keycloak 26.7 registration/verification events and Prometheus filtering:
-  two successful registrations and verifications, rejected registration plus admin/
-  import exclusions, healthy zero, no personal labels, and counters resetting while
-  accounts persist. The fixture uses H2/Mailpit only; private-dev stays PostgreSQL.
-- 17 focused backend/architecture tests, including real PostgreSQL concurrent winners,
-  outer rollback, rejected/failed writes and metric-failure isolation. Existing
-  deployment orchestration, runtime static, syntax and documentation checks passed.
+Promtool covers the original expressions/windows, including one or several observed
+registrations, activity while firing, a later window, failures, missing/lazy data and
+counter resets. The native Telegram TLS mock separately exercises opt-ins, estimated
+counts, grouping, later windows, honest closing text, redacted errors and disabling
+on a persisted Grafana database. It never uses real credentials or Telegram egress.
 
-The [operator procedure](../../deploy/private-dev/README.md#private-dev-alerts) lists
-reproducible commands. Broader product checks remain CI's responsibility. Current
-code has no new dependency/schema/HTTP contract; the compatible backend capability
-increments parent/backend together to `0.37.0-SNAPSHOT`. Real-host acceptance,
-resources/reboot behavior, actual Telegram delivery, exact registration notices and
-durable milestones remain unproven or deliberately deferred as described above.
+[Issue #269](https://github.com/rubhern/videogame-platform/issues/269) owns point-in-time
+results, the prior failed rollout and remaining real-host acceptance. Disposable
+proofs do not establish live identity continuity, private-host resource capacity or
+real Telegram delivery. Individual registration delivery and durable milestones
+remain the separate proposed follow-up above.
 
 ## Private-dev log exploration
 

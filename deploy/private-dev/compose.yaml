@@ -59,6 +59,8 @@ services:
     build:
       context: ../..
       dockerfile: deploy/private-dev/keycloak/Dockerfile
+      args:
+        KEYCLOAK_EVENT_METRICS_USER_ENABLED: "true"
     entrypoint: ["/opt/videogame-platform/bin/run-keycloak"]
     environment:
       KC_DB: postgres
@@ -69,6 +71,9 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_admin_password
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
+      # Event metrics are compiled into this private image; keep runtime labels/events bounded.
+      KC_EVENT_METRICS_USER_EVENTS: register,verify_email
+      KC_EVENT_METRICS_USER_TAGS: realm
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}
       KC_PROXY_HEADERS: xforwarded

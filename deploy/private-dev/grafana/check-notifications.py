@@ -96,7 +96,7 @@ def main(smoke):
         (temp/'mode').write_text('ok')
         (temp/'messages').touch()
         # Fast policy intervals are a notification transport test seam, not deployed settings.
-        template = (DEPLOY/'grafana/notifications.json.template').read_text().replace('"1m"','"1s"').replace('"5m"','"2s"').replace('"4h"','"30s"').replace('"24h"','"30s"')
+        template = (DEPLOY/'grafana/notifications.json.template').read_text().replace('"1m"','"1s"').replace('"5m"','"2s"').replace('"4h"','"30s"')
         (temp/'notifications.json.template').write_text(template)
         definition = {'services': {'grafana': {'extends':{'file':str(DEPLOY/'compose.observability.yaml'),'service':'grafana'},
                        'environment':{'GF_UNIFIED_ALERTING_ENABLED':'true','GF_UNIFIED_ALERTING_ALERTMANAGER_CONFIG_POLL_INTERVAL':'1s','GF_SMTP_ENABLED':'false','GF_LOG_LEVEL':'info',
@@ -146,7 +146,7 @@ def main(smoke):
             return [json.loads(line) for line in (temp/'messages').read_text().splitlines()]
         fixture_folder=None
         fixture_rules={}
-        def alert(category='operational', severity='warning', resolved=False, sync=False, tag=''):
+        def alert(category='operational', severity='warning', resolved=False, sync=False, tag='', registrations=1):
             key='fixture-'+category+'-'+severity+('-sync' if sync else '')+tag
             model=json.loads((DEPLOY/'grafana/provisioning/alerting/private-dev.json').read_text())['groups'][0]['rules'][0]
             rule={k:v for k,v in model.items() if k not in {'uid','isPaused'}}
@@ -156,7 +156,9 @@ def main(smoke):
             rule['annotations']={'summary_es':'Presión de conexiones de prueba','hint_es':'Consulta el panel privado.',
                 'resolution_kind':'window_expiry' if sync or category=='product' else '',
                 'runbook_url':'https://github.com/rubhern/videogame-platform/blob/main/docs/development/operations-runbook.md#private-dev-alerts'}
-            rule['data'][0].update({'datasourceUid':'__expr__','model':{'refId':'A','type':'math','expression':'0' if resolved else '1'}})
+            if category=='product':
+                rule['annotations']['estimated_registrations']='{{ with $values.A }}{{ printf "%.2f" .Value }}{{ end }}'
+            rule['data'][0].update({'datasourceUid':'__expr__','model':{'refId':'A','type':'math','expression':'0' if resolved else str(registrations)}})
             if key in fixture_rules:
                 api('/api/v1/provisioning/alert-rules/'+key,rule,method='PUT')
             else:
@@ -208,9 +210,21 @@ def main(smoke):
             assert len(messages())==count, 'Product delivery remains independent and muted'
             activate(product=True)
             alert(category='product',severity='info')
-            poll(lambda:any('Nuevo usuario registrado' in m['text'] for m in messages()),'Independent informational product route delivered')
+            poll(lambda:any('Actividad de registro detectada' in m['text'] and 'estimados: 1.00' in m['text'] for m in messages()),'Product route delivers an estimated count')
+            product_messages=lambda:[m for m in messages() if 'Actividad de registro detectada' in m['text']]
+            count=len(product_messages())
+            alert(category='product',severity='info',registrations=2)
+            time.sleep(12)
+            assert len(product_messages())==count, 'Two observations in the firing window are grouped, not per-user deliveries'
+            alert(category='product',severity='info',registrations=3)
+            time.sleep(12)
+            assert len(product_messages())==count, 'More registrations while firing must not create individual notifications'
             alert(category='product',severity='info',resolved=True)
             poll(lambda:any('Ventana de registros cerrada' in m['text'] for m in messages()),'Product resolution closes activity window honestly')
+            count=len(product_messages())
+            alert(category='product',severity='info')
+            poll(lambda:len(product_messages())>count,'A new activity window notifies after previous resolution')
+            alert(category='product',severity='info',resolved=True)
             alert(sync=True)
             poll(lambda:any('Fixture sync' in m['text'] for m in messages()),'Synchronization route delivered')
             alert(sync=True,resolved=True)

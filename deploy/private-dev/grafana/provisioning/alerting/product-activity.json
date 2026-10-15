@@ -21,7 +21,7 @@
               "datasourceUid": "private-dev-prometheus",
               "model": {
                 "refId": "A",
-                "expr": "sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"register\",error=\"\"}[5m])) > bool 0",
+                "expr": "sum(increase(keycloak_user_events_total{job=\"keycloak-product\",realm=\"videogame-platform\",event=\"register\",error=\"\"}[5m]))",
                 "instant": true,
                 "range": false,
                 "format": "table",
@@ -71,7 +71,8 @@
           "for": "0s",
           "annotations": {
             "summary": "Registration activity observed within a window",
-            "summary_es": "Nuevo usuario registrado (actividad observada)",
+            "summary_es": "Actividad de registro observada",
+            "estimated_registrations": "{{ with $values.A }}{{ printf \"%.2f\" .Value }}{{ end }}",
             "hint_es": "Consulta Crecimiento; este aviso puede agrupar registros y perder eventos.",
             "description": "Best-effort window activity, not one delivery per registration. A first lazy sample, restart or scrape gap can lose events. Resolution only closes the window.",
             "resolution_kind": "window_expiry",

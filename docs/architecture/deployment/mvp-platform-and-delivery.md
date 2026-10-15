@@ -183,6 +183,11 @@ or request dependencies. Trace storage and remote export remain deferred. Privat
 the existing stack. Native Telegram is prepared but disabled by default; its protected
 activation and the separable optional Keycloak growth scrape are owned by the
 [private-dev procedure](../../../deploy/private-dev/README.md#telegram-setup-and-delivery).
+The single optimized private Keycloak image compiles native event-metrics support;
+other consumers of the shared recipe retain its disabled build default.
+Base configuration bounds collection to registration/verification and realm tags.
+The growth overlay grants only the existing internal management scrape path. Base
+operation keeps that endpoint isolated and retains the same identity policies.
 No live delivery or public monitoring access is implied.
 The [logs operator procedure](../../../deploy/private-dev/README.md#log-aggregation-and-exploration)
 owns rollout, disk-pressure handling and recovery; the runbook distinguishes

@@ -28,6 +28,7 @@ Secret scanning remains applicable to every pull request.
 | Real OIDC/BFF session and Keycloak rating journey | `bash scripts/validate-identity.sh` |
 | Public-production realm policy (disposable Keycloak and Mailpit) | `bash scripts/validate-production-identity.sh`; `--inspect` serves the same stack on loopback for a manual browser check |
 | Private-dev runtime/deployment | `bash scripts/validate-private-dev-runtime.sh`, then `bash scripts/validate-private-dev-runtime.sh --telemetry-smoke`, `python3 deploy/private-dev/grafana/check-alerts.py --smoke` and `python3 scripts/private-dev-logs-check.py --smoke` |
+| Private-dev optimized registration metrics and notification routing | `python3 deploy/private-dev/grafana/check-product-growth.py` and `python3 deploy/private-dev/grafana/check-notifications.py --smoke` |
 | Workstation and private-dev translation lifecycle/topology | `bash scripts/test-local-localization.sh`; optional local `--smoke` with an installed model |
 | OCI image | `bash scripts/validate-container-image.sh` |
 | IGDB PoC fixtures | `./mvnw -f tools/igdb-poc/pom.xml clean verify` |

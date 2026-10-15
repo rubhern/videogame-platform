@@ -5,12 +5,15 @@ ARG KEYCLOAK_IMAGE=quay.io/keycloak/keycloak:26.7.0@sha256:0f198be292568439d700c
 
 FROM ${KEYCLOAK_IMAGE}
 
-# These build-time features exactly match the runtime Compose configuration. The
-# image contains no realm, environment-specific configuration, or secret.
+ARG KEYCLOAK_EVENT_METRICS_USER_ENABLED=false
+
+# Compile the private runtime capabilities before start --optimized. Compose bounds
+# event collection; the image contains no realm, environment-specific state or secret.
 ENV KC_CACHE=local \
     KC_DB=postgres \
     KC_HEALTH_ENABLED=true \
-    KC_METRICS_ENABLED=true
+    KC_METRICS_ENABLED=true \
+    KC_EVENT_METRICS_USER_ENABLED=${KEYCLOAK_EVENT_METRICS_USER_ENABLED}
 
 RUN /opt/keycloak/bin/kc.sh build
 
