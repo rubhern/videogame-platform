@@ -301,6 +301,7 @@ class JdbcPersonalRatingStoreIntegrationTest {
                 .allSatisfy(
                         counter ->
                                 assertThat(counter.getId().getTags())
+                                        .hasSize(1)
                                         .allSatisfy(
                                                 tag ->
                                                         assertThat(tag.getKey())

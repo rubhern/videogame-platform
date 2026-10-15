@@ -41,7 +41,7 @@ public final class RatingActivityMetrics {
                     public void afterCommit() {
                         try {
                             counters.get(action).increment();
-                        } catch (RuntimeException unavailable) {
+                        } catch (RuntimeException _) {
                             // A committed product write must not fail because its telemetry failed.
                             LOG.warn("Rating activity metric unavailable");
                         }
