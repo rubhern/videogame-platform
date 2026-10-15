@@ -18,6 +18,7 @@ Secret scanning remains applicable to every pull request.
 | Area | Main local entry point |
 |---|---|
 | Documentation | `bash scripts/validate-docs.sh` |
+| Documentation portal | `npm --prefix documentation run validate` and `bash documentation/scripts/test-container.sh` |
 | OpenAPI | `bash scripts/validate-openapi.sh` |
 | Workflow syntax/classification | `bash scripts/validate-actions.sh` and `bash scripts/test-ci-change-detection.sh` |
 | Frontend | `npm run frontend:verify` |

@@ -13,6 +13,7 @@ the lock file, Dockerfile, and Compose file.
 | Persistence | PostgreSQL 18; Flyway Community SQL-first immutable migrations; JPA/Hibernate only in adapters; explicit JDBC/SQL read models where clearer; Testcontainers PostgreSQL |
 | API | OpenAPI 3.1.2; Redocly validation/reference; Maven OpenAPI Generator interfaces/models; manual delivery mapping |
 | Frontend | Node.js 24/npm 11; React 19.2; strict TypeScript; Vite 8.1; React Router; TanStack Query; Tailwind CSS 4; openapi-typescript/openapi-fetch |
+| Documentation portal | Astro 7 / Starlight; static generation, local Pagefind search; existing Node.js/npm baseline; derived Mermaid and Structurizr SVGs; non-root Nginx static serving |
 | Catalogue localization | Product-curated Spanish taxonomy labels; OPUS-MT EN→ES / CTranslate2 CPU; Python 3.12 private acquisition helper under [ADR-0022](../../decisions/0022-localize-catalogue-content-during-acquisition.md); PyTorch/Transformers for model conversion only |
 | Identity | Keycloak 26.7 via same-origin server-side OIDC BFF |
 | Testing/quality | JUnit/AssertJ, Spring tests, Modulith/ArchUnit, Vitest/RTL, Playwright/axe, Spotless, JaCoCo evidence, Sonar, CodeQL, dependency/secret/image checks |

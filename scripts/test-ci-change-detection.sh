@@ -191,6 +191,11 @@ run_case push-main-full \
   '' \
   '--full'
 
+run_case documentation-portal-isolated \
+  $'documentation/package.json\ndocumentation/src/styles/portal.css\ndocumentation/deploy/compose.private-dev.yaml\ndocumentation/deploy/documentation-serve' \
+  'documentation' \
+  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
 run_case unknown-fail-safe \
   'new-top-level-runtime.conf' \
   'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript' \

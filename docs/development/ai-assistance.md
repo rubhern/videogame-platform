@@ -16,6 +16,7 @@ Definition of Done.
 |---|---|---|
 | [`AGENTS.md`](../../AGENTS.md) | Codex, and Claude Code through the import below | The complete, agent-independent instruction set |
 | [`CLAUDE.md`](../../CLAUDE.md) | Claude Code | `@AGENTS.md` import plus the behaviour specific to Claude Code |
+| [`.agents/skills/AGENTS.md`](../../.agents/skills/AGENTS.md) | Agents applying any repository skill | Shared repository obligations inherited by project-specific and external skills |
 | [`.claude/rules/`](../../.claude/rules) | Claude Code | Path-scoped hard constraints loaded when a matching file is read |
 | [`.claude/settings.json`](../../.claude/settings.json) | Claude Code | Versioned permissions |
 | [`.codex/config.toml`](../../.codex/config.toml) | Codex | Sandbox and approval policy |
@@ -54,6 +55,13 @@ it; never create a Claude-only or Codex-only copy.
 External skills are advisory. They never authorize a platform, service, paid resource,
 deployment target, or change to an approved architecture decision. `AGENTS.md` owns
 the precedence and states which skill applies to which area.
+
+All skills inherit the mandatory
+[portal inclusion rule](../README.md#portal-inclusion) through the root instructions
+and [shared skill instructions](../../.agents/skills/AGENTS.md). Project-specific
+entrypoints link to that canonical rule; Claude reads the same entrypoints through
+its symlinks and the Markdown-scoped documentation rule. Keep this shared coverage
+when adding or updating a skill instead of modifying vendored upstream manuals.
 
 ### Project-specific skills
 

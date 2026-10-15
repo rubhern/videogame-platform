@@ -1,11 +1,6 @@
 ---
 paths:
-  - "docs/**/*.md"
-  - "README.md"
-  - "backend/README.md"
-  - "frontend/README.md"
-  - "AGENTS.md"
-  - "CLAUDE.md"
+  - "**/*.md"
 ---
 
 # Documentation ownership
@@ -38,6 +33,8 @@ not answer.
 ## Always
 
 - Update the canonical owner and delete the text the change made obsolete.
+- Apply [portal inclusion](../../docs/README.md#portal-inclusion) to documentation
+  additions and changes, including reader navigation and the applicable portal checks.
 - Update inbound links, indexes, `AGENTS.md`, scripts, and workflows after moving or
   deleting a file.
 - Preserve durable constraints, invariant identifiers, evidence limitations, accepted

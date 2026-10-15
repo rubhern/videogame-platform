@@ -523,6 +523,11 @@ for relative, status in expected_statuses.items():
         errors.append(f"{relative}: expected status marker: {marker}")
 
 for markdown in root.rglob("*.md"):
+    if markdown.relative_to(root).as_posix().startswith((
+        "documentation/src/content/docs/", "documentation/.cache/",
+        "documentation/.astro/", "documentation/test-results/",
+    )):
+        continue  # Derived portal copies are checked as rendered HTML by the portal gate.
     if any(part in {".git", "node_modules", "target"} for part in markdown.parts):
         continue
     text = markdown.read_text(encoding="utf-8")
@@ -597,7 +602,7 @@ while IFS= read -r file; do
   fi
 
   case "$file" in
-    mvnw|scripts/*.sh|docker/postgres/init/*.sh|deploy/private-dev/bin/*|docs/architecture/diagrams/scripts/*.sh)
+    mvnw|scripts/*.sh|docker/postgres/init/*.sh|deploy/private-dev/bin/*|docs/architecture/diagrams/scripts/*.sh|documentation/scripts/test-container.sh|documentation/deploy/documentation-serve)
       [[ -x "$file" ]] || {
         printf 'Shell script must be executable: %s\n' "$file" >&2
         exit 1

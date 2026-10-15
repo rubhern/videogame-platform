@@ -114,7 +114,7 @@ private-host evidence.
 The owner-running local application has also supplied real OTLP, bounded product
 traffic and manual synchronization evidence recorded on #158. Its functional review
 distinguishes exact process totals, retained samples and the durable run report as
-explained in [observability](observability.md#synchronization-panel-queries-and-sparse-events).
+explained in [observability](observability.md#interpretation-and-evidence-limits).
 That local evidence does not satisfy private-host acceptance.
 [Observability](observability.md#private-dev-dashboards) explains the three views and
 the limits of their product-learning proxies.
@@ -768,3 +768,13 @@ Before owner acceptance of the new lifecycle on `vgpdev`:
 6. Record the new lifecycle evidence on #257, linking earlier #235/#160 evidence
    where relevant. Full affected-area CI, owner diff review and private-host
    acceptance remain gates before closing this follow-up.
+
+## Documentation portal
+
+Owner: [Private-dev portal procedure](../../deploy/private-dev/README.md#documentation-portal).
+The independent static portal is prepared for owner review. Local generation,
+browser and container checks establish repository behaviour only; they do not prove
+tailnet policy, HTTPS device access, restart persistence, host resource headroom or
+non-tailnet IPv4/IPv6 denial. Those remain real-host acceptance under #38 after
+explicit deployment approval. Application/Keycloak routes and the separate Grafana
+ingress retain their own acceptance boundaries.

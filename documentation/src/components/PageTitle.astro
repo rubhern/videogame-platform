@@ -1,0 +1,11 @@
+---
+import Default from '@astrojs/starlight/components/PageTitle.astro';
+import { groupFor, groups, routeFor } from '../../content-map.mjs';
+const route = Astro.url.pathname;
+const manifest = await import('../../.cache/content-manifest.json');
+const page = manifest.pages.find((page) => page.route === route);
+const group = page ? groupFor(page.source) : 'Architecture & contracts';
+const parent = groups.find(([label]) => label === group)?.[1][0][0];
+---
+<nav aria-label="Breadcrumb" class="breadcrumbs"><a href="/">Knowledge base</a>{route !== '/' && <><span aria-hidden="true">/</span><a href={route.startsWith('/diagrams/') ? '/docs/architecture/diagrams/' : parent ? routeFor(parent) : '/docs/'}>{page ? groupFor(page.source) : 'Visual architecture'}</a></>}</nav>
+<Default />

@@ -8,6 +8,11 @@ Codex. This section records only what is specific to Claude Code.
 agent-configuration layout, skill provenance, and update policy; do not restate it
 here or anywhere else.
 
+Documentation work follows the imported
+[documentation governance](AGENTS.md#documentation-governance), including mandatory
+[portal inclusion](docs/README.md#portal-inclusion); this applies to every skill and
+delegated task as well.
+
 ## Skills
 
 `.agents/skills/` holds the single canonical copy of every repository skill.

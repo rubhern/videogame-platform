@@ -1,0 +1,40 @@
+{
+  "name": "@videogame-platform/documentation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x",
+    "npm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "ASTRO_TELEMETRY_DISABLED=1 astro dev --host 127.0.0.1",
+    "build": "ASTRO_TELEMETRY_DISABLED=1 astro build && node scripts/validate-site.mjs",
+    "preview": "ASTRO_TELEMETRY_DISABLED=1 astro preview --host 127.0.0.1",
+    "test": "node --test scripts/*.test.mjs",
+    "test:browser": "playwright test",
+    "validate": "npm test && npm run build && npm run test:browser",
+    "review:diagrams": "node scripts/capture-diagrams.mjs",
+    "check:reproducibility": "node scripts/check-reproducibility.mjs"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.42.6",
+    "astro": "7.3.8"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@mermaid-js/mermaid-cli": "11.16.0",
+    "@playwright/test": "1.62.1",
+    "cheerio": "1.2.0",
+    "github-slugger": "2.0.0",
+    "remark-gfm": "4.0.1",
+    "remark-parse": "11.0.0",
+    "remark-stringify": "11.0.0",
+    "unified": "11.0.5",
+    "unist-util-visit": "5.1.0"
+  },
+  "overrides": {
+    "postcss-selector-parser": "7.1.6",
+    "katex": "0.18.2"
+  }
+}

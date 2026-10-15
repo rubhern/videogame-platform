@@ -32,3 +32,15 @@ tools/igdb-poc/target/
 
 # Owner-provided artwork used only for local visual review
 frontend/public/local-preview/
+
+# Derived documentation portal content, assets and local evidence
+documentation/.astro/
+documentation/.cache/
+documentation/dist/
+documentation/src/content/docs/
+documentation/public/favicon.svg
+documentation/public/third-party-notices.txt
+documentation/public/repository/
+documentation/public/diagrams/
+documentation/test-results/
+documentation/playwright-report/

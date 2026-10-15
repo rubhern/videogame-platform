@@ -1,0 +1,64 @@
+#!/usr/bin/env python3
+"""Manage only the documentation Tailscale Serve endpoint; never reset Serve."""
+import argparse
+import copy
+import json
+import subprocess
+
+PORT = '9443'
+UPSTREAM = 'http://127.0.0.1:4322'
+
+
+def without_documentation(config):
+    result = copy.deepcopy(config)
+    result.get('TCP', {}).pop(PORT, None)
+    for key in list(result.get('Web', {})):
+        if key.endswith(':' + PORT):
+            del result['Web'][key]
+    # tailscaled can omit empty maps after removing the last endpoint.
+    for key in ('TCP', 'Web', 'AllowFunnel'):
+        if not result.get(key):
+            result.pop(key, None)
+    return result
+
+
+def inspect(config, allow_absent=False):
+    if any(config.get('AllowFunnel', {}).values()):
+        raise ValueError('Funnel is enabled; stop and review the effective ingress boundary')
+    tcp = config.get('TCP', {}).get(PORT)
+    routes = [value for key, value in config.get('Web', {}).items() if key.endswith(':' + PORT)]
+    if tcp is None and not routes and allow_absent:
+        return False
+    if tcp != {'HTTPS': True} or len(routes) != 1 or routes[0] != {'Handlers': {'/': {'Proxy': UPSTREAM}}}:
+        raise ValueError('9443 is occupied by another endpoint or documentation routing differs; refusing to overwrite')
+    return True
+
+
+def read_config():
+    return json.loads(subprocess.check_output(['tailscale', 'serve', 'status', '--json'], text=True))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=['check', 'apply', 'remove'])
+    parser.add_argument('--owner-policy-reviewed', action='store_true', help='Owner has validated effective ACL/grants and policy tests in the operator procedure')
+    args = parser.parse_args()
+    before = read_config()
+    present = inspect(before, allow_absent=args.action != 'check')
+    if args.action == 'apply' and not present:
+        if not args.owner_policy_reviewed:
+            parser.error('apply requires --owner-policy-reviewed after the effective policy review; Serve itself does not restrict access to the owner')
+        subprocess.run(['tailscale', 'serve', '--bg', '--https=' + PORT, UPSTREAM], check=True)
+    elif args.action == 'remove' and present:
+        subprocess.run(['tailscale', 'serve', '--https=' + PORT, 'off'], check=True)
+    after = read_config()
+    inspect(after, allow_absent=args.action == 'remove')
+    if args.action == 'remove' and PORT in after.get('TCP', {}):
+        raise ValueError('Documentation endpoint was not removed')
+    if without_documentation(before) != without_documentation(after):
+        raise ValueError('Other Serve configuration changed; preserve the snapshot and review concurrently modified routes')
+    print('Documentation Serve endpoint: ' + ('removed' if args.action == 'remove' else 'verified; effective ACL/grants still require owner evidence'))
+
+
+if __name__ == '__main__':
+    main()

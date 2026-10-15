@@ -103,6 +103,18 @@ same-origin. Executable and live validation treat IPv4 and IPv6 independently: h
 acceptance requires separate non-tailnet evidence for the public IPv4 address and
 every global IPv6 address.
 
+The owner-approved documentation portal (#38) is an independent, optional static
+service outside application promotion, migrations and readiness. Repository Markdown
+remains authoritative; Astro Starlight, search indexes and diagram SVGs are derived
+build output. A separate Compose project serves only that output, without product,
+identity, data or telemetry network membership. Its upstream binds only to host IPv4
+loopback; a dedicated owner-only Tailscale HTTPS endpoint preserves the existing
+application/Keycloak endpoints and the separate Grafana ingress work (#296).
+The [portal operator procedure](../../../deploy/private-dev/README.md#documentation-portal)
+owns endpoint reservations, effective ACL/grants review, restart and isolated removal.
+Configuration is prepared; real-host rollout and acceptance require explicit owner
+approval. No public ingress, Funnel or recurring cost is authorized.
+
 Real secrets are independent files below an owner-managed protected directory outside
 Git. Compose grants each service only its required files; entrypoint wrappers read
 them without putting values in Compose metadata or command arguments. Optional IGDB

@@ -27,6 +27,7 @@ triggers are labelled explicitly and do not imply delivery commitments.
 | Cross-operation HTTP policy | [API conventions](architecture/api/api-conventions.md) | Rules not already clear in OpenAPI |
 | Approved stack and technology policy | [Technology baseline](architecture/technology/mvp-technology-baseline.md) | Version lines and selection policy; exact versions stay in manifests |
 | Environments, topology, deployment, secrets, backup, and recovery policy | [Platform and delivery design](architecture/deployment/mvp-platform-and-delivery.md) | No human workflow or copy of scripts |
+| Documentation portal usage, content transformation and static build | [Portal README](../documentation/README.md) | Links; document authority stays with this map and its canonical owners |
 | Private-dev operator commands and host procedures | [Private-dev README](../deploy/private-dev/README.md) | Compose, scripts, and collector config own the mechanics |
 | Architecture diagrams | [Diagram catalogue](architecture/diagrams/README.md) | One question per view; owning records stay authoritative |
 | Durable architecture decisions | [ADRs](decisions/README.md) | Context, decision, alternatives, consequences, and revisit triggers |
@@ -59,4 +60,29 @@ into evergreen documentation.
 A new document needs a distinct long-lived responsibility, an intended consumer, a
 canonical owner in the table above, and a reason it cannot fit in an existing source.
 
-Run `bash scripts/validate-docs.sh` after moving, deleting, or linking documentation.
+## Portal inclusion
+
+Every new maintained documentation page must be available and discoverable in the
+documentation portal in the same change. Apply this rule when updating, moving,
+renaming or removing documentation too: keep navigation, links, assets, heading
+anchors and source status consistent. The repository source remains authoritative;
+never create an editable portal copy.
+
+Tracked Markdown under `docs/` is loaded automatically. Review its placement in
+[`documentation/content-map.mjs`](../documentation/content-map.mjs) and add a meaningful
+title, reader group and ordering when needed; automatic inclusion alone is not useful
+navigation. For maintained documentation outside `docs/`, explicitly include its
+canonical source in that map. Preserve the distinction between current, approved but
+pending, proposed and historical material. Agent instructions, vendored skill manuals,
+generated output, ignored content and secrets are not reader documentation and must
+not be published merely to satisfy this rule. The
+[portal workflow](../documentation/README.md#content-and-maintenance) owns the mechanics.
+
+Before handing off a documentation change, run `bash scripts/validate-docs.sh`. When
+published content, routes, links or portal navigation change, also run
+`npm --prefix documentation run build`, which checks internal links, anchors, assets
+and the local search index. Confirm new or moved pages appear in the intended sidebar
+group and can be found in production-preview search. Use the focused browser and
+visual checks from the portal workflow when navigation, search or diagrams change.
+Document any deliberate reader-content exclusion with its reason in the change
+review; never leave a maintained page silently absent or misclassified.

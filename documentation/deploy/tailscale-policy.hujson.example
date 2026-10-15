@@ -1,0 +1,12 @@
+// Merge into the EFFECTIVE policy, replacing placeholders outside Git.
+// This fragment cannot revoke access granted by another broad ACL or grant.
+{
+  "grants": [
+    {"src": ["<OWNER_LOGIN>"], "dst": ["<VGPDEV_TAILNET_IP>"], "ip": ["tcp:9443"]}
+  ],
+  "tests": [
+    {"src": "<OWNER_LOGIN>", "accept": ["<VGPDEV_TAILNET_IP>:9443"]},
+    {"src": "<NON_OWNER_TAILNET_IDENTITY>", "deny": ["<VGPDEV_TAILNET_IP>:9443"]},
+    {"src": "tag:vgp-deploy", "deny": ["<VGPDEV_TAILNET_IP>:9443"]}
+  ]
+}

@@ -66,6 +66,11 @@ implemented, approved-future, and historical content explicitly, change contract
 migrations, configuration, and documentation atomically, delete obsolete text, and
 run `bash scripts/validate-docs.sh` after moving, deleting, or relinking a file.
 
+For every documentation addition or change, apply the mandatory
+[portal inclusion rule](docs/README.md#portal-inclusion) before handoff, including
+source inclusion, reader navigation and focused portal validation. This obligation
+also applies when using external skills or delegating documentation work.
+
 ## Instruction and skill precedence
 
 ```text
