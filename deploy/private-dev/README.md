@@ -1704,3 +1704,66 @@ application, Keycloak and Grafana endpoints still work. The helper refuses unrel
 9443 configuration and checks that every other Serve route is preserved. Never reset
 Serve, run application migrations, or bring down the application's Compose project
 as part of portal removal.
+
+### Abuse-control rehearsal (#274)
+
+The [platform abuse boundary](../../docs/architecture/deployment/mvp-platform-and-delivery.md#abuse-and-overload-boundaries)
+owns the admission design, edge hypotheses and residual email-quota risk. The
+[security signal guide](../../docs/development/observability.md#identity-and-overload-security-signals)
+owns counters and their interpretation. These changes are prepared for review;
+no running private-dev service is changed by editing this checkout.
+
+After a separately approved application/Keycloak rollout, check the selected runtime
+settings and observe existing Grafana HTTP/Hikari signals. Native security counters
+are available through the existing optional `compose.product-growth.yaml` overlay;
+its product-success series keep their previous behaviour. The new security job must
+be `up`; a missing counter before its first event is normal. Keep management and
+metrics private. Do not send signup/reset bursts to the live realm: private-dev uses
+Mailjet, so such a check can consume the real shared allowance and send real mail.
+
+API admission is off by default. Once the reviewed application image contains this
+increment, protected `runtime.env` controls `APPLICATION_API_ADMISSION_ENABLED` and
+the two `APPLICATION_API_MAX_REQUESTS` / `APPLICATION_API_MAX_WRITES` values in
+[`runtime.env.example`](runtime.env.example). Explicitly set the flag to `true` only
+for an owner-approved controlled trial; 8/2 are experimental defaults, not production
+capacity. Return it to `false` after the trial. Apply changes through the existing
+approved recreation/promotion procedure with the same immutable image; editing the
+file alone does not change a running container, and no recompilation is required.
+Do not set zero to disable admission. Public calibration belongs to #275/#276.
+
+Validate actual Compose interpolation without starting containers, reading protected
+runtime files or rebuilding an image:
+
+```bash
+python3 scripts/test-api-admission-private-dev.py
+```
+
+This uses the real private-dev Compose with disposable placeholder inputs and checks
+implicit defaults, explicit enable/overrides and explicit disable. Spring context/MVC
+tests separately prove the rendered setting names bind to the feature at runtime.
+The production-identity CI gate also runs this Compose check.
+
+Run the focused admission tests locally:
+
+```bash
+./mvnw -pl backend test -Dtest=ApiAdmissionConfigurationTest,ApiAdmissionInterceptorTest,SessionSecurityIntegrationTest
+```
+
+Rehearse the identity policy on a Docker-capable workstation with
+`bash scripts/validate-production-identity.sh`. It creates its own internal network,
+synthetic accounts and Mailpit; it never uses the private-dev database or SMTP
+credentials. It verifies temporary per-account lockout and recovery, response-shape
+comparisons, native security counters and log minimization. Its registration risk
+characterization explicitly retains the R17 disclosure and unverified compensatory controls; a green identity-policy gate
+is not approval of public exposure. The bounded timing samples are loopback evidence,
+not VPS latency or proof of timing indistinguishability. Do not repoint this test at
+an existing realm. The Postman collections also assert the safe capacity Problem if
+a separately controlled disposable workload returns it; ordinary success tests
+continue to reject overload as a successful journey.
+
+A native-distribution loopback run can characterize Keycloak behaviour when Docker
+is unavailable, but a dev-file identity database cannot substitute for the disposable
+PostgreSQL gate, packaged BFF/browser checks or the actual #275/#276 proxy/VPS proof.
+Before public exposure, exercise rate rejection, spoofed forwarding headers,
+shared-IP users, direct-port denial, bounded overload/recovery and SMTP quota/failure
+handling at that real boundary. None is established by tailnet-only accessibility.

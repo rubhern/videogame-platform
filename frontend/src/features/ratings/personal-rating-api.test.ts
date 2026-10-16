@@ -134,6 +134,7 @@ describe("personal rating API", () => {
     [422, "RATING_NOT_ELIGIBLE", "ineligible"],
     [429, "RATE_LIMIT_EXCEEDED", "rate-limited"],
     [500, "RATING_WRITE_FAILED", "unavailable"],
+    [503, "SERVICE_OVERLOADED", "unavailable"],
   ] as const)(
     "maps HTTP %s %s to the %s failure without retrying",
     async (status, code, kind) => {

@@ -19,6 +19,7 @@ import pathlib
 import re
 import secrets
 import socket
+import statistics
 import ssl
 import sys
 import time
@@ -82,6 +83,7 @@ class Response(NamedTuple):
     url: str
     location: str
     body: str
+    headers: dict[str, str]
 
 
 def page_text(body: str) -> str:
@@ -118,12 +120,20 @@ class Browser:
     """One device: its own cookie jar, stopping at the client callback or any redirect leaving Keycloak."""
 
     def __init__(self, callback_uri: str = REDIRECT_URI) -> None:
+        self.redirects: list[dict] = []
+
         class StopAtApplication(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, request, fp, code, msg, headers, new_url):  # noqa: N802
+                self_browser.redirects.append({
+                    "status": code,
+                    "from": urllib.parse.urlsplit(request.full_url).path,
+                    "to": urllib.parse.urlsplit(new_url).path,
+                })
                 if new_url.startswith(callback_uri) or not new_url.startswith(ORIGIN + "/"):
                     return None
                 return super().redirect_request(request, fp, code, msg, headers, new_url)
 
+        self_browser = self
         self.opener = urllib.request.build_opener(
             urllib.request.HTTPSHandler(context=TLS),
             urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
@@ -134,9 +144,9 @@ class Browser:
         data = urllib.parse.urlencode(fields).encode() if fields is not None else None
         try:
             with self.opener.open(url, data, timeout=20) as response:
-                return Response(response.status, response.url, "", response.read().decode())
+                return Response(response.status, response.url, "", response.read().decode(), dict(response.headers))
         except urllib.error.HTTPError as error:
-            return Response(error.code, url, error.headers.get("Location") or "", error.read().decode(errors="replace"))
+            return Response(error.code, url, error.headers.get("Location") or "", error.read().decode(errors="replace"), dict(error.headers))
 
     def authorize(self, **overrides: str | None) -> tuple[Response, str, str]:
         """Start the BFF's authorization request: code flow, S256 PKCE, state and nonce."""
@@ -575,12 +585,23 @@ assert "Indica tu email. Si corresponde a una cuenta" in page_text(recovery_page
 empty = recovering.open(form_action(recovery_page.body, "kc-reset-password-form"), {"username": ""})
 assert "Indica tu email." in page_text(empty.body)
 unknown = unique_email("unknown")
+recovery_shapes = []
 for identifier in (unknown, player):
     sent = Browser()
     login, _, _ = sent.authorize()
     page = sent.open(page_link(login.body, "/login-actions/reset-credentials"))
     answer = sent.open(form_action(page.body, "kc-reset-password-form"), {"username": identifier})
     assert RECOVERY_SENT in page_text(answer.body), "recovery responses disclose nothing"
+    # Ignore only opaque per-session URLs/nonces. Compare status, navigation, text and forms,
+    # not merely a hidden or restyled error. Timing is measured separately; SMTP still differs.
+    recovery_shapes.append((
+        answer.status,
+        urllib.parse.urlsplit(answer.url).path,
+        urllib.parse.urlsplit(answer.location).path,
+        page_text(answer.body),
+        re.findall(r'<form[^>]*\bid="([^"]+)"', answer.body),
+    ))
+assert recovery_shapes[0] == recovery_shapes[1], "recovery has an observable account-dependent branch"
 answer = recovering.open(form_action(empty.body, "kc-reset-password-form"), {"username": player})
 assert RECOVERY_SENT in page_text(answer.body)
 [reset_mail, _] = messages(player, "contraseña", count=2)
@@ -624,12 +645,19 @@ def lockout() -> dict:
 
 for attempt in range(1, 6):
     if attempt > 1:
-        # Keycloak's wall clock separates failures by at least its 1 s quick-login check even if
-        # the host clock steps back, so only the five-failure rule applies.
+        # Space failures after the previous asynchronous update has been observed.
+        # Sleeping after only the HTTP response can let queued failures trigger quick-login.
         time.sleep(2.5)
     answer, _, _ = sign_in(target, synthetic_password())
     assert not callback(answer) and INVALID_CREDENTIALS in page_text(answer.body)
-    assert lockout()["disabled"] is (attempt == 5), (attempt, lockout())
+    deadline = time.monotonic() + 10
+    state = lockout()
+    while state["numFailures"] < attempt:
+        assert time.monotonic() < deadline, "the asynchronous failure counter did not advance"
+        time.sleep(0.1)
+        state = lockout()
+    assert state["numFailures"] == attempt, "a failure was counted more than once"
+    assert state["disabled"] is (attempt == 5), (attempt, state)
 answer, _, _ = sign_in(target, target_password)
 assert not callback(answer) and INVALID_CREDENTIALS in page_text(answer.body), "the lockout is indistinguishable"
 assert account_details(target)["enabled"] is True, "lockout is temporary, never a permanent disable"
@@ -643,6 +671,84 @@ while lockout()["disabled"]:
 returned = callback(sign_in(target, target_password)[0])
 assert "code" in returned, "the account signs in again after the lockout"
 remember_code(returned["code"])
+
+# R17 characterization: residual disclosure is owner-accepted conditionally, not a passing
+# non-enumeration claim or proof that compensatory controls are verified. Native duplicate
+# validation returns the registration form whereas
+# a new address reaches email verification. No theme-only change may call this resolved.
+existing_registration = register(Browser(), player, {"termsAccepted": "on"})
+assert "kc-register-form" in existing_registration.body
+assert VERIFY_TITLE not in page_text(existing_registration.body)
+EVIDENCE.joinpath("registration-enumeration.json").write_text(json.dumps({
+    "enumeration_resistant": False,
+    "existing_address_returns_registration_form": True,
+    "new_address_reaches_verification": True,
+    "risk": "R17",
+    "acceptance": "conditional",
+    "compensatory_controls_verified": False,
+}) + "\n", encoding="utf-8")
+
+# Bounded R17/recovery characterization: six interleaved pairs per flow, Mailpit only.
+# This is a loopback observation, never a timing non-enumeration or VPS capacity claim.
+risk_samples = {"registration_new": [], "registration_existing": [],
+                "recovery_unknown": [], "recovery_existing": []}
+risk_shapes = {}
+for iteration in range(6):
+    cases = [("registration_existing", player), ("registration_new", unique_email("risk")),
+             ("recovery_existing", player), ("recovery_unknown", unknown)]
+    if iteration % 2:
+        cases.reverse()
+    for kind, identifier in cases:
+        browser = Browser()
+        login, _, _ = browser.authorize()
+        registration_case = kind.startswith("registration")
+        fragment = "/login-actions/registration" if registration_case else "/login-actions/reset-credentials"
+        page = browser.open(page_link(login.body, fragment))
+        form = "kc-register-form" if registration_case else "kc-reset-password-form"
+        fields = {"email": identifier, "termsAccepted": "on"} if registration_case else {"username": identifier}
+        browser.redirects.clear()
+        started = time.perf_counter()
+        response = browser.open(form_action(page.body, form), fields)
+        risk_samples[kind].append(round((time.perf_counter() - started) * 1000, 2))
+        risk_shapes[kind] = {
+            "final_status": response.status,
+            "final_path": urllib.parse.urlsplit(response.url).path,
+            "redirects": browser.redirects.copy(),
+            "forms": re.findall(r'<form[^>]*\bid="([^"]+)"', response.body),
+            "text": page_text(response.body).replace(identifier, "<submitted-email>"),
+            "bytes": len(response.body.encode()),
+            "cache_control": next((v for k, v in response.headers.items() if k.lower() == "cache-control"), None),
+        }
+summary = {kind: {"samples_ms": values, "median_ms": round(statistics.median(values), 2),
+                  "min_ms": min(values), "max_ms": max(values)} for kind, values in risk_samples.items()}
+EVIDENCE.joinpath("identity-risk-characterization.json").write_text(
+    json.dumps({"samples_per_case": 6, "timing": summary, "responses": risk_shapes}, indent=2) + "\n",
+    encoding="utf-8")
+assert risk_shapes["registration_existing"]["forms"] != risk_shapes["registration_new"]["forms"]
+assert risk_shapes["recovery_existing"]["final_status"] == risk_shapes["recovery_unknown"]["final_status"]
+assert risk_shapes["recovery_existing"]["forms"] == risk_shapes["recovery_unknown"]["forms"]
+
+# R18: the native global metrics listener works even with realm event storage/listeners off.
+# Only internal Docker access; no product route or real SMTP is involved.
+# Management inherits the main listener's TLS unless explicitly configured otherwise.
+# Reuse the fixture CA: plaintext and unverified HTTPS would bypass the production proof.
+identity_url = urllib.parse.urlsplit(ORIGIN)
+management = os.environ.get("KEYCLOAK_TEST_MANAGEMENT_ORIGIN", f"{identity_url.scheme}://{identity_url.hostname}:9000") + "/metrics"
+with urllib.request.urlopen(management, context=TLS, timeout=10) as response:
+    metrics = response.read().decode()
+event_samples = [line for line in metrics.splitlines() if line.startswith("keycloak_user_events_total{")]
+assert event_samples, "native security event metrics are absent"
+allowed_events = {"login", "register", "verify_email", "send_verify_email", "send_reset_password",
+                  "reset_password", "user_disabled_by_temporary_lockout"}
+for line in event_samples:
+    labels = dict(re.findall(r'(\w+)="([^"]*)"', line.split("}", 1)[0]))
+    assert set(labels) == {"event", "error", "realm"}, "unexpected identity metric dimension"
+    assert labels["event"] in allowed_events
+assert any('event="login"' in line and 'error="invalid_user_credentials"' in line for line in event_samples)
+assert any('event="register"' in line and ('error="email_in_use"' in line or 'error="username_in_use"' in line)
+           for line in event_samples), "duplicate registration has no security signal"
+assert any('event="send_reset_password"' in line for line in event_samples)
+assert not any(value in "\n".join(event_samples) for value in sensitive if len(value) > 5), "identity metrics leak data"
 
 # 15. No user or admin events were stored.
 for path in ("events", "admin-events"):

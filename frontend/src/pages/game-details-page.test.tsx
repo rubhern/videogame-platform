@@ -539,6 +539,7 @@ describe("public game details", () => {
   it.each([
     ["GAME_NOT_FOUND", "Juego no encontrado"],
     ["CATALOGUE_NOT_READY", "El catálogo todavía no está disponible"],
+    ["SERVICE_OVERLOADED", "No se pudo cargar el juego"],
   ])("explains %s", async (code, title) => {
     vi.stubGlobal(
       "fetch",

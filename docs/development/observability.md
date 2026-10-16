@@ -630,10 +630,9 @@ rotation alone does not implement age deletion. Disable detailed identity events
 access logging by default; retain only necessary redacted outcomes. Keycloak's default
 event logging writes the username and IP of failed logins, so the
 [production realm](../architecture/deployment/mvp-platform-and-delivery.md#production-realm-contract)
-stores no events and registers no event listener; its gate proves that synthetic
-credentials, addresses and client IPs stay out of the Keycloak log. That policy is
-provisional: before launch, the abuse and observability work defines sufficient
-bounded identity security signals without unnecessary personal data. Do not collect
+stores no events and registers no realm logging listener; its gate proves that synthetic
+credentials, addresses and client IPs stay out of the Keycloak log. The [security signal preparation](#identity-and-overload-security-signals) uses native
+aggregate metrics independently of those listeners; actual-host acceptance is pending. Do not collect
 tokens, cookies, email/name, raw IP, full URLs/query strings or rating-owner IDs. If a
 security investigation requires exceptional personal metadata, record purpose/access/expiry
 separately and keep it out of metrics. Never send real account data to public GitHub
@@ -653,3 +652,54 @@ Telemetry remains outside product readiness/request dependencies. Resource press
 stops ingestion before threatening durable data. Deletion/redaction and notification
 behaviour must be tested locally, then on the actual VPS; the
 [public gates](delivery-lifecycle.md#public-production-gates) require that evidence.
+
+## Identity and overload security signals
+
+**Prepared in #274, not deployed or accepted on a host.** Reuse native Keycloak user
+event counters with `realm` as the sole optional dimension. The production
+[runtime policy](../../deploy/public-production/keycloak/abuse.env) and private-dev
+Compose select login, registration, verification, verification sending, password
+reset sending/completion and temporary lockout events. Build with native event
+metrics enabled; no extension, database event storage or logging listener is needed.
+`event` and `error` are native bounded outcomes; no address, subject, IP, token,
+client ID, identity provider or session dimension is collected.
+
+The optional private-dev metrics overlay now scrapes a separate `keycloak-security`
+job alongside the unchanged successful-product-event job. Its
+[scrape configuration](../../deploy/private-dev/prometheus/product-growth/keycloak.yaml)
+limits event/error values, samples, body and labels before storage. Unknown error
+constants are dropped, not relabelled into colliding series: review the allowlist
+on Keycloak upgrades. This deliberately loses unsupported error details. The
+production runtime must install an equivalent realm-specific scrape in #275; do not
+copy the private realm name into production.
+
+Inspect in existing private Grafana Explore, starting with:
+
+```promql
+sum by (event, error) (increase(keycloak_user_events_total{job="keycloak-security"}[5m]))
+sum(increase(platform_http_errors_total{code="SERVICE_OVERLOADED"}[5m]))
+up{job="keycloak-security"}
+```
+
+Also inspect HTTP latency/5xx and Hikari active/pending/timeouts before changing
+limits. A sustained rise in failed logins, duplicate registrations, reset/verification
+sends or temporary lockouts warrants checking provider quota/headroom and narrowing
+exposure. Compare with successful operations; a counter is evidence of an event,
+not a distinct attacker, account or confirmed abuse. No per-person investigation is
+possible from these aggregates. Counters reset on restart, failed scrapes are unknown
+rather than zero, and no series before the first event is normal. Alert routing and
+real-host notification remain the existing #269/#276 acceptance gate. SMTP success
+means accepted by the relay, not inbox delivery; use the provider's private counters
+for the actual daily/monthly allowance.
+
+API capacity rejections reuse the completion event and `platform.http.errors` with
+bounded code `SERVICE_OVERLOADED`; they contain no submitted data. Under attack even
+one redacted event per rejection can exhaust log volume: edge admission and the
+existing rotated byte ceiling bound amplification, and public runtime still needs
+its enforced seven-day age ceiling. Metrics use the existing seven-day retention;
+no new personal-data store or retention period is introduced. Do not enable DEBUG,
+access logs or `jboss-logging` to recover missing security samples. Exceptional
+personal investigation metadata needs the separately recorded purpose/access/expiry
+already required by this policy. Native SMTP transport failures may still produce
+technical logs; the actual relay failure/redaction test remains required before
+launch, independently of the no-event-listener proof.

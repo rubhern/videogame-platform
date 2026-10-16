@@ -111,6 +111,11 @@ ratings:
     operation-timeout: ${RATINGS_JDBC_OPERATION_TIMEOUT:5s}
 
 api:
+  admission:
+    # Opt-in experiment; production values require #275/#276 capacity qualification.
+    enabled: ${APPLICATION_API_ADMISSION_ENABLED:false}
+    max-requests: ${APPLICATION_API_MAX_REQUESTS:8}
+    max-writes: ${APPLICATION_API_MAX_WRITES:2}
   releases:
     cache-control: ${CATALOGUE_RELEASES_CACHE_CONTROL:public, no-cache}
   games:

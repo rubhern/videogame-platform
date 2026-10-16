@@ -146,6 +146,9 @@ create_backend_env_if_missing() {
     printf 'MANAGEMENT_SERVER_ADDRESS=127.0.0.1\n'
     printf 'MANAGEMENT_SERVER_PORT=8081\n'
     printf 'LOGGING_LEVEL_COM_VIDEOGAMEPLATFORM=INFO\n'
+    printf 'APPLICATION_API_ADMISSION_ENABLED=false\n'
+    printf 'APPLICATION_API_MAX_REQUESTS=8\n'
+    printf 'APPLICATION_API_MAX_WRITES=2\n'
     printf 'APPLICATION_DB_URL=jdbc:postgresql://localhost:5432/videogame_platform\n'
     printf 'APPLICATION_DB_USERNAME=videogame_app\n'
     printf 'APPLICATION_DB_PASSWORD=%s\n' "$(env_value APPLICATION_DB_PASSWORD)"

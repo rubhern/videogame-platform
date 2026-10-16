@@ -10,7 +10,9 @@
   selected the Mailjet relay (verified with both read-only checks). Privacy increment 1 (export, erasure, deletion ledger and
   restore replay, D21–D23) is implemented and proven with synthetic accounts in a
   disposable gate on 2026-10-16, pending owner review, not exercised on a host. Legal
-  texts, provider-content switches and abuse controls are not started
+  texts and provider-content switches are not started. Abuse admission/security signals
+  are prepared locally. On 2026-10-17 the owner accepted R17 conditionally and
+  approved default-off API admission; mandatory proxy/VPS evidence remains pending (7.6–7.8)
 - **Research date:** 2026-10-14 (sources); code re-checked 2026-10-15; production realm
   exercised against disposable Keycloak 26.7.0 on 2026-10-15
 - **Source revision:** `cda7185cced99ecc8a6d3aa08c1e96831772f86f` (`main`)
@@ -297,8 +299,8 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
 | R14 | Unrecorded processors (email, backup storage) | Medium | DPAs before personal data reaches them; the preferred email provider's DPA is part of its terms (7.3) |
 | R15 | Bulk scraping of public JSON as third-party sharing | Low | Abuse phase limits; can follow |
 | R16 | Rights requests exceed manual capacity | Low | Reassess after launch |
-| R17 | Registration answers "El email ya existe", disclosing that an address has an account (enumeration); recovery already answers uniformly | Medium | **Blocks launch**; resolve in the abuse phase without a custom Keycloak flow unless one is justified |
-| R18 | With no Keycloak event listener (provisional, 7.1) there is no security signal for credential stuffing or registration abuse | Medium | **Blocks launch**; the abuse and observability phase defines sufficient bounded signals without unnecessary personal data |
+| R17 | Registration answers "El email ya existe", disclosing that an address has an account (enumeration); recovery has generic visible responses but a synchronous-SMTP timing branch (7.6) | Medium | **Conditionally accepted by the owner, 2026-10-17 (D24)**; disclosure remains. Mandatory compensatory controls in the [public gate](../development/delivery-lifecycle.md#r17-conditional-acceptance-and-opening-conditions) are not yet verified on the future proxy/VPS |
+| R18 | With no Keycloak event listener (provisional, 7.1) there is no security signal for credential stuffing or registration abuse | Medium | Native aggregate signals are prepared and exercised locally (7.6); actual-host scrape/notification, retention and SMTP-failure redaction remain launch checks |
 
 ## 6. Decision status
 
@@ -329,6 +331,8 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
 | D21 | The deletion ledger lives on the owner's workstation with a mandatory second copy on independent owner storage; an owner-side driver records each step in both before it runs it on the host through a stateless command over SSH (copy added 2026-10-16) | Write-ahead holds even if the host or the workstation is lost mid-procedure; no new service (7.5) |
 | D22 | Replay is a mandatory restore step: refused while the restored application runs, verified per entry, receipt kept. Host-loss recovery restores into the live project only on a host without its containers or volumes, and deployments are refused until the replay is verified (refined 2026-10-16) | `restore-private-dev` runs it; `deploy-private-dev` checks only the pending-replay marker (7.5) |
 | D23 | Exports include current Keycloak sessions (start, last access, IP) besides the profile and ratings | Stored personal data is returned on access (GDPR 15) |
+| D24 | R17 native registration/recovery disclosure is accepted conditionally (2026-10-17); keep public adult self-registration and no custom Keycloak extension | The [public gate](../development/delivery-lifecycle.md#r17-conditional-acceptance-and-opening-conditions) owns mandatory compensatory controls, actual-host evidence and reopening triggers; opening remains blocked until conditions pass |
+| D25 | API admission is disabled by default in local/private-dev, with explicit experimental opt-in and unchanged 8/2 settings (2026-10-17) | [Platform design](../architecture/deployment/mvp-platform-and-delivery.md#abuse-and-overload-boundaries) owns configuration; #275/#276 must calibrate production before any operational values are accepted |
 | D20 | Public domain `gameometro.com` at OVHcloud; application on the apex, identity on `auth.gameometro.com`, mail sent from `mail.gameometro.com` | The [platform design](../architecture/deployment/mvp-platform-and-delivery.md#public-domain-and-names) owns the names; the issuer is `https://auth.gameometro.com/realms/gameometro` (D12) |
 
 ### 6.2 Implementation requirements for later phases
@@ -343,7 +347,8 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
   Spanish legal texts and cookie paragraph, record of processing remain.
 - **Provider content:** public switches for translations, decorative media and IGDB
   scores; no-referrer on provider images and links; licence-termination runbook.
-- **Abuse:** registration/login limits, no email enumeration at registration (R17),
+- **Abuse:** registration/login/recovery limits and measured R17 disclosure under the
+  [owner-approved conditional gate](../development/delivery-lifecycle.md#r17-conditional-acceptance-and-opening-conditions),
   bounded identity security signals (R18) and bounded expensive anonymous reads.
 
 ### 6.3 Open legal and provider uncertainties
@@ -361,7 +366,8 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
 
 ### 6.4 Effective launch blockers
 
-**Before opening accounts:** R1–R5, R11, R12, R14, R17, R18 resolved with evidence; netcup DPA
+**Before opening accounts:** R1–R5, R11, R12, R14 and R18 resolved with evidence; R17
+conditional-acceptance measures verified before exposure; netcup DPA
 concluded; incident runbook with AEPD and Twitch reporting; legal notice published
 only after R6 is answered.
 
@@ -739,3 +745,383 @@ Phase 1 and increment 1 changed no versioned artefact. Increment 2 is a compatib
 capability: backend reactor `0.38.0-SNAPSHOT`, frontend `0.29.0`, OpenAPI `3.13.0`.
 Increment 4 is a compatible enabler: backend reactor `0.39.0-SNAPSHOT`; frontend and
 OpenAPI unchanged (one browser test added).
+
+### 7.6 Abuse increment and R17 reassessment
+
+**Local evidence, 2026-10-16; conditional owner acceptance, 2026-10-17.** Base revision
+`1b415caa9dcb555f04182b4d14de69bf63eac17d`. The owner requires open self-registration
+for any adult and has not authorized a Keycloak extension or a registration-flow
+change. The native realm flow is unchanged; the public R17 acceptance criterion
+now reflects the owner-approved conditional decision (D24). There is no host deployment, real SMTP burst or new provider.
+
+#### R17: what the native flow discloses
+
+The exact 26.7 implementation validates uniqueness in
+[`RegistrationUserCreation.validate`](https://github.com/keycloak/keycloak/blob/26.7.0/services/src/main/java/org/keycloak/authentication/forms/RegistrationUserCreation.java).
+An existing email produces `EMAIL_IN_USE`/`USERNAME_IN_USE`, a validation error and
+the registration form. A new valid address passes creation and reaches the required
+verification step. This reveals **that an address is already present**, including a
+pending unverified account, not that its owner verified it, is active, has a
+password, or has used/rated a game. It reveals no password, rating, profile, token or
+account list. An attacker needs candidate addresses and can test them individually.
+Case normalization does not remove the oracle.
+
+The previous disposable 26.7 evidence already observed the Spanish duplicate message
+`El email ya existe`. A theme edit cannot resolve it: the form, required action,
+redirect chain, document size and native event outcome still differ. HTTP 200 alone
+would not prove uniformity. The augmented
+[disposable test](../../scripts/test-production-identity-keycloak.py) records final
+status/path, redirects, form IDs, visible text, byte size, cache policy and six
+interleaved timing samples for each registration/recovery case. Dynamic nonce/query
+values are not treated as stable public content. Results from the current local
+run are recorded below; production and remote SMTP timings must be measured separately.
+
+Recovery uses the native
+[`ResetCredentialChooseUser`](https://github.com/keycloak/keycloak/blob/26.7.0/services/src/main/java/org/keycloak/authentication/authenticators/resetcred/ResetCredentialChooseUser.java)
+and [`ResetCredentialEmail`](https://github.com/keycloak/keycloak/blob/26.7.0/services/src/main/java/org/keycloak/authentication/authenticators/resetcred/ResetCredentialEmail.java).
+Missing/disabled users take the generic-success branch; successful and failed SMTP
+attempts also return that message. Existing enabled accounts perform synchronous
+SMTP work while unknown accounts do not. Equal messages, status and forms therefore
+cannot establish timing non-enumeration. Network noise or an arbitrary sleep does
+not remove that architectural timing difference. No reset token or account state
+is returned to the unauthenticated requester, and #273 remains the recovery owner.
+
+#### Standard alternatives checked
+
+The [26.7 administration guide](https://www.keycloak.org/docs/26.7.0/server_admin/index.html)
+and the pinned implementation expose no native setting that gives this email-as-
+username registration both uniqueness and an account-independent completion path.
+
+| Native mechanism | Effect and trade-off |
+|---|---|
+| Mandatory email verification before password/sign-in | Preserved. Prevents using someone else's mailbox as a usable account; does not hide the earlier uniqueness check or stop mail bombing |
+| Temporary per-account brute-force detection | Preserved. Limits repeated password guesses; does not bound attempts across different accounts, registration or password-reset mail |
+| Worker/queue/DB limits | Prepared by this increment. Shed resource overload with 503; do not bound sustained attempts or daily email |
+| Reverse-proxy request limits | Required future mitigation at #275/#276. Slow bulk probing and mail abuse, but targeted probes and distributed sources remain possible |
+| Native reCAPTCHA registration action | Can raise automated probing cost without a custom SPI. It still returns the duplicate result after a solved challenge; adds Google's processing, keys, availability and accessibility/product considerations. Not enabled or contracted; no unapproved third party is introduced |
+| Duplicate emails / changing email-as-username | Would weaken or change the approved identity model and email login/recovery semantics; not a privacy fix for this model |
+| Theme-only generic error | Rejected as a fix: the server-side branch remains observable |
+
+No new login, broker, registration or reset flow is introduced. Public native
+self-registration remains enabled as requested.
+
+#### Owner-accepted residual risk (D24; conditions still pending)
+
+**Owner decision [D24], 2026-10-17: accept R17's residual membership-disclosure risk
+conditionally for this adult, non-commercial videogame service.** Do not implement
+a custom Keycloak extension or close native self-registration. The
+[public gate](../development/delivery-lifecycle.md#r17-conditional-acceptance-and-opening-conditions)
+owns the mandatory compensatory measures, verification and reopening triggers.
+This acceptance changes the absolute non-enumeration criterion; it neither removes
+the disclosure nor passes the opening gate. GDPR
+[Articles 25 and 32](https://eur-lex.europa.eu/eli/reg/2016/679/oj/eng) frame safeguards
+around context, implementation cost and risk; this security decision is not legal
+certification or a claim of timing-resistant recovery.
+
+The likely harm here is targeted membership inference, phishing/credential stuffing
+and unwanted verification/reset mail. Gameómetro has no approved public profiles,
+social graph or sensitive-topic membership; personal ratings remain private. That
+reduces the likely impact relative to health, political, financial or vulnerable-user
+services, but does not make an email or membership non-personal. Verification and
+password policy reduce account takeover; they do not mitigate the membership oracle
+itself. Broad attacks remain possible through many sources. Shared-IP limits must
+allow legitimate groups and cannot substitute for account protection.
+
+The currently prepared worker limits, optional API admission and aggregate security
+signals alone do **not** satisfy the opening conditions. The future edge controls,
+actual SMTP quota/failure behaviour, host collection/notification/redaction/retention
+and real-host acceptance remain unverified. Keep their status pending in #275/#276;
+do not infer completion from this owner's risk acceptance or a green native-policy
+test. Recovery's SMTP timing difference remains part of the accepted residual risk.
+
+The accounts/privacy gate was amended on 2026-10-17 to require a measured disclosure
+assessment and the owner-recorded conditional treatment, while preserving all other
+public privacy/security gates. See its canonical conditions rather than treating
+this research record as an operational checklist.
+
+#### Deferred extension option if the decision is reopened
+
+A maintainable fix needs email possession **before** deciding whether to create or
+resume an account. One Keycloak-owned request step would always finish with the same
+status, navigation and generic response, bound every email request, then issue a
+short-lived, purpose-bound, single-use action link. Only a verified link may select
+existing-account recovery or new-account creation, preserving the adult/terms
+requirement, uniqueness, anti-replay, expiry, concurrency and exact redirect/origin
+rules. Pending identity must not authenticate, overwrite an account or leak which
+branch applies. Uniform UI alone is insufficient; SMTP timing/failure work and
+concurrent duplicate requests require explicit design. Do not add a durable queue
+or new service by default.
+
+**Estimate [R], not measured:** 3–6 focused engineering days for a prototype and
+negative/integration tests, plus 1–3 days for security review, upgrade/rollback
+rehearsal, documentation and operator acceptance. Allow roughly 0.5–2 days per
+Keycloak upgrade for SPI compatibility, theme/action-token and concurrency regression
+review; major authentication changes can exceed that. The ongoing cost is a custom
+security component, build/provisioning ownership, supported-version coupling,
+email failure/DoS design and account-linking/takeover risk. A rushed extension can
+be more dangerous than the disclosed membership bit. None is implemented or
+approved; a detailed implementation design would require a separate owner decision.
+
+#### Independent controls and remaining evidence
+
+The [platform boundary](../architecture/deployment/mvp-platform-and-delivery.md#abuse-and-overload-boundaries)
+owns API/Keycloak admission and proposed edge limits. The
+[security signals](../development/observability.md#identity-and-overload-security-signals)
+own native event counters, safe HTTP overload evidence and retention; the
+[private-dev guide](../../deploy/private-dev/README.md#abuse-control-rehearsal-274)
+owns rehearsal. R18 has an implemented, locally exercisable aggregate-signal path;
+real scrape/notification, SMTP-failure redaction and retention enforcement still
+need host acceptance. No Keycloak user/admin events are stored or logged by a
+listener. The existing native product metrics remain compatible.
+
+Mailjet's [Daily Send Limit per API key](https://documentation.mailjet.com/hc/en-us/articles/43977536821147-Daily-Send-Limit-for-Mailjet-API-keys)
+is documented as a **paid-plan** feature; it is not assumed available on Free and
+no upgrade is authorized. Per-minute proxy limits cannot guarantee a daily mail
+reserve. A slow or distributed actor can exhaust Free's shared quota; monitoring,
+measured throttling and an exercised incident response remain required, and a hard
+send-budget design is a separate decision if necessary. Local tests send only to
+Mailpit; #276 owns real relay delivery/queue/failure evidence without mass mail.
+
+#### Local characterization evidence and validation limits
+
+Official Keycloak 26.7 and Mailpit 1.31 distributions were verified against their
+release-asset SHA-256 digests and run as throwaway loopback processes because Docker
+was unavailable in the WSL environment. The realm was the reviewed production
+import, with synthetic origins/accounts and authenticated STARTTLS to Mailpit only.
+The identity database used `dev-file`; this is flow evidence, **not PostgreSQL,
+container isolation, proxy, packaged-BFF or VPS acceptance**. All processes stopped
+after the rehearsal. No existing realm, real mailbox or running private-dev service
+was used.
+
+| Case, six interleaved samples | HTTP/navigation and visible result | Median ms (range) |
+|---|---|---|
+| Existing registration email | POST 200, no redirect, `kc-register-form`, “El email ya existe.” | 17.45 (16.46–20.14) |
+| New registration email | POST 302 to required action, final 200, no registration form, verification-email page | 83.62 (80.77–93.32) |
+| Unknown recovery email | 200, no redirect, generic message and `kc-form-login` | 19.85 (16.36–20.99) |
+| Existing recovery email | Same status/path/text/forms as unknown, synchronous Mailpit delivery | 76.91 (72.77–87.10) |
+
+All four returned `Cache-Control: no-store, must-revalidate, max-age=0`. Observed
+registration HTML sizes were 10,893 versus 5,518 bytes; recovery sizes 9,353 versus
+9,352 bytes included dynamic URLs/nonces and are not stable identifiers. These six
+samples are a characterization, not a statistical security threshold or a network
+attacker success-rate estimate. Registration has a deterministic oracle without
+using timing. Recovery has an observable local timing difference; no claim of
+timing-resistant recovery is made.
+
+The full native identity-policy journey also passed with mandatory verification,
+password boundaries, one-use/expired links, strict client redirects/PKCE, temporary
+lockout isolation/expiry and recovery. Native metrics exposed only `realm/event/error`
+labels, including bad-password and duplicate-registration outcomes, while stored
+user/admin events stayed empty. None of 75 recorded sensitive synthetic values
+appeared in the Keycloak log. SMTP outage diagnostics remain a separate test.
+
+Focused Java evidence covers admission rejection before work, read capacity while
+writes are full, total saturation, recovery after release/handler failure, security
+checks under saturation, no forwarded-IP keying, contract Problem conformance,
+existing principal/CSRF boundaries, user-scoped rating application behaviour and
+architecture rules. The existing real-PostgreSQL two-user/pagination/precondition
+suite and full disposable production-identity/container/BFF gate still require
+Docker and remain unexecuted here. No tests were weakened or replaced with H2 as
+proof of product persistence.
+
+Version assessment: compatible security correction, backend reactor
+`0.39.1-SNAPSHOT`, OpenAPI `3.13.1`; regenerated frontend transport types only, no
+frontend capability/version change. No new module, service, provider or durable
+architecture decision. The issue stays `In progress` through owner review and the
+outstanding R17 compensatory-control verification and public-boundary evidence.
+
+Final local validation, including the portal build, is recorded in [7.8](#78-final-local-abuse-increment-approved-decisions-and-outstanding-gates).
+
+### 7.7 API admission review (2026-10-17)
+
+**Review outcome: retain the mechanism for evaluation, do not approve 8/2 as measured
+operational capacity.** No limit, endpoint scope or infrastructure is changed. The
+independent correction below prevents a temporary session-read failure from being
+misrepresented as anonymous. The owner subsequently approved default-off admission on 2026-10-17 (D25);
+the experimental 8/2 values are unchanged.
+
+#### Exact scope and lifecycle
+
+When enabled, MVC registration matches `/api/v1/**`, after security filters and handler
+selection, before handler argument/body conversion. Current protected operations:
+
+- `GET /api/v1/releases`, `/featured-releases`, `/games`, `/games/{gameId}`;
+- `GET /api/v1/session`, `/me/ratings`, `/me/ratings/{gameId}`;
+- `PUT` and `DELETE /api/v1/me/ratings/{gameId}`.
+
+Those abbreviated paths share `/api/v1`. HEAD handled through GET mappings and OPTIONS
+that reach a matching MVC handler use read admission. Other methods that reach a
+matching handler would count as writes. Security/mapping failures answered before
+`preHandle` acquire nothing; this is not a raw HTTP connection limiter. An unknown
+API path reaching a resource handler can still be admitted before its 404.
+
+Native Keycloak registration/login/reset, `/auth/**` (including pending rating intent),
+`/oauth2/**`, `/login/**`, static resources outside `/api/v1`, and `/actuator/**` are
+excluded. Scheduled synchronization and management/administrative commands, including
+catalogue sync and revocation, bypass admission. Administrative use of a product
+endpoint follows its normal scope. `POST /api/v1/session` is intercepted by Spring
+Security's logout filter before MVC: ordinary logout bypasses admission even though
+the defensive MVC fallback and OpenAPI allow a 503.
+
+Two process-local semaphores are shared by **all users, IPs, sessions and tabs on one
+application instance**. A write first acquires one of two write permits, then one of
+eight total permits: two writes leave at most six slots for reads. No per-user/IP
+state or fairness exists. There is no reservation of read or write capacity: eight
+reads can reject a write; two writes reject a third while reads remain possible.
+
+`tryAcquire` never waits. A write denied total admission immediately returns its
+already-acquired write permit. Admitted requests store their write/read classification
+on the request; `afterCompletion` removes it and releases permits after synchronous
+MVC handling/rendering, including handled failures. This follows
+[Spring's callback contract](https://docs.spring.io/spring-framework/docs/7.0.9/javadoc-api/org/springframework/web/servlet/HandlerInterceptor.html).
+Current product controllers are synchronous; this interceptor would need redesign
+before asynchronous/streaming handlers were introduced.
+
+Slow body reads, database waits and response writes occupy permits until processing
+finishes. The limiter has no independent request deadline. Existing Hikari acquisition
+and query/transaction timeouts constrain their own stages, not the complete request.
+A disconnected/aborted browser does not automatically cancel database work or release
+a permit; release follows server completion or detection of the I/O failure. A stuck
+handler can therefore hold a permit indefinitely. The tests prove synchronous cleanup,
+not immediate cancellation on a real TCP disconnect.
+
+#### Client concurrency and legitimate-user risk
+
+Code-path inspection, not a new browser load measurement:
+
+| Journey | Requests and overlap |
+|---|---|
+| Cold discovery/search route | Header session plus the selected featured/release/search query, normally two parallel API reads; only one discovery view is mounted |
+| Suggestions | One search per eligible debounced term (250 ms, at least two characters), in addition to page work. Cancellation signals are consumed, but do not guarantee that server work stops |
+| Game opening | Header session plus game detail initially; after detail, the rating panel subscribes to the shared session query and enables the personal read when authenticated. An in-flight session read is shared; an already-completed stale session may be fetched again. These later reads can overlap; resumed intent adds a request under excluded `/auth` |
+| Personal collection | Session followed by one page read; header/page share the session key. Rows do not each fetch their game details or personal rating |
+| Rating command | One write per pending control; success updates personal/aggregate cache and invalidates release/featured/search/collection queries. Active observers refetch; inactive cached queries are marked stale without immediately sending all four requests |
+
+Public list/full-search hooks do not consume an AbortSignal, so rapid navigation or
+filter changes may leave earlier requests running. Tabs and users do not share a
+query cache. As a possible burst, five cold page loads can offer ten reads before
+any complete; with a cap of eight, some legitimate reads can receive 503. Three
+independent simultaneous saves can reject the third even at low CPU/DB usage. These
+are possible overlaps, not measured rejection probabilities or a user-count limit.
+
+#### Evidence and response behaviour
+
+The existing [#85 final assessment](performance-baseline/remote-harness.md) measured
+10–12 public requests/s as healthy on Lenovo, with 12/s for five minutes, p95
+145.25 ms, sampled Hikari active maximum three and pending zero. At offered 15/s,
+Hikari reached ten active/fourteen pending and ten acquisition timeouts; there were
+ten 503 responses, and a later 5/s level recovered without restarting. The fixture
+contained 50,000 Games, 200,000 Releases and 500,000 Ratings. Only two authenticated
+users were measured together, not simultaneous write capacity. This was a different
+application revision and resource environment, without the new limiter. It supports
+resource protection as a possible tool; it does not calibrate eight HTTP requests,
+two writes, normal browser bursts or VPS capacity. The earlier rationale was a
+conservative relation to the ten-connection pool; the value two has no measured
+write-capacity evidence. HTTP concurrency, DB occupancy and requests/s are different
+quantities; `8 = 10 - 2` does not reserve database connections.
+
+Both limits return the same 503 Problem, `SERVICE_OVERLOADED`, no-store,
+`X-Correlation-ID` and `Retry-After: 1`, before invoking the controller. The contract
+permits that response for all affected operations; its shared Retry-After definition
+is optional, while admission always supplies one second. One second is a suggested
+minimum retry delay, not a guarantee of capacity. Logs and
+`platform_http_errors_total{code="SERVICE_OVERLOADED"}` detect rejection with bounded
+route/method/code dimensions; there is no occupancy gauge or separate rejection
+reason for the total/write threshold. Existing HTTP/Hikari/JVM metrics remain needed.
+
+Query and mutation retries are disabled by the application QueryClient; focus refetch
+is off. Manual retries and query mounts/reconnects/invalidations may still send reads.
+The frontend does not consume Retry-After, impose a retry cooldown or present a
+specific overload state. Public pages show their existing recoverable load error;
+rating 503s map to `unavailable`, retain the last confirmed rating and report failure.
+No command is automatically replayed and no successful save is invented. The game
+page does not keep the rejected choice as a visible pending draft: the user must
+choose it again; the collection editor retains its selection while open. This is
+safe but basic UX, not transparent overload recovery or durable preservation of every
+unsaved intent. An initially failed session check on a game page still has limited
+recovery affordances; this review does not redesign that component.
+
+**Correctness fix prepared:** `getSession` previously treated HTTP failure as
+`{authenticated:false}`. It now rejects unsuccessful responses, preserving cached
+session state and enabling the existing personal-page error/manual-retry branch.
+Negative tests reproduced the defect before the fix; API/page tests verify a 503 is
+not anonymous and recovery requires deliberate retry. No new retry mechanism, UI
+flow, dependency or limiter was added. Frontend PATCH `0.30.6`; backend/API versions
+stay at the increment's existing values.
+
+#### Approved default-off configuration and capacity qualification
+
+**Owner decision [D25], 2026-10-17:** retain the mechanism, disabled by default in
+local/private-dev, and allow explicit controlled experiments with the unchanged 8/2
+settings. The implementation uses `APPLICATION_API_ADMISSION_ENABLED=false` by
+default and installs no admission beans while disabled. When explicitly enabled,
+validation requires `0 < maxWrites < maxRequests`; zero does not mean disabled.
+`APPLICATION_API_MAX_REQUESTS` and `APPLICATION_API_MAX_WRITES` bind at startup.
+Private-dev Compose forwards all three variables from protected `runtime.env` into
+the same application image; configuration changes require approved recreation, not
+recompilation or a different image. This change does not operate the running host.
+
+Production calibration is mandatory under #275/#276. Neither retaining 8/2 as an
+experiment nor opting in qualifies those values for production. The rationale is
+owner-only private exposure, #85's no-action conclusion for current private operation
+and the uncalibrated risk of legitimate-burst rejection. The flag does not alter
+Keycloak's independently prepared protections or native security metrics.
+
+Alternatives: remove the interceptor and retain the existing pool/query timeouts
+(the simplest operational baseline, but it queues pressure later); retain it inactive
+until measured (owner-selected); or tune enabled caps after measured resource benefit
+and normal-flow rejection data. Increasing numbers arbitrarily hides the decision;
+raising Hikari or adding infrastructure is not justified. Per-origin rate limiting
+is a separate edge responsibility and is not introduced here.
+
+For public production, use the existing disposable mixed workload and real frontend
+journeys on a representative catalogue: compare admission off against 8/2 as a
+candidate, then vary one budget at a time only with approval. Include cold/warm
+pages, suggestions/filter bursts, two or more tabs, simultaneous writes, deep queries
+and sync overlap. Record end-to-end p95/p99, legitimate rejections, HTTP in-flight,
+Hikari active/pending/timeouts, CPU/GC/memory and same-instance recovery. Choose the
+smallest cap that admits the agreed normal burst envelope without rejection and
+actually improves resource/recovery behaviour under overload. Declare workload and
+stop conditions first; short tests cannot establish sustained availability. Recheck
+on the actual VPS and fit its existing memory/disk headroom gates. No defensible
+production integer is available from this review; one instance and a small budget
+favour measurement and the existing monolith, not another service.
+
+The review-specific checks were focused on shared admission, session/command handling
+and configuration. [7.8](#78-final-local-abuse-increment-approved-decisions-and-outstanding-gates)
+records the final approved implementation, validation and outstanding release evidence.
+
+
+### 7.8 Final local abuse increment: approved decisions and outstanding gates
+
+**2026-10-17, prepared for owner diff review, not deployed.** D24/D25 are recorded
+above and in their canonical owners; they do not close #274 or approve public exposure.
+
+| Abuse requirement | State at handoff |
+|---|---|
+| API admission off by default; explicit experiment | Implemented. Spring/MVC tests hold 13 simultaneous requests (four writes) with admission disabled and observe no artificial rejection. Enabled tests prove default/custom budgets, 503/Retry-After, read capacity and recovery; 8/2 remain experimental |
+| Actual private-dev runtime configuration without recompilation | Real Compose rendering proves implicit defaults, runtime enable/overrides and disable with the identical image. Spring reads those exact setting names from executable configuration. Running private-dev was not changed |
+| R17 measured disclosure and proportionality decision | Owner-accepted conditionally; native adult registration stays enabled and no extension is developed. The [public gate](../development/delivery-lifecycle.md#r17-conditional-acceptance-and-opening-conditions) preserves all required compensatory measures and explicit opening approval |
+| Identity mass-attempt controls and Mailjet availability | Existing account protection, prepared worker/queue/DB budgets and selected native metrics retained. Edge frequency/origin controls, all mail paths/quota response and real relay failure evidence remain pending #275/#276; no slow/distributed-abuse guarantee |
+| R18 security signals and minimization | Native aggregate metrics and safe API rejection counters prepared; prior disposable identity characterization retained. Actual host collection/notification, retention/SMTP-failure redaction and operational acceptance remain pending |
+| Public-query/write protection and production capacity | Existing SQL/page/search/timeouts, principal ownership, CSRF and conditional-write semantics preserved. Optional API admission is not a rate limiter. Production calibration is mandatory in #275/#276; no production concurrency value is approved |
+
+Focused validation: **21 backend tests passed** (configuration/MVC opt-in/default-off,
+shared admission/cleanup and BFF security under saturation); the real Compose
+configuration check, production-realm/runtime static assertions and Python/shell
+syntax checks passed. The default-off and explicit-disable tests were first observed
+failing against unconditional admission, then passed with the flag. No runtime
+Keycloak setting or metric selection was removed. The earlier 69 focused frontend
+checks cover the session-503 correction and remain evidence for those unchanged files.
+
+Documentation validation and seven portal transformation tests passed. The portal
+build now succeeds and checks **89 pages**, links, anchors, assets and search; the
+Docker-rendered diagrams are included in this local build. Sources remain
+in their existing portal groups; no new reader page or editable copy is introduced.
+Full affected-area backend/identity/browser/image CI and the real proxy/VPS capacity,
+isolation, email and operation gates remain pending. Synthetic identity bursts use
+Mailpit, never the real relay. There is no commit, push, deployment or new dependency.
+
+Final artefact assessment: backend `0.39.1-SNAPSHOT`, frontend `0.30.6`, OpenAPI
+`3.13.1` for this single uncommitted increment; the internal flag adds no wire change
+or additional version increment. GitHub Project status stays `In progress`.

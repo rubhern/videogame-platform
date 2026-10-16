@@ -12,9 +12,13 @@ export async function getSession(
   client: ProductApiClient = productApiClient,
   signal?: AbortSignal,
 ): Promise<SessionState> {
-  const { data } = await client.GET("/session", {
+  const { data, response } = await client.GET("/session", {
     ...(signal ? { signal } : {}),
   });
+  // An unavailable read does not establish that the browser's session ended.
+  if (!response.ok) {
+    throw new Error("The session request failed.");
+  }
   if (data && data.authenticated === true && "csrfToken" in data) {
     return { authenticated: true, csrfToken: data.csrfToken };
   }

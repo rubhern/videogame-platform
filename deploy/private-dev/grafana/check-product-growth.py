@@ -72,7 +72,9 @@ def main():
         env.update({'KC_BOOTSTRAP_ADMIN_USERNAME': 'fixture-admin', 'KC_DB_URL': 'jdbc:postgresql://postgres:5432/keycloak',
                     'KC_DB_USERNAME': 'fixture', 'KC_HOSTNAME': 'http://keycloak:8080',
                     'APPLICATION_PUBLIC_ORIGIN': 'http://application:8080'})
-        assert env['KC_EVENT_METRICS_USER_EVENTS'] == 'register,verify_email'
+        assert set(env['KC_EVENT_METRICS_USER_EVENTS'].split(',')) == {
+            'login', 'register', 'verify_email', 'send_verify_email', 'send_reset_password',
+            'reset_password', 'user_disabled_by_temporary_lockout'}
         assert env['KC_EVENT_METRICS_USER_TAGS'] == 'realm'
         keycloak.update({'image': image, 'environment': env, 'networks': ['fixture'],
                          'volumes': [str(temp / 'realm.json') + ':/opt/keycloak/data/import/realm.json:ro',

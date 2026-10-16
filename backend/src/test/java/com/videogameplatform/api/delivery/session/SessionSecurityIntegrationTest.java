@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.videogameplatform.api.delivery.ApiAdmissionConfiguration;
+import com.videogameplatform.api.delivery.ApiAdmissionInterceptor;
 import com.videogameplatform.identity.adapter.session.RatingReturnContextStore;
 import com.videogameplatform.identity.configuration.AuthenticationProblemEntryPoint;
 import com.videogameplatform.identity.configuration.CsrfProblemAccessDeniedHandler;
@@ -20,7 +22,12 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -28,6 +35,8 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -43,8 +52,9 @@ import org.springframework.web.util.UriComponentsBuilder;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-@WebMvcTest(SessionController.class)
+@WebMvcTest(value = SessionController.class, properties = "api.admission.enabled=true")
 @Import({
+    ApiAdmissionConfiguration.class,
     IdentitySecurityConfiguration.class,
     AuthenticationProblemEntryPoint.class,
     CsrfProblemAccessDeniedHandler.class,
@@ -59,6 +69,76 @@ class SessionSecurityIntegrationTest {
 
     private final MockMvc mockMvc;
     private final ObjectMapper objectMapper;
+
+    @Autowired ApiAdmissionInterceptor admission;
+    @Autowired MeterRegistry meters;
+
+    @Test
+    void saturationPreservesAuthenticationAndCsrfAndRecovers() throws Exception {
+        var entered = new CountDownLatch(8);
+        var release = new CountDownLatch(1);
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            var tasks = new ArrayList<Future<?>>();
+            for (int index = 0; index < 8; index++) {
+                tasks.add(
+                        executor.submit(
+                                () -> {
+                                    var request =
+                                            new MockHttpServletRequest("GET", "/api/v1/session");
+                                    var response = new MockHttpServletResponse();
+                                    if (!admission.preHandle(request, response, this)) {
+                                        throw new AssertionError("synthetic work was not admitted");
+                                    }
+                                    try {
+                                        entered.countDown();
+                                        if (!release.await(10, TimeUnit.SECONDS)) {
+                                            throw new AssertionError("work was not released");
+                                        }
+                                    } finally {
+                                        admission.afterCompletion(request, response, this, null);
+                                    }
+                                    return null;
+                                }));
+            }
+            try {
+                assertThat(entered.await(5, TimeUnit.SECONDS)).isTrue();
+                mockMvc.perform(get("/api/v1/session"))
+                        .andExpect(status().isServiceUnavailable())
+                        .andExpect(jsonPath("$.code").value("SERVICE_OVERLOADED"))
+                        .andExpect(header().string("Retry-After", "1"));
+                assertThat(
+                                meters.get("platform.http.errors")
+                                        .tag("code", "SERVICE_OVERLOADED")
+                                        .counter()
+                                        .count())
+                        .isGreaterThan(0);
+                mockMvc.perform(get("/api/v1/me/ratings").header("X-User-ID", "another-user"))
+                        .andExpect(status().isUnauthorized())
+                        .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"));
+                mockMvc.perform(
+                                post("/api/v1/me/ratings/game")
+                                        .with(
+                                                oidcSession(
+                                                        clientRegistration(),
+                                                        token ->
+                                                                token.issuer(ISSUER)
+                                                                        .subject("other-player")
+                                                                        .audience(
+                                                                                List.of(
+                                                                                        CLIENT_ID)))))
+                        .andExpect(status().isForbidden())
+                        .andExpect(jsonPath("$.code").value("CSRF_VALIDATION_FAILED"));
+            } finally {
+                release.countDown();
+            }
+            for (var task : tasks) {
+                task.get(5, TimeUnit.SECONDS);
+            }
+        }
+        mockMvc.perform(get("/api/v1/session"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.authenticated").value(false));
+    }
 
     @Autowired
     SessionSecurityIntegrationTest(MockMvc mockMvc, ObjectMapper objectMapper) {

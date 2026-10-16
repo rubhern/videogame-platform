@@ -72,8 +72,14 @@ services:
       KC_HEALTH_ENABLED: "true"
       KC_METRICS_ENABLED: "true"
       # Event metrics are compiled into this private image; keep runtime labels/events bounded.
-      KC_EVENT_METRICS_USER_EVENTS: register,verify_email
+      KC_EVENT_METRICS_USER_EVENTS: login,register,verify_email,send_verify_email,send_reset_password,reset_password,user_disabled_by_temporary_lockout
       KC_EVENT_METRICS_USER_TAGS: realm
+      # Resource admission, not per-account or per-IP rate quotas.
+      KC_HTTP_POOL_MAX_THREADS: "8"
+      KC_HTTP_MAX_QUEUED_REQUESTS: "16"
+      KC_DB_POOL_INITIAL_SIZE: "1"
+      KC_DB_POOL_MIN_SIZE: "1"
+      KC_DB_POOL_MAX_SIZE: "5"
       KC_HTTP_ENABLED: "true"
       KC_HOSTNAME: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}
       KC_PROXY_HEADERS: xforwarded
@@ -211,6 +217,10 @@ services:
       APPLICATION_DB_USERNAME: videogame_app
       APPLICATION_DB_PASSWORD_FILE: /run/secrets/application_db_password
       APPLICATION_FLYWAY_ENABLED: "false"
+      # Experimental admission is off by default; protected runtime.env can opt in.
+      APPLICATION_API_ADMISSION_ENABLED: ${APPLICATION_API_ADMISSION_ENABLED:-false}
+      APPLICATION_API_MAX_REQUESTS: ${APPLICATION_API_MAX_REQUESTS:-8}
+      APPLICATION_API_MAX_WRITES: ${APPLICATION_API_MAX_WRITES:-2}
       CATALOGUE_TRANSLATION_ENDPOINT: http://catalogue-localizer:8092/translate
       MANAGEMENT_SERVER_ADDRESS: 0.0.0.0
       OIDC_ISSUER_URI: ${PRIVATE_DEV_KEYCLOAK_ORIGIN:?Set PRIVATE_DEV_KEYCLOAK_ORIGIN in runtime.env}/realms/videogame-platform

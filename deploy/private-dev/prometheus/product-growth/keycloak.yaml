@@ -24,3 +24,31 @@ scrape_configs:
         action: keep
       - regex: __name__|job|instance|realm|event|error
         action: labelkeep
+
+  # Security signals share the existing private scrape; no per-user data or listener logs.
+  - job_name: keycloak-security
+    static_configs:
+      - targets: [keycloak:9000]
+    metrics_path: /metrics
+    sample_limit: 250
+    body_size_limit: 8MB
+    label_limit: 8
+    label_name_length_limit: 80
+    label_value_length_limit: 80
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: keycloak_user_events_total
+        action: keep
+      - source_labels: [realm]
+        regex: videogame-platform
+        action: keep
+      - source_labels: [event]
+        regex: login|register|verify_email|send_verify_email|send_reset_password|reset_password|user_disabled_by_temporary_lockout
+        action: keep
+      # Keep only reviewed Keycloak error constants; never collapse different counters into
+      # one series at ingestion. Query sum by (event) for totals. Missing samples are unknown.
+      - source_labels: [error]
+        regex: '|invalid_user_credentials|user_not_found|user_disabled|user_temporarily_disabled|email_in_use|username_in_use|invalid_registration|invalid_email|invalid_token|expired_code|email_send_failed|reset_credential_disabled|not_allowed|unknown'
+        action: keep
+      - regex: __name__|job|instance|realm|event|error
+        action: labelkeep

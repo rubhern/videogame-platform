@@ -817,7 +817,7 @@ export interface components {
             ratingStatistics: components["schemas"]["AvailableRatingStatistics"];
         };
         /** @enum {string} */
-        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED";
+        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -1067,7 +1067,24 @@ export interface components {
                 "application/problem+json": components["schemas"]["Problem"];
             };
         };
-        /** @description No local snapshot is ready or local catalogue data cannot be read; no provider fallback call is made. */
+        /**
+         * @description This instance has no API admission capacity. No controller or product write was
+         *     invoked. Wait at least Retry-After seconds and retry reads with backoff and jitter;
+         *     never automatically replay a personal command. Authentication and CSRF checks
+         *     precede admission. This is capacity rejection (503), not an identity/IP quota (429).
+         */
+        ServiceOverloaded: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                "Retry-After": components["headers"]["RetryAfter"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description No local snapshot is ready, local catalogue data cannot be read, or this instance has no admission capacity; no provider fallback call is made. */
         CatalogueUnavailable: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
@@ -1506,6 +1523,7 @@ export interface operations {
             };
             406: components["responses"]["NotAcceptable"];
             500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
         };
     };
     logoutSession: {
@@ -1539,6 +1557,7 @@ export interface operations {
             403: components["responses"]["CsrfValidationFailed"];
             406: components["responses"]["NotAcceptable"];
             500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
         };
     };
     listMyRatings: {
@@ -1616,6 +1635,7 @@ export interface operations {
             404: components["responses"]["RatingNotFound"];
             406: components["responses"]["NotAcceptable"];
             500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
         };
     };
     putMyRating: {
@@ -1734,6 +1754,7 @@ export interface operations {
             412: components["responses"]["RatingWriteConflict"];
             428: components["responses"]["PreconditionRequired"];
             500: components["responses"]["RatingWriteFailed"];
+            503: components["responses"]["ServiceOverloaded"];
         };
     };
 }
