@@ -2,6 +2,12 @@ import { formatReleaseDateShort } from "../../shared/catalogue/release-date";
 import { releaseStatuses } from "../../shared/catalogue/release-labels";
 import type { FeaturedReleasesResponse } from "./featured-releases-api";
 import { shiftMonth } from "./featured-search";
+import {
+  toMonthTimeline,
+  toReleaseMark,
+  type MonthTimeline,
+  type ReleaseMark,
+} from "./month-timeline";
 import { toReleaseListItem, type ReleaseListItem } from "./releases-view-model";
 
 type FeaturedResponseItem = FeaturedReleasesResponse["items"][number];
@@ -35,6 +41,8 @@ export type FeaturedTitleLogo = { url: string; alt: string };
 export type FeaturedItem = ReleaseListItem & {
   art: FeaturedArt[];
   logo: FeaturedTitleLogo | null;
+  /** Where the first presented release falls on the represented month's temporal scale. */
+  mark: ReleaseMark;
 };
 
 /**
@@ -80,6 +88,12 @@ export type FeaturedReleasesViewModel = {
   monthPhrase: string;
   /** The evaluated month in `Europe/Madrid`, which the landing route represents. */
   currentMonth: string;
+  /**
+   * The represented month as the temporal G reads it, from the evaluated date of this same
+   * response, so the progress always agrees with the selection shown; null only for a malformed
+   * response.
+   */
+  timeline: MonthTimeline | null;
   selection: FeaturedSelectionState;
   lead: FeaturedLead | null;
   others: FeaturedItem[];
@@ -182,12 +196,16 @@ function art(item: FeaturedResponseItem): FeaturedArt[] {
   return [first, ...coverStep, fallbackArt(item.canonicalTitle)];
 }
 
-function toFeaturedItem(item: FeaturedResponseItem): FeaturedItem {
+function toFeaturedItem(item: FeaturedResponseItem, month: string): FeaturedItem {
+  const first = item.releases[0];
   return {
     ...toReleaseListItem(item),
     art: art(item),
     logo:
       item.logo === undefined ? null : { url: item.logo.url, alt: item.logo.alternativeText },
+    // The first presented release is the card's visible release row, so its date is the one the
+    // scale marks.
+    mark: first === undefined ? { kind: "unknown" } : toReleaseMark(first.releaseDate, month),
   };
 }
 
@@ -207,7 +225,7 @@ export function toWordmark(title: string): FeaturedWordmark {
  * first, then the designed fallback, which the cover may light, and the cover shown whole only
  * when not even that can load.
  */
-function toFeaturedLead(item: FeaturedResponseItem): FeaturedLead {
+function toFeaturedLead(item: FeaturedResponseItem, month: string): FeaturedLead {
   const image = item.featuredImage;
   const landscape: FeaturedArt[] =
     image.kind === "artwork" || image.kind === "screenshot"
@@ -235,7 +253,7 @@ function toFeaturedLead(item: FeaturedResponseItem): FeaturedLead {
         ]
       : [];
   return {
-    ...toFeaturedItem(item),
+    ...toFeaturedItem(item, month),
     art: [...landscape, fallbackArt(item.canonicalTitle), ...lastResort],
     facts: facts(item.releases[0]),
     summary: item.summary ?? null,
@@ -253,9 +271,10 @@ export function toFeaturedReleasesViewModel(
     monthLabel: formatMonthLabel(response.month),
     monthPhrase: formatMonthPhrase(response.month),
     currentMonth: response.evaluatedOn.slice(0, 7),
+    timeline: toMonthTimeline(response.month, response.evaluatedOn),
     selection: toSelection(response.selection),
-    lead: lead === undefined ? null : toFeaturedLead(lead),
-    others: others.map(toFeaturedItem),
+    lead: lead === undefined ? null : toFeaturedLead(lead, response.month),
+    others: others.map((other) => toFeaturedItem(other, response.month)),
   };
 }
 

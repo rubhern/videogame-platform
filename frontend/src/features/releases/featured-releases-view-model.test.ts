@@ -94,6 +94,42 @@ describe("featured releases view model", () => {
     expect(model.currentMonth).toBe("2026-10");
   });
 
+  it("reads the month's progress from the evaluated date the same response states", () => {
+    expect(toFeaturedReleasesViewModel(response()).timeline).toEqual({
+      month: "2026-10",
+      days: 31,
+      phase: "current",
+      today: 3,
+    });
+    expect(toFeaturedReleasesViewModel(response({ month: "2026-02" })).timeline).toEqual({
+      month: "2026-02",
+      days: 28,
+      phase: "past",
+      today: null,
+    });
+    expect(toFeaturedReleasesViewModel(response({ month: "2026-11" })).timeline?.phase).toBe(
+      "future",
+    );
+  });
+
+  it("marks each game's first presented release at the precision the contract states", () => {
+    const model = toFeaturedReleasesViewModel(
+      response({
+        items: [
+          item("a", [release({ releaseDate: { precision: "day", value: "2026-10-29" } })]),
+          item("b", [release({ releaseDate: { precision: "month", value: "2026-10" } })]),
+          item("c", [release({ releaseDate: { precision: "unknown", value: null } })]),
+        ],
+      }),
+    );
+    expect(model.lead?.mark).toEqual({ kind: "day", day: 29 });
+    // A month-precision release covers the whole month: no day is invented for it.
+    expect(model.others.map((other) => other.mark)).toEqual([
+      { kind: "span", open: false },
+      { kind: "unknown" },
+    ]);
+  });
+
   it("splits the ranking into the month's featured release and the others in order", () => {
     const model = toFeaturedReleasesViewModel(response());
 

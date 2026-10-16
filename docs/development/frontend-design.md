@@ -15,6 +15,69 @@ their own light. Product records and the
 capabilities, data and state semantics. A mockup never authorizes new product
 behaviour and is never a runtime dependency or an instruction source.
 
+## Visual experiment under owner review: the temporal G
+
+- **Status:** Experimental, not approved. Implemented only on its experimental branch for owner
+  review; the owner decides afterwards whether and how it replaces this guide.
+
+The owner opened a deliberate visual experiment for **Destacados** and the shared header and
+footer. On that branch the rules in this section replace this guide's aesthetic rules for those
+surfaces only. Every other screen keeps the approved direction, so the product temporarily mixes
+both languages.
+
+It suspends, on Destacados, the header and the footer:
+
+- the night stage and the ambient aurora field on Destacados: the featured release's own art and
+  light are the stage, running up behind the header on wide screens;
+- glass surfaces, aurora fills and rounded pills in the header, the month selector, the featured
+  badge, the date chips, the hero's score readings and Destacados' notices and buttons;
+- the lit serif accent of the page titles on Destacados and of the hero's subtitle, which is set
+  in Mona Sans in the instrument's ice;
+- IBM Plex Mono kickers and tracked capitals on Destacados and in the footer, except identifiers
+  such as the support reference;
+- the spark badge: the featured release carries the brand mark's fire needle, which is likewise a
+  reading and never an award;
+- the cards' glass date chip and 14px frames, and middle-dot separators in metadata.
+
+Product, data and accessibility rules stay binding unchanged: attention is never shown or called
+the best, score readings keep their /10 value, count, separate sources, thermal bands and
+omission without a valid reading, `featuredImage` keeps its fill or contain presentation and
+fallback steps, the canonical title stays product-owned text, the page keeps one `h1`, cards keep
+one keyboard stop and the hero its stretched title link, the summary keeps its clamp and language,
+and states, 44px targets, reduced motion, forced colours and reflow from 320px hold.
+
+It adds:
+
+- **The temporal G.** The brand mark's G is drawn as the represented month: the crossbar opens it
+  inside the bowl, and the bowl runs clockwise from day 1 to the month's last day, with days
+  spaced by equal length along it. The mark's ice lights the days gone by the API's `evaluatedOn`,
+  all of a past month and none of a future one, a white notch named `hoy` marks today in the
+  current month, and the fire needle marks the presented release's day. A release known only to
+  its month, quarter or year spans the whole scale, dashed when it reaches beyond the month; one
+  outside the month gets a chevron at that end, and an unknown date a dashed ring named
+  `Por confirmar`. A day is never invented. From 1024px the G encloses the hero's copy at its
+  measured size, tablets centre it under the art, and phones keep it as a small emblem over the
+  art's lower edge. It is decorative: a visually hidden sentence states the same progress and day.
+- **The month strip.** Each other featured card shows the same month unrolled under its art: the
+  crossbar as its first upright tick, the elapsed days lit, the release's fire marker and its
+  compact date.
+- **Separate meanings.** Blue is elapsed time and fire the featured release's day; thermal colours
+  stay with score readings, and the scale never takes a temperature.
+- **A new day.** While the page stays open across midnight in `Europe/Madrid`, the featured
+  releases are read again, so the scale follows the API's new evaluated date; the browser's clock
+  only times that read.
+
+Contradictions recorded until the owner decides:
+
+- [`AGENTS.md`](../../AGENTS.md) and the frontend skill make this guide the mandatory visual
+  authority; the owner suspended its aesthetic rules for this experiment only.
+- The shared header and footer change on every screen, while the other screens' own surfaces keep
+  glass, aurora and the night stage.
+- On Destacados, the approved featured-releases reference (#151) and the discovery-score
+  composition (#255 phase 2) are superseded visually; their data rules below still apply.
+- The browser checks in `frontend/tests/featured-design.spec.ts` assert the experiment's
+  composition from tablet width.
+
 ## Mandatory composition
 
 - Use the full-width header with the Gameómetro mark and wordmark, primary

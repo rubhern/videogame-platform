@@ -38,7 +38,10 @@ test("the packaged featured releases read local PostgreSQL month by month", asyn
   await expect(crimson).toBeVisible();
   // October holds a single ranked game: no slot is filled artificially.
   await expect(page.getByRole("region", { name: "Otros lanzamientos destacados" })).toHaveCount(0);
-  await expect(crimson.getByText("oct 2026", { exact: true })).toBeVisible();
+  // The month-precision date stays in the release metadata; the temporal G only echoes it.
+  await expect(
+    crimson.getByRole("list", { name: "Lanzamiento" }).getByText("oct 2026", { exact: true }),
+  ).toBeVisible();
 
   await crimson.getByRole("link", { name: "Crimson Desert" }).click();
   await expect(page).toHaveURL(/\/games\/30000000-0000-4000-8000-00000000000a\/crimson-desert$/);

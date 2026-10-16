@@ -103,8 +103,8 @@ for (const width of [320, 390, 834, 1320]) {
       await expect(hero.getByText("Plataforma recién adquirida")).toBeVisible();
     } else {
       await expect(hero.locator(".featured-platform-more")).toHaveText("+2");
-      // Date, platforms and region share one row at 390px and degrade to two whole-group rows
-      // at 320px; no group ever breaks inside.
+      // Date, platforms and region share one row at 390px; narrower phones may move the region
+      // to a second row, but always as a whole group: no group ever breaks inside.
       const rows = await hero
         .locator(".featured-hero-meta > li")
         .evaluateAll((groups) =>
@@ -116,9 +116,10 @@ for (const width of [320, 390, 834, 1320]) {
       expect(rows.every((row) => row.height <= 24)).toBe(true);
       const [date, marks, region] = rows;
       expect(Math.abs((marks?.middle ?? 0) - (date?.middle ?? 99))).toBeLessThan(2);
+      const regionOnDateRow = Math.abs((region?.middle ?? 0) - (date?.middle ?? 99)) < 2;
       if (width === 390) {
-        expect(Math.abs((region?.middle ?? 0) - (date?.middle ?? 99))).toBeLessThan(2);
-      } else {
+        expect(regionOnDateRow).toBe(true);
+      } else if (!regionOnDateRow) {
         expect(region?.middle ?? 0).toBeGreaterThan((date?.middle ?? 0) + 10);
       }
     }
@@ -135,17 +136,35 @@ for (const width of [320, 390, 834, 1320]) {
     const card = await hero.boundingBox();
     const visual = await hero.locator(".featured-hero-visual").boundingBox();
     const body = await hero.locator(".featured-hero-body").boundingBox();
-    if (width >= 620) {
-      // From tablet the copy takes the hero's left, where key art keeps its logo space, and the
-      // art spans the rest to the hero's right edge.
+    if (width >= 1024) {
+      // On wide screens the copy takes the hero's left, inside the temporal G, and the art spans
+      // the rest to the hero's right edge and beyond.
       expect(body?.x ?? 1).toBeLessThan((card?.x ?? 0) + (card?.width ?? 0) * 0.1);
       expect((visual?.x ?? 0) + (visual?.width ?? 0)).toBeGreaterThanOrEqual(
         (card?.x ?? 0) + (card?.width ?? 0) - 1,
       );
     } else {
-      // Phones stack the art over the copy; the badge and wordmark settle over its faded edge.
+      // Tablets and phones stack the art over the copy, which reaches up over its faded edge.
       expect(body?.y ?? 0).toBeGreaterThan(visual?.y ?? 0);
       expect(body?.y ?? 0).toBeLessThan((visual?.y ?? 0) + (visual?.height ?? 0));
+    }
+    // The temporal G holds the copy from tablet width; phones keep it as a small emblem.
+    const enclosing = hero.locator(".featured-dial-g");
+    const emblem = hero.locator(".featured-dial-emblem");
+    if (width >= 620) {
+      await expect(enclosing).toBeVisible();
+      await expect(emblem).toBeHidden();
+      const g = await enclosing.boundingBox();
+      expect(body?.x ?? 0).toBeGreaterThan(g?.x ?? 0);
+      expect(body?.y ?? 0).toBeGreaterThan(g?.y ?? 0);
+      expect((body?.x ?? 0) + (body?.width ?? 0)).toBeLessThan((g?.x ?? 0) + (g?.width ?? 0));
+      expect((body?.y ?? 0) + (body?.height ?? 0)).toBeLessThan((g?.y ?? 0) + (g?.height ?? 0));
+    } else {
+      await expect(enclosing).toBeHidden();
+      await expect(emblem).toBeVisible();
+      // The emblem never takes over the phone: it stays a fraction of the screen.
+      const mark = await emblem.boundingBox();
+      expect((mark?.width ?? 999) * (mark?.height ?? 999)).toBeLessThan(width * 844 * 0.1);
     }
 
     // Provider logo availability never changes the product-owned canonical hero heading.
@@ -246,6 +265,69 @@ for (const width of [320, 390, 834, 1320]) {
     );
   });
 }
+
+test("the temporal G lights the month by the API's evaluated date and marks the release's day", async ({ page }) => {
+  await page.setViewportSize({ width: 1320, height: 900 });
+  // Every game's presented release falls in whichever month is asked for; in July the month's
+  // featured release is known only to the month.
+  await scriptFeatured(page, new Set(), (month) => ({
+    ...month,
+    items: month.items.map((item, index) => ({
+      ...item,
+      releases: item.releases.map((release) =>
+        index === 0 && month.month === "2026-07"
+          ? { ...release, releaseDate: { precision: "month", value: month.month } }
+          : release.releaseDate.precision === "day"
+            ? {
+                ...release,
+                releaseDate: {
+                  precision: "day",
+                  value: `${month.month}-${String(Math.min(Number(release.releaseDate.value.slice(8)), 28)).padStart(2, "0")}`,
+                },
+              }
+            : { ...release, releaseDate: { precision: "month", value: month.month } },
+      ),
+    })),
+  }));
+
+  const cases = [
+    ["/", "current", "Calendario de agosto de 2026: hoy es el día 13 de 31; lanzamiento el día 20."],
+    [
+      "/?month=2026-02",
+      "past",
+      "Calendario de febrero de 2026: mes completo, 28 de 28 días transcurridos; lanzamiento el día 20.",
+    ],
+    ["/?month=2026-11", "future", "Calendario de noviembre de 2026: el mes aún no ha empezado; lanzamiento el día 20."],
+    [
+      "/?month=2026-07",
+      "past",
+      "Calendario de julio de 2026: mes completo, 31 de 31 días transcurridos; lanzamiento sin día confirmado.",
+    ],
+  ] as const;
+  for (const [path, phase, description] of cases) {
+    await page.goto(path);
+    const hero = page.getByRole("article", { name: LEAD });
+    // The G is never the only way to read the scale.
+    await expect(hero.getByText(description, { exact: true })).toBeAttached();
+    const dial = hero.locator(".featured-dial-g");
+    await expect(dial).toBeVisible();
+    await expect(dial).toHaveClass(new RegExp(`month-dial-${phase}`));
+    // Only the current month marks today; a future month keeps the whole G unlit.
+    await expect(dial.getByText("hoy", { exact: true })).toHaveCount(phase === "current" ? 1 : 0);
+    await expect(dial.locator(".month-dial-progress")).toHaveCount(phase === "future" ? 0 : 1);
+    if (description.endsWith("sin día confirmado.")) {
+      // A release known only to its month spans the whole scale and never gets a day.
+      await expect(dial.locator(".month-dial-launch")).toHaveCount(0);
+      await expect(dial.locator(".month-dial-span")).toHaveCount(1);
+    } else {
+      await expect(dial.locator(".month-dial-launch")).toHaveText("20");
+    }
+    // Every card's unrolled scale follows the same month.
+    await expect(page.locator(".featured-card .month-strip")).toHaveCount(5);
+    await expect(page.locator(`.featured-card .month-strip-${phase}`)).toHaveCount(5);
+  }
+  await expectAccessibleLayout(page);
+});
 
 test("a provider image that cannot load steps down to the product fallback", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 900 });

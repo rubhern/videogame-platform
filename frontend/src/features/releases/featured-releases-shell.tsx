@@ -1,10 +1,9 @@
+import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
-import { CinematicStage } from "../../shared/ui/cinematic-stage";
 import { HeroTitle } from "../../shared/ui/hero-title";
 import { FeaturedCard } from "./featured-card";
 import { FeaturedHero } from "./featured-hero";
-import { SparkIcon } from "./featured-icons";
 import { FeaturedMonthSelector } from "./featured-month-selector";
 import {
   formatMonthPhrase,
@@ -12,6 +11,8 @@ import {
   type FeaturedSelectionState,
 } from "./featured-releases-view-model";
 import type { FeaturedSearch } from "./featured-search";
+import { DialSilhouette } from "./month-dial";
+import { encloseDial } from "./month-dial-geometry";
 import { readReleasesSearch, releasesSearchPath } from "./releases-search";
 
 export type FeaturedShellState =
@@ -38,6 +39,9 @@ const releasesPath = releasesSearchPath(readReleasesSearch(new URLSearchParams()
 
 /** The month's featured release and up to five more; the row never fills artificial slots. */
 const OTHER_PLACEHOLDERS = 5;
+
+/** The G a typical hero copy takes, so arriving content lands in the placeholder's frame. */
+const PLACEHOLDER_DIAL = encloseDial(450, 270);
 
 function selectionNote(selection: FeaturedSelectionState | null): string {
   return selection?.status === "ranked" && selection.stale
@@ -74,12 +78,30 @@ function FeaturedLoading() {
         <div className="featured-hero-visual">
           <span className="skeleton featured-skeleton-art" />
         </div>
-        <div className="featured-hero-body">
-          <span className="skeleton featured-skeleton-badge" />
-          <span className="skeleton featured-skeleton-title" />
-          <span className="skeleton featured-skeleton-title featured-skeleton-title-short" />
-          <span className="skeleton skeleton-meta" />
-          <span className="skeleton featured-skeleton-actions" />
+        <div
+          className="featured-dial"
+          style={
+            {
+              "--dial-pad-x": `${PLACEHOLDER_DIAL.padX}px`,
+              "--dial-pad-y": `${PLACEHOLDER_DIAL.padY}px`,
+              "--dial-w": `${PLACEHOLDER_DIAL.width}px`,
+              "--dial-h": `${PLACEHOLDER_DIAL.height}px`,
+            } as CSSProperties
+          }
+        >
+          <DialSilhouette
+            className="featured-dial-g"
+            height={PLACEHOLDER_DIAL.height}
+            shape={PLACEHOLDER_DIAL.shape}
+            width={PLACEHOLDER_DIAL.width}
+          />
+          <div className="featured-hero-body">
+            <span className="skeleton featured-skeleton-badge" />
+            <span className="skeleton featured-skeleton-title" />
+            <span className="skeleton featured-skeleton-title featured-skeleton-title-short" />
+            <span className="skeleton skeleton-meta" />
+            <span className="skeleton featured-skeleton-summary" />
+          </div>
         </div>
       </div>
       <div className="featured-others">
@@ -88,6 +110,7 @@ function FeaturedLoading() {
           {Array.from({ length: OTHER_PLACEHOLDERS }, (_, index) => (
             <div className="loading-card" key={index}>
               <div className="skeleton featured-skeleton-art" />
+              <div className="skeleton featured-skeleton-strip" />
               <div className="skeleton skeleton-title" />
               <div className="skeleton skeleton-meta" />
             </div>
@@ -131,20 +154,16 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
 
   return (
     <section aria-labelledby="featured-title" className="hero-page featured-page">
-      <CinematicStage variant="releases" />
       <div className="page-container featured-section">
         <div className="featured-heading">
-          <div className="featured-kicker-row">
-            <p className="eyebrow eyebrow-dot">Selección del mes</p>
+          <HeroTitle accent="del mes" id="featured-title" lead="Lanzamientos" />
+          <div className="featured-month-row">
+            <p className="featured-month-caption">Selección del mes</p>
             <FeaturedMonthSelector currentMonth={model?.currentMonth ?? null} month={displayMonth} />
           </div>
-          <div className="featured-title-row">
-            <HeroTitle accent="del mes" id="featured-title" lead="Lanzamientos" />
-            <p className="featured-note">
-              <SparkIcon />
-              <span>{selectionNote(showsModel ? (model?.selection ?? null) : null)}</span>
-            </p>
-          </div>
+          <p className="featured-note">
+            <span>{selectionNote(showsModel ? (model?.selection ?? null) : null)}</span>
+          </p>
         </div>
 
         <p className="sr-only" role="status">
@@ -197,7 +216,12 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
 
         {showsModel && model !== null && model.lead !== null ? (
           <>
-            <FeaturedHero key={model.lead.gameId} lead={model.lead} />
+            <FeaturedHero
+              key={model.lead.gameId}
+              lead={model.lead}
+              monthPhrase={model.monthPhrase}
+              timeline={model.timeline}
+            />
             {model.others.length === 0 ? null : (
               <section aria-labelledby="featured-others-title" className="featured-others">
                 <div className="featured-others-heading">
@@ -211,7 +235,7 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
                 <ul className="featured-row">
                   {model.others.map((item) => (
                     <li className="min-w-0" key={item.gameId}>
-                      <FeaturedCard item={item} />
+                      <FeaturedCard item={item} timeline={model.timeline} />
                     </li>
                   ))}
                 </ul>

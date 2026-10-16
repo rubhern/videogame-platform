@@ -9,19 +9,16 @@ export function CalendarIcon() {
   );
 }
 
-/** A four-pointed spark: an automatic selection, never a medal or an award. */
-export function SparkIcon() {
+/**
+ * The brand mark's fire needle, the sign of the month's featured release: a reading taken by the
+ * catalogue, never a medal or an award.
+ */
+export function NeedleIcon() {
   return (
-    <svg aria-hidden="true" className="featured-icon" fill="none" viewBox="0 0 20 20">
-      <path
-        d="M10 1.8c.5 4.3 1.9 5.7 6.2 6.2-4.3.5-5.7 1.9-6.2 6.2-.5-4.3-1.9-5.7-6.2-6.2 4.3-.5 5.7-1.9 6.2-6.2Z"
-        fill="currentColor"
-      />
-      <path
-        d="M15.6 13.2c.2 1.7.8 2.3 2.4 2.5-1.6.2-2.2.8-2.4 2.5-.2-1.7-.8-2.3-2.4-2.5 1.6-.2 2.2-.8 2.4-2.5Z"
-        fill="currentColor"
-        opacity="0.7"
-      />
+    <svg aria-hidden="true" className="featured-icon featured-needle-icon" viewBox="26 4 26 34">
+      <path d="M34.32 33.57 49.61 5.89 29.68 30.43Z" fill="currentColor" />
+      <circle cx="32" cy="32" fill="currentColor" r="4.6" />
+      <circle className="featured-needle-core" cx="32" cy="32" r="1.56" />
     </svg>
   );
 }

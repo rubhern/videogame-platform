@@ -424,10 +424,15 @@ The following external skills may provide complementary guidance:
 - `vercel-composition-patterns`;
 - `react-testing`;
 - `frontend-accessibility-best-practices`;
-- `tdd`.
+- `tdd`;
+- `frontend-design` and `redesign-existing-projects`, only for owner-requested visual
+  exploration or redesign.
 
 They are advisory. This project skill and repository sources of truth always take
-precedence.
+precedence. The two visual skills never override the
+[Frontend design guidelines](../../../docs/development/frontend-design.md); where they
+disagree, follow the guidelines unless the owner has explicitly opened a visual
+experiment, and report the disagreement either way.
 
 Examples:
 

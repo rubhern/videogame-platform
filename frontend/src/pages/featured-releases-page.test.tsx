@@ -145,6 +145,7 @@ function requestedUrl(featuredCalls: URL[], call = 0): URL {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -321,6 +322,63 @@ describe("featured releases page", () => {
 
     expect(within(heading).queryByRole("img")).toBeNull();
     expect(heading).toHaveTextContent("Juego destacado");
+  });
+
+  it("states the month's progress and the release's day in words beside the temporal G", async () => {
+    stubFeatured(featured());
+    renderApp("/");
+
+    const hero = await screen.findByRole("article", { name: "Juego destacado" });
+    // The G is decorative; the same reading, from the API's evaluated date, is text.
+    expect(
+      within(hero).getByText(
+        "Calendario de octubre de 2026: hoy es el día 3 de 31; lanzamiento el día 15.",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("never pins a release known only to its month on a day of the scale", async () => {
+    const lead = item("game-lead", "Juego destacado", "2026-10-15");
+    stubFeatured(
+      featured({
+        month: "2026-09",
+        window: { from: "2026-09-01", to: "2026-09-30" },
+        items: [
+          {
+            ...lead,
+            releases: lead.releases.map((release) => ({
+              ...release,
+              releaseDate: { precision: "month", value: "2026-09" },
+            })),
+          },
+        ],
+      }),
+    );
+    renderApp("/?month=2026-09");
+
+    const hero = await screen.findByRole("article", { name: "Juego destacado" });
+    expect(
+      within(hero).getByText(
+        "Calendario de septiembre de 2026: mes completo, 30 de 30 días transcurridos; lanzamiento sin día confirmado.",
+      ),
+    ).toBeInTheDocument();
+    expect(within(hero).getByText("septiembre de 2026")).toBeInTheDocument();
+  });
+
+  it("reads the month again when the day changes in Madrid, so the scale follows the API's day", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    // One minute before midnight in Madrid (UTC+2) on 3 October.
+    vi.setSystemTime(new Date("2026-10-03T21:59:00Z"));
+    const fetchMock = stubFeatured(featured(), featured({ evaluatedOn: "2026-10-04" }));
+    renderApp("/");
+
+    const hero = await screen.findByRole("article", { name: "Juego destacado" });
+    expect(within(hero).getByText(/hoy es el día 3 de 31/)).toBeInTheDocument();
+
+    await vi.advanceTimersByTimeAsync(70_000);
+
+    expect(await within(hero).findByText(/hoy es el día 4 de 31/)).toBeInTheDocument();
+    expect(fetchMock).toHaveLength(2);
   });
 
   it("omits the other featured releases when only one game is ranked", async () => {
