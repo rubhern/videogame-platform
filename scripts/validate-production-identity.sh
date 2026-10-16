@@ -87,6 +87,8 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
+# The same candidate must keep private-dev admission opt-in through real Compose.
+python3 scripts/test-api-admission-private-dev.py
 python3 scripts/test-production-realm.py
 
 if [[ "$inspect" != "true" ]]; then
@@ -135,7 +137,7 @@ printf '%s:%s\n' "$smtp_username" "$smtp_password" >"$run_dir/mail/smtp-auth"
 chmod 0644 "$run_dir/mail/smtp-auth"
 chmod 0700 "$run_dir/evidence"
 
-docker build --quiet --file deploy/private-dev/keycloak/Dockerfile --tag "$keycloak_image" . >/dev/null
+docker build --quiet --build-arg KEYCLOAK_EVENT_METRICS_USER_ENABLED=true --file deploy/private-dev/keycloak/Dockerfile --tag "$keycloak_image" . >/dev/null
 
 docker network create "${network_options[@]}" "$network" >/dev/null
 
@@ -208,6 +210,7 @@ docker run --detach \
   --env KC_HTTPS_CERTIFICATE_KEY_FILE="/run/pki/$identity_host.key" \
   --env KC_TRUSTSTORE_PATHS=/run/pki/ca.crt \
   --env KC_LOG_LEVEL=info \
+  --env-file "$repository_root/deploy/public-production/keycloak/abuse.env" \
   --env APPLICATION_PUBLIC_HOST="$application_host" \
   --env APPLICATION_PUBLIC_ORIGIN="https://$application_host" \
   --env KEYCLOAK_BFF_CLIENT_SECRET="$bff_client_secret" \

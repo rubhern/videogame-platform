@@ -59,6 +59,7 @@ final class CorrelationIdFilter extends OncePerRequestFilter {
                     "PRECONDITION_REQUIRED",
                     "CSRF_VALIDATION_FAILED",
                     "REQUEST_TOO_LARGE",
+                    "SERVICE_OVERLOADED",
                     "MEDIA_TYPE_UNSUPPORTED",
                     "REPRESENTATION_NOT_ACCEPTABLE",
                     "METHOD_NOT_ALLOWED",

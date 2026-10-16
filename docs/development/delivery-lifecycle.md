@@ -114,10 +114,10 @@ are distinct owner decisions. Pre-purchase criteria exclude real-host-only evide
 |---|---|---|
 | Source/release | Reviewed production contract/configuration, ADR and candidate digest with current trusted-main checks/scans/provenance; compatible migrations and recovery plan | Deployed source/digests/config fingerprint, migration/readiness/smoke receipt; previous digest and assessed rollback/forward recovery |
 | Provider/media | Terms/attribution/derivative/media assessment and fallback; resolve or disable disputed media; bounded sync and no request-path provider access | Credentialed acquisition at permitted rates, provenance/attribution and public CDN/fallback behaviour |
-| Accounts/privacy | Minimum profile, legal basis/notice/contact/age/retention and rights procedure; synthetic deletion/export/restore tests, including interrupted and repeated deletions; immediate revocation of a disabled/deleted account's open session; SMTP route/terms/budget selected; verified signup/reset and abuse tests, including no email enumeration at registration | Applicable processor agreement before personal data; actual email/recovery, two-account ownership/CSRF/session evidence, no local seed users |
+| Accounts/privacy | Minimum profile, legal basis/notice/contact/age/retention and rights procedure; synthetic deletion/export/restore tests, including interrupted and repeated deletions; immediate revocation of a disabled/deleted account's open session; SMTP route/terms/budget selected; verified signup/reset and abuse tests, including a measured registration/recovery disclosure assessment and the [owner-accepted conditional R17 risk](#r17-conditional-acceptance-and-opening-conditions) | Applicable processor agreement before personal data; actual email/recovery, two-account ownership/CSRF/session evidence, no local seed users; R17 compensatory controls verified before public registration opens |
 | HTTPS/isolation | Static proxy allowlist/trust model, production realm/client/origins, [canonical issuer contract](../architecture/deployment/mvp-platform-and-delivery.md#canonical-issuer-contract), networks and denied management routes tested with local HTTPS | DNS/ACME issuance and renewal path, certificate-state persistence; independent public IPv4/IPv6 checks; private SSH/admin/telemetry; no DB/management/Docker ports; spoofed-host/header rejection; issuer contract check and browser cookie/storage re-inventory with the real hostnames before the first account |
 | Secrets | Consumer-specific file permissions, rotation/reconstruction and independent production-secret plan; no real secrets in CI/image/repo | Effective protected-file permissions, service/file rotation consistency, private break-glass admin and independent reconstruction material |
-| Capacity/abuse | Representative fixture/workload, resource/job budgets and stop criteria; controlled overload and signup/login limits tested | CPU steal/I/O/memory/network and bounded qualification, cold-model/new-game sample, recovery, >=20% available memory and >=25% free disk, no OOM/swap thrashing; restart/reboot behaviour |
+| Capacity/abuse | Representative fixture/workload, resource/job budgets and stop criteria; controlled overload and signup/login/recovery limits tested; API admission opt-in with experimental values only | CPU steal/I/O/memory/network and bounded qualification, calibrated admission decision/values (#275/#276), cold-model/new-game sample, recovery, >=20% available memory and >=25% free disk, no OOM/swap thrashing; restart/reboot behaviour |
 | Backup/recovery | Paired encrypted backup/retention logic, isolated restore tests and reconstruction rehearsal; independent destination/copy/check cadence selected | Verified off-host pair, identity/rating consistency; actual host-loss reconstruction/restore, deletion reapplication and achieved RPO/RTO |
 | Observability/operation | Safe bounded telemetry/log retention and private notifications; update/incident/backup-age procedures; best-effort limitations/contact | Private dashboards, failed-backup/disk/error/certificate notification, redacted diagnostics, closing signup/edge and stop-sync controls |
 
@@ -146,6 +146,63 @@ retrieval, logout and recovery. Reassess versions for actual implementation;
 #251's milestone is planning, not permission to change current artefact versions
 in this documentation spike. Private-dev retirement is separately considered after
 launch, with protected-state/evidence preservation.
+
+### R17 conditional acceptance and opening conditions
+
+**Owner decision, 2026-10-17 (#274): conditionally accept the residual account
+enumeration risk of native Keycloak registration and the observed recovery timing
+branch.** Keep self-registration available to any adult under the approved account
+policy; do not develop a custom Keycloak extension. This replaces the absolute
+registration non-enumeration criterion, not the other accounts/privacy, isolation,
+capacity or exposure gates. It approves a risk treatment, **not public opening or
+completion of its conditions**. The [R17 assessment](../research/public-release-rights-and-privacy.md#76-abuse-increment-and-r17-reassessment)
+records exactly what is disclosed, measured response differences, proportionality,
+standard alternatives and extension cost.
+
+An existing submitted email can be distinguished from a new one at registration,
+including an unverified pending account. Recovery has a generic visible response but
+SMTP-dependent timing. This does not expose passwords, tokens, personal ratings or
+prove verified/active membership. Targeted inference, credential stuffing and mail
+abuse remain possible. Acceptance is proportionate to the adult, non-commercial
+videogame context with private personal data and no sensitive-topic membership;
+custom authentication code would add security and upgrade-maintenance risk. It is
+not a claim of anonymity, timing indistinguishability or legal certification.
+
+All of the following must be implemented and verified **before opening public
+registration**, with actual proxy/VPS evidence supplied by #275/#276 where relevant:
+
+- Keep the approved verified-email-before-use, password, temporary per-account
+  brute-force, session/revocation and exact-origin/redirect policies. Preserve
+  principal-derived ownership and CSRF; verify two-user isolation and safe recovery.
+  Existing disposable evidence is preparation, not acceptance of a deployed realm.
+- Apply bounded signup, authentication, reset and verification-resend/action request
+  limits at the public edge, including direct browser access to Keycloak and BFF
+  navigation. Test aggregate/source controls, shared-IP legitimate users, IPv6,
+  safe quota/overload responses and recovery. Derive source identity only from the
+  transport peer or explicitly trusted proxy peers; spoofed headers must not bypass
+  limits. Deny direct upstream and management exposure. These controls are pending;
+  neither Keycloak's worker budget nor the optional API interceptor substitutes for them.
+- Verify the actual SMTP delivery/failure/queue paths and an exercised quota/abuse
+  response that protects recovery availability. Observe all mail-triggering paths
+  against the shared provider allowance; minute-level request limits do not prove a
+  daily mail reserve. Synthetic bursts use Mailpit only; no mass real mail or paid
+  upgrade is authorized.
+- Collect private, bounded security/overload signals with proven collection and owner
+  notification. Verify redaction, log age/volume limits and metrics retention per
+  [observability](observability.md#identity-and-overload-security-signals), including
+  SMTP failure diagnostics. No emails, raw IPs, account IDs or tokens in metric labels,
+  no default personal event logging. Missing observations are unknown, not proof of no abuse.
+- Record the achieved conditions, residual limitations and incident response in the
+  real-host acceptance evidence; obtain the separate owner exposure go/no-go. Keep
+  the remaining privacy/legal/provider gates intact. Calibrate API admission through
+  capacity tests in #275/#276: 8/2 are experimental settings, not approved production
+  limits, and enabling this optional mechanism is not itself a requirement or evidence.
+
+Reopen R17 on targeted abuse, sustained quota exhaustion, materially greater exposure
+or user harm, sensitive scope/public profiles/younger audiences, an upstream native
+solution, or a materially cheaper maintainable fix. Until the pending conditions
+are verified, public registration must not be exposed; the prepared realm keeps
+native self-registration enabled for restricted/disposable validation.
 
 ## Definition of Done
 

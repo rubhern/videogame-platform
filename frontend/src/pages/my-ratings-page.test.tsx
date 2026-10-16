@@ -316,3 +316,30 @@ describe("Mis puntuaciones", () => {
     expect(await screen.findByText("Élite Dangerous")).toBeVisible();
   });
 });
+
+
+it("keeps a session overload distinct from anonymous and recovers only on deliberate retry", async () => {
+  let sessionReads = 0;
+  const fetchMock = vi.fn<typeof fetch>().mockImplementation(async input => {
+    const request = input instanceof Request ? input : new Request(input);
+    if (new URL(request.url).pathname === "/api/v1/session") {
+      sessionReads++;
+      return sessionReads === 1
+        ? Response.json({ code: "SERVICE_OVERLOADED" }, { status: 503, headers: { "Retry-After": "1" } })
+        : Response.json({ authenticated: true, csrfToken: "csrf" });
+    }
+    return Response.json(page());
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  renderApp("/mis-puntuaciones");
+
+  expect(await screen.findByText("No se pudo comprobar tu sesión.")).toBeVisible();
+  expect(screen.queryByText("Necesitas una sesión activa")).not.toBeInTheDocument();
+  expect(sessionReads).toBe(1);
+  expect(listReads(fetchMock)).toHaveLength(0);
+
+  await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+  expect(await screen.findByRole("article", { name: "Élite Dangerous" })).toBeVisible();
+  expect(sessionReads).toBe(2);
+  expect(listReads(fetchMock)).toHaveLength(1);
+});

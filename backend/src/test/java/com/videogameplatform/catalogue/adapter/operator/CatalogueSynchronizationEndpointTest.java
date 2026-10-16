@@ -47,7 +47,7 @@ class CatalogueSynchronizationEndpointTest {
                                 "SYNCHRONIZATION_DISABLED",
                                 new CatalogueSynchronizationReport.Counters(
                                         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                        0, 0, 0, 0, 0, 0, 0));
+                                        0, 0, 0, 0, 0, 0, 0, 0));
                     }
                 };
         var endpoint =

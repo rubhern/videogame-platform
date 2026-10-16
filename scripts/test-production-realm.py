@@ -198,3 +198,25 @@ assert "*" not in json.dumps(client), "no wildcard origin or redirect"
 assert not any(name.startswith("backchannel.") for name in client_attributes), "ADR-0027: no back-channel logout"
 
 print("Production realm import is isolated, minimal and matches the reviewed identity policy.")
+
+# --- Abuse runtime policy is independent from the imported realm and shared by rehearsal ---
+policy_path = repository_root / "deploy/public-production/keycloak/abuse.env"
+runtime = dict(line.split("=", 1) for line in policy_path.read_text().splitlines()
+               if line and not line.startswith("#"))
+assert runtime["KC_HTTP_POOL_MAX_THREADS"] == "8"
+assert runtime["KC_HTTP_MAX_QUEUED_REQUESTS"] == "16"
+assert runtime["KC_DB_POOL_MAX_SIZE"] == "5"
+assert runtime["KC_DB_POOL_INITIAL_SIZE"] == runtime["KC_DB_POOL_MIN_SIZE"] == "1"
+assert runtime["KC_EVENT_METRICS_USER_TAGS"] == "realm"
+assert set(runtime["KC_EVENT_METRICS_USER_EVENTS"].split(",")) == {
+    "login", "register", "verify_email", "send_verify_email", "send_reset_password",
+    "reset_password", "user_disabled_by_temporary_lockout",
+}
+private_compose = (repository_root / "deploy/private-dev/compose.yaml").read_text()
+for name, value in runtime.items():
+    assert re.search(r"^\s+" + re.escape(name) + r': "?' + re.escape(value) + r'"?$',
+                     private_compose, re.MULTILINE), name
+runner = (repository_root / "scripts/validate-production-identity.sh").read_text()
+assert "--build-arg KEYCLOAK_EVENT_METRICS_USER_ENABLED=true" in runner
+assert '--env-file "$repository_root/deploy/public-production/keycloak/abuse.env"' in runner
+print("Bounded identity runtime and native security metrics are selected for disposable proof.")

@@ -439,10 +439,11 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         release("10", "2026-01-01"),
                         release("11", "2026-02-01"),
                         release("12", "2026-03-01")));
-        provider.works.put("101", work("101", release("20", "2026-04-01")));
+        provider.works.put(
+                "101", work("101", release("20", "2026-04-01"), release("22", "2026-04-02")));
         service.synchronize(WINDOW);
         jdbc.update(
-                "UPDATE catalogue.release_snapshot s SET source_kind='product_curated',source_name='Product',source_entity_type='curation' FROM catalogue.release_external_reference r WHERE s.release_id=r.release_id AND r.provider_id='11'");
+                "UPDATE catalogue.release_snapshot s SET source_kind='product_curated',source_name='Product',source_entity_type='curation' FROM catalogue.release_external_reference r WHERE s.release_id=r.release_id AND r.provider_id IN ('11','22')");
         jdbc.update(
                 "UPDATE catalogue.release_snapshot s SET verification_level='verified',last_verified_at=now() FROM catalogue.release_external_reference r WHERE s.release_id=r.release_id AND r.provider_id='12'");
 
@@ -455,10 +456,9 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                         release("10", "2026-01-01"),
                         release("11", "2026-02-01"),
                         release("12", "2026-03-15")));
-        // Game 101 fails inside its own transaction after updating release 20: two references
-        // collide on the durable product tuple, so the whole Game rolls back.
-        provider.works.put(
-                "101", work("101", release("20", "2026-04-02"), release("21", "2026-04-02")));
+        // Game 101 fails inside its own transaction: release 20 moves onto the tuple curated
+        // release 22 holds, so PostgreSQL rejects it and the whole Game rolls back.
+        provider.works.put("101", work("101", release("20", "2026-04-02")));
         var partial = serviceAt(later).synchronize(WINDOW);
 
         assertThat(partial.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
@@ -513,10 +513,14 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
     @Test
     void failureAfterDeletionRollsBackRemovalCreationTitleAndRevisionButOtherGameSucceeds() {
         provider.rows = List.of(new Row(10, "100"));
-        provider.works.put("100", work("100", release("10", "2026-05-01")));
+        provider.works.put(
+                "100", work("100", release("10", "2026-05-01"), release("11", "2026-10-02")));
         service.synchronize(WINDOW);
+        jdbc.update(
+                "UPDATE catalogue.release_snapshot s SET source_kind='product_curated',source_name='Product',source_entity_type='curation' FROM catalogue.release_external_reference r WHERE s.release_id=r.release_id AND r.provider_id='11'");
         var before = store.loadGame("100", 25).orElseThrow();
-        // Two returned references violate the durable product tuple constraint after old deletion.
+        // After the obsolete release 10 is deleted, new release 20 repeats the tuple of curated
+        // release 11, which synchronization neither owns nor removes: PostgreSQL rejects it.
         provider.rows = List.of(new Row(20, "100"), new Row(30, "101"));
         provider.works.put(
                 "100",
@@ -529,7 +533,7 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                                 new ProviderCover("new_cover", "https://www.igdb.com/games/game")),
                         List.of(),
                         Optional.empty(),
-                        List.of(release("20", "2026-10-02"), release("21", "2026-10-02")),
+                        List.of(release("20", "2026-10-02")),
                         List.of()));
         provider.works.put("101", work("101", release("30", "2026-10-03")));
         var result = service.synchronize(WINDOW);
@@ -537,7 +541,7 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         assertThat(result.counters().deletedReleases()).isZero();
         assertThat(store.loadGame("100", 25)).contains(before);
         assertThat(store.loadGame("101", 25)).isPresent();
-        assertThat(count("game_release")).isEqualTo(2);
+        assertThat(count("game_release")).isEqualTo(3);
     }
 
     @Test
