@@ -99,11 +99,22 @@ and content tracking for these skills.
 | `vercel-composition-patterns` | React 19 composition and component-API guidance. | `vercel-labs/agent-skills` | `skills/composition-patterns` | `dd089a8c752c966dee8bf0f27cb625ba193ffd9e` | MIT declared in skill frontmatter; no separate upstream license notice at this commit | 2026-08-22 | `vendored-unmodified` |
 | `react-testing` | Behavior-focused React, Vitest/RTL, accessibility, and E2E test-boundary guidance. | `affaan-m/ecc` | `skills/react-testing` | `d8409a4b0813771235555e32e3d8046a73988bfa` | MIT; Copyright (c) 2026 Affaan Mustafa | 2026-08-22 | `vendored-unmodified` |
 | `frontend-accessibility-best-practices` | React accessibility guidance for semantics, keyboard, focus, announcements, motion, and touch. | `sergiodxa/agent-skills` | `skills/frontend-accessibility-best-practices` | `40e21b46189d5c7de6610b68a25280af863f8775` | MIT; Copyright (c) 2026 Sergio Xalambrí | 2026-08-22 | `vendored-unmodified` |
+| `frontend-design` | Visual-direction guidance for distinctive, non-templated interfaces; advisory input to owner-requested visual exploration, never above the frontend design guidelines. | `anthropics/skills` | `skills/frontend-design` | `dbd4588f9e1033efb41dad4bef2f7947c8993d44` | Apache-2.0; notice in the vendored `LICENSE.txt` | 2026-10-16 | `vendored-unmodified` |
+| `redesign-existing-projects` | Audit-first redesign of an existing interface that removes generic generated-UI patterns without breaking behaviour. | `Leonxlnx/taste-skill` | `skills/redesign-skill` | `f624f37a8c650b9cc550253104925efe4c8de246` | MIT; Copyright (c) 2026 Leonxlnx | 2026-10-16 | `vendored-unmodified` |
 
 Available upstream MIT notices are preserved under
 [`.agents/skills/licenses/`](../../.agents/skills/licenses). The Vercel skills carry
 their MIT declaration in their unmodified `SKILL.md` frontmatter; the pinned upstream
-commit does not contain a separate license notice to copy.
+commit does not contain a separate license notice to copy. `frontend-design` ships its
+Apache-2.0 notice inside the skill directory, so the vendored tree preserves it.
+
+`redesign-existing-projects` is installed under its frontmatter name, which differs
+from its upstream directory. Its upstream repository's default skill (`taste-skill`)
+was not vendored: it targets public marketing pages and runs scripts that fetch
+third-party imagery, which the catalogue's provider artwork rules exclude. The two
+visual skills recommend practices that the
+[frontend design guidelines](frontend-design.md) reject; outside an owner-requested
+experiment, the guidelines win.
 
 The unmodified `react-testing` entrypoint contains optional cross-links to other ECC
 skills and repository-level rules outside its upstream skill directory. Those packages

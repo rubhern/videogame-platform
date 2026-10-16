@@ -149,6 +149,8 @@ required_files=(
   ".agents/skills/vercel-composition-patterns/SKILL.md"
   ".agents/skills/react-testing/SKILL.md"
   ".agents/skills/frontend-accessibility-best-practices/SKILL.md"
+  ".agents/skills/frontend-design/SKILL.md"
+  ".agents/skills/redesign-existing-projects/SKILL.md"
   ".github/dependabot.yml"
   ".github/workflows/dependency-submission.yml"
   ".github/workflows/build-and-verify.yml"

@@ -161,10 +161,6 @@
     .discovery-scores-hero .discovery-score-count { font-size: 0.75rem; }
   }
 
-  @media (min-width: 620px) {
-    .featured-hero:has(.discovery-scores) .featured-hero-body { gap: 8px; padding-block: 20px; }
-  }
-
   @media (forced-colors: active) {
     .discovery-score-source b { color: CanvasText; }
     .discovery-score-attribution { background: black; forced-color-adjust: none; }

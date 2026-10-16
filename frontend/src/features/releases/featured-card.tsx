@@ -6,20 +6,29 @@ import { SelectIcon } from "../../shared/ui/select-icon";
 import { FeaturedArtFrame } from "./featured-art";
 import type { FeaturedItem } from "./featured-releases-view-model";
 import { DiscoveryScores } from "../../shared/score/discovery-scores";
+import { MonthStrip } from "./month-strip";
+import type { MonthTimeline } from "./month-timeline";
 import { ReleaseOverflow } from "./release-overflow";
 
 /** A compact row shows up to three platform marks and the exact number of further platforms. */
 const VISIBLE_PLATFORMS = 3;
 
 /**
- * One of the other featured releases, designed for wide artwork: the landscape frame carries the
- * first presented release's date, and a screenshot, which never carries a title of its own, gets
- * the game's logo over it; artwork often carries its own and is shown as it is. Below the frame the
- * title is the card's only keyboard stop, then that release's platforms as marks and its region.
- * Every platform stays named for assistive technology, and further releases stay reachable behind
- * the overflow control.
+ * One of the other featured releases, designed for wide artwork: a screenshot, which never carries
+ * a title of its own, gets the game's logo over it; artwork often carries its own and is shown as
+ * it is. Under the frame the month's scale marks the first presented release's date. Then the
+ * title is the card's only keyboard stop, followed by that release's platforms as marks and its
+ * region. Every platform stays named for assistive technology, and further releases stay reachable
+ * behind the overflow control.
  */
-export function FeaturedCard({ item }: { item: FeaturedItem }) {
+export function FeaturedCard({
+  item,
+  timeline,
+}: {
+  item: FeaturedItem;
+  /** The represented month; null only when the response's dates are malformed. */
+  timeline: MonthTimeline | null;
+}) {
   const gamePath = `/games/${item.gameId}/${item.slug}`;
   const [primaryGroup, ...hiddenGroups] = item.releaseGroups;
   const [logoFailed, setLogoFailed] = useState(false);
@@ -47,12 +56,10 @@ export function FeaturedCard({ item }: { item: FeaturedItem }) {
             />
           )}
         </Link>
-        {primaryGroup === undefined ? null : (
-          <span aria-hidden="true" className="card-date-badge">
-            {primaryGroup.shortDate}
-          </span>
-        )}
       </div>
+      {timeline === null || primaryGroup === undefined ? null : (
+        <MonthStrip label={primaryGroup.shortDate} mark={item.mark} timeline={timeline} />
+      )}
       <div className="featured-card-body">
         <h3 className="featured-card-title">
           <Link title={item.title} to={gamePath}>

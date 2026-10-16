@@ -184,21 +184,6 @@
     );
   }
 
-  /* Hairline of aurora light along the very top of the product. */
-  .site-header::before {
-    position: absolute;
-    inset: 0 0 auto;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      color-mix(in srgb, var(--color-accent) 70%, transparent) 20%,
-      color-mix(in srgb, var(--color-aurora) 50%, transparent) 55%,
-      transparent
-    );
-    content: "";
-  }
-
   .header-layout {
     display: flex;
     align-items: center;
@@ -276,11 +261,12 @@
   }
 
   .nav-link {
+    position: relative;
     display: inline-flex;
     min-height: 44px;
     align-items: center;
     flex: none;
-    border-radius: 999px;
+    border-radius: 4px;
     padding: 10px 16px;
     color: var(--color-muted);
     font-size: 0.875rem;
@@ -301,15 +287,24 @@
 
   .nav-link:hover {
     color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-ink) 8%, transparent);
   }
 
+  /* The current section reads like the instrument's selector: ink, with a short bar of the brand
+     needle's fire beneath it. */
   .nav-link[aria-current="page"] {
-    color: #0b0f1a;
-    background: var(--aurora);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
-      0 10px 26px -12px color-mix(in srgb, var(--color-accent) 100%, transparent);
+    color: var(--color-ink);
+  }
+
+  .nav-link[aria-current="page"]::after {
+    position: absolute;
+    bottom: 5px;
+    left: 50%;
+    width: 22px;
+    height: 2px;
+    border-radius: 1px;
+    background: linear-gradient(90deg, #ff4b3e, #ffb35c);
+    content: "";
+    transform: translateX(-50%);
   }
 
   .header-search {
@@ -320,13 +315,11 @@
     flex: 1 1 100%;
     align-items: center;
     gap: 10px;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 11px 18px;
-    background: var(--glass);
-    box-shadow: var(--glass-highlight);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 11px 16px;
+    background: #090d14;
+    box-shadow: inset 0 1px 2px color-mix(in srgb, #000 60%, transparent);
   }
 
   .catalogue-search-control {
@@ -359,11 +352,9 @@
 
   .header-search:focus-within {
     border-color: color-mix(in srgb, var(--color-accent) 80%, transparent);
-    background: var(--glass-strong);
     box-shadow:
-      var(--glass-highlight),
-      0 0 0 4px color-mix(in srgb, var(--color-accent) 18%, transparent),
-      0 22px 50px -24px color-mix(in srgb, var(--color-accent) 90%, transparent);
+      inset 0 1px 2px color-mix(in srgb, #000 60%, transparent),
+      0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
   }
 
   .header-search:focus-within .search-icon,
@@ -399,7 +390,7 @@
   .header-search kbd {
     display: none;
     border: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
-    border-radius: 6px;
+    border-radius: 3px;
     padding: 2px 7px;
     color: var(--color-subtle);
     background: color-mix(in srgb, var(--color-ink) 5%, transparent);
@@ -462,7 +453,7 @@
     min-height: 44px;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: 6px;
     padding: 8px 14px;
     font-size: 0.75rem;
     font-weight: 600;
@@ -472,20 +463,23 @@
 
   .account-signin {
     color: var(--color-canvas);
-    background: var(--aurora);
-    border: 1px solid var(--color-accent);
-    box-shadow: var(--glass-highlight);
+    background: #dbe7ff;
+    border: 1px solid #dbe7ff;
+  }
+
+  .account-signin:hover {
+    background: #fff;
   }
 
   .account-register {
     color: var(--color-muted);
-    border: 1px solid var(--glass-border);
-    background: var(--glass);
+    border: 1px solid transparent;
   }
 
   .account-register:hover {
     color: var(--color-ink);
-    border-color: var(--color-accent);
+    text-decoration: underline;
+    text-underline-offset: 4px;
   }
 
   .account-logout-error { max-width: 220px; padding: 8px 12px; color: var(--color-danger); font-size: 0.8125rem; }
@@ -496,17 +490,14 @@
     align-items: center;
     justify-content: center;
     gap: 9px;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
+    border: 1px solid var(--color-line);
+    border-radius: 8px;
     padding: 6px 13px 6px 6px;
     color: var(--color-ink);
-    background: var(--glass);
-    box-shadow: var(--glass-highlight);
+    background: #090d14;
     font-size: 0.8125rem;
     font-weight: 600;
     white-space: nowrap;
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
   }
 
   .account-anonymous-trigger { display: none; }
@@ -523,8 +514,7 @@
   .account-trigger:hover,
   .account-trigger[aria-expanded="true"] {
     border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
-    background: var(--glass-strong);
-    box-shadow: var(--glow-accent);
+    background: #0e131c;
   }
 
   .account-avatar {
@@ -534,8 +524,8 @@
     height: 28px;
     flex: none;
     overflow: hidden;
-    border-radius: 50%;
-    background: var(--aurora);
+    border-radius: 6px;
+    background: #dbe7ff;
   }
 
   .account-avatar::before,
@@ -577,12 +567,10 @@
     right: 0;
     min-width: 220px;
     padding: 6px;
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    background: var(--glass-solid);
-    box-shadow: var(--glass-highlight), var(--elevation-lift);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--color-line);
+    border-radius: 10px;
+    background: var(--color-surface);
+    box-shadow: var(--elevation-lift);
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -598,7 +586,7 @@
     align-items: center;
     gap: 11px;
     border: 0;
-    border-radius: 10px;
+    border-radius: 6px;
     padding: 9px 12px;
     color: var(--color-ink);
     background: transparent;
@@ -1250,18 +1238,12 @@
     );
   }
 
-  /* A horizon of light closes every page. */
+  /* A quiet horizon closes every page. */
   .site-footer::before {
     position: absolute;
     inset: 0 0 auto;
     height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      color-mix(in srgb, var(--color-accent) 55%, transparent) 30%,
-      color-mix(in srgb, var(--color-aurora) 45%, transparent) 70%,
-      transparent
-    );
+    background: var(--color-line);
     content: "";
   }
 
@@ -1273,10 +1255,8 @@
     gap: 8px 18px;
     padding-block: 26px;
     color: var(--color-subtle);
-    font-family: var(--font-mono);
-    font-size: 0.625rem;
-    letter-spacing: 0.24em;
-    text-transform: uppercase;
+    font-size: 0.8125rem;
+    font-weight: 600;
   }
 
   .site-footer-brand {
@@ -1335,19 +1315,13 @@
       order: 2;
       flex: none;
       margin: 0;
-      padding: 4px;
+      padding: 0;
       overflow: visible;
-      border: 1px solid var(--glass-border);
-      border-radius: 999px;
-      background: var(--glass);
-      box-shadow: var(--glass-highlight);
-      -webkit-backdrop-filter: var(--glass-blur);
-      backdrop-filter: var(--glass-blur);
     }
 
     .nav-link {
-      min-height: 38px;
-      padding: 8px 16px;
+      min-height: 44px;
+      padding: 8px 14px;
     }
 
     .account-control {
@@ -1491,7 +1465,7 @@
       width: 44px;
       height: 44px;
       padding: 0;
-      border-radius: 50%;
+      border-radius: 8px;
     }
 
     .account-label, .account-chevron { display: none; }
@@ -1507,10 +1481,10 @@
       min-width: 210px;
       gap: 6px;
       padding: 8px;
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      background: var(--glass-solid);
-      box-shadow: var(--glass-highlight), var(--elevation-lift);
+      border: 1px solid var(--color-line);
+      border-radius: 10px;
+      background: var(--color-surface);
+      box-shadow: var(--elevation-lift);
     }
 
     .primary-nav {
@@ -1546,18 +1520,14 @@
       height: 44px;
       align-items: center;
       justify-content: center;
-      border: 1px solid var(--glass-border);
-      border-radius: 50%;
-      background: var(--glass);
-      box-shadow: var(--glass-highlight);
+      border: 1px solid var(--color-line);
+      border-radius: 8px;
+      background: #090d14;
       color: var(--color-ink);
-      -webkit-backdrop-filter: var(--glass-blur);
-      backdrop-filter: var(--glass-blur);
     }
 
     .mobile-search-trigger:hover {
       border-color: var(--color-accent);
-      box-shadow: var(--glow-accent);
     }
 
     .mobile-search-trigger .search-icon {
@@ -1577,13 +1547,11 @@
       width: calc(100vw - 32px);
       max-width: 480px;
       margin-inline: auto;
-      border: 1px solid var(--glass-border);
-      border-radius: 22px;
+      border: 1px solid var(--color-line);
+      border-radius: 12px;
       padding: 12px;
-      background: var(--glass-solid);
-      box-shadow: var(--glass-highlight), var(--elevation-lift);
-      -webkit-backdrop-filter: var(--glass-blur);
-      backdrop-filter: var(--glass-blur);
+      background: var(--color-surface);
+      box-shadow: var(--elevation-lift);
     }
 
     .mobile-search-dialog::backdrop {
@@ -1606,8 +1574,8 @@
       width: 44px;
       height: 44px;
       flex: none;
-      border: 1px solid var(--glass-border);
-      border-radius: 50%;
+      border: 1px solid var(--color-line);
+      border-radius: 8px;
       color: var(--color-muted);
       background: color-mix(in srgb, var(--color-ink) 6%, transparent);
       font-size: 1.5rem;
@@ -1634,13 +1602,8 @@
       order: 5;
       flex: 1 1 100%;
       margin: 0;
-      border: 1px solid var(--glass-border);
-      border-radius: 999px;
-      padding: 3px;
-      background: var(--glass);
-      box-shadow: var(--glass-highlight);
-      -webkit-backdrop-filter: var(--glass-blur);
-      backdrop-filter: var(--glass-blur);
+      border-top: 1px solid var(--color-line);
+      padding: 0;
     }
 
     .nav-link {
