@@ -76,8 +76,8 @@ export function ReleaseOverflow({ title, hiddenReleaseCount, groups }: ReleaseOv
           <ul className="release-overflow-list">
             {groups.map((group) => (
               <li key={group.key}>
-                <span className="search-release-date">{group.date}</span>
-                <span className="card-platform">
+                <span className="release-overflow-date">{group.date}</span>
+                <span>
                   {group.platforms.join(" · ")} · {group.region}
                 </span>
                 {group.review ? (

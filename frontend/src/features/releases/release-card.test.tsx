@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ReleaseCard } from "./release-card";
 import type { ReleaseContextGroup, ReleaseListItem } from "./releases-view-model";
@@ -11,6 +11,7 @@ function group(overrides: Partial<ReleaseContextGroup> = {}): ReleaseContextGrou
     key: "day|2026-09-24|worldwide",
     date: "24 de septiembre de 2026",
     shortDate: "24 sep 2026",
+    day: "2026-09-24",
     region: "Mundial",
     platforms: ["PlayStation 5"],
     platformIds: ["playstation-5"],
@@ -41,19 +42,27 @@ function item(overrides: Partial<ReleaseListItem> = {}): ReleaseListItem {
   };
 }
 
-function renderCard(model: ReleaseListItem = item()) {
+function renderCard(model: ReleaseListItem = item(), onPoint?: (day: string | null) => void) {
   return render(
     <MemoryRouter>
-      <ReleaseCard item={model} />
+      <ReleaseCard item={model} {...(onPoint === undefined ? {} : { onPoint })} />
     </MemoryRouter>,
   );
+}
+
+/** The platform names a card's release line announces, in order. */
+function platformNames(title = "The Witcher IV") {
+  return within(screen.getByRole("list", { name: `Plataformas de ${title}` }))
+    .getAllByRole("listitem")
+    .map((platform) => platform.textContent);
 }
 
 describe("release card", () => {
   it("shows only two genres beside the preserved release context", () => {
     renderCard(item({ genres: [{ genreId: "rpg", name: "Rol" }, { genreId: "action", name: "Acción" }, { genreId: "hidden", name: "Hidden genre" }] }));
     expect(screen.getByLabelText("Géneros: Rol · Acción")).toBeVisible();
-    expect(screen.getByText("PlayStation 5 · Mundial")).toBeVisible();
+    expect(platformNames()).toEqual(["PlayStation 5"]);
+    expect(screen.getByText("Mundial")).toBeVisible();
     expect(screen.queryByText("Hidden genre")).not.toBeInTheDocument();
   });
   it("shows an approved provider cover without the caption the game page owns", () => {
@@ -81,9 +90,10 @@ describe("release card", () => {
     renderCard(item({ releaseGroups: [group({ platforms: ["PlayStation 5"] })] }));
 
     expect(screen.getByText("24 de septiembre de 2026")).toBeInTheDocument();
-    // The cover chip repeats the date compactly for sight only; the row reads it in full.
+    // The needle's date line repeats the date compactly for sight only; the row reads it in full.
     expect(screen.getByText("24 sep 2026")).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByText("PlayStation 5 · Mundial")).toBeInTheDocument();
+    expect(platformNames()).toEqual(["PlayStation 5"]);
+    expect(screen.getByText("Mundial")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /lanzamientos más/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "The Witcher IV" })).toHaveAttribute(
       "href",
@@ -100,10 +110,44 @@ describe("release card", () => {
       }),
     );
 
-    expect(
-      screen.getByText("PlayStation 5 · Windows PC · Xbox Series X|S · Mundial"),
-    ).toBeInTheDocument();
+    expect(platformNames()).toEqual(["PlayStation 5", "Windows PC", "Xbox Series X|S"]);
+    expect(screen.getByText("Mundial")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /lanzamientos más/ })).not.toBeInTheDocument();
+  });
+
+  it("draws three platform marks and counts the rest, still naming every platform", () => {
+    renderCard(
+      item({
+        releaseGroups: [
+          group({
+            platforms: ["PlayStation 5", "Windows PC", "Xbox Series X|S", "Nintendo Switch 2", "Plataforma nueva"],
+            platformIds: ["playstation-5", "windows-pc", "xbox", "switch-2", "new"],
+            releaseCount: 5,
+          }),
+        ],
+      }),
+    );
+
+    expect(platformNames()).toEqual([
+      "PlayStation 5",
+      "Windows PC",
+      "Xbox Series X|S",
+      "Nintendo Switch 2",
+      "Plataforma nueva",
+    ]);
+    expect(screen.getByText("+2")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("reports its release day while pointed at or focused, for the window's scale", async () => {
+    const user = userEvent.setup();
+    const onPoint = vi.fn();
+    renderCard(item(), onPoint);
+
+    await user.tab();
+    expect(screen.getByRole("link", { name: "The Witcher IV" })).toHaveFocus();
+    expect(onPoint).toHaveBeenLastCalledWith("2026-09-24");
+    await user.tab();
+    expect(onPoint).toHaveBeenLastCalledWith(null);
   });
 
   it("hides the other release groups behind a control counting hidden releases", async () => {
@@ -132,7 +176,7 @@ describe("release card", () => {
     );
 
     // Only the first group is a visible row.
-    expect(screen.getByText("PlayStation 5 · Mundial")).toBeInTheDocument();
+    expect(platformNames()).toEqual(["PlayStation 5"]);
     const trigger = screen.getByRole("button", { name: "+ 3 lanzamientos más" });
     expect(trigger).toHaveAttribute("aria-expanded", "false");
     // Hidden content is not rendered until opened.

@@ -5,7 +5,8 @@ import { platformIcon } from "../../shared/catalogue/taxonomy-icons";
 import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { SelectIcon } from "../../shared/ui/select-icon";
 import { FeaturedArtFrame } from "./featured-art";
-import { CalendarIcon, NeedleIcon } from "./featured-icons";
+import { NeedleIcon } from "../../shared/brand/needle-icon";
+import { CalendarIcon } from "./featured-icons";
 import type { FeaturedLead } from "./featured-releases-view-model";
 import { MonthDial } from "./month-dial";
 import { DIAL_HEIGHT, DIAL_WIDTH } from "./month-dial-geometry";
@@ -93,7 +94,7 @@ export function FeaturedHero({ lead, timeline, monthPhrase }: FeaturedHeroProps)
         </div>
         <div className="featured-dial">
           <p className="featured-badge">
-            <NeedleIcon />
+            <NeedleIcon className="featured-icon featured-needle-icon" />
             Lanzamiento del mes
           </p>
           {timeline === null ? null : (

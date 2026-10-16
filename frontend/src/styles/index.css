@@ -4,10 +4,11 @@
 @import "tailwindcss";
 @import "./foundation.css";
 @import "./thermal.css";
-@import "./cinema.css";
+@import "./stage.css";
 @import "./catalogue.css";
 @import "./featured.css";
 @import "./discovery-scores.css";
+@import "./ratings.css";
 @import "./game-details.css";
 @import "./my-ratings.css";
 @import "./app-select.css";
@@ -25,7 +26,6 @@
   --color-fire-light: #ffb35c;
   --font-sans: "Mona Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Mona Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Instrument Serif", Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --color-canvas: var(--color-night);
   --color-surface: #0c1018;
@@ -35,7 +35,6 @@
   --color-subtle: #808c9f;
   --color-accent: var(--color-ice);
   --color-accent-hover: #c8d5ff;
-  --color-aurora: #b99cff;
   --color-line: #232c3a;
   --color-warning: #f0c48a;
   --color-warning-surface: #1b1914;

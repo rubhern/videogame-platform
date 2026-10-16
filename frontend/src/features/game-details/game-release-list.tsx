@@ -115,7 +115,7 @@ export function GameReleaseList({ releases }: { releases: readonly Release[] }) 
         Fechas y plataformas
       </h3>
       {presented.length === 0 ? (
-        <p className="game-panel-empty">No hay lanzamientos comerciales registrados.</p>
+        <p className="game-information-empty">No hay lanzamientos comerciales registrados.</p>
       ) : (
         <ul className="game-release-list">
           {presented.map((release) => (
@@ -140,7 +140,7 @@ export function GameReleaseList({ releases }: { releases: readonly Release[] }) 
           </ul>
         </details>
       ) : null}
-      {source ? <p className="game-panel-source">{source}</p> : null}
+      {source ? <p className="game-source">{source}</p> : null}
     </section>
   );
 }

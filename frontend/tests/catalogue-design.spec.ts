@@ -14,7 +14,7 @@ async function expectAccessibleLayout(page: Page) {
 async function expectComfortableCatalogueMetadata(page: Page) {
   const sizes = await page
     .locator(
-      ".card-platform, .badge, .filter-label, .filter-chip",
+      ".card-date, .card-region, .platform-mark-more, .card-genres, .badge, .window-scale-numeral",
     )
     .evaluateAll((elements) => elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize)));
   expect(Math.min(...sizes)).toBeGreaterThanOrEqual(11);
@@ -43,8 +43,12 @@ for (const width of [320, 390, 834, 1320]) {
     });
     await page.goto("/?view=recent&pageSize=6");
     await expect(page.getByRole("link", { name: "Pragmata", exact: true })).toBeVisible();
-    await expect(page.locator(".releases-heading")).toHaveCSS("border-bottom-width", "0px");
     await expect(page.locator(".releases-footer")).toHaveCSS("border-top-width", "0px");
+    // The window's scale: one division per day of the API's window and one fire needle per
+    // release day on the page. It is decorative; the period is stated in words beside the title.
+    await expect(page.locator(".window-scale")).toHaveAttribute("aria-hidden", "true");
+    await expect(page.locator(".window-scale-tick")).toHaveCount(7);
+    await expect(page.locator(".release-period")).toContainText("7–13 ago 2026");
     await expect(page.locator(".result-count")).toHaveText("8 juegos · Página 1 de 2");
     await expectAccessibleLayout(page);
     await expectComfortableCatalogueMetadata(page);
@@ -54,7 +58,7 @@ for (const width of [320, 390, 834, 1320]) {
     const metadata = await releaseCards.evaluateAll(cards => cards.map(card => {
       const title = card.querySelector(".card-title");
       const genre = card.querySelector(".card-genres");
-      const platform = card.querySelector(".card-platform");
+      const platform = card.querySelector(".card-release");
       if (!title || !genre || !platform) throw new Error("Expected release metadata");
       return { titleHeight: title.getBoundingClientRect().height, titleLines: title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight), genreHeight: genre.getBoundingClientRect().height, platformHeight: platform.getBoundingClientRect().height, contextY: platform.getBoundingClientRect().y };
     }));
@@ -62,7 +66,7 @@ for (const width of [320, 390, 834, 1320]) {
     expect(metadata[1]?.titleLines).toBeLessThanOrEqual(2.01);
     expect(metadata[0]?.contextY).toBe(metadata[1]?.contextY);
     expect(metadata[1]?.genreHeight).toBeLessThanOrEqual(18);
-    expect(metadata[1]?.platformHeight).toBeLessThanOrEqual(18);
+    expect(metadata[1]?.platformHeight).toBeLessThanOrEqual(22);
     await expect(page.locator(".stale-banner")).toHaveCount(0);
     await expect(page.getByText("Datos locales desactualizados")).toHaveCount(0);
     await expect(page.getByText("Información pendiente de revisión")).toBeVisible();
@@ -202,13 +206,13 @@ test("upcoming keeps its compact layout and keyboard filters on a phone", async 
 
   await page.goto("/?view=upcoming");
   await expect(page.getByRole("heading", { level: 1, name: "Próximos lanzamientos" })).toBeVisible();
-  await expect(page.locator(".release-period-compact")).toHaveText("Del 13/08/2026 al 13/02/2027");
-  const kicker = await page.locator(".releases-kicker-row .eyebrow").boundingBox();
+  await expect(page.locator(".release-period")).toContainText("13 ago 2026 – 13 feb 2027");
+  const title = await page.getByRole("heading", { level: 1 }).boundingBox();
   const period = await page.locator(".release-period").boundingBox();
   const platform = await page.getByRole("combobox", { name: /^Plataforma:/ }).boundingBox();
   const region = await page.getByRole("combobox", { name: /^Región:/ }).boundingBox();
-  expect(Math.abs((kicker?.y ?? 0) + (kicker?.height ?? 0) / 2
-    - (period?.y ?? 0) - (period?.height ?? 0) / 2)).toBeLessThan(2);
+  // The period readout follows the title, beside it or on the next line, never above it.
+  expect(period?.y ?? 0).toBeGreaterThanOrEqual(title?.y ?? 0);
   expect(platform?.y).toBe(region?.y);
   await expectAccessibleLayout(page);
   await page.getByRole("combobox", { name: /^Región:/ }).focus();
@@ -269,7 +273,7 @@ for (const width of [320, 834, 1320]) {
     await page.keyboard.press("Space");
     await expect(page).toHaveURL(/view=upcoming&weeks=1&includeApproximateDates=true/);
     await expect(optIn).toBeChecked();
-    await expect(page.locator(".card-date-badge")).toHaveText("T4 2026");
+    await expect(page.locator(".card-date")).toHaveText("T4 2026");
     await expect(page.getByText("4.º trimestre de 2026")).toBeAttached();
     await expectAccessibleLayout(page);
   });

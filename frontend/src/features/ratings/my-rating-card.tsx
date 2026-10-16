@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { GameGenres } from "../../shared/catalogue/game-genres";
 import { DiscoveryScores } from "../../shared/score/discovery-scores";
@@ -147,10 +147,8 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
     });
   }
 
-  // The row is washed by its own cover's light.
-  const coverLight = { "--cover-art": `url(${JSON.stringify(game.primaryCover.url)})` } as CSSProperties;
-  return <article className="my-rating-card" aria-labelledby={id} aria-busy={busy} style={coverLight}>
-    <span className="my-rating-glow" aria-hidden="true" />
+  // The row's edge takes the temperature of the visitor's own rating, so the ledger reads at a glance.
+  return <article className="my-rating-card" aria-labelledby={id} aria-busy={busy} data-thermal={band ?? undefined}>
     <CatalogueCover cover={cover} to={path} />
     <div className="my-rating-body">
       <h2 className="card-title" id={id}><Link to={path}>{game.canonicalTitle}</Link></h2>

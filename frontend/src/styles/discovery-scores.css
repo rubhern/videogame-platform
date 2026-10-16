@@ -89,16 +89,6 @@
     max-width: 580px;
   }
 
-  /* Release cards assign explicit grid rows to title, platform and genre metadata. */
-  .release-card .card-body:has(.discovery-scores) {
-    grid-template-rows: calc(2 * 1.22 * var(--release-title-size, 1rem)) auto 1.125rem 1.125rem auto 1fr;
-  }
-  .release-card .card-body:has(.discovery-scores) .discovery-scores { grid-row: 2; }
-  .release-card .card-body:has(.discovery-scores) .card-release { grid-row: 3; }
-  .release-card .card-body:has(.discovery-scores) .card-genres { grid-row: 4; }
-  .release-card .card-body:has(.discovery-scores) .card-statuses { grid-row: 5; }
-  .release-card .card-body:has(.discovery-scores) .release-overflow { grid-row: 6; }
-
   /* Search results (#279) stack the sources as two compact rows under the title, so marks and
      values line up; an especially narrow card still moves only the count to the next line. */
   .search-card .discovery-scores-compact {
@@ -110,11 +100,6 @@
     grid-template-columns: 54px minmax(0, 1fr);
     gap: 5px 12px;
     align-content: center;
-    border: 1px solid var(--glass-border);
-    border-radius: 14px;
-    padding: 14px;
-    background: color-mix(in srgb, var(--color-surface) 83%, transparent);
-    box-shadow: var(--glass-highlight);
   }
 
   .discovery-scores-hero .discovery-score-mark {
@@ -138,12 +123,9 @@
     clip-path: none;
     margin: 0 0 3px;
     color: var(--color-muted);
-    font-family: var(--font-mono);
     font-size: 0.75rem;
     font-weight: 600;
     line-height: 1.5;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
   }
 
   .discovery-score-source b { color: var(--thermal); font-weight: 600; }
@@ -154,7 +136,7 @@
   /* Each source keeps equal weight when both are present; one never grows to replace the other. */
   @container (max-width: 450px) {
     .discovery-scores-hero { gap: 8px; }
-    .discovery-scores-hero .discovery-score { grid-template-columns: 28px minmax(0, 1fr); gap: 4px 6px; padding: 10px; }
+    .discovery-scores-hero .discovery-score { grid-template-columns: 28px minmax(0, 1fr); gap: 4px 6px; }
     .discovery-scores-hero .discovery-score-mark { width: 28px; height: 32px; }
     .discovery-scores-hero .discovery-score-source { font-size: 0.6875rem; letter-spacing: 0; }
     .discovery-scores-hero .discovery-score-reading { font-size: 1.375rem; }
@@ -164,6 +146,5 @@
   @media (forced-colors: active) {
     .discovery-score-source b { color: CanvasText; }
     .discovery-score-attribution { background: black; forced-color-adjust: none; }
-    .discovery-scores-hero .discovery-score { border-color: CanvasText; }
   }
 }

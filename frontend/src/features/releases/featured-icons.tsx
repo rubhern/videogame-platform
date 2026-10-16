@@ -9,20 +9,6 @@ export function CalendarIcon() {
   );
 }
 
-/**
- * The brand mark's fire needle, the sign of the month's featured release: a reading taken by the
- * catalogue, never a medal or an award.
- */
-export function NeedleIcon() {
-  return (
-    <svg aria-hidden="true" className="featured-icon featured-needle-icon" viewBox="26 4 26 34">
-      <path d="M34.32 33.57 49.61 5.89 29.68 30.43Z" fill="currentColor" />
-      <circle cx="32" cy="32" fill="currentColor" r="4.6" />
-      <circle className="featured-needle-core" cx="32" cy="32" r="1.56" />
-    </svg>
-  );
-}
-
 export function ChevronIcon({ direction }: { direction: "previous" | "next" }) {
   return (
     <svg aria-hidden="true" className="featured-icon" fill="none" viewBox="0 0 20 20">

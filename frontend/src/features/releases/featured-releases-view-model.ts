@@ -1,4 +1,5 @@
 import { formatReleaseDateShort } from "../../shared/catalogue/release-date";
+import { toWordmark, type TitleWordmark } from "../../shared/catalogue/title-wordmark";
 import { releaseStatuses } from "../../shared/catalogue/release-labels";
 import type { FeaturedReleasesResponse } from "./featured-releases-api";
 import { shiftMonth } from "./featured-search";
@@ -54,17 +55,8 @@ export type FeaturedSelectionState =
   | { status: "popularity-unavailable" }
   | { status: "no-qualifying-releases" };
 
-/**
- * The canonical title set as a product-owned wordmark: the name, then the subtitle an explicit
- * delimiter introduces. The lockup drops the delimiter visually; assistive technology and the
- * heading's text still read the canonical title unchanged.
- */
-export type FeaturedWordmark = {
-  main: string;
-  /** `:` or a spaced dash, as the canonical title writes it; empty without a subtitle. */
-  delimiter: string;
-  sub: string | null;
-};
+/** The canonical title set as Gameómetro's own wordmark (`shared/catalogue/title-wordmark`). */
+export type FeaturedWordmark = TitleWordmark;
 
 /**
  * The month's featured release: a featured item plus what its hero sets in words and light. Its
@@ -208,16 +200,7 @@ function toFeaturedItem(item: FeaturedResponseItem, month: string): FeaturedItem
   };
 }
 
-/** A subtitle follows the first colon or spaced dash, as in `Onimusha: Way of the Sword`. */
-const SUBTITLE = /^(.+?)(:| [-–—]) (.+)$/u;
-
-export function toWordmark(title: string): FeaturedWordmark {
-  const match = SUBTITLE.exec(title);
-  const [, main = "", delimiter = "", sub = ""] = match ?? [];
-  return main.trim() === "" || sub.trim() === ""
-    ? { main: title, delimiter: "", sub: null }
-    : { main, delimiter, sub };
-}
+export { toWordmark };
 
 /**
  * The hero sets the title itself and never presents a cover as its image: its landscape media

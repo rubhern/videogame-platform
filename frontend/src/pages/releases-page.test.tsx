@@ -143,7 +143,8 @@ describe("releases page", () => {
     const card = title.closest("article");
     if (!card) throw new Error("Expected a release card");
     expect(within(card).getByLabelText("Géneros: Aventura")).toBeVisible();
-    expect(within(card).getByText("Windows PC · Mundial")).toBeVisible();
+    expect(within(card).getByRole("list", { name: "Plataformas de Pragmata" })).toHaveTextContent("Windows PC");
+    expect(within(card).getByText("Mundial")).toBeVisible();
     expect(within(card).queryByText(/Hidden/)).not.toBeInTheDocument();
   });
 

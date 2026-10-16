@@ -2,7 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 
 import type { components } from "../api/generated/schema";
 import {
-  formatCompactCalendarDay,
+  formatDayRange,
   formatReleaseDate,
   formatReleaseDateShort,
 } from "./release-date";
@@ -17,8 +17,10 @@ type ExpectedReleaseDateUnion =
 
 describe("generated release date oneOf", () => {
   it("formats API window boundaries compactly for phones", () => {
-    expect(formatCompactCalendarDay("2026-08-26")).toBe("26/08/2026");
-    expect(formatCompactCalendarDay("2026-09-20")).toBe("20/09/2026");
+    expect(formatDayRange("2026-10-11", "2026-10-17")).toBe("11–17 oct 2026");
+    expect(formatDayRange("2026-09-20", "2026-10-17")).toBe("20 sep – 17 oct 2026");
+    expect(formatDayRange("2026-12-29", "2027-01-04")).toBe("29 dic 2026 – 4 ene 2027");
+    expect(formatDayRange("2026-13-01", "2027-01-04")).toBe("Fecha no disponible");
   });
   it("retains every reviewed generated variant and its nullable unknown value", () => {
     expectTypeOf<GeneratedReleaseDate>().toEqualTypeOf<ExpectedReleaseDateUnion>();

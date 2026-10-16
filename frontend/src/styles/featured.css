@@ -9,25 +9,6 @@
   /* ---------------------------------------------------------------- Instrument palette */
 
   .featured-page {
-    /* The instrument in the brand families: ice lights elapsed time, fire marks the featured
-       release. Score readings keep the thermal palette of their own bands. */
-    --g-ice: var(--color-ice-light);
-    --g-ice-deep: var(--color-ice);
-    /* Elapsed time: one cold blue for the hero's G and the cards' scales, in every phase. */
-    --g-lit-top: #8caeea;
-    --g-lit: #7199df;
-    --g-lit-bottom: #527dbd;
-    --g-fire: var(--color-fire);
-    --g-ember: var(--color-fire-light);
-    /* The unlit rail: a night channel inside a hairline of ice. */
-    --g-track: color-mix(in srgb, var(--color-ice) 7%, var(--color-night));
-    --g-edge: color-mix(in srgb, var(--color-ice) 40%, transparent);
-    --g-tick: color-mix(in srgb, var(--color-ice) 46%, #6b7486);
-    --g-numeral: color-mix(in srgb, var(--color-ice-light) 62%, var(--color-muted));
-    --g-steel: color-mix(in srgb, var(--color-ice) 40%, var(--color-subtle));
-    /* The needle's hub keeps the mark's warm core. */
-    --g-hub-core: #fff4dc;
-
     /* The stage bleeds to the viewport's edges; nothing may scroll sideways because of it. */
     overflow-x: clip;
   }
@@ -47,12 +28,6 @@
     pointer-events: none;
   }
 
-  /* The ambient aurora belongs to the other screens; this stage is lit by the game. */
-  .app-frame:has(.featured-page)::before {
-    background: none;
-    animation: none;
-  }
-
   /* ---------------------------------------------------------------- Page opening */
 
   .featured-heading {
@@ -62,32 +37,6 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 6px 26px;
-  }
-
-  .featured-page .hero-title {
-    margin: 0;
-    font-size: clamp(1.5rem, 2.2vw, 1.875rem);
-    font-stretch: 112%;
-    font-weight: 800;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    text-shadow: 0 2px 18px color-mix(in srgb, var(--color-canvas) 80%, transparent);
-  }
-
-  /* The title reads as one phrase: no lit serif accent on this page. */
-  .featured-page .title-accent {
-    padding: 0;
-    color: inherit;
-    background: none;
-    -webkit-background-clip: border-box;
-    background-clip: border-box;
-    font-family: inherit;
-    font-size: inherit;
-    font-stretch: inherit;
-    font-style: normal;
-    font-weight: inherit;
-    letter-spacing: inherit;
-    filter: none;
   }
 
   .featured-icon {
@@ -645,9 +594,6 @@
     color: var(--g-fire);
   }
 
-  .featured-needle-core {
-    fill: var(--g-hub-core);
-  }
 
   /* The canonical title as Gameómetro's own wordmark. The heading keeps the full title as text; the
      size follows the name so its longest word fits one line and the whole name three. */
@@ -1337,74 +1283,6 @@
     }
   }
 
-  /* ---------------------------------------------------------------- States on this stage */
-
-  /* A state is still a message, set as an instrument plate: opaque and square-shouldered, its tone
-     on the top edge and in a plain ring, its kicker in words rather than tracked capitals. */
-  .featured-page .notice {
-    border: 1px solid color-mix(in srgb, var(--notice-tone) 34%, var(--color-line));
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--color-surface) 94%, transparent);
-    box-shadow: var(--elevation-lift);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  .featured-page .notice::before {
-    inset: 0 0 auto;
-    height: 3px;
-    background: var(--notice-tone);
-    opacity: 0.75;
-  }
-
-  .featured-page .notice-symbol {
-    width: 46px;
-    height: 46px;
-    border: 2px solid color-mix(in srgb, var(--notice-tone) 70%, transparent);
-    background: none;
-    box-shadow: none;
-    font-family: var(--font-sans);
-  }
-
-  .featured-page .notice-kicker {
-    color: var(--notice-tone);
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    font-weight: 650;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
-  .featured-page .notice-footnote {
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
-  .featured-page .button {
-    border-radius: 6px;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  .featured-page .button-primary,
-  .featured-page .button-primary:hover {
-    border-color: transparent;
-    color: var(--color-canvas);
-    background: var(--color-ice-light);
-    box-shadow: none;
-  }
-
-  .featured-page .button-primary:hover {
-    background: #fff;
-  }
-
-  .featured-page .button-danger {
-    background: var(--color-danger);
-    box-shadow: none;
-  }
-
   /* ---------------------------------------------------------------- Loading */
 
   .featured-hero-placeholder {
@@ -1563,10 +1441,6 @@
   @media (max-width: 619px) {
     .featured-heading {
       gap: 4px 12px;
-    }
-
-    .featured-page .hero-title {
-      font-size: clamp(1.375rem, 6.6vw, 1.75rem);
     }
 
     .featured-month {

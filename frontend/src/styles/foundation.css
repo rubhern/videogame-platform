@@ -18,33 +18,39 @@
     --elevation-lift:
       0 34px 60px -30px color-mix(in srgb, #000 92%, transparent),
       0 10px 22px -12px color-mix(in srgb, #000 70%, transparent);
-    --glow-accent:
-      0 0 0 1px color-mix(in srgb, var(--color-accent) 34%, transparent),
-      0 20px 50px -20px color-mix(in srgb, var(--color-accent) 75%, transparent);
     --ease-out: cubic-bezier(0.22, 0.68, 0.36, 1);
     --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
     --duration-fast: 160ms;
     --duration-normal: 280ms;
     --duration-slow: 640ms;
 
-    /* The signature light: moonlit periwinkle turning to aurora violet. */
-    --aurora: linear-gradient(
-      100deg,
-      #dfe7ff 0%,
-      var(--color-accent) 34%,
-      var(--color-aurora) 70%,
-      #f2b8ff 100%
-    );
+    /* Controls and overlays on night: the header's own surfaces and hairlines. Ice edges mark
+       focus, hover and selection; overlays that carry text are opaque. */
+    --control: #090d14;
+    --control-hover: #0e131c;
+    --overlay: #0b1019;
+    --line-ice: color-mix(in srgb, var(--color-ice) 16%, transparent);
+    --line-ice-strong: color-mix(in srgb, var(--color-ice) 58%, transparent);
+    --shadow-overlay: 0 30px 60px -26px #000, 0 12px 24px -16px #000;
 
-    /* Glass: translucent surfaces that let the art and the aurora through. */
-    --glass: color-mix(in srgb, var(--color-surface) 56%, transparent);
-    --glass-strong: color-mix(in srgb, var(--color-surface) 80%, transparent);
-    /* Overlays that carry text — menus, popovers, dialogs — are opaque, so what lies beneath
-       never competes with their options; the edge and highlight keep them glass. */
-    --glass-solid: color-mix(in srgb, var(--color-surface) 96%, var(--color-accent));
-    --glass-border: color-mix(in srgb, var(--color-ink) 13%, transparent);
-    --glass-highlight: inset 0 1px 0 color-mix(in srgb, var(--color-ink) 9%, transparent);
-    --glass-blur: blur(18px) saturate(150%);
+    /* The instrument in the brand families: ice lights elapsed time, fire marks a release on a
+       scale. Score readings keep the thermal palette of their own bands. */
+    --g-ice: var(--color-ice-light);
+    --g-ice-deep: var(--color-ice);
+    /* Elapsed time: one cold blue for the hero's G and the cards' scales, in every phase. */
+    --g-lit-top: #8caeea;
+    --g-lit: #7199df;
+    --g-lit-bottom: #527dbd;
+    --g-fire: var(--color-fire);
+    --g-ember: var(--color-fire-light);
+    /* The unlit rail: a night channel inside a hairline of ice. */
+    --g-track: color-mix(in srgb, var(--color-ice) 7%, var(--color-night));
+    --g-edge: color-mix(in srgb, var(--color-ice) 40%, transparent);
+    --g-tick: color-mix(in srgb, var(--color-ice) 46%, #6b7486);
+    --g-numeral: color-mix(in srgb, var(--color-ice-light) 62%, var(--color-muted));
+    --g-steel: color-mix(in srgb, var(--color-ice) 40%, var(--color-subtle));
+    /* The needle's hub keeps the mark's warm core. */
+    --g-hub-core: #fff4dc;
 
     /* Generated film grain, shared by the canvas, heroes and covers. */
     --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -112,35 +118,9 @@
     color: var(--color-ink);
   }
 
-  /* Ambient aurora. Three low-opacity washes drift very slowly behind everything, so even a
-     plain state has depth. Nothing readable depends on them. */
-  .app-frame::before {
-    position: fixed;
-    z-index: -2;
-    inset: -18vmax;
-    pointer-events: none;
-    background:
-      radial-gradient(
-        42vmax 30vmax at 18% 14%,
-        color-mix(in srgb, var(--color-accent) 15%, transparent),
-        transparent 62%
-      ),
-      radial-gradient(
-        36vmax 28vmax at 86% 22%,
-        color-mix(in srgb, var(--color-aurora) 11%, transparent),
-        transparent 60%
-      ),
-      radial-gradient(
-        46vmax 30vmax at 52% 104%,
-        color-mix(in srgb, #49c6d8 7%, transparent),
-        transparent 64%
-      );
-    content: "";
-  }
-
-  /* Film grain keeps the large dark gradients from banding. Like the aurora it overscans the
-     viewport: a phone resizes fixed layers as its URL bar shows or hides, and a layer cut to the
-     viewport would briefly leave an ungrained, visibly darker strip at the top or bottom edge. */
+  /* Film grain keeps the large dark gradients from banding. It overscans the viewport: a phone
+     resizes fixed layers as its URL bar shows or hides, and a layer cut to the viewport would
+     briefly leave an ungrained, visibly darker strip at the top or bottom edge. */
   .app-frame::after {
     position: fixed;
     z-index: -1;
@@ -149,13 +129,6 @@
     pointer-events: none;
     background-image: var(--grain);
     content: "";
-  }
-
-  /* Phones keep the field still for the same reason as the stage (cinema.css). */
-  @media (prefers-reduced-motion: no-preference) and (min-width: 620px) {
-    .app-frame::before {
-      animation: aurora-drift 46s ease-in-out infinite alternate;
-    }
   }
 
   .app-frame > main {
@@ -171,8 +144,8 @@
 
   /* ---------------------------------------------------------------- Header */
 
-  /* The header floats over each page's cinematic stage: a soft scrim instead of a bar, so the
-     art runs to the top edge while the controls stay legible. */
+  /* The header floats over each page's stage: a soft scrim instead of a bar, so the art's light
+     runs to the top edge while the controls stay legible. */
   .site-header {
     position: relative;
     z-index: 30;
@@ -427,12 +400,10 @@
     inset-inline: 0;
     padding: 7px 12px;
     border: 1px solid var(--color-danger);
-    border-radius: 12px;
-    background: var(--glass-solid);
+    border-radius: 4px;
+    background: var(--overlay);
     color: var(--color-danger);
     font-size: 0.75rem;
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
   }
 
   .account-control {
@@ -616,90 +587,56 @@
 
   /* ---------------------------------------------------------------- Type */
 
+  /* The context line above a page title: the instrument's condensed readout voice, quiet. */
   .eyebrow {
-    margin: 0 0 8px;
-    color: var(--color-accent-hover);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    line-height: 1.6;
-    letter-spacing: 0.28em;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
-  .eyebrow-dot {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  /* A small beacon: a lit dot with a halo, the product's recurring "live" marker. */
-  .eyebrow-dot::before {
-    width: 6px;
-    height: 6px;
-    flex: none;
-    border-radius: 50%;
-    background: var(--color-accent-hover);
-    box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--color-accent) 18%, transparent),
-      0 0 14px 2px color-mix(in srgb, var(--color-accent) 70%, transparent);
-    content: "";
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .eyebrow-dot::before {
-      animation: beacon 3.2s ease-in-out infinite;
-    }
-  }
-
+  /* Page titles read as one phrase in the wide display cut, as Destacados' does. */
   .page-title {
     position: relative;
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
-    font-size: 2.25rem;
-    font-weight: 800;
+    font-size: clamp(1.5rem, 2.4vw, 2rem);
     font-stretch: 112%;
-    line-height: 0.98;
-    letter-spacing: -0.035em;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: -0.02em;
     text-wrap: balance;
-  }
-
-  /* The editorial accent: one word of a title set in the italic serif and lit by the aurora. */
-  .title-accent {
-    padding-right: 0.08em;
-    color: transparent;
-    background: var(--aurora);
-    -webkit-background-clip: text;
-    background-clip: text;
-    font-family: var(--font-serif);
-    font-size: 1.08em;
-    font-stretch: normal;
-    font-style: italic;
-    font-weight: 400;
-    letter-spacing: -0.01em;
   }
 
   .text-link {
     color: var(--color-muted);
     text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-ice) 40%, transparent);
     text-underline-offset: 3px;
   }
 
   .text-link:hover {
-    color: var(--color-accent-hover);
+    color: var(--color-ice-light);
+    text-decoration-color: var(--color-ice);
   }
 
   .result-count {
     margin: 10px 0 0;
     color: var(--color-muted);
-    font-family: var(--font-mono);
-    font-size: 0.71875rem;
+    font-size: 0.8125rem;
     line-height: 1.5;
-    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
   }
 
   /* ---------------------------------------------------------------- Buttons */
 
+  /* Controls sit on night with a hairline edge, like the header's search and account. Ice is
+     the primary entry; danger keeps its own tone; fire never colours an action. */
   .button {
     position: relative;
     display: inline-flex;
@@ -707,38 +644,16 @@
     align-items: center;
     justify-content: center;
     gap: 9px;
-    overflow: hidden;
-    isolation: isolate;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 11px 20px;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 10px 18px;
     color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-ink) 6%, transparent);
-    box-shadow: var(--glass-highlight);
+    background: var(--control);
     font-size: 0.8125rem;
     font-weight: 650;
     line-height: 1.5;
-    letter-spacing: 0.005em;
     text-align: center;
     text-decoration: none;
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
-  }
-
-  /* A light sweep crosses a button on hover. */
-  .button::after {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    background: linear-gradient(
-      105deg,
-      transparent 30%,
-      color-mix(in srgb, #fff 22%, transparent) 50%,
-      transparent 70%
-    );
-    content: "";
-    opacity: 0;
-    transform: translateX(-110%);
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -747,70 +662,47 @@
         border-color var(--duration-fast) var(--ease-out),
         color var(--duration-fast) var(--ease-out),
         background-color var(--duration-fast) var(--ease-out),
-        box-shadow var(--duration-normal) var(--ease-out),
         transform var(--duration-fast) var(--ease-out);
     }
 
-    .button::after {
-      transition:
-        transform var(--duration-slow) var(--ease-out),
-        opacity var(--duration-fast) var(--ease-out);
-    }
-
-    .button:hover::after {
-      opacity: 1;
-      transform: translateX(110%);
-    }
-
-    .button:active {
-      transform: scale(0.97);
+    .button:active:not(:disabled) {
+      transform: translateY(1px);
     }
   }
 
   .button:hover {
-    border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-    box-shadow: var(--glass-highlight), var(--glow-accent);
+    border-color: var(--line-ice-strong);
+    color: var(--color-ice-light);
+    background: var(--control-hover);
   }
 
   .button:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 
   .button-primary {
-    border-color: transparent;
-    color: #0b0f1a;
-    background: var(--aurora);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 55%, transparent),
-      0 14px 34px -16px color-mix(in srgb, var(--color-accent) 100%, transparent);
+    border-color: var(--color-ice-light);
+    color: var(--color-night);
+    background: var(--color-ice-light);
   }
 
   .button-primary:hover {
-    border-color: transparent;
-    color: #0b0f1a;
-    background: var(--aurora);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent),
-      0 0 0 4px color-mix(in srgb, var(--color-accent) 20%, transparent),
-      0 18px 40px -14px color-mix(in srgb, var(--color-aurora) 100%, transparent);
+    border-color: #fff;
+    color: var(--color-night);
+    background: #fff;
   }
 
   .button-danger {
-    border-color: transparent;
-    color: #1a0c0c;
-    background: linear-gradient(100deg, #ffd0c8, var(--color-danger));
-    box-shadow: 0 14px 34px -16px var(--color-danger);
+    border-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 8%, var(--control));
   }
 
   .button-danger:hover {
-    border-color: transparent;
-    color: #1a0c0c;
-    background: linear-gradient(100deg, #ffe0da, var(--color-danger));
-    box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--color-danger) 22%, transparent),
-      0 18px 40px -14px var(--color-danger);
+    border-color: var(--color-danger);
+    color: #ffd9d3;
+    background: color-mix(in srgb, var(--color-danger) 16%, var(--control));
   }
 
   .view-action {
@@ -838,19 +730,21 @@
 
   .filter-reset {
     display: inline-flex;
-    min-height: 38px;
+    min-height: 44px;
     align-items: center;
     flex: none;
-    padding-inline: 6px;
-    color: var(--color-accent-hover);
-    font-size: 0.75rem;
+    padding-inline: 8px;
+    color: var(--color-ice-light);
+    font-size: 0.8125rem;
     font-weight: 650;
     white-space: nowrap;
+    text-decoration-color: color-mix(in srgb, var(--color-ice) 50%, transparent);
     text-underline-offset: 4px;
   }
 
   .filter-reset:hover {
     color: #fff;
+    text-decoration-color: var(--color-ice);
   }
 
   /* ---------------------------------------------------------------- Covers */
@@ -864,12 +758,12 @@
     display: block;
     isolation: isolate;
     overflow: hidden;
-    border-radius: 14px;
+    border-radius: 4px;
   }
 
-  /* Provider covers arrive at one fixed CDN size, so on a dense grid or a high-DPI screen they
-     are upscaled. A faint grain breaks up the smooth interpolation and a vignette gives the
-     frame a printed edge. Both sit above the image, never over text, and are decorative. */
+  /* Provider covers arrive at one fixed CDN size, so on a large frame or a high-DPI screen they
+     are upscaled. A faint grain breaks up the smooth interpolation and a soft edge shade gives
+     the frame a printed edge. Both sit above the image, never over text, and are decorative. */
   .cover-link::before {
     position: absolute;
     z-index: 1;
@@ -887,10 +781,12 @@
     inset: 0;
     pointer-events: none;
     background: radial-gradient(
-      124% 96% at 50% 44%,
-      transparent 62%,
-      color-mix(in srgb, #05080b 34%, transparent)
+      130% 100% at 50% 40%,
+      transparent 66%,
+      color-mix(in srgb, var(--color-night) 30%, transparent)
     );
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-ink) 10%, transparent);
+    border-radius: inherit;
     content: "";
   }
 
@@ -902,23 +798,11 @@
     display: block;
     width: 100%;
     aspect-ratio: var(--cover-aspect);
-    border: 1px solid color-mix(in srgb, var(--color-ink) 12%, transparent);
-    border-radius: 14px;
+    border-radius: 4px;
     background: var(--color-raised);
     object-fit: cover;
     /* A small micro-contrast lift restores the bite that upscaling costs. */
-    filter: saturate(1.08) contrast(1.04);
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .catalogue-cover {
-      transition: transform 520ms var(--ease-out);
-    }
-
-    .catalogue-card:hover .catalogue-cover,
-    .catalogue-card:focus-within .catalogue-cover {
-      transform: scale(1.05);
-    }
+    filter: saturate(1.06) contrast(1.04);
   }
 
   .cover-caption {
@@ -931,53 +815,47 @@
 
   /* ---------------------------------------------------------------- Badges */
 
+  /* A notice inside metadata: a hairline frame and a marker, never a pill of light. */
   .badge {
     display: inline-flex;
+    max-width: 100%;
     align-items: center;
-    gap: 6px;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 3px 10px;
+    gap: 7px;
+    border: 1px solid var(--color-line);
+    border-radius: 3px;
+    padding: 2px 8px;
     color: var(--color-muted);
-    background: color-mix(in srgb, var(--color-ink) 5%, transparent);
     font-size: 0.6875rem;
+    font-weight: 600;
     line-height: 1.4;
-  }
-
-  .badge::before {
-    width: 5px;
-    height: 5px;
-    flex: none;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: 0.7;
-    content: "";
   }
 
   /* The warning tier carries a diamond marker, so it never depends on colour alone. */
   .badge-warning {
-    border-color: color-mix(in srgb, var(--color-warning) 48%, transparent);
+    border-color: color-mix(in srgb, var(--color-warning) 42%, transparent);
     color: var(--color-warning);
-    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
-    box-shadow: 0 8px 22px -14px var(--color-warning);
+    background: color-mix(in srgb, var(--color-warning) 7%, transparent);
   }
 
   .badge-warning::before {
+    width: 5px;
+    height: 5px;
+    flex: none;
     border-radius: 1px;
-    opacity: 1;
+    background: currentColor;
+    content: "";
     transform: rotate(45deg);
   }
 
   /* ---------------------------------------------------------------- Loading */
 
-  /* Placeholders are translucent glass, so the stage and the aurora show through them. */
+  /* Placeholders are quiet night shapes; a faint band of ice passes over them while they wait. */
   .skeleton {
     position: relative;
     display: block;
     overflow: hidden;
-    border-radius: 8px;
-    background: color-mix(in srgb, var(--color-ink) 9%, transparent);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-ink) 6%, transparent);
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--color-ink) 6%, var(--color-night));
   }
 
   .skeleton::after {
@@ -986,30 +864,23 @@
     background: linear-gradient(
       100deg,
       transparent 20%,
-      color-mix(in srgb, var(--color-accent) 16%, transparent) 42%,
-      color-mix(in srgb, var(--color-aurora) 12%, transparent) 58%,
+      color-mix(in srgb, var(--color-ice) 9%, transparent) 50%,
       transparent 80%
     );
     content: "";
+    opacity: 0;
     transform: translateX(-100%);
   }
 
   @media (prefers-reduced-motion: no-preference) {
     .skeleton::after {
-      animation: shimmer 1.6s var(--ease-out) infinite;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .skeleton::after {
-      opacity: 0.35;
-      transform: none;
+      opacity: 1;
+      animation: shimmer 1.8s var(--ease-out) infinite;
     }
   }
 
   .skeleton-cover {
     aspect-ratio: var(--cover-aspect);
-    border-radius: 14px;
   }
 
   .skeleton-title {
@@ -1028,50 +899,28 @@
 
   /* ---------------------------------------------------------------- Notices */
 
-  /* A state is a message, not a region: a width-capped glass panel with a tone-keyed orb and
-     light, centred in the content column. Only the tone changes between states. */
+  /* A state is a message, not a region: a width-capped plate on night, aligned with the content
+     it replaces, whose tone rule and kicker name the state. Only the tone changes between them. */
   .notice {
-    --notice-tone: var(--color-accent);
+    --notice-tone: var(--color-ice);
 
     position: relative;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    isolation: isolate;
-    flex-direction: column;
-    gap: 14px;
-    max-width: 680px;
-    margin: 28px auto 44px;
-    border: 1px solid color-mix(in srgb, var(--notice-tone) 30%, var(--glass-border));
-    border-radius: 28px;
-    padding: 40px 20px;
+    display: grid;
+    justify-items: start;
+    gap: 12px;
+    max-width: 640px;
+    margin: 32px 0 48px;
+    border: 1px solid var(--color-line);
+    border-left: 3px solid var(--notice-tone);
+    border-radius: 4px;
+    padding: 26px 28px 28px;
     color: var(--color-muted);
-    background: var(--glass-strong);
-    box-shadow:
-      var(--glass-highlight),
-      var(--elevation-lift),
-      0 40px 90px -50px color-mix(in srgb, var(--notice-tone) 70%, transparent);
-    text-align: center;
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-  }
-
-  .notice::before {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(
-      30rem 16rem at 50% -12%,
-      color-mix(in srgb, var(--notice-tone) 26%, transparent),
-      transparent 70%
-    );
-    content: "";
+    background: color-mix(in srgb, var(--control) 92%, transparent);
   }
 
   @media (prefers-reduced-motion: no-preference) {
     .notice {
-      animation: rise-in 420ms var(--ease-out) both;
+      animation: fade-in 420ms var(--ease-out) both;
     }
   }
 
@@ -1081,47 +930,54 @@
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: 1.375rem;
     font-stretch: 108%;
     font-weight: 750;
-    line-height: 1.08;
-    letter-spacing: -0.025em;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
     text-wrap: balance;
   }
 
   .notice p {
-    max-width: 48ch;
+    max-width: 56ch;
     margin: 0;
     font-size: 0.9375rem;
     line-height: 1.6;
     text-wrap: pretty;
   }
 
-  .notice-kicker,
-  .notice-footnote {
-    flex: none;
-    color: var(--color-subtle);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    line-height: 1.45;
-    letter-spacing: 0.2em;
+  .notice > .button,
+  .notice-actions {
+    margin-top: 6px;
+  }
+
+  .notice .notice-kicker {
+    color: var(--notice-tone);
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+  }
+
+  .notice .notice-footnote {
+    color: var(--color-subtle);
+    font-size: 0.8125rem;
   }
 
   /* A recovery and an exit sit together, so the notice owns every way out of its state. */
   .notice-actions {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
     gap: 10px;
   }
 
   .notice-empty {
-    --notice-tone: var(--color-aurora);
+    --notice-tone: color-mix(in srgb, var(--color-ice) 55%, var(--color-muted));
   }
 
   .notice-info {
-    --notice-tone: var(--color-accent);
+    --notice-tone: var(--color-ice);
   }
 
   .notice-warning {
@@ -1132,61 +988,14 @@
     --notice-tone: var(--color-danger);
   }
 
-  /* The tone orb: a lit glass sphere carrying the state's symbol. */
-  .notice-symbol {
-    position: relative;
-    display: inline-flex;
-    width: 58px;
-    height: 58px;
-    align-items: center;
-    justify-content: center;
-    flex: none;
-    border: 1px solid color-mix(in srgb, var(--notice-tone) 55%, transparent);
-    border-radius: 50%;
-    color: var(--notice-tone);
-    background: radial-gradient(
-      circle at 35% 30%,
-      color-mix(in srgb, var(--notice-tone) 34%, transparent),
-      color-mix(in srgb, var(--notice-tone) 8%, transparent) 70%
-    );
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 20%, transparent),
-      0 0 0 6px color-mix(in srgb, var(--notice-tone) 8%, transparent),
-      0 16px 40px -14px color-mix(in srgb, var(--notice-tone) 100%, transparent);
-    font-family: var(--font-mono);
-    font-size: 1.25rem;
-    font-weight: 600;
-  }
-
-  .notice-symbol-warning {
-    --notice-tone: var(--color-warning);
-  }
-
-  .notice-symbol-danger {
-    --notice-tone: var(--color-danger);
-  }
-
-  /* The shared search glyph, drawn in CSS: a text glyph for it falls back to a tiny system font. */
-  .notice-symbol .search-icon {
-    width: 17px;
-    height: 17px;
-    margin: -3px 0 0 -3px;
-    border-color: currentColor;
-  }
-
-  .notice-symbol .search-icon::after {
-    background: currentColor;
-  }
-
   /* A support reference is an opaque identifier: mono, and never case-transformed. */
   .notice .notice-reference {
     max-width: 100%;
     margin: 0;
     color: var(--color-muted);
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: 0.75rem;
     line-height: 1.5;
-    letter-spacing: 0.02em;
     text-transform: none;
     overflow-wrap: anywhere;
   }
@@ -1197,33 +1006,15 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 40px;
-    padding-top: 22px;
-    border-top: 1px solid transparent;
-    border-image: linear-gradient(
-        90deg,
-        color-mix(in srgb, var(--color-accent) 50%, transparent),
-        color-mix(in srgb, var(--color-ink) 10%, transparent) 42%,
-        transparent
-      )
-      1;
+    gap: 10px;
+    margin-top: 36px;
   }
 
   .pagination p {
     margin: 0;
     color: var(--color-muted);
-    font-family: var(--font-mono);
-    font-size: 0.71875rem;
-    letter-spacing: 0.08em;
-  }
-
-  .search-pagination {
-    gap: 12px 16px;
-  }
-
-  .search-pagination p {
-    margin: 0 4px 0 0;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
   }
 
   /* ---------------------------------------------------------------- Footer */
@@ -1337,19 +1128,8 @@
       display: inline-block;
     }
 
-    .page-title {
-      font-size: 2.875rem;
-    }
 
-    .notice {
-      padding: 48px 32px;
-    }
 
-    .notice h1,
-    .notice h2,
-    .notice h3 {
-      font-size: 1.75rem;
-    }
   }
 
   /* Narrow tablets and phones held sideways: the compact mark keeps the identity, navigation and
@@ -1426,13 +1206,7 @@
       font-size: 0.875rem;
     }
 
-    .page-title {
-      font-size: 3.5rem;
-    }
 
-    .notice {
-      padding: 52px 44px;
-    }
   }
 
   @media (max-width: 619px) {
@@ -1588,7 +1362,7 @@
   }
 
   /* Below 360px the three release sections no longer fit beside the identity and both icons:
-     they take a full-width glass row of their own under them. */
+     they take a full-width row of their own under them. */
   @media (max-width: 359px) {
     .header-layout {
       flex-wrap: wrap;
@@ -1648,10 +1422,7 @@
     }
 
     /* Decorative light carries no meaning: drop it so system colours stay authoritative. */
-    .app-frame::before,
     .app-frame::after,
-    .notice::before,
-    .button::after,
     .cover-link::before,
     .cover-link::after {
       display: none;
@@ -1680,11 +1451,6 @@
       box-shadow: none;
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
-    }
-
-    .title-accent {
-      color: CanvasText;
-      background: none;
     }
 
     /* The identity keeps its shape in the system's text colour. */
@@ -1750,19 +1516,6 @@
   }
 }
 
-@keyframes beacon {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-
-  50% {
-    opacity: 0.55;
-    transform: scale(0.8);
-  }
-}
-
 @keyframes needle-rev {
   30% {
     transform: rotate(13deg);
@@ -1774,15 +1527,5 @@
 
   to {
     transform: none;
-  }
-}
-
-@keyframes aurora-drift {
-  from {
-    transform: translate3d(-2%, -1%, 0) rotate(-2deg);
-  }
-
-  to {
-    transform: translate3d(2%, 2%, 0) rotate(4deg);
   }
 }

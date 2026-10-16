@@ -1,6 +1,6 @@
 import {
   formatCalendarDay,
-  formatCompactCalendarDay,
+  formatDayRange,
   formatReleaseDate,
   formatReleaseDateShort,
 } from "../../shared/catalogue/release-date";
@@ -35,8 +35,10 @@ export type ReleaseCover =
 export type ReleaseContextGroup = {
   key: string;
   date: string;
-  /** The same date in its compact chip form, at the same precision. */
+  /** The same date in its compact form, at the same precision. */
   shortDate: string;
+  /** The calendar day (`YYYY-MM-DD`) when the date is known to the day; null otherwise. */
+  day: string | null;
   region: string;
   platforms: string[];
   /** Stable identifiers of `platforms`, in the same order, for presentation such as icons. */
@@ -65,8 +67,12 @@ export type ReleaseFilterOption = { id: string; name: string };
 export type ReleasesViewModel = {
   view: ReleaseView;
   title: string;
+  /** The API's window and trusted evaluation date, for the window's day scale. */
+  window: { from: string; to: string };
+  evaluatedOn: string;
   windowDescription: string;
-  compactWindowDescription: string;
+  /** The same window in its compact readout form, `11–17 oct 2026`. */
+  windowRange: string;
   platforms: ReleaseFilterOption[];
   regions: ReleaseFilterOption[];
   activePlatformIds: string[];
@@ -166,6 +172,10 @@ function toReleaseContextGroups(releases: readonly Release[]): ReleaseContextGro
         key,
         date,
         shortDate: formatReleaseDateShort(release.releaseDate),
+        day:
+          release.releaseDate.precision === "day" && "value" in release.releaseDate
+            ? release.releaseDate.value
+            : null,
         region: release.region.name,
         platforms: [],
         platformIds: [],
@@ -213,10 +223,12 @@ export function toReleasesViewModel(page: ReleasePage): ReleasesViewModel {
   return {
     view: page.view,
     title: viewTitles[page.view],
+    window: page.window,
+    evaluatedOn: page.evaluatedOn,
     windowDescription: `Del ${formatCalendarDay(page.window.from)} al ${formatCalendarDay(
       page.window.to,
     )}`,
-    compactWindowDescription: `Del ${formatCompactCalendarDay(page.window.from)} al ${formatCompactCalendarDay(page.window.to)}`,
+    windowRange: formatDayRange(page.window.from, page.window.to),
     platforms: page.availableFilters.platforms.map((platform) => ({
       id: platform.platformId,
       name: platform.name,

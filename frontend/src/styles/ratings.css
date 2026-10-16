@@ -1,0 +1,436 @@
+/* The personal rating, shared by the game page and Mis puntuaciones: the Gameómetro keypad, its key,
+   command outcomes, and the game page's compact personal reading with its anchored panel. Scores
+   speak the thermal language of thermal.css; docs/development/frontend-design.md owns the rules. */
+
+@layer components {
+  /* ---------------------------------------------------------------- Keypad */
+
+  /* The panel sizes its own scale: a keypad of two rows of five, or one row of ten once the
+     panel is wide enough to keep every target at least 44px. */
+  .rating-scale {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    justify-items: center;
+    gap: 10px 8px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  @container (min-width: 520px) {
+    .rating-scale {
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 6px;
+    }
+  }
+
+  /* Each value is a dial stop in its own temperature: a hairline ring of it at rest, lit in it
+     on hover, and filled by it when pressed. The values below the pressed one keep a ring of
+     their own temperature, so the keypad reads as a thermometer filled up to the rating. */
+  .rating-option {
+    display: grid;
+    width: 100%;
+    min-width: 44px;
+    max-width: 52px;
+    aspect-ratio: 1;
+    place-items: center;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--thermal) 30%, var(--color-line));
+    border-radius: 50%;
+    color: var(--color-ink);
+    background: var(--control);
+    font: inherit;
+    font-family: var(--font-display);
+    font-size: 1.0625rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+  }
+
+  .rating-option:hover:not(:disabled) {
+    border-color: var(--thermal);
+    color: var(--thermal);
+    background: color-mix(in srgb, var(--thermal) 12%, var(--control));
+  }
+
+  .rating-option:has(~ .rating-option[aria-pressed="true"]) {
+    border-color: color-mix(in srgb, var(--thermal) 75%, transparent);
+    background: color-mix(in srgb, var(--thermal) 9%, var(--control));
+  }
+
+  .rating-option[aria-pressed="true"] {
+    border-color: transparent;
+    color: var(--color-night);
+    background: var(--thermal);
+    box-shadow:
+      0 0 0 3px var(--overlay),
+      0 0 0 5px var(--thermal),
+      0 0 24px -2px color-mix(in srgb, var(--thermal) 70%, transparent);
+    font-weight: 850;
+  }
+
+  /* The scale's key: from ice at 1 to fire at 10. */
+  .rating-thermal-scale {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .rating-thermal-scale span {
+    flex: none;
+    color: var(--thermal);
+  }
+
+  .rating-thermal-scale::before {
+    order: 1;
+    height: 2px;
+    flex: 1;
+    opacity: 0.7;
+    background: linear-gradient(
+      90deg,
+      var(--color-freeze),
+      var(--color-cold),
+      var(--color-warm),
+      var(--color-hot),
+      var(--color-burn)
+    );
+    content: "";
+  }
+
+  .rating-thermal-scale span:last-child {
+    order: 2;
+  }
+
+  .rating-option:focus-visible {
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 4px;
+  }
+
+  .rating-option:disabled {
+    border-style: dashed;
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* One short pop confirms the value that was just chosen. */
+  @media (prefers-reduced-motion: no-preference) {
+    .rating-option {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out),
+        box-shadow var(--duration-normal) var(--ease-out),
+        transform var(--duration-fast) var(--ease-out);
+    }
+
+    .rating-option:active:not(:disabled) {
+      transform: scale(0.92);
+    }
+
+    .rating-option[aria-pressed="true"] {
+      animation: rating-pressed 420ms var(--ease-pop);
+    }
+  }
+
+  /* ---------------------------------------------------------------- Outcomes */
+
+  .game-rating-feedback {
+    display: grid;
+    justify-items: start;
+    gap: 10px;
+    margin: 0;
+    border: 1px solid var(--color-line);
+    border-left: 3px solid var(--color-ice);
+    border-radius: 4px;
+    padding: 10px 14px;
+    background: var(--control);
+  }
+
+  .game-rating-feedback p {
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .game-rating-feedback-error {
+    border-left-color: var(--color-danger);
+  }
+
+  .game-rating-footnote {
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  .game-rating-actions {
+    display: grid;
+    justify-items: center;
+    gap: 10px;
+  }
+
+  .rating-remove {
+    min-height: 40px;
+    padding-block: 8px;
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+
+  .rating-remove:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--color-danger) 70%, transparent);
+    color: var(--color-danger);
+    background: color-mix(in srgb, var(--color-danger) 8%, var(--control));
+  }
+
+  /* ---------------------------------------------------------------- Personal reading */
+
+  /* The game page's Tu puntuación: a compact reading in the language of Mis puntuaciones, set on
+     a control because it opens the keypad. Its panel overlays what follows, so nothing moves. */
+  .game-personal-rating {
+    position: relative;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+  }
+
+  .game-personal-rating:has(.game-rating-panel) {
+    z-index: 15;
+  }
+
+  .game-rating-trigger {
+    display: grid;
+    width: 100%;
+    min-height: 64px;
+    grid-template-columns: 40px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid
+      color-mix(in srgb, var(--thermal, var(--color-ice)) 30%, var(--color-line));
+    border-radius: 6px;
+    padding: 10px 12px 10px 10px;
+    color: var(--color-ink);
+    background: var(--control);
+    text-align: left;
+  }
+
+  .game-rating-trigger:hover:not([aria-disabled="true"]),
+  .game-rating-trigger[aria-expanded="true"] {
+    border-color: color-mix(in srgb, var(--thermal, var(--color-ice)) 70%, transparent);
+    background: var(--control-hover);
+  }
+
+  .game-rating-trigger:focus-visible {
+    border-radius: 6px;
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 3px;
+  }
+
+  /* Unavailable is a calm state, not a broken control: no fill, a quieter edge and a resting
+     meter, with the reason stated beneath. */
+  .game-rating-trigger[aria-disabled="true"] {
+    border-color: color-mix(in srgb, var(--color-line) 70%, transparent);
+    background: transparent;
+    cursor: not-allowed;
+  }
+
+  .game-rating-trigger[aria-disabled="true"] .game-rating-meter {
+    opacity: 0.5;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .game-rating-trigger {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out);
+    }
+  }
+
+  .game-rating-meter {
+    width: 40px;
+    height: 40px;
+  }
+
+  .game-rating-label {
+    display: grid;
+    gap: 2px;
+    color: color-mix(in srgb, var(--color-ink) 88%, var(--color-muted));
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .game-rating-label b {
+    color: var(--thermal);
+    font-weight: 700;
+  }
+
+  .game-rating-value {
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1.625rem;
+    font-stretch: 106%;
+    font-weight: 850;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .game-rating-cta {
+    color: var(--color-ice-light);
+    font-size: 0.875rem;
+    font-weight: 650;
+    white-space: nowrap;
+  }
+
+  .game-rating-trigger[aria-disabled="true"] .game-rating-cta {
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+
+  /* A caret drawn from two borders: down when closed, up while the keypad is open. */
+  .game-rating-caret {
+    display: grid;
+    width: 24px;
+    height: 24px;
+    place-items: center;
+  }
+
+  .game-rating-caret::before {
+    width: 7px;
+    height: 7px;
+    margin-top: -3px;
+    border-right: 2px solid var(--color-muted);
+    border-bottom: 2px solid var(--color-muted);
+    content: "";
+    transform: rotate(45deg);
+  }
+
+  .game-rating-trigger[aria-expanded="true"] .game-rating-caret::before {
+    margin-top: 3px;
+    transform: rotate(225deg);
+  }
+
+  .game-rating-status {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  .game-rating-status:empty {
+    display: block;
+    height: 0;
+    margin-top: -10px;
+  }
+
+  .game-rating-notice {
+    margin: 0;
+    border: 1px solid var(--color-line);
+    border-left: 3px solid var(--color-warning);
+    border-radius: 4px;
+    padding: 10px 14px;
+    background: var(--control);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  /* The keypad panel: anchored under the reading, overlaying what follows, opaque like every
+     overlay that carries controls; its top edge takes the reading's temperature. */
+  .game-rating-panel {
+    position: absolute;
+    z-index: 1;
+    top: calc(100% + 8px);
+    right: 0;
+    display: grid;
+    width: max(100%, min(300px, calc(100vw - 32px)));
+    gap: 14px;
+    border: 1px solid var(--color-line);
+    border-top: 2px solid var(--thermal, var(--color-ice));
+    border-radius: 4px;
+    padding: 16px;
+    background: var(--overlay);
+    box-shadow: var(--shadow-overlay);
+    container-type: inline-size;
+  }
+
+  .game-rating-panel:focus-visible {
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 3px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .game-rating-panel {
+      animation: pop-in 180ms var(--ease-out) both;
+    }
+  }
+
+  .game-rating-prompt {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .game-rating-panel .rating-scale {
+    gap: 10px 6px;
+  }
+
+  .game-rating-panel .game-rating-actions {
+    border-top: 1px solid var(--color-line);
+    padding-top: 12px;
+  }
+
+  @media (forced-colors: active) {
+    .rating-option,
+    .game-rating-trigger,
+    .game-rating-panel,
+    .game-rating-feedback,
+    .game-rating-notice {
+      border-color: ButtonText;
+      color: ButtonText;
+      background: Canvas;
+      box-shadow: none;
+    }
+
+    .rating-option[aria-pressed="true"] {
+      border: 3px solid Highlight;
+      color: HighlightText;
+      background: Highlight;
+    }
+
+    .rating-option:focus-visible,
+    .game-rating-trigger:focus-visible {
+      outline-color: Highlight;
+    }
+
+    .rating-thermal-scale::before {
+      background: CanvasText;
+    }
+
+    .rating-thermal-scale span,
+    .game-rating-label b {
+      color: CanvasText;
+    }
+  }
+}
+
+@keyframes rating-pressed {
+  40% {
+    transform: scale(1.12);
+  }
+
+  to {
+    transform: none;
+  }
+}

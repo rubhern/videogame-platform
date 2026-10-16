@@ -1,19 +1,24 @@
-/* The game page: cover and scores form an identity column beside an editorial opening.
-   Structured facts keep their glass surfaces; title and summary read directly on the graded stage. */
+/* The game page in Gameómetro's identity: a night stage lit by the game's own cover, the canonical
+   title as the product's wordmark beside the cover, the community's reading leading the others,
+   then the summary and a spec sheet with the release ledger. No glass, no aurora; the personal
+   reading and keypad live in ratings.css. docs/development/frontend-design.md owns the rules. */
 
 @layer components {
   .game-details-section {
-    padding-block: 20px 64px;
+    position: relative;
+    overflow-x: clip;
+    padding-block: 16px 64px;
   }
 
   /* ---------------------------------------------------------------- Composition */
 
-  /* Phones lead with the title, then keep cover and scores together before the editorial text. */
+  /* Source order is the phone's reading order: title, cover, readings, summary, information. */
   .game-detail-layout {
+    position: relative;
     display: grid;
-    grid-template-areas: "heading" "identity" "summary" "facts";
+    grid-template-areas: "heading" "art" "scores" "summary" "facts";
     grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
+    gap: 26px;
   }
 
   .game-detail-layout > * {
@@ -22,31 +27,16 @@
 
   .game-detail-heading {
     grid-area: heading;
-    container-type: inline-size;
-    text-align: center;
-  }
-
-  .game-detail-heading .eyebrow-dot {
-    justify-content: center;
-  }
-
-  .game-detail-identity {
-    display: grid;
-    grid-area: identity;
-    align-content: start;
-    gap: 18px;
   }
 
   .game-artwork {
     position: relative;
-    width: min(64vw, 280px);
-    justify-self: center;
+    grid-area: art;
+    width: min(62vw, 260px);
   }
 
   .game-scores {
-    display: grid;
-    align-content: start;
-    gap: 10px;
+    grid-area: scores;
   }
 
   .game-summary,
@@ -54,37 +44,95 @@
     grid-area: summary;
   }
 
-  .game-detail-facts {
+  .game-information,
+  .detail-skeleton-information {
     grid-area: facts;
-    align-self: start;
+  }
+
+  /* The page is lit by its own cover, from behind the cover. The light is desaturated and capped
+     so a vivid cover tints the atmosphere instead of flooding it, and the shade returns the copy's
+     side to night: the title, the readings and the text always stand on deep night. */
+  .game-detail-layout > .stage-light .stage-light-source {
+    top: -18%;
+    left: -12%;
+    width: 124%;
+    height: 118%;
+    filter: blur(56px) saturate(0.8) brightness(0.4);
+    opacity: 0.8;
+  }
+
+  .game-detail-layout > .stage-light::after {
+    background:
+      linear-gradient(
+        180deg,
+        transparent 0%,
+        color-mix(in srgb, var(--color-night) 40%, transparent) 45%,
+        color-mix(in srgb, var(--color-night) 82%, transparent) 100%
+      ),
+      color-mix(in srgb, var(--color-night) 24%, transparent);
   }
 
   /* ---------------------------------------------------------------- Title */
 
+  /* The canonical title as Gameómetro's own wordmark, as Destacados sets its featured release:
+     the wide heavy cut in capitals, cast in moonlit silver; a subtitle the title introduces with
+     a colon or spaced dash follows in ice. The heading's text keeps the canonical title exactly. */
   .game-detail-title {
-    margin: 12px 0 0;
+    margin: 10px 0 0;
     font-family: var(--font-display);
-    font-size: clamp(2.2rem, min(5.2vw, 8.5cqw), 4.75rem);
-    font-stretch: 112%;
-    font-weight: 850;
-    line-height: 0.92;
-    letter-spacing: -0.045em;
-    text-shadow:
-      0 4px 40px color-mix(in srgb, var(--color-canvas) 75%, transparent),
-      0 0 80px color-mix(in srgb, var(--color-accent) 20%, transparent);
-    text-wrap: balance;
+    font-size: clamp(2.25rem, 4.6vw, 4.25rem);
+    line-height: 0.94;
     overflow-wrap: anywhere;
+    text-wrap: balance;
   }
 
+  /* A long name steps down and wraps into balanced lines; the subtitle keeps its own size. */
   .game-detail-title-long {
-    font-size: clamp(1.9rem, min(3.6vw, 6.5cqw), 3.25rem);
+    font-size: clamp(1.875rem, 3.5vw, 3.25rem);
     line-height: 0.96;
   }
 
   .game-detail-title-longest {
-    font-size: clamp(1.6rem, min(2.7vw, 5.5cqw), 2.5rem);
-    line-height: 1.02;
-    letter-spacing: -0.03em;
+    font-size: clamp(1.5rem, 2.7vw, 2.5rem);
+    line-height: 1;
+  }
+
+  .game-wordmark-main {
+    display: block;
+    padding-bottom: 0.04em;
+    color: transparent;
+    background: linear-gradient(180deg, #ffffff 0%, #f6f5fb 38%, #d9d6e6 57%, #ece9f6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    font-stretch: 125%;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    text-transform: uppercase;
+  }
+
+  .game-wordmark-delimiter {
+    font-size: 0;
+  }
+
+  /* The subtitle sizes from the name above it, never larger than a reading's label can follow,
+     and holds a measure so a long one wraps into a short, even block. */
+  .game-wordmark-sub {
+    display: block;
+    max-width: 34ch;
+    margin-top: 0.34em;
+    color: var(--g-ice);
+    font-family: var(--font-sans);
+    font-size: clamp(1rem, 0.36em, 1.5rem);
+    font-stretch: 100%;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+  }
+
+  .game-wordmark-sub-long {
+    max-width: 44ch;
+    font-size: clamp(1rem, 0.3em, 1.25rem);
   }
 
   .game-detail-aliases {
@@ -95,917 +143,241 @@
   }
 
   .game-detail-aliases span {
-    color: var(--color-accent-hover);
-    font-family: var(--font-serif);
-    font-size: 1.35em;
-    font-style: italic;
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .game-detail-heading,
+    .game-artwork,
+    .game-scores {
+      animation: fade-in 700ms var(--ease-out) both;
+    }
+
+    .game-scores {
+      animation-delay: 120ms;
+    }
   }
 
   /* ---------------------------------------------------------------- Cover */
 
-  /* The cover casts its own light: a blurred copy glows beneath it. */
-  .game-artwork::before {
-    position: absolute;
-    z-index: -1;
-    top: 6%;
-    right: 4%;
-    left: 4%;
-    aspect-ratio: var(--cover-aspect);
-    border-radius: 28%;
-    background: var(--cover-art) center / cover no-repeat;
-    content: "";
-    filter: blur(36px) saturate(1.8);
-    opacity: 0.85;
-    transform: translateY(24px) scale(1.02);
-  }
-
+  /* The provider cover in the shared frame, lifted off the stage by a shadow, never by a halo. */
   .game-artwork .cover-link {
-    border-radius: 18px;
     box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--color-ink) 16%, transparent),
-      0 60px 90px -44px #000,
-      0 0 70px -24px color-mix(in srgb, var(--color-accent) 70%, transparent);
-    transform: perspective(1100px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg));
+      0 50px 70px -40px #000,
+      0 18px 30px -18px #000;
   }
 
-  /* The vignette doubles as the glare that follows a pointer across the cover. */
-  .game-artwork .cover-link::after {
-    background:
-      radial-gradient(
-        circle at var(--glare-x, 50%) var(--glare-y, 0%),
-        rgb(255 255 255 / var(--glare, 0)),
-        transparent 55%
-      ),
-      radial-gradient(
-        124% 96% at 50% 44%,
-        transparent 62%,
-        color-mix(in srgb, #05080b 34%, transparent)
-      );
-  }
-
-  .game-artwork:hover {
-    --glare: 0.2;
-  }
-
-  /* The detail frame is far wider than any provider cover size, so this is the one place
-     that earns a real sharpening pass on top of the shared micro-contrast lift. */
+  /* The large frame is the one no provider cover size can fill, so it adds a light unsharp
+     mask over the delivered image. */
   .game-artwork .catalogue-cover {
-    border-radius: 18px;
-    filter: saturate(1.08) contrast(1.04) url("#cover-unsharp");
+    filter: url("#cover-unsharp") saturate(1.06) contrast(1.04);
   }
 
-  /* The required credit sits on the cover's own glow, so it takes a lighter voice and a shade. */
   .game-artwork .cover-caption {
     margin-top: 10px;
-    color: color-mix(in srgb, var(--color-ink) 78%, var(--color-muted));
-    text-align: center;
-    text-shadow: 0 1px 6px var(--color-canvas);
-  }
-
-  .game-artwork .cover-caption .text-link {
-    color: inherit;
   }
 
   .game-artwork .cover-caption .text-link:hover {
-    color: var(--color-accent-hover);
+    color: var(--color-ice-light);
   }
 
-  /* Opacity-only entrance: the measured composition is never caught mid-transform. */
-  @media (prefers-reduced-motion: no-preference) {
-    .game-detail-heading,
-    .game-artwork,
-    .game-scores > *,
-    .game-summary,
-    .game-detail-facts {
-      animation: fade-in 620ms var(--ease-out) both;
-    }
+  /* ---------------------------------------------------------------- Readings */
 
-    .game-artwork {
-      animation-delay: 60ms;
-    }
-    .game-scores > * {
-      animation-delay: 160ms;
-    }
-    .game-scores > :nth-child(2) {
-      animation-delay: 220ms;
-    }
-    .game-scores > :nth-child(3) {
-      animation-delay: 280ms;
-    }
-    .game-summary {
-      animation-delay: 260ms;
-    }
-    .game-detail-facts {
-      animation-delay: 340ms;
-    }
-
-    .game-artwork .cover-link {
-      transition:
-        transform 600ms var(--ease-out),
-        box-shadow var(--duration-normal) var(--ease-out);
-    }
-  }
-
-  /* The pointer tilt is a flourish for a mouse; everything else keeps the cover still. */
-  @media (prefers-reduced-motion: reduce), (hover: none) {
-    .game-artwork .cover-link {
-      transform: none;
-    }
-
-    .game-artwork:hover {
-      --glare: 0;
-    }
-  }
-
-  /* ---------------------------------------------------------------- Glass panels */
-
-  /* One glass surface per readable block; inside, hairlines divide instead of nested cards. */
-  .game-community-score,
-  .game-external-score,
-  .game-panel {
-    position: relative;
-    isolation: isolate;
-    border: 1px solid var(--glass-border);
-    border-radius: 20px;
-    background: var(--glass);
-    box-shadow: var(--glass-highlight);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-  }
-
-  .game-panel {
+  /* The readings between two hairlines, without boxes, in a clear order of authority: the
+     community's reading leads at full size; IGDB's supporting reading and the visitor's own
+     follow, smaller, in a column of their own. */
+  .game-scores {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-content: start;
-    gap: 16px;
-    padding: 20px;
-    text-align: left;
+    gap: 22px;
+    border-block: 1px solid var(--color-line);
+    padding-block: 22px;
   }
 
-  .game-panel-title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.25rem;
-    font-stretch: 108%;
-    font-weight: 750;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
-  }
-
-  .game-panel-empty {
-    margin: 0;
-    color: var(--color-muted);
-    font-size: 0.9375rem;
-    line-height: 1.5;
-  }
-
-  /* Attribution closes its block in the quiet operational voice. */
-  .game-panel-source {
-    margin: 0;
-    color: var(--color-muted);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    line-height: 1.6;
-    letter-spacing: 0.06em;
-  }
-
-  /* ---------------------------------------------------------------- Community reading */
-
-  .game-community-score::before {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background:
-      radial-gradient(
-        ellipse at 10% -30%,
-        color-mix(in srgb, var(--color-accent) 22%, transparent),
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse at 100% 130%,
-        color-mix(in srgb, var(--color-aurora) 16%, transparent),
-        transparent 55%
-      );
-    content: "";
-  }
-
-  /* A reading lights its panel with its temperature: the glow rises from the panel's floor. */
-  .game-community-score[data-thermal] {
-    border-color: color-mix(in srgb, var(--thermal) 34%, var(--glass-border));
-  }
-
-  .game-community-score[data-thermal]::before {
-    background:
-      radial-gradient(
-        ellipse at 10% -30%,
-        color-mix(in srgb, var(--color-accent) 16%, transparent),
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse at 22% 135%,
-        color-mix(in srgb, var(--thermal) 34%, transparent),
-        transparent 62%
-      );
-  }
-
-  /* Exceptional readings carry their own climate: frost on a frozen score and live embers on a
-     burning one. The middle bands stay plain light. */
-  .game-community-score[data-thermal="freeze"] {
-    box-shadow:
-      var(--glass-highlight),
-      var(--elevation-lift),
-      inset 0 0 0 1px color-mix(in srgb, var(--color-freeze) 24%, transparent),
-      inset 0 22px 44px -28px color-mix(in srgb, var(--color-freeze) 70%, transparent);
-  }
-
-  .game-community-score[data-thermal="burn"]::after {
-    position: absolute;
-    z-index: -1;
-    inset: 30% 0 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background: radial-gradient(
-      ellipse at 26% 100%,
-      color-mix(in srgb, var(--color-burn) 36%, transparent),
-      color-mix(in srgb, var(--color-hot) 10%, transparent) 46%,
-      transparent 72%
-    );
-    content: "";
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .game-community-score[data-thermal="burn"]::after {
-      animation: ember-breathe 3.2s ease-in-out infinite alternate;
-    }
-  }
-
-  /* The community mean read on the Gameómetro: the G-meter, then the label, the number with its
-     temperature in words and the count. The number stays the authority; the meter interprets it. */
-  .game-community-score,
-  .game-external-score {
+  .game-scores-aside {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    align-items: center;
-    gap: 12px 16px;
-    overflow: hidden;
-    padding: 18px 20px 18px 14px;
-    text-align: left;
+    min-width: 0;
+    align-content: start;
+    gap: 20px;
   }
 
-  .game-score-meter {
+  /* Below the desktop the supporting readings follow the community's, set off by a hairline. */
+  .game-scores-aside {
+    border-top: 1px solid var(--color-line);
+    padding-top: 20px;
+  }
+
+  .game-reading {
+    display: grid;
+    grid-template-areas:
+      "label label"
+      "meter body";
+    grid-template-columns: auto minmax(0, 1fr);
+    align-content: start;
+    align-items: center;
+    gap: 10px 16px;
+  }
+
+  .game-reading-label {
+    grid-area: label;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .game-reading-meter {
+    grid-area: meter;
     width: 92px;
     height: 92px;
   }
 
-  /* A missing mean needs less space; actual and unavailable readings retain their scale. */
-  .game-community-score[data-state="empty"] {
-    gap: 8px 12px;
-    padding-block: 12px;
+  .game-community-score {
+    column-gap: 18px;
   }
 
-  .game-community-score[data-state="empty"] .game-score-meter {
-    width: 64px;
-    height: 64px;
+  /* The instrument's own light: the reading's temperature, close and faint around its meter. */
+  .game-community-score[data-thermal] .game-reading-meter {
+    filter: drop-shadow(0 0 16px color-mix(in srgb, var(--thermal) 38%, transparent));
   }
 
-  .game-score-body {
-    display: grid;
-    justify-items: start;
-    gap: 6px;
-    min-width: 0;
+  /* Without a mean the meter rests, smaller and dimmed: a calm state of the same instrument. */
+  .game-community-score[data-state="empty"] .game-reading-meter,
+  .game-community-score[data-state="unavailable"] .game-reading-meter {
+    width: 60px;
+    height: 60px;
+    opacity: 0.7;
   }
 
-  /* The needle sweeps up to the mean as the panel arrives; the panel itself only fades. */
   @media (prefers-reduced-motion: no-preference) {
-    .game-score-meter .game-meter-needle {
+    .game-community-score .game-meter-needle {
       animation: meter-sweep 1100ms var(--ease-pop) 240ms both;
     }
   }
 
-  .game-score-label {
-    grid-column: 1 / -1;
-    margin: 0;
-    color: var(--color-accent-hover);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    line-height: 1.4;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+  .game-reading-body {
+    grid-area: body;
+    display: grid;
+    min-width: 0;
+    gap: 4px;
   }
 
-  .game-score-reading {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 6px 14px;
-  }
-
-  /* Solid ink keeps the headline score's contrast deterministic; its temperature supplies the
-     glow. */
-  .game-score-value {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
+  .game-reading-value {
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
-    font-size: 2.75rem;
-    font-stretch: 106%;
+    font-size: 3.25rem;
+    font-stretch: 108%;
     font-weight: 850;
     line-height: 1;
-    letter-spacing: -0.04em;
-    text-shadow: 0 0 30px
-      color-mix(in srgb, var(--thermal, var(--color-accent)) 55%, transparent);
+    letter-spacing: -0.035em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
 
-  .game-score-value span {
+  .game-reading-value span {
+    margin-left: 3px;
     color: var(--color-muted);
-    font-family: var(--font-display);
     font-size: 0.42em;
     font-weight: 700;
-    letter-spacing: -0.01em;
-    text-shadow: none;
+    letter-spacing: 0;
   }
 
-  .game-score-empty {
+  /* The temperature in words, in its own colour; the number beside it stays the authority. */
+  .game-reading-band {
+    margin: 0;
+    color: var(--thermal);
+    font-size: 0.875rem;
+    font-stretch: 87%;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .game-reading-empty {
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
     font-size: 1.375rem;
-    font-stretch: 106%;
+    font-stretch: 108%;
     font-weight: 750;
-    line-height: 1.12;
-    letter-spacing: -0.02em;
+    line-height: 1.2;
+    letter-spacing: -0.015em;
   }
 
-  /* Lighter than the usual muted voice: the panel's glass can sit over the brightest art. */
-  .game-score-description {
+  /* The count stays readable beside the mean, so a reading from two votes says so plainly. */
+  .game-reading-description {
     margin: 0;
-    color: color-mix(in srgb, var(--color-ink) 72%, var(--color-muted));
+    color: var(--color-muted);
     font-size: 0.875rem;
-    line-height: 1.5;
+    line-height: 1.45;
   }
 
-  .game-score-description strong {
+  .game-reading-description strong {
     color: var(--color-ink);
-    font-weight: 650;
+    font-weight: 700;
   }
 
-  /* ---------------------------------------------------------------- IGDB players' reading */
-
-  /* External sentiment shares the community reading's glass and shape, lit by the product's
-     aurora instead of a temperature: it has no Gameómetro band, and its mark stays white. */
+  /* IGDB's reading supports the community's: the same parts at a smaller size and in quieter
+     ink, so it never reads as Gameómetro's own. Its white mark stands in the meter's place and
+     is the reading's only link. */
   .game-external-score {
-    border-color: color-mix(in srgb, var(--color-aurora) 44%, var(--glass-border));
+    gap: 8px 14px;
   }
 
-  .game-external-score::before {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    background:
-      radial-gradient(
-        ellipse at 10% -30%,
-        color-mix(in srgb, var(--color-aurora) 30%, transparent),
-        transparent 60%
-      ),
-      radial-gradient(
-        ellipse at 22% 135%,
-        color-mix(in srgb, var(--color-aurora) 26%, transparent),
-        transparent 62%
-      );
-    content: "";
+  .game-external-score .game-reading-meter {
+    width: 56px;
+    height: auto;
   }
 
-  .game-external-score .game-score-label {
-    color: color-mix(in srgb, var(--color-aurora) 86%, var(--color-ink));
+  /* The mean and its count share a line while they fit; the count wraps whole beneath it. */
+  .game-external-score .game-reading-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 12px;
   }
 
-  .game-external-score .game-score-value {
-    text-shadow: 0 0 30px color-mix(in srgb, var(--color-aurora) 45%, transparent);
+  .game-external-score .game-reading-description {
+    overflow-wrap: normal;
   }
 
-  /* The mark stands in the meter's square, so both sources' numbers share one column; only the
-     mark itself is the link to this game's source work. */
+  .game-external-score .game-reading-value {
+    color: color-mix(in srgb, var(--color-ink) 86%, var(--color-muted));
+    font-size: 1.75rem;
+    font-weight: 800;
+  }
+
+  .game-external-score .game-reading-description {
+    font-size: 0.8125rem;
+  }
+
   .game-external-score-mark {
     display: grid;
-    place-items: center;
+    place-items: center start;
   }
 
   .game-external-score-mark a {
-    display: block;
-    width: 100%;
-    border-radius: 6px;
+    display: inline-flex;
+    border-radius: 3px;
   }
 
   .game-external-score-mark img {
     display: block;
-    width: 100%;
+    width: 52px;
     height: auto;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .game-external-score-mark img {
-      transition: filter var(--duration-fast) var(--ease-out);
-    }
+    opacity: 0.86;
   }
 
   .game-external-score-mark a:hover img {
-    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-aurora) 70%, transparent));
-  }
-
-  /* ---------------------------------------------------------------- Personal reading */
-
-  /* The visitor's rating stays secondary to the community's: a compact reading that opens the
-     keypad. It takes the temperature of its value; without one it keeps the product's light. */
-  .game-personal-rating {
-    position: relative;
-    display: grid;
-    gap: 8px;
-  }
-
-  /* An open panel overlays what follows, so the reading's block paints above it. */
-  .game-personal-rating:has(.game-rating-panel) {
-    z-index: 30;
-  }
-
-  .game-rating-trigger {
-    --reading: var(--thermal, var(--color-accent));
-
-    display: grid;
-    width: 100%;
-    min-height: 58px;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
-    align-items: center;
-    gap: 12px;
-    margin: 0;
-    border: 1px solid color-mix(in srgb, var(--reading) 42%, var(--glass-border));
-    border-radius: 18px;
-    padding: 8px 12px 8px 10px;
-    color: var(--color-ink);
-    background: linear-gradient(
-      110deg,
-      color-mix(in srgb, var(--reading) 13%, var(--color-surface)),
-      color-mix(in srgb, var(--color-surface) 84%, transparent)
-    );
-    box-shadow:
-      var(--glass-highlight),
-      0 16px 38px -22px color-mix(in srgb, var(--reading) 90%, transparent);
-    font: inherit;
-    text-align: start;
-    cursor: pointer;
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-  }
-
-  .game-rating-trigger:hover:not([aria-disabled="true"]),
-  .game-rating-trigger[aria-expanded="true"] {
-    border-color: color-mix(in srgb, var(--reading) 80%, transparent);
-    box-shadow:
-      var(--glass-highlight),
-      0 0 0 1px color-mix(in srgb, var(--reading) 30%, transparent),
-      0 18px 42px -18px var(--reading);
-  }
-
-  .game-rating-trigger:focus-visible {
-    outline: 2px solid var(--color-accent-hover);
-    outline-offset: 4px;
-  }
-
-  /* Nothing to open: the reading rests and the status beside it says why. */
-  .game-rating-trigger[aria-disabled="true"] {
-    border-style: dashed;
-    border-color: var(--glass-border);
-    background: color-mix(in srgb, var(--color-surface) 70%, transparent);
-    box-shadow: var(--glass-highlight);
-    cursor: default;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .game-rating-trigger {
-      transition:
-        border-color var(--duration-fast) var(--ease-out),
-        box-shadow var(--duration-normal) var(--ease-out),
-        transform var(--duration-fast) var(--ease-out);
-    }
-
-    .game-rating-trigger:active:not([aria-disabled="true"]) {
-      transform: scale(0.985);
-    }
-
-    .game-rating-caret::before {
-      transition: transform var(--duration-fast) var(--ease-out);
-    }
-  }
-
-  .game-rating-meter {
-    width: 40px;
-    height: 40px;
-  }
-
-  .game-rating-meter .game-meter-tick {
-    display: none;
-  }
-
-  .game-rating-meter :is(.game-meter-track, .game-meter-trail, .game-meter-head) {
-    stroke-width: 7.6;
-  }
-
-  .game-rating-label {
-    min-width: 0;
-    color: var(--color-muted);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    line-height: 1.4;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .game-rating-label b {
-    color: var(--thermal);
-    font-weight: 500;
-    white-space: nowrap;
-  }
-
-  .game-rating-label b::before {
-    color: var(--color-subtle);
-    content: "· ";
-  }
-
-  /* On phones the personal band settles under its label and the community meter takes less room. */
-  @media (max-width: 619px) {
-    .game-rating-label b {
-      display: block;
-      margin-top: 2px;
-    }
-
-    .game-rating-label b::before {
-      content: none;
-    }
-
-    .game-score-meter {
-      width: 80px;
-      height: 80px;
-    }
-
-    .game-score-label {
-      letter-spacing: 0.1em;
-    }
-  }
-
-  .game-rating-value {
-    color: var(--color-ink);
-    font-family: var(--font-display);
-    font-size: 1.625rem;
-    font-stretch: 106%;
-    font-weight: 850;
-    line-height: 1;
-    letter-spacing: -0.03em;
-    white-space: nowrap;
-  }
-
-  .game-rating-cta {
-    color: var(--color-accent-hover);
-    font-size: 0.875rem;
-    font-weight: 650;
-    white-space: nowrap;
-  }
-
-  .game-rating-trigger[aria-disabled="true"] .game-rating-cta {
-    color: var(--color-muted);
-    font-weight: 500;
-  }
-
-  .game-rating-caret {
-    display: grid;
-    width: 28px;
-    height: 28px;
-    place-items: center;
-    border: 1px solid var(--glass-border);
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--color-ink) 6%, transparent);
-  }
-
-  /* A caret drawn from two borders: down when closed, up while the keypad is open. */
-  .game-rating-caret::before {
-    width: 7px;
-    height: 7px;
-    margin-top: -3px;
-    border-right: 2px solid var(--color-muted);
-    border-bottom: 2px solid var(--color-muted);
-    content: "";
-    transform: rotate(45deg);
-  }
-
-  .game-rating-trigger[aria-expanded="true"] .game-rating-caret::before {
-    margin-top: 3px;
-    transform: rotate(225deg);
-  }
-
-  .game-rating-status {
-    margin: 0;
-    padding-inline: 4px;
-    color: var(--color-muted);
-    font-size: 0.8125rem;
-    line-height: 1.5;
-  }
-
-  .game-rating-status:empty {
-    display: block;
-    height: 0;
-    margin-top: -8px;
-  }
-
-  .game-rating-notice {
-    margin: 0;
-    border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
-    border-radius: 14px;
-    padding: 10px 14px;
-    background: color-mix(in srgb, var(--color-warning) 12%, transparent);
-    font-size: 0.875rem;
-    line-height: 1.5;
-  }
-
-  /* The keypad panel: anchored under the reading and overlaying what follows, opaque like every
-     overlay that carries controls, and lit by the reading's temperature. */
-  .game-rating-panel {
-    position: absolute;
-    z-index: 1;
-    top: calc(100% + 8px);
-    right: 0;
-    left: 0;
-    display: grid;
-    gap: 14px;
-    border: 1px solid color-mix(in srgb, var(--thermal, var(--color-accent)) 42%, var(--glass-border));
-    border-radius: 22px;
-    padding: 16px;
-    background:
-      radial-gradient(
-        120% 70% at 0 0,
-        color-mix(in srgb, var(--thermal, var(--color-accent)) 13%, transparent),
-        transparent 70%
-      ),
-      var(--glass-solid);
-    box-shadow:
-      var(--glass-highlight),
-      var(--elevation-lift),
-      0 24px 60px -30px var(--thermal, var(--color-accent));
-    container-type: inline-size;
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-  }
-
-  .game-rating-panel:focus-visible {
-    outline: 2px solid var(--color-accent-hover);
-    outline-offset: 3px;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .game-rating-panel {
-      animation: pop-in 180ms var(--ease-out) both;
-    }
-  }
-
-  .game-rating-prompt {
-    margin: 0;
-    color: var(--color-muted);
-    font-size: 0.875rem;
-    line-height: 1.5;
-  }
-
-  .game-rating-panel .rating-scale {
-    gap: 10px 6px;
-  }
-
-  .game-rating-panel .rating-thermal-scale {
-    margin-top: -4px;
-  }
-
-  .game-rating-panel .game-rating-actions {
-    border-top: 1px solid var(--glass-border);
-    padding-top: 12px;
-  }
-
-  /* ---------------------------------------------------------------- Personal keypad */
-
-  /* The panel sizes its own scale: a keypad of two rows of five, or one row of ten once the
-     panel is wide enough to keep every target at least 44px. */
-  .rating-scale {
-    display: grid;
-    min-width: 0;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    justify-items: center;
-    gap: 10px 8px;
-    margin: 0;
-    padding: 0;
-    border: 0;
-  }
-
-  @container (min-width: 520px) {
-    .rating-scale {
-      grid-template-columns: repeat(10, minmax(0, 1fr));
-      gap: 6px;
-    }
-  }
-
-  .rating-option {
-    display: grid;
-    width: 100%;
-    min-width: 44px;
-    max-width: 52px;
-    aspect-ratio: 1;
-    place-items: center;
-    padding: 0;
-    border: 1px solid var(--glass-border);
-    border-radius: 50%;
-    color: var(--color-ink);
-    background:
-      radial-gradient(
-        circle at 35% 28%,
-        color-mix(in srgb, var(--color-ink) 12%, transparent),
-        transparent 70%
-      ),
-      color-mix(in srgb, var(--color-surface) 80%, transparent);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-ink) 12%, transparent);
-    font: inherit;
-    font-family: var(--font-display);
-    font-size: 1.0625rem;
-    font-weight: 700;
-    line-height: 1;
-    cursor: pointer;
-  }
-
-  /* Each value carries its own temperature: it lights up in it on hover, the pressed value
-     glows in it, and the values below keep a ring of theirs, so the keypad reads as a
-     thermometer filled up to the rating. The pressed orb is marked by its ring and glow as well
-     as its fill. */
-  .rating-option:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--thermal) 80%, transparent);
-    background:
-      radial-gradient(
-        circle at 35% 28%,
-        color-mix(in srgb, var(--thermal) 32%, transparent),
-        transparent 72%
-      ),
-      color-mix(in srgb, var(--color-surface) 80%, transparent);
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--thermal) 30%, transparent),
-      0 14px 34px -14px var(--thermal);
-  }
-
-  .rating-option:has(~ .rating-option[aria-pressed="true"]) {
-    border-color: color-mix(in srgb, var(--thermal) 70%, transparent);
-    color: var(--color-ink);
-    background:
-      radial-gradient(
-        circle at 35% 28%,
-        color-mix(in srgb, var(--thermal) 14%, transparent),
-        transparent 70%
-      ),
-      color-mix(in srgb, var(--color-surface) 80%, transparent);
-    box-shadow: inset 0 0 12px -5px var(--thermal);
-  }
-
-  .rating-option[aria-pressed="true"] {
-    border-color: transparent;
-    color: #0b0f1a;
-    background: radial-gradient(
-      circle at 34% 26%,
-      #fff 0,
-      var(--thermal) 46%,
-      var(--thermal-deep) 100%
-    );
-    box-shadow:
-      0 0 0 3px var(--color-canvas),
-      0 0 0 5px var(--thermal),
-      0 0 34px color-mix(in srgb, var(--thermal) 80%, transparent);
-    font-weight: 850;
-  }
-
-  /* The scale's key: from ice at 1 to fire at 10. */
-  .rating-thermal-scale {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: -6px 0 0;
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .rating-thermal-scale span {
-    flex: none;
-    color: var(--thermal);
-  }
-
-  .rating-thermal-scale::before {
-    order: 1;
-    height: 2px;
-    flex: 1;
-    border-radius: 2px;
-    opacity: 0.7;
-    background: linear-gradient(
-      90deg,
-      var(--color-freeze),
-      var(--color-cold),
-      var(--color-warm),
-      var(--color-hot),
-      var(--color-burn)
-    );
-    content: "";
-  }
-
-  .rating-thermal-scale span:last-child {
-    order: 2;
-  }
-
-  .rating-option:focus-visible {
-    outline: 2px solid var(--color-accent-hover);
-    outline-offset: 4px;
-  }
-
-  .rating-option:disabled {
-    border-style: dashed;
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-
-  /* One short pop confirms the value that was just saved. */
-  @media (prefers-reduced-motion: no-preference) {
-    .rating-option {
-      transition:
-        border-color var(--duration-fast) var(--ease-out),
-        box-shadow var(--duration-normal) var(--ease-out),
-        background-color var(--duration-fast) var(--ease-out),
-        transform var(--duration-fast) var(--ease-out);
-    }
-
-    .rating-option:hover:not(:disabled) {
-      transform: translateY(-2px);
-    }
-
-    .rating-option:active:not(:disabled) {
-      transform: scale(0.92);
-    }
-
-    .rating-option[aria-pressed="true"] {
-      animation: rating-pressed 460ms var(--ease-pop);
-    }
-  }
-
-  .game-rating-feedback {
-    display: grid;
-    justify-items: start;
-    gap: 10px;
-    margin: 0;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
-    border-radius: 14px;
-    padding: 12px 14px;
-    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-  }
-
-  .game-rating-feedback p {
-    margin: 0;
-    font-size: 0.875rem;
-    line-height: 1.5;
-  }
-
-  .game-rating-feedback-error {
-    border-color: color-mix(in srgb, var(--color-danger) 50%, transparent);
-    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
-  }
-
-  .game-rating-footnote {
-    color: var(--color-muted);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-  }
-
-  .game-rating-actions {
-    display: grid;
-    justify-items: center;
-    gap: 10px;
-  }
-
-  .rating-remove {
-    min-height: 40px;
-    padding-block: 8px;
-    color: var(--color-muted);
-    font-weight: 500;
-  }
-
-  .rating-remove:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--color-danger) 70%, transparent);
-    color: var(--color-danger);
-    background: color-mix(in srgb, var(--color-danger) 10%, transparent);
-    box-shadow: none;
+    opacity: 1;
   }
 
   /* ---------------------------------------------------------------- Summary */
@@ -1015,7 +387,7 @@
     display: grid;
     align-content: start;
     justify-items: start;
-    gap: 14px;
+    gap: 12px;
     align-self: start;
   }
 
@@ -1023,12 +395,12 @@
     --summary-lines: 6;
 
     display: -webkit-box;
-    max-width: 62ch;
+    max-width: 66ch;
     margin: 0;
     overflow: hidden;
-    color: color-mix(in srgb, var(--color-ink) 88%, var(--color-muted));
+    color: color-mix(in srgb, var(--color-ink) 90%, var(--color-muted));
     font-size: 1rem;
-    line-height: 1.8;
+    line-height: 1.75;
     white-space: pre-line;
     overflow-wrap: anywhere;
     -webkit-box-orient: vertical;
@@ -1044,56 +416,81 @@
   }
 
   .game-summary-toggle {
-    justify-self: start;
     min-height: 44px;
-    margin: -6px 0;
+    margin: -8px 0;
     border: 0;
     padding: 4px 0;
-    color: var(--color-accent-hover);
+    color: var(--color-ice-light);
     background: none;
     font-size: 0.8125rem;
     font-weight: 650;
     text-decoration: underline;
-    text-decoration-color: color-mix(in srgb, var(--color-accent-hover) 40%, transparent);
+    text-decoration-color: color-mix(in srgb, var(--color-ice) 50%, transparent);
     text-underline-offset: 4px;
   }
 
   .game-summary-toggle:hover {
-    color: var(--color-ink);
+    color: #fff;
     text-decoration-color: currentColor;
   }
 
   .game-summary-toggle:focus-visible {
-    outline: 2px solid var(--color-accent-hover);
-    outline-offset: 4px;
     border-radius: 4px;
+    outline: 2px solid var(--color-ice-light);
+    outline-offset: 4px;
   }
 
-  .game-summary .game-panel-source {
-    max-width: 62ch;
+  .game-source {
+    max-width: 66ch;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.5;
   }
 
-  .game-summary .game-panel-source::before {
-    display: block;
-    width: 18px;
-    height: 2px;
-    margin-bottom: 10px;
-    background: var(--color-accent);
-    content: "";
-  }
+  /* ---------------------------------------------------------------- Information */
 
-  /* ---------------------------------------------------------------- Game information */
-
+  /* A spec sheet, not a card: one hairline opens it, then the facts and the release ledger. On
+     the desktop sheet both stand on the hero's own columns — the facts under the cover, the
+     ledger under the copy — with their headings set as peers on one line. */
   .game-information {
+    display: grid;
+    gap: 22px;
+    margin-top: 18px;
+    border-top: 1px solid var(--color-line);
+    padding-top: 28px;
     container-type: inline-size;
-    gap: 24px;
+  }
+
+  .game-information-title,
+  .game-release-title {
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-stretch: 112%;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .game-information-body {
+    display: grid;
+    gap: 30px;
+  }
+
+  .game-information-empty {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
   }
 
   .game-facts {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    gap: 22px;
     margin: 0;
-    gap: 24px;
   }
 
   .game-fact {
@@ -1107,10 +504,11 @@
     align-items: center;
     gap: 8px;
     color: var(--color-muted);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    line-height: 1.45;
-    letter-spacing: 0.14em;
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
@@ -1118,7 +516,7 @@
     width: 16px;
     height: 16px;
     flex: none;
-    color: var(--color-accent-hover);
+    color: var(--color-ice);
   }
 
   .game-fact dd {
@@ -1136,54 +534,38 @@
   .game-chips {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  /* A value wraps inside its chip rather than being cut. */
+  /* A value wraps inside its tag rather than being cut. */
   .game-chip {
     min-width: 0;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--glass-border));
-    border-radius: 999px;
-    padding: 5px 12px;
+    border: 1px solid var(--color-line);
+    border-radius: 3px;
+    padding: 4px 10px;
     color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+    background: var(--control);
     font-size: 0.8125rem;
     font-weight: 550;
     line-height: 1.4;
     overflow-wrap: anywhere;
   }
 
-  /* Company roles share the first row when space allows; taxonomy follows beneath them. */
-  @container (min-width: 600px) {
-    .game-facts {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      column-gap: 32px;
-    }
-  }
+  /* ---------------------------------------------------------------- Release ledger */
 
-  /* ---------------------------------------------------------------- Dates and platforms */
-
+  /* The release ledger: each platform and region as one row between hairlines, read as where,
+     when and its state. */
   .game-release-section {
+    --release-mark: 36px;
+    --release-mark-gap: 10px;
+
     display: grid;
     min-width: 0;
+    align-content: start;
     gap: 16px;
-  }
-
-  .game-facts + .game-release-section {
-    border-top: 1px solid var(--glass-border);
-    padding-top: 24px;
-  }
-
-  .game-release-title {
-    margin: 0;
-    font-family: var(--font-display);
-    font-size: 1.0625rem;
-    font-weight: 700;
-    line-height: 1.3;
-    letter-spacing: -0.01em;
   }
 
   .game-release-list {
@@ -1197,28 +579,24 @@
   .game-release-row {
     display: grid;
     gap: 8px;
-    border-top: 1px solid var(--glass-border);
-    padding-block: 14px;
+    border-top: 1px solid var(--color-line);
+    padding-block: 16px;
   }
 
-  .game-release-row:first-child {
-    border-top: 0;
-    padding-top: 2px;
+  .game-release-list > .game-release-row:last-child {
+    border-bottom: 1px solid var(--color-line);
   }
 
-  .game-release-row:last-child {
-    padding-bottom: 2px;
-  }
-
-  /* Narrow rows: the platform and its status, then the date and the region. */
+  /* Narrow rows: where, with the status opposite, then when, both under the platform's name. */
   .game-release-facts {
     display: grid;
     grid-template-areas:
       "platform state"
-      "when region";
+      "region region"
+      "when when";
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 8px 14px;
+    align-items: start;
+    gap: 4px 14px;
     margin: 0;
   }
 
@@ -1226,7 +604,7 @@
     display: flex;
     min-width: 0;
     align-items: center;
-    gap: 8px;
+    gap: var(--release-mark-gap);
     margin: 0;
   }
 
@@ -1235,15 +613,16 @@
   }
 
   .game-release-platform dd {
+    min-height: 24px;
     color: var(--color-ink);
     font-size: 0.9375rem;
     font-weight: 700;
     line-height: 1.3;
   }
 
+  /* The region reads under the platform's name, its mark in the platform mark's slot. */
   .game-release-region {
     grid-area: region;
-    justify-self: end;
   }
 
   .game-release-region dd {
@@ -1252,8 +631,17 @@
     line-height: 1.3;
   }
 
+  .game-release-facts .game-release-region .app-select-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: calc(var(--release-mark) - 16px);
+    color: var(--color-muted);
+  }
+
   .game-release-when {
     grid-area: when;
+    margin-top: 6px;
+    padding-left: calc(var(--release-mark) + var(--release-mark-gap));
   }
 
   .game-release-when dd {
@@ -1266,14 +654,19 @@
     justify-self: end;
   }
 
+  .game-release-state dd {
+    min-height: 24px;
+  }
+
+  /* The date in the instrument's readout voice: it is a reading of time, so it takes ice. */
   .game-release-date {
-    color: var(--color-ink);
-    font-family: var(--font-display);
+    color: var(--g-ice);
     font-size: 1rem;
-    font-stretch: 104%;
-    font-weight: 750;
+    font-stretch: 87%;
+    font-weight: 700;
     line-height: 1.3;
-    letter-spacing: -0.01em;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
   }
 
   .game-release-stage {
@@ -1285,13 +678,13 @@
   .game-release-facts .app-select-icon {
     width: 18px;
     height: 18px;
-    color: var(--color-accent-hover);
+    color: color-mix(in srgb, var(--color-ink) 82%, var(--color-muted));
   }
 
   /* Platform marks keep their own proportions inside one shared slot, so the names align. */
   .game-release-mark {
     display: flex;
-    width: 36px;
+    width: var(--release-mark);
     flex: none;
     align-items: center;
   }
@@ -1316,30 +709,30 @@
     height: 16px;
   }
 
-  /* Wide rows read across one line: platform, region, date and status. */
-  @container (min-width: 500px) {
+  /* Wide rows read in three groups across: where (platform over region), when (date over its
+     stage) and the status, each group starting on the row's first line. */
+  @container (min-width: 520px) {
     .game-release-facts {
-      grid-template-areas: "platform region when state";
-      grid-template-columns: minmax(156px, 1.3fr) minmax(88px, 0.7fr) minmax(0, 1.7fr) auto;
-      gap: 10px 12px;
+      grid-template-areas:
+        "platform when state"
+        "region when state";
+      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr) minmax(108px, auto);
+      gap: 4px 24px;
     }
 
-    .game-release-region {
-      justify-self: start;
-    }
-
-    .game-release-platform dd,
-    .game-release-date {
-      font-size: 0.875rem;
+    .game-release-when {
+      margin-top: 0;
+      padding-left: 0;
     }
   }
 
+  /* Review and verification notes belong to the row's platform, under its name. */
   .game-release-flags {
     display: flex;
     flex-wrap: wrap;
     gap: 6px 16px;
     margin: 0;
-    padding: 0;
+    padding: 0 0 0 calc(var(--release-mark) + var(--release-mark-gap));
     list-style: none;
     font-size: 0.8125rem;
     line-height: 1.45;
@@ -1370,61 +763,78 @@
     width: 8px;
     height: 4px;
     margin: 0 8px 3px 1px;
-    border-bottom: 1.5px solid var(--color-accent-hover);
-    border-left: 1.5px solid var(--color-accent-hover);
+    border-bottom: 1.5px solid var(--color-ice);
+    border-left: 1.5px solid var(--color-ice);
     content: "";
     transform: rotate(-45deg);
   }
 
-  /* Release status as a chip: the word states it, the tone only reinforces it. */
+  /* Release status in words, led by a marker whose shape differs per state, so colour only
+     reinforces it: a filled stop once released, an open ring while ahead, a diamond for a delay,
+     a bar for a cancellation and a dash when unknown. */
   .game-status {
     --status-tone: var(--color-muted);
 
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    border: 1px solid color-mix(in srgb, var(--status-tone) 45%, transparent);
-    border-radius: 999px;
-    padding: 4px 12px 4px 10px;
+    gap: 8px;
     color: var(--color-ink);
-    background: color-mix(in srgb, var(--status-tone) 14%, transparent);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
     line-height: 1.3;
     white-space: nowrap;
   }
 
   .game-status::before {
-    width: 7px;
-    height: 7px;
+    width: 8px;
+    height: 8px;
     flex: none;
+    box-sizing: border-box;
     border-radius: 50%;
     background: var(--status-tone);
-    box-shadow: 0 0 10px 1px color-mix(in srgb, var(--status-tone) 80%, transparent);
     content: "";
   }
 
   .game-status-released {
-    --status-tone: #7fe0c0;
+    --status-tone: var(--color-ice);
   }
 
   .game-status-upcoming {
-    --status-tone: var(--color-accent);
+    --status-tone: var(--color-ice);
+  }
+
+  .game-status-upcoming::before {
+    border: 1.5px solid var(--status-tone);
+    background: transparent;
   }
 
   .game-status-warning {
     --status-tone: var(--color-warning);
   }
 
+  .game-status-warning::before {
+    border-radius: 1px;
+    transform: rotate(45deg) scale(0.85);
+  }
+
   .game-status-danger {
     --status-tone: var(--color-danger);
+  }
+
+  .game-status-danger::before {
+    height: 2px;
+    border-radius: 1px;
+  }
+
+  .game-status-neutral::before {
+    height: 2px;
+    border-radius: 1px;
   }
 
   /* Further records of a platform and region stay one native disclosure away: kept whole and
      unmerged, never shown as equals of the presented records. */
   .game-release-more {
-    border-top: 1px solid var(--glass-border);
-    padding-top: 6px;
+    margin-top: -8px;
   }
 
   .game-release-more > summary {
@@ -1434,7 +844,7 @@
     align-items: center;
     gap: 6px 14px;
     padding: 6px 2px;
-    color: var(--color-accent-hover);
+    color: var(--color-ice-light);
     cursor: pointer;
     list-style: none;
   }
@@ -1448,11 +858,9 @@
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: 0.8125rem;
+    font-weight: 650;
     line-height: 1.45;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
   }
 
   .game-release-more-label::before {
@@ -1475,36 +883,30 @@
     }
   }
 
-  .game-release-more > .game-release-list {
+  .game-release-section > .game-source {
     margin-top: 4px;
   }
 
-  .game-release-more .game-release-row:first-child {
-    border-top: 1px solid var(--glass-border);
-    padding-top: 14px;
-  }
-
   .game-details-back {
-    margin-top: 40px;
+    margin-top: 44px;
   }
 
   /* ---------------------------------------------------------------- Loading */
 
   .game-details-loading .game-detail-heading {
     display: grid;
-    justify-items: center;
+    justify-items: start;
     gap: 14px;
   }
 
   .skeleton.detail-skeleton-kicker {
-    width: 150px;
+    width: 130px;
     height: 12px;
   }
 
   .skeleton.detail-skeleton-title {
     width: min(100%, 520px);
-    height: 64px;
-    border-radius: 14px;
+    height: 68px;
   }
 
   .skeleton.detail-skeleton-aliases {
@@ -1513,151 +915,149 @@
   }
 
   .skeleton.detail-skeleton-score {
-    min-height: 130px;
-    border-radius: 24px;
+    min-height: 96px;
   }
 
   .skeleton.detail-skeleton-rating {
-    min-height: 58px;
-    border-radius: 18px;
+    min-height: 64px;
   }
 
   .skeleton.detail-skeleton-summary {
-    min-height: 180px;
-    border-radius: 8px;
+    min-height: 170px;
   }
 
   .skeleton.detail-skeleton-information {
-    min-height: 380px;
-    border-radius: 24px;
+    min-height: 360px;
+  }
+
+  .game-details-loading .game-scores {
+    border: 0;
+    padding: 0;
   }
 
   /* ---------------------------------------------------------------- Tablet */
 
-  /* Cover and editorial text share the opening; both readings get a comfortable row below. */
+  /* The cover stands beside the title and the readings; summary and information follow. */
   @media (min-width: 760px) {
     .game-details-section {
-      padding-block: 36px 72px;
+      padding-block: 28px 72px;
     }
 
     .game-detail-layout {
       grid-template-areas:
         "art heading"
-        "art summary"
-        "scores scores"
+        "art scores"
+        "summary summary"
         "facts facts";
-      grid-template-columns: clamp(250px, 30%, 280px) minmax(0, 1fr);
-      grid-template-rows: auto 1fr auto auto;
-      column-gap: clamp(28px, 3.4vw, 48px);
-      row-gap: 24px;
+      grid-template-columns: 236px minmax(0, 1fr);
+      column-gap: 36px;
+      row-gap: 26px;
       align-items: start;
     }
 
-    .game-detail-heading {
-      padding-top: 20px;
-      text-align: left;
-    }
-
-    .game-detail-heading .eyebrow-dot {
-      justify-content: flex-start;
-    }
-
-    .game-detail-identity {
-      display: contents;
-    }
-
     .game-artwork {
-      grid-area: art;
       width: 100%;
-      justify-self: stretch;
     }
 
-    .game-scores {
-      grid-area: scores;
-      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
-      align-items: center;
-      gap: 18px;
+    .game-detail-heading {
+      align-self: end;
     }
 
-    /* With the IGDB reading, the two sources share the row and the visitor's own follows. */
-    .game-scores:has(> .game-external-score) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Beside the cover the light gathers behind the art and the copy's side returns to night. */
+    .game-detail-layout > .stage-light {
+      height: 720px;
     }
 
-    .game-artwork .cover-caption {
-      text-align: left;
+    .game-detail-layout > .stage-light .stage-light-source {
+      top: -24%;
+      left: calc(max(0px, 50% - 660px) - 140px);
+      width: min(64%, 820px);
+      height: 124%;
+      filter: blur(96px) saturate(0.9) brightness(0.52);
+      opacity: 1;
     }
 
-    .game-details-loading .game-detail-heading {
-      justify-items: start;
+    .game-detail-layout > .stage-light::after {
+      background:
+        linear-gradient(
+          90deg,
+          transparent calc(max(0px, 50% - 660px) + 200px),
+          color-mix(in srgb, var(--color-night) 48%, transparent) calc(max(0px, 50% - 660px) + 620px),
+          color-mix(in srgb, var(--color-night) 86%, transparent) 84%
+        ),
+        linear-gradient(
+          180deg,
+          transparent 30%,
+          color-mix(in srgb, var(--color-night) 70%, transparent) 100%
+        );
     }
 
-    .game-panel {
-      padding: 22px 24px;
+    .game-information-body {
+      gap: 34px;
     }
 
-    /* The narrow identity column still opens a keypad with ten usable touch targets. */
-    .game-rating-panel {
-      right: auto;
-      width: max(100%, 300px);
-    }
-
-    .game-rating-trigger {
-      gap: 8px;
-    }
-
-    .game-rating-label b {
-      display: block;
-      margin-top: 2px;
-    }
-
-    .game-rating-label b::before {
-      content: none;
-    }
-
-    .game-community-score,
-    .game-external-score {
-      column-gap: 12px;
-      padding: 18px 16px 18px 12px;
-    }
-
-    .game-score-meter {
-      width: 72px;
-      height: 72px;
+    @container (min-width: 600px) {
+      .game-facts {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: 32px;
+      }
     }
   }
 
   /* ---------------------------------------------------------------- Desktop */
 
-  /* The unified information card follows the editorial opening at its natural height. */
+  /* The cover holds the left column beside the title, the readings and the summary. The spec
+     sheet keeps the same two columns: the facts under the cover, the release ledger under the
+     copy, their headings side by side on the sheet's first line. */
   @media (min-width: 1024px) {
+    .game-details-section {
+      padding-block: 36px 80px;
+    }
+
     .game-detail-layout {
+      --detail-cover: clamp(280px, 24vw, 320px);
+      --detail-gap: clamp(40px, 4.4vw, 64px);
+
       grid-template-areas:
-        "identity heading"
-        "identity summary"
-        "identity facts";
-      grid-template-columns: clamp(280px, 25vw, 340px) minmax(0, 1fr);
-      grid-template-rows: auto auto 1fr;
-      row-gap: 24px;
-    }
-
-    .game-detail-identity {
-      display: grid;
-    }
-
-    .game-artwork {
-      grid-area: auto;
-    }
-
-    .game-scores,
-    .game-scores:has(> .game-external-score) {
-      grid-area: auto;
-      grid-template-columns: minmax(0, 1fr);
-      gap: 10px;
+        "art heading"
+        "art scores"
+        "art summary"
+        "facts facts";
+      grid-template-columns: var(--detail-cover) minmax(0, 1fr);
+      grid-template-rows: auto auto 1fr auto;
+      column-gap: var(--detail-gap);
+      row-gap: 28px;
     }
 
     .game-detail-heading {
-      padding-top: 30px;
+      align-self: start;
+      padding-top: 18px;
+    }
+
+    /* The community's reading and the supporting column side by side, a hairline between. */
+    .game-scores {
+      grid-template-columns: minmax(0, 1.1fr) minmax(280px, 1fr);
+      gap: 0;
+    }
+
+    .game-community-score {
+      padding-right: clamp(16px, 2.4vw, 32px);
+    }
+
+    .game-scores-aside {
+      border-top: 0;
+      border-left: 1px solid var(--color-line);
+      padding-top: 0;
+      padding-left: clamp(20px, 2.6vw, 36px);
+    }
+
+    .game-community-score .game-reading-meter {
+      width: 104px;
+      height: 104px;
+    }
+
+    .game-community-score .game-reading-value {
+      font-size: 3.75rem;
     }
 
     .game-summary-text {
@@ -1666,77 +1066,78 @@
       font-size: 1.0625rem;
     }
 
-    .game-detail-facts {
-      margin-top: 8px;
+    .game-information {
+      grid-template-areas:
+        "title releases"
+        "facts releases";
+      grid-template-columns: var(--detail-cover) minmax(0, 1fr);
+      grid-template-rows: auto 1fr;
+      column-gap: var(--detail-gap);
+      row-gap: 24px;
+      margin-top: 24px;
+      padding-top: 32px;
     }
 
-    .game-score-meter {
-      width: 82px;
-      height: 82px;
+    .game-information-title {
+      grid-area: title;
     }
 
-    .game-panel {
-      padding: 24px;
+    .game-information-body {
+      display: contents;
+    }
+
+    .game-facts {
+      grid-area: facts;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .game-release-section {
+      grid-area: releases;
+      gap: 24px;
+    }
+
+    .game-information-title,
+    .game-release-title {
+      font-size: 1.375rem;
     }
   }
 
   /* ---------------------------------------------------------------- Forced colours */
 
   @media (forced-colors: active) {
-    .game-community-score,
-    .game-external-score,
-    .game-panel,
-    .game-rating-trigger,
-    .game-rating-panel,
     .game-chip,
-    .game-status,
-    .rating-option {
+    .game-scores,
+    .game-information {
       border-color: CanvasText;
       background: Canvas;
-      box-shadow: none;
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
     }
 
-    .rating-option[aria-pressed="true"] {
-      outline: 2px solid Highlight;
-      outline-offset: -3px;
-      background: Highlight;
-      color: HighlightText;
+    .game-wordmark-main,
+    .game-wordmark-sub {
+      color: CanvasText;
+      background: none;
     }
 
-    .rating-option:focus-visible,
-    .game-rating-trigger:focus-visible {
-      outline-color: Highlight;
-      outline-offset: 3px;
-    }
-
-    .game-community-score::before,
-    .game-community-score::after,
-    .game-external-score::before,
-    .game-artwork::before,
-    .game-status::before,
-    .rating-thermal-scale::before {
-      display: none;
-    }
-
-    .rating-thermal-scale span,
-    .game-rating-label b {
+    .game-reading-band {
       color: CanvasText;
     }
 
-    .game-score-value,
-    .game-detail-title {
-      text-shadow: none;
+    .game-community-score .game-reading-meter {
+      filter: none;
     }
 
     .game-artwork .cover-link {
       box-shadow: none;
-      transform: none;
     }
 
     .game-artwork .catalogue-cover {
       filter: none;
+    }
+
+    .game-status::before {
+      forced-color-adjust: none;
+      background-color: CanvasText;
+      border-color: CanvasText;
     }
 
     /* A masked mark paints with its background, which forced colours turn into Canvas; it keeps
@@ -1763,29 +1164,5 @@
 @keyframes meter-sweep {
   from {
     transform: rotate(0deg);
-  }
-}
-
-@keyframes ember-breathe {
-  from {
-    opacity: 0.45;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes rating-pressed {
-  0% {
-    transform: scale(0.86);
-  }
-
-  55% {
-    transform: scale(1.12);
-  }
-
-  100% {
-    transform: scale(1);
   }
 }
