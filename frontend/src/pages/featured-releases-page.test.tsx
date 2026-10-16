@@ -181,7 +181,8 @@ describe("featured releases page", () => {
       "/?view=recent&weeks=1",
     );
     expect(screen.getByRole("status")).toHaveTextContent("Lanzamientos destacados de octubre de 2026");
-    expect(screen.getByText("Selección automática según atención actual")).toBeVisible();
+    // The heading is the title and the month alone: no selection caption or selection note.
+    expect(screen.queryByText(/Selección del mes|Selección automática/)).toBeNull();
     // Attention ranks the selection; nothing claims quality or an award.
     expect(document.body).not.toHaveTextContent(/mejor|juego del mes|visitas/i);
   });
@@ -211,9 +212,8 @@ describe("featured releases page", () => {
     expect(link).toHaveAttribute("href", "/games/game-lead/juego-destacado");
     expect(within(hero).getByRole("heading", { name: "Juego destacado" })).toBeVisible();
     expect(within(hero).getByRole("list", { name: "Géneros" })).toHaveTextContent("AventuraRol (RPG)");
-    const text = within(hero).getByText(summary.text.trim());
-    expect(text.textContent).toBe(summary.text);
-    expect(text).toHaveAttribute("lang", "es");
+    // The summary belongs to the game page; the featured hero never shows it.
+    expect(within(hero).queryByText(summary.text.trim())).toBeNull();
     expect(within(hero).queryByText(/Traducción|Fuente del original|IGDB/)).not.toBeInTheDocument();
     expect(link.querySelector("a, button, input, select, summary, [tabindex]")).toBeNull();
     const overflow = within(hero).getByRole("button", { name: /lanzamientos? más/ });
@@ -225,7 +225,7 @@ describe("featured releases page", () => {
     expect(within(card).getByRole("list", { name: "Géneros" })).toHaveTextContent("AventuraRol (RPG)");
     expect(within(card).getByText("22 de octubre de 2026: PlayStation 5.")).toBeInTheDocument();
     expect(within(card).getByText("Mundial")).toBeVisible();
-    expect(document.body).not.toHaveTextContent(/Studio secret|Publisher secret|Multijugador|Other summary secret/);
+    expect(document.body).not.toHaveTextContent(/Studio secret|Publisher secret|Multijugador|Other summary secret|Explora un mundo/);
   });
 
   it("omits missing enrichment and navigates to details through the hero with Enter", async () => {
@@ -477,7 +477,7 @@ describe("featured releases page", () => {
     ).toBeVisible();
   });
 
-  it("keeps a stale ranking usable and says when its attention was observed", async () => {
+  it("keeps a stale ranking usable without a selection note", async () => {
     stubFeatured(
       featured({
         selection: {
@@ -490,9 +490,7 @@ describe("featured releases page", () => {
     renderApp("/");
 
     await screen.findByRole("article", { name: "Juego destacado" });
-    expect(
-      screen.getByText("Selección automática según la atención registrada el 2 sep 2026"),
-    ).toBeVisible();
+    expect(screen.queryByText(/Selección automática|atención registrada/)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 

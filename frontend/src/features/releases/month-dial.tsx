@@ -1,6 +1,6 @@
 import { useId, type CSSProperties } from "react";
 
-import { dialGeometry, type DialPoint, type DialShape } from "./month-dial-geometry";
+import { DIAL_VIEWBOX, MONTH_DIAL_GEOMETRY, type DialPoint } from "./month-dial-geometry";
 import { scalePosition, type MonthTimeline, type ReleaseMark } from "./month-timeline";
 
 type MonthDialProps = {
@@ -8,7 +8,6 @@ type MonthDialProps = {
   mark: ReleaseMark;
   /** The release's compact date, written beside a mark that has no single day. */
   markLabel: string;
-  shape: DialShape;
   width: number;
   height: number;
   /** The hero's G carries numerals and a finer scale; the phone emblem keeps its markers. */
@@ -17,6 +16,11 @@ type MonthDialProps = {
 };
 
 const round = (value: number) => Math.round(value * 100) / 100;
+
+/** Days that carry a major mark and, on the hero's G, a numeral: 1, every fifth and the last. */
+function isMajor(day: number, days: number): boolean {
+  return day === 1 || day === days || day % 5 === 0;
+}
 
 /** Labels outside the band lean away from it, whichever side of the G they sit on. */
 function anchorFor(point: DialPoint): "start" | "middle" | "end" {
@@ -44,16 +48,15 @@ export function MonthDial({
   timeline,
   mark,
   markLabel,
-  shape,
   width,
   height,
   detail,
   className,
 }: MonthDialProps) {
   const id = useId();
-  const geometry = dialGeometry(shape);
+  const geometry = MONTH_DIAL_GEOMETRY;
   const full = detail === "full";
-  const half = shape.band / 2;
+
   const { days, today } = timeline;
   const at = (day: number) =>
     geometry.scaleStart + (geometry.scaleEnd - geometry.scaleStart) * scalePosition(day, days);
@@ -65,32 +68,54 @@ export function MonthDial({
         : 0;
   const isElapsed = (day: number) => timeline.phase === "past" || (today !== null && day <= today);
   const launchDay = mark.kind === "day" ? mark.day : null;
+  // Numerals stand outside the band, where the markers' own labels go; they give way to them.
   const nearMarker = (day: number) =>
-    (launchDay !== null && Math.abs(day - launchDay) <= 1) ||
-    (timeline.phase === "current" && today !== null && Math.abs(day - today) <= 1);
+    (launchDay !== null && Math.abs(day - launchDay) <= 2) ||
+    (timeline.phase === "current" && today !== null && Math.abs(day - today) <= 2);
 
+  // Both lengths are centred on the temporal path, inset from either rim.
   let elapsedTicks = "";
   let pendingTicks = "";
+  let minorTicks = "";
   for (let day = 1; day <= days; day += 1) {
     const point = geometry.pointAt(at(day));
-    const major = day === 1 || day === days || day % 5 === 0;
-    const reach = full ? (major ? 11 : 6) : major ? 5 : 3;
-    const tick = segment(out(point, -half), out(point, -half + reach));
-    if (isElapsed(day)) elapsedTicks += tick;
+    const half = point.half;
+    const major = isMajor(day, days);
+    if (!major && !full) continue;
+    const reach = half * (major ? 0.62 : 0.25);
+    const tick = segment(out(point, -reach), out(point, reach));
+    if (!major) minorTicks += tick;
+    else if (isElapsed(day)) elapsedTicks += tick;
     else pendingTicks += tick;
   }
 
   const numerals = full
-    ? [1, 5, 10, 15, 20, 25, days]
-        .filter((day, index, list) => list.indexOf(day) === index && !nearMarker(day))
-        .map((day) => ({ day, point: out(geometry.pointAt(at(day)), 3.5) }))
+    ? Array.from({ length: days }, (_, index) => index + 1)
+        // A fifth day right before the last one keeps its mark but lends its numeral to the last.
+        .filter((day) => isMajor(day, days) && !nearMarker(day) && (day === days || days - day > 2))
+        .map((day) => {
+          const point = geometry.pointAt(at(day));
+          return {
+            day,
+            point: out(point, point.half + 11),
+            // The last day sits next to the terminal's cut on the top, where time runs to the
+            // right: its numeral ends at its mark instead of reaching past the cut.
+            anchor: day === days ? ("end" as const) : anchorFor(point),
+          };
+        })
     : [];
 
   const todayPoint =
     timeline.phase === "current" && today !== null ? geometry.pointAt(at(today)) : null;
+  const half = todayPoint?.half ?? 14;
+  const labelGap = full ? 13 : 9;
+  // Next to the launch day, "hoy" steps out past the needle's own label instead of covering it.
+  const todayLabelOffset =
+    launchDay !== null && today !== null && Math.abs(today - launchDay) <= 2
+      ? half + (full ? 44 : 30)
+      : half + labelGap;
   const start = geometry.pointAt(geometry.scaleStart);
   const end = geometry.pointAt(geometry.scaleEnd);
-  const labelGap = full ? 12 : 10;
 
   return (
     <svg
@@ -98,36 +123,46 @@ export function MonthDial({
       className={`month-dial month-dial-${detail} month-dial-${timeline.phase}${className ? ` ${className}` : ""}`}
       focusable="false"
       height={round(height)}
-      viewBox={`0 0 ${round(width)} ${round(height)}`}
+      viewBox={DIAL_VIEWBOX}
+      preserveAspectRatio="xMidYMid meet"
       width={round(width)}
     >
       <defs>
-        {/* The brand mark's ice, lighting the days already gone. */}
+        <clipPath id={`${id}-band`}><path d={geometry.outline} /></clipPath>
+        <linearGradient gradientUnits="userSpaceOnUse" id={`${id}-arm-fade`} x1="343" x2="418">
+          <stop offset="0" stopColor="black" />
+          <stop offset="0.5" stopColor="#666" />
+          <stop offset="1" stopColor="white" />
+        </linearGradient>
+        <mask id={`${id}-soft-arm`} maskUnits="userSpaceOnUse" x="0" y="0" width="450" height="382">
+          <rect width="450" height="382" fill="white" />
+          <rect x="330" y="199" width="88" height="13" fill={`url(#${id}-arm-fade)`} />
+        </mask>
+        {/* Ice lighting the days already gone: one light for every phase, so a whole past month
+            reads as the same instrument as the current one, never as a white glare. */}
         <linearGradient
           gradientUnits="userSpaceOnUse"
           id={`${id}-ice`}
           x1="0"
           x2="0"
-          y1={round(shape.cy - shape.b)}
-          y2={round(shape.cy + shape.b)}
+          y1="27"
+          y2="356"
         >
           <stop className="month-dial-ice-top" offset="0" />
           <stop className="month-dial-ice-middle" offset="0.46" />
           <stop className="month-dial-ice-bottom" offset="1" />
         </linearGradient>
-        <linearGradient
-          gradientUnits="userSpaceOnUse"
-          id={`${id}-track`}
-          x1="0"
-          x2="0"
-          y1={round(shape.cy - shape.b)}
-          y2={round(shape.cy + shape.b)}
-        >
-          <stop className="month-dial-track-top" offset="0" />
-          <stop className="month-dial-track-bottom" offset="1" />
+        <linearGradient id={`${id}-glass`} x1="0" y1="0" x2="80%" y2="100%">
+          <stop offset="0" stopColor="#b9dcef" stopOpacity="0.22" />
+          <stop offset="0.25" stopColor="#122b3c" stopOpacity="0.7" />
+          <stop offset="0.52" stopColor="#8cb5ce" stopOpacity="0.12" />
+          <stop offset="0.76" stopColor="#0b1a26" stopOpacity="0.7" />
+          <stop offset="1" stopColor="#9acbe6" stopOpacity="0.24" />
         </linearGradient>
+        {/* A close, faint glow: the rail looks lit without a halo reaching the copy. */}
         <filter height="140%" id={`${id}-lume`} width="140%" x="-20%" y="-20%">
-          <feGaussianBlur result="glow" stdDeviation={full ? 3.2 : 1.6} />
+          <feGaussianBlur in="SourceGraphic" result="blur" stdDeviation={full ? 2 : 1} />
+          <feColorMatrix in="blur" result="glow" type="matrix" values="1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.4 0" />
           <feMerge>
             <feMergeNode in="glow" />
             <feMergeNode in="SourceGraphic" />
@@ -135,29 +170,37 @@ export function MonthDial({
         </filter>
       </defs>
 
-      <path className="month-dial-track" d={geometry.path} stroke={`url(#${id}-track)`} strokeWidth={shape.band} />
-      {full ? (
-        <path className="month-dial-bevel" d={geometry.alongside(geometry.barLength, geometry.length, half - 0.75)} />
-      ) : null}
-      {lit > 0 ? (
-        <path
-          className="month-dial-progress"
-          d={geometry.path}
-          filter={`url(#${id}-lume)`}
-          stroke={`url(#${id}-ice)`}
-          strokeDasharray={`${round(lit)} ${round(geometry.length + 2)}`}
-          strokeWidth={shape.band}
-          style={{ "--dial-length": `${round(geometry.length + 2)}px` } as CSSProperties}
-        />
-      ) : null}
-      <path className="month-dial-ticks month-dial-ticks-pending" d={pendingTicks} />
-      <path className="month-dial-ticks month-dial-ticks-elapsed" d={elapsedTicks} />
-      {numerals.map(({ day, point }) => (
+      {/* All visible rail layers use the traced silhouette, never a widened centreline. */}
+      <g className="month-dial-band" mask={`url(#${id}-soft-arm)`}>
+        <path className="month-dial-keyline" d={geometry.outline} strokeWidth="3" />
+        <path className="month-dial-track" d={geometry.outline} />
+        <path className="month-dial-glass" d={geometry.outline} fill={`url(#${id}-glass)`} />
+        <g clipPath={`url(#${id}-band)`}>
+          {lit > 0 ? (
+            <path
+              className="month-dial-progress"
+              d={geometry.path}
+              filter={`url(#${id}-lume)`}
+              stroke={`url(#${id}-ice)`}
+              strokeDasharray={`${round(lit)} ${round(geometry.length + 2)}`}
+              strokeWidth="64"
+              style={{ "--dial-length": `${round(geometry.length + 2)}px` } as CSSProperties}
+            />
+          ) : null}
+        </g>
+        <path className="month-dial-edge" d={geometry.outline} strokeWidth="0.8" />
+      </g>
+      <g clipPath={`url(#${id}-band)`}>
+        <path className="month-dial-ticks month-dial-ticks-minor" d={minorTicks} />
+        <path className="month-dial-ticks month-dial-ticks-pending" d={pendingTicks} />
+        <path className="month-dial-ticks month-dial-ticks-elapsed" d={elapsedTicks} />
+      </g>
+      {numerals.map(({ day, point, anchor }) => (
         <text
           className={`month-dial-numeral${isElapsed(day) ? " month-dial-numeral-elapsed" : ""}`}
           dominantBaseline="central"
           key={day}
-          textAnchor="middle"
+          textAnchor={anchor}
           x={point.x}
           y={point.y}
         >
@@ -167,12 +210,12 @@ export function MonthDial({
 
       {todayPoint === null ? null : (
         <g className="month-dial-today">
-          <path d={segment(out(todayPoint, -half - 2), out(todayPoint, half + (full ? 7 : 4)))} />
+          <path d={segment(out(todayPoint, -half - 2), out(todayPoint, half + (full ? 5 : 3)))} />
           <text
             dominantBaseline="central"
             textAnchor={anchorFor(todayPoint)}
-            x={out(todayPoint, half + labelGap).x}
-            y={out(todayPoint, half + labelGap).y}
+            x={out(todayPoint, todayLabelOffset).x}
+            y={out(todayPoint, todayLabelOffset).y}
           >
             hoy
           </text>
@@ -180,15 +223,15 @@ export function MonthDial({
       )}
 
       {mark.kind === "day" ? (
-        <LaunchNeedle full={full} half={half} label={String(mark.day)} point={geometry.pointAt(at(mark.day))} />
+        <LaunchNeedle full={full} half={geometry.pointAt(at(mark.day)).half} label={String(mark.day)} point={geometry.pointAt(at(mark.day))} />
       ) : null}
 
       {mark.kind === "span" ? (
         <g className={`month-dial-span${mark.open ? " month-dial-span-open" : ""}`}>
-          <path d={geometry.alongside(geometry.scaleStart, geometry.scaleEnd, half + 5)} />
+          <path d={geometry.alongside(geometry.scaleStart, geometry.scaleEnd, half + 4)} />
           {mark.open ? null : (
             <path
-              d={`${segment(out(start, half + 1), out(start, half + 10))}${segment(out(end, half + 1), out(end, half + 10))}`}
+              d={`${segment(out(start, half + 1), out(start, half + 9))}${segment(out(end, half + 1), out(end, half + 9))}`}
             />
           )}
           <MarkLabel offset={half + labelGap + 6} point={end} text={markLabel} />
@@ -216,12 +259,10 @@ export function MonthDial({
 
 /** The G alone, unlit and unmarked: the placeholder the hero's dial arrives in. */
 export function DialSilhouette({
-  shape,
   width,
   height,
   className,
 }: {
-  shape: DialShape;
   width: number;
   height: number;
   className?: string;
@@ -232,39 +273,45 @@ export function DialSilhouette({
       className={`month-dial month-dial-silhouette${className ? ` ${className}` : ""}`}
       focusable="false"
       height={round(height)}
-      viewBox={`0 0 ${round(width)} ${round(height)}`}
+      viewBox={DIAL_VIEWBOX}
+      preserveAspectRatio="xMidYMid meet"
       width={round(width)}
     >
-      <path className="month-dial-track" d={dialGeometry(shape).path} strokeWidth={shape.band} />
+      <path className="month-dial-track" d={MONTH_DIAL_GEOMETRY.outline} />
     </svg>
   );
 }
 
-/** The brand mark's fire needle, crossing the band at the release's day. */
-function LaunchNeedle({
-  point,
-  half,
-  label,
-  full,
-}: {
+/** A tapered blade and circular pivot share the canonical mark's needle proportions. */
+function LaunchNeedle({ point, half, label, full }: {
   point: DialPoint;
   half: number;
   label: string;
   full: boolean;
 }) {
-  const base = out(point, -half + 3);
-  const tip = out(point, half + (full ? 13 : 9));
-  const width = full ? 4.4 : 2.8;
-  // The tangent is the normal turned a quarter turn clockwise.
-  const tangentX = -point.ny;
-  const tangentY = point.nx;
-  const needle = `M${round(base.x + tangentX * width)} ${round(base.y + tangentY * width)}L${tip.x} ${tip.y}L${round(base.x - tangentX * width)} ${round(base.y - tangentY * width)}Z`;
-  const labelPoint = out(point, half + (full ? 23 : 17));
+  const id = useId();
+  const hub = out(point, -half - (full ? 1.5 : 2));
+  const length = half * 2 + (full ? 13 : 15);
+  const radius = full ? 3.4 : 4;
+  const labelPoint = out(point, half + (full ? 23 : 26));
+  const angle = Math.atan2(point.ny, point.nx) * 180 / Math.PI;
   return (
     <g className="month-dial-launch">
-      <path className="month-dial-needle" d={needle} />
-      <circle className="month-dial-hub" cx={base.x} cy={base.y} r={full ? 5.2 : 3.4} />
-      <circle className="month-dial-hub-core" cx={base.x} cy={base.y} r={full ? 1.9 : 1.2} />
+      <g
+        style={{ "--needle-paint": `url(#${id}-fire)` } as CSSProperties}
+        transform={`translate(${hub.x} ${hub.y}) rotate(${round(angle)})`}
+      >
+        <defs>
+          <linearGradient gradientUnits="userSpaceOnUse" id={`${id}-fire`} x1="0" x2={length} y1="0" y2="0">
+            <stop offset="0" stopColor="#ff4b3e" />
+            <stop offset="0.55" stopColor="#ff8c3a" />
+            <stop offset="1" stopColor="#ffd36e" />
+          </linearGradient>
+        </defs>
+        <path className="month-dial-needle" d={`M-1 ${-radius * 0.55}L${round(length)} 0L-1 ${radius * 0.55}Z`} />
+        <circle className="month-dial-needle" r={radius} />
+        <circle className="month-dial-needle-core" r={radius * 0.34} />
+      </g>
       <text dominantBaseline="central" textAnchor={anchorFor(point)} x={labelPoint.x} y={labelPoint.y}>
         {label}
       </text>

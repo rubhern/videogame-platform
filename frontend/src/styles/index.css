@@ -15,17 +15,25 @@
 
 /* Semantic roles. Use them through these names; never place palette values in JSX. */
 @theme {
+  /* Gameómetro's three brand families, from its mark: night is the stage, ice measures and
+     progresses (the G's own stop), fire marks a reading or an event (the needle). The light
+     variants carry text and fine lines in each family on night. */
+  --color-night: #06080d;
+  --color-ice: #9db3ff;
+  --color-ice-light: #dbe7ff;
+  --color-fire: #ff6a3d;
+  --color-fire-light: #ffb35c;
   --font-sans: "Mona Sans", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Mona Sans", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Instrument Serif", Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --color-canvas: #06080d;
+  --color-canvas: var(--color-night);
   --color-surface: #0c1018;
   --color-raised: #141a25;
   --color-ink: #f1f4fa;
   --color-muted: #a6b1c4;
   --color-subtle: #808c9f;
-  --color-accent: #9db3ff;
+  --color-accent: var(--color-ice);
   --color-accent-hover: #c8d5ff;
   --color-aurora: #b99cff;
   --color-line: #232c3a;
