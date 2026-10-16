@@ -645,12 +645,19 @@ def lockout() -> dict:
 
 for attempt in range(1, 6):
     if attempt > 1:
-        # Keycloak's wall clock separates failures by at least its 1 s quick-login check even if
-        # the host clock steps back, so only the five-failure rule applies.
+        # Space failures after the previous asynchronous update has been observed.
+        # Sleeping after only the HTTP response can let queued failures trigger quick-login.
         time.sleep(2.5)
     answer, _, _ = sign_in(target, synthetic_password())
     assert not callback(answer) and INVALID_CREDENTIALS in page_text(answer.body)
-    assert lockout()["disabled"] is (attempt == 5), (attempt, lockout())
+    deadline = time.monotonic() + 10
+    state = lockout()
+    while state["numFailures"] < attempt:
+        assert time.monotonic() < deadline, "the asynchronous failure counter did not advance"
+        time.sleep(0.1)
+        state = lockout()
+    assert state["numFailures"] == attempt, "a failure was counted more than once"
+    assert state["disabled"] is (attempt == 5), (attempt, state)
 answer, _, _ = sign_in(target, target_password)
 assert not callback(answer) and INVALID_CREDENTIALS in page_text(answer.body), "the lockout is indistinguishable"
 assert account_details(target)["enabled"] is True, "lockout is temporary, never a permanent disable"
@@ -723,8 +730,11 @@ assert risk_shapes["recovery_existing"]["forms"] == risk_shapes["recovery_unknow
 
 # R18: the native global metrics listener works even with realm event storage/listeners off.
 # Only internal Docker access; no product route or real SMTP is involved.
-management = os.environ.get("KEYCLOAK_TEST_MANAGEMENT_ORIGIN", "http://" + urllib.parse.urlsplit(ORIGIN).hostname + ":9000") + "/metrics"
-with urllib.request.urlopen(management, timeout=10) as response:
+# Management inherits the main listener's TLS unless explicitly configured otherwise.
+# Reuse the fixture CA: plaintext and unverified HTTPS would bypass the production proof.
+identity_url = urllib.parse.urlsplit(ORIGIN)
+management = os.environ.get("KEYCLOAK_TEST_MANAGEMENT_ORIGIN", f"{identity_url.scheme}://{identity_url.hostname}:9000") + "/metrics"
+with urllib.request.urlopen(management, context=TLS, timeout=10) as response:
     metrics = response.read().decode()
 event_samples = [line for line in metrics.splitlines() if line.startswith("keycloak_user_events_total{")]
 assert event_samples, "native security event metrics are absent"

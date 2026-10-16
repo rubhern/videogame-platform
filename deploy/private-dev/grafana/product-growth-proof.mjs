@@ -162,10 +162,16 @@ try {
   assert.equal(value(lines,'verify_email'),3);
   assert(lines.some(line=>line.includes('event="register"')&&!line.includes('error=""')),'Fixture did not exercise a failed registration event');
   await wait(async()=> (await query('keycloak_user_events_total{job="keycloak-product",event="register",error=""}'))[0]?.value[1]==='3','Successful registrations not scraped');
-  const scraped=await query('keycloak_user_events_total');
+  const scraped=await query('keycloak_user_events_total{job="keycloak-product"}');
   assert.equal(scraped.length,2);
   assert(scraped.every(sample=>(sample.metric.error ?? '')==='' && sample.metric.realm==='videogame-platform'));
   assert(scraped.every(sample=>Object.keys(sample.metric).every(key=>['__name__','event','error','realm','job','instance'].includes(key))));
+  const security=await query('keycloak_user_events_total{job="keycloak-security"}');
+  assert(security.some(sample=>sample.metric.event==='register' && sample.metric.error==='username_in_use'),
+    'The separate security scrape must retain the rejected registration signal');
+  assert(security.every(sample=>sample.metric.realm==='videogame-platform' &&
+    Object.keys(sample.metric).every(key=>['__name__','event','error','realm','job','instance'].includes(key))),
+    'Unexpected personal or unbounded security metric tag');
   console.log('Actual Prometheus scrape retains only two successful event series; quiet configured source is zero.');
   // Grafana returns the provisioned series name, never the PromQL, for the real registration panels.
   const growth=JSON.parse(readFileSync('/work/deploy/private-dev/grafana/dashboards/vgp-growth.json','utf8'));
