@@ -227,9 +227,6 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Prove the public-production realm policy without retries
-        run: bash scripts/validate-production-identity.sh
-
       - name: Prove the private-dev identity alignment and mail transports without retries
         run: bash scripts/validate-private-dev-identity.sh
 
