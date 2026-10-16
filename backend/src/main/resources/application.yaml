@@ -52,8 +52,11 @@ identity:
     # unsettled outcome; personal writes pause meanwhile. It bounds availability, not safety.
     revocation-settle-timeout: 30s
   oidc:
+    # Expected ID token issuer; every UserId derives from it. With the production realm the BFF
+    # refuses to start unless every value below and the provider endpoints match it canonically.
+    issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8180/realms/videogame-platform}
     # Explicit like the other provider endpoints: the browser-facing issuer's RP-initiated logout.
-    end-session-uri: ${OIDC_END_SESSION_URI:${OIDC_ISSUER_URI:http://localhost:8180/realms/videogame-platform}/protocol/openid-connect/logout}
+    end-session-uri: ${OIDC_END_SESSION_URI:${identity.oidc.issuer-uri}/protocol/openid-connect/logout}
     # Must equal the realm client's registered post-logout URI exactly.
     post-logout-redirect-uri: "${APPLICATION_OIDC_POST_LOGOUT_REDIRECT_URI:{baseUrl}/}"
 

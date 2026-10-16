@@ -255,6 +255,11 @@ jobs:
           PACKAGE_SKIP_BACKEND_TESTS: ${{ needs.detect-changes.outputs.backend }}
         run: bash scripts/validate-identity.sh
 
+      - name: Prove the public-production realm and BFF issuer/cookie contract without retries
+        env:
+          PRODUCTION_IDENTITY_REUSE_PACKAGE: "true"
+        run: bash scripts/validate-production-identity.sh
+
       - name: Preserve sanitized identity-browser diagnostics
         if: ${{ failure() && !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
