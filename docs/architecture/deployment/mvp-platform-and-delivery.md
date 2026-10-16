@@ -408,9 +408,8 @@ Management-interface requirements that #275 must preserve in the production runt
   than exposing it, and the procedure falls back to a restart.
 - Keep the rejection of browser-initiated state-changing management requests; add no
   proxy, tunnel or credential-free route to the management server.
-- Pin `OIDC_ISSUER_URI`, from which every `UserId` derives, and the post-logout URI
-  (`APPLICATION_OIDC_POST_LOGOUT_REDIRECT_URI`) to the canonical public values, as the
-  callback is.
+- Supply the BFF's identity values as the [canonical issuer contract](#canonical-issuer-contract)
+  requires; the application refuses to start otherwise.
 
 Private-dev binds the management server to all container interfaces for its smoke
 runner, so every peer on its edge and data networks, Keycloak, PostgreSQL, Grafana,
@@ -439,10 +438,26 @@ records the reviewed policy and its limits. #275 owns its runtime integration:
 - Startup import applies only when the realm is absent. A later policy change needs a
   reviewed apply step against the live realm, never a re-import over accounts.
 
-The approved realm name fixes the issuer path `/realms/gameometro`. The full issuer,
-the identity HTTPS origin plus that path, must be fixed before the first real account
-is created and must then stay stable: every rating is keyed by a `UserId` derived from
-it, so a changed issuer detaches all ratings from their accounts.
+#### Canonical issuer contract
+
+**Implemented and proven with synthetic origins (#274 phase 2); the public hostnames are
+not chosen.** The approved realm name fixes the issuer path `/realms/gameometro`. The
+full issuer, `https://` plus the identity host plus that path, must be fixed before the
+first real account is created and must then stay stable: every rating is keyed by a
+`UserId` derived from it, so a changed issuer detaches all ratings from their accounts.
+One spelling exists for it: lower-case DNS name, implicit port 443, no trailing slash.
+
+| Consumer | Value derived from the canonical issuer and application origin | Enforced by |
+|---|---|---|
+| Keycloak | `KC_HOSTNAME` is the full identity origin (`https://` plus host), so discovery, token `iss`, form actions and email links never follow a request's `Host` or forwarded headers, even with proxy headers trusted; the realm import receives the application host for the exact callback and post-logout address | Identity gate and the contract check |
+| BFF | `OIDC_ISSUER_URI`; the authorization, token, JWKS, userinfo and end-session URIs are exactly the issuer plus Keycloak's `/protocol/openid-connect/` paths, reached with verified TLS; `APPLICATION_OIDC_REDIRECT_URI` and `APPLICATION_OIDC_POST_LOGOUT_REDIRECT_URI` explicit on a separate application origin (`/login/oauth2/code/keycloak` and `/`); session cookie `__Host-` prefixed and `Secure` | `PublicIdentityContract` stops the application at startup whenever the issuer names the production realm and any value deviates; local and private-dev realms are unaffected |
+| Running pair | Discovery publishes exactly the BFF's issuer and endpoints, also under spoofed `Host`/forwarded headers; the realm accepts only the exact callback and post-logout address; the BFF's sign-in redirect keeps them under spoofed headers | [`check-oidc-issuer-contract.py`](../../../scripts/check-oidc-issuer-contract.py): read-only, account-free; the identity gate runs it, and #275 runs it on the real host with the production values before the first account |
+
+The BFF and Keycloak sit on distinct hosts of one registrable domain, so they are the
+same site: `SameSite=Lax` does not separate them, and the BFF's CSRF token, `Origin` and
+Fetch-Metadata checks are what refuse a state change sent from the identity origin. The
+observed cookies are recorded in the
+[#274 research](../../research/public-release-rights-and-privacy.md#74-increment-4-canonical-issuer-and-cookies-2026-10-15).
 
 ### Resource and work envelope (proposal, not capacity evidence)
 

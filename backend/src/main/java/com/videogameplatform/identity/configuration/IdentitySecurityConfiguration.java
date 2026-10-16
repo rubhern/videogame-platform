@@ -84,14 +84,32 @@ public class IdentitySecurityConfiguration {
             SessionRegistry sessionRegistry,
             Clock clock,
             @Value("${identity.session.absolute-timeout}") Duration absoluteSessionTimeout,
+            @Value("${identity.oidc.issuer-uri}") String issuer,
             @Value("${identity.oidc.end-session-uri}") String endSessionUri,
             @Value("${identity.oidc.post-logout-redirect-uri}") String postLogoutRedirectUri,
             @Value("${server.servlet.session.cookie.name:vgp_session}") String sessionCookieName,
+            @Value("${server.servlet.session.cookie.secure:false}") boolean sessionCookieSecure,
             @Value("${platform.http-security.hsts.enabled:false}") boolean hstsEnabled)
             throws Exception {
         HttpSessionCsrfTokenRepository csrfTokens = new HttpSessionCsrfTokenRepository();
         csrfTokens.setHeaderName("X-CSRF-Token");
         ClientRegistrationRepository repository = registrations.getIfAvailable();
+        if (repository != null) {
+            ClientRegistration keycloak = repository.findByRegistrationId("keycloak");
+            if (keycloak != null) {
+                PublicIdentityContract.verify(
+                        issuer,
+                        keycloak,
+                        endSessionUri,
+                        postLogoutRedirectUri,
+                        sessionCookieName,
+                        sessionCookieSecure);
+            } else if (PublicIdentityContract.applies(issuer)) {
+                throw new IllegalStateException(
+                        "Public identity contract violated; refusing to start: no keycloak client"
+                                + " registration");
+            }
+        }
         LogoutSuccessHandler logoutSuccess =
                 repository == null
                         ? IdentitySecurityConfiguration::endApplicationSessionOnly
@@ -279,8 +297,7 @@ public class IdentitySecurityConfiguration {
 
     @Bean
     JwtDecoderFactory<ClientRegistration> oidcIdTokenDecoderFactory(
-            @Value("${OIDC_ISSUER_URI:http://localhost:8180/realms/videogame-platform}")
-                    String expectedIssuer) {
+            @Value("${identity.oidc.issuer-uri}") String expectedIssuer) {
         OidcIdTokenDecoderFactory factory = new OidcIdTokenDecoderFactory();
         factory.setJwtValidatorFactory(
                 registration -> idTokenValidators(registration, expectedIssuer));

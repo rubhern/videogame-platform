@@ -141,8 +141,8 @@ for path in "${changed_paths[@]}"; do
       enable identity browser backend
       matched=true
       ;;
-    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | deploy/public-production/keycloak/*)
-      # The production realm is proven only by the real Keycloak identity gate.
+    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | deploy/public-production/keycloak/*)
+      # The production realm and its BFF contract are proven only by the real identity gate.
       enable identity
       matched=true
       ;;
@@ -199,7 +199,7 @@ for path in "${changed_paths[@]}"; do
       enable frontend codeql_javascript
       matched=true
       ;;
-    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts | frontend/tests/password-recovery.spec.ts)
+    frontend/tests/oidc-session.spec.ts | frontend/tests/rating-boundary.spec.ts | frontend/tests/password-recovery.spec.ts | frontend/tests/production-identity.spec.ts)
       # These journeys run only inside the real Keycloak identity gate.
       enable frontend browser identity codeql_javascript
       matched=true
