@@ -55,7 +55,7 @@ jobs:
           cache-dependency-path: ${{ matrix.cache_dependency_path }}
 
       - name: Resolve and submit the complete Maven dependency graph
-        uses: advanced-security/maven-dependency-submission-action@b275d12641ac2d2108b2cbb7598b154ad2f2cee8 # v5.0.0
+        uses: advanced-security/maven-dependency-submission-action@a64327a7329c9939cf675e458452febe1894a70c # v6.0.1
         with:
           correlator: ${{ matrix.correlator }}
           # The action needs an absolute root path so it executes ./mvnw rather
