@@ -385,6 +385,30 @@ on IPv4/IPv6; do not claim protection from an SSH/HTTP-only firewall screenshot.
 Private administration must work before opening the edge; provider console is a
 protected break-glass path.
 
+### Public domain and names
+
+**Approved names; only the domain and its mail records exist (#274).** The owner
+registered `gameometro.com` at OVHcloud, which is registrar and DNS provider. On
+2026-10-16 public DNS showed OVHcloud name servers, OVHcloud mail exchangers and the
+registrar's placeholder address on the apex, and the Mailjet SPF, DKIM and DMARC
+(`p=none`) records on the sending subdomain. No application, identity or certificate
+uses these names yet.
+
+| Use | Approved name | Status |
+|---|---|---|
+| Web application and same-origin BFF/API | `https://gameometro.com` | Not configured; needs the VPS, DNS and edge (#275/#276) |
+| Keycloak identity origin | `https://auth.gameometro.com` | No DNS record |
+| OIDC issuer | `https://auth.gameometro.com/realms/gameometro` | Fixed by this table; validated on the real host before the first real account ([contract](#canonical-issuer-contract)) |
+| Transactional-email sending subdomain | `mail.gameometro.com` | Verified in Mailjet with SPF, DKIM and DMARC |
+| Verification and recovery sender | `no-reply@mail.gameometro.com` | Used by the private-dev relay transport; production delivery unproven |
+| Reply-To contact | `hola@gameometro.com` | Used by the private-dev relay transport; the public privacy and rights contact (D1) is not yet published |
+
+Private-dev keeps its own tailnet issuer and never uses these names for identity.
+The [#274 research](../../research/public-release-rights-and-privacy.md#domain-and-sending-subdomain-2026-10-16)
+records the pending operational checks;
+[cost evidence](../../research/public-production-topology.md#cost-evidence-estimate-not-an-order)
+holds the price.
+
 ### Account revocation and the management interface
 
 Disabling or deleting an account must stop its new operations immediately, including
@@ -392,8 +416,8 @@ through an already-open BFF session; a maximum session lifetime only bounds expo
 and is not revocation. Revocation must reach every store that can authenticate the
 account and verify its outcome, failing closed.
 [ADR-0027](../../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)
-selects direct invalidation of BFF sessions. **Implemented in the application (#274),
-not yet operated on a host:**
+selects direct invalidation of BFF sessions. **Implemented in the application (#274)
+and running in private-dev; no revocation procedure has been operated on a host:**
 
 - Every OIDC sign-in registers its session in Spring Security's in-memory session
   registry. An authenticated session that is missing from it, or that is eight hours
@@ -462,8 +486,10 @@ records the reviewed policy and its limits. #275 owns its runtime integration:
 
 #### Canonical issuer contract
 
-**Implemented and proven with synthetic origins (#274 phase 2); the public hostnames are
-not chosen.** The approved realm name fixes the issuer path `/realms/gameometro`. The
+**Implemented and proven with synthetic origins (#274 phase 2); the production values
+are `https://auth.gameometro.com/realms/gameometro` and the application origin
+`https://gameometro.com` ([public names](#public-domain-and-names)), not yet
+configured.** The approved realm name fixes the issuer path `/realms/gameometro`. The
 full issuer, `https://` plus the identity host plus that path, must be fixed before the
 first real account is created and must then stay stable: every rating is keyed by a
 `UserId` derived from it, so a changed issuer detaches all ratings from their accounts.

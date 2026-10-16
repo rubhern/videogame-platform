@@ -54,8 +54,14 @@ local_and_private_dev = [
 local_and_private_dev += [
     path for path in (repository_root / "deploy/private-dev").rglob("*") if path.is_file() and path.suffix != ".md"
 ]
+# The private-dev identity command reads the import as its single policy source and applies a
+# subset through the Admin API; it never mounts or imports it.
+policy_reader = repository_root / "deploy/private-dev/bin/configure-keycloak-identity"
 for path in local_and_private_dev:
+    if path == policy_reader:
+        continue
     assert "public-production/" not in path.read_text(encoding="utf-8", errors="ignore"), path
+assert "public-production/keycloak/import/gameometro-realm.json" in policy_reader.read_text(encoding="utf-8")
 
 # Only reviewed runtime inputs are substituted at import; display-name keys are lower case.
 placeholders = set(re.findall(r"\$\{([A-Z][A-Z0-9_]*)\}", text))
