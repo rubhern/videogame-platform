@@ -28,8 +28,6 @@ public enum ProviderMappingFailure {
      * dimensions; it is ignored and never fails the Game.
      */
     IMAGE_REFERENCE_INVALID,
-    /** Two provider records normalized to one identical tuple, which would merge them silently. */
-    DUPLICATE_RELEASE_TUPLE,
     /** The record was structurally unreadable. */
     RECORD_UNREADABLE
 }

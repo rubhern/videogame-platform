@@ -73,6 +73,41 @@ class SynchronizationWriteFailuresTest {
     }
 
     @Test
+    void onlyAUniqueViolationOfTheReleaseTupleIsNamedAsSuch() {
+        var tuple =
+                new SQLException(
+                        "ERROR: duplicate key value violates unique constraint"
+                                + " \"uq_release_snapshot_tuple\"",
+                        "23505");
+        var otherUnique =
+                new SQLException(
+                        "ERROR: duplicate key value violates unique constraint"
+                                + " \"uq_game_snapshot_slug\"",
+                        "23505");
+        var tupleNamedByAnotherState =
+                new SQLException("constraint \"uq_release_snapshot_tuple\"", "23514");
+
+        assertThat(
+                        SynchronizationWriteFailures.reason(
+                                new DuplicateKeyException(PRIVATE_DETAIL, tuple)))
+                .isEqualTo(Reason.RELEASE_TUPLE_CONFLICT);
+        assertThat(
+                        SynchronizationWriteFailures.reason(
+                                new DuplicateKeyException(PRIVATE_DETAIL, otherUnique)))
+                .isEqualTo(Reason.PERSISTENCE_CONSTRAINT_VIOLATION);
+        assertThat(
+                        SynchronizationWriteFailures.reason(
+                                new DataIntegrityViolationException(
+                                        PRIVATE_DETAIL, tupleNamedByAnotherState)))
+                .isEqualTo(Reason.PERSISTENCE_CONSTRAINT_VIOLATION);
+        assertThat(
+                        SynchronizationWriteFailures.classify(
+                                        new DuplicateKeyException(PRIVATE_DETAIL, tuple))
+                                .getMessage())
+                .doesNotContain("uq_release_snapshot_tuple", "duplicate key");
+    }
+
+    @Test
     void theClassifiedExceptionKeepsTheCauseButExposesOnlyAStablePhrase() {
         var cause = new DuplicateKeyException(PRIVATE_DETAIL);
 

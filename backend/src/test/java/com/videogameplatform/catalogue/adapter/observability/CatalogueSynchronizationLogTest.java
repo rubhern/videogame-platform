@@ -345,6 +345,7 @@ class CatalogueSynchronizationLogTest {
                 created,
                 0,
                 0,
+                0,
                 0);
     }
 

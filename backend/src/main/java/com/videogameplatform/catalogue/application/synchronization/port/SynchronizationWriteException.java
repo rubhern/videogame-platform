@@ -53,7 +53,12 @@ public final class SynchronizationWriteException extends RuntimeException {
         RELEASE_BOUND_EXCEEDED("Game exceeds release bound"),
         /** A statement or the write transaction exceeded its timeout. */
         PERSISTENCE_TIMEOUT("The catalogue synchronization write timed out"),
-        /** The datastore rejected the data: a constraint or a column rule. */
+        /**
+         * A written Release would repeat the release tuple of another stored Release of the Game,
+         * for example evidence outside synchronization ownership. References are never merged.
+         */
+        RELEASE_TUPLE_CONFLICT("A release repeats another release of the Game"),
+        /** The datastore rejected the data: any other constraint or column rule. */
         PERSISTENCE_CONSTRAINT_VIOLATION("The catalogue synchronization write was rejected"),
         /** No usable database connection or transaction could be obtained. */
         PERSISTENCE_CONNECTION_FAILED("The catalogue store was unavailable"),

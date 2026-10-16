@@ -224,15 +224,19 @@ class ExternalPlayerScoreSynchronizationIntegrationTest {
         provider.put(work("100", scored("75.5", 40)));
         synchronizeAt(NOW);
         Map<String, Object> valid = score("100");
+        // Curated evidence stays outside synchronization ownership and keeps its release tuple.
+        jdbc.update(
+                "UPDATE catalogue.release_snapshot SET source_kind='product_curated',"
+                        + "source_name='Product',source_entity_type='curation'");
 
-        // Two references collide on one durable release tuple, so the whole Game write rolls back.
+        // A new reference repeats the curated tuple inside the Game transaction, so PostgreSQL
+        // rejects it and the whole Game write, score included, rolls back.
         provider.put(
                 work(
                         "100",
                         ProviderWorkType.MAIN_GAME,
                         ORIGINAL_PAGE,
                         scored("99", 999),
-                        release("10"),
                         release("11")));
         var failedWrite = synchronizeAt(NOW.plusSeconds(60));
         provider.failure =

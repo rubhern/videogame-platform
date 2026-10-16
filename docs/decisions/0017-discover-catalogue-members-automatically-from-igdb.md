@@ -27,6 +27,9 @@
 - **Extended:** 2026-10-15, #245: durable release-date coverage records which intervals a run
   scanned completely and when, independently of bounded run history; see
   [Coverage and freshness](#coverage-and-freshness)
+- **Refined:** 2026-10-16, owner-requested #313: a stage-less provider reference that
+  restates the only staged reference of one release tuple is redundant evidence, not a
+  colliding Release; see [Stable identity and reconciliation](#stable-identity-and-reconciliation) and `REL-014`
 
 ## Context
 
@@ -92,7 +95,20 @@ internal Release; known references reconcile that Release. Multiple release date
 for one Game, including rows on different pages or cycles, remain multiple Releases
 of exactly one Game. Tuple constraints validate coherence but never resolve identity.
 Different provider references that collide with a product uniqueness constraint
-fail the aggregate rather than being silently merged. A successfully resolved, completely
+fail the aggregate rather than being silently merged, with the reason
+`RELEASE_TUPLE_CONFLICT`.
+
+The single exception is redundant evidence of one Release (#313). IGDB may restate a staged
+release date with a second record that has the same platform, region, date and lifecycle
+but no stage. When the references sharing one release tuple include exactly one known stage
+(after the stage-preservation rule below) and every other one has none and is not verified,
+the staged reference is the Release and the stage-less ones add nothing to it. They are
+neither stored nor counted as present: a stored one is removed like any obsolete reference,
+in the same Game transaction, and the run counts them as `redundantReleases`. The evidence
+selects the kept reference; no title, order or identifier tie-break is used. Two known
+stages on one tuple, equal or different, no known stage at all, or verified redundant
+evidence remain conflicts: an Unknown stage is missing evidence, never proof of duplication
+on its own. A successfully resolved, completely
 fetched and validated Game aggregate is authoritative for that Game's current
 provider-owned Release set. The adapter queries all release dates for that Game with
 `maxReleasesPerGame + 1` rows, below the provider request cap; an overflow sentinel,
@@ -227,6 +243,11 @@ to the [operations runbook](../development/operations-runbook.md#catalogue-synch
   coherence without storage and work proportional to catalogue size.
 - **Title matching or manual approval:** rejected; deterministic references and
   validation support unattended acquisition without a backoffice.
+- **Stage in the release tuple, or no tuple constraint (#313):** rejected; either would
+  publish a staged release and its stage-less restatement as two Releases of the same
+  commercial event, and a later equal stage would collide again.
+- **Collapse every same-tuple pair (#313):** rejected; equal or unknown stages give no
+  evidence that selects one reference, and contradictory stages may be distinct events.
 
 ## Consequences and limits
 
@@ -260,6 +281,7 @@ identity; they must not be used to validate live acquisition.
 ## Reconsider when
 
 Revisit when measured date-window volume exceeds acceptable synchronous command duration,
-repeated invalid pages require an explicit quarantine policy, provider terms restrict
+repeated invalid pages require an explicit quarantine policy, `RELEASE_TUPLE_CONFLICT`
+recurs for a provider pattern other than the stage-less restatement, provider terms restrict
 acquisition, or a second provider is approved. Reopen the release-mode boundary
 before public or commercial use as ADR-0001 and the provider spike require.
