@@ -58,6 +58,7 @@ public final class CatalogueSynchronizationMetrics {
         record("created_releases", c.createdReleases());
         record("updated_releases", c.updatedReleases());
         record("deleted_releases", c.deletedReleases());
+        record("redundant_releases", c.redundantReleases());
         record("unchanged_releases", c.unchangedReleases());
         record("deferred_games", c.deferredGames());
         record("failed_games", c.failedGames());

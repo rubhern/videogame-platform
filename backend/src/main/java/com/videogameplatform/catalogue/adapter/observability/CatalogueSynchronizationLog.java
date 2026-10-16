@@ -286,6 +286,7 @@ public final class CatalogueSynchronizationLog implements SynchronizationProgres
                     .addKeyValue("sync.releases.created", c.createdReleases())
                     .addKeyValue("sync.releases.updated", c.updatedReleases())
                     .addKeyValue("sync.releases.deleted", c.deletedReleases())
+                    .addKeyValue("sync.releases.redundant", c.redundantReleases())
                     .addKeyValue("sync.releases.unchanged", c.unchangedReleases())
                     .addKeyValue("sync.popularity.observed", c.popularityObservedGames())
                     .addKeyValue("sync.popularity.cleared", c.popularityClearedGames())

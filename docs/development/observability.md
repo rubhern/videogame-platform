@@ -60,6 +60,9 @@ with a dedicated short statement timeout; health details remain hidden.
   that detail metadata was invalid, and external player scores observed, absent because
   the provider states none or zero ratings, and kept because the answer was invalid or
   unattributable (`player_score_*`). Deferral is import policy, not failure.
+  `redundant_releases` counts stage-less provider references of committed Games that
+  restated another reference's Release (`REL-014`); they are neither stored nor failures,
+  and the durable report and finished log carry the same count.
   Player-score change kinds (`player_score_created|updated|removed|unchanged_games`)
   say what committed writes did to the stored usable score. The upsert's own
   `RETURNING old/new` classifies it, so there is no extra query per Game. A Game that
@@ -549,11 +552,16 @@ failure never fails a Game: the page's Games still reconcile and keep their last
 logo. Reasons come
 from `ProviderFailureCode`, `ProviderMappingFailure`, `SynchronizationWriteException.Reason`
 and the service constants (`WORK_NOT_RETURNED`, `TITLE_MISSING`,
-`RELEASE_LIMIT_EXCEEDED`, `DUPLICATE_RELEASE_REFERENCE`, `RECORD_REJECTED`,
-`UNEXPECTED_FAILURE`). Persistence reasons distinguish `PERSISTENCE_TIMEOUT`,
-`PERSISTENCE_CONSTRAINT_VIOLATION` and `PERSISTENCE_CONNECTION_FAILED` only from
-Spring's translated exception types; anything else, including lock and deadlock
-failures, is `PERSISTENCE_WRITE_FAILED`.
+`RELEASE_LIMIT_EXCEEDED`, `DUPLICATE_RELEASE_REFERENCE`, `RELEASE_TUPLE_CONFLICT`,
+`RECORD_REJECTED`, `UNEXPECTED_FAILURE`). `reconciliation/RELEASE_TUPLE_CONFLICT` means
+returned references share one release tuple without one staged reference standing for it
+(`REL-014`); `persistence/RELEASE_TUPLE_CONFLICT` means PostgreSQL rejected a Release that
+repeats the tuple of stored evidence outside synchronization ownership, such as a curated
+release. Both reject only that Game. Persistence reasons distinguish
+`PERSISTENCE_TIMEOUT`, `PERSISTENCE_CONSTRAINT_VIOLATION` (any other constraint) and
+`PERSISTENCE_CONNECTION_FAILED` only from Spring's translated exception types and, for the
+release tuple, the unique-violation SQLState and constraint name; anything else, including
+lock and deadlock failures, is `PERSISTENCE_WRITE_FAILED`.
 
 Every Game failure states `identity`: `published` with the catalogue Game ID and slug;
 `unpublished` with the ID and slug the failed attempt assigned to a new Game, which were

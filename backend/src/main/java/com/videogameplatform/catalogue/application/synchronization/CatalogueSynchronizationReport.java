@@ -25,7 +25,9 @@ public record CatalogueSynchronizationReport(
      * attributed to its work. The player-score change counters say what those writes did to the
      * stored usable score: created where none was, updated to another value or count, removed by a
      * valid answer stating none, or re-checked unchanged. A Game that neither held nor now holds a
-     * usable score changes none of them.
+     * usable score changes none of them. {@code redundantReleases} counts returned release references
+     * of committed Games that restated another reference's Release and were not stored (ADR-0017);
+     * they are neither failures nor withheld updates.
      */
     public record Counters(
             long inspectedReleaseDates,
@@ -54,5 +56,6 @@ public record CatalogueSynchronizationReport(
             long playerScoreCreatedGames,
             long playerScoreUpdatedGames,
             long playerScoreRemovedGames,
-            long playerScoreUnchangedGames) {}
+            long playerScoreUnchangedGames,
+            long redundantReleases) {}
 }

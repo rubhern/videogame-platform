@@ -46,7 +46,8 @@ references are removed atomically with reconciliation. Failed/incomplete/invalid
 preserves the entire Game, and curated, official, unreferenced or other-provider evidence
 is outside that removal boundary. The product stores current serving state, not a historical
 provider ledger. No release
-is merged or deleted because it has the same platform, region, or stage as another.
+is merged or deleted because it has the same platform, region, or stage as another; the only
+same-tuple normalization is `REL-014`.
 
 For provider-only evidence, review is recomputed on every reconciliation from current
 uncertainty: an Unknown date or a conflict with the accepted platform/region reference or
@@ -131,6 +132,7 @@ Downstream documents may reference these IDs but must not redefine them.
 | `REL-011` | Time policies receive explicit time/zone, never host defaults. |
 | `REL-012` | Recent/upcoming classification and rating occurrence for a known date derive from the effective release date and the trusted evaluation date; provider status is evidence, never the clock. Synchronization refreshes evidence and never advances time. |
 | `REL-013` | A presentation context shows at most one release per platform, chosen by one explicit lifecycle/stage/evidence precedence; every other current release stays stored, unmerged and reachable; removal of obsolete provider-owned references belongs to synchronization, not presentation, and no uniqueness rule limits releases per game and platform. |
+| `REL-014` | Within one complete provider Game aggregate, provider references sharing one release tuple are one Release only when exactly one of them has a known stage and every other has none and is unverified: the staged reference is kept and the stage-less restatements are redundant evidence, neither stored nor present. Any other shared tuple is a conflict that rejects the aggregate and preserves its last valid state; an Unknown stage alone never proves duplication. |
 | `EXT-001` | Provider ID is a reference, never internal identity, slug, or matching key. |
 | `EXT-002` | Provider taxonomy does not become the public product contract. |
 | `EXT-003` | Provider failure preserves last valid local data. |

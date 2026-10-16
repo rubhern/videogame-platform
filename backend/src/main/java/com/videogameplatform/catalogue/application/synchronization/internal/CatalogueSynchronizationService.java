@@ -60,14 +60,14 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
     static final String TITLE_MISSING = "TITLE_MISSING";
     static final String RELEASE_LIMIT_EXCEEDED = "RELEASE_LIMIT_EXCEEDED";
     static final String DUPLICATE_RELEASE_REFERENCE = "DUPLICATE_RELEASE_REFERENCE";
+    static final String RELEASE_TUPLE_CONFLICT = "RELEASE_TUPLE_CONFLICT";
     static final String RECORD_REJECTED = "RECORD_REJECTED";
     static final String UNEXPECTED_FAILURE = "UNEXPECTED_FAILURE";
 
     private static final Set<ProviderMappingFailure> BLOCKING_MAPPING_FAILURES =
             Set.of(
                     ProviderMappingFailure.RELEASE_DATE_INVALID,
-                    ProviderMappingFailure.RECORD_UNREADABLE,
-                    ProviderMappingFailure.DUPLICATE_RELEASE_TUPLE);
+                    ProviderMappingFailure.RECORD_UNREADABLE);
 
     private final CatalogueSynchronizationStore store;
     private final CatalogueProviderPort provider;
@@ -478,6 +478,12 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                     Failure.of(Stage.RECONCILIATION, DUPLICATE_RELEASE_REFERENCE),
                     Optional.of(identity),
                     counts);
+        } catch (RedundantReleasePolicy.ConflictingReleaseEvidence _) {
+            fail(
+                    game,
+                    Failure.of(Stage.RECONCILIATION, RELEASE_TUPLE_CONFLICT),
+                    Optional.of(identity),
+                    counts);
         } catch (SynchronizationWriteException failure) {
             fail(
                     game,
@@ -521,15 +527,18 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                         .orElseGet(() -> covers.forImport(work.title(), work.cover()));
         List<ReleaseWrite> releases = new ArrayList<>();
         Set<String> seen = new HashSet<>();
-        int withheld = 0;
         for (ProviderRelease providerRelease : work.releases()) {
             if (!seen.add(providerRelease.providerId())) {
                 throw new DuplicateReleaseReference();
             }
-            PublishedRelease previous =
-                    existing.map(GameState::releases)
-                            .map(values -> values.get(providerRelease.providerId()))
-                            .orElse(null);
+        }
+        Map<String, PublishedRelease> published =
+                existing.map(GameState::releases).orElse(Map.of());
+        RedundantReleasePolicy.Normalized normalized =
+                RedundantReleasePolicy.normalize(work.releases(), published);
+        int withheld = 0;
+        for (ProviderRelease providerRelease : normalized.releases()) {
+            PublishedRelease previous = published.get(providerRelease.providerId());
             Optional<PlannedRelease> release =
                     ReleaseReconciliationPolicy.reconcile(
                             providerRelease,
@@ -553,7 +562,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                         cover,
                         releases,
                         synchronizedAt,
-                        seen,
+                        normalized.references(),
                         policy.maxReleasesPerGame(),
                         featuredEvidence(work),
                         new FeaturedMediaWrite(
@@ -606,6 +615,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
             gameResult = GameResult.UNCHANGED;
         }
         counts.unchangedReleases += withheld;
+        counts.redundantReleases += normalized.redundant();
         counts.deletedReleases += result.deletedReleases();
         counts.createdReleases += result.createdReleases();
         counts.updatedReleases += result.updatedReleases();
@@ -672,7 +682,8 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                 c.playerScoreCreated,
                 c.playerScoreUpdated,
                 c.playerScoreRemoved,
-                c.playerScoreUnchanged);
+                c.playerScoreUnchanged,
+                c.redundantReleases);
     }
 
     /**
@@ -810,6 +821,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         long updatedReleases;
         long unchangedReleases;
         long deletedReleases;
+        long redundantReleases;
         long deferred;
         long failed;
         long popularityObserved;

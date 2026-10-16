@@ -1278,15 +1278,16 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                     rs.getString("outcome_code"),
                                     new CatalogueSynchronizationReport.Counters(
                                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                                            0, 0, 0, 0, 0, 0, 0, 0)));
+                                            0, 0, 0, 0, 0, 0, 0, 0, 0)));
                 });
     }
 
     private CatalogueSynchronizationReport readReport(String stored) {
         var tree = json.readTree(stored);
         // Reports written before current-set reconciliation have no deletion counter, and those
-        // written before popularity, media, detail or player-score acquisition have no counters for
-        // them. Default only those absent fields; keep strict validation of all existing data.
+        // written before popularity, media, detail, player-score or redundant-release counting have
+        // no counters for them. Default only those absent fields; keep strict validation of all
+        // existing data.
         if (tree.get("counters") instanceof tools.jackson.databind.node.ObjectNode counters) {
             for (String field :
                     List.of(
@@ -1304,7 +1305,8 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                             "playerScoreCreatedGames",
                             "playerScoreUpdatedGames",
                             "playerScoreRemovedGames",
-                            "playerScoreUnchangedGames")) {
+                            "playerScoreUnchangedGames",
+                            "redundantReleases")) {
                 if (!counters.has(field)) {
                     counters.put(field, 0L);
                 }
