@@ -104,6 +104,14 @@ actual_target="$(hostname --short)"
 exec 9>"$lock_file"
 flock --nonblock 9 || fail "Another private-dev deployment already holds $lock_file."
 
+# restore-private-dev --host-loss-recovery writes this before restoring and removes it only after
+# the owner's deletion ledger has been replayed and verified: a backup can predate erasures.
+# Promotions pass a per-run subdirectory, so the host's evidence root is checked as well.
+for replay_marker in "$default_evidence_directory/DELETION-REPLAY-PENDING" "$evidence_directory/DELETION-REPLAY-PENDING"; do
+  [[ ! -e "$replay_marker" ]] ||
+    fail "A restored database is waiting for its deletion-ledger replay; run restore-private-dev --resume-deletion-replay first."
+done
+
 umask 0027
 deployment_started_at="$(date --utc +%Y-%m-%dT%H:%M:%SZ)"
 deployment_id="$(date --utc +%Y%m%dT%H%M%S%NZ)-${source_revision:0:12}"

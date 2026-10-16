@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 #
-# Restore a verified, encrypted private-dev backup into an ISOLATED target.
+# Restore a verified, encrypted private-dev backup, then replay the owner's deletion ledger.
 #
-# The restore never writes to the live stack: it requires a distinct Compose project
-# name, refuses the live one, and rebuilds a clean database volume whose roles are
-# bootstrapped from the protected secret files (never from the backup). It verifies
-# integrity before decrypting, streams each decrypted dump straight into pg_restore so
-# plaintext is not persisted, and confirms identity configuration, product-owned
-# curation and application schema state are present afterwards.
+# Three modes:
+#   rehearsal (default)   restores into a DISTINCT isolated Compose project and refuses the live
+#                         one; it rebuilds that project's clean volume first.
+#   --host-loss-recovery  restores into the live project name on a rebuilt host. It refuses any
+#                         host that already holds a container or volume of that project, never
+#                         removes anything, and blocks deployments until the replay is verified.
+#   --resume-deletion-replay
+#                         repeats only the replay of an earlier host-loss recovery.
 #
-# This is the isolated-restore proof for #44. A full journey smoke against the restored
-# stack is the existing deployment command pointed at the same isolated project.
+# Roles are bootstrapped from the protected secret files, never from the backup. Integrity is
+# verified before decryption, each decrypted dump streams straight into pg_restore, and the
+# restored identity, curation and schema state is checked. A backup can predate erasures, so
+# with --deletion-ledger the restored Keycloak starts alone and personal-data-ledger replays
+# every entry before the application may start; host-loss recovery requires it.
 #
 # Mechanics owner. Policy: docs/architecture/deployment/mvp-platform-and-delivery.md
 
@@ -19,33 +24,46 @@ set -Eeuo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 compose_file="$repository_root/deploy/private-dev/compose.yaml"
 rehearsal_override="$repository_root/deploy/private-dev/compose.restore-rehearsal.yaml"
+ledger_driver="$repository_root/deploy/private-dev/bin/personal-data-ledger"
+personal_data="$repository_root/deploy/private-dev/bin/personal-data"
 # shellcheck source=deploy/private-dev/lib/backup-common.sh
 source "$repository_root/deploy/private-dev/lib/backup-common.sh"
 
 live_project_default="videogame-platform-dev"
+deployment_evidence_default="/var/lib/videogame-platform/dev/deployment-evidence"
+# deploy-private-dev refuses to deploy while this file exists in its evidence directory.
+replay_marker_name="DELETION-REPLAY-PENDING"
+lock_file="/run/lock/videogame-platform-dev-deployment.lock"
 databases=(videogame_platform videogame_keycloak)
 
+mode="rehearsal"
 backup=""
 runtime_env=""
 gnupg_home=""
 isolated_project=""
 evidence_directory=""
+deletion_ledger=""
 confirm_destroy=false
 
 usage() {
   cat <<'EOF'
-Usage: restore-private-dev \
-  --backup <verified-backup-directory> \
-  --env-file <protected-runtime.env> \
-  --gnupg-home <keyring-with-private-key> \
-  --isolated-project <distinct-compose-project-name> \
-  --confirm-destroy-isolated-target \
-  [--evidence-directory <absolute-directory>]
+Usage:
+  restore-private-dev --backup <verified-backup-directory> --env-file <protected-runtime.env> \
+    --gnupg-home <keyring-with-private-key> --isolated-project <distinct-project> \
+    --confirm-destroy-isolated-target [--deletion-ledger <ledger-copy>] [--evidence-directory <dir>]
 
-Rebuilds a CLEAN database volume for the named isolated project (destroying only that
-project's volumes), bootstraps roles from the protected secret files, then restores
-the two encrypted database dumps and verifies the restored state. It refuses the live
-project name so the live stack is never touched.
+  restore-private-dev --host-loss-recovery --backup <verified-backup-directory> \
+    --env-file <protected-runtime.env> --gnupg-home <keyring-with-private-key> \
+    --deletion-ledger <ledger-copy> [--evidence-directory <deployment-evidence-dir>]
+
+  restore-private-dev --resume-deletion-replay --env-file <protected-runtime.env> \
+    --deletion-ledger <ledger-copy> [--evidence-directory <deployment-evidence-dir>]
+
+A rehearsal rebuilds a CLEAN volume for the named isolated project (destroying only that
+project's volumes) and refuses the live project. Host-loss recovery restores into the live
+project only on a host without any of its containers or volumes, removes nothing, and leaves
+deployments blocked until the deletion-ledger replay is verified. The ledger copy must be a
+0600 file in a 0700 directory.
 EOF
 }
 
@@ -56,79 +74,132 @@ while (($# > 0)); do
     --gnupg-home) gnupg_home="${2:-}"; shift 2 ;;
     --isolated-project) isolated_project="${2:-}"; shift 2 ;;
     --evidence-directory) evidence_directory="${2:-}"; shift 2 ;;
+    --deletion-ledger) deletion_ledger="${2:-}"; shift 2 ;;
     --confirm-destroy-isolated-target) confirm_destroy=true; shift ;;
+    --host-loss-recovery) [[ "$mode" == rehearsal ]] || { usage >&2; exit 2; }; mode="host-loss"; shift ;;
+    --resume-deletion-replay) [[ "$mode" == rehearsal ]] || { usage >&2; exit 2; }; mode="resume"; shift ;;
     --help) usage; exit 0 ;;
     *) printf 'Unknown argument: %s\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
 done
 
-[[ -n "$backup" && -n "$runtime_env" && -n "$gnupg_home" && -n "$isolated_project" ]] || {
-  usage >&2
-  exit 2
-}
-[[ "$confirm_destroy" == true ]] ||
-  bc_fail "Refusing to rebuild the isolated volume without --confirm-destroy-isolated-target."
+[[ -n "$runtime_env" ]] || { usage >&2; exit 2; }
+case "$mode" in
+  rehearsal)
+    [[ -n "$backup" && -n "$gnupg_home" && -n "$isolated_project" ]] || { usage >&2; exit 2; }
+    [[ "$confirm_destroy" == true ]] ||
+      bc_fail "Refusing to rebuild the isolated volume without --confirm-destroy-isolated-target."
+    ;;
+  host-loss)
+    [[ -n "$backup" && -n "$gnupg_home" && -z "$isolated_project" && "$confirm_destroy" == false ]] ||
+      { usage >&2; exit 2; }
+    [[ -n "$deletion_ledger" ]] ||
+      bc_fail "Host-loss recovery requires --deletion-ledger: the backup may predate erasures."
+    ;;
+  resume)
+    [[ -z "$backup" && -z "$gnupg_home" && -z "$isolated_project" && "$confirm_destroy" == false ]] ||
+      { usage >&2; exit 2; }
+    [[ -n "$deletion_ledger" ]] || bc_fail "--resume-deletion-replay requires --deletion-ledger."
+    ;;
+esac
 
-bc_require_commands awk date docker find grep gpg mktemp python3 realpath sha256sum sort
+bc_require_commands awk date docker find flock grep gpg mktemp python3 realpath sha256sum sort stat
 
-backup="$(realpath -- "$backup")"
 runtime_env="$(realpath -- "$runtime_env")"
-gnupg_home="$(realpath -- "$gnupg_home")"
 [[ -f "$runtime_env" ]] || bc_fail "Runtime environment file does not exist: $runtime_env"
-[[ -d "$gnupg_home" ]] || bc_fail "GPG home directory does not exist: $gnupg_home"
-[[ "$isolated_project" =~ ^[a-z0-9][a-z0-9_-]{2,62}$ ]] ||
-  bc_fail "--isolated-project must be a lowercase Compose project name."
-
-# Determine the live project name so we can categorically refuse it. Compose reads
-# COMPOSE_PROJECT_NAME from the env-file; fall back to the documented default.
-live_project="$(
-  awk -F= '$1 == "COMPOSE_PROJECT_NAME" { value = $2 } END { print value }' "$runtime_env"
-)"
+env_value() {
+  awk -F= -v key="$1" '$1 == key { value = $2 } END { print value }' "$runtime_env"
+}
+live_project="$(env_value COMPOSE_PROJECT_NAME)"
 live_project="${live_project:-$live_project_default}"
-[[ "$isolated_project" != "$live_project" ]] ||
-  bc_fail "Refusing to restore over the live project '$live_project'; choose a distinct isolated project."
 
-# Integrity gate: never decrypt or restore an unverified backup.
-bc_verify_backup "$backup"
+if [[ -n "$deletion_ledger" ]]; then
+  deletion_ledger="$(realpath -- "$deletion_ledger")"
+  [[ -f "$deletion_ledger" ]] || bc_fail "Deletion ledger copy does not exist: $deletion_ledger"
+  # The same privacy the ledger driver enforces, checked before anything changes.
+  [[ "$(stat -c %a "$deletion_ledger")" == 600 && "$(stat -c %a "$(dirname "$deletion_ledger")")" == 700 ]] ||
+    bc_fail "The deletion ledger copy must be a 0600 file in a 0700 directory: $deletion_ledger"
+fi
+
+if [[ "$mode" == rehearsal ]]; then
+  [[ "$isolated_project" =~ ^[a-z0-9][a-z0-9_-]{2,62}$ ]] ||
+    bc_fail "--isolated-project must be a lowercase Compose project name."
+  # Restoring over the live project is only ever the explicit, fresh-host recovery below.
+  [[ "$isolated_project" != "$live_project" ]] ||
+    bc_fail "Refusing to restore over the live project '$live_project'; choose a distinct isolated project, or use --host-loss-recovery on a rebuilt host."
+  project="$isolated_project"
+  compose_files=(--file "$compose_file" --file "$rehearsal_override")
+  keycloak_port="$(env_value RESTORE_REHEARSAL_KEYCLOAK_PORT)"
+  keycloak_port="${keycloak_port:-8190}"
+else
+  project="$live_project"
+  compose_files=(--file "$compose_file")
+  keycloak_port="$(env_value KEYCLOAK_LOOPBACK_PORT)"
+  keycloak_port="${keycloak_port:-8180}"
+  evidence_directory="${evidence_directory:-$deployment_evidence_default}"
+  [[ -n "$evidence_directory" ]] || bc_fail "An evidence directory is required."
+fi
+[[ "$keycloak_port" =~ ^[0-9]{2,5}$ ]] || bc_fail "The Keycloak loopback port is not a number."
 
 evidence_path=""
 if [[ -n "$evidence_directory" ]]; then
   [[ "$evidence_directory" == /* && -d "$evidence_directory" && -w "$evidence_directory" ]] ||
     bc_fail "Evidence directory must be an existing writable absolute path: $evidence_directory"
-  evidence_path="$evidence_directory/restore-$(date --utc +%Y%m%dT%H%M%SZ)-${isolated_project}.json"
+  evidence_path="$evidence_directory/restore-$(date --utc +%Y%m%dT%H%M%SZ)-${mode}-${project}.json"
 fi
+replay_marker="${evidence_directory:+$evidence_directory/$replay_marker_name}"
+
+compose=(docker compose --env-file "$runtime_env" "${compose_files[@]}" --project-name "$project")
 
 staging="$(mktemp -d)"
 trap 'rm -rf -- "$staging"' EXIT
 umask 0077
 
-compose=(
-  docker compose
-  --env-file "$runtime_env"
-  --file "$compose_file"
-  --file "$rehearsal_override"
-  --project-name "$isolated_project"
-)
+if [[ "$mode" != rehearsal ]]; then
+  # Deployments and this recovery exclude each other for its whole duration.
+  exec 9>"$lock_file"
+  flock --nonblock 9 || bc_fail "A private-dev deployment or recovery already holds $lock_file."
+fi
 
 docker info >/dev/null
 
-printf 'Rebuilding clean isolated database volume for project: %s\n' "$isolated_project"
-"${compose[@]}" down --volumes --remove-orphans
-"${compose[@]}" up --detach --wait --wait-timeout 180 postgres
+backup_id=""
+application_schema_version=""
+keycloak_user_count=""
 
-restore_results="$staging/results.tsv"
-: >"$restore_results"
+restore_databases() {
+  # Integrity gate: never decrypt or restore an unverified backup.
+  bc_verify_backup "$backup"
+  backup_id="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["backupId"])' "$backup/$BC_MANIFEST_NAME")"
 
-for database in "${databases[@]}"; do
-  ciphertext="$backup/${database}${BC_CIPHERTEXT_SUFFIX}"
-  [[ -f "$ciphertext" ]] || bc_fail "Backup is missing the expected artifact: $ciphertext"
-  plaintext="$staging/${database}${BC_DUMP_SUFFIX}"
-  bc_decrypt_file "$ciphertext" "$plaintext" "$gnupg_home"
+  if [[ "$mode" == host-loss ]]; then
+    local containers volumes
+    containers="$(docker ps --all --quiet --filter "label=com.docker.compose.project=$project")"
+    volumes="$(docker volume ls --quiet --filter "label=com.docker.compose.project=$project")"
+    [[ -z "$containers" && -z "$volumes" ]] ||
+      bc_fail "Host-loss recovery needs a host without any container or volume of project '$project'. On the live host, rehearse in an isolated project instead. If an earlier recovery stopped before its replay, use --resume-deletion-replay; if it stopped during the restore, remove that project's containers and volumes deliberately and start again."
+    # Written before any state exists, so no deployment can open the restored data unreplayed.
+    printf 'backup=%s\nstarted=%s\n' "$backup_id" "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" >"$replay_marker.tmp"
+    mv -- "$replay_marker.tmp" "$replay_marker"
+    printf 'Deployments are blocked until the deletion-ledger replay is verified (%s).\n' "$replay_marker"
+    printf 'Creating the database volume for project: %s\n' "$project"
+  else
+    printf 'Rebuilding clean isolated database volume for project: %s\n' "$project"
+    "${compose[@]}" down --volumes --remove-orphans
+  fi
+  "${compose[@]}" up --detach --wait --wait-timeout 180 postgres
 
-  # Confirm the decrypted bytes match the manifest's plaintext checksum: proves the
-  # backup decrypted to exactly what was captured, not just that it decrypted.
-  expected_plaintext_sha="$(
-    python3 - "$backup/$BC_MANIFEST_NAME" "$database" <<'PY'
+  local database ciphertext plaintext expected_plaintext_sha actual_plaintext_sha
+  for database in "${databases[@]}"; do
+    ciphertext="$backup/${database}${BC_CIPHERTEXT_SUFFIX}"
+    [[ -f "$ciphertext" ]] || bc_fail "Backup is missing the expected artifact: $ciphertext"
+    plaintext="$staging/${database}${BC_DUMP_SUFFIX}"
+    bc_decrypt_file "$ciphertext" "$plaintext" "$(realpath -- "$gnupg_home")"
+
+    # Confirm the decrypted bytes match the manifest's plaintext checksum: proves the
+    # backup decrypted to exactly what was captured, not just that it decrypted.
+    expected_plaintext_sha="$(
+      python3 - "$backup/$BC_MANIFEST_NAME" "$database" <<'PY'
 import json
 import sys
 
@@ -140,90 +211,143 @@ for artifact in manifest["artifacts"]:
 else:
     raise SystemExit(f"manifest has no artifact for database {sys.argv[2]}")
 PY
+    )"
+    actual_plaintext_sha="$(bc_sha256_file "$plaintext")"
+    [[ "$actual_plaintext_sha" == "$expected_plaintext_sha" ]] ||
+      bc_fail "Decrypted dump for '$database' does not match the manifest checksum."
+
+    # Restore into the clean, pre-created database. --clean --if-exists keeps the step
+    # idempotent; ownership and grants are restored onto the roles the secret-file
+    # bootstrap already created, so the runtime role keeps its privileges.
+    "${compose[@]}" exec -T postgres gosu postgres \
+      pg_restore --format=custom --clean --if-exists \
+      --dbname="$database" <"$plaintext"
+    rm -f -- "$plaintext"
+  done
+
+  printf 'Verifying restored state (counts and versions only, no data printed):\n'
+
+  application_schema_version="$(
+    "${compose[@]}" exec -T postgres gosu postgres psql \
+      --dbname=videogame_platform --tuples-only --no-align \
+      --command="SELECT coalesce(max(version), '') FROM flyway_schema_history WHERE success"
   )"
-  actual_plaintext_sha="$(bc_sha256_file "$plaintext")"
-  [[ "$actual_plaintext_sha" == "$expected_plaintext_sha" ]] ||
-    bc_fail "Decrypted dump for '$database' does not match the manifest checksum."
+  [[ -n "$application_schema_version" ]] ||
+    bc_fail "Restored application database has no successful Flyway history."
+  printf '  application schema version: %s\n' "$application_schema_version"
 
-  # Restore into the clean, pre-created database. --clean --if-exists keeps the step
-  # idempotent; ownership and grants are restored onto the roles the secret-file
-  # bootstrap already created, so the runtime role keeps its privileges.
-  "${compose[@]}" exec -T postgres gosu postgres \
-    pg_restore --format=custom --clean --if-exists \
-    --dbname="$database" <"$plaintext"
-  printf '%s\trestored\n' "$database" >>"$restore_results"
-done
-
-printf 'Verifying restored state (counts and versions only, no data printed):\n'
-
-application_schema_version="$(
+  # Product-owned curation: the catalogue tables must be present (row counts may be zero
+  # in a valid empty publication). Presence of the schema proves editorial state carried.
   "${compose[@]}" exec -T postgres gosu postgres psql \
     --dbname=videogame_platform --tuples-only --no-align \
-    --command="SELECT coalesce(max(version), '') FROM flyway_schema_history WHERE success"
-)"
-[[ -n "$application_schema_version" ]] ||
-  bc_fail "Restored application database has no successful Flyway history."
-printf '  application schema version: %s\n' "$application_schema_version"
+    --command="SELECT to_regclass('catalogue.game') IS NOT NULL AND to_regclass('catalogue.game_release') IS NOT NULL" |
+    grep -qx 't' ||
+    bc_fail "Restored application database is missing expected catalogue tables."
+  printf '  catalogue schema present: yes\n'
 
-# Product-owned curation: the catalogue tables must be present (row counts may be zero
-# in a valid empty publication). Presence of the schema proves editorial state carried.
-"${compose[@]}" exec -T postgres gosu postgres psql \
-  --dbname=videogame_platform --tuples-only --no-align \
-  --command="SELECT to_regclass('catalogue.game') IS NOT NULL AND to_regclass('catalogue.game_release') IS NOT NULL" |
-  grep -qx 't' ||
-  bc_fail "Restored application database is missing expected catalogue tables."
-printf '  catalogue schema present: yes\n'
+  # Identity configuration: Keycloak's realm and at least the deployment-smoke account
+  # must be present. Only counts are read; no usernames or personal data are printed.
+  local keycloak_realm_count
+  keycloak_realm_count="$(
+    "${compose[@]}" exec -T postgres gosu postgres psql \
+      --dbname=videogame_keycloak --tuples-only --no-align \
+      --command="SELECT count(*) FROM realm WHERE name = 'videogame-platform'"
+  )"
+  [[ "$keycloak_realm_count" == "1" ]] ||
+    bc_fail "Restored Keycloak database does not contain the videogame-platform realm."
+  keycloak_user_count="$(
+    "${compose[@]}" exec -T postgres gosu postgres psql \
+      --dbname=videogame_keycloak --tuples-only --no-align \
+      --command="SELECT count(*) FROM user_entity ue JOIN realm r ON r.id = ue.realm_id WHERE r.name = 'videogame-platform'"
+  )"
+  printf '  keycloak realm present: yes (accounts: %s)\n' "$keycloak_user_count"
+}
 
-# Identity configuration: Keycloak's realm and at least the deployment-smoke account
-# must be present. Only counts are read; no usernames or personal data are printed.
-keycloak_realm_count="$(
-  "${compose[@]}" exec -T postgres gosu postgres psql \
-    --dbname=videogame_keycloak --tuples-only --no-align \
-    --command="SELECT count(*) FROM realm WHERE name = 'videogame-platform'"
-)"
-[[ "$keycloak_realm_count" == "1" ]] ||
-  bc_fail "Restored Keycloak database does not contain the videogame-platform realm."
-keycloak_user_count="$(
-  "${compose[@]}" exec -T postgres gosu postgres psql \
-    --dbname=videogame_keycloak --tuples-only --no-align \
-    --command="SELECT count(*) FROM user_entity ue JOIN realm r ON r.id = ue.realm_id WHERE r.name = 'videogame-platform'"
-)"
-printf '  keycloak realm present: yes (accounts: %s)\n' "$keycloak_user_count"
+replay_receipt=""
 
-for database in "${databases[@]}"; do
-  printf '%s\tverified\n' "$database" >>"$restore_results"
-done
+replay_deletions() {
+  # Keycloak alone: the application must not run before every erasure is reapplied, and the
+  # replay itself refuses while it does.
+  "${compose[@]}" up --detach --wait --wait-timeout 180 postgres
+  "${compose[@]}" up --detach --no-deps --wait --wait-timeout 300 keycloak
+  local host_command receipt="$staging/replay-receipt.json"
+  host_command="$(printf '%q ' python3 -I "$personal_data" --private-dev-env-file "$runtime_env" \
+    --project "$project" --keycloak-origin "http://127.0.0.1:$keycloak_port")"
+  if ! python3 -I "$ledger_driver" --ledger "$deletion_ledger" --host-command "$host_command" \
+      replay --receipt "$receipt"; then
+    if [[ "$mode" == rehearsal ]]; then
+      bc_fail "The deletion-ledger replay did not verify; do not start the application in project '$project'."
+    fi
+    bc_fail "The deletion-ledger replay did not verify; deployments stay blocked. Fix the cause, then run restore-private-dev --resume-deletion-replay."
+  fi
+  replay_receipt="$(cat -- "$receipt")"
+}
+
+if [[ "$mode" == resume ]]; then
+  [[ -f "$replay_marker" ]] ||
+    bc_fail "No pending deletion-ledger replay ($replay_marker); nothing to resume."
+else
+  restore_databases
+fi
+if [[ -n "$deletion_ledger" ]]; then
+  replay_deletions
+fi
 
 if [[ -n "$evidence_path" ]]; then
-  VGP_RESTORE_BACKUP_ID="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["backupId"])' "$backup/$BC_MANIFEST_NAME")" \
-  VGP_RESTORE_PROJECT="$isolated_project" \
+  VGP_RESTORE_MODE="$mode" \
+  VGP_RESTORE_BACKUP_ID="$backup_id" \
+  VGP_RESTORE_PROJECT="$project" \
   VGP_RESTORE_AT="$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
   VGP_RESTORE_APP_SCHEMA="$application_schema_version" \
   VGP_RESTORE_KEYCLOAK_ACCOUNTS="$keycloak_user_count" \
+  VGP_RESTORE_REPLAY_RECEIPT="$replay_receipt" \
     python3 - "$evidence_path" <<'PY'
 import json
 import os
 import sys
 
+mode = os.environ["VGP_RESTORE_MODE"]
+receipt = os.environ["VGP_RESTORE_REPLAY_RECEIPT"]
 record = {
-    "kind": "isolated-restore",
+    "kind": {"rehearsal": "isolated-restore", "host-loss": "host-loss-restore", "resume": "deletion-replay-resume"}[mode],
     "environment": "dev",
-    "backupId": os.environ["VGP_RESTORE_BACKUP_ID"],
-    "isolatedProject": os.environ["VGP_RESTORE_PROJECT"],
-    "restoredAt": os.environ["VGP_RESTORE_AT"],
-    "applicationSchemaVersion": os.environ["VGP_RESTORE_APP_SCHEMA"],
-    "keycloakAccounts": int(os.environ["VGP_RESTORE_KEYCLOAK_ACCOUNTS"]),
-    "verified": ["integrity", "decryption-checksum", "application-schema",
-                 "catalogue-tables", "keycloak-realm"],
+    "project": os.environ["VGP_RESTORE_PROJECT"],
+    "completedAt": os.environ["VGP_RESTORE_AT"],
     "outcome": "success",
 }
+if mode != "resume":
+    record.update({
+        "backupId": os.environ["VGP_RESTORE_BACKUP_ID"],
+        "applicationSchemaVersion": os.environ["VGP_RESTORE_APP_SCHEMA"],
+        "keycloakAccounts": int(os.environ["VGP_RESTORE_KEYCLOAK_ACCOUNTS"]),
+        "verified": ["integrity", "decryption-checksum", "application-schema",
+                     "catalogue-tables", "keycloak-realm"],
+    })
+if receipt:
+    record["deletionReplay"] = json.loads(receipt)
+else:
+    # The backup may predate erasures: the application must not start before a verified replay.
+    record["reopenRequires"] = ["deletion-ledger-replay"]
 with open(sys.argv[1], "w", encoding="utf-8") as handle:
     handle.write(json.dumps(record, indent=2, sort_keys=True) + "\n")
 PY
   printf 'Restore evidence: %s\n' "$evidence_path"
 fi
 
-printf 'Isolated restore verified for project %s.\n' "$isolated_project"
-printf 'Run the deployment smoke against this project to prove the full journey, then:\n'
+if [[ "$mode" != rehearsal ]]; then
+  # Only a verified replay reaches this point; deployments may proceed again.
+  rm -f -- "$replay_marker"
+  printf 'Deletion-ledger replay verified; deployments are unblocked. Deploy the last-good digest next.\n'
+  exit 0
+fi
+
+printf 'Isolated restore verified for project %s.\n' "$project"
+if [[ -z "$replay_receipt" ]]; then
+  printf 'The application stays stopped: start only Keycloak in this project and replay the owner'"'"'s\n'
+  printf 'deletion ledger against it (personal-data-ledger replay) before any application start or smoke.\n'
+else
+  printf 'Deletion-ledger replay verified against this project.\n'
+fi
+printf 'Afterwards:\n'
 printf '  docker compose --env-file %q --file %q --file %q --project-name %q down --volumes\n' \
-  "$runtime_env" "$compose_file" "$rehearsal_override" "$isolated_project"
+  "$runtime_env" "$compose_file" "$rehearsal_override" "$project"

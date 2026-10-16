@@ -433,7 +433,7 @@ and running in private-dev; no revocation procedure has been operated on a host:
   start, so deletion can follow at once instead of after a waiting period. Personal
   writes pause only while revocation waits, bounded by a 30-second settle limit; an
   unsettled answer or any failure requires an application restart, which discards
-  every in-memory session. The [operations runbook](../../development/operations-runbook.md#account-disable-session-revocation-and-rating-deletion)
+  every in-memory session. The [operations runbook](../../development/operations-runbook.md#personal-data-requests-and-account-revocation)
   owns the owner procedure.
 - Logging out ends the application session and then, through standard OIDC
   RP-initiated logout with the session's ID token and the realm's exact post-logout
@@ -578,9 +578,18 @@ application-principal/Keycloak relationship on isolated restore, and record the
 common recovery point. Restoration must reapply post-backup deletion requests before
 reopening and invalidate old sessions as appropriate. Keep a minimal protected deletion
 ledger outside both databases and the VPS while any backup able to restore the deleted
-data exists; replay it idempotently and verify the result before reopening. The
+data exists; replay it idempotently and verify the result before reopening.
+**Implemented for private-dev (#274), not yet operated on a host:** the ledger lives on
+the owner's workstation with a mandatory copy on independent owner storage, and its
+driver records each step in both before running it on the host. A restore starts the
+restored Keycloak without the application and the replay refuses while the application
+runs; host-loss recovery is the only restore into the live project, only on a host
+without that project's state, and deployments stay refused until its replay is
+verified. #275's restore path must offer the same Keycloak-only start and block. The
 [#274 research](../../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion)
-holds the proposed procedure. Roles/secrets are
+holds the design and the
+[operations runbook](../../development/operations-runbook.md#personal-data-requests-and-account-revocation)
+the procedure. Roles/secrets are
 reconstructed separately. Provider snapshots can aid rollback but cannot replace
 independent, encrypted, tested recovery. Rehearse host-loss reconstruction privately
 before public acceptance; measure achieved RPO/RTO and record limitations.

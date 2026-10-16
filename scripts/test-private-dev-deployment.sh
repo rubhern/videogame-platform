@@ -674,4 +674,24 @@ FAKE_TELEMETRY_STATE="$temporary_directory/telemetry-state" \
   exit 1
 }
 
+# A host-loss restore waiting for its deletion-ledger replay blocks every deployment before
+# any container work, and the block lifts with the marker.
+: >"$command_log"
+blocked_evidence="$temporary_directory/blocked-evidence"
+mkdir -p "$blocked_evidence"
+printf 'backup=synthetic\n' >"$blocked_evidence/DELETION-REPLAY-PENDING"
+if blocked_output="$(run_deployment success "$blocked_evidence" 2>&1)"; then
+  printf 'A deployment proceeded while a deletion-ledger replay was pending.\n' >&2
+  exit 1
+fi
+grep -Fq 'waiting for its deletion-ledger replay' <<<"$blocked_output" || {
+  printf 'The pending-replay refusal did not explain itself:\n%s\n' "$blocked_output" >&2
+  exit 1
+}
+[[ ! -s "$command_log" ]] || {
+  printf 'A blocked deployment still ran Docker commands:\n%s\n' "$(cat "$command_log")" >&2
+  exit 1
+}
+assert_lock_released
+
 printf 'Private-dev deployment orchestration validation passed.\n'

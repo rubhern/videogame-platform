@@ -1,0 +1,495 @@
+#!/usr/bin/env python3
+
+"""Export or erase one account's personal data in one runtime, one idempotent step at a time.
+
+Runs where the runtime is (the private-dev host or a disposable gate) and keeps no state: the
+owner's personal-data-ledger drives it, records every step before and after it runs, and replays
+the recorded erasures after a restore. Accounts are addressed only by their Keycloak user ID; the
+product UserId is derived from the exact OIDC issuer the application uses, as the BFF does.
+
+Every command prints one JSON object. Only `export` prints personal data; the others print
+identifiers and counts. Keycloak is reached through its Admin API, PostgreSQL and the BFF's
+private management port through `docker exec`, so nothing is added to any HTTP route.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import hashlib
+import importlib.machinery
+import importlib.util
+import ipaddress
+import json
+import pathlib
+import re
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+import uuid
+
+sys.dont_write_bytecode = True
+
+repository_root = pathlib.Path(__file__).resolve().parents[3]
+compose_file = repository_root / "deploy/private-dev/compose.yaml"
+rehearsal_override = repository_root / "deploy/private-dev/compose.restore-rehearsal.yaml"
+# Connection handling and the admin client stay owned by the existing Keycloak commands.
+_loader = importlib.machinery.SourceFileLoader(
+    "private_dev_keycloak_mail", str(repository_root / "deploy/private-dev/bin/configure-keycloak-mail")
+)
+_spec = importlib.util.spec_from_loader(_loader.name, _loader)
+assert _spec is not None
+mail = importlib.util.module_from_spec(_spec)
+_loader.exec_module(mail)
+
+provisioning = mail.provisioning
+ProvisioningError = provisioning.ProvisioningError
+REALM = provisioning.REALM
+APPLICATION_DATABASE = "videogame_platform"
+LIVE_PROJECT = "videogame-platform-dev"
+EXPORT_FORMAT = "gameometro-personal-data-export"
+REVOCATION_URL = "http://127.0.0.1:8081/actuator/sessionrevocation"
+CANONICAL_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+PROJECT_NAME = re.compile(r"[a-z0-9][a-z0-9_-]{2,62}")
+CONTAINER_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
+
+
+def canonical_uuid(value: str, label: str) -> str:
+    if not CANONICAL_UUID.fullmatch(value):
+        raise ProvisioningError(f"{label} must be a lower-case canonical UUID")
+    return value
+
+
+def derive_user_id(issuer: str, subject: str) -> str:
+    """Mirror UserId.fromIssuerAndSubject: a name-based (version 3) UUID of issuer and subject."""
+    digest = hashlib.md5(f"{issuer}\n{subject}".encode("utf-8")).digest()  # noqa: S324 - identifier, not security
+    return str(uuid.UUID(bytes=digest, version=3))
+
+
+def iso_from_millis(value: object) -> str | None:
+    if not isinstance(value, int):
+        return None
+    moment = datetime.datetime.fromtimestamp(value / 1000, tz=datetime.timezone.utc)
+    return moment.isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+class Runtime:
+    """One runtime: its Keycloak realm, application database and BFF management port."""
+
+    def __init__(
+        self,
+        *,
+        origin: str,
+        admin_username: str,
+        admin_password: str,
+        issuer: str,
+        label: str,
+        postgres_container: str,
+        application_container: str | None,
+    ) -> None:
+        self.admin = provisioning.KeycloakAdmin(origin)
+        self.admin.authenticate(admin_username, admin_password)
+        self.issuer = issuer
+        self.label = label
+        self.postgres_container = postgres_container
+        self.application_container = application_container
+
+    # Keycloak ------------------------------------------------------------------------------
+
+    def keycloak(self, method: str, path: str, body: object = None, *, missing_ok: bool = False) -> object:
+        url = f"{self.admin.origin}/admin/realms/{REALM}{path}"
+        headers = {"Accept": "application/json", "Authorization": f"Bearer {self.admin.access_token}"}
+        data = None
+        if body is not None:
+            headers["Content-Type"] = "application/json"
+            data = json.dumps(body).encode("utf-8")
+        request = urllib.request.Request(url, data=data, headers=headers, method=method)
+        try:
+            with self.admin.opener.open(request, timeout=20) as response:
+                payload = response.read()
+        except urllib.error.HTTPError as error:
+            if error.code == 404 and missing_ok:
+                return None
+            raise ProvisioningError(f"Keycloak rejected {method} {path} with HTTP {error.code}") from None
+        except urllib.error.URLError as error:
+            raise ProvisioningError(f"Keycloak request failed for {method} {path}: {error.reason}") from None
+        return json.loads(payload) if payload else {}
+
+    def account(self, keycloak_user_id: str) -> dict[str, object] | None:
+        found = self.keycloak("GET", f"/users/{keycloak_user_id}", missing_ok=True)
+        return found if isinstance(found, dict) else None
+
+    def keycloak_sessions(self, keycloak_user_id: str) -> list[dict[str, object]]:
+        found = self.keycloak("GET", f"/users/{keycloak_user_id}/sessions", missing_ok=True)
+        return found if isinstance(found, list) else []
+
+    # Application database -------------------------------------------------------------------
+
+    def sql(self, statement: str, user_id: str) -> str:
+        # psql variables are interpolated only in script input, so the statement goes on stdin
+        # and the identifier is quoted by psql itself (:'user_id'); it is a validated UUID anyway.
+        result = subprocess.run(
+            [
+                "docker", "exec", "-i", self.postgres_container,
+                "gosu", "postgres", "psql", "--no-psqlrc", "--quiet", "--tuples-only", "--no-align",
+                "--set", "ON_ERROR_STOP=1", "--set", f"user_id={user_id}",
+                f"--dbname={APPLICATION_DATABASE}", "--file=-",
+            ],
+            input=statement, capture_output=True, text=True, check=False, timeout=60,
+        )
+        if result.returncode != 0:
+            raise ProvisioningError(f"PostgreSQL refused the statement: {result.stderr.strip()[:300]}")
+        return result.stdout.strip()
+
+    def rating_count(self, user_id: str) -> int:
+        return int(self.sql("SELECT count(*) FROM ratings.rating WHERE user_id = :'user_id';\n", user_id))
+
+    def ratings(self, user_id: str) -> list[dict[str, object]]:
+        # One account's ratings, at most one per game, through the (user_id, game_id) key.
+        rows = self.sql(
+            """
+            SELECT coalesce(json_agg(json_build_object(
+                     'gameId', r.game_id,
+                     'title', g.canonical_title,
+                     'value', r.value,
+                     'createdAt', to_char(r.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+                     'updatedAt', to_char(r.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))
+                   ORDER BY r.created_at, r.game_id), '[]'::json)
+            FROM ratings.rating r
+            LEFT JOIN ratings.game_listing g ON g.game_id = r.game_id
+            WHERE r.user_id = :'user_id';
+            """,
+            user_id,
+        )
+        return json.loads(rows)
+
+    def delete_ratings(self, user_id: str) -> int:
+        return int(self.sql(
+            "WITH deleted AS (DELETE FROM ratings.rating WHERE user_id = :'user_id' RETURNING 1)\n"
+            "SELECT count(*) FROM deleted;\n",
+            user_id,
+        ))
+
+    # BFF sessions ----------------------------------------------------------------------------
+
+    def application_running(self) -> bool:
+        if not self.application_container:
+            return False
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.State.Running}}", self.application_container],
+            capture_output=True, text=True, check=False, timeout=30,
+        )
+        return result.returncode == 0 and result.stdout.strip() == "true"
+
+    def revoke_bff_sessions(self, user_id: str) -> int:
+        assert self.application_container
+        result = subprocess.run(
+            [
+                "docker", "exec", self.application_container,
+                "wget", "-q", "-O", "-", "--header", "Content-Type: application/json",
+                "--post-data", json.dumps({"userId": user_id}), REVOCATION_URL,
+            ],
+            capture_output=True, text=True, check=False, timeout=90,
+        )
+        if result.returncode != 0:
+            status = re.search(r"HTTP/1\.[01] (\d{3})", result.stderr)
+            reason = f"HTTP {status.group(1)}" if status else "no response"
+            raise ProvisioningError(
+                f"BFF session revocation failed ({reason}); restart the application, then retry"
+            )
+        answer = json.loads(result.stdout)
+        count = answer.get("revokedSessions")
+        if not isinstance(count, int) or count < 0:
+            raise ProvisioningError("BFF session revocation answered without a session count")
+        return count
+
+
+def require_identity(runtime: Runtime, keycloak_user_id: str, user_id: str | None) -> str:
+    derived = derive_user_id(runtime.issuer, keycloak_user_id)
+    if user_id is not None and user_id != derived:
+        raise ProvisioningError(
+            "The recorded UserId does not match this runtime's issuer; the issuer changed or the "
+            "target is another environment. Stop and investigate."
+        )
+    return derived
+
+
+def require_application_state(runtime: Runtime, must_be_stopped: bool) -> bool:
+    running = runtime.application_running()
+    if must_be_stopped and running:
+        raise ProvisioningError("The application is running; replay only before the service reopens")
+    return running
+
+
+def identify(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
+    account = runtime.account(keycloak_user_id)
+    return {
+        "runtime": runtime.label,
+        "issuer": runtime.issuer,
+        "keycloakUserId": keycloak_user_id,
+        "userId": derive_user_id(runtime.issuer, keycloak_user_id),
+        "account": "absent" if account is None else ("enabled" if account.get("enabled") else "disabled"),
+    }
+
+
+def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
+    user_id = derive_user_id(runtime.issuer, keycloak_user_id)
+    account = runtime.account(keycloak_user_id)
+    if account is None:
+        raise ProvisioningError("No account has this Keycloak user ID")
+    profile = {
+        "keycloakUserId": keycloak_user_id,
+        "username": account.get("username"),
+        "email": account.get("email"),
+        "emailVerified": account.get("emailVerified"),
+        "enabled": account.get("enabled"),
+        "createdAt": iso_from_millis(account.get("createdTimestamp")),
+    }
+    # Names are no longer collected, but older accounts may still hold them.
+    for name in ("firstName", "lastName"):
+        if account.get(name):
+            profile[name] = account[name]
+    if account.get("attributes"):
+        profile["attributes"] = account["attributes"]
+    sessions = [
+        {
+            "startedAt": iso_from_millis(session.get("start")),
+            "lastAccessAt": iso_from_millis(session.get("lastAccess")),
+            "ipAddress": session.get("ipAddress"),
+        }
+        for session in runtime.keycloak_sessions(keycloak_user_id)
+    ]
+    sessions.sort(key=lambda session: (session["startedAt"] or "", session["lastAccessAt"] or ""))
+    return {
+        "format": EXPORT_FORMAT,
+        "version": 1,
+        "generatedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "productUserId": user_id,
+        "account": profile,
+        "identitySessions": sessions,
+        "ratings": runtime.ratings(user_id),
+    }
+
+
+def revoke(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stopped: bool) -> dict[str, object]:
+    running = require_application_state(runtime, must_be_stopped)
+    account = runtime.account(keycloak_user_id)
+    if account is not None:
+        # Disable first so no new sign-in or pending code exchange can succeed, then end every
+        # Keycloak session of the account and check that none is left.
+        if account.get("enabled"):
+            # The full representation keeps Keycloak's user-profile validation satisfied.
+            runtime.keycloak("PUT", f"/users/{keycloak_user_id}", {**account, "enabled": False})
+        runtime.keycloak("POST", f"/users/{keycloak_user_id}/logout")
+        if runtime.keycloak_sessions(keycloak_user_id):
+            raise ProvisioningError("Keycloak still lists sessions for the account after sign-out")
+        state = runtime.account(keycloak_user_id)
+        if state is not None and state.get("enabled"):
+            raise ProvisioningError("Keycloak did not keep the account disabled")
+    result: dict[str, object] = {
+        "step": "revoke",
+        "identity": "absent" if account is None else "disabled",
+    }
+    if running:
+        result["bffSessionsRevoked"] = runtime.revoke_bff_sessions(user_id)
+        if runtime.revoke_bff_sessions(user_id) != 0:
+            raise ProvisioningError("A repeated BFF revocation still found sessions")
+    else:
+        # A stopped application holds no sessions: they live only in its memory.
+        result["bffSessionsRevoked"] = None
+    return result
+
+
+def delete_ratings(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stopped: bool) -> dict[str, object]:
+    require_application_state(runtime, must_be_stopped)
+    account = runtime.account(keycloak_user_id)
+    if account is not None and account.get("enabled"):
+        raise ProvisioningError("The account is enabled; revoke it before deleting its ratings")
+    return {"step": "delete-ratings", "deletedRatings": runtime.delete_ratings(user_id)}
+
+
+def delete_identity(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stopped: bool) -> dict[str, object]:
+    require_application_state(runtime, must_be_stopped)
+    if runtime.rating_count(user_id):
+        raise ProvisioningError("The account still has ratings; delete them before the identity")
+    if runtime.account(keycloak_user_id) is None:
+        return {"step": "delete-identity", "identity": "already-absent"}
+    runtime.keycloak("DELETE", f"/users/{keycloak_user_id}", missing_ok=True)
+    return {"step": "delete-identity", "identity": "deleted"}
+
+
+def verify(runtime: Runtime, keycloak_user_id: str, user_id: str, must_be_stopped: bool) -> dict[str, object]:
+    running = require_application_state(runtime, must_be_stopped)
+    failures = []
+    if runtime.account(keycloak_user_id) is not None:
+        failures.append("the Keycloak account still exists")
+    if runtime.keycloak_sessions(keycloak_user_id):
+        failures.append("Keycloak still lists sessions")
+    if runtime.rating_count(user_id):
+        failures.append("ratings remain")
+    if running and runtime.revoke_bff_sessions(user_id):
+        failures.append("BFF sessions remained")
+    if failures:
+        raise ProvisioningError(f"Erasure not verified: {', '.join(failures)}")
+    return {"step": "verify", "verified": True, "applicationRunning": running}
+
+
+STEPS = {
+    "revoke": revoke,
+    "delete-ratings": delete_ratings,
+    "delete-identity": delete_identity,
+    "verify": verify,
+}
+
+
+def compose_command(env_file: pathlib.Path, project: str, live_project: str) -> list[str]:
+    command = ["docker", "compose", "--env-file", str(env_file), "--file", str(compose_file)]
+    if project != live_project:
+        command += ["--file", str(rehearsal_override)]
+    # The application service sits behind the profile that deployments select.
+    return command + ["--project-name", project, "--profile", "application"]
+
+
+def compose_container(compose: list[str], service: str) -> str | None:
+    result = subprocess.run(
+        compose + ["ps", "--quiet", "--status", "running", service],
+        capture_output=True, text=True, check=False, timeout=60,
+    )
+    if result.returncode != 0:
+        raise ProvisioningError(f"docker compose could not list the {service} service")
+    containers = result.stdout.split()
+    return containers[0] if containers else None
+
+
+def compose_issuer(compose: list[str]) -> str:
+    # The exact value the application is configured with, read from the rendered configuration
+    # rather than rebuilt here; only this one key is kept.
+    result = subprocess.run(
+        compose + ["config", "--format", "json"],
+        capture_output=True, text=True, check=False, timeout=60,
+    )
+    if result.returncode != 0:
+        raise ProvisioningError("docker compose could not render the runtime configuration")
+    issuer = json.loads(result.stdout)["services"]["application"]["environment"].get("OIDC_ISSUER_URI")
+    if not isinstance(issuer, str) or not issuer.startswith("https://"):
+        raise ProvisioningError("The application has no HTTPS OIDC issuer configured")
+    return issuer
+
+
+def loopback_origin(value: str) -> str:
+    parsed = urllib.parse.urlparse(value)
+    try:
+        loopback = parsed.hostname is not None and ipaddress.ip_address(parsed.hostname).is_loopback
+    except ValueError:
+        loopback = False
+    if parsed.scheme != "http" or not loopback or not parsed.port or parsed.path not in ("", "/"):
+        raise ProvisioningError("--keycloak-origin must be a loopback origin such as http://127.0.0.1:<port>")
+    return value.rstrip("/")
+
+
+def private_dev_runtime(arguments: argparse.Namespace) -> Runtime:
+    env_file = arguments.private_dev_env_file.resolve(strict=True)
+    origin, username, password = mail.private_dev_connection(env_file)
+    live_project = provisioning.parse_runtime_environment(env_file).get("COMPOSE_PROJECT_NAME", LIVE_PROJECT)
+    project = arguments.project or live_project
+    if not PROJECT_NAME.fullmatch(project):
+        raise ProvisioningError("--project must be a lower-case Compose project name")
+    if arguments.keycloak_origin:
+        # Restores reach Keycloak on its loopback port: an isolated project publishes only that,
+        # and a rebuilt host may not serve the private HTTPS origin yet.
+        origin = loopback_origin(arguments.keycloak_origin)
+    elif project != live_project:
+        raise ProvisioningError("A restored project needs --keycloak-origin")
+    compose = compose_command(env_file, project, live_project)
+    postgres = compose_container(compose, "postgres")
+    if not postgres:
+        raise ProvisioningError(f"PostgreSQL is not running in project {project}")
+    return Runtime(
+        origin=origin,
+        admin_username=username,
+        admin_password=password,
+        issuer=compose_issuer(compose),
+        label=project,
+        postgres_container=postgres,
+        application_container=compose_container(compose, "application"),
+    )
+
+
+def explicit_runtime(arguments: argparse.Namespace) -> Runtime:
+    missing = [
+        flag for flag, value in (
+            ("--admin-username", arguments.admin_username),
+            ("--admin-password-file", arguments.admin_password_file),
+            ("--issuer", arguments.issuer),
+            ("--postgres-container", arguments.postgres_container),
+        ) if not value
+    ]
+    if missing:
+        raise ProvisioningError(f"--origin also requires {', '.join(missing)}")
+    for container in (arguments.postgres_container, arguments.application_container):
+        if container and not CONTAINER_NAME.fullmatch(container):
+            raise ProvisioningError("Container names may contain only letters, digits, '.', '_' and '-'")
+    origin, username, password = mail.explicit_connection(
+        arguments.origin, arguments.admin_username, arguments.admin_password_file
+    )
+    return Runtime(
+        origin=origin.rstrip("/"),
+        admin_username=username,
+        admin_password=password,
+        issuer=arguments.issuer,
+        label="explicit",
+        postgres_container=arguments.postgres_container,
+        application_container=arguments.application_container,
+    )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--private-dev-env-file", type=pathlib.Path, help="Protected private-dev runtime.env")
+    target.add_argument("--origin", help="Keycloak origin of a disposable runtime (tests)")
+    parser.add_argument("--project", help="Compose project; a restored one instead of the live project")
+    parser.add_argument("--keycloak-origin", help="Loopback Keycloak origin; required for a restored project")
+    parser.add_argument("--admin-username", help="With --origin")
+    parser.add_argument("--admin-password-file", type=pathlib.Path, help="With --origin")
+    parser.add_argument("--issuer", help="With --origin: the application's exact OIDC issuer")
+    parser.add_argument("--postgres-container", help="With --origin")
+    parser.add_argument("--application-container", help="With --origin; omitted means stopped")
+    parser.add_argument("command", choices=("identify", "export", *STEPS))
+    parser.add_argument("--keycloak-user-id", required=True)
+    parser.add_argument("--user-id", help="UserId recorded in the ledger; required for erasure steps")
+    parser.add_argument("--application-must-be-stopped", action="store_true",
+                        help="Refuse while the application runs (restore replay)")
+    arguments = parser.parse_args()
+
+    keycloak_user_id = canonical_uuid(arguments.keycloak_user_id, "--keycloak-user-id")
+    if arguments.user_id is not None:
+        canonical_uuid(arguments.user_id, "--user-id")
+    if arguments.command in STEPS and arguments.user_id is None:
+        parser.error(f"{arguments.command} requires --user-id")
+    if arguments.origin and (arguments.project or arguments.keycloak_origin):
+        parser.error("--project and --keycloak-origin apply only to --private-dev-env-file")
+
+    runtime = explicit_runtime(arguments) if arguments.origin else private_dev_runtime(arguments)
+    if arguments.command == "identify":
+        result = identify(runtime, keycloak_user_id)
+    elif arguments.command == "export":
+        if arguments.application_must_be_stopped:
+            parser.error("export does not take --application-must-be-stopped")
+        result = export(runtime, keycloak_user_id)
+    else:
+        user_id = require_identity(runtime, keycloak_user_id, arguments.user_id)
+        result = STEPS[arguments.command](runtime, keycloak_user_id, user_id, arguments.application_must_be_stopped)
+        result["runtime"] = runtime.label
+    print(json.dumps(result, ensure_ascii=False, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, ProvisioningError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
+        print(f"personal-data failed: {error}", file=sys.stderr)
+        raise SystemExit(1) from None

@@ -618,8 +618,12 @@ Owner: [Host foundation](../../deploy/private-dev/README.md#host-foundation)
 and [Host-loss recovery](../../deploy/private-dev/README.md#host-loss-recovery).
 
 The flow composes owned steps: rebuild the host foundation, prepare the runtime and
-protected files, restore the latest verified backup, provision the smoke account,
-deploy the last-good digest, record the outcome.
+protected files, restore the latest verified backup with `--host-loss-recovery` and a
+current deletion-ledger copy, which replays every erasure before any deployment can
+start, provision the smoke account, deploy the last-good digest, record the outcome.
+The host-loss mode, its refusals and the deployment block are proven only offline
+(`scripts/test-private-dev-backup-recovery.sh`, `scripts/test-private-dev-deployment.sh`);
+a real host-loss restore with replay has **not** been exercised.
 
 Accepted evidence boundary (owner decision on #44, 2026-09-19): the restore-and-run
 part was proven on a compatible Ubuntu 24.04 environment. Physical-host provisioning,
@@ -678,59 +682,117 @@ configuration command are proven in the real identity gate. The workstation
 validation, end-to-end reset through the owner tunnel and reboot persistence on
 `vgpdev` are **not exercised**; record their first run in #273.
 
-## Account disable, session revocation and rating deletion
+## Personal-data requests and account revocation
 
-Policy: [platform design](../architecture/deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)
+Policy: the [#274 research](../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion)
+(manual owner procedures, D10; ledger and replay, D21–D23), the
+[platform design](../architecture/deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)
 and [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md).
-**Disposable-gate evidence only (#274):** the real identity gate and backend
-integration tests prove every step below with synthetic accounts; it is **not
-exercised** on `vgpdev`. The deletion ledger, export and restore replay belong to a
-later #274 increment; until then record each run by hand: date, Keycloak user ID,
-`UserId`, both revocation counts, any restart and the remaining rating count. Never
-record email addresses or rating values.
+`deploy/private-dev/bin/personal-data` acts on one runtime; `personal-data-ledger`
+runs on the owner's workstation and owns the ledger. The
+[private-dev procedure](../../deploy/private-dev/README.md#personal-data-requests)
+gives the exact host command. **Disposable-gate evidence only (#274):**
+`scripts/validate-personal-data.sh` proves every path below with synthetic accounts;
+it is **not exercised** on `vgpdev`.
 
-Keep the order: identity first, then the BFF sessions, then the data.
+Before acting, verify the requester: the request comes from the account's own address
+or a signed-in session, and the owner finds the Keycloak user ID in the Admin Console.
+Never act on an identifier supplied by the requester, and give each request an opaque
+reference (for example `REQ-2026-0001`), never an address or a name. Reply within one
+month.
 
-1. Derive the product `UserId` from the exact `OIDC_ISSUER_URI` the application runs
-   with and the Keycloak user ID; an operator never trusts an identifier supplied by
-   the account holder:
+### The deletion ledger
 
-   ```bash
-   python3 -I -c 'import hashlib, sys, uuid; print(uuid.UUID(bytes=hashlib.md5(f"{sys.argv[1]}\n{sys.argv[2]}".encode()).digest(), version=3))' \
-     "<issuer>" "<keycloak-user-id>"
-   ```
+An append-only file kept in two private copies (`0700` directory, `0600` file, both
+refused otherwise), never on the host: the working copy on the owner's workstation
+(`--ledger`) and one on storage independent of it (`--ledger-copy`), such as the owner's
+drive that already holds the off-host backup copies and the backup key material. Each
+line records an identifier, a step outcome or a time; no address, name, rating value or
+reason.
 
-2. In Keycloak, disable or delete the user and sign it out of every Keycloak session
-   (user **Sessions → Sign out**, or the Admin API `POST …/users/<id>/logout`). No new
-   sign-in or pending code exchange can succeed after this.
-3. Revoke its BFF sessions from inside the application container, because the
-   management port is container-internal (private-dev form; production follows the
-   same contract):
+`erase` and `retry` refuse to run without both copies, and every record, the request
+first, is written and fsynced to both before the step it announces starts. So no
+erasure can begin, and no step can run, unless its record would survive the loss of
+either the workstation or the host. When an append was interrupted between the copies,
+the next run completes the shorter one from the longer; copies that differ in any other
+way stop every command until the owner compares them. A lost copy is rebuilt from the
+other the same way. Never edit either by hand. Keep each entry at least 35 days after
+completion, while any backup could restore the erased data; an incomplete entry is never
+removed.
 
-   ```bash
-   docker compose --env-file /etc/videogame-platform/dev/runtime.env \
-     --file deploy/private-dev/compose.yaml --profile application \
-     exec application wget -q -O - --header 'Content-Type: application/json' \
-     --post-data '{"userId":"<UserId>"}' \
-     http://127.0.0.1:8081/actuator/sessionrevocation
-   ```
+### Export (access and portability)
 
-   `200 {"revokedSessions":N}` means every active session of the account is expired
-   and no personal write by those sessions is running or can start. `400
-   INVALID_USER_ID` means the value is not a derived `UserId`; fix it, never accept a
-   zero from a mistyped value. A `503 SESSION_REVOCATION_NOT_SETTLED`, a failed call or
-   any doubt means the guarantee is missing: restart the application (every user is
-   signed out) and record it before continuing.
-4. Repeat step 3 and expect `{"revokedSessions":0}`.
-5. Only then delete the account's ratings in the product database with the runtime
-   role, `DELETE FROM ratings.rating WHERE user_id = '<UserId>'`, and verify that
-   `SELECT count(*) FROM ratings.rating WHERE user_id = '<UserId>'` returns `0`. Public
-   aggregates read ratings at request time, so nothing else is recomputed.
-6. For an erasure, delete the Keycloak user last, if step 2 only disabled it.
+```bash
+personal-data-ledger --ledger <ledger> --host-command "<host command>" \
+  export --request <reference> --keycloak-user-id <id> --output <private-dir>/export-<reference>.json
+```
 
-Re-enabling a disabled account later needs nothing in the application: its next
-sign-in creates a new session. A restart is always a valid fallback for step 3,
-because BFF sessions live only in the application's memory.
+The JSON holds the Keycloak profile (with any names stored before they stopped being
+collected), the account's current Keycloak sessions with their start, last access and
+IP address, and every rating with its game, title, value and times. It is written once
+as `0600` and never overwritten; nothing is stored on the host. Send it only to the
+account's verified address, then delete the file. An export creates no ledger entry.
+
+### Erasure
+
+```bash
+personal-data-ledger --ledger <ledger> --host-command "<host command>" \
+  erase --request <reference> --keycloak-user-id <id>
+```
+
+The request is recorded before the first change, then each step in order, every one
+recorded and safe to repeat: **revoke** (disable the Keycloak account, end its
+Keycloak sessions, revoke its BFF sessions, repeat expecting zero), **delete-ratings**,
+**delete-identity** and **verify** (no account, Keycloak session, rating or BFF
+session left). Public aggregates read ratings at request time, so nothing is
+recomputed. A step refuses to run out of order.
+
+On any failure the entry stays incomplete and the account stays disabled once
+revocation has run, so a half-erased account cannot act. Fix the cause and run
+`personal-data-ledger … retry`, which repeats every step of every incomplete entry. A
+failed BFF revocation (`HTTP 503`, no response) means the guarantee is missing: restart
+the application, which discards every in-memory session, then retry. `status` lists
+entries by reference and Keycloak user ID only.
+
+### Restriction without erasure
+
+To restrict or object (D10), disable the account in the Admin Console and sign it out
+(**Sessions → Sign out**), then revoke its BFF sessions inside the application
+container, because the management port is container-internal:
+
+```bash
+docker compose --env-file /etc/videogame-platform/dev/runtime.env \
+  --file deploy/private-dev/compose.yaml --profile application \
+  exec application wget -q -O - --header 'Content-Type: application/json' \
+  --post-data '{"userId":"<UserId>"}' \
+  http://127.0.0.1:8081/actuator/sessionrevocation
+```
+
+Take the `UserId` from `personal-data … identify --keycloak-user-id <id>`, which derives
+it from the exact issuer the application runs with. `200 {"revokedSessions":N}` then a
+repeat answering `0` completes it; `400 INVALID_USER_ID` means a wrong value; a `503` or
+any doubt means restart the application. Re-enabling later needs nothing in the
+application.
+
+### Restore replay before reopening
+
+A restored backup can predate erasures. The replay starts only the restored Keycloak,
+refuses while the application runs, reapplies every entry, not only those after the
+recovery point, verifies each one and records a receipt with the ledger's SHA-256. It
+stops without changes if the target derives a different `UserId`, which means the
+issuer changed. Two paths run it:
+
+- `restore-private-dev --deletion-ledger <current copy>` replays as part of the restore,
+  in a rehearsal or a host-loss recovery, and puts the receipt in the restore evidence.
+  Host-loss recovery requires it, blocks every deployment from before the restore until
+  the replay is verified, and offers `--resume-deletion-replay` when only the replay
+  failed ([private-dev procedure](../../deploy/private-dev/README.md#host-loss-recovery)).
+- From the workstation, against a restored project whose Keycloak already runs:
+  `personal-data-ledger … --host-command "<restored-project host command>" replay
+  --receipt <private-dir>/replay-<project>-<date>.json`.
+
+Start the application only after a verified replay. An entry still incomplete in the
+ledger is then finished with `retry` against the live runtime.
 
 ## Not covered
 

@@ -442,7 +442,12 @@ python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(enc
   "$repository_root/deploy/private-dev/bin/configure-keycloak-mail"
 python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
   "$repository_root/deploy/private-dev/bin/configure-keycloak-identity"
+for personal_data_command in personal-data personal-data-ledger; do
+  python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
+    "$repository_root/deploy/private-dev/bin/$personal_data_command"
+done
 if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
+  bash "$repository_root/scripts/test-private-dev-backup-recovery.sh"
   node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
   node --test \
     "$repository_root/deploy/private-dev/smoke/releases-outcome.test.mjs" \

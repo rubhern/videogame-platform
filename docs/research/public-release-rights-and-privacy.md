@@ -6,9 +6,11 @@
   private-dev, never operated), the email provider (E1–E6) and the canonical issuer
   with its cookie inventory. The public names are approved (D20). On 2026-10-16 the
   owner reported the Mailjet Free account, the verified `mail.gameometro.com` sender and
-  one real SMTP message; the private-dev identity policy and relay are merged, not
-  applied to the host. Privacy workflows, provider-content switches and abuse controls
-  are not started
+  one real SMTP message. On 2026-10-16 private-dev applied the identity policy and
+  selected the Mailjet relay (verified with both read-only checks). Privacy increment 1 (export, erasure, deletion ledger and
+  restore replay, D21–D23) is implemented and proven with synthetic accounts in a
+  disposable gate on 2026-10-16, pending owner review, not exercised on a host. Legal
+  texts, provider-content switches and abuse controls are not started
 - **Research date:** 2026-10-14 (sources); code re-checked 2026-10-15; production realm
   exercised against disposable Keycloak 26.7.0 on 2026-10-15
 - **Source revision:** `cda7185cced99ecc8a6d3aa08c1e96831772f86f` (`main`)
@@ -144,10 +146,10 @@ procedures; it is not a launch blocker.
 
 | Store / flow | Data | Retention today | Notes |
 |---|---|---|---|
-| Keycloak database | Username, email, **first and last name (required)**, password hash, verification flag, timestamps; admin-only smoke marker | Until an administrator deletes the user | Private dev: login by username; registration open; `verifyEmail=false`; no password policy; brute force off (Keycloak default). The production realm keeps only the email (section 7.1) |
+| Keycloak database | Username, email, **first and last name (required)**, password hash, verification flag, timestamps; admin-only smoke marker | Until an administrator deletes the user, or the erasure procedure (7.5) | The production realm keeps only the email (section 7.1). **[V]** Since 2026-10-16 private-dev applies the same policy to its existing realm; names stored before then are kept, not collected |
 | Keycloak sessions | SSO session metadata, persisted in the database by default (Keycloak docs) | Idle 30 min, max 10 h; production realm idle 30 min, max 8 h | **[V]** (phase 2) each persisted row holds the client IP and a device note (IP, OS, browser); paired backups therefore copy the IPs of sessions open at capture time. The brute-force record keeps the last failing IP per account |
-| Keycloak server log | Error events with user ID, username and IP (default logging listener); success events not logged | Private dev: Docker `local` driver, 3 × 10 MiB, no age limit; not sent to Loki | User events are not stored (`eventsEnabled` unset). **[V]** (phase 2) the production realm has no listener; replaying a consumed authorization code still logs its ID and session ID at WARN |
-| Keycloak email | Verification and recovery messages | Private dev: Mailpit, 100 messages / 24 h; an opt-in Mailjet relay is merged, not selected on the host | Mailjet Free account opened by the owner (7.3); its retention of addresses and events is unpublished |
+| Keycloak server log | Error events with user ID, username and IP (default logging listener) until 2026-10-16 in private-dev; success events not logged | Private dev: Docker `local` driver, 3 × 10 MiB, no age limit; not sent to Loki | User events are not stored (`eventsEnabled` unset). **[V]** (phase 2) the production realm, and private-dev since its alignment, have no listener; replaying a consumed authorization code still logs its ID and session ID at WARN |
+| Keycloak email | Verification and recovery messages | Private dev: the Mailjet relay since 2026-10-16 **[V]**; Mailpit for local development, CI and as the rollback transport (100 messages / 24 h) | Mailjet Free account opened by the owner (7.3); its retention of addresses and events is unpublished |
 | Application database | `ratings.rating`: `user_id`, game, value, created/updated time, version token | Until the user deletes the rating | No email/name in the application; aggregates are computed live from this table |
 | BFF session | Servlet session with OIDC user and tokens, CSRF token, return context; one session cookie (production `__Host-vgp_session`) | 30 min idle, 8 h absolute (7.2); in memory only, lost on restart | The production client's ID token carries only protocol claims (7.1). Browser cookies and storage: section 7.4 |
 | Application logs | Method, route template, status, duration, error code | Private dev: Loki 24 h plus syslog cache | No IP, user ID, email, query string or stack trace by default |
@@ -187,7 +189,7 @@ after launch would detach every rating from its account.
 | Right | Path |
 |---|---|
 | Access | "Mis puntuaciones" plus the Keycloak account page give permanent remote access; the remaining article 15 information comes from the notice or by email |
-| Portability / export | Owner script: Keycloak profile fields plus all ratings for the derived `UserId`, as JSON, sent to the verified account email; the file is deleted after delivery |
+| Portability / export | Owner command: Keycloak profile fields, current Keycloak sessions (D23) and all ratings for the derived `UserId`, as JSON, sent to the verified account email; the file is deleted after delivery |
 | Rectification | Profile in the Keycloak account page; ratings editable in the product |
 | Erasure | Ledger-driven owner script, section 4.2 |
 | Restriction / objection | Case by case; disabling the account (with revocation, 4.1) is the restriction tool |
@@ -243,7 +245,8 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
 
 ### 4.2 Deletion ledger: partial failures, retries and restores
 
-**[R]** The ledger is the durable record that makes erasure repeatable:
+The ledger is the durable record that makes erasure repeatable. Designed here as
+**[R]**, approved with D21–D23 and implemented in privacy increment 1 (section 7.5):
 
 - **Location:** the owner's protected administration storage, outside the VPS and
   both databases, copied with the reconstruction material. Because the owner runs the
@@ -282,7 +285,7 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
 | R2 | Unverified email registration, no password policy or brute-force protection | Critical | **Blocks accounts**; production realm prepared and tested (7.1), not deployed |
 | R3 | An open BFF session survives account disable/delete and can recreate ratings | High | **Blocks accounts** until operated on the production host; mechanism implemented and proven with synthetic accounts (7.2) |
 | R4 | No production email route for verification/recovery | High | **Blocks accounts**; Mailjet Free account and sending subdomain exist (7.3, E1–E6); written professional-use acceptance and production delivery proof (#276) pending |
-| R5 | Erasure, ledger and restore replay not implemented or rehearsed | High | **Blocks accounts**; privacy phase |
+| R5 | Erasure, ledger and restore replay not implemented or rehearsed | High | **Blocks accounts**; implemented and proven in a disposable gate (7.5); a host rehearsal in private-dev and the production restore path (#275) remain |
 | R6 | LSSI may require a published postal address and tax ID | High | **Blocks publishing the legal notice** until answered |
 | R7 | Translated summaries may breach the no-modification clause | High | Blocks public translations unless IGDB or a legal answer allows them |
 | R8 | IGDB scores not confirmed for public display; #279 widens their surfaces | High | Publication blocked until restrictions are verified (D11) |
@@ -323,6 +326,9 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
 | D18 | Administrative revocation invalidates BFF sessions directly with standard Spring Security capabilities; no per-request PostgreSQL check, no new dependency | Implemented (7.2, ADR-0027) |
 | D19 | Keep Keycloak's native registration declaration (18+ and conditions) | No per-account evidence of the accepted text; no complex customization without a justified need |
 | E1–E6 | Transactional email: Mailjet Free preferred and conditional, Scaleway as documented replacement, no card or overage, dedicated sending subdomain, real reply address, account created only with the domain | Section 7.3; free account opened by the owner, no card |
+| D21 | The deletion ledger lives on the owner's workstation with a mandatory second copy on independent owner storage; an owner-side driver records each step in both before it runs it on the host through a stateless command over SSH (copy added 2026-10-16) | Write-ahead holds even if the host or the workstation is lost mid-procedure; no new service (7.5) |
+| D22 | Replay is a mandatory restore step: refused while the restored application runs, verified per entry, receipt kept. Host-loss recovery restores into the live project only on a host without its containers or volumes, and deployments are refused until the replay is verified (refined 2026-10-16) | `restore-private-dev` runs it; `deploy-private-dev` checks only the pending-replay marker (7.5) |
+| D23 | Exports include current Keycloak sessions (start, last access, IP) besides the profile and ratings | Stored personal data is returned on access (GDPR 15) |
 | D20 | Public domain `gameometro.com` at OVHcloud; application on the apex, identity on `auth.gameometro.com`, mail sent from `mail.gameometro.com` | The [platform design](../architecture/deployment/mvp-platform-and-delivery.md#public-domain-and-names) owns the names; the issuer is `https://auth.gameometro.com/realms/gameometro` (D12) |
 
 ### 6.2 Implementation requirements for later phases
@@ -332,9 +338,9 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
   event logging, exact origins; prepared in 7.1); verified revocation, absolute BFF
   session lifetime and coordinated logout (7.2); fixed canonical issuer (D12); email
   provider selected with DPA. Reuse #273's recovery.
-- **Privacy workflows:** export/erasure scripts with the ledger, restore replay,
-  synthetic rehearsal including failures, incident register, Spanish legal texts and
-  cookie paragraph, record of processing.
+- **Privacy workflows:** export/erasure with the ledger, restore replay and the
+  synthetic rehearsal including failures are implemented (7.5); incident register,
+  Spanish legal texts and cookie paragraph, record of processing remain.
 - **Provider content:** public switches for translations, decorative media and IGDB
   scores; no-referrer on provider images and links; licence-termination runbook.
 - **Abuse:** registration/login limits, no email enumeration at registration (R17),
@@ -432,7 +438,7 @@ revocation has been operated. No
 migration, per-request query or new dependency. The
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)
 owns the resulting guarantees and the management-interface requirements for #275; the
-[operations runbook](../development/operations-runbook.md#account-disable-session-revocation-and-rating-deletion)
+[operations runbook](../development/operations-runbook.md#personal-data-requests-and-account-revocation)
 owns the owner procedure. Code, tests and the OpenAPI contract own the mechanics.
 
 | Area | Implementation | Evidence **[V]** |
@@ -674,6 +680,38 @@ not changed here.
 including its unknown-host behaviour; repeat the cookie and storage inventory with the
 real hostnames, edge TLS and HSTS; record the issuer in the deployed configuration
 fingerprint so a later change is detected rather than silently detaching ratings.
+
+### 7.5 Privacy increment 1: export, erasure and restore replay (2026-10-16)
+
+Implements section 4 and the ledger of 4.2 as approved (D10, D21–D23); pending owner
+review and not exercised on a host. The
+[operations runbook](../development/operations-runbook.md#personal-data-requests-and-account-revocation)
+owns the owner procedure, the
+[private-dev procedure](../../deploy/private-dev/README.md#personal-data-requests) its
+host command and manual validation, and `deploy/private-dev/bin/personal-data`,
+`personal-data-ledger` and their tests own the mechanics. No HTTP route, migration,
+service, dependency or application code changed.
+
+| Area | Implementation | Evidence **[V]** |
+|---|---|---|
+| Identification | Accounts addressed only by Keycloak user ID; `UserId` derived from the exact issuer the application is configured with; a recorded `UserId` that no longer matches stops the step | A rating written through the product API is found under the derived `UserId`; a target with another issuer stops replay before any change |
+| Export | Allow-listed profile fields, current Keycloak sessions reduced to start, last access and IP, and ratings with game title, written once as a `0600` file on the workstation; nothing stored on the host, no ledger entry | Holds only the holder's address, both sign-in sessions and the rating; the other account is absent. Keycloak 26.7's session representation carries `clients`, `id`, `ipAddress`, `lastAccess`, `rememberMe`, `start`, `transientUser`, `userId` and `username`, its user representation no credential or hash; the export keeps only the allow-listed fields. No key names a token, secret, password, credential, hash or cookie; neither the Keycloak session IDs, the account's password, the admin password, the BFF client secret, any browser cookie of either host (BFF session, `KEYCLOAK_IDENTITY` and the others) nor a JWT-shaped value appears |
+| Erasure | Write-ahead request, then revoke, delete ratings, delete identity and verify, each recorded and refused out of order | Two devices revoked (count 2, repeat 0), the other account's session, account and rating intact |
+| Interruption and retry | A failed step leaves the entry incomplete and the account disabled; `retry` repeats every step | Fake runtime: failure before and after each of the four steps; real runtime: connection lost after the ratings were deleted, then retry |
+| Ledger durability | Two private copies, working and independent; `erase` and `retry` refuse without both; every record fsynced to both before its step; an interrupted append is completed from the longer copy, any other difference stops every command | Fake runtime: no copy, unavailable or read-only storage and divergent copies all refused with no change; a lost copy and a truncated copy rebuilt |
+| Restore replay | Every entry replayed, refused while the application runs, receipt with the ledger's SHA-256. `restore-private-dev --deletion-ledger` replays as part of a rehearsal or host-loss recovery; the rehearsal override publishes Keycloak on loopback | A pre-erasure backup restores the account and rating; the replay removes them, keeps the other account and leaves a re-registered address untouched |
+| Host-loss recovery | Only `--host-loss-recovery` may use the live project name: it refuses any host with that project's containers or volumes, removes nothing, writes a pending-replay marker that makes every deployment and promotion refuse, and removes it only after a verified replay; `--resume-deletion-replay` repeats a failed replay | Offline, with fake Docker and a fake driver: refusal over the live project in a rehearsal, without a private ledger copy and on a used host, all before any container work; no removal, Keycloak started alone, block kept after a failed replay and lifted only by a verified one; deployment refused while blocked, without any Docker command |
+| Personal data in records | Ledger: identifiers, outcomes and times only | Neither the ledger nor the application or Keycloak log holds the erased address |
+
+**Limitations [V]:** the two ledger copies are only as independent as the storage the
+owner chooses for the second, and both must stay private and unedited. A real host-loss
+restore with replay has not been exercised; its refusals and deployment block are proven
+offline. The export reads
+PostgreSQL as its superuser through `docker exec`, as backup and restore already do.
+A replay needs the restored Keycloak running without the application; #275 must give
+the production restore the same path and the same deployment block. Keycloak keeps a disabled account's failed-login log lines until its logs
+rotate (R11). Retention of request correspondence is still **[U]**, and no ledger
+entry is purged automatically.
 
 ## 8. Dependencies and conflicts
 

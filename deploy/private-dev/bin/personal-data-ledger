@@ -1,0 +1,439 @@
+#!/usr/bin/env python3
+
+"""Owner-side driver for data exports, account erasure and the deletion ledger.
+
+Runs on the owner's workstation, never on the host it acts on. The ledger is an append-only
+JSON Lines file in the owner's protected administration storage, outside the host and both
+databases, with a second copy on storage independent of the workstation (--ledger-copy).
+Every erasure is recorded in both copies before its first mutation and after every step, so an
+interrupted run can be retried and a restored backup can be cleaned again before it reopens.
+
+Each step runs through --host-command, the command line that reaches `personal-data` in the
+target runtime (for private-dev: ssh to the host and sudo). The ledger holds identifiers,
+step outcomes and times only: no email address, rating value or reason.
+"""
+
+from __future__ import annotations
+
+import argparse
+import contextlib
+import datetime
+import fcntl
+import hashlib
+import json
+import os
+import pathlib
+import re
+import shlex
+import stat
+import subprocess
+import sys
+from collections.abc import Iterator
+
+sys.dont_write_bytecode = True
+
+LEDGER_VERSION = 1
+STEPS = ("revoke", "delete-ratings", "delete-identity", "verify")
+CANONICAL_UUID = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
+# An opaque reference to the request correspondence; never an address or a name.
+REQUEST_REFERENCE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,63}")
+STEP_TIMEOUT_SECONDS = 180
+
+
+class LedgerError(RuntimeError):
+    """A safe operator-facing failure."""
+
+
+def now() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def canonical_uuid(value: str, label: str) -> str:
+    if not CANONICAL_UUID.fullmatch(value):
+        raise LedgerError(f"{label} must be a lower-case canonical UUID")
+    return value
+
+
+def request_reference(value: str) -> str:
+    if not REQUEST_REFERENCE.fullmatch(value):
+        raise LedgerError("--request must be an opaque reference of 3-64 letters, digits, '.', '_' or '-'")
+    return value
+
+
+# Ledger file -------------------------------------------------------------------------------
+
+
+def _fsync_directory(path: pathlib.Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _require_private(path: pathlib.Path, *, directory: bool) -> None:
+    mode = path.stat().st_mode
+    if (stat.S_ISDIR(mode) != directory) or mode & 0o077:
+        kind = "directory" if directory else "file"
+        raise LedgerError(f"The ledger {kind} {path} must be private to its owner (no group or other access)")
+
+
+def _parse(content: str, label: str) -> list[dict[str, object]]:
+    if content and not content.endswith("\n"):
+        raise LedgerError(f"The {label} ends with an incomplete line; inspect it before any run")
+    events = []
+    for number, line in enumerate(content.splitlines(), 1):
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            raise LedgerError(f"Line {number} of the {label} is not valid JSON") from None
+        if event.get("v") != LEDGER_VERSION or event.get("event") not in ("requested", "step", "completed"):
+            raise LedgerError(f"Line {number} of the {label} is not a known ledger event")
+        events.append(event)
+    return events
+
+
+class LedgerFile:
+    """One copy of the ledger, private and exclusively locked for the whole command."""
+
+    def __init__(self, path: pathlib.Path, label: str, *, create: bool) -> None:
+        self.path = path
+        self.label = label
+        # A missing directory means unmounted or mistyped storage: never create it.
+        parent = path.parent.resolve(strict=True)
+        _require_private(parent, directory=True)
+        if not path.exists():
+            if not create:
+                raise LedgerError(f"No {label} at {path}")
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            os.close(descriptor)
+            _fsync_directory(parent)
+        _require_private(path, directory=False)
+        self.handle = open(path, "a+", encoding="utf-8")
+        try:
+            fcntl.flock(self.handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            self.handle.close()
+            raise LedgerError(f"Another run holds the {label}; wait for it to finish") from None
+
+    def content(self) -> str:
+        self.handle.seek(0)
+        return self.handle.read()
+
+    def write(self, text: str) -> None:
+        self.handle.seek(0, os.SEEK_END)
+        self.handle.write(text)
+        self.handle.flush()
+        os.fsync(self.handle.fileno())
+
+    def close(self) -> None:
+        fcntl.flock(self.handle, fcntl.LOCK_UN)
+        self.handle.close()
+
+
+class Ledger:
+    """The append-only ledger: the working copy and, for erasures, an independent copy.
+
+    Every event is fsynced in every copy before the command goes on, so no mutation starts
+    unless its record exists on two independent storages. Copies are reconciled only when one
+    is a prefix of the other, which is what an interrupted append leaves; anything else stops.
+    """
+
+    def __init__(self, path: pathlib.Path, copy: pathlib.Path | None, *, create: bool) -> None:
+        self.files: list[LedgerFile] = []
+        # Both storages must be present and private before either file is created or locked.
+        for candidate in (path, copy):
+            if candidate is not None:
+                try:
+                    _require_private(candidate.parent.resolve(strict=True), directory=True)
+                except FileNotFoundError:
+                    raise LedgerError(f"The ledger storage {candidate.parent} is not available") from None
+        try:
+            primary_exists = path.exists()
+            copy_exists = copy is not None and copy.exists()
+            # Either copy can rebuild the other, so a single missing file is recreated empty and
+            # then filled by reconciliation; with both missing only a new erasure may start one.
+            self.files.append(LedgerFile(path, "ledger", create=create or copy_exists))
+            if copy is not None:
+                if copy.resolve(strict=False) == path.resolve(strict=False) or (
+                    copy.exists() and os.path.samefile(copy, path)
+                ):
+                    raise LedgerError("--ledger-copy must be a separate file on independent storage")
+                self.files.append(LedgerFile(copy, "ledger copy", create=create or primary_exists))
+            self.events = self._reconcile()
+        except BaseException:
+            self.close()
+            raise
+
+    def _reconcile(self) -> list[dict[str, object]]:
+        contents = [ledger_file.content() for ledger_file in self.files]
+        for ledger_file, content in zip(self.files, contents):
+            _parse(content, ledger_file.label)
+        longest = max(contents, key=len)
+        for ledger_file, content in zip(self.files, contents):
+            if not longest.startswith(content):
+                raise LedgerError(
+                    "The ledger and its copy diverge; compare them by hand before any run"
+                )
+            if content != longest:
+                ledger_file.write(longest[len(content):])
+                print(f"Brought the {ledger_file.label} up to date from the other copy.", file=sys.stderr)
+        return _parse(longest, "ledger")
+
+    def append(self, event: dict[str, object]) -> None:
+        record = {"v": LEDGER_VERSION, "at": now(), **event}
+        line = json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
+        for ledger_file in self.files:
+            ledger_file.write(line)
+        self.events.append(record)
+
+    def digest(self) -> str:
+        return hashlib.sha256(self.files[0].path.read_bytes()).hexdigest()
+
+    def entries(self) -> list[dict[str, object]]:
+        """Fold events into one entry per account, in request order."""
+        entries: dict[str, dict[str, object]] = {}
+        for event in self.events:
+            key = str(event["keycloakUserId"])
+            if event["event"] == "requested":
+                entries.setdefault(key, {
+                    "request": event["request"],
+                    "keycloakUserId": key,
+                    "userId": event["userId"],
+                    "requestedAt": event["at"],
+                    "steps": {},
+                    "completedAt": None,
+                })
+            elif key not in entries:
+                raise LedgerError("The ledger records a step before its request")
+            elif event["event"] == "step":
+                entries[key]["steps"][event["step"]] = event["outcome"]
+            else:
+                entries[key]["completedAt"] = event["at"]
+        return list(entries.values())
+
+    def close(self) -> None:
+        for ledger_file in self.files:
+            ledger_file.close()
+        self.files = []
+
+
+@contextlib.contextmanager
+def open_ledger(path: pathlib.Path, copy: pathlib.Path | None = None, *, create: bool = False) -> Iterator[Ledger]:
+    ledger = Ledger(path, copy, create=create)
+    try:
+        yield ledger
+    finally:
+        ledger.close()
+
+
+# Host command --------------------------------------------------------------------------------
+
+
+def run_host(host_command: list[str], arguments: list[str]) -> dict[str, object]:
+    # Every argument is a fixed word or a validated UUID, so the command stays safe even when
+    # ssh joins it into one remote shell line.
+    try:
+        result = subprocess.run(
+            host_command + arguments, capture_output=True, text=True, check=False, timeout=STEP_TIMEOUT_SECONDS
+        )
+    except subprocess.TimeoutExpired:
+        raise LedgerError(f"{arguments[0]} timed out; its outcome is unknown") from None
+    except OSError as error:
+        raise LedgerError(f"The host command could not start: {error.strerror}") from None
+    if result.returncode != 0:
+        message = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else f"exit {result.returncode}"
+        raise LedgerError(message[:300])
+    try:
+        answer = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        raise LedgerError(f"{arguments[0]} returned no JSON result") from None
+    if not isinstance(answer, dict):
+        raise LedgerError(f"{arguments[0]} returned an unexpected result")
+    return answer
+
+
+def step_detail(answer: dict[str, object]) -> dict[str, object]:
+    # Counts and states only; never anything that identifies a person.
+    allowed = ("identity", "bffSessionsRevoked", "deletedRatings", "verified", "applicationRunning", "runtime")
+    return {key: answer[key] for key in allowed if key in answer}
+
+
+def run_steps(
+    ledger: Ledger | None,
+    host_command: list[str],
+    entry: dict[str, object],
+    *,
+    replay: bool,
+) -> list[dict[str, object]]:
+    results = []
+    for step in STEPS:
+        arguments = [step, "--keycloak-user-id", str(entry["keycloakUserId"]), "--user-id", str(entry["userId"])]
+        if replay:
+            arguments.append("--application-must-be-stopped")
+        try:
+            answer = run_host(host_command, arguments)
+        except LedgerError as error:
+            if ledger is not None:
+                ledger.append({"event": "step", "keycloakUserId": entry["keycloakUserId"], "step": step,
+                               "outcome": "failed", "error": str(error)})
+            raise LedgerError(f"{step} failed for {entry['keycloakUserId']}: {error}") from None
+        detail = step_detail(answer)
+        if ledger is not None:
+            ledger.append({"event": "step", "keycloakUserId": entry["keycloakUserId"], "step": step,
+                           "outcome": "done", "detail": detail})
+        results.append({"step": step, **detail})
+    if ledger is not None:
+        ledger.append({"event": "completed", "keycloakUserId": entry["keycloakUserId"]})
+    return results
+
+
+def identify(host_command: list[str], keycloak_user_id: str) -> dict[str, object]:
+    answer = run_host(host_command, ["identify", "--keycloak-user-id", keycloak_user_id])
+    canonical_uuid(str(answer.get("userId", "")), "The derived UserId")
+    return answer
+
+
+# Commands ------------------------------------------------------------------------------------
+
+
+def command_export(arguments: argparse.Namespace, host_command: list[str]) -> int:
+    request_reference(arguments.request)
+    keycloak_user_id = canonical_uuid(arguments.keycloak_user_id, "--keycloak-user-id")
+    output = arguments.output
+    _require_private(output.parent.resolve(strict=True), directory=True)
+    document = run_host(host_command, ["export", "--keycloak-user-id", keycloak_user_id])
+    if document.get("format") != "gameometro-personal-data-export":
+        raise LedgerError("The host returned something other than a data export")
+    descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(document, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    print(f"Export for request {arguments.request} written to {output} (0600): "
+          f"{len(document.get('ratings', []))} rating(s), {len(document.get('identitySessions', []))} session(s). "
+          "Send it only to the account's verified address, then delete the file.")
+    return 0
+
+
+def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int:
+    request = request_reference(arguments.request)
+    keycloak_user_id = canonical_uuid(arguments.keycloak_user_id, "--keycloak-user-id")
+    with open_ledger(arguments.ledger, arguments.ledger_copy, create=True) as ledger:
+        existing = next((entry for entry in ledger.entries() if entry["keycloakUserId"] == keycloak_user_id), None)
+        if existing is not None:
+            if existing["completedAt"]:
+                print(f"Already erased under request {existing['request']} at {existing['completedAt']}; nothing changed.")
+                return 0
+            raise LedgerError(f"An incomplete erasure exists under request {existing['request']}; use retry")
+        identity = identify(host_command, keycloak_user_id)
+        if identity["account"] == "absent":
+            raise LedgerError("No account has this Keycloak user ID in the target runtime; nothing recorded")
+        # Write-ahead: the request is durable before the first mutation.
+        ledger.append({"event": "requested", "request": request, "keycloakUserId": keycloak_user_id,
+                       "userId": identity["userId"]})
+        entry = ledger.entries()[-1]
+        results = run_steps(ledger, host_command, entry, replay=False)
+    print(json.dumps({"request": request, "keycloakUserId": keycloak_user_id, "steps": results}, sort_keys=True))
+    return 0
+
+
+def command_retry(arguments: argparse.Namespace, host_command: list[str]) -> int:
+    with open_ledger(arguments.ledger, arguments.ledger_copy) as ledger:
+        pending = [entry for entry in ledger.entries() if not entry["completedAt"]]
+        if not pending:
+            print("No incomplete erasure; nothing changed.")
+            return 0
+        for entry in pending:
+            # Every step again, in order: each one is harmless when already done.
+            run_steps(ledger, host_command, entry, replay=False)
+            print(f"Request {entry['request']} completed.")
+    return 0
+
+
+def command_status(arguments: argparse.Namespace, _host_command: list[str] | None) -> int:
+    with open_ledger(arguments.ledger, arguments.ledger_copy) as ledger:
+        for entry in ledger.entries():
+            state = "complete" if entry["completedAt"] else "INCOMPLETE"
+            steps = ",".join(f"{step}={entry['steps'].get(step, '-')}" for step in STEPS)
+            print(f"{entry['request']}\t{entry['keycloakUserId']}\t{state}\t{steps}")
+    return 0
+
+
+def command_replay(arguments: argparse.Namespace, host_command: list[str]) -> int:
+    receipt_path = arguments.receipt
+    _require_private(receipt_path.parent.resolve(strict=True), directory=True)
+    with open_ledger(arguments.ledger, arguments.ledger_copy) as ledger:
+        entries = ledger.entries()
+        digest = ledger.digest()
+        runtime = None
+        # Every entry, not only those after the recovery point: replay is idempotent and this
+        # avoids clock and backup-pair boundary mistakes.
+        for entry in entries:
+            identity = identify(host_command, str(entry["keycloakUserId"]))
+            if identity["userId"] != entry["userId"]:
+                raise LedgerError("The target derives another UserId: its issuer changed. Stop and investigate.")
+            runtime = identity["runtime"]
+            run_steps(None, host_command, entry, replay=True)
+        incomplete = [entry["request"] for entry in entries if not entry["completedAt"]]
+    receipt = {
+        "kind": "deletion-ledger-replay",
+        "replayedAt": now(),
+        "runtime": runtime,
+        "ledgerSha256": digest,
+        "entries": len(entries),
+        "verified": len(entries),
+        "incompleteInLedger": incomplete,
+        "outcome": "verified",
+    }
+    descriptor = os.open(receipt_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
+    print(f"Replayed and verified {len(entries)} erasure(s); receipt {receipt_path}.")
+    if incomplete:
+        print(f"Incomplete in the ledger, finish with retry against the live runtime: {', '.join(incomplete)}")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
+    parser.add_argument("--ledger", type=pathlib.Path, required=True, help="Ledger file in protected owner storage")
+    parser.add_argument("--ledger-copy", type=pathlib.Path,
+                        help="Second ledger file on storage independent of the workstation; required to erase")
+    parser.add_argument("--host-command", help="Command line that runs personal-data in the target runtime")
+    commands = parser.add_subparsers(dest="command", required=True)
+    export = commands.add_parser("export", help="Write one account's data export (no ledger entry)")
+    export.add_argument("--request", required=True)
+    export.add_argument("--keycloak-user-id", required=True)
+    export.add_argument("--output", type=pathlib.Path, required=True)
+    erase = commands.add_parser("erase", help="Record and run one account's erasure")
+    erase.add_argument("--request", required=True)
+    erase.add_argument("--keycloak-user-id", required=True)
+    commands.add_parser("retry", help="Run every incomplete erasure again")
+    commands.add_parser("status", help="List ledger entries (identifiers and states only)")
+    replay = commands.add_parser("replay", help="Reapply every erasure to a restored runtime before it reopens")
+    replay.add_argument("--receipt", type=pathlib.Path, required=True)
+    arguments = parser.parse_args()
+
+    host_command = shlex.split(arguments.host_command) if arguments.host_command else None
+    if arguments.command != "status" and not host_command:
+        parser.error(f"{arguments.command} requires --host-command")
+    if arguments.command in ("erase", "retry") and arguments.ledger_copy is None:
+        # No mutation may start unless its record is durable on two independent storages.
+        parser.error(f"{arguments.command} requires --ledger-copy on storage independent of this workstation")
+    handler = {
+        "export": command_export,
+        "erase": command_erase,
+        "retry": command_retry,
+        "status": command_status,
+        "replay": command_replay,
+    }[arguments.command]
+    return handler(arguments, host_command)
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, LedgerError) as error:
+        print(f"personal-data-ledger failed: {error}", file=sys.stderr)
+        raise SystemExit(1) from None

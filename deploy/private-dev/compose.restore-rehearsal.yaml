@@ -3,7 +3,9 @@
 # Applied on top of compose.yaml with a distinct COMPOSE_PROJECT_NAME so the rehearsal
 # gets its own Docker volumes and never touches the live private-dev state. Host port
 # publication is removed: the isolated stack is reached only through `docker compose
-# exec`, which also avoids clashing with the live loopback ports.
+# exec`, which also avoids clashing with the live loopback ports. The one exception is
+# Keycloak on its own loopback port, which the deletion-ledger replay uses to reach the
+# restored realm's Admin API before the application starts.
 #
 # restore-private-dev enforces the distinct project name and refuses the live one.
 
@@ -11,6 +13,7 @@ services:
   postgres:
     ports: !reset []
   keycloak:
-    ports: !reset []
+    ports: !override
+      - "127.0.0.1:${RESTORE_REHEARSAL_KEYCLOAK_PORT:-8190}:8080"
   application:
     ports: !reset []

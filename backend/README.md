@@ -109,7 +109,7 @@ the policy. Actuator exposes health groups, build information, metrics, the
 synchronization commands and the BFF session-revocation command on the separate
 management port (`8081` by default, loopback only), never on the product port;
 [observability](../docs/development/observability.md) owns the signal catalogue and the
-[operations runbook](../docs/development/operations-runbook.md#account-disable-session-revocation-and-rating-deletion)
+[operations runbook](../docs/development/operations-runbook.md#personal-data-requests-and-account-revocation)
 the revocation procedure. Locally, with a derived `UserId`:
 
 ```bash
