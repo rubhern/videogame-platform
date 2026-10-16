@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 
-"""Align an existing Keycloak realm with the reviewed password-recovery mail settings."""
+"""Align an existing Keycloak realm with the reviewed account mail settings.
+
+The default transport is the realm import's Mailpit sink. The explicit relay transport sends
+real mail through the approved provider's authenticated STARTTLS submission, with
+non-secret inputs from runtime.env and credentials from protected secret files; selecting
+the Mailpit transport again removes those credentials from the realm.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +15,7 @@ import importlib.machinery
 import importlib.util
 import json
 import pathlib
+import re
 import socket
 import sys
 import urllib.parse
@@ -31,14 +38,60 @@ ProvisioningError = provisioning.ProvisioningError
 REALM = provisioning.REALM
 # Startup import ignores an existing realm, so only these reviewed import keys are applied.
 MANAGED_SETTINGS = ("resetPasswordAllowed", "emailTheme", "smtpServer")
+TRANSPORTS = ("mailpit", "relay")
+RELAY_PORTS = ("587", "2525")
+RELAY_USERNAME_SECRET = "keycloak-smtp-username"
+RELAY_PASSWORD_SECRET = "keycloak-smtp-password"
+# Keycloak returns a stored SMTP password only as this mask.
+MASKED_PASSWORD = "**********"
+_hostname = re.compile(r"(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}")
+_address = re.compile(r"[^@\s<>\"]{1,64}@[a-z0-9.-]{1,253}")
 
 
-def desired_settings() -> dict[str, object]:
+def relay_inputs(env_file: pathlib.Path) -> tuple[dict[str, str], str]:
+    """The relay's SMTP map without its password, and the password, from protected inputs."""
+    values = provisioning.parse_runtime_environment(env_file.resolve(strict=True))
+    host = provisioning.required(values, "PRIVATE_DEV_SMTP_RELAY_HOST").lower()
+    port = provisioning.required(values, "PRIVATE_DEV_SMTP_RELAY_PORT")
+    sender = provisioning.required(values, "PRIVATE_DEV_SMTP_RELAY_FROM").lower()
+    reply_to = provisioning.required(values, "PRIVATE_DEV_SMTP_RELAY_REPLY_TO").lower()
+    if not _hostname.fullmatch(host):
+        raise ProvisioningError("PRIVATE_DEV_SMTP_RELAY_HOST must be a DNS host name")
+    if port not in RELAY_PORTS:
+        raise ProvisioningError(f"PRIVATE_DEV_SMTP_RELAY_PORT must be one of {', '.join(RELAY_PORTS)} (STARTTLS submission)")
+    for name, address in (("FROM", sender), ("REPLY_TO", reply_to)):
+        if not _address.fullmatch(address):
+            raise ProvisioningError(f"PRIVATE_DEV_SMTP_RELAY_{name} must be one email address")
+    secrets_directory = pathlib.Path(provisioning.required(values, "PRIVATE_DEV_SECRETS_DIR"))
+    if not secrets_directory.is_absolute() or not secrets_directory.is_dir():
+        raise ProvisioningError("PRIVATE_DEV_SECRETS_DIR must be an existing absolute directory")
+    smtp = {
+        "host": host,
+        "port": port,
+        "from": sender,
+        "fromDisplayName": import_smtp()["fromDisplayName"],
+        "replyTo": reply_to,
+        "auth": "true",
+        "user": provisioning.read_secret(secrets_directory, RELAY_USERNAME_SECRET),
+        "ssl": "false",
+        "starttls": "true",
+    }
+    return smtp, provisioning.read_secret(secrets_directory, RELAY_PASSWORD_SECRET)
+
+
+def import_smtp() -> dict[str, object]:
+    realm = json.loads(realm_import.read_text(encoding="utf-8"))
+    return realm["smtpServer"]
+
+
+def desired_settings(relay: dict[str, str] | None = None) -> dict[str, object]:
     realm = json.loads(realm_import.read_text(encoding="utf-8"))
     settings = {name: realm[name] for name in MANAGED_SETTINGS}
     smtp = settings["smtpServer"]
     if not isinstance(smtp, dict) or smtp.get("auth") != "false" or "password" in smtp:
         raise ProvisioningError("The realm import must keep an unauthenticated mail sink without credentials")
+    if relay is not None:
+        settings["smtpServer"] = relay
     return settings
 
 
@@ -54,9 +107,14 @@ def differing_settings(realm: dict[str, object], desired: dict[str, object]) -> 
     differing = []
     for name, value in desired.items():
         actual = realm.get(name)
-        if isinstance(value, dict):
-            actual = actual if isinstance(actual, dict) else {}
-            if any(actual.get(key) != expected for key, expected in value.items()):
+        if name == "smtpServer":
+            actual = dict(actual) if isinstance(actual, dict) else {}
+            # The whole map must match, so no relay host or credential survives a switch back to
+            # Mailpit; a relay password can only be checked for presence.
+            expected = dict(value)
+            if "user" in expected:
+                expected["password"] = MASKED_PASSWORD
+            if actual != expected:
                 differing.append(name)
         elif actual != value:
             differing.append(name)
@@ -111,6 +169,17 @@ def main() -> int:
     parser.add_argument(
         "--admin-password-file", type=pathlib.Path, help="Password input (for example /dev/stdin), with --origin"
     )
+    parser.add_argument(
+        "--transport",
+        choices=TRANSPORTS,
+        default="mailpit",
+        help="mailpit (default) captures mail; relay sends real mail through the protected provider inputs",
+    )
+    parser.add_argument(
+        "--relay-env-file",
+        type=pathlib.Path,
+        help="Relay inputs and secrets directory, with --origin and --transport relay",
+    )
     parser.add_argument("--check", action="store_true", help="Report alignment without changing Keycloak")
     arguments = parser.parse_args()
 
@@ -125,21 +194,46 @@ def main() -> int:
             parser.error("--private-dev-env-file reads the administrator from protected runtime files")
         origin, username, password = private_dev_connection(arguments.private_dev_env_file)
 
-    desired = desired_settings()
+    relay, relay_password = None, ""
+    if arguments.transport == "relay":
+        relay_env_file = arguments.relay_env_file if arguments.origin else arguments.private_dev_env_file
+        if relay_env_file is None:
+            parser.error("--transport relay with --origin requires --relay-env-file")
+        relay, relay_password = relay_inputs(relay_env_file)
+    elif arguments.relay_env_file:
+        parser.error("--relay-env-file applies only to --transport relay")
+
+    desired = desired_settings(relay)
     admin = provisioning.KeycloakAdmin(origin)
     admin.authenticate(username, password)
-    differing = differing_settings(realm_representation(admin), desired)
+    current = realm_representation(admin)
+    differing = differing_settings(current, desired)
     smtp = desired["smtpServer"]
-    target_description = f"{smtp['host']}:{smtp['port']} as {smtp['from']}"
+    target_description = f"{smtp['host']}:{smtp['port']} as {smtp['from']} ({arguments.transport})"
 
     if arguments.check:
         if differing:
-            print(f"Realm {REALM} recovery mail settings differ: {', '.join(differing)}", file=sys.stderr)
+            active = current.get("smtpServer") if isinstance(current.get("smtpServer"), dict) else {}
+            print(
+                f"Realm {REALM} account mail settings differ from the {arguments.transport} transport: "
+                f"{', '.join(differing)} (current host: {active.get('host') or 'none'})",
+                file=sys.stderr,
+            )
             return 1
-        print(f"Realm {REALM} sends recovery mail through {target_description}.")
+        print(f"Realm {REALM} sends account mail through {target_description}.")
         return 0
 
-    if differing:
+    if relay is not None:
+        # The stored password cannot be compared, so the relay map is always written; this also
+        # applies a rotated credential. The value goes only into this request body.
+        body = {name: desired[name] for name in differing if name != "smtpServer"}
+        body["smtpServer"] = {**relay, "password": relay_password}
+        admin._request("PUT", f"/admin/realms/{REALM}", body=body, expected={204})
+        remaining = differing_settings(realm_representation(admin), desired)
+        if remaining:
+            raise ProvisioningError(f"Keycloak did not retain the relay mail settings: {', '.join(remaining)}")
+        print(f"Updated realm {REALM}: account mail now leaves through {target_description}; credentials were not printed.")
+    elif differing:
         # A partial representation changes only these keys; users, clients and sessions are untouched.
         admin._request(
             "PUT",
@@ -150,9 +244,9 @@ def main() -> int:
         remaining = differing_settings(realm_representation(admin), desired)
         if remaining:
             raise ProvisioningError(f"Keycloak did not retain the recovery mail settings: {', '.join(remaining)}")
-        print(f"Updated realm {REALM}: {', '.join(differing)}; recovery mail uses {target_description}.")
+        print(f"Updated realm {REALM}: {', '.join(differing)}; account mail uses {target_description}.")
     else:
-        print(f"Realm {REALM} already sends recovery mail through {target_description}; nothing changed.")
+        print(f"Realm {REALM} already sends account mail through {target_description}; nothing changed.")
     return 0
 
 

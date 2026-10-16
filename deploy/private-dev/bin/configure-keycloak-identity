@@ -1,0 +1,494 @@
+#!/usr/bin/env python3
+
+"""Align an existing private-dev realm with the reviewed production identity policy.
+
+Startup import never changes an existing realm, so this command applies a reviewed subset
+of the production realm import through the Admin API. The realm keeps its name, issuer,
+client, accounts, credentials and user IDs; ratings stay attached because they are keyed by
+issuer and subject. Every apply first writes a snapshot that --restore reverts exactly.
+"""
+
+from __future__ import annotations
+
+import argparse
+import datetime
+import importlib.machinery
+import importlib.util
+import json
+import os
+import pathlib
+import sys
+import urllib.parse
+
+sys.dont_write_bytecode = True
+
+repository_root = pathlib.Path(__file__).resolve().parents[3]
+production_import = repository_root / "deploy/public-production/keycloak/import/gameometro-realm.json"
+# Connection handling and the admin client stay owned by the mail configuration command.
+_loader = importlib.machinery.SourceFileLoader(
+    "private_dev_keycloak_mail", str(repository_root / "deploy/private-dev/bin/configure-keycloak-mail")
+)
+_spec = importlib.util.spec_from_loader(_loader.name, _loader)
+assert _spec is not None
+mail = importlib.util.module_from_spec(_spec)
+_loader.exec_module(mail)
+
+provisioning = mail.provisioning
+ProvisioningError = provisioning.ProvisioningError
+REALM = provisioning.REALM
+ADMIN_REALM = f"/admin/realms/{REALM}"
+SNAPSHOT_VERSION = 1
+
+# Production behaviour reproduced in private-dev. Left out on purpose: realm name, issuer and
+# sslRequired (Tailscale terminates HTTPS), the BFF client and its scopes, and the SMTP target,
+# which configure-keycloak-mail owns. The registration event metrics come from a global
+# listener compiled into the image, so they survive the realm's empty event listeners.
+MANAGED_REALM_SETTINGS = (
+    "displayName",
+    "loginTheme",
+    "emailTheme",
+    "internationalizationEnabled",
+    "supportedLocales",
+    "defaultLocale",
+    "registrationAllowed",
+    "resetPasswordAllowed",
+    "rememberMe",
+    "duplicateEmailsAllowed",
+    "editUsernameAllowed",
+    "loginWithEmailAllowed",
+    "passwordPolicy",
+    "bruteForceProtected",
+    "bruteForceStrategy",
+    "permanentLockout",
+    "maxTemporaryLockouts",
+    "failureFactor",
+    "waitIncrementSeconds",
+    "maxFailureWaitSeconds",
+    "maxDeltaTimeSeconds",
+    "quickLoginCheckMilliSeconds",
+    "minimumQuickLoginWaitSeconds",
+    "ssoSessionIdleTimeout",
+    "ssoSessionMaxLifespan",
+    "ssoSessionIdleTimeoutRememberMe",
+    "ssoSessionMaxLifespanRememberMe",
+    "clientSessionIdleTimeout",
+    "clientSessionMaxLifespan",
+    "offlineSessionIdleTimeout",
+    "offlineSessionMaxLifespanEnabled",
+    "offlineSessionMaxLifespan",
+    "accessTokenLifespan",
+    "accessCodeLifespan",
+    "accessCodeLifespanLogin",
+    "accessCodeLifespanUserAction",
+    "actionTokenGeneratedByUserLifespan",
+    "actionTokenGeneratedByAdminLifespan",
+    "revokeRefreshToken",
+    "refreshTokenMaxReuse",
+    # No stored events and no event log lines carrying addresses or client addresses.
+    "eventsEnabled",
+    "eventsListeners",
+    "enabledEventTypes",
+    "adminEventsEnabled",
+    "adminEventsDetailsEnabled",
+    # Last, after every account it would block was reviewed: email identifier and verification.
+    "registrationEmailAsUsername",
+    "verifyEmail",
+)
+PROFILE_ATTRIBUTES = ("username", "email")
+DISABLED_REQUIRED_ACTIONS = ("delete_account", "UPDATE_EMAIL")
+BUILT_IN_REGISTRATION_FLOW = "registration"
+# RFC 2606 and RFC 6761 names: such an address can never receive a verification email.
+RESERVED_TOP_LEVEL_DOMAINS = ("test", "example", "invalid", "localhost")
+RESERVED_DOMAINS = ("example.com", "example.net", "example.org")
+USER_PAGE_SIZE = 100
+
+
+def reserved_address(email: str) -> bool:
+    domain = email.rsplit("@", 1)[-1].strip().rstrip(".").lower()
+    return (
+        domain.rsplit(".", 1)[-1] in RESERVED_TOP_LEVEL_DOMAINS
+        or any(domain == name or domain.endswith(f".{name}") for name in RESERVED_DOMAINS)
+    )
+
+
+def desired_policy() -> dict[str, object]:
+    realm = json.loads(production_import.read_text(encoding="utf-8"))
+    profile = json.loads(
+        realm["components"]["org.keycloak.userprofile.UserProfileProvider"][0]["config"]["kc.user.profile.config"][0]
+    )
+    attributes = {attribute["name"]: attribute for attribute in profile["attributes"]}
+    if set(attributes) != set(PROFILE_ATTRIBUTES):
+        raise ProvisioningError("The production user profile no longer matches the reviewed attribute set")
+    flows = {flow["alias"]: flow for flow in realm["authenticationFlows"]}
+    top = flows[realm["registrationFlow"]]
+    [form_step] = top["authenticationExecutions"]
+    form = flows[form_step["flowAlias"]]
+    return {
+        "settings": {name: realm[name] for name in MANAGED_REALM_SETTINGS},
+        # Keycloak returns every attribute with its multivalued default made explicit.
+        "profileAttributes": [{"multivalued": False, **attributes[name]} for name in PROFILE_ATTRIBUTES],
+        "registrationFlow": {
+            "alias": top["alias"],
+            "description": top["description"],
+            "form": {
+                "alias": form["alias"],
+                "description": form["description"],
+                "provider": form_step["authenticator"],
+                "steps": [
+                    (step["authenticator"], step["requirement"])
+                    for step in sorted(form["authenticationExecutions"], key=lambda step: step["priority"])
+                ],
+            },
+        },
+        "localization": dict(realm["localizationTexts"]["es"]),
+    }
+
+
+class Realm:
+    """Admin API reads and writes for the managed parts of one realm."""
+
+    def __init__(self, admin: object) -> None:
+        self.admin = admin
+
+    def get(self, path: str) -> object:
+        payload, _ = self.admin._request("GET", f"{ADMIN_REALM}{path}", expected={200})
+        return json.loads(payload) if payload else None
+
+    def send(self, method: str, path: str, body: object, expected: set[int] = frozenset({200, 201, 204})) -> None:
+        self.admin._request(method, f"{ADMIN_REALM}{path}", body=body, expected=set(expected))
+
+    def representation(self) -> dict[str, object]:
+        return mail.realm_representation(self.admin)
+
+    def profile(self) -> dict[str, object]:
+        profile = self.get("/users/profile")
+        if not isinstance(profile, dict) or not isinstance(profile.get("attributes"), list):
+            raise ProvisioningError("Keycloak returned an invalid realm user profile")
+        return profile
+
+    def localization(self) -> dict[str, str]:
+        texts = self.get("/localization/es")
+        if not isinstance(texts, dict):
+            raise ProvisioningError("Keycloak returned invalid realm localization texts")
+        return texts
+
+    def set_localization(self, key: str, value: str | None) -> None:
+        path = f"{ADMIN_REALM}/localization/es/{urllib.parse.quote(key, safe='')}"
+        if value is None:
+            self.admin._request("DELETE", path, expected={204})
+            return
+        # This endpoint takes the text as a plain-text body.
+        request = provisioning.urllib.request.Request(
+            f"{self.admin.origin}{path}",
+            data=value.encode("utf-8"),
+            headers={"Authorization": f"Bearer {self.admin.access_token}", "Content-Type": "text/plain; charset=utf-8"},
+            method="PUT",
+        )
+        try:
+            with self.admin.opener.open(request, timeout=20) as response:
+                status = response.status
+        except provisioning.urllib.error.HTTPError as error:
+            raise ProvisioningError(f"Keycloak rejected the localization text {key} with HTTP {error.code}") from None
+        if status not in (200, 204):
+            raise ProvisioningError(f"Keycloak returned HTTP {status} for the localization text {key}")
+
+    def required_actions(self) -> dict[str, bool]:
+        actions = self.get("/authentication/required-actions")
+        if not isinstance(actions, list):
+            raise ProvisioningError("Keycloak returned invalid required actions")
+        return {action["alias"]: action.get("enabled") is True for action in actions}
+
+    def set_required_action(self, alias: str, enabled: bool) -> None:
+        action = self.get(f"/authentication/required-actions/{alias}")
+        if not isinstance(action, dict):
+            raise ProvisioningError(f"Keycloak returned an invalid required action {alias}")
+        self.send("PUT", f"/authentication/required-actions/{alias}", {**action, "enabled": enabled})
+
+    def flow_aliases(self) -> set[str]:
+        flows = self.get("/authentication/flows")
+        if not isinstance(flows, list):
+            raise ProvisioningError("Keycloak returned invalid authentication flows")
+        return {flow["alias"] for flow in flows}
+
+    def executions(self, alias: str) -> list[dict[str, object]]:
+        executions = self.get(f"/authentication/flows/{urllib.parse.quote(alias, safe='')}/executions")
+        if not isinstance(executions, list):
+            raise ProvisioningError(f"Keycloak returned invalid executions for {alias}")
+        return executions
+
+    def accounts(self):
+        first = 0
+        while True:
+            page = self.get(f"/users?{urllib.parse.urlencode({'briefRepresentation': 'false', 'first': first, 'max': USER_PAGE_SIZE})}")
+            if not isinstance(page, list):
+                raise ProvisioningError("Keycloak returned an invalid user page")
+            yield from page
+            if len(page) < USER_PAGE_SIZE:
+                return
+            first += USER_PAGE_SIZE
+
+
+def flow_shape(realm: Realm, alias: str) -> dict[str, object] | None:
+    if alias not in realm.flow_aliases():
+        return None
+    executions = realm.executions(alias)
+    top = [execution for execution in executions if execution.get("level") == 0]
+    nested = [execution for execution in executions if execution.get("level") == 1]
+    if len(top) != 1 or not top[0].get("authenticationFlow") or len(nested) != len(executions) - 1:
+        return {"invalid": True}
+    return {
+        "form": top[0].get("displayName"),
+        "provider": top[0].get("providerId"),
+        "requirement": top[0].get("requirement"),
+        "steps": [(step.get("providerId"), step.get("requirement")) for step in sorted(nested, key=lambda step: step["index"])],
+    }
+
+
+def expected_flow_shape(desired: dict[str, object]) -> dict[str, object]:
+    form = desired["registrationFlow"]["form"]
+    return {"form": form["alias"], "provider": form["provider"], "requirement": "REQUIRED", "steps": form["steps"]}
+
+
+def drift(realm: Realm, desired: dict[str, object]) -> list[str]:
+    differing: list[str] = []
+    current = realm.representation()
+    differing += [name for name, value in desired["settings"].items() if current.get(name) != value]
+    attributes = {attribute.get("name"): attribute for attribute in realm.profile()["attributes"]}
+    managed = {attribute["name"]: attribute for attribute in desired["profileAttributes"]}
+    extra = set(attributes) - set(managed) - {provisioning.MARKER_ATTRIBUTE}
+    if extra or any(attributes.get(name) != value for name, value in managed.items()):
+        differing.append("userProfile")
+    if attributes.get(provisioning.MARKER_ATTRIBUTE, provisioning.MARKER_PROFILE_ATTRIBUTE) != provisioning.MARKER_PROFILE_ATTRIBUTE:
+        differing.append("userProfile")
+    flow = desired["registrationFlow"]["alias"]
+    if current.get("registrationFlow") != flow or flow_shape(realm, flow) != expected_flow_shape(desired):
+        differing.append("registrationFlow")
+    texts = realm.localization()
+    differing += [f"localization:{key}" for key, value in desired["localization"].items() if texts.get(key) != value]
+    actions = realm.required_actions()
+    differing += [f"requiredAction:{alias}" for alias in DISABLED_REQUIRED_ACTIONS if actions.get(alias, False)]
+    return list(dict.fromkeys(differing))
+
+
+def inventory(realm: Realm) -> dict[str, object]:
+    counts = {"accounts": 0, "unverified": 0, "unverifiedReserved": 0, "withoutEmail": 0, "usernameNotEmail": 0}
+    reserved_unverified: list[str] = []
+    other_unverified: list[tuple[str, str]] = []
+    for account in realm.accounts():
+        counts["accounts"] += 1
+        email = str(account.get("email") or "")
+        if not email:
+            counts["withoutEmail"] += 1
+        # With email sign-in Keycloak reports the email as the username, so this count is
+        # meaningful before the policy is applied: it shows who signs in by username today.
+        if str(account.get("username") or "") != email.lower():
+            counts["usernameNotEmail"] += 1
+        if email and account.get("emailVerified") is not True:
+            counts["unverified"] += 1
+            if reserved_address(email):
+                counts["unverifiedReserved"] += 1
+                reserved_unverified.append(str(account["id"]))
+            else:
+                other_unverified.append((str(account.get("username") or ""), email))
+    return {"counts": counts, "reservedUnverifiedIds": reserved_unverified, "otherUnverified": other_unverified}
+
+
+def print_inventory(found: dict[str, object]) -> None:
+    counts = found["counts"]
+    print(
+        "Accounts: {accounts}; without email: {withoutEmail}; username differs from email: "
+        "{usernameNotEmail}; unverified: {unverified} ({unverifiedReserved} with a reserved, undeliverable "
+        "address).".format(**counts)
+    )
+    if found["otherUnverified"]:
+        print(
+            f"{len(found['otherUnverified'])} unverified account(s) with a deliverable address will be asked to "
+            "verify by email at their next sign-in; review them with --list-unverified."
+        )
+
+
+def snapshot(realm: Realm, desired: dict[str, object], reserved_ids: list[str]) -> dict[str, object]:
+    current = realm.representation()
+    texts = realm.localization()
+    actions = realm.required_actions()
+    return {
+        "version": SNAPSHOT_VERSION,
+        "realm": REALM,
+        "takenAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "settings": {name: current.get(name) for name in MANAGED_REALM_SETTINGS},
+        "userProfile": realm.profile(),
+        "registrationFlow": current.get("registrationFlow"),
+        "flowExisted": desired["registrationFlow"]["alias"] in realm.flow_aliases(),
+        "localization": {key: texts.get(key) for key in desired["localization"]},
+        "requiredActions": {alias: actions.get(alias, False) for alias in DISABLED_REQUIRED_ACTIONS},
+        # Pseudonymous IDs only: these accounts are marked verified and unmarked on restore.
+        "markedVerified": reserved_ids,
+    }
+
+
+def write_snapshot(directory: pathlib.Path, content: dict[str, object]) -> pathlib.Path:
+    directory = directory.resolve(strict=True)
+    if not directory.is_dir() or directory == repository_root or repository_root in directory.parents:
+        raise ProvisioningError("--snapshot-dir must be an existing directory outside the checkout")
+    stamp = content["takenAt"].replace(":", "").replace("-", "").replace("+0000", "Z")
+    path = directory / f"keycloak-identity-before-{stamp}.json"
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as output:
+        json.dump(content, output, ensure_ascii=False, indent=2, sort_keys=True)
+        output.write("\n")
+    return path
+
+
+def ensure_registration_flow(realm: Realm, desired: dict[str, object]) -> None:
+    flow = desired["registrationFlow"]
+    form = flow["form"]
+    shape = flow_shape(realm, flow["alias"])
+    if shape == expected_flow_shape(desired):
+        return
+    if shape is not None:
+        raise ProvisioningError(f"Flow '{flow['alias']}' exists with another shape; review it in the Admin Console")
+    realm.send(
+        "POST",
+        "/authentication/flows",
+        {"alias": flow["alias"], "description": flow["description"], "providerId": "basic-flow", "topLevel": True, "builtIn": False},
+    )
+    quoted = urllib.parse.quote(flow["alias"], safe="")
+    realm.send(
+        "POST",
+        f"/authentication/flows/{quoted}/executions/flow",
+        {"alias": form["alias"], "description": form["description"], "type": "form-flow", "provider": form["provider"]},
+    )
+    for provider, _ in form["steps"]:
+        realm.send("POST", f"/authentication/flows/{urllib.parse.quote(form['alias'], safe='')}/executions/execution", {"provider": provider})
+    requirements = {form["alias"]: "REQUIRED", **dict(form["steps"])}
+    for execution in realm.executions(flow["alias"]):
+        key = execution.get("displayName") if execution.get("authenticationFlow") else execution.get("providerId")
+        if execution.get("requirement") != requirements[key]:
+            realm.send("PUT", f"/authentication/flows/{quoted}/executions", {**execution, "requirement": requirements[key]})
+    if flow_shape(realm, flow["alias"]) != expected_flow_shape(desired):
+        raise ProvisioningError(f"Keycloak did not build flow '{flow['alias']}' as reviewed")
+
+
+def apply(realm: Realm, desired: dict[str, object], reserved_ids: list[str]) -> None:
+    # Reserved addresses can never verify by email; marking them verified before email sign-in
+    # starts keeps their stored username, which a profile write would otherwise replace.
+    for user_id in reserved_ids:
+        realm.send("PUT", f"/users/{user_id}", {"emailVerified": True})
+    profile = realm.profile()
+    marker = [attribute for attribute in profile["attributes"] if attribute.get("name") == provisioning.MARKER_ATTRIBUTE]
+    # Names stay stored but undeclared, so Keycloak neither asks for nor shows them.
+    realm.send("PUT", "/users/profile", {**profile, "attributes": [*desired["profileAttributes"], *marker]})
+    ensure_registration_flow(realm, desired)
+    texts = realm.localization()
+    for key, value in desired["localization"].items():
+        if texts.get(key) != value:
+            realm.set_localization(key, value)
+    actions = realm.required_actions()
+    for alias in DISABLED_REQUIRED_ACTIONS:
+        if actions.get(alias, False):
+            realm.set_required_action(alias, False)
+    realm.send("PUT", "", {**desired["settings"], "registrationFlow": desired["registrationFlow"]["alias"]}, {204})
+
+
+def restore(realm: Realm, desired: dict[str, object], saved: dict[str, object]) -> None:
+    if saved.get("version") != SNAPSHOT_VERSION or saved.get("realm") != REALM:
+        raise ProvisioningError("The snapshot was not written by this command for this realm")
+    # Email sign-in goes first, so the account writes below cannot rewrite stored usernames.
+    settings = dict(saved["settings"])
+    # Keycloak ignores null fields; an empty policy is how an absent password policy is restored.
+    if settings.get("passwordPolicy") is None:
+        settings["passwordPolicy"] = ""
+    realm.send("PUT", "", {**settings, "registrationFlow": saved["registrationFlow"]}, {204})
+    for user_id in saved["markedVerified"]:
+        realm.send("PUT", f"/users/{user_id}", {"emailVerified": False})
+    realm.send("PUT", "/users/profile", saved["userProfile"])
+    texts = realm.localization()
+    for key, value in saved["localization"].items():
+        if texts.get(key) != value:
+            realm.set_localization(key, value)
+    actions = realm.required_actions()
+    for alias, enabled in saved["requiredActions"].items():
+        if actions.get(alias, False) != enabled:
+            realm.set_required_action(alias, enabled)
+    alias = desired["registrationFlow"]["alias"]
+    if not saved["flowExisted"] and alias in realm.flow_aliases():
+        [created] = [flow for flow in realm.get("/authentication/flows") if flow["alias"] == alias]
+        # Keycloak deletes the nested form flow and its executions with the top-level flow.
+        realm.admin._request("DELETE", f"{ADMIN_REALM}/authentication/flows/{created['id']}", expected={204})
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Check, apply or restore the reviewed identity policy on the existing realm.")
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--private-dev-env-file", type=pathlib.Path)
+    target.add_argument("--origin", help="Keycloak origin for local or disposable environments")
+    parser.add_argument("--admin-username", help="Master-realm administrator, with --origin")
+    parser.add_argument("--admin-password-file", type=pathlib.Path, help="Password input (for example /dev/stdin), with --origin")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="Report alignment and the account inventory without changes")
+    mode.add_argument("--list-unverified", action="store_true", help="Print unverified accounts with a deliverable address")
+    mode.add_argument("--restore", type=pathlib.Path, help="Revert to a snapshot written by an earlier apply")
+    parser.add_argument("--snapshot-dir", type=pathlib.Path, help="Protected directory for the pre-apply snapshot")
+    arguments = parser.parse_args()
+
+    if arguments.origin:
+        if not arguments.admin_username or not arguments.admin_password_file:
+            parser.error("--origin requires --admin-username and --admin-password-file")
+        origin, username, password = mail.explicit_connection(arguments.origin, arguments.admin_username, arguments.admin_password_file)
+    else:
+        if arguments.admin_username or arguments.admin_password_file:
+            parser.error("--private-dev-env-file reads the administrator from protected runtime files")
+        origin, username, password = mail.private_dev_connection(arguments.private_dev_env_file)
+    applying = not (arguments.check or arguments.list_unverified or arguments.restore)
+    if applying and not arguments.snapshot_dir:
+        parser.error("applying the policy requires --snapshot-dir")
+
+    desired = desired_policy()
+    admin = provisioning.KeycloakAdmin(origin)
+    admin.authenticate(username, password)
+    realm = Realm(admin)
+
+    if arguments.list_unverified:
+        for account_username, email in inventory(realm)["otherUnverified"]:
+            print(f"{account_username}\t{email}")
+        return 0
+    if arguments.restore:
+        restore(realm, desired, json.loads(arguments.restore.read_text(encoding="utf-8")))
+        print(f"Realm {REALM} identity settings restored from {arguments.restore.name}; drift from the reviewed policy: "
+              f"{', '.join(drift(realm, desired)) or 'none'}.")
+        return 0
+
+    found = inventory(realm)
+    differing = drift(realm, desired)
+    if arguments.check:
+        print_inventory(found)
+        if differing:
+            print(f"Realm {REALM} identity policy differs: {', '.join(differing)}", file=sys.stderr)
+            return 1
+        if found["counts"]["unverifiedReserved"]:
+            print(f"Realm {REALM} has unverified accounts with reserved addresses; apply the policy again.", file=sys.stderr)
+            return 1
+        print(f"Realm {REALM} applies the reviewed production identity policy.")
+        return 0
+
+    print_inventory(found)
+    if not differing and not found["reservedUnverifiedIds"]:
+        print(f"Realm {REALM} already applies the reviewed production identity policy; nothing changed.")
+        return 0
+    path = write_snapshot(arguments.snapshot_dir, snapshot(realm, desired, found["reservedUnverifiedIds"]))
+    print(f"Snapshot written to {path}.")
+    apply(realm, desired, found["reservedUnverifiedIds"])
+    remaining = drift(realm, desired)
+    if remaining:
+        raise ProvisioningError(f"Keycloak did not retain the identity policy: {', '.join(remaining)}; restore {path}")
+    print(f"Updated realm {REALM}: {', '.join(differing) or 'accounts only'}; "
+          f"{len(found['reservedUnverifiedIds'])} reserved-address account(s) marked verified.")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, ProvisioningError, ValueError, KeyError) as error:
+        print(f"Keycloak identity configuration failed: {error}", file=sys.stderr)
+        raise SystemExit(1) from None

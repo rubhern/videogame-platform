@@ -32,6 +32,9 @@ class FakeAdmin:
     def find_users(self, username):
         return [user for user in self.users if user["username"] == username]
 
+    def find_users_by_email(self, email):
+        return [user for user in self.users if user.get("email") == email]
+
     def create_user(self, username):
         self.created = True
         self.users.append(
@@ -115,6 +118,30 @@ assert (
     {field: legacy.users[0][field] for field in module.SYNTHETIC_PROFILE}
     == module.SYNTHETIC_PROFILE
 )
+
+# An account provisioned before email verification is completed, not refused.
+unverified = FakeAdmin([smoke_user(profile={"emailVerified": False})])
+module.provision_smoke_user(unverified, "vgp-deployment-smoke", "replacement-password-value")
+assert unverified.users[0]["emailVerified"] is True
+assert unverified.reset == ("smoke-user-id", "replacement-password-value")
+
+# With email sign-in the account is found by its synthetic email, whatever username is stored.
+email_sign_in = FakeAdmin([smoke_user()])
+module.provision_smoke_user(
+    email_sign_in, module.SYNTHETIC_EMAIL, "replacement-password-value", email_as_username=True
+)
+assert email_sign_in.created is False
+assert email_sign_in.reset == ("smoke-user-id", "replacement-password-value")
+stale_username = FakeAdmin([smoke_user()])
+try:
+    module.provision_smoke_user(
+        stale_username, "vgp-deployment-smoke", "replacement-password-value", email_as_username=True
+    )
+except module.ProvisioningError as error:
+    assert module.SYNTHETIC_EMAIL in str(error)
+else:
+    raise AssertionError("a username-based smoke identifier was accepted with email sign-in")
+assert stale_username.reset is None and stale_username.created is False
 
 profile = FakeProfileAdmin({"attributes": [{"name": "username"}]})
 profile.ensure_smoke_marker_profile()

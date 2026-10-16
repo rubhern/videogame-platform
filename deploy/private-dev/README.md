@@ -207,7 +207,9 @@ Password-recovery email goes through the [Mailpit mail sink](#password-recovery-
 ## Password-recovery mail sink
 
 Post-MVP (#273), Keycloak's native reset-credentials flow emails its single-use link
-to Mailpit, which captures every message and delivers nothing outward. The
+to Mailpit, which captures every message and delivers nothing outward. It remains the
+default transport; real delivery is the separate opt-in described in
+[identity policy and real account mail](#identity-policy-and-real-account-mail). The
 [platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#private-dev-runtime-boundary)
 owns the boundary; `compose.mail.yaml`, `compose.yaml` and the realm import own the
 mechanics. No credential, provider or paid service is involved, and real delivery to
@@ -315,6 +317,205 @@ Login settings, so the entry point disappears instead of failing per account, th
 stop Mailpit. A full rollback also clears the realm Email host and recreates Keycloak
 from the previous reviewed checkout. No account, session or product data changes in
 either direction.
+
+## Identity policy and real account mail
+
+Post-MVP (#274), the existing `videogame-platform` realm can apply the reviewed
+production identity behaviour and send real account mail through the approved
+transactional provider (Mailjet Free). The
+[production realm import](../public-production/keycloak/import/gameometro-realm.json)
+is the single policy source; the
+[platform design](../../docs/architecture/deployment/mvp-platform-and-delivery.md#private-dev-runtime-boundary)
+owns the boundary; `bin/configure-keycloak-identity` and `bin/configure-keycloak-mail`
+own the mechanics, and `scripts/validate-private-dev-identity.sh` proves both against a
+disposable copy of the realm. No container, image or Compose service changes.
+
+The identity command applies, through the Admin API, the production settings for
+email sign-in, the email-only user profile, the mandatory 18+ registration
+declaration, email verification, the password policy, temporary brute-force lockout,
+session and link lifetimes, the Spanish messages, no self-deletion or email change, and
+no stored or logged user events. It never touches the realm name, the issuer, the BFF
+client, `sslRequired` or any account's ID, credentials or address, so ratings stay
+attached. Startup import still ignores the existing realm, and local development and
+CI keep the shared import's policy.
+
+Effects on existing accounts, all reported by `--check` before anything changes:
+
+- Every account signs in with its email. Username sign-in keeps working until a
+  profile update through the Admin Console or account console makes Keycloak store
+  the email as the username; verification, recovery and sign-in do not.
+- Names are no longer requested or shown. Stored values are kept, not deleted, and
+  reappear on rollback.
+- Existing passwords keep working; the policy applies when a password is set.
+- Unverified accounts with a reserved address (`.test`, `.example`, `.invalid`,
+  `.localhost`, `example.com/net/org`), which can never receive mail, are marked
+  verified, and the snapshot records their IDs. Any other unverified account receives
+  a verification email at its next sign-in: list those first.
+- The deployment-smoke account signs in by `vgp-deployment-smoke@example.invalid`.
+- Keycloak sessions end after 8 hours instead of 10, matching the BFF limit.
+- Review any account the check reports without an email before the rollout; the
+  validation gate does not exercise that case.
+- Failed sign-ins no longer write the username and client IP to Keycloak's log; the
+  registration metrics come from a global listener and continue.
+
+### Protected relay inputs
+
+Do this once on `vgpdev`, before the rollout. The Mailjet SMTP username is the API
+key and the password its secret key; never paste them into a chat, an issue, a
+command argument or shell history. Rerun the idempotent preparation, which keeps
+every existing secret and adds the two optional files empty:
+
+```bash
+sudo /opt/videogame-platform/deploy/private-dev/bin/prepare-secrets \
+  /etc/videogame-platform/dev/secrets vgp-runtime
+for name in keycloak-smtp-username keycloak-smtp-password; do
+  sudo bash -c 'read -rsp "$1: " value; echo; printf "%s\n" "$value" \
+    | install -m 0644 -o root -g vgp-runtime /dev/stdin "/etc/videogame-platform/dev/secrets/$1"' _ "$name"
+done
+sudoedit /etc/videogame-platform/dev/runtime.env
+```
+
+In runtime.env add the four `PRIVATE_DEV_SMTP_RELAY_*` entries exactly as in
+[`runtime.env.example`](runtime.env.example). No container reads these files: the mail
+command passes them once to Keycloak over the private HTTPS origin, and Keycloak keeps
+the password in its database, and therefore in the encrypted backups, as production
+does. Neither command prints a credential. To rotate the credential, replace both files
+the same way and repeat rollout step 5, which always rewrites the relay settings.
+
+### Reviewed rollout
+
+Run only after owner review, merge and separate approval to operate on `vgpdev`.
+Keycloak stays up and no container is recreated; the change takes effect on the next
+request.
+
+1. Take and verify an [encrypted backup](#encrypted-backup-with-integrity-and-retention):
+   it is the last-resort recovery of the Keycloak database. Then install the reviewed
+   merged revision and hold the deployment lock exactly as in
+   [step 1 of the localization migration](#one-time-migration-to-the-standard-runtime),
+   and create the snapshot directory:
+
+   ```bash
+   install -d -m 0700 -o root -g root /var/lib/videogame-platform/dev/identity-snapshots
+   identity=(python3 deploy/private-dev/bin/configure-keycloak-identity \
+     --private-dev-env-file /etc/videogame-platform/dev/runtime.env)
+   account_mail=(python3 deploy/private-dev/bin/configure-keycloak-mail \
+     --private-dev-env-file /etc/videogame-platform/dev/runtime.env)
+   ```
+
+2. Review the drift and the account inventory. `--list-unverified` prints, on this
+   terminal only, the username and address of each unverified account with a
+   deliverable address:
+
+   ```bash
+   "${identity[@]}" --check || true
+   "${identity[@]}" --list-unverified
+   ```
+
+   Each listed address receives a verification email at that account's next sign-in.
+   Keep an address only if the owner controls it. For one the owner does not control,
+   decide in the Admin Console before continuing: disable the account, or delete it if
+   it is a throwaway synthetic account. Do not mark an address verified that nobody
+   verified.
+
+3. Apply the policy. The command first writes a `0600` snapshot of every setting it
+   changes, then applies and rereads them; a repeated run changes nothing:
+
+   ```bash
+   "${identity[@]}" --snapshot-dir /var/lib/videogame-platform/dev/identity-snapshots
+   "${identity[@]}" --check
+   ```
+
+4. Switch the deployment-smoke account to its email identifier and reprovision it.
+   The file is not secret but stays with the other protected inputs:
+
+   ```bash
+   printf '%s\n' vgp-deployment-smoke@example.invalid \
+     | install -m 0644 -o root -g vgp-runtime /dev/stdin \
+       /etc/videogame-platform/dev/secrets/oidc-smoke-username
+   python3 deploy/private-dev/bin/provision-oidc-smoke-user \
+     --env-file /etc/videogame-platform/dev/runtime.env
+   ```
+
+5. Select the real relay and check it. Selecting it is the explicit opt-in; Mailpit
+   keeps running for the other transport:
+
+   ```bash
+   "${account_mail[@]}" --transport relay
+   "${account_mail[@]}" --transport relay --check
+   ```
+
+6. Run the [manual acceptance](#manual-acceptance-with-controlled-addresses), then
+   release the lock and leave the root session as in step 4 of the localization
+   migration. The installed contract changes with this revision, so acknowledge it
+   with the [applied-runtime acknowledgement](#acknowledge-the-applied-runtime-contract)
+   before releasing the lock. The next application promotion runs the deployment
+   smoke with the email identifier.
+
+### Manual acceptance with controlled addresses
+
+Send real mail only to mailboxes the owner controls, and only as many as the check
+needs: the journey below sends two messages against the 200-per-day free quota.
+Plus addressing (`name+tag@`), where the mailbox provider supports it, gives distinct
+accounts without new mailboxes. Automated tests never use the relay. Record the
+outcome in #274 without addresses, message IDs or headers that identify a person.
+
+1. **Registration.** In a private browser window open the private application, choose
+   to sign in and then to register. Only the email and the 18+ declaration are asked
+   for; submitting without the declaration is refused and creates nothing.
+2. **Verification.** The verification email arrives from
+   `no-reply@mail.gameometro.com` with `Reply-To: hola@gameometro.com`; check that it
+   carries no provider branding and that the mailbox's original-message view reports
+   SPF, DKIM and DMARC `pass`. Open the link within five minutes, choose a password
+   (one under 12 characters is refused) and confirm that the application signs you in.
+3. **Sign-in and logout.** Sign out, which also ends the Keycloak session, and sign in
+   again with the email. An existing account still signs in with its email and old
+   password, and one wrong password shows the same message as an unknown account.
+4. **Recovery.** Use *¿Has olvidado tu contraseña?* with the new account's email: the
+   confirmation is the same as for an unknown address, the email arrives through the
+   relay, and its link sets a new password. The old password then fails.
+5. **Reply.** Reply to one message and confirm the reply reaches the contact mailbox.
+
+Do not test lockout with the owner's real account: five failures lock it for at least
+a minute. Mailjet's statistics show sent, bounced and blocked messages.
+
+### Rollback
+
+Each part reverts independently. Neither direction changes an account ID, so ratings
+stay attached.
+
+- **Mail only.** Select Mailpit again; this removes the relay host and credentials
+  from the realm. Then empty the secret files, and revoke the key in Mailjet if it may
+  have been exposed:
+
+  ```bash
+  "${account_mail[@]}"
+  "${account_mail[@]}" --check
+  sudo truncate -s 0 /etc/videogame-platform/dev/secrets/keycloak-smtp-username \
+    /etc/videogame-platform/dev/secrets/keycloak-smtp-password
+  ```
+
+- **Identity policy.** Usually together with the mail rollback, restore the
+  **earliest** snapshot of the rollout, which reverts every managed setting, the user profile, the
+  registration flow, the messages and the reserved accounts' verified flag:
+
+  ```bash
+  "${identity[@]}" --restore /var/lib/videogame-platform/dev/identity-snapshots/<earliest>.json
+  ```
+
+  Set `oidc-smoke-username` back to `vgp-deployment-smoke` and reprovision. If the
+  smoke account's stored username became its email meanwhile, reprovisioning reports
+  a conflict: keep the email identifier instead. Accounts registered while the policy
+  applied, and any whose stored username became its email, keep signing in with the
+  email as their username.
+- **Last resort.** Restore the Keycloak database from the backup taken in step 1,
+  following [Backup, restore, rollback and host-loss recovery](#backup-restore-rollback-and-host-loss-recovery).
+  This loses every identity change made after it, including new accounts.
+
+Diagnosis: `KC-SERVICES0026` or `Failed to send email` in Keycloak's log with the
+relay selected means the relay refused or was unreachable. Check the secret files'
+values in Mailjet, outbound port 587 from the host and, if it is blocked, the
+documented fallback `PRIVATE_DEV_SMTP_RELAY_PORT=2525` followed by step 5 again.
+Without event logging, read lockouts in the Admin Console under the user's details.
 
 ## Metrics dashboards
 

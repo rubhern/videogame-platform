@@ -5,7 +5,10 @@
   (revocation, session bound, coordinated logout) implemented and proven in disposable
   gates on 2026-10-15, pending owner review and not deployed. Increment 3 (email
   provider) closed on 2026-10-15 with owner decisions E1–E6: Mailjet preferred,
-  nothing contracted, real delivery unproven
+  nothing contracted, real delivery unproven. On 2026-10-16 the owner reported the
+  Mailjet Free account, the verified `mail.gameometro.com` sender with SPF, DKIM and
+  DMARC, and one real SMTP message; a private-dev rehearsal of the identity policy and
+  the relay is prepared, not deployed
 - **Research date:** 2026-10-14 (sources); code re-checked 2026-10-15; production realm
   exercised against disposable Keycloak 26.7.0 on 2026-10-15
 - **Source revision:** `cda7185cced99ecc8a6d3aa08c1e96831772f86f` (`main`)
@@ -537,7 +540,10 @@ about EUR 2.94/month within its default quota, still inside the envelope.
    `KEYCLOAK_SMTP_FROM` an address on the sending subdomain (for example
    `no-reply@mail.gameometro.es`), and `KEYCLOAK_SMTP_USER`/`KEYCLOAK_SMTP_PASSWORD`
    the Mailjet SMTP credentials. `auth`, `starttls=true` and `ssl=false` already match;
-   2525 is the documented fallback port. E5 needs one **realm import change**, made with
+   2525 is the documented fallback port. The private-dev relay transport already sets
+   `replyTo` from protected runtime input and proves it against an authenticated
+   STARTTLS stand-in ([procedure](../../deploy/private-dev/README.md#identity-policy-and-real-account-mail)).
+   E5 still needs one **production realm import change**, made with
    #275 and covered by the identity gate: `replyTo` (and optionally
    `replyToDisplayName`) set to the contact address from a runtime input. With E2 only the
    host (`smtp.tem.scaleway.com`), user (Project ID) and password (IAM API key secret)
