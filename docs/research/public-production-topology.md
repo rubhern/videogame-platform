@@ -95,7 +95,7 @@ Do not interpret advertised interface speed as guaranteed application throughput
 | Recurring item | Planning allowance, EUR/month | Evidence / condition |
 |---|---:|---|
 | Selected VPS, IPv4 + IPv6, estimated Spanish VAT | 9.66 | Above listing; final checkout unresolved |
-| Domain and DNS, annual renewal amortized | 2.00 | Allowance, no domain/registrar selected; use renewal price |
+| Domain and DNS, annual renewal amortized | 2.00 | `gameometro.com` at OVHcloud, registrar and DNS ([names](../architecture/deployment/mvp-platform-and-delivery.md#public-domain-and-names)): first 12 months EUR 9.67 including VAT paid upfront (about EUR 0.81/month). Renewal tariff unverified, so the allowance stays until it is read in OVHcloud; the same applies to any bundled mailbox |
 | Encrypted off-host backup destination | 2.00 | Allowance; existing independent owner storage may cost zero; prove capacity/access/copy cadence |
 | Transactional recovery/verification email | 2.00 | Allowance; [preferred free plan](public-release-rights-and-privacy.md#73-increment-3-transactional-email-provider-2026-10-15) costs EUR 0 with no payment method; the documented replacement at most about EUR 2.94; nothing contracted, delivery unproven |
 | Total planned | **15.66** | Leaves EUR 4.34 contingency within EUR 20; not a service quote |

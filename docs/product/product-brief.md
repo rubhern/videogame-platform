@@ -30,9 +30,9 @@ technology must support a product outcome, operational need, measured limitation
 bounded experiment.
 
 Ruben Hernandez is the only human contributor and decision owner. AI may assist but
-does not own evidence or approval. There is no fixed public-release date or active
-paid-service commitment. The owner-approved bounded budget, deferred purchase,
-public release and commercial exploration are described
+does not own evidence or approval. There is no fixed public-release date; the only
+paid commitment is the public domain registered for that release. The owner-approved
+bounded budget, deferred purchase, public release and commercial exploration are described
 [below](#public-release-and-sustainability).
 
 ## Priority user and problem
@@ -189,6 +189,9 @@ is not authorized by this direction alone. The owner selected netcup VPS Lite 2
 (x86_64, 8 GB RAM), conditionally on availability, final price and measured capacity,
 with a **EUR 20/month ceiling for all recurring costs**. This replaces the former
 project-wide zero-recurring-cost restriction for the gated public environment.
+The owner registered the domain `gameometro.com` for this release ahead of the VPS; the
+[platform design](../architecture/deployment/mvp-platform-and-delivery.md#public-domain-and-names)
+owns the approved public names.
 
 Delay contracting the VPS until a production candidate has passed preparation in
 local/CI. Keep developing in local/CI and use private-dev temporarily for integration;

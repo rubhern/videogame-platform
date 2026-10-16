@@ -1,16 +1,14 @@
 # Public release: provider rights, privacy and account data (#274)
 
 - **Status:** Phase 1 complete; owner decisions recorded 2026-10-15; IGDB reply pending.
-  Phase 2 increment 1 (production realm) complete with decisions D12–D19; increment 2
-  (revocation, session bound, coordinated logout) implemented and proven in disposable
-  gates on 2026-10-15, pending owner review and not deployed. Increment 3 (email
-  provider) closed on 2026-10-15 with owner decisions E1–E6: Mailjet preferred,
-  nothing contracted, real delivery unproven. Increment 4 (canonical issuer and
-  browser cookies) implemented and proven with synthetic origins on 2026-10-15,
-  pending owner review; public hostnames not chosen. On 2026-10-16 the owner reported the
-  Mailjet Free account, the verified `mail.gameometro.com` sender with SPF, DKIM and
-  DMARC, and one real SMTP message; a private-dev rehearsal of the identity policy and
-  the relay is prepared, not deployed
+  Phase 2 (production identity) increments 1–4 are merged on `main`: the production
+  realm (D12–D19), revocation, session bound and coordinated logout (running in
+  private-dev, never operated), the email provider (E1–E6) and the canonical issuer
+  with its cookie inventory. The public names are approved (D20). On 2026-10-16 the
+  owner reported the Mailjet Free account, the verified `mail.gameometro.com` sender and
+  one real SMTP message; the private-dev identity policy and relay are merged, not
+  applied to the host. Privacy workflows, provider-content switches and abuse controls
+  are not started
 - **Research date:** 2026-10-14 (sources); code re-checked 2026-10-15; production realm
   exercised against disposable Keycloak 26.7.0 on 2026-10-15
 - **Source revision:** `cda7185cced99ecc8a6d3aa08c1e96831772f86f` (`main`)
@@ -18,8 +16,8 @@
   and its identity, privacy-workflow, provider-content and abuse phases
 
 Point-in-time evidence for decisions, not legal advice, a compliance statement or a
-permission to use provider content. Nothing was implemented, configured, purchased,
-deployed or sent to a provider in this work. It extends, without repeating, the
+permission to use provider content. Phase 1 implemented, configured, purchased,
+deployed and sent nothing; section 7 records what phase 2 implemented. It extends, without repeating, the
 [#252 investigation](public-production-topology.md#provider-and-image-review), the
 [score rights gate](external-quality-signals.md#rights-and-publiccommercial-use) and
 [ADR-0001](../decisions/0001-reference-igdb-cover-images.md). Approved decisions live in
@@ -149,7 +147,7 @@ procedures; it is not a launch blocker.
 | Keycloak database | Username, email, **first and last name (required)**, password hash, verification flag, timestamps; admin-only smoke marker | Until an administrator deletes the user | Private dev: login by username; registration open; `verifyEmail=false`; no password policy; brute force off (Keycloak default). The production realm keeps only the email (section 7.1) |
 | Keycloak sessions | SSO session metadata, persisted in the database by default (Keycloak docs) | Idle 30 min, max 10 h; production realm idle 30 min, max 8 h | **[V]** (phase 2) each persisted row holds the client IP and a device note (IP, OS, browser); paired backups therefore copy the IPs of sessions open at capture time. The brute-force record keeps the last failing IP per account |
 | Keycloak server log | Error events with user ID, username and IP (default logging listener); success events not logged | Private dev: Docker `local` driver, 3 × 10 MiB, no age limit; not sent to Loki | User events are not stored (`eventsEnabled` unset). **[V]** (phase 2) the production realm has no listener; replaying a consumed authorization code still logs its ID and session ID at WARN |
-| Keycloak email | Verification and recovery messages | Private dev: Mailpit, 100 messages / 24 h | Preferred provider selected (7.3); not contracted |
+| Keycloak email | Verification and recovery messages | Private dev: Mailpit, 100 messages / 24 h; an opt-in Mailjet relay is merged, not selected on the host | Mailjet Free account opened by the owner (7.3); its retention of addresses and events is unpublished |
 | Application database | `ratings.rating`: `user_id`, game, value, created/updated time, version token | Until the user deletes the rating | No email/name in the application; aggregates are computed live from this table |
 | BFF session | Servlet session with OIDC user and tokens, CSRF token, return context; one session cookie (production `__Host-vgp_session`) | 30 min idle, 8 h absolute (7.2); in memory only, lost on restart | The production client's ID token carries only protocol claims (7.1). Browser cookies and storage: section 7.4 |
 | Application logs | Method, route template, status, duration, error code | Private dev: Loki 24 h plus syslog cache | No IP, user ID, email, query string or stack trace by default |
@@ -283,7 +281,7 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
 | R1 | No privacy notice, terms, adult declaration or contact exists | Critical | **Blocks accounts** |
 | R2 | Unverified email registration, no password policy or brute-force protection | Critical | **Blocks accounts**; production realm prepared and tested (7.1), not deployed |
 | R3 | An open BFF session survives account disable/delete and can recreate ratings | High | **Blocks accounts** until operated on the production host; mechanism implemented and proven with synthetic accounts (7.2) |
-| R4 | No production email route for verification/recovery | High | **Blocks accounts**; preferred provider selected (7.3, E1–E6); account acceptance, professional-use confirmation and delivery proof (#276) pending |
+| R4 | No production email route for verification/recovery | High | **Blocks accounts**; Mailjet Free account and sending subdomain exist (7.3, E1–E6); written professional-use acceptance and production delivery proof (#276) pending |
 | R5 | Erasure, ledger and restore replay not implemented or rehearsed | High | **Blocks accounts**; privacy phase |
 | R6 | LSSI may require a published postal address and tax ID | High | **Blocks publishing the legal notice** until answered |
 | R7 | Translated summaries may breach the no-modification clause | High | Blocks public translations unless IGDB or a legal answer allows them |
@@ -324,7 +322,8 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
 | D17 | Logging out of Gameómetro also ends that browser's Keycloak session with standard OIDC | Implemented (7.2, [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)) |
 | D18 | Administrative revocation invalidates BFF sessions directly with standard Spring Security capabilities; no per-request PostgreSQL check, no new dependency | Implemented (7.2, ADR-0027) |
 | D19 | Keep Keycloak's native registration declaration (18+ and conditions) | No per-account evidence of the accepted text; no complex customization without a justified need |
-| E1–E6 | Transactional email: Mailjet Free preferred and conditional, Scaleway as documented replacement, no card or overage, dedicated sending subdomain, real reply address, account created only with the domain | Section 7.3; nothing contracted |
+| E1–E6 | Transactional email: Mailjet Free preferred and conditional, Scaleway as documented replacement, no card or overage, dedicated sending subdomain, real reply address, account created only with the domain | Section 7.3; free account opened by the owner, no card |
+| D20 | Public domain `gameometro.com` at OVHcloud; application on the apex, identity on `auth.gameometro.com`, mail sent from `mail.gameometro.com` | The [platform design](../architecture/deployment/mvp-platform-and-delivery.md#public-domain-and-names) owns the names; the issuer is `https://auth.gameometro.com/realms/gameometro` (D12) |
 
 ### 6.2 Implementation requirements for later phases
 
@@ -372,7 +371,7 @@ None of these items is passed by this document.
 ## 7. Phase 2 plan: production identity
 
 Prioritized; each increment is reviewable alone. Increments 1, 2 and 4 are
-implemented; increment 3 is decided (provider preferred, not contracted).
+implemented; increment 3 is decided (Mailjet Free, opened by the owner without a card).
 
 1. **Production realm baseline** (configuration and tests): section 7.1.
 2. **Revocation, session bound and coordinated logout** (code): section 7.2.
@@ -392,7 +391,7 @@ Values are as reviewed here; the import is authoritative.
 
 | Area | Policy | Verified behaviour **[V]** and rationale |
 |---|---|---|
-| Isolation | Own import directory holding only realm `gameometro`; no users; only runtime placeholders; no local/private-dev file refers to it | The instance holds only `master` and `gameometro`, with no accounts. A distinct realm makes private-dev scripts and the local user import fail closed against production, and fixes the issuer path |
+| Isolation | Own import directory holding only realm `gameometro`; no users; only runtime placeholders; nothing local or private-dev mounts it, and only the private-dev identity command reads it as its policy source | The instance holds only `master` and `gameometro`, with no accounts. A distinct realm makes private-dev scripts and the local user import fail closed against production, and fixes the issuer path |
 | Registration | Email is the username; the form shows only the email and one checkbox, "Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro." | Without the checkbox nothing is created; submitted names, birth date and password are discarded. With verification on, Keycloak 26.7 creates the account without a password and asks for it only after the emailed link proves ownership, which blocks pre-registration takeover |
 | Verification | Required before any sign-in | A new account has no password to sign in with; an unverified account that has one stops at the verification page and receives no code. The link works once from any device; on the registering device it resumes the original authorization to the BFF callback |
 | Password | 12 to 128 characters, neither the email nor containing it, no composition rules; Keycloak's default Argon2 hashing | Applies to the first password and to recovery; every rejection leaves the stored credential unchanged |
@@ -428,7 +427,8 @@ metrics, needs build options in the production image (#275).
 ### 7.2 Increment 2: revocation, session bound and coordinated logout (2026-10-15)
 
 Implemented as approved (D15, D17, D18, [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)),
-with one refinement for requests in flight; pending owner review and not deployed. No
+with one refinement for requests in flight; merged and running in private-dev, where no
+revocation has been operated. No
 migration, per-request query or new dependency. The
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)
 owns the resulting guarantees and the management-interface requirements for #275; the
@@ -465,9 +465,10 @@ shared session store reopens ADR-0027.
 ### 7.3 Increment 3: transactional email provider (2026-10-15)
 
 Desk research on official provider pages, consulted on 2026-10-15 and, for Mailjet,
-rechecked the same day after the owner's decisions E1–E6. **A preferred provider is
-selected; no service is contracted, no account exists and no real mail has been
-validated.** No message was sent. The need is the realm's
+rechecked the same day after the owner's decisions E1–E6. **Point-in-time:** when this
+research was written no account existed and no message had been sent; the
+[domain and sending subdomain](#domain-and-sending-subdomain-2026-10-16) record what
+changed since. The need is the realm's
 verification and recovery mail only: low volume, no marketing, Keycloak's built-in
 SMTP client with authenticated STARTTLS (7.1), EUR 0–2/month inside the EUR 20
 envelope ([cost evidence](public-production-topology.md#cost-evidence-estimate-not-an-order)).
@@ -500,7 +501,7 @@ stores in the United States and its paid tier equals the whole contingency.
 | E1 | Preferred provider: **Mailjet Free**, conditional on Mailjet accepting the account and on Keycloak sending through its SMTP relay in practice | Selected, not contracted. The professional-use clause below must be resolved before relying on it |
 | E2 | Replacement option: **Scaleway Transactional Email**, documented only | No second integration and never both services contracted. Switching changes only runtime SMTP inputs and DNS |
 | E3 | Free plan, no card, no automatic overage charges; sending should stop at the quota rather than cost money | Excludes card-backed pay-as-you-go while Mailjet qualifies. Scaleway, the replacement, needs a card and has no hard EUR cap (worst case about EUR 2.94/month within its default quota): choosing it later reopens E3 |
-| E4 | Dedicated sending subdomain, for example `mail.gameometro.es`, subject to the final domain | SPF, DKIM and DMARC of the subdomain stay independent of the contact mailbox (D1) |
+| E4 | Dedicated sending subdomain `mail.gameometro.com` (D20) | SPF, DKIM and DMARC of the subdomain stay independent of the contact mailbox (D1) |
 | E5 | Replies go to a real, operated contact address; no blackhole mailbox by default; user replies and technical bounces kept apart, bounces diagnosable | `Reply-To` set to the contact address; bounces stay with the provider's return path and are read in its statistics or event webhooks |
 | E6 | Create the provider account only when the domain and the public environment are being prepared; domain configuration may precede the VPS purchase with a separate authorization | No account, DNS change or contract now |
 
@@ -537,8 +538,7 @@ about EUR 2.94/month within its default quota, still inside the envelope.
 
 1. **Keycloak.** The realm import's runtime inputs stay as they are and #275 supplies
    `KEYCLOAK_SMTP_HOST=in-v3.mailjet.com`, `KEYCLOAK_SMTP_PORT=587`,
-   `KEYCLOAK_SMTP_FROM` an address on the sending subdomain (for example
-   `no-reply@mail.gameometro.es`), and `KEYCLOAK_SMTP_USER`/`KEYCLOAK_SMTP_PASSWORD`
+   `KEYCLOAK_SMTP_FROM` the sender `no-reply@mail.gameometro.com`, and `KEYCLOAK_SMTP_USER`/`KEYCLOAK_SMTP_PASSWORD`
    the Mailjet SMTP credentials. `auth`, `starttls=true` and `ssl=false` already match;
    2525 is the documented fallback port. The private-dev relay transport already sets
    `replyTo` from protected runtime input and proves it against an authenticated
@@ -561,6 +561,27 @@ about EUR 2.94/month within its default quota, still inside the envelope.
    (DPA, 30 days' notice); the Terms, DPA version and the professional-use answer
    captured with their dates.
 
+#### Domain and sending subdomain (2026-10-16)
+
+Verified **[V]** in public DNS on 2026-10-16: `gameometro.com` is delegated to OVHcloud
+name servers with OVHcloud mail exchangers and the registrar's placeholder address;
+`mail.gameometro.com` publishes Mailjet's SPF include and a DKIM key, and its DMARC
+record is `p=none` without a report address; `auth.gameometro.com` has no record. The
+owner reported the Mailjet Free account, the sender verified in Mailjet and one real
+SMTP message; that message was not observed by this review. No invoice, order or
+customer identifier, personal data or credential is kept in the repository.
+
+Pending, owner-operated; none is passed by this document:
+
+- Mailjet's written answer on the professional-use clause (E1), recorded with its date.
+- DMARC report address (`rua`) to an owner-read mailbox before tightening the policy;
+  the SPF qualifier is neutral (`?all`) and can become `~all` after clean reports.
+- The public privacy and rights contact (D1): `hola@gameometro.com` is the reviewed
+  Reply-To of the private-dev relay; whether rights requests use it or a separate
+  address is an owner decision for the privacy notice.
+- Renewal tariffs of the domain and any bundled mailbox read in OVHcloud.
+- The issuer validated on the real host before the first real account (D12).
+
 #### Launch requirements and pending verification
 
 Carried to the launch proof (#276) and the public gates; none is passed by this
@@ -581,8 +602,8 @@ document:
 
 ### 7.4 Increment 4: canonical issuer and cookies (2026-10-15)
 
-Implemented and proven with synthetic `.test` origins; pending owner review, not
-deployed, and the public hostnames are not chosen. The
+Implemented and proven with synthetic `.test` origins and merged; production values
+are the D20 names, not yet configured. The
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md#canonical-issuer-contract)
 owns the issuer contract and what #275 must supply; the BFF's startup check, the
 read-only [`check-oidc-issuer-contract.py`](../../scripts/check-oidc-issuer-contract.py)
@@ -630,15 +651,17 @@ Findings for the privacy notice:
   justified; the notice must still list them, including the persistent 8-hour
   `KEYCLOAK_SESSION` and the two script-readable Keycloak cookies.
 
-**Limitations.** **[V]** Spring Security 7.1 always calls userinfo, and Keycloak 26.7
-rejects at userinfo a token whose issue second precedes its session's start second,
-both read from the wall clock. On this host, whose clock steps back several times a
-minute, one full gate run failed one sign-in with `invalid_user_info_response`; six
-isolated repetitions and the later full runs passed. The cause is inferred from the
-Keycloak bytecode and the host's known clock steps, not logged. On a host with a
-stable clock it should not occur, and a user would sign in again; skipping userinfo,
-which returns only `sub` to this client, would remove the call and is an owner
-decision. **[V]** Chromium only; Firefox and Safari were not tested. Keycloak and the
+**Limitations.** **[V]** Spring Security 7.1.1's `OidcUserService` calls userinfo on
+every sign-in whenever a userinfo URI is configured, whatever the granted scopes, and
+Keycloak 26.7 rejects at userinfo a token whose issue second precedes its session's
+start second, both read from the wall clock. On this host, whose clock steps back
+several times a minute, one full gate run failed one sign-in with
+`invalid_user_info_response`; six isolated repetitions and the later full runs passed.
+The cause is inferred from the Keycloak bytecode and the host's known clock steps, not
+logged. **[V]** The BFF uses only the ID token's issuer, subject and authentication
+time; the production client's userinfo returns only `sub`, so the call adds a request
+and a failure mode but no data. **[R]** Disable userinfo retrieval in the BFF for every
+environment and keep the configured URI until a later cleanup; owner decision. **[V]** Chromium only; Firefox and Safari were not tested. Keycloak and the
 BFF terminated TLS themselves and the browser ignored the test CA, so the edge proxy's
 TLS, forwarded-header overwriting, HSTS and unknown-host refusal remain #275's to
 prove. The BFF reached Keycloak at the canonical name through a container alias;

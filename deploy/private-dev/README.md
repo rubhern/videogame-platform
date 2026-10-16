@@ -474,6 +474,14 @@ outcome in #274 without addresses, message IDs or headers that identify a person
    confirmation is the same as for an unknown address, the email arrives through the
    relay, and its link sets a new password. The old password then fails.
 5. **Reply.** Reply to one message and confirm the reply reaches the contact mailbox.
+6. **Ratings.** With the new account, create, edit and delete a rating on a game page
+   and check *Mis puntuaciones* after each step; an existing account still sees its
+   earlier ratings, and neither account sees the other's.
+7. **Revocation.** Sign the new account in on two browsers, then follow the
+   [revocation procedure](../../docs/development/operations-runbook.md#account-disable-session-revocation-and-rating-deletion)
+   with it: both sessions become anonymous on their next request, a repeat answers
+   zero and a new sign-in is refused. Finish with its deletion steps, then record the
+   run in #274 as the runbook asks; it is the first revocation operated on a host.
 
 Do not test lockout with the owner's real account: five failures lock it for at least
 a minute. Mailjet's statistics show sent, bounced and blocked messages.
@@ -1320,7 +1328,7 @@ serving PostgreSQL content during this rollout.
    ```bash
    sudo -i
    set -Eeuo pipefail
-   umask 0027
+   umask 0022
    exec 9>/run/lock/videogame-platform-dev-deployment.lock
    flock --nonblock 9
    cd /opt/videogame-platform
@@ -1335,6 +1343,9 @@ serving PostgreSQL content during this rollout.
 
    Keep the installed checkout root-owned and unwritable by unprivileged users, as
    required by [restricted host installation](#restricted-host-installation).
+   `umask 0022` keeps checked-out files world-readable: Grafana and Prometheus mount
+   them directly and fail on `0640` files. Protected secret directories keep their own
+   restrictive modes.
    A failed command means stop and investigate before acknowledging or dispatching.
    If unrelated runtime changes are included in the revision, review/apply their
    own rollout first; this procedure authorizes only localization.
