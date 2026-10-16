@@ -623,3 +623,78 @@ The [public gates](../../development/delivery-lifecycle.md#public-production-gat
 separate preparation, purchase and exposure. The operations runbook will describe
 production procedures as proven only after real-VPS execution. Private-dev remains
 private integration until the owner separately approves retirement after launch.
+
+### Abuse and overload boundaries
+
+**Implemented locally for #274; no host rollout or public acceptance.** The modular
+monolith remains unchanged. API admission is a resource budget per process, not a
+user quota or a durable correctness invariant. Owner-approved on 2026-10-17: it is
+**disabled by default**, including local and private-dev, through
+`APPLICATION_API_ADMISSION_ENABLED=false`. Explicit opt-in retains 8/2 as experimental
+settings. Production enablement and any values require capacity calibration in
+#275/#276; there is no approved production limit in this increment. The independent production realm's
+native registration flow and per-account temporary lockout remain unchanged.
+
+| Boundary | Protection and initial rationale | Limitation |
+|---|---|---|
+| Product API (opt-in experiment) | [`application.yaml`](../../../backend/src/main/resources/application.yaml) owns the initial eight synchronous requests, including at most two writes. [`ApiAdmissionInterceptor`](../../../backend/src/main/java/com/videogameplatform/api/delivery/ApiAdmissionInterceptor.java) admits work after authentication/CSRF and before body conversion/controllers; rejects immediately and releases admission on completion, including failures | Eight is below the default ten-connection pool, but HTTP admission does not reserve two connections or measure DB occupancy. These values are uncalibrated hypotheses; eight requests may still contend with synchronization. An actor can monopolize capacity; admission is not fairness or sustained-rate control |
+| Public reads | Existing page/search/release-group bounds, PostgreSQL filtering/counting/order/paging, JDBC timeouts and HTTP validators remain the cost boundary | Deep offsets and exact counts still cost database work. No index/query rewrite is justified by this increment; the existing query timeout and admission limit bound concurrent damage, not dataset-independent SQL cost |
+| Personal writes | Existing principal-derived identity, session revocation, CSRF, DB constraints and ETag preconditions remain authoritative | No caller-selected owner or mutable in-memory quota is introduced. Retries after uncertain write outcomes still require a fresh read and explicit user action |
+| Keycloak | [`abuse.env`](../../../deploy/public-production/keycloak/abuse.env) owns the initial eight HTTP workers, sixteen queued requests, five DB connections and selected native event metrics. Private-dev's Compose has the same resource hypothesis | Keycloak returns native 503 beyond its queue; it does not promise the API Problem body or Retry-After. This limits resource accumulation, not signup/reset frequency or SMTP volume |
+| BFF identity navigation | Existing state, nonce, PKCE, callback allowlist, server-side tokens and session bounds | The BFF never sees direct browser submissions to Keycloak. Protecting only `/auth/start` cannot control identity abuse |
+
+When admission is enabled, the product contract declares capacity rejection in [OpenAPI](../api/openapi.yaml):
+503 `SERVICE_OVERLOADED`, `Cache-Control: no-store`, correlation and `Retry-After: 1`.
+No controller/product write runs for an admission rejection. Retry reads with bounded
+backoff and jitter; never replay commands automatically. A saturated instance may
+reject a legitimate request, including a session read. Logout handled by Spring
+Security, static assets and the separate management server remain outside MVC
+admission. Current product handlers are synchronous; adding asynchronous MVC work
+requires revisiting permit lifetime before enabling it. Replicas multiply admission
+capacity and require a renewed DB/host budget; they never change authorization or
+uniqueness semantics.
+
+**Proposed edge controls for #275, to prove in #276:** terminate and bound connections,
+headers/body sizes, read/write/idle timeouts and aggregate request frequency at the
+approved HTTPS proxy. Initial qualification candidates are: public reads 10/s per
+source with burst 40; identity login submissions 20/min with burst 20; registration
+and recovery each 3/min with burst 6; writes 120/min with burst 60. Use conservative
+aggregate budgets as well, measured against actual host headroom. These are tuning
+hypotheses, not deployed limits or a guarantee against distributed abuse. Count
+anonymous attempts whether or not an address exists; never key on submitted emails,
+user-supplied owner IDs, or an unverified session cookie. Test shared-IP households,
+mobile NAT and IPv6 before accepting those settings. Return 429 with Retry-After for
+rate quotas and 503 for capacity; avoid blocking sleeps or unlimited queues.
+
+Only the proxy's actual transport peer may determine a source limit. Strip incoming
+forwarding headers and trust forwarded metadata only from explicitly configured
+proxy peers. Direct application/identity ports and management must be unreachable
+from the public network. Spoofed headers must neither bypass a limit nor change OIDC
+origins. Tailnet-only private-dev has different ingress; do not present its network
+policy as proof of a public proxy configuration.
+
+Mailjet Free's daily quota is a shared availability constraint, not an abuse control:
+one adversary can consume it slowly despite minute-level limits, and verification
+resends/recovery have multiple mail-triggering paths. Native Keycloak has no daily
+SMTP budget. Do not claim that request counts equal messages or add an SMTP relay
+service to approximate that guarantee. #275/#276 must prove the chosen edge limits,
+observe all verification/reset sends and provider queue/failure behaviour, reserve
+recovery headroom, and exercise an owner-operated incident response before accounts
+open. A hard application-controlled send budget needs a separate design decision if
+provider limits and the measured exposure prove insufficient. No paid plan is
+approved by this increment. The [R17 assessment](../../research/public-release-rights-and-privacy.md#76-abuse-increment-and-r17-reassessment)
+records the owner-accepted conditional privacy risk; the
+[public gate](../../development/delivery-lifecycle.md#r17-conditional-acceptance-and-opening-conditions)
+owns the mandatory compensatory controls and evidence before opening registration;
+[observability](../../development/observability.md#identity-and-overload-security-signals)
+owns operational signals and their privacy limits.
+
+The [2026-10-17 admission review](../../research/public-release-rights-and-privacy.md#77-api-admission-review-2026-10-17)
+records exact MVC scope, normal client fan-out and historical capacity evidence.
+The approved flag removes the admission beans entirely when disabled, so it cannot
+reject an otherwise admitted product request. Zero is not a disable value. When
+enabled, the existing validation and synchronous permit lifecycle remain unchanged.
+Settings bind at startup; change the three variables in protected private-dev
+`runtime.env` and recreate the reviewed application image through the existing
+approved procedure, without recompilation. Compose forwards all three settings.
+This is prepared configuration, not a claim that a running host has been changed.

@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.13.0
+  version: 3.13.1
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, monthly featured
@@ -905,6 +905,7 @@ paths:
                   value: { authenticated: true, csrfToken: opaque-csrf-token }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
     post:
       tags: [Session]
       operationId: logoutSession
@@ -934,7 +935,7 @@ paths:
         '403': { $ref: '#/components/responses/CsrfValidationFailed' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '500': { $ref: '#/components/responses/InternalError' }
-
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /me/ratings:
     get:
       tags: [Ratings]
@@ -1041,6 +1042,7 @@ paths:
         '404': { $ref: '#/components/responses/RatingNotFound' }
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
     put:
       tags: [Ratings]
       operationId: putMyRating
@@ -1158,7 +1160,7 @@ paths:
         '412': { $ref: '#/components/responses/RatingWriteConflict' }
         '428': { $ref: '#/components/responses/PreconditionRequired' }
         '500': { $ref: '#/components/responses/RatingWriteFailed' }
-
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
 components:
   securitySchemes:
     sessionCookie:
@@ -2198,6 +2200,7 @@ components:
         - PAGINATION_INVALID
         - PRECONDITION_REQUIRED
         - CSRF_VALIDATION_FAILED
+        - SERVICE_OVERLOADED
         - REQUEST_TOO_LARGE
         - MEDIA_TYPE_UNSUPPORTED
         - REPRESENTATION_NOT_ACCEPTABLE
@@ -2470,8 +2473,12 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             preconditionRequired: { $ref: '#/components/examples/PreconditionRequired' }
-    CatalogueUnavailable:
-      description: No local snapshot is ready or local catalogue data cannot be read; no provider fallback call is made.
+    ServiceOverloaded:
+      description: |
+        This instance has no API admission capacity. No controller or product write was
+        invoked. Wait at least Retry-After seconds and retry reads with backoff and jitter;
+        never automatically replay a personal command. Authentication and CSRF checks
+        precede admission. This is capacity rejection (503), not an identity/IP quota (429).
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -2480,6 +2487,18 @@ components:
         application/problem+json:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
+            serviceOverloaded: { $ref: '#/components/examples/ServiceOverloaded' }
+    CatalogueUnavailable:
+      description: No local snapshot is ready, local catalogue data cannot be read, or this instance has no admission capacity; no provider fallback call is made.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+        Retry-After: { $ref: '#/components/headers/RetryAfter' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            serviceOverloaded: { $ref: '#/components/examples/ServiceOverloaded' }
             catalogueNotReady: { $ref: '#/components/examples/CatalogueNotReady' }
             catalogueReadFailed: { $ref: '#/components/examples/CatalogueReadFailed' }
     GameReadFailed:
@@ -2527,6 +2546,16 @@ components:
             internalError: { $ref: '#/components/examples/InternalError' }
 
   examples:
+    ServiceOverloaded:
+      value:
+        type: urn:videogame-platform:problem:service-overloaded
+        title: Service is overloaded
+        status: 503
+        detail: Retry after capacity is available; do not automatically replay commands.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: SERVICE_OVERLOADED
+        category: technical
+        correlationId: correlation-opaque
     RequestMalformed:
       value:
         type: urn:videogame-platform:problem:request-malformed

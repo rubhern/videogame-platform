@@ -36,6 +36,15 @@ describe("session API", () => {
     });
   });
 
+  it.each([500, 503])("does not turn HTTP %s into an anonymous session", async (status) => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(
+      { code: "SERVICE_OVERLOADED" }, { status, headers: { "Retry-After": "1" } },
+    ));
+
+    await expect(getSession(client(fetchMock))).rejects.toThrow("The session request failed.");
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it("sends the CSRF token when terminating the session", async () => {
     const fetchMock = vi
       .fn<typeof fetch>()

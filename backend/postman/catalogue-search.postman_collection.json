@@ -1144,5 +1144,23 @@
       ],
       "response": []
     }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.response.code === 503 && pm.response.json().code === \"SERVICE_OVERLOADED\") {",
+          "    pm.test(\"Capacity rejection is safe and correlated\", function () {",
+          "        pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+          "        pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"no-store\");",
+          "        pm.expect(pm.response.headers.get(\"Retry-After\")).to.eql(\"1\");",
+          "        pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+          "    });",
+          "}"
+        ]
+      }
+    }
   ]
 }
