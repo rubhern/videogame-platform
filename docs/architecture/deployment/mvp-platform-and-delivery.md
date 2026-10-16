@@ -80,8 +80,19 @@ its web UI can bind to host IPv4 loopback for the owner's SSH tunnel, without a
 Tailscale Serve route. SMTP and POP3 publish nothing, nothing is relayed or forwarded,
 and messages, which carry live reset links, stay in a temporary in-memory store
 bounded by count and age and lost on restart. Mailpit is never an application
-dependency. It is a non-production sink: real delivery, sender reputation and the
-production realm's mail policy stay with the
+dependency. It is a non-production sink and the default transport of every
+environment; local development and CI never use another.
+
+Post-MVP (#274), private-dev may instead send its account mail through the approved
+transactional provider's authenticated STARTTLS relay, selected explicitly on the
+existing realm by an owner step and reverted the same way. Keycloak reaches the relay
+over its existing outbound network; no service, port or route is added. Non-secret
+relay inputs live in the protected runtime configuration and the SMTP credentials in
+two optional protected secret files; Keycloak keeps the password in its database and
+encrypted backups, as the production realm does. The relay cannot restrict
+recipients, so the operating rule is that real mail goes only to owner-controlled
+mailboxes. Production delivery evidence, sender reputation on the
+public host and the production realm's own mail policy stay with the
 [public release gates](../../development/delivery-lifecycle.md#public-production-gates).
 
 PostgreSQL, Prometheus, Loki and the collector publish no host port.
@@ -127,6 +138,17 @@ executable contracts with local development. Local Compose adds a synthetic-user
 import that private dev does not mount; private dev instead provisions one marked,
 non-personal deployment-smoke account through the private Admin API, never through
 the shared realm import.
+
+Post-MVP (#274), the persistent private-dev realm also applies the reviewed
+[production identity policy](#production-realm-contract): email sign-in with an
+email-only profile, the 18+ registration declaration, email verification, the
+password, lockout, session and event policies. A reviewed Admin API step takes the
+values from the production import, snapshots what it changes and can restore it; it
+keeps the realm name, issuer, client and every account ID, so ratings stay attached.
+Local development and CI keep the shared import's policy, and a freshly imported
+private-dev realm needs the same step. The
+[private-dev procedure](../../../deploy/private-dev/README.md#identity-policy-and-real-account-mail)
+owns its account effects, rollout and rollback.
 
 Private-dev metrics follow application OTLP → the existing internal Collector →
 Prometheus → Grafana. The Collector exposes a Prometheus-format handoff only on the

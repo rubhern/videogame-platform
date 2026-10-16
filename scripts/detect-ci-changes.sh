@@ -141,8 +141,8 @@ for path in "${changed_paths[@]}"; do
       enable identity browser backend
       matched=true
       ;;
-    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | deploy/public-production/keycloak/*)
-      # The production realm and its BFF contract are proven only by the real identity gate.
+    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | deploy/public-production/keycloak/* | scripts/validate-private-dev-identity.sh | scripts/test-private-dev-identity-alignment.py)
+      # The production realm and its BFF contract are proven only by the real Keycloak identity gate.
       enable identity
       matched=true
       ;;
@@ -155,7 +155,7 @@ for path in "${changed_paths[@]}"; do
       enable migrations backend
       matched=true
       ;;
-    scripts/validate-private-dev-runtime.sh | scripts/provision-grafana-reader.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | deploy/private-dev/*)
+    scripts/validate-private-dev-runtime.sh | scripts/provision-grafana-reader.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | deploy/private-dev/*)
       enable documentation build backend migrations identity container
       matched=true
       ;;

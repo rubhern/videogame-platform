@@ -25,11 +25,9 @@ MARKER_PROFILE_ATTRIBUTE = {
     "permissions": {"edit": ["admin"], "view": ["admin"]},
     "validations": {"length": {"max": 4, "min": 4}},
 }
-SYNTHETIC_PROFILE = {
-    "email": "vgp-deployment-smoke@example.invalid",
-    "firstName": "Deployment",
-    "lastName": "Smoke",
-}
+# Verified so the realm's email verification never mails this reserved, undeliverable address.
+SYNTHETIC_EMAIL = "vgp-deployment-smoke@example.invalid"
+SYNTHETIC_PROFILE = {"email": SYNTHETIC_EMAIL, "emailVerified": True}
 
 
 class ProvisioningError(RuntimeError):
@@ -107,6 +105,21 @@ class KeycloakAdmin:
         if not isinstance(users, list):
             raise ProvisioningError("Keycloak returned an invalid user search response")
         return users
+
+    def find_users_by_email(self, email: str) -> list[dict[str, object]]:
+        query = urllib.parse.urlencode({"briefRepresentation": "false", "email": email, "exact": "true"})
+        payload, _ = self._request("GET", f"/admin/realms/{REALM}/users?{query}", expected={200})
+        users = json.loads(payload)
+        if not isinstance(users, list):
+            raise ProvisioningError("Keycloak returned an invalid user search response")
+        return users
+
+    def email_as_username(self) -> bool:
+        payload, _ = self._request("GET", f"/admin/realms/{REALM}", expected={200})
+        realm = json.loads(payload)
+        if not isinstance(realm, dict):
+            raise ProvisioningError("Keycloak returned an invalid realm representation")
+        return realm.get("registrationEmailAsUsername") is True
 
     def create_user(self, username: str) -> None:
         self._request(
@@ -248,11 +261,23 @@ class KeycloakAdmin:
         return payload, response_headers
 
 
-def provision_smoke_user(admin: KeycloakAdmin, username: str, password: str) -> None:
-    users = admin.find_users(username)
+def provision_smoke_user(
+    admin: KeycloakAdmin, username: str, password: str, *, email_as_username: bool = False
+) -> None:
+    # With email sign-in Keycloak shows the email as the username and rewrites the stored
+    # username on the next profile write, so the account is found and signs in by its email.
+    if email_as_username and username != SYNTHETIC_EMAIL:
+        raise ProvisioningError(
+            f"With email sign-in the protected OIDC smoke username must be {SYNTHETIC_EMAIL}"
+        )
+
+    def lookup() -> list[dict[str, object]]:
+        return admin.find_users_by_email(SYNTHETIC_EMAIL) if email_as_username else admin.find_users(username)
+
+    users = lookup()
     if not users:
         admin.create_user(username)
-        users = admin.find_users(username)
+        users = lookup()
     if len(users) != 1:
         raise ProvisioningError("Expected exactly one dedicated deployment smoke user")
 
@@ -267,9 +292,12 @@ def provision_smoke_user(admin: KeycloakAdmin, username: str, password: str) -> 
         )
     if user.get("enabled") is not True:
         raise ProvisioningError("Dedicated deployment smoke user is disabled")
-    if all(not user.get(field) for field in SYNTHETIC_PROFILE):
+    current = {field: user.get(field) for field in SYNTHETIC_PROFILE}
+    # A legacy account without an address, or one not yet verified, is completed; any other
+    # address belongs to someone else and is refused below.
+    if current != SYNTHETIC_PROFILE and user.get("email") in (None, "", SYNTHETIC_EMAIL):
         admin.set_synthetic_profile(user_id)
-        users = admin.find_users(username)
+        users = lookup()
         if len(users) != 1:
             raise ProvisioningError("Expected exactly one dedicated deployment smoke user")
         user = users[0]
@@ -327,7 +355,7 @@ def main() -> int:
     admin = KeycloakAdmin(origin)
     admin.authenticate(admin_username, admin_password)
     admin.ensure_smoke_marker_profile()
-    provision_smoke_user(admin, smoke_username, smoke_password)
+    provision_smoke_user(admin, smoke_username, smoke_password, email_as_username=admin.email_as_username())
     print(f"Private-dev OIDC smoke user is provisioned in realm {REALM}; no credentials were printed.")
     return 0
 

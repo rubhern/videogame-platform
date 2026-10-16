@@ -440,6 +440,8 @@ python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(enc
   "$repository_root/deploy/private-dev/bin/provision-oidc-smoke-user"
 python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
   "$repository_root/deploy/private-dev/bin/configure-keycloak-mail"
+python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
+  "$repository_root/deploy/private-dev/bin/configure-keycloak-identity"
 if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
   node --check "$repository_root/deploy/private-dev/smoke/deployment-smoke.mjs"
   node --test \
@@ -451,6 +453,7 @@ if [[ "$runtime_env_supplied" == false && "$telemetry_smoke" == false ]]; then
   bash "$repository_root/scripts/test-local-observability.sh"
   bash "$repository_root/scripts/test-local-localization.sh"
   python3 "$repository_root/scripts/test-private-dev-oidc-provisioning.py"
+  python3 "$repository_root/scripts/test-private-dev-identity-commands.py"
 fi
 python3 -m json.tool "$repository_root/docker/keycloak/import/videogame-platform-realm.json" >/dev/null
 python3 -m json.tool "$repository_root/docker/keycloak/import/videogame-platform-users-0.json" >/dev/null
