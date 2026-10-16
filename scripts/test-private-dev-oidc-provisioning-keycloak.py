@@ -63,3 +63,24 @@ assert reprovisioned[0].get("attributes", {}).get(module.MARKER_ATTRIBUTE) == ["
 assert {field: reprovisioned[0].get(field) for field in module.SYNTHETIC_PROFILE} == module.SYNTHETIC_PROFILE
 
 print("Real Keycloak deployment smoke-user provisioning validation passed.")
+
+# This browser gate uses the local realm, which still requires names. The private-dev
+# provisioner follows the aligned minimal profile and deliberately supplies neither.
+# Complete only this disposable fixture so VERIFY_PROFILE cannot interrupt the OIDC
+# and password-reset journeys; do not change the runtime provisioner's profile policy.
+local_names = {"firstName": "Deployment", "lastName": "Smoke"}
+attributes = {attribute["name"]: attribute for attribute in profile["attributes"]}
+assert all(attributes[name].get("required") == {"roles": ["user"]} for name in local_names)
+admin._request(
+    "PUT",
+    f"/admin/realms/{module.REALM}/users/{created_id}",
+    body=local_names,
+    expected={204},
+)
+browser_user = admin.find_users(smoke_username)[0]
+assert {field: browser_user.get(field) for field in local_names} == local_names
+assert {field: browser_user.get(field) for field in module.SYNTHETIC_PROFILE} == module.SYNTHETIC_PROFILE
+assert browser_user.get("attributes", {}).get(module.MARKER_ATTRIBUTE) == ["true"]
+assert browser_user.get("requiredActions") == []
+
+print("Disposable local-realm smoke fixture satisfies the required name fields.")
