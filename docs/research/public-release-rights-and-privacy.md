@@ -5,7 +5,9 @@
   (revocation, session bound, coordinated logout) implemented and proven in disposable
   gates on 2026-10-15, pending owner review and not deployed. Increment 3 (email
   provider) closed on 2026-10-15 with owner decisions E1–E6: Mailjet preferred,
-  nothing contracted, real delivery unproven
+  nothing contracted, real delivery unproven. Increment 4 (canonical issuer and
+  browser cookies) implemented and proven with synthetic origins on 2026-10-15,
+  pending owner review; public hostnames not chosen
 - **Research date:** 2026-10-14 (sources); code re-checked 2026-10-15; production realm
   exercised against disposable Keycloak 26.7.0 on 2026-10-15
 - **Source revision:** `cda7185cced99ecc8a6d3aa08c1e96831772f86f` (`main`)
@@ -146,7 +148,7 @@ procedures; it is not a launch blocker.
 | Keycloak server log | Error events with user ID, username and IP (default logging listener); success events not logged | Private dev: Docker `local` driver, 3 × 10 MiB, no age limit; not sent to Loki | User events are not stored (`eventsEnabled` unset). **[V]** (phase 2) the production realm has no listener; replaying a consumed authorization code still logs its ID and session ID at WARN |
 | Keycloak email | Verification and recovery messages | Private dev: Mailpit, 100 messages / 24 h | Preferred provider selected (7.3); not contracted |
 | Application database | `ratings.rating`: `user_id`, game, value, created/updated time, version token | Until the user deletes the rating | No email/name in the application; aggregates are computed live from this table |
-| BFF session | Servlet session with OIDC user and tokens, CSRF token, return context; cookie `vgp_session` (HttpOnly, SameSite=Lax) | 30 min idle, no absolute limit; in memory only, lost on restart | **[I]** ID-token claims probably include profile/email (no client scopes set, so realm defaults apply); not inspected |
+| BFF session | Servlet session with OIDC user and tokens, CSRF token, return context; one session cookie (production `__Host-vgp_session`) | 30 min idle, 8 h absolute (7.2); in memory only, lost on restart | The production client's ID token carries only protocol claims (7.1). Browser cookies and storage: section 7.4 |
 | Application logs | Method, route template, status, duration, error code | Private dev: Loki 24 h plus syslog cache | No IP, user ID, email, query string or stack trace by default |
 | Traces / metrics | Spans to the collector `debug` exporter only; bounded metrics; aggregate rating views | Traces not retained | Distinct-user count is aggregate only |
 | Backups | Encrypted dumps of both databases (all rows above except memory and logs) | Count-based, keep 7 by default; off-host copy is an owner step | Deletion ledger not implemented |
@@ -347,7 +349,7 @@ for sign-outs started in Keycloak. Section 7.2 records the implementation of inc
 | Translations, decorative media, scores, public JSON, retention | IGDB reply (D5); otherwise originals/disable |
 | Deletion duty vs backups after licence termination | Only if termination happens |
 | Digital Services Act relevance | Recheck before user-generated content |
-| Keycloak cookies | Phase 2 increment 4; ID-token claims and session rows verified in 7.1 and section 2 |
+| Keycloak cookies | Inventoried in 7.4: strictly necessary, no consent banner justified **[I]**; the cookie paragraph of the privacy notice remains to be written |
 
 ### 6.4 Effective launch blockers
 
@@ -366,16 +368,14 @@ None of these items is passed by this document.
 
 ## 7. Phase 2 plan: production identity
 
-Prioritized; each increment is reviewable alone. Increments 1 and 2 are implemented;
-increment 3 is decided (provider preferred, not contracted); increment 4 is next.
+Prioritized; each increment is reviewable alone. Increments 1, 2 and 4 are
+implemented; increment 3 is decided (provider preferred, not contracted).
 
 1. **Production realm baseline** (configuration and tests): section 7.1.
 2. **Revocation, session bound and coordinated logout** (code): section 7.2.
 3. **Email provider selection** (desk research, owner decision): section 7.3. No
    contract without approval; real delivery is proven on the VPS (#276).
-4. **Canonical issuer and cookies:** fix the identity hostname rule that completes the
-   issuer (the realm already fixes `/realms/gameometro`) and inventory Keycloak's
-   browser cookies in the validation stack (section 6.3).
+4. **Canonical issuer and cookies** (code, gate, inventory): section 7.4.
 
 ### 7.1 Increment 1: production realm (2026-10-15)
 
@@ -573,6 +573,79 @@ document:
 - Outbound 587 or 2525 permitted from the chosen VPS; no SMTP secret or address in
   Keycloak's log. The SMTP secret stays in the Keycloak database and backups (7.1).
 
+### 7.4 Increment 4: canonical issuer and cookies (2026-10-15)
+
+Implemented and proven with synthetic `.test` origins; pending owner review, not
+deployed, and the public hostnames are not chosen. The
+[platform design](../architecture/deployment/mvp-platform-and-delivery.md#canonical-issuer-contract)
+owns the issuer contract and what #275 must supply; the BFF's startup check, the
+read-only [`check-oidc-issuer-contract.py`](../../scripts/check-oidc-issuer-contract.py)
+and [`validate-production-identity.sh`](../../scripts/validate-production-identity.sh)
+own the mechanics. Nothing local or private-dev changed: the startup check applies only
+to the production realm.
+
+| Area | Evidence **[V]** |
+|---|---|
+| One issuer | Keycloak and the packaged BFF on separate HTTPS hosts, both on the implicit port 443, so the issuer has its production shape. Discovery, every endpoint the BFF uses, email action links and the stored rating's `UserId` all derive from `https://identity.gameometro.test/realms/gameometro` |
+| Untrusted headers | With Keycloak's proxy headers trusted, a spoofed `Host`, `X-Forwarded-*` or `Forwarded` leaves discovery unchanged; the BFF's sign-in redirect keeps the canonical endpoint and fixed callback under the same four header sets |
+| Inconsistent configuration | Eighteen unit cases refuse non-canonical issuers (HTTP, explicit or other port, trailing slash, upper case, user information, query, fragment, IP, `localhost`, other path), endpoints off the issuer (an internal HTTP back channel included), request-built or foreign return addresses, a shared identity origin and a non-`__Host-` or non-`Secure` cookie. The packaged BFF with a request-built post-logout address exits before serving |
+| Redirects | The realm accepts only the exact callback and post-logout address; seven near variants of each (HTTP, other host, suffix host, subdomain, port, extra path, query) are refused without a redirect |
+| Session, CSRF, ownership, recovery | Registration with email verification, sign-in, a rating, a second account that cannot see it, logout through Keycloak and #273 recovery all pass through the canonical issuer. A no-CORS `POST /api/v1/session` sent from the identity origin with the browser's cookies is refused and the session survives; one without the CSRF token answers `403` |
+| Logs | Neither the Keycloak nor the BFF log contains any of 87 synthetic secrets, addresses, link keys or passwords |
+
+**Cookies and storage [V]** observed in headless Chromium at each stage of
+registration, verification, sign-in, logout and recovery. Every cookie is first-party,
+host-only (no `Domain`) and `Secure`; Keycloak scopes its own to `/realms/gameometro/`.
+
+| Cookie | Host | Set | Lifetime | `HttpOnly` / `SameSite` | Content and purpose |
+|---|---|---|---|---|---|
+| `__Host-vgp_session` | Application | When an account entry starts, never while browsing anonymously | Browser session; server 30 min idle, 8 h absolute | Yes / `Lax` | Opaque session identifier; removed at logout |
+| `AUTH_SESSION_ID` | Identity | First login or registration page | Browser session | Yes / `None` | Identifier of the sign-in in progress; stays after logout until the browser closes, authenticating nothing |
+| `KC_AUTH_SESSION_HASH` | Identity | With `AUTH_SESSION_ID` | 60 s | **No** / `None` | Hash of the sign-in in progress, readable by Keycloak's page scripts |
+| `KC_RESTART` | Identity | Recovery request form | Browser session | Yes / `None` | Opaque 1.4 KB value, not a readable token, that lets an interrupted sign-in restart |
+| `KEYCLOAK_LOCALE` | Identity | During registration and recovery | Browser session | Yes / `None` | `es`, the language the BFF requests for the forms |
+| `KEYCLOAK_IDENTITY` | Identity | After sign-in | Browser session (no remember-me) | Yes / `None` | Keycloak's signed single-sign-on token: issuer, subject, session ID, times; not an OAuth token the application accepts. Removed at logout |
+| `KEYCLOAK_SESSION` | Identity | After sign-in | **Persistent, 8 h** (SSO maximum) | **No** / `None` | Hash of the Keycloak session for its session-status scripts, which Gameómetro does not use. Removed at logout |
+
+Findings for the privacy notice:
+
+- Anonymous browsing sets no cookie and uses no storage. `localStorage`,
+  `sessionStorage` and IndexedDB stay empty on both origins at every stage; scripts
+  on the application origin can read no cookie. No OAuth access, refresh or ID token is
+  stored in the browser; the ID token appears only in the end-session redirect (7.2).
+- Only the two first-party hosts were contacted. The demonstration catalogue carries no
+  provider images, so the IGDB CDN request of section 1 was not exercised here.
+- The identity host and the application host share one registrable domain, so they are
+  the **same site**: `SameSite=Lax` does not separate them, and the CSRF token, `Origin`
+  and Fetch-Metadata checks are the effective protection, now proven across them.
+- Every cookie serves authentication, security or the form language of a service the
+  user asked for; none is analytic, advertising or third-party. **[I]** They fall under
+  the strictly-necessary exemption of the AEPD cookie guidance, so no consent banner is
+  justified; the notice must still list them, including the persistent 8-hour
+  `KEYCLOAK_SESSION` and the two script-readable Keycloak cookies.
+
+**Limitations.** **[V]** Spring Security 7.1 always calls userinfo, and Keycloak 26.7
+rejects at userinfo a token whose issue second precedes its session's start second,
+both read from the wall clock. On this host, whose clock steps back several times a
+minute, one full gate run failed one sign-in with `invalid_user_info_response`; six
+isolated repetitions and the later full runs passed. The cause is inferred from the
+Keycloak bytecode and the host's known clock steps, not logged. On a host with a
+stable clock it should not occur, and a user would sign in again; skipping userinfo,
+which returns only `sub` to this client, would remove the call and is an owner
+decision. **[V]** Chromium only; Firefox and Safari were not tested. Keycloak and the
+BFF terminated TLS themselves and the browser ignored the test CA, so the edge proxy's
+TLS, forwarded-header overwriting, HSTS and unknown-host refusal remain #275's to
+prove. The BFF reached Keycloak at the canonical name through a container alias;
+how it does so on the host (split DNS or the edge) is **[U]**. An aborted browser
+request is logged by the BFF as an `ERROR` with `INTERNAL_ERROR`: pre-existing noise,
+not changed here.
+
+**Before the first real account (real host, #275/#276):** fix both hostnames; run
+`check-oidc-issuer-contract.py` with the production values through the real edge,
+including its unknown-host behaviour; repeat the cookie and storage inventory with the
+real hostnames, edge TLS and HSTS; record the issuer in the deployed configuration
+fingerprint so a later change is detected rather than silently detaching ratings.
+
 ## 8. Dependencies and conflicts
 
 | Issue | Dependency or conflict | Handling |
@@ -588,12 +661,14 @@ document:
 
 No legal professional reviewed this document. IGDB's own content, terms and privacy
 pages could not be read; Fashion ID and the Digital Services Act were not re-read.
-Keycloak cookies were not inventoried in a browser; ID-token claims and session rows
-were inspected only in the disposable phase 2 stack, with synthetic accounts and a
-mail sink. No provider was contacted by this work; the owner's IGDB query is
+Cookies, storage, ID-token claims and session rows were observed only in the
+disposable phase 2 stack, in headless Chromium, with synthetic accounts, synthetic
+`.test` origins and a mail sink. No provider was contacted by this work; the owner's IGDB query is
 unanswered. Email providers were assessed only from public pages (7.3): Brevo's
 pricing, terms and help pages and Mailjet's help centre returned 403 (their content
 is cited from official search excerpts), and no account, quota or delivery was
 tested. Prices, terms and policies can change after the research date.
 Phase 1 and increment 1 changed no versioned artefact. Increment 2 is a compatible
 capability: backend reactor `0.38.0-SNAPSHOT`, frontend `0.29.0`, OpenAPI `3.13.0`.
+Increment 4 is a compatible enabler: backend reactor `0.39.0-SNAPSHOT`; frontend and
+OpenAPI unchanged (one browser test added).
