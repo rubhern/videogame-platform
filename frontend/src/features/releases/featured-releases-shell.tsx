@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
 import { HeroTitle } from "../../shared/ui/hero-title";
@@ -8,11 +7,10 @@ import { FeaturedMonthSelector } from "./featured-month-selector";
 import {
   formatMonthPhrase,
   type FeaturedReleasesViewModel,
-  type FeaturedSelectionState,
 } from "./featured-releases-view-model";
 import type { FeaturedSearch } from "./featured-search";
 import { DialSilhouette } from "./month-dial";
-import { encloseDial } from "./month-dial-geometry";
+import { DIAL_HEIGHT, DIAL_WIDTH } from "./month-dial-geometry";
 import { readReleasesSearch, releasesSearchPath } from "./releases-search";
 
 export type FeaturedShellState =
@@ -39,15 +37,6 @@ const releasesPath = releasesSearchPath(readReleasesSearch(new URLSearchParams()
 
 /** The month's featured release and up to five more; the row never fills artificial slots. */
 const OTHER_PLACEHOLDERS = 5;
-
-/** The G a typical hero copy takes, so arriving content lands in the placeholder's frame. */
-const PLACEHOLDER_DIAL = encloseDial(450, 270);
-
-function selectionNote(selection: FeaturedSelectionState | null): string {
-  return selection?.status === "ranked" && selection.stale
-    ? `Selección automática según la atención registrada el ${selection.observedOn}`
-    : "Selección automática según atención actual";
-}
 
 function liveStatus(state: FeaturedShellState, month: string | null): string {
   if (state.status === "loading" || (state.status === "ready" && state.isPlaceholderData)) {
@@ -78,29 +67,17 @@ function FeaturedLoading() {
         <div className="featured-hero-visual">
           <span className="skeleton featured-skeleton-art" />
         </div>
-        <div
-          className="featured-dial"
-          style={
-            {
-              "--dial-pad-x": `${PLACEHOLDER_DIAL.padX}px`,
-              "--dial-pad-y": `${PLACEHOLDER_DIAL.padY}px`,
-              "--dial-w": `${PLACEHOLDER_DIAL.width}px`,
-              "--dial-h": `${PLACEHOLDER_DIAL.height}px`,
-            } as CSSProperties
-          }
-        >
+        <div className="featured-dial">
           <DialSilhouette
             className="featured-dial-g"
-            height={PLACEHOLDER_DIAL.height}
-            shape={PLACEHOLDER_DIAL.shape}
-            width={PLACEHOLDER_DIAL.width}
+            height={DIAL_HEIGHT}
+            width={DIAL_WIDTH}
           />
           <div className="featured-hero-body">
             <span className="skeleton featured-skeleton-badge" />
             <span className="skeleton featured-skeleton-title" />
             <span className="skeleton featured-skeleton-title featured-skeleton-title-short" />
             <span className="skeleton skeleton-meta" />
-            <span className="skeleton featured-skeleton-summary" />
           </div>
         </div>
       </div>
@@ -157,13 +134,7 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
       <div className="page-container featured-section">
         <div className="featured-heading">
           <HeroTitle accent="del mes" id="featured-title" lead="Lanzamientos" />
-          <div className="featured-month-row">
-            <p className="featured-month-caption">Selección del mes</p>
-            <FeaturedMonthSelector currentMonth={model?.currentMonth ?? null} month={displayMonth} />
-          </div>
-          <p className="featured-note">
-            <span>{selectionNote(showsModel ? (model?.selection ?? null) : null)}</span>
-          </p>
+          <FeaturedMonthSelector currentMonth={model?.currentMonth ?? null} month={displayMonth} />
         </div>
 
         <p className="sr-only" role="status">

@@ -78,7 +78,12 @@ export function MonthStrip({ timeline, mark, label }: MonthStripProps) {
         })}
       </svg>
       {timeline.phase === "current" ? <span className="month-strip-today" /> : null}
-      {mark.kind === "day" ? <span className="month-strip-needle" /> : null}
+      {mark.kind === "day" ? (
+        <>
+          <span className="month-strip-needle" />
+          <span className="month-strip-needle-hub" />
+        </>
+      ) : null}
       {mark.kind === "span" ? <span className="month-strip-span" /> : null}
       <span className={`month-strip-label month-strip-label-${align}`}>{label}</span>
     </div>

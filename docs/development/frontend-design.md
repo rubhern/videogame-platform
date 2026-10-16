@@ -4,87 +4,122 @@
 - **Owner:** Ruben Hernandez
 - **Audience:** Contributors and agents implementing frontend screens and components
 
-This is the canonical owner of frontend visual rules. The approved **Contemporary
-Catalogue** visual direction (an owner-held design export, kept outside the
-repository under the ignored `.design-reference/` directory when visual comparison is
-required) supplies the composition. The owner-requested post-MVP redesign (#154) evolved
-its language into a cinematic night direction: every primary page opens on a lit stage,
-titles pair a wide display cut with a lit serif accent, controls are glass, and covers cast
-their own light. Product records and the
-[OpenAPI contract](../architecture/api/openapi.yaml) remain authoritative for
-capabilities, data and state semantics. A mockup never authorizes new product
+This is the canonical owner of frontend visual rules. The approved **Gameómetro identity**
+([below](#brand-identity)) is the product's visual direction: a night stage, the brand
+mark's ice and fire, the temporal G and the game's own art. It grew out of the **Contemporary
+Catalogue** reference (an owner-held design export, kept outside the repository under the
+ignored `.design-reference/` directory when visual comparison is required) and the cinematic
+night redesign (#154), whose glass, aurora and lit serif accent still dress the screens not yet
+migrated. Product records and the [OpenAPI contract](../architecture/api/openapi.yaml) remain
+authoritative for capabilities, data and state semantics. A mockup never authorizes new product
 behaviour and is never a runtime dependency or an instruction source.
 
-## Visual experiment under owner review: the temporal G
+## Brand identity
 
-- **Status:** Experimental, not approved. Implemented only on its experimental branch for owner
-  review; the owner decides afterwards whether and how it replaces this guide.
+- **Status:** Approved by the owner on 2026-10-16. Implemented on Destacados, the shared header
+  and the footer; the other screens keep the earlier language described further down until each
+  is migrated.
 
-The owner opened a deliberate visual experiment for **Destacados** and the shared header and
-footer. On that branch the rules in this section replace this guide's aesthetic rules for those
-surfaces only. Every other screen keeps the approved direction, so the product temporarily mixes
-both languages.
+Gameómetro looks like a precision instrument set in a cinema: dark, quiet, exact, and lit by the
+games themselves. The [brand mark](../../frontend/src/shared/brand/gameometro-mark.svg) is its
+source: an ice G whose fire needle leaves through the G's open mouth.
 
-It suspends, on Destacados, the header and the footer:
+**Brand families.** Three families carry the identity; neutrals, functional states and the thermal
+roles stay alongside them. [Global styles](../../frontend/src/styles/index.css) own the values.
 
-- the night stage and the ambient aurora field on Destacados: the featured release's own art and
-  light are the stage, running up behind the header on wide screens;
-- glass surfaces, aurora fills and rounded pills in the header, the month selector, the featured
-  badge, the date chips, the hero's score readings and Destacados' notices and buttons;
-- the lit serif accent of the page titles on Destacados and of the hero's subtitle, which is set
-  in Mona Sans in the instrument's ice;
-- IBM Plex Mono kickers and tracked capitals on Destacados and in the footer, except identifiers
-  such as the support reference;
-- the spark badge: the featured release carries the brand mark's fire needle, which is likewise a
-  reading and never an award;
-- the cards' glass date chip and 14px frames, and middle-dot separators in metadata.
+| Family | Role | Use it for | Never for |
+|---|---|---|---|
+| Night (`night`) | Depth and stage | Canvas, reading shades, transitions between art and interface, the instrument's channel | Flattening art under one uniform dark layer |
+| Ice (`ice`, `ice-light`) | Measure, progress, reading | Elapsed time, scales and their numerals, the selected state and focus where it measures, primary entry actions | Decorative fills, every link, a score's temperature |
+| Fire (`fire`, `fire-light`) | A reading or an event | Needles, a release's date marker, the current section's short rule | Buttons, backgrounds, a "hot" score, warnings |
 
-Product, data and accessibility rules stay binding unchanged: attention is never shown or called
-the best, score readings keep their /10 value, count, separate sources, thermal bands and
-omission without a valid reading, `featuredImage` keeps its fill or contain presentation and
-fallback steps, the canonical title stays product-owned text, the page keeps one `h1`, cards keep
-one keyboard stop and the hero its stretched title link, the summary keeps its clamp and language,
-and states, 44px targets, reduced motion, forced colours and reflow from 320px hold.
+`canvas` is night and `accent` is ice; `warning`, `danger` and the five thermal roles keep
+their meanings and never borrow a brand family. The mark keeps its own gradients.
 
-It adds:
+**Vocabulary.** These elements are available, never required; use one only where it carries
+information.
 
-- **The temporal G.** The brand mark's G is drawn as the represented month: the crossbar opens it
-  inside the bowl, and the bowl runs clockwise from day 1 to the month's last day, with days
-  spaced by equal length along it. The mark's ice lights the days gone by the API's `evaluatedOn`,
-  all of a past month and none of a future one, a white notch named `hoy` marks today in the
-  current month, and the fire needle marks the presented release's day. A release known only to
-  its month, quarter or year spans the whole scale, dashed when it reaches beyond the month; one
-  outside the month gets a chevron at that end, and an unknown date a dashed ring named
-  `Por confirmar`. A day is never invented. From 1024px the G encloses the hero's copy at its
-  measured size, tablets centre it under the art, and phones keep it as a small emblem over the
-  art's lower edge. It is decorative: a visually hidden sentence states the same progress and day.
-- **The month strip.** Each other featured card shows the same month unrolled under its art: the
-  crossbar as its first upright tick, the elapsed days lit, the release's fire marker and its
-  compact date.
-- **Separate meanings.** Blue is elapsed time and fire the featured release's day; thermal colours
-  stay with score readings, and the scale never takes a temperature.
-- **A new day.** While the page stays open across midnight in `Europe/Madrid`, the featured
-  releases are read again, so the scale follows the API's new evaluated date; the browser's clock
-  only times that read.
+- *The G* is the mark's geometry: a ring opening to the upper right, a terminal just right of
+  the top and a crossbar from the right side toward the centre. Every application keeps that
+  kinship.
+- *The needle* points at a concrete value or event: a score on the G-meter, a release's day on
+  the temporal G or a scale. It is never decoration and never an award.
+- *The scale* represents time: the hero's temporal G or a compact month scale. Use it where a
+  calendar position means something, never as an ornament on screens without one.
+- *The G-meter and temperatures* read scores only, under
+  [product identity](#product-identity-and-thermal-language). Time scales never take a
+  temperature, and fire on a scale is never a hot score.
+- *The stage* is the art's own light, graded so the interface reads over it.
 
-Contradictions recorded until the owner decides:
+**The temporal G** is the represented month drawn in the owner-selected reference silhouette.
+Its outer and inner cubic Bézier rims are traced in one fixed SVG viewport; their midpoint
+curve supplies arc length, the temporal fill, ticks and markers. The compact, near-circular
+bowl, naturally curved bottom, open right side and integrated arm remain identical for every
+month, title, score set and viewport. Scaling always preserves both axes equally, including
+the phone emblem. [`month-dial-geometry.ts`](../../frontend/src/features/releases/month-dial-geometry.ts)
+owns the trace and arc-length sampling; there is no content-sized ellipse or superellipse.
+The copy occupies a separate reading zone, with a bounded title size. The canonical inset rectangle
+is fixed relative to the SVG viewport, clears the inner bowl and arm, and vertically centres the
+copy regardless of subtitle or scores. Titles stay inside its width; score sources use two compact
+columns. Content that exceeds the zone scales down proportionally to fit in full, without
+scrollbars, clipping or moving below the G. Phones retain the existing compact emblem with full-width copy beneath the art.
+The `Lanzamiento del mes` context sits outside the instrument's reading zone. The description and
+automatic selection message remain absent. The rail is a thinner blue band around the reference
+centreline, with feathered, barely visible rims, soft dark separation from the art and a fading arm. Day 1, every fifth day and
+the last day carry longer divisions; all divisions are centred within the band and inset from both
+rims. Quiet, unoutlined numerals sit outside it. The elapsed blue stays clearly visible on dark and
+bright art, including a complete past month. Days advance clockwise from just after the arm's
+corner to just before the top terminal, equally spaced by arc length for 28, 29, 30 and 31 days.
+One ice light fills the days gone by the API's `evaluatedOn` (`Europe/Madrid`), with a close, faint
+glow: all of a past month, up to today in the current month, none of a future one. A fine `hoy`
+notch marks today in the current month only. A tapered fire needle with a circular pivot and warm
+core, following the brand mark, marks the presented release's day in every phase; compact scales
+use the same blade-and-pivot language. A release known only to its month, quarter or year spans the
+scale, dashed when its interval reaches beyond the month; one outside the month gets a chevron at
+that end; an unknown date gets a dashed ring named `Por confirmar`. A day is never invented. The G
+is decorative: a visually hidden sentence states the same progress and day. While the page stays
+open across midnight in Madrid the selection is read again, so the scale follows the API's new
+date; the browser's clock only times that read.
 
-- [`AGENTS.md`](../../AGENTS.md) and the frontend skill make this guide the mandatory visual
-  authority; the owner suspended its aesthetic rules for this experiment only.
-- The shared header and footer change on every screen, while the other screens' own surfaces keep
-  glass, aurora and the night stage.
-- On Destacados, the approved featured-releases reference (#151) and the discovery-score
-  composition (#255 phase 2) are superseded visually; their data rules below still apply.
-- The browser checks in `frontend/tests/featured-design.spec.ts` assert the experiment's
-  composition from tablet width.
+**Compact month scales** unroll the same month in a line under a card: the crossbar as the first
+upright tick, the elapsed days in the same ice, today's notch, the release's fire needle and its
+compact date. They stay thinner and quieter than the titles and readings beside them.
+
+**Stage and art.** The game's art leads, at its own colours. Its blurred light tints the stage at
+a capped brightness, the art reaches full strength only clear of the copy, and a directional
+shade on the copy's side plus the G's dark face carry the text, so dark, bright, saturated and
+busy art all keep their character. A landscape image fills its frame weighted to its upper part;
+a panoramic banner, about 2.2:1 or wider by its own loaded ratio, keeps most of its width
+instead of a central crop; a `contain` image is shown whole over its own blurred light. Provider
+images are never stored, resampled or replaced.
+
+**Composition.** One hero, one G, one clear reading order, and the next section visible below.
+Light comes from the art and the instrument; both the enclosing G and the phone emblem animate
+the elapsed-time fill on entry, respecting reduced motion. Motion is one orchestrated entrance and the scroll
+parallax, opacity-only where a browser check measures, and nothing moves under reduced motion.
+Avoid generic patterns: purple or pink decorative gradients, aurora washes, glass panels for
+their own sake, neon or tube-like glows, permanent particles, dashboard chrome, orange buttons,
+and gauges, needles or G shapes without a value to show.
+
+**Where it applies.** Destacados, the header and the footer implement it now. The header's
+current section carries a short fire rule, and its search and controls sit on night with ice
+edges, not glass. Recientes, Próximos, search, the game page, Mis puntuaciones and the hosted
+identity screens keep the earlier language below until they are migrated. A migration adopts the
+families, the stage and the vocabulary where they carry meaning, and never forces a temporal G
+where no month is represented. Until then:
+
+- the rules below that call for glass, aurora fills, the lit serif accent, IBM Plex Mono kickers
+  or spark badges describe those screens only, and new work extends them no further;
+- the browser checks in `frontend/tests/featured-design.spec.ts` assert Destacados' identity
+  composition.
 
 ## Mandatory composition
 
 - Use the full-width header with the Gameómetro mark and wordmark, primary
   navigation, integrated catalogue search and the server-owned account control. It floats
-  over the page's stage on a soft scrim rather than a solid bar; navigation is a glass
-  segmented control whose current item carries the aurora fill, and search and account are
-  glass pills. Post-MVP (#151), the navigation is named **Lanzamientos** and holds
+  over the page's stage on a soft scrim rather than a solid bar, in the
+  [brand identity](#brand-identity): the current section carries a short fire rule, and search
+  and account sit on night with ice edges. Post-MVP (#151), the navigation is named **Lanzamientos** and holds
   **Destacados**, **Recientes** and **Próximos**; Destacados is the landing route. The account
   control provides `Mi cuenta`, `Mis puntuaciones` and CSRF-protected logout for an
   authenticated session. Post-MVP (#162), anonymous browsing also exposes primary
@@ -140,13 +175,14 @@ Contradictions recorded until the owner decides:
 ## Visual language and tokens
 
 - [Global styles](../../frontend/src/styles/index.css) own the executable semantic tokens,
-  shared dimensions and breakpoints, and the [foundation](../../frontend/src/styles/foundation.css)
-  owns the shared glass, glow, aurora and grain values. Use `canvas`, `surface`, `raised`,
-  `ink`, `muted`, `subtle`, `accent`, `aurora`, `line`, `warning` and `danger` roles through
-  those conventions instead of placing palette values in JSX.
-- Use a near-black ink-blue canvas, glass surfaces and one signature light: moonlit
-  periwinkle turning to aurora violet, used for the current navigation item, primary actions
-  and title accents. Scores speak the thermal language of [product identity](#product-identity-and-thermal-language)
+  shared dimensions and breakpoints, including the `night`, `ice` and `fire` brand families,
+  and the [foundation](../../frontend/src/styles/foundation.css) owns the shared glass, glow,
+  aurora and grain values. Use `canvas`, `surface`, `raised`, `ink`, `muted`, `subtle`,
+  `accent`, `aurora`, `line`, `warning` and `danger` roles and the brand families through those
+  conventions instead of placing palette values in JSX.
+- Screens not yet migrated to the [brand identity](#brand-identity) use a near-black ink-blue
+  canvas, glass surfaces and one signature light: moonlit periwinkle turning to aurora violet,
+  used for primary actions and title accents. Scores speak the thermal language of [product identity](#product-identity-and-thermal-language)
   instead. Otherwise warm light belongs to the art alone; `warning` stays reserved for review
   and lifecycle states.
 - Typography: Mona Sans is the interface and display family — its wide, heavy cut sets game
@@ -372,115 +408,83 @@ the executable values; these constraints hold wherever they are used:
 
 ## Featured releases
 
-Post-MVP (#151), **Destacados** follows the owner's approved featured-releases reference
-within this language. It opens on the release windows' night stage. The kicker
-**Selección del mes** shares a row with the month selector, one glass pill holding the
-previous-month link, the represented month beside a calendar mark and the next-month
-link; the current month is the landing route itself, and on the narrowest phones the
-pill wraps under the kicker. The selector offers only the months of the current calendar
-year, which the API's trusted date states: January's previous step and December's next
-step stay in place as disabled links (dimmed, announced as unavailable, outside the tab
-order), and the pill waits as a placeholder until a response states the current month. A
-requested month the API rejects, malformed or of another year, returns to the landing
-route; another year's selection is never presented. The only `h1`, **Lanzamientos _del mes_**, is set larger than
-the list titles, and beside it, after a hairline, a lit spark states the rule:
-"Selección automática según atención actual", or the date attention was last observed
-when the ranking is stale. Popularity is attention: never call a selection the best, a
-winner or a quality judgement, never show its value, and badge it with the spark, never
-a crown, trophy or medal.
+Post-MVP (#151), **Destacados** is the landing route and implements the
+[brand identity](#brand-identity). The heading is the only `h1`, **Lanzamientos del mes**, beside
+the month selector: the previous-month link, the represented month and the next-month link,
+with no caption and no selection note. The current month is the landing route itself. The
+selector offers only the months of the current calendar year, which the API's trusted date
+states: January's previous step and December's next step stay in place as disabled links
+(dimmed, announced as unavailable, outside the tab order), and the selector waits as a
+placeholder until a response states the current month. A requested month the API rejects,
+malformed or of another year, returns to the landing route; another year's selection is never
+presented. Popularity is attention: never call a selection the best, a winner or a quality
+judgement, never show its value, and mark the featured release with the fire needle, never a
+crown, trophy or medal. The response's selection state and freshness stay in the model; the page
+does not restate them as a note (owner decision, 2026-10-16).
 
-Every featured frame is landscape and shows the item's `featuredImage` as the contract
-says: a `fill` image is cropped to the frame, while a `contain` image, such as a portrait
-cover, is shown whole as a poster with its own corners, ring and glow over its own light,
-blown up and blurred. An image is never stretched, and a portrait cover is never cropped
-to landscape. When an image fails to load, a card's frame steps down to the provider
-cover shown whole, then to the product-owned landscape fallback; the hero steps down to
-the designed fallback and keeps its cover, shown whole, only as the last resort. The
-composition never breaks. Provider images are never resampled or stored.
+Every featured frame is landscape and shows the item's `featuredImage` as the contract says: a
+`fill` image is cropped to the frame, while a `contain` image, such as a portrait cover, is shown
+whole with its own corners over its own light, blown up and blurred. The hero frames a panoramic
+`fill` banner by its loaded ratio ([stage and art](#brand-identity)). An image is never stretched,
+and a portrait cover is never cropped to landscape. When an image fails to load, a card's frame
+steps down to the provider cover shown whole, then to the product-owned landscape fallback; the
+hero steps down to the designed fallback and keeps its cover, shown whole, only as the last
+resort. The composition never breaks.
 
-The hero is the month's featured release, cinematic. Key art keeps its subject clear of
-the logo space at its left, so the copy takes the hero's left and the landscape image
-spans the rest to the right edge, filling its frame without stretching, with a crop
-weighted toward the upper part of the frame, where key art keeps faces. The image fades
-in behind the copy without a hard panel edge and carries a light grade (a touch of
-contrast, a faint grain, shade at the top and the bottom, a soft vignette), so a bright
-illustration reads as lit key art and dark art keeps its detail. The whole card is lit by
-the same image, blurred and dimmed. On phones the art sits above the copy, and the badge
-and the title settle over its faded lower edge. Keep the rounded frame, quiet border and
-glow. A hero without landscape media shows the designed fallback, lit by the game's own
-cover, never the cover itself.
-
-The copy holds the **Lanzamiento del mes** badge, then always the canonical title as
-Gameómetro's own wordmark, never a provider logo. The name is set in Mona Sans' widest
-heavy cut, in capitals, cast in moonlit silver with a glint. The hero's image may tint
-that metal only through a blend that keeps every channel light, under a restrained
-shadow and lilac glow. A subtitle that the canonical title introduces with a colon or a
-spaced dash follows in the lit serif of the page's accents; the lockup drops that
-delimiter visually, while the heading's text and accessible name keep the canonical title
-exactly. The wordmark's size follows the name, so its longest word fits one line and the
-whole name three lines within a fixed range, with balanced and emergency wrapping. Then one
-meta row (the presented release's compact date, its platforms as marks separated by dots,
-with an unrecognized platform keeping its name, and its region). Up to two genres reuse the
-catalogue's localized product labels as quiet, non-interactive text. The existing localized summary
-follows as secondary copy, visually clamped to two lines on desktop and tablet and three on phones;
-the full content and language remain intact. Source and translation provenance remain in the
-model; discovery does not display technical translation/provider copy. The game page retains
-its discreet attribution. Missing
+The hero is the month's featured release. Its art spans the stage to the right edge and up
+behind the header on wide screens; the temporal G stands on the left and frames the copy. The
+copy holds the **Lanzamiento del mes** badge with the fire needle, then always the canonical
+title as Gameómetro's own wordmark, never a provider logo: Mona Sans' widest heavy cut, in
+capitals, cast in moonlit silver that the art may tint only through a blend that keeps every
+channel light. A subtitle that the canonical title introduces with a colon or a spaced dash
+follows in Mona Sans in ice; the lockup drops that delimiter visually, while the heading's text
+and accessible name keep the canonical title exactly. The wordmark's size follows the name so
+its longest word fits one line and the whole name a few lines within a fixed range. Then one
+meta row (the presented release's compact date, its platforms as marks, an unrecognized platform
+keeping its name, and its region), up to two localized genres as quiet text, and the score
+readings. The hero shows no summary: the game page owns it, and the response keeps it. Missing
 enrichment is omitted without invented values. Ordinary lifecycle and Full Release labels are
-absent; only exceptional delay, cancellation, unknown-date or pending-review notices carry a chip.
-The canonical title is the native game link, with its pointer target stretched over the
-rounded frame and its keyboard focus outlining that frame. The IGDB score attribution
-remains a separate native link above that target; links never nest. Metadata carries no
-controls beyond the score attribution. Further
-release dates retain their overflow control immediately below and outside the linked frame, so no
-interactive element nests inside the link. **Ver todos los lanzamientos** below opens the release
-lists. Developer, publisher and game modes stay absent from featured discovery.
+absent; only exceptional delay, cancellation, unknown-date or pending-review notices carry a
+chip. The canonical title is the native game link, its pointer target stretched over the hero,
+its keyboard focus outlining it, and pointing anywhere on it underlines the title. The IGDB score
+attribution remains a separate native link above that target; links never nest. Further
+release dates keep their overflow control immediately below and outside the linked frame.
+Developer, publisher and game modes stay absent from featured discovery.
 
-Post-MVP (#255 phase 2, implemented; awaiting owner review): the owner-supplied score
-mock is the composition reference for discovery alone. The hero places two equal,
-horizontal glass readings beneath its release metadata and genres and before the
-synopsis. Compact cards in all three discovery views place their readings side by
-side beneath the title and before platforms, at their natural widths. Featured cards
-use tighter spacing between the mark, value and count to fit both readings with
-three-digit counts on one line at the reference width without reducing logos or text.
-Only **Otros lanzamientos destacados** shows counts from 1000 as `+XK`, using whole
-thousands rounded down (`3548` becomes `+3K`); the exact count remains in the tooltip
-and accessible text. Sources wrap whole onto
-a second line only when the card cannot fit both legibly; within an
-especially narrow source, the count can move to the next line without shrinking or
-truncating its text. Omit each unavailable source and the whole block
-when neither has a valid mean and positive count; never invent an empty reading.
-Gameómetro reuses the existing G-meter, thermal bands and labels, while IGDB keeps
-neutral ink and its [locally served official mark](../../frontend/public/assets/providers/README.md).
-Both retain their /10 value and their own vote count, including one vote; compact
-counts expose the exact number to assistive technology. IGDB attribution links to
-that Game's source work and is named **Jugadores IGDB**. An external score has no
-Gameómetro temperature. On phones the hero keeps equal source columns that wrap
-labels and counts within the frame; compact readings do not widen the page.
+Score readings (#255 phase 2) are set as the instrument's readouts, without boxes: the G-meter
+or IGDB's [locally served official mark](../../frontend/public/assets/providers/README.md), the
+value with its /10 scale and the count beneath, the two sources side by side in the hero and
+beneath the title on cards. Only **Otros lanzamientos destacados** shows counts from 1000 as
+`+XK`, using whole thousands rounded down (`3548` becomes `+3K`); the exact count remains in the
+tooltip and accessible text. Sources wrap whole onto a second line only when they cannot fit
+legibly, never shrinking or truncating text. Omit each unavailable source and the whole block
+when neither has a valid mean and positive count; never invent an empty reading. Gameómetro
+reuses the G-meter, thermal bands and labels, while IGDB keeps neutral ink. Both retain their
+/10 value and their own vote count, including one vote. IGDB attribution links to that Game's
+source work and is named **Jugadores IGDB**. An external score has no Gameómetro temperature.
 
-**Otros lanzamientos _destacados_** follows, with **Ver todos los lanzamientos** (Recientes)
-and up to five wide artwork cards straight on the stage, not inside glass. Each card's
-landscape frame carries the date chip and context-selected media under `FEAT-003` in the
-[domain model](../architecture/domain/mvp-domain-model.md). A screenshot may carry the
-game's existing decorative logo; artwork is shown as it is. Keep the overlay restrained
-and centered cover cropping stable across breakpoints. Beneath the frame come the title on one line (its full text stays the link and
-its tooltip) as the only keyboard stop, then one release line with up to three platform
-marks, the exact `+N` and the region, then up to two localized genres and the overflow control.
-Cards omit summary, developer, publisher and game modes. Fewer games mean fewer
-cards. An unranked or empty month replaces the hero and the row with an informational or
-empty notice that names the month and links to Recientes.
+**Otros lanzamientos destacados** follows, with **Ver todos los lanzamientos** (Recientes) and up
+to five wide artwork cards straight on the stage. Each card's landscape frame carries the
+context-selected media under `FEAT-003` in the
+[domain model](../architecture/domain/mvp-domain-model.md); a screenshot may carry the game's
+existing decorative logo, and artwork is shown as it is. Beneath the frame come the compact
+month scale with the release's compact date, the title on one line (its full text stays the link
+and its tooltip) as the only keyboard stop, the readings, one release line with up to three
+platform marks, the exact `+N` and the region, then up to two localized genres and the overflow
+control. Pointing at a card's art or title lights and underlines its title link. Cards omit
+summary, developer, publisher and game modes. Fewer games mean fewer cards. An unranked or empty
+month replaces the hero and the row with an informational or empty notice that names the month
+and links to Recientes.
 
-From 1024px the copy and the art share the hero, sized so the hero and the whole row open
-within 1320×900, and the row of cards has five columns. Tablets keep both sides with the
-art starting further right, so the title never sits on its brightest part, space the meta
-row instead of dividing it, and lay the row in three columns. Phones stack the 16:9 art
-over the copy, with the badge and the title over its faded edge, and retain the whole frame
-as the game link. Their meta row sets the date, the platforms and the region as three groups
-spread across one row whenever they fit, the platforms in the cards' compact form (the
-first two marks and the exact `+N`, every name still announced); a group that cannot fit
-moves whole to a second row, so no group ever breaks or shrinks. Below 480px each card
-takes the full column. Forced colours keep the art beside or above the copy, never behind
-it.
+From 1024px the G and the art share the hero, and the row has five columns; at 1440×900 and
+1320×900 the hero and the whole row open within the first view. Tablets put the art above the G,
+which stands centred over its faded lower edge, and lay the row in three columns. Phones stack
+the 16:9 art over the copy, keep the G as a small emblem over the art's lower corner, and retain
+the whole frame as the game link. Their meta row sets the date, the platforms and the region as
+three groups spread across one row whenever they fit, the platforms in the cards' compact form
+(the first two marks and the exact `+N`, every name still announced); a group that cannot fit
+moves whole to a second row, so no group ever breaks or shrinks. Below 480px each card takes the
+full column. Forced colours keep the art beside or above the copy, never behind it.
 
 ## Public game details
 

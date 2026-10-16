@@ -72,7 +72,6 @@ export type FeaturedWordmark = {
  * provider cover only as the last resort when nothing else loads.
  */
 export type FeaturedLead = FeaturedItem & {
-  summary: NonNullable<FeaturedResponseItem["summary"]> | null;
   /** Only exceptional lifecycle, date uncertainty and review notices. */
   facts: string[];
   wordmark: FeaturedWordmark;
@@ -256,7 +255,6 @@ function toFeaturedLead(item: FeaturedResponseItem, month: string): FeaturedLead
     ...toFeaturedItem(item, month),
     art: [...landscape, fallbackArt(item.canonicalTitle), ...lastResort],
     facts: facts(item.releases[0]),
-    summary: item.summary ?? null,
     wordmark: toWordmark(item.canonicalTitle),
     lightUrl: landscape[0]?.compactUrl ?? lastResort[0]?.url ?? FEATURED_FALLBACK_URL,
   };

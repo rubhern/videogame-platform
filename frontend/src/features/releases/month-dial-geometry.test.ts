@@ -1,73 +1,53 @@
 import { describe, expect, it } from "vitest";
 
-import { dialGeometry, encloseDial } from "./month-dial-geometry";
+import { MONTH_DIAL_GEOMETRY as geometry } from "./month-dial-geometry";
+import { scalePosition } from "./month-timeline";
 
-const shape = { cx: 300, cy: 240, a: 260, b: 190, exponent: 3.2, band: 28, bar: 40 };
-
-describe("month dial geometry", () => {
-  it("opens with the crossbar reaching inside the G before day 1", () => {
-    const geometry = dialGeometry(shape);
-    const barStart = geometry.pointAt(0);
-    const corner = geometry.pointAt(geometry.barLength);
-    // The bar runs level, from inside the bowl out to the G's right side, like the brand mark.
-    expect(barStart.y).toBeCloseTo(shape.cy);
-    expect(corner.y).toBeCloseTo(shape.cy);
-    expect(corner.x).toBeCloseTo(shape.cx + shape.a);
-    expect(barStart.x).toBeCloseTo(shape.cx + shape.a - shape.band / 2 - shape.bar);
+describe("reference-traced month dial", () => {
+  it("keeps the reference arm and terminal rather than closing the ring", () => {
+    expect(geometry.pointAt(0)).toMatchObject({ x: 343, y: 205.5 });
+    expect(geometry.pointAt(geometry.barLength)).toMatchObject({ x: 417.5, y: 205.5 });
+    expect(geometry.pointAt(geometry.length)).toMatchObject({ x: 260, y: 38 });
     expect(geometry.scaleStart).toBeGreaterThan(geometry.barLength);
+    expect(geometry.scaleEnd).toBeLessThan(geometry.length);
   });
 
-  it("runs clockwise from the crossbar and stops short of a closed ring, as a G does", () => {
-    const geometry = dialGeometry(shape);
-    const quarter = geometry.pointAt(geometry.scaleStart + (geometry.scaleEnd - geometry.scaleStart) * 0.2);
-    // Going down the right side first: clockwise on screen.
-    expect(quarter.y).toBeGreaterThan(shape.cy);
-    const terminal = geometry.pointAt(geometry.length);
-    // The terminal ends at the top, right of the centre, leaving the mouth open to the upper right.
-    expect(terminal.y).toBeLessThan(shape.cy - shape.b * 0.9);
-    expect(terminal.x).toBeGreaterThan(shape.cx);
-    expect(terminal.x).toBeLessThan(shape.cx + shape.a * 0.4);
-  });
-
-  it("spaces equal stretches of time as equal lengths of the band", () => {
-    const geometry = dialGeometry(shape);
-    const days = 31;
-    const positions = Array.from({ length: days }, (_, index) =>
-      geometry.pointAt(geometry.scaleStart + ((geometry.scaleEnd - geometry.scaleStart) * index) / (days - 1)),
+  it("has a curved lower bowl instead of the old flattened superellipse", () => {
+    const points = Array.from({ length: 1001 }, (_, index) =>
+      geometry.pointAt(geometry.barLength + (geometry.length - geometry.barLength) * index / 1000),
     );
-    const steps = positions.slice(1).map((point, index) => {
-      const previous = positions[index];
-      return previous === undefined ? 0 : Math.hypot(point.x - previous.x, point.y - previous.y);
-    });
-    // Chords of equal arcs: nearly equal along gentle curves, never off by a visible amount.
-    expect(Math.max(...steps) - Math.min(...steps)).toBeLessThan(1.5);
-  });
-
-  it("points every normal away from the bowl", () => {
-    const geometry = dialGeometry(shape);
-    for (const fraction of [0, 0.25, 0.5, 0.75, 1]) {
-      const point = geometry.pointAt(geometry.scaleStart + (geometry.scaleEnd - geometry.scaleStart) * fraction);
-      const outward = (point.x - shape.cx) * point.nx + (point.y - shape.cy) * point.ny;
-      expect(outward).toBeGreaterThan(0);
+    const lowest = points.reduce((a, b) => a.y > b.y ? a : b);
+    expect(lowest.x).toBeCloseTo(250.5, -1);
+    expect(lowest.y).toBeCloseTo(342.5, 1);
+    // Reference landmarks: the lower arc rises on both sides of its single minimum.
+    for (const x of [160, 340]) {
+      const side = points.filter((p) => Math.abs(p.x - x) < 1 && p.y > 200);
+      expect(side.length).toBeGreaterThan(0);
+      expect(Math.max(...side.map((p) => p.y))).toBeLessThan(lowest.y - 15);
     }
   });
 
-  it("encloses a copy block of any size inside the bowl, clear of the crossbar", () => {
-    for (const [width, height] of [[450, 250], [450, 340], [400, 420], [420, 180]] as const) {
-      const dial = encloseDial(width, height);
-      const { a, b, exponent, band, bar } = dial.shape;
-      const innerA = a - band / 2;
-      const innerB = b - band / 2;
-      // Every corner of the copy stays inside the band's inner edge.
-      const corner = (width / 2 / innerA) ** exponent + (height / 2 / innerB) ** exponent;
-      expect(corner).toBeLessThan(1);
-      // The crossbar's tip stops before the copy's right edge.
-      expect(innerA - bar).toBeGreaterThan(width / 2);
-      // The copy sits centred in the dial's box, which reserves room for the labels outside.
-      expect(dial.width / 2 - dial.padX).toBeCloseTo(width / 2);
-      expect(dial.height / 2 - dial.padY).toBeCloseTo(height / 2);
-      // A short copy never flattens the G into a band: it keeps a recognisable bowl.
-      expect(innerB / innerA).toBeGreaterThanOrEqual(0.6);
+  it.each([28, 29, 30, 31])("places %i days at equal distances along the same curve", (days) => {
+    const positions = Array.from({ length: days }, (_, index) =>
+      geometry.pointAt(geometry.scaleStart + (geometry.scaleEnd - geometry.scaleStart) * scalePosition(index + 1, days)),
+    );
+    const chords = positions.slice(1).map((p, index) => {
+      const previous = positions[index];
+      if (previous === undefined) throw new Error("Missing previous day");
+      return Math.hypot(p.x - previous.x, p.y - previous.y);
+    });
+    expect(Math.max(...chords) - Math.min(...chords)).toBeLessThan(0.4);
+    expect(positions[0]).toEqual(geometry.pointAt(geometry.scaleStart));
+    expect(positions.at(-1)).toEqual(geometry.pointAt(geometry.scaleEnd));
+  });
+
+  it("keeps normals unit length and outward across all three Bezier sections", () => {
+    for (let index = 0; index <= 100; index += 1) {
+      const p = geometry.pointAt(geometry.scaleStart + (geometry.scaleEnd - geometry.scaleStart) * index / 100);
+      expect(Math.hypot(p.nx, p.ny)).toBeCloseTo(1, 8);
+      expect((p.x - 245) * p.nx + (p.y - 193) * p.ny).toBeGreaterThan(0);
+      expect(p.half).toBeGreaterThan(5.5);
+      expect(p.half).toBeLessThan(14);
     }
   });
 });

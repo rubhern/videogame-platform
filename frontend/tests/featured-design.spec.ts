@@ -129,7 +129,7 @@ for (const width of [320, 390, 834, 1320]) {
 
     // Supporting metadata stays comfortably readable on its glass.
     const sizes = await page
-      .locator(".featured-note, .featured-chip, .featured-card-release, .card-date-badge, .featured-badge")
+      .locator(".featured-chip, .featured-card-release, .card-date-badge, .featured-badge")
       .evaluateAll((elements) => elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize)));
     expect(Math.min(...sizes)).toBeGreaterThanOrEqual(11);
 
@@ -139,7 +139,7 @@ for (const width of [320, 390, 834, 1320]) {
     if (width >= 1024) {
       // On wide screens the copy takes the hero's left, inside the temporal G, and the art spans
       // the rest to the hero's right edge and beyond.
-      expect(body?.x ?? 1).toBeLessThan((card?.x ?? 0) + (card?.width ?? 0) * 0.1);
+      expect(body?.x ?? 1).toBeLessThan((card?.x ?? 0) + (card?.width ?? 0) * 0.2);
       expect((visual?.x ?? 0) + (visual?.width ?? 0)).toBeGreaterThanOrEqual(
         (card?.x ?? 0) + (card?.width ?? 0) - 1,
       );
@@ -209,19 +209,12 @@ for (const width of [320, 390, 834, 1320]) {
     const action = hero.getByRole("link", { name: LEAD, exact: true });
     await expect(action).toHaveCount(1);
     await expect(action.locator("a, button, input, select, summary, [tabindex]")).toHaveCount(0);
-    const summary = hero.locator(".featured-hero-summary");
-    await expect(summary).toHaveText(SUMMARY);
-    await expect(summary).toHaveAttribute("lang", "es");
-    await expect(summary).toHaveCSS("-webkit-line-clamp", width < 620 ? "3" : "2");
-    const textHeight = await summary.evaluate((element) => ({
-      shown: element.clientHeight, full: element.scrollHeight,
-      line: Number.parseFloat(getComputedStyle(element).lineHeight),
-    }));
-    expect(textHeight.full).toBeGreaterThan(textHeight.shown);
-    expect(Math.abs(textHeight.shown - textHeight.line * (width < 620 ? 3 : 2))).toBeLessThan(2);
+    // The summary stays in the response and on the game page; the featured hero leaves it out.
+    await expect(hero.getByText(SUMMARY.trim().slice(0, 40))).toHaveCount(0);
+    // The heading is the title and the month selector alone.
+    await expect(page.getByText(/Selección del mes|Selección automática/)).toHaveCount(0);
     await expect(hero.getByRole("list", { name: "Géneros" })).toHaveText("AventuraRol (RPG)");
     await expect(others.locator(".featured-card-genres")).toHaveCount(5);
-    await expect(others.locator(".featured-hero-summary")).toHaveCount(0);
     await expect(hero.getByText("Publicado", { exact: true })).toHaveCount(0);
     await expect(hero.getByText("Lanzamiento completo", { exact: true })).toHaveCount(0);
     await expect(hero.getByText("Ver ficha", { exact: true })).toHaveCount(0);
@@ -454,7 +447,7 @@ for (const state of ["loading", "unranked", "empty", "error"] as const) {
 }
 
 for (const forcedColors of ["none", "active"] as const) {
-  test(`featured link and summary preserve focus under reduced motion and forced colours ${forcedColors}`, async ({ page }) => {
+  test(`featured link preserves focus under reduced motion and forced colours ${forcedColors}`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width: 390, height: 844 });
     await scriptFeatured(page, new Set(), (month) => ({ ...month, items: month.items.map((item, index) => index === 0 ? {
@@ -470,8 +463,188 @@ for (const forcedColors of ["none", "active"] as const) {
     await page.keyboard.press("Tab");
     await expect(link).toBeFocused();
     await expect(page.locator(".featured-hero")).toHaveCSS("outline-style", "solid");
-    await expect(page.locator(".featured-hero-summary")).toHaveCSS("-webkit-line-clamp", "3");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath(`featured-forced-${forcedColors}.png`), fullPage: true });
+  });
+}
+
+// Fixed reference geometry is a product requirement: the browser's own SVG measurement is
+// independent evidence for the numerical arc-length table used by the temporal markers.
+test("reference G keeps its silhouette across content, month lengths and viewports", async ({ page }) => {
+  const { MONTH_DIAL_GEOMETRY: geometry } = await import("../src/features/releases/month-dial-geometry");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: false } }));
+  let title = "Phantom Blade Zero";
+  let month = "2026-10";
+  await page.route("**/api/v1/featured-releases*", (route) => route.fulfill({ json: featuredReleases({
+    month,
+    evaluatedOn: `${month}-16`,
+    window: { from: `${month}-01`, to: `${month}-${new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate()}` },
+    items: [featuredItem(1, title, { precision: "day", value: `${month}-20` })],
+  }) }));
+  let baseline = "";
+  for (const width of [320, 390, 834, 1320]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const scenario of [
+      ["2026-02", "Phantom Blade Zero"],
+      ["2028-02", LEAD],
+      ["2026-04", "A very long title ".repeat(14)],
+      ["2026-10", "Phantom Blade Zero"],
+    ] as const) {
+      [month, title] = scenario;
+      await page.goto(`/?month=${month}`);
+      const dial = page.locator(width < 620 ? ".featured-dial-emblem" : ".featured-dial-g");
+      await expect(dial).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      const outline = await dial.locator(".month-dial-track").getAttribute("d");
+      baseline ||= outline ?? "";
+      expect(outline).toBe(baseline);
+      await expect(dial).toHaveAttribute("viewBox", "0 0 450 382");
+      const box = await dial.boundingBox();
+      expect((box?.width ?? 0) / (box?.height ?? 1)).toBeCloseTo(450 / 382, 3);
+      const measured = await dial.locator(".month-dial-progress").evaluate((element) => {
+        const path = element as SVGPathElement;
+        return { length: path.getTotalLength(), points: Array.from({ length: 61 }, (_, index) => {
+          const p = path.getPointAtLength(path.getTotalLength() * index / 60);
+          return { x: p.x, y: p.y };
+        }) };
+      });
+      expect(Math.abs(measured.length - geometry.length)).toBeLessThan(0.02);
+      for (const [index, point] of measured.points.entries()) {
+        const calculated = geometry.pointAt(geometry.length * index / 60);
+        expect(Math.hypot(point.x - calculated.x, point.y - calculated.y)).toBeLessThan(0.03);
+      }
+      // Dense content stays inside the fixed reading zone, without viewport overflow.
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
+      if (width >= 620) {
+        const bounds = await page.locator(".featured-hero-body").evaluate((body) => {
+          const dial = document.querySelector(".featured-dial-g");
+          if (dial === null) throw new Error("Missing temporal G");
+          const g = dial.getBoundingClientRect();
+          const b = body.getBoundingClientRect();
+          return { left: (b.left - g.left) * 450 / g.width, right: (b.right - g.left) * 450 / g.width,
+            top: (b.top - g.top) * 450 / g.width, bottom: (b.bottom - g.top) * 450 / g.width,
+            horizontalOverflow: body.scrollWidth - body.clientWidth };
+        });
+        expect(bounds.left).toBeCloseTo(145, 0);
+        expect(bounds.right).toBeCloseTo(335, 0);
+        expect(bounds.top).toBeGreaterThanOrEqual(94.9);
+        expect(bounds.bottom).toBeLessThanOrEqual(290.1);
+        expect(bounds.horizontalOverflow).toBe(0);
+        const overflow = await page.locator(".featured-hero-body").evaluate((body) => ({
+          y: body.scrollHeight - body.clientHeight, css: getComputedStyle(body).overflowY,
+        }));
+        expect(overflow.y).toBeLessThanOrEqual(1);
+        expect(overflow.css).toBe("visible");
+      }
+    }
+    await page.screenshot({ path: test.info().outputPath(`reference-g-${width}.png`), fullPage: true });
+  }
+});
+
+// Regression cases for the approved refinement. Controlled content makes layout failures
+// reproducible; the handoff captures additionally use the three real private-dev responses.
+for (const width of [390, 834, 1320]) {
+  test(`hero reading zone contains release metadata and scores at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await scriptFeatured(page, new Set(), (data) => {
+      const month = data.month;
+      const title = month === "2026-07" ? "Assassin's Creed Black Flag Resynced" :
+        month === "2026-10" ? "Phantom Blade Zero" : month === "2026-09"
+          ? "Marvel's Wolverine" : "Resonance: A Plague Tale Legacy";
+      const day = month === "2026-07" ? 9 : month === "2026-10" ? 29 : month === "2026-09" ? 15 : 27;
+      const lead = featuredItem(1, title, { precision: "day", value: `${month}-${day}` },
+        month === "2026-09" ? [["playstation-5", "PlayStation 5"]] :
+          [["playstation-5", "PlayStation 5"], ["windows-pc", "Windows PC"], ["xbox-series-x-s", "Xbox Series X|S"]]);
+      if (month === "2026-07") lead.scores = { community: { status: "available", mean: 7, count: 1 } };
+      if (month === "2026-09") lead.scores = {
+        community: { status: "available", mean: 6, count: 1 },
+        external: { source: "igdb", kind: "player", value: 7.5, scale: 10, count: 43,
+          attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/marvels-wolverine" },
+          observedAt: "2026-10-15T00:00:00Z", providerRecordUpdatedAt: null },
+      };
+      return { ...data, evaluatedOn: "2026-10-16", items: [{ ...lead,
+        genres: [{ genreId: "adventure", name: "Aventura" }, { genreId: "hack", name: "Hack and slash" }],
+      }] };
+    });
+    let centre: number | null = null;
+    for (const month of ["2026-07", "2026-10", "2026-09", "2026-08"]) {
+      await page.goto(`/?month=${month}`);
+      const body = page.locator(".featured-hero-body");
+      await expect(body).toBeVisible();
+      await page.evaluate(() => document.fonts.ready);
+      await expect(body.getByText("Lanzamiento del mes")).toHaveCount(0);
+      await expect(page.locator(".featured-badge")).toBeVisible();
+      await expect(body.getByRole("list", { name: /^Puntuaciones de/ })).toHaveCount(month === "2026-09" || month === "2026-07" ? 1 : 0);
+      const box = await body.boundingBox();
+      if (box === null) throw new Error("Missing hero copy");
+      if (width >= 620) {
+        const g = await page.locator(".featured-dial-g").boundingBox();
+        if (g === null) throw new Error("Missing temporal G");
+        const current = box.y + box.height / 2 - g.y;
+        centre ??= current;
+        expect(current).toBeCloseTo(centre, 0);
+        const overflow = await body.evaluate((element) => ({ x: element.scrollWidth - element.clientWidth,
+          y: element.scrollHeight - element.clientHeight }));
+        expect(overflow).toEqual({ x: 0, y: 0 });
+        expect(box.x).toBeCloseTo(g.x + g.width * 145 / 450, 0);
+        expect(box.y).toBeGreaterThanOrEqual(g.y + g.width * 95 / 450 - 1);
+        expect(box.y + box.height).toBeLessThanOrEqual(g.y + g.width * 290 / 450 + 1);
+        const badge = await page.locator(".featured-badge").boundingBox();
+        expect((badge?.y ?? 0) + (badge?.height ?? 0)).toBeLessThan(g.y + g.width * 27 / 450);
+        // Check the painted geometry, not just its enclosing SVG box: every tick endpoint lies
+        // strictly within the band, rather than touching a rim or protruding beyond it.
+        const centredTicks = await page.locator(".featured-dial-g").evaluate((svg) => {
+          const band = svg.querySelector<SVGPathElement>(".month-dial-track");
+          if (band === null) throw new Error("Missing band");
+          return [...svg.querySelectorAll<SVGPathElement>(".month-dial-ticks")].every((path) => {
+            const points = [...(path.getAttribute("d") ?? "").matchAll(/[ML](-?[\d.]+) (-?[\d.]+)/g)];
+            return points.every((p) => band.isPointInFill(new DOMPoint(Number(p[1]), Number(p[2]))));
+          });
+        });
+        expect(centredTicks).toBe(true);
+      }
+      await expectAccessibleLayout(page);
+    }
+  });
+}
+
+for (const reducedMotion of ["no-preference", "reduce"] as const) {
+  test(`phone G animates elapsed time and respects reduced motion ${reducedMotion}`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion });
+    await scriptFeatured(page, new Set(), (data) => ({ ...data, evaluatedOn: "2026-10-16" }));
+    for (const month of ["2026-07", "2026-10", "2026-11"]) {
+      await page.goto(`/?month=${month}`);
+      const emblem = page.locator(".featured-dial-emblem");
+      await expect(emblem).toBeVisible();
+      const progress = emblem.locator(".month-dial-progress");
+      if (month === "2026-11") {
+        await expect(progress).toHaveCount(0);
+        continue;
+      }
+      if (reducedMotion === "reduce") {
+        await expect(progress).toHaveCSS("animation-name", "none");
+      } else {
+        // Scrub the actual CSS animation to prove a changing painted arc, rather than just
+        // checking an animation name; a complete past month must also fill progressively.
+        const readings = await progress.evaluate(async (element) => {
+          const animation = element.getAnimations().find((candidate) =>
+            candidate instanceof CSSAnimation && candidate.animationName === "dial-light");
+          if (animation === undefined) throw new Error("Phone fill animation is missing");
+          animation.pause();
+          const stroke = async (time: number) => {
+            animation.currentTime = time;
+            await new Promise(requestAnimationFrame);
+            return Number.parseFloat(getComputedStyle(element).strokeDasharray);
+          };
+          return { start: await stroke(0), middle: await stroke(890), end: await stroke(1540) };
+        });
+        expect(readings.start).toBe(0);
+        expect(readings.middle).toBeGreaterThan(0);
+        expect(readings.end).toBeGreaterThan(readings.middle);
+      }
+    }
   });
 }

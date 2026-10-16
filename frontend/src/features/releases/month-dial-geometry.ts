@@ -1,77 +1,102 @@
 /**
- * Geometry of the temporal G, drawn from the brand mark: one stroke that starts with a crossbar
- * inside the bowl, turns down at the G's right side and runs clockwise to a terminal at the top,
- * leaving the mouth open to the upper right. The bowl is a superellipse, so it can hold a block of
- * copy while keeping the mark's round shoulders, and every position on it is measured along the
- * band, so equal stretches of time take equal lengths of the G.
+ * Fixed tracing of the owner-approved temporal G reference (525 × 382 raster).
+ * Coordinates are reference pixels, retained in a 450 × 382 viewBox. The outer and inner
+ * cubic rims define one band; their midpoint defines the temporal path. Neither content,
+ * calendar state nor viewport dimensions are inputs to this geometry.
  */
+type Point = readonly [number, number];
+type Cubic = readonly [Point, Point, Point, Point];
 
-export type DialShape = {
-  /** Centre of the bowl. */
-  cx: number;
-  cy: number;
-  /** Half extents of the band's centreline. */
-  a: number;
-  b: number;
-  /** Superellipse exponent: 2 is an ellipse, higher values square the shoulders. */
-  exponent: number;
-  /** Band thickness. */
-  band: number;
-  /** How far the crossbar reaches inside the band's inner edge. */
-  bar: number;
-};
+export const DIAL_VIEWBOX = "0 0 450 382";
+export const DIAL_WIDTH = 450;
+export const DIAL_HEIGHT = 382;
 
-/** A point on the stroke's centreline with the unit normal that points away from the bowl. */
-export type DialPoint = { x: number; y: number; nx: number; ny: number };
+/** Clockwise from the right-hand corner: lower right, lower left, upper left. */
+const REFERENCE_RIMS = [
+  [[[432.0, 199.0], [418.157, 291.287], [351.643, 356.0], [251.0, 356.0]], [[403.0, 212.0], [391.789, 286.742], [328.362, 329.0], [250.0, 329.0]]],
+  [[[251.0, 356.0], [135.424, 356.0], [59.0, 277.742], [59.0, 193.0]], [[250.0, 329.0], [162.466, 329.0], [89.0, 274.277], [89.0, 194.0]]],
+  [[[59.0, 193.0], [59.0, 89.466], [148.757, 15.876], [260.0, 27.0]], [[89.0, 194.0], [89.0, 103.075], [167.237, 39.724], [260.0, 49.0]]],
+] as const satisfies readonly (readonly [Cubic, Cubic])[];
+// Refine the reference band around its existing centreline; the silhouette, day positions
+// and arc length stay independent of both content and calendar state.
+const BAND_SHARE = 0.56;
+const RIMS: readonly (readonly [Cubic, Cubic])[] = REFERENCE_RIMS.map(([outer, inner]) => {
+  const rim = (sign: number): Cubic => {
+    const at = (index: number): Point => {
+      const point = sampleAt<Point>(outer, index);
+      const other = sampleAt<Point>(inner, index);
+      return [(point[0] + other[0]) / 2 + sign * (point[0] - other[0]) * BAND_SHARE / 2,
+        (point[1] + other[1]) / 2 + sign * (point[1] - other[1]) * BAND_SHARE / 2];
+    };
+    return [at(0), at(1), at(2), at(3)];
+  };
+  return [rim(1), rim(-1)];
+});
+const ARM_OUTER: Point = [343, 205.5 - 6.5 * BAND_SHARE];
+const ARM_INNER: Point = [343, 205.5 + 6.5 * BAND_SHARE];
+const SAMPLES_PER_CURVE = 256;
+const round = (value: number) => Math.round(value * 1000) / 1000;
+const pair = (point: Point) => `${point[0]} ${point[1]}`;
+const command = (curve: Cubic) => `C${curve.slice(1).map(pair).join(" ")}`;
+const midpoint = (a: Point, b: Point): Point => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+
+function cubic(curve: Cubic, t: number): Point {
+  const u = 1 - t;
+  const coordinate = (axis: 0 | 1) =>
+    u ** 3 * curve[0][axis] + 3 * u * u * t * curve[1][axis] +
+    3 * u * t * t * curve[2][axis] + t ** 3 * curve[3][axis];
+  return [coordinate(0), coordinate(1)];
+}
+
+export type DialPoint = { x: number; y: number; nx: number; ny: number; half: number };
 
 export type DialGeometry = {
-  /** The whole stroke: crossbar, then the bowl to its terminal. */
+  /** The closed, traced silhouette used by every visible band layer. */
+  outline: string;
+  /** The centreline used to measure distance, progress and every day's position. */
   path: string;
   length: number;
-  /** Where the crossbar meets the G's right side. */
   barLength: number;
-  /** Arc lengths of the first and the last day of the month. */
   scaleStart: number;
   scaleEnd: number;
   pointAt: (distance: number) => DialPoint;
-  /** A line alongside the stroke, `offset` away from its centreline, between two arc lengths. */
   alongside: (from: number, to: number, offset: number) => string;
 };
 
-/** The terminal stops a fifth of the half-width right of the centre, as the mark's terminal does. */
-const TERMINAL_X = 0.2;
-const SAMPLES = 240;
-
-type Point = { x: number; y: number };
-
-function onBowl(shape: DialShape, turn: number): Point {
-  const cos = Math.cos(turn);
-  const sin = Math.sin(turn);
-  const power = 2 / shape.exponent;
-  return {
-    x: shape.cx + shape.a * Math.sign(cos) * Math.abs(cos) ** power,
-    y: shape.cy + shape.b * Math.sign(sin) * Math.abs(sin) ** power,
-  };
+/** Sample indices are bounded by construction; fail explicitly if the trace is edited wrongly. */
+function sampleAt<T>(samples: readonly T[], index: number): T {
+  const sample = samples[index];
+  if (sample === undefined) throw new Error("Temporal G sample index is out of bounds");
+  return sample;
 }
 
-const round = (value: number) => Math.round(value * 100) / 100;
-
-export function dialGeometry(shape: DialShape): DialGeometry {
-  // Screen coordinates grow downwards, so increasing turns run clockwise from the crossbar.
-  const terminalTurn = 2 * Math.PI - Math.acos(TERMINAL_X ** (shape.exponent / 2));
-  const points: Point[] = [{ x: shape.cx + shape.a - shape.band / 2 - shape.bar, y: shape.cy }];
-  for (let index = 0; index <= SAMPLES; index += 1) {
-    points.push(onBowl(shape, (terminalTurn * index) / SAMPLES));
+function buildGeometry(): DialGeometry {
+  const first = sampleAt(RIMS, 0);
+  const last = sampleAt(RIMS, 2);
+  const centreCurves = RIMS.map(([outer, inner]) =>
+    [midpoint(outer[0], inner[0]), midpoint(outer[1], inner[1]),
+      midpoint(outer[2], inner[2]), midpoint(outer[3], inner[3])] as Cubic,
+  );
+  const arm = midpoint(ARM_OUTER, ARM_INNER);
+  const points: Point[] = [arm];
+  const widths: number[] = [ARM_INNER[1] - ARM_OUTER[1]];
+  for (const [outer, inner] of RIMS) {
+    for (let index = 0; index <= SAMPLES_PER_CURVE; index += 1) {
+      if (index === 0 && points.length > 1) continue;
+      const a = cubic(outer, index / SAMPLES_PER_CURVE);
+      const b = cubic(inner, index / SAMPLES_PER_CURVE);
+      points.push(midpoint(a, b));
+      widths.push(Math.hypot(a[0] - b[0], a[1] - b[1]));
+    }
   }
-
   const lengths = [0];
   for (let index = 1; index < points.length; index += 1) {
-    const from = points[index - 1] as Point;
-    const to = points[index] as Point;
-    lengths.push((lengths[index - 1] ?? 0) + Math.hypot(to.x - from.x, to.y - from.y));
+    const from = sampleAt(points, index - 1);
+    const to = sampleAt(points, index);
+    lengths.push(sampleAt(lengths, index - 1) + Math.hypot(to[0] - from[0], to[1] - from[1]));
   }
-  const length = lengths[lengths.length - 1] ?? 0;
-  const barLength = lengths[1] ?? 0;
+  const length = sampleAt(lengths, lengths.length - 1);
+  const barLength = sampleAt(lengths, 1);
 
   function pointAt(distance: number): DialPoint {
     const target = Math.min(Math.max(distance, 0), length);
@@ -79,22 +104,20 @@ export function dialGeometry(shape: DialShape): DialGeometry {
     let high = lengths.length - 1;
     while (high - low > 1) {
       const middle = (low + high) >> 1;
-      if ((lengths[middle] ?? 0) <= target) low = middle;
+      if (sampleAt(lengths, middle) <= target) low = middle;
       else high = middle;
     }
-    const from = points[low] as Point;
-    const to = points[high] as Point;
-    const span = (lengths[high] ?? 0) - (lengths[low] ?? 0);
-    const share = span === 0 ? 0 : (target - (lengths[low] ?? 0)) / span;
-    const chord = Math.hypot(to.x - from.x, to.y - from.y) || 1;
-    const tangentX = (to.x - from.x) / chord;
-    const tangentY = (to.y - from.y) / chord;
-    // Turning the clockwise tangent a quarter turn anticlockwise points out of the bowl.
+    const from = sampleAt(points, low);
+    const to = sampleAt(points, high);
+    const span = sampleAt(lengths, high) - sampleAt(lengths, low);
+    const share = span === 0 ? 0 : (target - sampleAt(lengths, low)) / span;
+    const chord = Math.hypot(to[0] - from[0], to[1] - from[1]) || 1;
     return {
-      x: from.x + (to.x - from.x) * share,
-      y: from.y + (to.y - from.y) * share,
-      nx: tangentY,
-      ny: -tangentX,
+      x: from[0] + (to[0] - from[0]) * share,
+      y: from[1] + (to[1] - from[1]) * share,
+      nx: (to[1] - from[1]) / chord,
+      ny: -(to[0] - from[0]) / chord,
+      half: (sampleAt(widths, low) + (sampleAt(widths, high) - sampleAt(widths, low)) * share) / 2,
     };
   }
 
@@ -107,65 +130,20 @@ export function dialGeometry(shape: DialShape): DialGeometry {
     }
     return line;
   }
-
   return {
-    path: points.map((point, index) => `${index === 0 ? "M" : "L"}${round(point.x)} ${round(point.y)}`).join(""),
+    outline: `M${pair(ARM_OUTER)}L${pair(first[0][0])}` +
+      RIMS.map(([outer]) => command(outer)).join("") + `L${pair(last[1][3])}` +
+      [...RIMS].reverse().map(([, inner]) => command([inner[3], inner[2], inner[1], inner[0]])).join("") +
+      `L${pair(ARM_INNER)}Z`,
+    path: `M${pair(arm)}L${pair(sampleAt(centreCurves, 0)[0])}` + centreCurves.map(command).join(""),
     length,
     barLength,
-    // Day 1 sits just past the corner the crossbar makes with the right side; the last day sits
-    // just before the terminal's cut, so no tick lands on an edge.
-    scaleStart: barLength + shape.band / 2 + 3,
-    scaleEnd: length - 4,
+    scaleStart: barLength + 18,
+    scaleEnd: length - 5,
     pointAt,
     alongside,
   };
 }
 
-/** Proportions of the G that holds the hero's copy. */
-export const ENCLOSING_DIAL = {
-  exponent: 4,
-  band: 24,
-  bar: 34,
-  /** Room between the copy's sides and the band's inner edge at the G's waist. */
-  gapX: 60,
-  /** Room outside the band for the markers' labels. */
-  margin: 20,
-  /** Extra room between the copy's corners and the band. */
-  clearance: 4,
-  /** The bowl never gets flatter than this, so a short copy still sits in a G. */
-  minRatio: 0.62,
-} as const;
-
-export type EnclosedDial = {
-  shape: DialShape;
-  width: number;
-  height: number;
-  /** Space between the dial's box and the copy it encloses. */
-  padX: number;
-  padY: number;
-};
-
-/**
- * The G sized around a block of copy: the copy keeps its width, the bowl's waist leaves room for
- * the crossbar, and its height grows until every corner of the copy clears the band.
- */
-export function encloseDial(copyWidth: number, copyHeight: number): EnclosedDial {
-  const { exponent, band, bar, gapX, margin, clearance, minRatio } = ENCLOSING_DIAL;
-  const innerA = copyWidth / 2 + gapX;
-  const sideShare = (copyWidth / 2 / innerA) ** exponent;
-  const innerB = Math.max(
-    (copyHeight / 2) * (1 - sideShare) ** (-1 / exponent) + clearance,
-    innerA * minRatio,
-  );
-  const a = innerA + band / 2;
-  const b = innerB + band / 2;
-  const halfWidth = a + band / 2 + margin;
-  const halfHeight = b + band / 2 + margin;
-  return {
-    shape: { cx: halfWidth, cy: halfHeight, a, b, exponent, band, bar },
-    width: halfWidth * 2,
-    height: halfHeight * 2,
-    padX: halfWidth - copyWidth / 2,
-    padY: halfHeight - copyHeight / 2,
-  };
-}
+/** Computed once: every phase, placeholder and responsive presentation shares this definition. */
+export const MONTH_DIAL_GEOMETRY = buildGeometry();
