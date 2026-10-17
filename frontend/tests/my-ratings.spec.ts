@@ -36,7 +36,8 @@ class ScriptedCollection {
       gameId: `30000000-0000-4000-8000-00000000000${index + 1}`,
       value: [7, 3, 10][index] ?? 5,
       createdAt: "2026-08-13T10:00:00Z",
-      updatedAt: "2026-08-13T10:00:00Z",
+      // The first rating was changed later, so its line names both dates.
+      updatedAt: index === 0 ? "2026-09-21T10:00:00Z" : "2026-08-13T10:00:00Z",
       entityTag: '"version-1"',
     } as Rating,
   }));
@@ -161,6 +162,15 @@ test.describe("Mis puntuaciones", () => {
       expect(rowBox.x + rowBox.width - (personalBox.x + personalBox.width)).toBeLessThanOrEqual(26);
       if (width >= 760) expect(personalBox.x).toBeGreaterThanOrEqual(bodyBox.x + bodyBox.width);
       else expect(personalBox.y).toBeGreaterThanOrEqual(bodyBox.y + bodyBox.height);
+      // Both dates stay whole; one that wraps never starts its line with the separator.
+      const dates = first.locator("p").filter({ hasText: "Actualizado el 21 sept 2026" });
+      const [datesBox, separatorBox] = await Promise.all([
+        dates.boundingBox(), dates.getByText("·").boundingBox(),
+      ]);
+      if (!datesBox || !separatorBox) throw new Error("Both dates must render");
+      const wrapped = datesBox.height > 24;
+      if (wrapped) expect(separatorBox.x + separatorBox.width).toBeLessThanOrEqual(datesBox.x + 1);
+      else expect(separatorBox.x).toBeGreaterThan(datesBox.x);
       const title = first.getByRole("link", { name: titles[0], exact: true });
       await title.focus();
       await page.keyboard.press("Shift+Tab");
@@ -206,6 +216,9 @@ test.describe("Mis puntuaciones", () => {
       await backend.install();
       await page.goto("/mis-puntuaciones");
       const first = card(page, titles[0] ?? "");
+      // The compact filters leave the first rated game and its own score in the opening view.
+      const opening = await score(first).evaluate((element) => element.getBoundingClientRect().bottom + scrollY);
+      expect(opening).toBeLessThanOrEqual(844);
       await score(first).tap();
       const editor = first.getByRole("dialog");
       await editor.getByRole("button", { name: "4", exact: true }).tap();

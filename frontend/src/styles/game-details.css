@@ -18,7 +18,7 @@
     display: grid;
     grid-template-areas: "heading" "art" "scores" "summary" "facts";
     grid-template-columns: minmax(0, 1fr);
-    gap: 26px;
+    gap: 24px;
   }
 
   .game-detail-layout > * {
@@ -29,10 +29,13 @@
     grid-area: heading;
   }
 
+  /* On phones the cover stands centred in the column, at a portrait size that shows its art
+     without taking the whole first view. */
   .game-artwork {
     position: relative;
     grid-area: art;
-    width: min(62vw, 260px);
+    justify-self: center;
+    width: min(64vw, 272px);
   }
 
   .game-scores {
@@ -70,6 +73,36 @@
         color-mix(in srgb, var(--color-night) 82%, transparent) 100%
       ),
       color-mix(in srgb, var(--color-night) 24%, transparent);
+  }
+
+  /* On phones the light gathers around the centred cover itself: the stage takes the cover's
+     place in the grid, spills a little beyond it on every side and fades out before the title
+     above and the readings below, so the cover sits in its own colour rather than on a void. */
+  @media (max-width: 759px) {
+    .game-detail-layout > .stage-light {
+      grid-area: art;
+      top: -12%;
+      height: 124%;
+      -webkit-mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
+      mask-image: radial-gradient(closest-side, #000 52%, transparent 100%);
+    }
+
+    .game-detail-layout > .stage-light .stage-light-source {
+      top: 6%;
+      left: calc(50% - min(44vw, 190px));
+      width: min(88vw, 380px);
+      height: 88%;
+      filter: blur(44px) saturate(0.9) brightness(0.6);
+      opacity: 0.9;
+    }
+
+    .game-detail-layout > .stage-light::after {
+      background: color-mix(in srgb, var(--color-night) 18%, transparent);
+    }
+
+    .game-artwork .cover-caption {
+      text-align: center;
+    }
   }
 
   /* ---------------------------------------------------------------- Title */
@@ -184,47 +217,89 @@
 
   /* ---------------------------------------------------------------- Readings */
 
-  /* The readings between two hairlines, without boxes, in a clear order of authority: the
-     community's reading leads at full size; IGDB's supporting reading and the visitor's own
-     follow, smaller, in a column of their own. */
+  /* Below the desktop the two source readings form one band: the community's leads in the wider
+     column, IGDB's supports it behind a hairline, and each reading's label, figure and count share
+     rows with the other's so the comparison reads straight across. The visitor's own reading
+     follows beneath, as an action rather than a third source. Without room for both — a narrow
+     column or enlarged text — each reading takes the full width, one beneath the other. */
   .game-scores {
     display: grid;
-    grid-template-columns: minmax(0, 1fr);
     align-content: start;
-    gap: 22px;
-    border-block: 1px solid var(--color-line);
-    padding-block: 22px;
-  }
-
-  .game-scores-aside {
-    display: grid;
-    min-width: 0;
-    align-content: start;
-    gap: 20px;
-  }
-
-  /* Below the desktop the supporting readings follow the community's, set off by a hairline. */
-  .game-scores-aside {
     border-top: 1px solid var(--color-line);
     padding-top: 20px;
+    container: scores / inline-size;
   }
 
   .game-reading {
     display: grid;
-    grid-template-areas:
-      "label label"
-      "meter body";
-    grid-template-columns: auto minmax(0, 1fr);
-    align-content: start;
+    min-width: 0;
     align-items: center;
-    gap: 10px 16px;
+  }
+
+  @media (max-width: 1023px) {
+    .game-scores {
+      grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+      row-gap: 8px;
+    }
+
+    .game-scores-aside {
+      display: contents;
+    }
+
+    .game-reading {
+      grid-row: 1 / span 3;
+      grid-template-rows: subgrid;
+    }
+
+    .game-community-score {
+      grid-column: 1;
+      padding-right: 16px;
+    }
+
+    .game-scores[data-sources="1"] .game-community-score {
+      grid-column: 1 / -1;
+      padding-right: 0;
+    }
+
+    .game-external-score {
+      grid-column: 2;
+      border-left: 1px solid var(--color-line);
+      padding-left: 16px;
+    }
+
+    .game-scores-aside > .game-personal-rating {
+      grid-column: 1 / -1;
+      grid-row: 4;
+      margin-top: 14px;
+    }
+
+    @container scores (max-width: 17.5em) {
+      .game-community-score,
+      .game-external-score {
+        grid-column: 1 / -1;
+        padding-right: 0;
+      }
+
+      .game-external-score {
+        grid-row: 4 / span 3;
+        margin-top: 10px;
+        border-top: 1px solid var(--color-line);
+        border-left: 0;
+        padding-top: 16px;
+        padding-left: 0;
+      }
+
+      .game-scores-aside > .game-personal-rating {
+        grid-row: 7;
+      }
+    }
   }
 
   .game-reading-label {
-    grid-area: label;
+    align-self: start;
     margin: 0;
     color: var(--color-muted);
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-stretch: 75%;
     font-weight: 700;
     line-height: 1.3;
@@ -232,14 +307,17 @@
     text-transform: uppercase;
   }
 
-  .game-reading-meter {
-    grid-area: meter;
-    width: 92px;
-    height: 92px;
+  .game-reading-figure {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 12px;
   }
 
-  .game-community-score {
-    column-gap: 18px;
+  .game-reading-meter {
+    width: 60px;
+    height: 60px;
+    flex: none;
   }
 
   /* The instrument's own light: the reading's temperature, close and faint around its meter. */
@@ -250,8 +328,8 @@
   /* Without a mean the meter rests, smaller and dimmed: a calm state of the same instrument. */
   .game-community-score[data-state="empty"] .game-reading-meter,
   .game-community-score[data-state="unavailable"] .game-reading-meter {
-    width: 60px;
-    height: 60px;
+    width: 44px;
+    height: 44px;
     opacity: 0.7;
   }
 
@@ -262,7 +340,6 @@
   }
 
   .game-reading-body {
-    grid-area: body;
     display: grid;
     min-width: 0;
     gap: 4px;
@@ -272,7 +349,7 @@
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
-    font-size: 3.25rem;
+    font-size: 2.5rem;
     font-stretch: 108%;
     font-weight: 850;
     line-height: 1;
@@ -293,7 +370,7 @@
   .game-reading-band {
     margin: 0;
     color: var(--thermal);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     font-stretch: 87%;
     font-weight: 700;
     line-height: 1.2;
@@ -305,18 +382,19 @@
     margin: 0;
     color: var(--color-ink);
     font-family: var(--font-display);
-    font-size: 1.375rem;
+    font-size: 1.125rem;
     font-stretch: 108%;
     font-weight: 750;
     line-height: 1.2;
     letter-spacing: -0.015em;
   }
 
-  /* The count stays readable beside the mean, so a reading from two votes says so plainly. */
+  /* The count stays readable beside the mean, so a reading from one vote says so plainly. */
   .game-reading-description {
+    align-self: start;
     margin: 0;
     color: var(--color-muted);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     line-height: 1.45;
   }
 
@@ -327,36 +405,21 @@
 
   /* IGDB's reading supports the community's: the same parts at a smaller size and in quieter
      ink, so it never reads as Gameómetro's own. Its white mark stands in the meter's place and
-     is the reading's only link. */
-  .game-external-score {
-    gap: 8px 14px;
+     is the reading's only link; the value wraps beneath it rather than shrinking. */
+  .game-external-score .game-reading-figure {
+    flex-wrap: wrap;
+    gap: 6px 10px;
   }
 
   .game-external-score .game-reading-meter {
-    width: 56px;
+    width: auto;
     height: auto;
-  }
-
-  /* The mean and its count share a line while they fit; the count wraps whole beneath it. */
-  .game-external-score .game-reading-body {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 2px 12px;
-  }
-
-  .game-external-score .game-reading-description {
-    overflow-wrap: normal;
   }
 
   .game-external-score .game-reading-value {
     color: color-mix(in srgb, var(--color-ink) 86%, var(--color-muted));
-    font-size: 1.75rem;
+    font-size: 1.625rem;
     font-weight: 800;
-  }
-
-  .game-external-score .game-reading-description {
-    font-size: 0.8125rem;
   }
 
   .game-external-score-mark {
@@ -371,7 +434,7 @@
 
   .game-external-score-mark img {
     display: block;
-    width: 52px;
+    width: 40px;
     height: auto;
     opacity: 0.86;
   }
@@ -455,10 +518,10 @@
      ledger under the copy — with their headings set as peers on one line. */
   .game-information {
     display: grid;
-    gap: 22px;
-    margin-top: 18px;
+    gap: 18px;
+    margin-top: 10px;
     border-top: 1px solid var(--color-line);
-    padding-top: 28px;
+    padding-top: 24px;
     container-type: inline-size;
   }
 
@@ -476,7 +539,7 @@
 
   .game-information-body {
     display: grid;
-    gap: 30px;
+    gap: 32px;
   }
 
   .game-information-empty {
@@ -489,14 +552,15 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-content: start;
-    gap: 22px;
+    gap: 16px;
     margin: 0;
+    container: facts / inline-size;
   }
 
   .game-fact {
     display: grid;
     align-content: start;
-    gap: 8px;
+    gap: 6px;
   }
 
   .game-fact dt {
@@ -504,7 +568,7 @@
     align-items: center;
     gap: 8px;
     color: var(--color-muted);
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     font-stretch: 75%;
     font-weight: 700;
     line-height: 1.4;
@@ -513,8 +577,8 @@
   }
 
   .game-fact-icon {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     flex: none;
     color: var(--color-ice);
   }
@@ -526,9 +590,22 @@
   }
 
   .game-fact-credit dd {
-    font-size: 1rem;
+    font-size: 0.9375rem;
     font-weight: 650;
     line-height: 1.45;
+  }
+
+  /* Below the desktop the sheet reads as specification lines: each label in a fixed column with
+     its value beside it on the same baseline, so a glance down the labels finds a value. Without
+     room, as under enlarged text, the label returns above its value. */
+  @media (max-width: 1023px) {
+    @container facts (min-width: 19em) {
+      .game-fact {
+        grid-template-columns: 7.75em minmax(0, 1fr);
+        align-items: baseline;
+        column-gap: 12px;
+      }
+    }
   }
 
   .game-chips {
@@ -545,7 +622,7 @@
     min-width: 0;
     border: 1px solid var(--color-line);
     border-radius: 3px;
-    padding: 4px 10px;
+    padding: 3px 9px;
     color: var(--color-ink);
     background: var(--control);
     font-size: 0.8125rem;
@@ -556,8 +633,9 @@
 
   /* ---------------------------------------------------------------- Release ledger */
 
-  /* The release ledger: each platform and region as one row between hairlines, read as where,
-     when and its state. */
+  /* The release ledger: one line per release context between hairlines. Releases that share their
+     date, region, status, stage and notes state that context once, followed by every platform it
+     covers; a release whose context is its own keeps a line of its own. */
   .game-release-section {
     --release-mark: 36px;
     --release-mark-gap: 10px;
@@ -565,7 +643,8 @@
     display: grid;
     min-width: 0;
     align-content: start;
-    gap: 16px;
+    gap: 14px;
+    container: ledger / inline-size;
   }
 
   .game-release-list {
@@ -573,89 +652,41 @@
     margin: 0;
     padding: 0;
     list-style: none;
-    container-type: inline-size;
   }
 
-  .game-release-row {
+  .game-release-group {
     display: grid;
     gap: 8px;
     border-top: 1px solid var(--color-line);
-    padding-block: 16px;
+    padding-block: 14px 16px;
   }
 
-  .game-release-list > .game-release-row:last-child {
+  .game-release-list > .game-release-group:last-child {
     border-bottom: 1px solid var(--color-line);
   }
 
-  /* Narrow rows: where, with the status opposite, then when, both under the platform's name. */
+  /* Narrow lines: the date with the status opposite, the region and stage beneath it, then the
+     platforms. */
   .game-release-facts {
     display: grid;
     grid-template-areas:
-      "platform state"
-      "region region"
-      "when when";
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 4px 14px;
+      "when when state"
+      "region stage stage"
+      "platforms platforms platforms";
+    grid-template-columns: max-content minmax(0, 1fr) auto;
+    align-items: baseline;
+    row-gap: 3px;
     margin: 0;
   }
 
   .game-release-facts dd {
-    display: flex;
     min-width: 0;
-    align-items: center;
-    gap: var(--release-mark-gap);
     margin: 0;
-  }
-
-  .game-release-platform {
-    grid-area: platform;
-  }
-
-  .game-release-platform dd {
-    min-height: 24px;
-    color: var(--color-ink);
-    font-size: 0.9375rem;
-    font-weight: 700;
-    line-height: 1.3;
-  }
-
-  /* The region reads under the platform's name, its mark in the platform mark's slot. */
-  .game-release-region {
-    grid-area: region;
-  }
-
-  .game-release-region dd {
-    color: var(--color-muted);
-    font-size: 0.8125rem;
-    line-height: 1.3;
-  }
-
-  .game-release-facts .game-release-region .app-select-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: calc(var(--release-mark) - 16px);
-    color: var(--color-muted);
   }
 
   .game-release-when {
     grid-area: when;
-    margin-top: 6px;
-    padding-left: calc(var(--release-mark) + var(--release-mark-gap));
-  }
-
-  .game-release-when dd {
-    display: grid;
-    gap: 2px;
-  }
-
-  .game-release-state {
-    grid-area: state;
-    justify-self: end;
-  }
-
-  .game-release-state dd {
-    min-height: 24px;
+    min-width: 0;
   }
 
   /* The date in the instrument's readout voice: it is a reading of time, so it takes ice. */
@@ -669,10 +700,90 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .game-release-stage {
+  .game-release-state {
+    grid-area: state;
+    justify-self: end;
+    padding-left: 12px;
+  }
+
+  .game-release-region {
+    grid-area: region;
+  }
+
+  .game-release-region dd,
+  .game-release-stage dd {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     color: var(--color-muted);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     line-height: 1.4;
+  }
+
+  .game-release-facts .game-release-region .app-select-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--color-muted);
+  }
+
+  .game-release-stage {
+    grid-area: stage;
+    min-width: 0;
+  }
+
+  /* A fine dot joins the stage to the region it follows. */
+  .game-release-stage dd::before {
+    margin-left: 6px;
+    content: "·";
+  }
+
+  /* The platforms the context covers: marks in one shared slot so the names align, in as many
+     columns as fit and one beneath the other when none do. */
+  .game-release-platforms {
+    grid-area: platforms;
+    margin-top: 9px;
+  }
+
+  .game-release-platforms ul {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5em), 1fr));
+    gap: 8px 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* A context with one platform gives its name the whole line. */
+  .game-release-platforms li:only-child {
+    grid-column: 1 / -1;
+  }
+
+  .game-release-platforms li {
+    display: flex;
+    min-width: 0;
+    min-height: 24px;
+    align-items: center;
+    gap: var(--release-mark-gap);
+    color: var(--color-ink);
+    font-size: 0.9375rem;
+    font-weight: 650;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  /* Wide ledgers set the whole context on the line's first row — date, region and stage, the
+     status at its end — and the platforms beneath it. */
+  @container ledger (min-width: 36em) {
+    .game-release-facts {
+      grid-template-areas:
+        "when region stage state"
+        "platforms platforms platforms platforms";
+      grid-template-columns: max-content max-content minmax(0, 1fr) auto;
+    }
+
+    .game-release-region {
+      padding-left: 20px;
+    }
   }
 
   .game-release-facts .app-select-icon {
@@ -709,30 +820,13 @@
     height: 16px;
   }
 
-  /* Wide rows read in three groups across: where (platform over region), when (date over its
-     stage) and the status, each group starting on the row's first line. */
-  @container (min-width: 520px) {
-    .game-release-facts {
-      grid-template-areas:
-        "platform when state"
-        "region when state";
-      grid-template-columns: minmax(0, 0.85fr) minmax(0, 1fr) minmax(108px, auto);
-      gap: 4px 24px;
-    }
-
-    .game-release-when {
-      margin-top: 0;
-      padding-left: 0;
-    }
-  }
-
-  /* Review and verification notes belong to the row's platform, under its name. */
+  /* Review and verification notes belong to the whole context, beneath its platforms. */
   .game-release-flags {
     display: flex;
     flex-wrap: wrap;
     gap: 6px 16px;
-    margin: 0;
-    padding: 0 0 0 calc(var(--release-mark) + var(--release-mark-gap));
+    margin: 2px 0 0;
+    padding: 0;
     list-style: none;
     font-size: 0.8125rem;
     line-height: 1.45;
@@ -935,6 +1029,18 @@
     padding: 0;
   }
 
+  /* Below the desktop the placeholders take the readings' shape: two sources side by side, the
+     visitor's reading across both. */
+  @media (max-width: 1023px) {
+    .game-details-loading .game-scores {
+      gap: 14px 16px;
+    }
+
+    .game-details-loading .detail-skeleton-rating {
+      grid-column: 1 / -1;
+    }
+  }
+
   /* ---------------------------------------------------------------- Tablet */
 
   /* The cover stands beside the title and the readings; summary and information follow. */
@@ -1034,21 +1140,61 @@
       padding-top: 18px;
     }
 
-    /* The community's reading and the supporting column side by side, a hairline between. */
+    /* The readings between two hairlines: the community's leading at full size, and beside it,
+       behind a hairline, a supporting column with IGDB's reading above the visitor's own. */
     .game-scores {
       grid-template-columns: minmax(0, 1.1fr) minmax(280px, 1fr);
       gap: 0;
+      border-bottom: 1px solid var(--color-line);
+      padding-block: 22px;
+    }
+
+    .game-scores-aside {
+      display: grid;
+      min-width: 0;
+      align-content: start;
+      gap: 20px;
+      border-left: 1px solid var(--color-line);
+      padding-left: clamp(20px, 2.6vw, 36px);
+    }
+
+    /* Each reading sets its meter beside its value, temperature and count. */
+    .game-reading {
+      grid-template-areas:
+        "label label"
+        "meter body"
+        "meter count";
+      grid-template-columns: auto minmax(0, 1fr);
+      align-content: start;
+      gap: 4px 18px;
+    }
+
+    .game-reading-figure {
+      display: contents;
+    }
+
+    .game-reading-label {
+      grid-area: label;
+      margin-bottom: 6px;
+      font-size: 0.8125rem;
+    }
+
+    .game-reading-meter {
+      grid-area: meter;
+    }
+
+    .game-reading-body {
+      grid-area: body;
+      align-self: end;
+    }
+
+    .game-reading-description {
+      grid-area: count;
+      font-size: 0.875rem;
     }
 
     .game-community-score {
       padding-right: clamp(16px, 2.4vw, 32px);
-    }
-
-    .game-scores-aside {
-      border-top: 0;
-      border-left: 1px solid var(--color-line);
-      padding-top: 0;
-      padding-left: clamp(20px, 2.6vw, 36px);
     }
 
     .game-community-score .game-reading-meter {
@@ -1056,8 +1202,54 @@
       height: 104px;
     }
 
+    .game-community-score[data-state="empty"] .game-reading-meter,
+    .game-community-score[data-state="unavailable"] .game-reading-meter {
+      width: 60px;
+      height: 60px;
+    }
+
     .game-community-score .game-reading-value {
       font-size: 3.75rem;
+    }
+
+    .game-reading-band {
+      font-size: 0.875rem;
+    }
+
+    .game-reading-empty {
+      font-size: 1.375rem;
+    }
+
+    /* IGDB's mark and mean share a line with its count while they fit; the count wraps whole
+       beneath them. */
+    .game-external-score {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 14px;
+    }
+
+    .game-external-score .game-reading-label {
+      flex-basis: 100%;
+      margin-bottom: 2px;
+    }
+
+    .game-external-score .game-reading-figure {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 14px;
+    }
+
+    .game-external-score .game-reading-value {
+      font-size: 1.75rem;
+    }
+
+    .game-external-score .game-reading-description {
+      font-size: 0.8125rem;
+    }
+
+    .game-external-score-mark img {
+      width: 52px;
     }
 
     .game-summary-text {
@@ -1149,7 +1341,8 @@
       background-color: CanvasText;
     }
 
-    .game-fact-icon {
+    .game-fact-icon,
+    .game-release-facts .game-release-region .app-select-icon {
       color: CanvasText;
     }
 
