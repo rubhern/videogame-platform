@@ -10,8 +10,9 @@ import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPo
 import com.videogameplatform.catalogue.application.internal.CatalogueReadMapping;
 import com.videogameplatform.catalogue.application.internal.CatalogueReleaseMapping;
 import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase.Granularity;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
-import com.videogameplatform.catalogue.application.releases.FeaturedMonthOutOfRangeException;
+import com.videogameplatform.catalogue.application.releases.FeaturedPeriodOutOfRangeException;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.FeaturedImage;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.FeaturedLogo;
@@ -23,14 +24,14 @@ import com.videogameplatform.catalogue.domain.FeaturedMediaPolicy;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /** Framework-independent implementation of UC-010. */
 public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCase {
 
-    /** The month's featured release and up to five other featured releases. */
+    /** The period's featured release and up to five other featured releases. */
     static final int FEATURED_LIMIT = 6;
 
     private final FeaturedReleaseReadPort readPort;
@@ -39,6 +40,7 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
     private final Clock clock;
     private final ReleaseBrowsePolicy browsePolicy;
     private final CatalogueFreshnessPolicy freshnessPolicy;
+    private final FeaturedPeriodPolicy periodPolicy;
 
     public FeaturedReleaseService(
             FeaturedReleaseReadPort readPort,
@@ -46,26 +48,29 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
             ProviderImageReferenceResolver imageResolver,
             Clock clock,
             ReleaseBrowsePolicy browsePolicy,
-            CatalogueFreshnessPolicy freshnessPolicy) {
+            CatalogueFreshnessPolicy freshnessPolicy,
+            FeaturedPeriodPolicy periodPolicy) {
         this.readPort = readPort;
         this.coverPolicy = coverPolicy;
         this.imageResolver = imageResolver;
         this.clock = clock;
         this.browsePolicy = browsePolicy;
         this.freshnessPolicy = freshnessPolicy;
+        this.periodPolicy = periodPolicy;
     }
 
     @Override
     public FeaturedReleasesResult browse(Query query) {
         Instant evaluatedAt = clock.instant();
         LocalDate evaluatedOn = LocalDate.ofInstant(evaluatedAt, clock.getZone());
-        YearMonth month = query.month().orElseGet(() -> YearMonth.from(evaluatedOn));
-        // Featured discovery covers the current calendar year only; history is not browsed.
-        if (month.getYear() != evaluatedOn.getYear()) {
-            throw new FeaturedMonthOutOfRangeException();
+        Granularity granularity = query.granularity();
+        LocalDate start =
+                query.periodStart().orElseGet(() -> periodPolicy.current(granularity, evaluatedOn));
+        // Only a bounded range around the current period is browsed, never arbitrary history.
+        if (!periodPolicy.presents(granularity, start, evaluatedOn)) {
+            throw new FeaturedPeriodOutOfRangeException(granularity);
         }
-        BrowseReleasesResult.Window window =
-                new BrowseReleasesResult.Window(month.atDay(1), month.atEndOfMonth());
+        BrowseReleasesResult.Window window = periodPolicy.window(granularity, start);
 
         FeaturedReleaseReadPort.Result result =
                 readPort.findFeaturedReleases(
@@ -82,7 +87,20 @@ public final class FeaturedReleaseService implements BrowseFeaturedReleasesUseCa
                                 index -> toItem(result.items().get(index), index == 0, evaluatedOn))
                         .toList();
         return new FeaturedReleasesResult(
-                month, evaluatedOn, window, selection(result, evaluatedAt), items);
+                granularity,
+                evaluatedOn,
+                window,
+                new FeaturedReleasesResult.Navigation(
+                        adjacent(granularity, start, -1, evaluatedOn),
+                        adjacent(granularity, start, 1, evaluatedOn)),
+                selection(result, evaluatedAt),
+                items);
+    }
+
+    private Optional<LocalDate> adjacent(
+            Granularity granularity, LocalDate start, int offset, LocalDate evaluatedOn) {
+        return Optional.of(periodPolicy.step(granularity, start, offset))
+                .filter(target -> periodPolicy.presents(granularity, target, evaluatedOn));
     }
 
     /**

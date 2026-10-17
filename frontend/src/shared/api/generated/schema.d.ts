@@ -48,23 +48,30 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Read the automatic featured releases of one calendar month
-         * @description Reads the automatic selection of one calendar month from the last valid local catalogue.
-         *     Candidates are the games with a qualifying commercial release inside the month: its known
-         *     date lies inside the month (an exact day of the month, or month precision equal to the
-         *     month) and it is neither cancelled, delayed, nor pending review. Only Full Release
-         *     participates. A candidate must be an accepted import type, not an edition, with its
-         *     own known first release in this month and positive locally stored IGDB Hypes.
-         *     Candidates rank by Hypes descending, then `gameId` ascending. A
-         *     game without a usable popularity signal stays a normal catalogue and discovery result but
-         *     is not ranked, and no popularity value is ever invented. The first item is the month's
-         *     featured release and up to five more follow; fewer items are returned rather than filling
-         *     slots. Popularity measures provider-observed attention, never quality, a rating, or an
-         *     editorial recommendation, and the signal value itself is not exposed. The application
-         *     derives the evaluation date and the default month, the current calendar month, in
-         *     `Europe/Madrid`. Another month of the current calendar year may be selected; it is ranked
-         *     with the same current local popularity evidence, because no popularity history is kept.
-         *     A month of another year is never featured. PostgreSQL selects the
+         * Read the automatic featured releases of one calendar week or month
+         * @description Reads the automatic selection of one calendar period from the last valid local catalogue:
+         *     an ISO 8601 week, Monday to Sunday, or a calendar month. Candidates are the games with a
+         *     qualifying commercial release inside the period: its known date period lies entirely
+         *     inside it (an exact day of the period, or, for a month, month precision equal to the
+         *     month) and it is neither cancelled, delayed, nor pending review. A week therefore only
+         *     ever holds day-precision releases; a month, quarter, year or unknown date is never
+         *     assigned to a week. Only Full Release participates. A candidate must be an accepted
+         *     import type, not an edition, with its own known first release in this period and
+         *     positive locally stored IGDB Hypes. Candidates rank by Hypes descending, then `gameId`
+         *     ascending. A game without a usable popularity signal stays a normal catalogue and
+         *     discovery result but is not ranked, and no popularity value is ever invented. The first
+         *     item is the period's featured release and up to five more follow; fewer items are
+         *     returned rather than filling slots. Popularity measures provider-observed attention,
+         *     never quality, a rating, or an editorial recommendation, and the signal value itself is
+         *     not exposed. The application derives the evaluation date, the current week and the
+         *     current month in `Europe/Madrid`. Without parameters the current calendar month is
+         *     served. Any period inside the navigation bounds may be selected; it is ranked with the
+         *     same current local popularity evidence, because no popularity history is kept. Weeks
+         *     reach 16 weeks before and after the current week. Months reach 10 calendar months back,
+         *     across years, and forward to the last calendar month lying entirely inside the
+         *     configured forward horizon of catalogue acquisition; the bound states what acquisition
+         *     is configured to cover, never that the local catalogue is complete. `navigation` names
+         *     the adjacent periods inside these bounds. PostgreSQL selects the
          *     qualifying releases, ranks and limits the games, and presents at most one release per
          *     platform before anything reaches the application. Each item also carries the landscape
          *     context-selected image and optional decorative secondary-card logo,
@@ -502,12 +509,38 @@ export interface components {
          */
         CalendarMonth: string;
         /**
+         * @description An ISO 8601 week as `YYYY-Www`: the week-based year and the week number, `01` through
+         *     `52`, or `53` in a year that has one. Weeks start on Monday.
+         * @example 2026-W42
+         */
+        IsoWeek: string;
+        /**
+         * @description The calendar period a featured selection represents.
+         * @enum {string}
+         */
+        FeaturedGranularity: "week" | "month";
+        /**
+         * @description A featured period of the response's own granularity: an `IsoWeek` for `week`, a
+         *     `CalendarMonth` for `month`.
+         * @example 2026-W43
+         * @example 2026-11
+         */
+        FeaturedPeriod: string;
+        /**
+         * @description The adjacent periods of the same granularity that may be requested. Each is absent at
+         *     its navigation bound; the bounds are the operation's, evaluated in `Europe/Madrid`.
+         */
+        FeaturedNavigation: {
+            previous?: components["schemas"]["FeaturedPeriod"];
+            next?: components["schemas"]["FeaturedPeriod"];
+        };
+        /**
          * @description Why the featured selection holds what it holds. `ranked`: at least one game with a
-         *     qualifying release in the month has a usable popularity signal, `items` holds the ranking,
-         *     and both popularity fields are present. `popularity_unavailable`: the month has qualifying
-         *     releases but none of their games has a usable popularity signal, so nothing is ranked.
-         *     `no_qualifying_releases`: the local catalogue holds no qualifying release inside the month.
-         *     A stale selection is still the last valid local ranking.
+         *     qualifying release in the period has a usable popularity signal, `items` holds the
+         *     ranking, and both popularity fields are present. `popularity_unavailable`: the period has
+         *     qualifying releases but none of their games has a usable popularity signal, so nothing is
+         *     ranked. `no_qualifying_releases`: the local catalogue holds no qualifying release inside
+         *     the period. A stale selection is still the last valid local ranking.
          */
         FeaturedSelection: {
             /** @enum {string} */
@@ -525,17 +558,25 @@ export interface components {
              */
             popularityObservedAt?: string;
         };
+        /**
+         * @description Since 3.14.0, `month` is present only for the `month` granularity and `week` only for
+         *     `week`. A client that never sends `granularity=week` or `week` always receives `month`,
+         *     as before; a client opting into weeks reads `granularity` first.
+         */
         FeaturedReleases: {
-            month: components["schemas"]["CalendarMonth"];
+            granularity: components["schemas"]["FeaturedGranularity"];
+            month?: components["schemas"]["CalendarMonth"];
+            week?: components["schemas"]["IsoWeek"];
             /** Format: date */
             evaluatedOn: string;
-            /** @description The first and the last day of the month, inclusive. */
+            /** @description The first and the last day of the week or month, inclusive. */
             window: components["schemas"]["ReleaseWindow"];
+            navigation: components["schemas"]["FeaturedNavigation"];
             selection: components["schemas"]["FeaturedSelection"];
             /**
-             * @description Ranked games, highest popularity first. The first item is the month's featured release
-             *     and up to five other featured releases follow. Each item holds only the game's
-             *     qualifying releases inside the month, at most one per platform, chosen by the
+             * @description Ranked games, highest popularity first. The first item is the period's featured
+             *     release and up to five other featured releases follow. Each item holds only the game's
+             *     qualifying releases inside the period, at most one per platform, chosen by the
              *     `ReleaseItem` presentation precedence with the earliest date first; an exact day comes
              *     before month precision, then the earlier date. Empty unless `selection.status` is
              *     `ranked`.
@@ -543,8 +584,8 @@ export interface components {
             items: components["schemas"]["FeaturedReleaseItem"][];
         };
         /**
-         * @description One ranked game of the month: the `ReleaseItem` fields, holding the game's qualifying
-         *     presented releases inside the month, plus the landscape image and the optional title
+         * @description One ranked game of the period: the `ReleaseItem` fields, holding the game's qualifying
+         *     presented releases inside the period, plus the landscape image and the optional title
          *     logo featured discovery presents.
          */
         FeaturedReleaseItem: {
@@ -619,7 +660,7 @@ export interface components {
          *     suitable landscape media, the game's provider cover in a designed treatment, then the
          *     product fallback. A `fill` image may be cropped to fill a landscape frame; a `contain`
          *     image is shown whole inside a designed treatment and never stretched or cropped. `url`
-         *     suits the featured release of the month and `compactUrl` the other featured releases. A
+         *     suits the featured release of the period and `compactUrl` the other featured releases. A
          *     provider image carries its mandatory attribution (ADR-0001).
          */
         FeaturedImage: components["schemas"]["ProviderFeaturedImage"] | components["schemas"]["FallbackFeaturedImage"];
@@ -999,8 +1040,8 @@ export interface components {
             };
         };
         /**
-         * @description The requested month is malformed or outside the current calendar year, or a request
-         *     parameter is invalid.
+         * @description The requested week or month is malformed, outside the navigation bounds or combined with
+         *     the other granularity, or a request parameter is invalid.
          */
         FeaturedReleaseValidationFailed: {
             headers: {
@@ -1164,9 +1205,29 @@ export interface components {
          */
         ReleaseIncludeApproximateDates: boolean;
         /**
-         * @description Calendar month to feature as `YYYY-MM`, a month of the current calendar year in
-         *     `Europe/Madrid`. Omitted, it is the current calendar month. A malformed month, or a month
-         *     of another year, yields 422 `FILTER_INVALID` for `/query/month`.
+         * @description Period granularity. Omitted, it is `week` when `week` is present and `month` otherwise,
+         *     so a request without parameters keeps serving the current calendar month. Without a
+         *     period parameter of its own, it selects the current week or month in `Europe/Madrid`.
+         *     Combining it with the other granularity's period parameter yields 422 `FILTER_INVALID`
+         *     for that parameter.
+         * @example week
+         */
+        FeaturedGranularity: components["schemas"]["FeaturedGranularity"];
+        /**
+         * @description ISO 8601 week to feature as `YYYY-Www`, Monday to Sunday; `YYYY` is the week-based year,
+         *     so `2026-W53` runs from 28 December 2026 to 3 January 2027. It must lie within 16 weeks
+         *     before or after the current week in `Europe/Madrid`. A malformed week, week 53 of a
+         *     year with 52 weeks, a week outside the bounds, or a week combined with `month` or
+         *     `granularity=month` yields 422 `FILTER_INVALID` for `/query/week`.
+         * @example 2026-W42
+         */
+        FeaturedWeek: components["schemas"]["IsoWeek"];
+        /**
+         * @description Calendar month to feature as `YYYY-MM`. It must lie between 10 calendar months before
+         *     the current month in `Europe/Madrid`, across years, and the last calendar month lying
+         *     entirely inside the configured forward acquisition horizon; the current month is always
+         *     accepted. A malformed month, a month outside the bounds, or a month combined with
+         *     `granularity=week` yields 422 `FILTER_INVALID` for `/query/month`.
          * @example 2026-10
          */
         FeaturedMonth: components["schemas"]["CalendarMonth"];
@@ -1371,9 +1432,29 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Calendar month to feature as `YYYY-MM`, a month of the current calendar year in
-                 *     `Europe/Madrid`. Omitted, it is the current calendar month. A malformed month, or a month
-                 *     of another year, yields 422 `FILTER_INVALID` for `/query/month`.
+                 * @description Period granularity. Omitted, it is `week` when `week` is present and `month` otherwise,
+                 *     so a request without parameters keeps serving the current calendar month. Without a
+                 *     period parameter of its own, it selects the current week or month in `Europe/Madrid`.
+                 *     Combining it with the other granularity's period parameter yields 422 `FILTER_INVALID`
+                 *     for that parameter.
+                 * @example week
+                 */
+                granularity?: components["parameters"]["FeaturedGranularity"];
+                /**
+                 * @description ISO 8601 week to feature as `YYYY-Www`, Monday to Sunday; `YYYY` is the week-based year,
+                 *     so `2026-W53` runs from 28 December 2026 to 3 January 2027. It must lie within 16 weeks
+                 *     before or after the current week in `Europe/Madrid`. A malformed week, week 53 of a
+                 *     year with 52 weeks, a week outside the bounds, or a week combined with `month` or
+                 *     `granularity=month` yields 422 `FILTER_INVALID` for `/query/week`.
+                 * @example 2026-W42
+                 */
+                week?: components["parameters"]["FeaturedWeek"];
+                /**
+                 * @description Calendar month to feature as `YYYY-MM`. It must lie between 10 calendar months before
+                 *     the current month in `Europe/Madrid`, across years, and the last calendar month lying
+                 *     entirely inside the configured forward acquisition horizon; the current month is always
+                 *     accepted. A malformed month, a month outside the bounds, or a month combined with
+                 *     `granularity=week` yields 422 `FILTER_INVALID` for `/query/month`.
                  * @example 2026-10
                  */
                 month?: components["parameters"]["FeaturedMonth"];
@@ -1390,7 +1471,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The month's featured selection, possibly empty. */
+            /** @description The period's featured selection, possibly empty. */
             200: {
                 headers: {
                     "X-Correlation-ID": components["headers"]["XCorrelationId"];

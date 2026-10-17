@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { MONTH_DIAL_GEOMETRY as geometry } from "./month-dial-geometry";
-import { scalePosition } from "./month-timeline";
+import { scalePosition } from "./period-timeline";
 
 describe("reference-traced month dial", () => {
   it("keeps the reference arm and terminal rather than closing the ring", () => {
@@ -39,6 +39,24 @@ describe("reference-traced month dial", () => {
     expect(Math.max(...chords) - Math.min(...chords)).toBeLessThan(0.4);
     expect(positions[0]).toEqual(geometry.pointAt(geometry.scaleStart));
     expect(positions.at(-1)).toEqual(geometry.pointAt(geometry.scaleEnd));
+  });
+
+  it("spaces a week's seven days evenly by arc length and far enough apart to name each", () => {
+    const distances = Array.from(
+      { length: 7 },
+      (_, index) => geometry.scaleStart + (geometry.scaleEnd - geometry.scaleStart) * scalePosition(index + 1, 7),
+    );
+    const steps = distances.slice(1).map((distance, index) => distance - (distances[index] ?? 0));
+    expect(Math.max(...steps) - Math.min(...steps)).toBeLessThan(1e-9);
+    const points = distances.map((distance) => geometry.pointAt(distance));
+    const chords = points.slice(1).map((p, index) => {
+      const previous = points[index];
+      if (previous === undefined) throw new Error("Missing previous day");
+      return Math.hypot(p.x - previous.x, p.y - previous.y);
+    });
+    expect(Math.min(...chords)).toBeGreaterThan(90);
+    expect(points[0]).toEqual(geometry.pointAt(geometry.scaleStart));
+    expect(points.at(-1)).toEqual(geometry.pointAt(geometry.scaleEnd));
   });
 
   it("keeps normals unit length and outward across all three Bezier sections", () => {

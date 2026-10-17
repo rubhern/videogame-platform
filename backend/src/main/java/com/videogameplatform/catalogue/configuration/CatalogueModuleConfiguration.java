@@ -10,6 +10,7 @@ import com.videogameplatform.catalogue.application.details.port.GameDetailsReadP
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.internal.FeaturedPeriodPolicy;
 import com.videogameplatform.catalogue.application.releases.internal.FeaturedReleaseService;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseBrowsePolicy;
 import com.videogameplatform.catalogue.application.releases.internal.ReleaseCatalogueService;
@@ -26,7 +27,13 @@ import org.springframework.context.annotation.Configuration;
 
 /** Composition root for the catalogue application module. */
 @Configuration(proxyBeanMethods = false)
-@EnableConfigurationProperties({CatalogueReleaseProperties.class, CatalogueSearchProperties.class})
+// Scheduling properties are bound even while scheduling stays off: their policy windows declare the
+// forward acquisition horizon that bounds featured months.
+@EnableConfigurationProperties({
+    CatalogueReleaseProperties.class,
+    CatalogueSearchProperties.class,
+    CatalogueSchedulingProperties.class
+})
 class CatalogueModuleConfiguration {
     @Bean
     com.videogameplatform.catalogue.application.details.GetGameListingUseCase gameListingUseCase(
@@ -88,9 +95,16 @@ class CatalogueModuleConfiguration {
             ProviderImageReferenceResolver imageResolver,
             Clock clock,
             ReleaseBrowsePolicy browsePolicy,
-            CatalogueFreshnessPolicy freshnessPolicy) {
+            CatalogueFreshnessPolicy freshnessPolicy,
+            CatalogueSchedulingProperties scheduling) {
         return new FeaturedReleaseService(
-                readPort, coverPolicy, imageResolver, clock, browsePolicy, freshnessPolicy);
+                readPort,
+                coverPolicy,
+                imageResolver,
+                clock,
+                browsePolicy,
+                freshnessPolicy,
+                new FeaturedPeriodPolicy(scheduling.forwardAcquisitionDays()));
     }
 
     @Bean

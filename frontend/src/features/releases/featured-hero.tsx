@@ -10,15 +10,17 @@ import { CalendarIcon } from "./featured-icons";
 import type { FeaturedLead } from "./featured-releases-view-model";
 import { MonthDial, type DialReadout } from "./month-dial";
 import { DIAL_HEIGHT, DIAL_WIDTH } from "./month-dial-geometry";
-import { describeMonthScale, type MonthTimeline } from "./month-timeline";
+import type { FeaturedGranularity } from "./featured-search";
+import { describePeriodScale, type PeriodTimeline } from "./period-timeline";
 import { ReleaseOverflow } from "./release-overflow";
 
 type FeaturedHeroProps = {
   lead: FeaturedLead;
-  /** The represented month; null only when the response's dates are malformed. */
-  timeline: MonthTimeline | null;
-  /** `octubre de 2026`. */
-  monthPhrase: string;
+  granularity: FeaturedGranularity;
+  /** The represented period; null only when the response's dates are malformed. */
+  timeline: PeriodTimeline | null;
+  /** `octubre de 2026` or `la semana del 12 al 18 de octubre de 2026`. */
+  periodPhrase: string;
 };
 
 /** Phones show this many platform marks and the exact count of the rest, as the cards do. */
@@ -38,12 +40,12 @@ function longestWord(text: string): number {
 }
 
 /**
- * The month's featured release. Its own art is the stage, and Gameómetro's temporal G frames its
- * copy: the month's days around the bowl, the elapsed ones lit, the release's day under the fire
- * needle. The G keeps its own proportions; the copy keeps to its reading zone. The title link
+ * The period's featured release. Its own art is the stage, and Gameómetro's temporal G frames its
+ * copy: the week's or the month's days around the bowl, the elapsed ones lit, the release's day
+ * under the fire needle. The G keeps its own proportions; the copy keeps to its reading zone. The title link
  * spans the hero; score attribution and release overflow stay separate.
  */
-export function FeaturedHero({ lead, timeline, monthPhrase }: FeaturedHeroProps) {
+export function FeaturedHero({ lead, granularity, timeline, periodPhrase }: FeaturedHeroProps) {
   const zoneRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -104,7 +106,7 @@ export function FeaturedHero({ lead, timeline, monthPhrase }: FeaturedHeroProps)
         <div className="featured-dial">
           <p className="featured-badge">
             <NeedleIcon className="featured-icon featured-needle-icon" />
-            Lanzamiento del mes
+            {granularity === "week" ? "Lanzamiento de la semana" : "Lanzamiento del mes"}
           </p>
           {timeline === null ? null : (
             <MonthDial
@@ -201,7 +203,7 @@ export function FeaturedHero({ lead, timeline, monthPhrase }: FeaturedHeroProps)
                 )}
               </div>
               {timeline === null ? null : (
-                <p className="sr-only">{describeMonthScale(timeline, lead.mark, monthPhrase)}</p>
+                <p className="sr-only">{describePeriodScale(timeline, lead.mark, periodPhrase)}</p>
               )}
               <DiscoveryScores scores={lead.scores} title={lead.title} layout="hero" />
               {lead.facts.length === 0 ? null : (

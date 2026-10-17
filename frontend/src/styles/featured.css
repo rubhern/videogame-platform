@@ -46,20 +46,99 @@
     flex: none;
   }
 
-  /* The month as the instrument's own readout: steps on either side of a condensed label. */
-  .featured-month {
+  /* The period as the instrument's own readout: the Semana/Mes switch, then steps on either side
+     of a condensed label, then the way back to the current period while another one is shown.
+     Ice marks the selection; nothing here takes fire or a filled background. */
+  .featured-period {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 18px;
+  }
+
+  .featured-granularity ul {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* A fine upright parts the two choices, as the hero's facts part their groups. */
+  .featured-granularity li + li {
+    display: flex;
+    align-items: center;
+  }
+
+  .featured-granularity li + li::before {
+    width: 1px;
+    height: 16px;
+    background: var(--color-line);
+    content: "";
+  }
+
+  .featured-granularity-option {
+    position: relative;
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    padding-inline: 12px;
+    border-radius: 6px;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .featured-granularity li:first-child .featured-granularity-option {
+    padding-inline-start: 0;
+  }
+
+  .featured-granularity-option:hover {
+    color: var(--color-ink);
+  }
+
+  .featured-granularity-option:focus-visible {
+    outline-offset: 0;
+  }
+
+  /* The selected granularity reads in ice over a short ice bar: a selection, never an event. */
+  .featured-granularity-option[aria-current="true"] {
+    color: var(--g-ice);
+  }
+
+  .featured-granularity-option[aria-current="true"]::after {
+    position: absolute;
+    bottom: 7px;
+    left: 50%;
+    width: 18px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--g-ice-deep);
+    content: "";
+    transform: translateX(-50%);
+  }
+
+  .featured-granularity li:first-child .featured-granularity-option[aria-current="true"]::after {
+    left: calc(50% - 6px);
+  }
+
+  .featured-period-stepper {
     display: inline-flex;
     min-height: 44px;
     align-items: center;
   }
 
-  .featured-month-skeleton {
+  .featured-period-skeleton {
     width: 216px;
     border-radius: 6px;
     background: color-mix(in srgb, var(--color-ink) 6%, transparent);
   }
 
-  .featured-month-step {
+  .featured-period-step {
     display: inline-flex;
     width: 40px;
     height: 44px;
@@ -69,23 +148,23 @@
     color: var(--color-muted);
   }
 
-  .featured-month-step:not(.featured-month-step-disabled):hover {
+  .featured-period-step:not(.featured-period-step-disabled):hover {
     color: var(--color-ink);
     background: color-mix(in srgb, var(--color-ink) 8%, transparent);
   }
 
-  .featured-month-step:focus-visible {
+  .featured-period-step:focus-visible {
     border-radius: 6px;
     outline-offset: 0;
   }
 
-  /* January and December end the current year: the step stays in place, dimmed and inert. */
-  .featured-month-step-disabled {
+  /* A navigation bound, or bounds still unknown: the step stays in place, dimmed and inert. */
+  .featured-period-step-disabled {
     cursor: default;
     opacity: 0.35;
   }
 
-  .featured-month-label {
+  .featured-period-label {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -97,12 +176,32 @@
     font-weight: 700;
     letter-spacing: 0.01em;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
 
-  .featured-month-label .featured-icon {
+  .featured-period-label .featured-icon {
     width: 17px;
     height: 17px;
     color: var(--g-ice-deep);
+  }
+
+  /* The way back reads quietly beside the readout, a link and nothing more. */
+  .featured-period-current {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-muted) 45%, transparent);
+    text-underline-offset: 4px;
+    white-space: nowrap;
+  }
+
+  .featured-period-current:hover {
+    color: var(--color-ink);
+    text-decoration-color: currentColor;
   }
 
   /* ---------------------------------------------------------------- Featured frames */
@@ -1478,27 +1577,49 @@
     }
   }
 
-  /* Phones: the art runs on from the month selector, the G becomes the release's seal rising over
+  /* Phones: the art runs on from the period selector, the G becomes the release's seal rising over
      the art's foot with the date in its bowl, and the copy follows at the full column width. */
   @media (max-width: 619px) {
     .featured-heading {
       gap: 4px 12px;
     }
 
-    .featured-month {
+    /* The switch and the steps share the row under the title; the way back to the current
+       period, shown only while another one is, takes the end of the row or a line of its own. */
+    .featured-period {
       width: 100%;
-      justify-content: space-between;
+      gap: 0 10px;
     }
 
-    .featured-month-label {
-      font-size: 1.125rem;
+    .featured-granularity-option {
+      padding-inline: 10px;
+      font-size: 0.875rem;
     }
 
-    .featured-month-label .featured-icon {
+    .featured-period-stepper {
+      margin-inline-start: auto;
+    }
+
+    .featured-period-step {
+      width: 36px;
+    }
+
+    .featured-period-label {
+      padding-inline: 2px;
+      font-size: 1rem;
+    }
+
+    .featured-period-label .featured-icon {
       display: none;
     }
 
-    /* The stage runs on from the page opening: the art starts behind the month selector and
+    .featured-period-current {
+      min-height: 32px;
+      margin-inline-start: auto;
+      font-size: 0.8125rem;
+    }
+
+    /* The stage runs on from the page opening: the art starts behind the period selector and
        fades in under it, so heading, month and art read as one lit stage. */
     .featured-hero {
       margin-top: -34px;
@@ -1753,6 +1874,12 @@
   }
 
   @media (forced-colors: active) {
+    .featured-granularity-option[aria-current="true"]::after,
+    .featured-granularity li + li::before {
+      forced-color-adjust: none;
+      background: CanvasText;
+    }
+
     .featured-page::before,
     .featured-hero-light,
     .featured-hero-visual::after,

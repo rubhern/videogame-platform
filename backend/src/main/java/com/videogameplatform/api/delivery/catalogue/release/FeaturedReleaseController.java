@@ -1,23 +1,29 @@
 package com.videogameplatform.api.delivery.catalogue.release;
 
+import com.videogameplatform.api.delivery.ApiRequestException;
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
 import com.videogameplatform.api.delivery.catalogue.CatalogueSummaryMapper;
 import com.videogameplatform.api.delivery.catalogue.DiscoveryScoresReader;
 import com.videogameplatform.api.generated.FeaturedReleasesApi;
 import com.videogameplatform.api.generated.model.Attribution;
 import com.videogameplatform.api.generated.model.FallbackFeaturedImage;
+import com.videogameplatform.api.generated.model.FeaturedGranularity;
 import com.videogameplatform.api.generated.model.FeaturedImage;
 import com.videogameplatform.api.generated.model.FeaturedLogo;
+import com.videogameplatform.api.generated.model.FeaturedNavigation;
 import com.videogameplatform.api.generated.model.FeaturedReleaseItem;
 import com.videogameplatform.api.generated.model.FeaturedReleases;
 import com.videogameplatform.api.generated.model.FeaturedSelection;
 import com.videogameplatform.api.generated.model.Genre;
+import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ProviderFeaturedImage;
 import com.videogameplatform.api.generated.model.ReleaseItem;
 import com.videogameplatform.api.generated.model.ReleaseWindow;
 import com.videogameplatform.catalogue.application.cover.CatalogueCover;
 import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase.Granularity;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.LinkedHashSet;
@@ -34,6 +40,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class FeaturedReleaseController implements FeaturedReleasesApi {
 
     private static final String FALLBACK_IMAGE_PATH = "/assets/featured/fallback.svg";
+    private static final String WEEK_POINTER = "/query/week";
+    private static final String MONTH_POINTER = "/query/month";
 
     private final BrowseFeaturedReleasesUseCase useCase;
     private final ReleaseApiMapper releases;
@@ -58,11 +66,10 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
     }
 
     @Override
-    public ResponseEntity<FeaturedReleases> getFeaturedReleases(String month, String ifNoneMatch) {
-        // The contract pattern has already rejected a malformed month before this point.
-        Optional<YearMonth> requested = Optional.ofNullable(month).map(YearMonth::parse);
-        FeaturedReleasesResult result =
-                useCase.browse(new BrowseFeaturedReleasesUseCase.Query(requested));
+    public ResponseEntity<FeaturedReleases> getFeaturedReleases(
+            FeaturedGranularity granularity, String week, String month, String ifNoneMatch) {
+        BrowseFeaturedReleasesUseCase.Query query = toQuery(granularity, week, month);
+        FeaturedReleasesResult result = useCase.browse(query);
         FeaturedReleases body = toResponse(result);
         var scoreBatch =
                 scores.read(
@@ -79,17 +86,94 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
             return ResponseEntity.status(304).headers(headers).build();
         }
 
-        metrics.recordSelection(result.selection(), requested.isPresent(), result.items());
+        metrics.recordSelection(
+                result.granularity(),
+                result.selection(),
+                query.periodStart().isPresent(),
+                result.items());
         return ResponseEntity.ok().headers(headers).body(body);
     }
 
+    /**
+     * The contract patterns have already rejected a malformed week or month. A request names one
+     * granularity: its own period parameter, or none for the current period. Omitted, the
+     * granularity follows the period parameter and otherwise stays the month, as before weeks.
+     */
+    private static BrowseFeaturedReleasesUseCase.Query toQuery(
+            FeaturedGranularity granularity, String week, String month) {
+        if (week != null && month != null) {
+            throw new ApiRequestException(ProblemCode.FILTER_INVALID, WEEK_POINTER);
+        }
+        Granularity selected;
+        if (granularity != null) {
+            selected =
+                    switch (granularity) {
+                        case week -> Granularity.WEEK;
+                        case month -> Granularity.MONTH;
+                    };
+        } else if (week != null) {
+            selected = Granularity.WEEK;
+        } else {
+            selected = Granularity.MONTH;
+        }
+        return switch (selected) {
+            case WEEK -> {
+                if (month != null) {
+                    throw new ApiRequestException(ProblemCode.FILTER_INVALID, MONTH_POINTER);
+                }
+                yield new BrowseFeaturedReleasesUseCase.Query(
+                        selected, Optional.ofNullable(week).map(FeaturedReleaseController::monday));
+            }
+            case MONTH -> {
+                if (week != null) {
+                    throw new ApiRequestException(ProblemCode.FILTER_INVALID, WEEK_POINTER);
+                }
+                yield new BrowseFeaturedReleasesUseCase.Query(
+                        selected,
+                        Optional.ofNullable(month).map(value -> YearMonth.parse(value).atDay(1)));
+            }
+        };
+    }
+
+    private static LocalDate monday(String week) {
+        return IsoWeekParameter.monday(week)
+                .orElseThrow(
+                        () -> new ApiRequestException(ProblemCode.FILTER_INVALID, WEEK_POINTER));
+    }
+
+    private static String period(Granularity granularity, LocalDate start) {
+        return switch (granularity) {
+            case WEEK -> IsoWeekParameter.format(start);
+            case MONTH -> YearMonth.from(start).toString();
+        };
+    }
+
     private FeaturedReleases toResponse(FeaturedReleasesResult result) {
-        return new FeaturedReleases(
-                result.month().toString(),
-                result.evaluatedOn(),
-                new ReleaseWindow(result.window().from(), result.window().to()),
-                toSelection(result.selection()),
-                result.items().stream().map(this::toItem).toList());
+        Granularity granularity = result.granularity();
+        FeaturedNavigation navigation = new FeaturedNavigation();
+        result.navigation()
+                .previous()
+                .ifPresent(start -> navigation.setPrevious(period(granularity, start)));
+        result.navigation()
+                .next()
+                .ifPresent(start -> navigation.setNext(period(granularity, start)));
+        FeaturedReleases response =
+                new FeaturedReleases(
+                        switch (granularity) {
+                            case WEEK -> FeaturedGranularity.week;
+                            case MONTH -> FeaturedGranularity.month;
+                        },
+                        result.evaluatedOn(),
+                        new ReleaseWindow(result.window().from(), result.window().to()),
+                        navigation,
+                        toSelection(result.selection()),
+                        result.items().stream().map(this::toItem).toList());
+        String current = period(granularity, result.window().from());
+        switch (granularity) {
+            case WEEK -> response.setWeek(current);
+            case MONTH -> response.setMonth(current);
+        }
+        return response;
     }
 
     private FeaturedReleaseItem toItem(FeaturedReleasesResult.Item item) {

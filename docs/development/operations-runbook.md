@@ -309,6 +309,15 @@ times are staggered to reduce contention; the precise crons/offsets stay in
 Their overlap is deliberate and uses stable-reference idempotence, with no scheduling
 de-duplication; each successful run refreshes the coverage of its own window.
 
+The widest future window among the policies not disabled with `-` (the upcoming policy's
+180 days by default) is also the configured forward acquisition horizon that bounds
+Destacados' monthly navigation ([UC-010](../architecture/application/mvp-use-cases.md)):
+months stop at the last month lying wholly inside it. It applies whether or not
+`CATALOGUE_SYNC_SCHEDULING_ENABLED` is on, because it states the configured intent, not
+completed coverage. Narrowing or disabling the upcoming policy therefore shortens how far
+forward visitors can browse months, from the next application start; check coverage before
+claiming that a browsable month was actually acquired.
+
 One dedicated scheduler thread serializes recurring work. If a long run delays the
 other policy, its date window is evaluated at actual invocation. Missed occurrences
 of a running policy and downtime are not replayed; no acquisition runs on startup,
@@ -421,7 +430,7 @@ featured evidence keeps its last valid state; a valid missing/zero Hypes or miss
 release excludes a Game from ranking. The forward migration removes Visits data, so
 re-synchronize the desired months after upgrading; it never converts Visits to Hypes.
 `catalogue.featured.selection{freshness="stale"}` or `{status="popularity_unavailable"}`
-on reads means the next run should cover that month, and a high `lead_image="fallback"`
+on reads means the next run should cover that period, and a high `lead_image="fallback"`
 share means its Games have no usable artwork or screenshot yet. Explicit
 current-release repair refreshes featured evidence with each Game but does not look up logos.
 

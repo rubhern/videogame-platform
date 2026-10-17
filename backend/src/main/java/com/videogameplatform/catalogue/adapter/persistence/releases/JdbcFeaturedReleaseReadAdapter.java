@@ -26,21 +26,25 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.transaction.support.TransactionOperations;
 
 /**
- * PostgreSQL read adapter for one calendar month's featured releases (UC-010).
+ * PostgreSQL read adapter for one calendar period's featured releases (UC-010): an ISO week or a
+ * calendar month.
  *
- * <p>PostgreSQL does all the work: qualifying_release holds the month's qualifying releases through
+ * <p>PostgreSQL does all the work: qualifying_release holds the period's qualifying releases through
  * the shared period index, ranked_game ranks their distinct games by the local popularity signal and
  * keeps only the bounded top, and presented_release keeps one presented release per game and
  * platform among those games. Only the ranked games read their snapshot and their stored featured
- * hero/card images and card logo, each by key. Work grows with the month's releases, never with the catalogue, the
+ * hero/card images and card logo, each by key. Work grows with the period's releases, never with the catalogue, the
  * popularity table or the media table, and request memory stays O(limit x releaseGroupLimit).
  */
 public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseReadPort {
 
-    // A release qualifies when its known date lies inside the month: an exact day of the month, or
-    // month precision equal to the month (quarter and year periods are wider than any month, and an
-    // unknown date has no period). Negative lifecycle evidence and pending review never qualify;
-    // only a Full Release qualifies.
+    // A release qualifies when its whole known date period lies inside the featured period: an
+    // exact
+    // day of it or, for a month, month precision equal to the month. Quarter and year periods are
+    // wider than any month and a month is wider than any week, so a week admits exact days alone
+    // and
+    // no coarser date is ever assigned to an invented week; an unknown date has no period. Negative
+    // lifecycle evidence and pending review never qualify; only a Full Release qualifies.
     private static final String QUALIFYING_PREDICATE =
             """
             rs.publication_id = CAST(:publicationId AS uuid)
@@ -50,7 +54,7 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
               AND rs.date_precision IN ('day', 'month')
               AND rs.period_start IS NOT NULL
               AND daterange(rs.period_start, rs.period_end, '[]')
-                  <@ daterange(CAST(:monthStart AS date), CAST(:monthEnd AS date), '[]')
+                  <@ daterange(CAST(:periodStart AS date), CAST(:periodEnd AS date), '[]')
             """;
 
     private static final String QUALIFYING_EXISTS_SQL =
@@ -58,7 +62,7 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                     + QUALIFYING_PREDICATE
                     + " AND EXISTS (SELECT 1 FROM catalogue.game_featured_evidence evidence"
                     + " WHERE evidence.game_id = rs.game_id AND evidence.eligible_product"
-                    + " AND evidence.first_release_date BETWEEN CAST(:monthStart AS date) AND CAST(:monthEnd AS date)))";
+                    + " AND evidence.first_release_date BETWEEN CAST(:periodStart AS date) AND CAST(:periodEnd AS date)))";
 
     // Each candidate reads its signal through a LATERAL primary-key probe (the LIMIT keeps the
     // planner from hashing the whole popularity table), and only the ranked games join their
@@ -81,7 +85,7 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                     WHERE signal.game_id = candidate.game_id
                       AND signal.eligible_product
                       AND signal.hypes > 0
-                      AND signal.first_release_date BETWEEN CAST(:monthStart AS date) AND CAST(:monthEnd AS date)
+                      AND signal.first_release_date BETWEEN CAST(:periodStart AS date) AND CAST(:periodEnd AS date)
                     LIMIT 1
                 ) popularity ON true
                 ORDER BY popularity.hypes DESC, candidate.game_id
@@ -184,16 +188,15 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
         }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("publicationId", publication.orElseThrow().id());
-        parameters.put("monthStart", criteria.monthStart());
-        parameters.put("monthEnd", criteria.monthEnd());
+        parameters.put("periodStart", criteria.periodStart());
+        parameters.put("periodEnd", criteria.periodEnd());
         parameters.put("limit", criteria.limit());
         parameters.put("releaseGroupLimit", criteria.releaseGroupLimit());
 
         List<Item> items =
                 enrich(jdbcOperations.query(PAGE_SQL, parameters, this::mapPage), parameters);
-        // A ranked game proves the month qualifies; only an empty ranking needs the cheap probe
-        // that
-        // tells an unranked month apart from a month without qualifying releases.
+        // A ranked game proves the period qualifies; only an empty ranking needs the cheap probe
+        // that tells an unranked period apart from a period without qualifying releases.
         boolean qualifying =
                 !items.isEmpty()
                         || Boolean.TRUE.equals(

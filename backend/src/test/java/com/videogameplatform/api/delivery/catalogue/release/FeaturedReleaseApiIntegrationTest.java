@@ -86,10 +86,16 @@ class FeaturedReleaseApiIntegrationTest {
         JsonNode body = OBJECT_MAPPER.readTree(response.body());
 
         OPENAPI.assertJsonResponse(response, 200, "FeaturedReleases");
+        // Without parameters the month stays the default, as before weeks existed.
+        assertThat(body.path("granularity").stringValue()).isEqualTo("month");
         assertThat(body.path("month").stringValue()).isEqualTo("2026-08");
+        assertThat(body.has("week")).isFalse();
         assertThat(body.path("evaluatedOn").stringValue()).isEqualTo("2026-08-13");
         assertThat(body.path("window").path("from").stringValue()).isEqualTo("2026-08-01");
         assertThat(body.path("window").path("to").stringValue()).isEqualTo("2026-08-31");
+        assertThat(body.path("navigation").path("previous").stringValue()).isEqualTo("2026-07");
+        assertThat(body.path("navigation").path("next").stringValue()).isEqualTo("2026-09");
+        assertThat(json(get("/api/v1/featured-releases?granularity=month"))).isEqualTo(body);
         // The seed holds no qualifying release in August: an explicit state, not an error.
         assertThat(body.path("selection").path("status").stringValue())
                 .isEqualTo("no_qualifying_releases");
@@ -104,6 +110,108 @@ class FeaturedReleaseApiIntegrationTest {
         OPENAPI.assertEmptyResponse(notModified, 304);
         assertThat(get("/api/v1/featured-releases?month=2026-10").headers().firstValue("ETag"))
                 .isNotEqualTo(java.util.Optional.of(entityTag));
+        assertThat(get("/api/v1/featured-releases?granularity=week").headers().firstValue("ETag"))
+                .isNotEqualTo(java.util.Optional.of(entityTag));
+    }
+
+    @Test
+    void featuresTheCurrentMadridIsoWeekFromMondayToSunday() throws Exception {
+        // Thursday 13 August 2026 belongs to ISO week 33, Monday 10 to Sunday 16 August.
+        HttpResponse<String> response = get("/api/v1/featured-releases?granularity=week");
+        JsonNode body = OBJECT_MAPPER.readTree(response.body());
+
+        OPENAPI.assertJsonResponse(response, 200, "FeaturedReleases");
+        assertThat(body.path("granularity").stringValue()).isEqualTo("week");
+        assertThat(body.path("week").stringValue()).isEqualTo("2026-W33");
+        assertThat(body.has("month")).isFalse();
+        assertThat(body.path("evaluatedOn").stringValue()).isEqualTo("2026-08-13");
+        assertThat(body.path("window").path("from").stringValue()).isEqualTo("2026-08-10");
+        assertThat(body.path("window").path("to").stringValue()).isEqualTo("2026-08-16");
+        assertThat(body.path("navigation").path("previous").stringValue()).isEqualTo("2026-W32");
+        assertThat(body.path("navigation").path("next").stringValue()).isEqualTo("2026-W34");
+        assertThat(body.path("selection").path("status").stringValue())
+                .isEqualTo("no_qualifying_releases");
+        assertThat(response.headers().firstValue("Cache-Control")).contains("public, no-cache");
+        String entityTag = response.headers().firstValue("ETag").orElseThrow();
+        OPENAPI.assertEmptyResponse(
+                get("/api/v1/featured-releases?granularity=week", "If-None-Match", entityTag), 304);
+        // Naming the current week is the same representation.
+        assertThat(json(get("/api/v1/featured-releases?week=2026-W33"))).isEqualTo(body);
+        assertThat(json(get("/api/v1/featured-releases?granularity=week&week=2026-W33")))
+                .isEqualTo(body);
+    }
+
+    @Test
+    void aWeekRanksOnlyGamesWhoseOwnFirstReleaseFallsInsideIt() throws Exception {
+        var wolverine = java.util.UUID.fromString("30000000-0000-4000-8000-00000000000c");
+        // The seed dates Wolverine's first release on 15 September and its only release on Friday
+        // 25 September: September features it, but no week genuinely holds both.
+        JsonNode before = json(get("/api/v1/featured-releases?week=2026-W39"));
+        assertThat(before.path("window").path("from").stringValue()).isEqualTo("2026-09-21");
+        assertThat(before.path("window").path("to").stringValue()).isEqualTo("2026-09-27");
+        assertThat(before.path("selection").path("status").stringValue())
+                .isEqualTo("no_qualifying_releases");
+        assertThat(
+                        json(get("/api/v1/featured-releases?week=2026-W38"))
+                                .path("selection")
+                                .path("status")
+                                .stringValue())
+                .isEqualTo("no_qualifying_releases");
+        try {
+            jdbc.update(
+                    "UPDATE catalogue.game_featured_evidence SET first_release_date=DATE '2026-09-25' WHERE game_id=?",
+                    wolverine);
+            HttpResponse<String> response = get("/api/v1/featured-releases?week=2026-W39");
+            JsonNode body = OBJECT_MAPPER.readTree(response.body());
+
+            OPENAPI.assertJsonResponse(response, 200, "FeaturedReleases");
+            assertThat(body.path("selection").path("status").stringValue()).isEqualTo("ranked");
+            assertThat(ids(body.path("items"), "canonicalTitle"))
+                    .containsExactly("Marvel's Wolverine");
+            JsonNode date = body.path("items").get(0).path("releases").get(0).path("releaseDate");
+            assertThat(date.path("precision").stringValue()).isEqualTo("day");
+            assertThat(date.path("value").stringValue()).isEqualTo("2026-09-25");
+            // Crimson Desert's October is month precision: no week of October may claim it.
+            for (String week :
+                    List.of("2026-W40", "2026-W41", "2026-W42", "2026-W43", "2026-W44")) {
+                assertThat(json(get("/api/v1/featured-releases?week=" + week)).path("items"))
+                        .isEmpty();
+            }
+        } finally {
+            jdbc.update(
+                    "UPDATE catalogue.game_featured_evidence SET first_release_date=DATE '2026-09-15' WHERE game_id=?",
+                    wolverine);
+        }
+    }
+
+    @Test
+    void navigatesSixteenWeeksAndTenMonthsBackAndTheAcquisitionHorizonForward() throws Exception {
+        // 13 August plus the default 180-day horizon is 9 February 2027: January is the last month
+        // wholly inside it.
+        JsonNode firstWeek = json(get("/api/v1/featured-releases?week=2026-W17"));
+        assertThat(firstWeek.path("navigation").has("previous")).isFalse();
+        assertThat(firstWeek.path("navigation").path("next").stringValue()).isEqualTo("2026-W18");
+        JsonNode lastWeek = json(get("/api/v1/featured-releases?week=2026-W49"));
+        assertThat(lastWeek.path("window").path("to").stringValue()).isEqualTo("2026-12-06");
+        assertThat(lastWeek.path("navigation").path("previous").stringValue())
+                .isEqualTo("2026-W48");
+        assertThat(lastWeek.path("navigation").has("next")).isFalse();
+        JsonNode firstMonth = json(get("/api/v1/featured-releases?month=2025-10"));
+        assertThat(firstMonth.path("navigation").has("previous")).isFalse();
+        assertThat(firstMonth.path("navigation").path("next").stringValue()).isEqualTo("2025-11");
+        JsonNode lastMonth = json(get("/api/v1/featured-releases?month=2027-01"));
+        assertThat(lastMonth.path("navigation").path("previous").stringValue())
+                .isEqualTo("2026-12");
+        assertThat(lastMonth.path("navigation").has("next")).isFalse();
+        OPENAPI.assertJsonResponse(
+                get("/api/v1/featured-releases?month=2027-01"), 200, "FeaturedReleases");
+
+        for (String outside : List.of("week=2026-W16", "week=2026-W50", "week=2019-W10")) {
+            assertPointer(get("/api/v1/featured-releases?" + outside), "/query/week");
+        }
+        for (String outside : List.of("month=2025-09", "month=2027-02")) {
+            assertPointer(get("/api/v1/featured-releases?" + outside), "/query/month");
+        }
     }
 
     @Test
@@ -295,7 +403,7 @@ class FeaturedReleaseApiIntegrationTest {
 
     @Test
     void rejectsMalformedMonthsAndUnknownParametersWithStableProblems() throws Exception {
-        // A well-formed month outside the current Madrid year fails the same filter validation.
+        // A well-formed month outside the navigation bounds fails the same filter validation.
         for (String month :
                 List.of(
                         "2026-13",
@@ -304,8 +412,8 @@ class FeaturedReleaseApiIntegrationTest {
                         "26-10",
                         "",
                         "2026-10-01",
-                        "2025-12",
-                        "2027-01",
+                        "2025-09",
+                        "2027-02",
                         "2019-03")) {
             HttpResponse<String> response = get("/api/v1/featured-releases?month=" + month);
             assertProblem(response, 422, "FILTER_INVALID");
@@ -327,16 +435,51 @@ class FeaturedReleaseApiIntegrationTest {
     }
 
     @Test
+    void rejectsMalformedWeeksAndConflictingGranularitiesWithStableProblems() throws Exception {
+        // 2025 has 52 ISO weeks, so its week 53 does not exist.
+        for (String week :
+                List.of("2026-W54", "2026-W00", "2026-W5", "2026W33", "2026-33", "", "2025-W53")) {
+            assertPointer(get("/api/v1/featured-releases?week=" + week), "/query/week");
+        }
+        assertPointer(get("/api/v1/featured-releases?week=2026-W33&month=2026-08"), "/query/week");
+        assertPointer(
+                get("/api/v1/featured-releases?granularity=month&week=2026-W33"), "/query/week");
+        assertPointer(
+                get("/api/v1/featured-releases?granularity=week&month=2026-08"), "/query/month");
+        assertPointer(get("/api/v1/featured-releases?granularity=day"), "/query/granularity");
+        assertProblem(
+                get("/api/v1/featured-releases?week=2026-W33&week=2026-W34"),
+                422,
+                "FILTER_INVALID");
+    }
+
+    @Test
     void measuresOnlyBoundedSelectionDimensions() throws Exception {
         get("/api/v1/featured-releases?month=2026-10");
+        get("/api/v1/featured-releases?granularity=week");
 
         Counter ranked =
                 meterRegistry
                         .find("catalogue.featured.selection")
-                        .tags("status", "ranked", "freshness", "fresh", "month", "requested")
+                        .tags(
+                                "status",
+                                "ranked",
+                                "freshness",
+                                "fresh",
+                                "granularity",
+                                "month",
+                                "period",
+                                "requested")
                         .counter();
         assertThat(ranked).isNotNull();
         assertThat(ranked.count()).isPositive();
+        Counter currentWeek =
+                meterRegistry
+                        .find("catalogue.featured.selection")
+                        .tags("granularity", "week", "period", "current")
+                        .counter();
+        assertThat(currentWeek).isNotNull();
+        assertThat(currentWeek.count()).isPositive();
         meterRegistry
                 .find("catalogue.featured.selection")
                 .meters()
@@ -345,7 +488,23 @@ class FeaturedReleaseApiIntegrationTest {
                                 assertThat(meter.getId().getTags())
                                         .extracting(tag -> tag.getKey())
                                         .containsExactlyInAnyOrder(
-                                                "status", "freshness", "month", "lead_image"));
+                                                "status",
+                                                "freshness",
+                                                "granularity",
+                                                "period",
+                                                "lead_image"));
+    }
+
+    private void assertPointer(HttpResponse<String> response, String pointer) {
+        assertProblem(response, 422, "FILTER_INVALID");
+        assertThat(
+                        OBJECT_MAPPER
+                                .readTree(response.body())
+                                .path("violations")
+                                .get(0)
+                                .path("pointer")
+                                .stringValue())
+                .isEqualTo(pointer);
     }
 
     private void assertProblem(HttpResponse<String> response, int status, String code) {

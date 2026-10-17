@@ -7,7 +7,7 @@ import { FeaturedArtFrame } from "./featured-art";
 import type { FeaturedItem } from "./featured-releases-view-model";
 import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { MonthStrip } from "./month-strip";
-import type { MonthTimeline } from "./month-timeline";
+import type { PeriodTimeline } from "./period-timeline";
 import { ReleaseOverflow } from "./release-overflow";
 
 /** A compact row shows up to three platform marks and the exact number of further platforms. */
@@ -16,7 +16,7 @@ const VISIBLE_PLATFORMS = 3;
 /**
  * One of the other featured releases, designed for wide artwork: a screenshot, which never carries
  * a title of its own, gets the game's logo over it; artwork often carries its own and is shown as
- * it is. Under the frame the month's scale marks the first presented release's date. Then the
+ * it is. Under the frame the period's scale marks the first presented release's date. Then the
  * title is the card's only keyboard stop, followed by that release's platforms as marks and its
  * region. Every platform stays named for assistive technology, and further releases stay reachable
  * behind the overflow control.
@@ -26,8 +26,8 @@ export function FeaturedCard({
   timeline,
 }: {
   item: FeaturedItem;
-  /** The represented month; null only when the response's dates are malformed. */
-  timeline: MonthTimeline | null;
+  /** The represented period; null only when the response's dates are malformed. */
+  timeline: PeriodTimeline | null;
 }) {
   const gamePath = `/games/${item.gameId}/${item.slug}`;
   const [primaryGroup, ...hiddenGroups] = item.releaseGroups;
