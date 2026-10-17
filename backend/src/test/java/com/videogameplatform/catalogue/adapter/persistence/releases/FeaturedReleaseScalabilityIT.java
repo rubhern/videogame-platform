@@ -77,7 +77,7 @@ class FeaturedReleaseScalabilityIT {
 
         var result = adapter.findFeaturedReleases(criteria).orElseThrow();
         JsonNode plan = explain(admin, pageSql("2026-08-01", "2026-08-31"));
-        record(rows, "month", plan);
+        recordPlan(rows, "month", plan);
 
         assertThat(result.items()).hasSize(6);
         // Every generated release shares one platform, so each game presents exactly one.
@@ -102,12 +102,13 @@ class FeaturedReleaseScalabilityIT {
                                         LocalDate.of(2026, 7, 27), LocalDate.of(2026, 8, 2), 6, 25))
                         .orElseThrow();
         JsonNode weekPlan = explain(admin, pageSql("2026-07-27", "2026-08-02"));
-        record(rows, "week", weekPlan);
+        recordPlan(rows, "week", weekPlan);
         assertThat(week.items()).hasSize(6);
         assertThat(week.items())
                 .allSatisfy(
                         item ->
                                 assertThat(item.releases())
+                                        .isNotEmpty()
                                         .allSatisfy(
                                                 release ->
                                                         assertThat(release.releaseDate())
@@ -271,7 +272,7 @@ class FeaturedReleaseScalabilityIT {
         return OBJECT_MAPPER.readTree(json).get(0);
     }
 
-    private static void record(int rows, String period, JsonNode plan) throws Exception {
+    private static void recordPlan(int rows, String period, JsonNode plan) throws Exception {
         Path directory = Files.createDirectories(Path.of("target", "query-plans"));
         Path output = directory.resolve("featured-" + rows + "-" + period + ".json");
         Files.writeString(

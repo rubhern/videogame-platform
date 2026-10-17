@@ -38,8 +38,8 @@ public record FeaturedReleasesResult(
      */
     public record Navigation(Optional<LocalDate> previous, Optional<LocalDate> next) {
         public Navigation {
-            previous = java.util.Objects.requireNonNull(previous, "previous");
-            next = java.util.Objects.requireNonNull(next, "next");
+            java.util.Objects.requireNonNull(previous, "previous");
+            java.util.Objects.requireNonNull(next, "next");
         }
     }
 

@@ -91,23 +91,23 @@ class CatalogueModuleConfigurationTest {
                         context -> {
                             var featured = context.getBean(BrowseFeaturedReleasesUseCase.class);
                             // Inside the bounds the read proceeds and finds no publication.
-                            assertThatThrownBy(() -> featured.browse(month("2026-09-01")))
+                            var september = month("2026-09-01");
+                            var october = month("2026-10-01");
+                            assertThatThrownBy(() -> featured.browse(september))
                                     .isInstanceOf(CatalogueNotReadyException.class);
-                            assertThatThrownBy(() -> featured.browse(month("2026-10-01")))
+                            assertThatThrownBy(() -> featured.browse(october))
                                     .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
                         });
         // A disabled upcoming policy leaves the daily 28 days: 18 September, so August is last.
         contextRunner
                 .withPropertyValues("catalogue.synchronization.scheduling.upcoming.cron=-")
                 .run(
-                        context ->
-                                assertThatThrownBy(
-                                                () ->
-                                                        context.getBean(
-                                                                        BrowseFeaturedReleasesUseCase
-                                                                                .class)
-                                                                .browse(month("2026-09-01")))
-                                        .isInstanceOf(FeaturedPeriodOutOfRangeException.class));
+                        context -> {
+                            var featured = context.getBean(BrowseFeaturedReleasesUseCase.class);
+                            var september = month("2026-09-01");
+                            assertThatThrownBy(() -> featured.browse(september))
+                                    .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
+                        });
     }
 
     @Test

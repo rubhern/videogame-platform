@@ -155,7 +155,8 @@ class FeaturedReleaseServiceTest {
         var latest = service.browse(month("2027-02-01"));
         assertThat(latest.navigation().previous()).contains(LocalDate.parse("2027-01-01"));
         assertThat(latest.navigation().next()).isEmpty();
-        assertThatThrownBy(() -> service.browse(month("2027-03-01")))
+        var march = month("2027-03-01");
+        assertThatThrownBy(() -> service.browse(march))
                 .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
 
         // Two days later the horizon ends on 1 April 2027, so March is wholly inside.
@@ -175,7 +176,8 @@ class FeaturedReleaseServiceTest {
         var current = noHorizon.browse(Query.current(Granularity.MONTH));
         assertThat(current.navigation().previous()).contains(LocalDate.parse("2026-09-01"));
         assertThat(current.navigation().next()).isEmpty();
-        assertThatThrownBy(() -> noHorizon.browse(month("2026-11-01")))
+        var november = month("2026-11-01");
+        assertThatThrownBy(() -> noHorizon.browse(november))
                 .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
         assertThat(noHorizon.browse(week("2027-01-11")).navigation().next())
                 .contains(LocalDate.parse("2027-01-18"));

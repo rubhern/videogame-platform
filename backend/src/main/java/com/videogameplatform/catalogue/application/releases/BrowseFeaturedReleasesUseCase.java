@@ -31,7 +31,7 @@ public interface BrowseFeaturedReleasesUseCase {
     record Query(Granularity granularity, Optional<LocalDate> periodStart) {
         public Query {
             Objects.requireNonNull(granularity, "granularity");
-            periodStart = Objects.requireNonNull(periodStart, "periodStart");
+            Objects.requireNonNull(periodStart, "periodStart");
             periodStart.ifPresent(
                     start -> {
                         if (start.getYear() < 1 || start.getYear() > 9999) {
@@ -39,8 +39,8 @@ public interface BrowseFeaturedReleasesUseCase {
                                     "A featured period must start in years 1 through 9999");
                         }
                         boolean aligned =
-                                granularity == Granularity.WEEK
-                                        ? start.getDayOfWeek() == DayOfWeek.MONDAY
+                                Granularity.WEEK.equals(granularity)
+                                        ? DayOfWeek.MONDAY.equals(start.getDayOfWeek())
                                         : start.getDayOfMonth() == 1;
                         if (!aligned) {
                             throw new IllegalArgumentException(

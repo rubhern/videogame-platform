@@ -104,13 +104,18 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
         if (week != null && month != null) {
             throw new ApiRequestException(ProblemCode.FILTER_INVALID, WEEK_POINTER);
         }
-        Granularity selected =
-                granularity == null
-                        ? (week == null ? Granularity.MONTH : Granularity.WEEK)
-                        : switch (granularity) {
-                            case week -> Granularity.WEEK;
-                            case month -> Granularity.MONTH;
-                        };
+        Granularity selected;
+        if (granularity != null) {
+            selected =
+                    switch (granularity) {
+                        case week -> Granularity.WEEK;
+                        case month -> Granularity.MONTH;
+                    };
+        } else if (week != null) {
+            selected = Granularity.WEEK;
+        } else {
+            selected = Granularity.MONTH;
+        }
         return switch (selected) {
             case WEEK -> {
                 if (month != null) {
