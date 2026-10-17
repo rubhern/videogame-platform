@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 
 import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
-import { CinematicStage } from "../../shared/ui/cinematic-stage";
 import { HeroTitle } from "../../shared/ui/hero-title";
+import { StageLight } from "../../shared/ui/stage-light";
 
 import { GameSearchCard } from "./game-search-card";
 import { GameSearchPagination } from "./game-search-pagination";
@@ -44,14 +44,9 @@ function resultsSummary(model: GameSearchViewModel, isRefreshing: boolean): stri
 /** Placeholders never outnumber the widest release grid, whatever page size the URL asks for. */
 const MAX_PLACEHOLDERS = 12;
 
-/**
- * An active search makes its own query the page context, lit as the title's accent; without one
- * the page invites a search. Lead and accent read as `Resultados para «consulta»`.
- */
-function pageTitle(params: GameSearchParams): { lead: string; accent: string } {
-  return hasSearchableQuery(params)
-    ? { lead: "Resultados para", accent: `«${params.query}»` }
-    : { lead: "Buscar", accent: "juegos" };
+/** An active search makes its own query the page title; without one the page invites a search. */
+function pageTitle(params: GameSearchParams): string {
+  return hasSearchableQuery(params) ? `Resultados para «${params.query}»` : "Buscar juegos";
 }
 
 export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps) {
@@ -68,15 +63,20 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
   }, [params.query, params.page]);
 
   const placeholders = Math.min(params.pageSize, MAX_PLACEHOLDERS);
+  // The opening is lit by the first games found, never by a placeholder image.
+  const lights =
+    state.status === "ready" && !state.isPlaceholderData
+      ? state.model.results.flatMap((result) => (result.cover.kind === "fallback" ? [] : [result.cover.url]))
+      : [];
 
   return (
     <section aria-labelledby="search-title" className="hero-page search-page">
-      <CinematicStage variant="search" />
+      <StageLight images={lights} />
       <div className="page-container search-section">
-        <div className="hero-heading">
-          <p className="eyebrow eyebrow-dot">Catálogo de juegos</p>
-          <HeroTitle id="search-title" {...pageTitle(params)} />
-        </div>
+        <header className="page-head">
+          <p className="eyebrow">Catálogo de juegos</p>
+          <HeroTitle id="search-title" title={pageTitle(params)} />
+        </header>
 
         <h2
           className="sr-only"
@@ -88,7 +88,6 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
 
         {state.status === "prompt" ? (
           <div className="notice notice-empty" role="status">
-            <span className="notice-symbol" aria-hidden="true"><span className="search-icon" /></span>
             <p className="notice-kicker">Buscar en el catálogo</p>
             <h3>Encuentra un juego por su título</h3>
             <p>Escribe un título o un título alternativo aprobado en el buscador de la cabecera.</p>
@@ -96,12 +95,11 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
         ) : null}
 
         {state.status === "loading" ? (
-          <CatalogueLoading message="Buscando en el catálogo…" placeholders={placeholders} />
+          <CatalogueLoading message="Buscando en el catálogo…" placeholders={placeholders} shape="index" />
         ) : null}
 
         {state.status === "query-invalid" ? (
           <div className="notice notice-warning" role="alert">
-            <span className="notice-symbol notice-symbol-warning" aria-hidden="true">!</span>
             <p className="notice-kicker">Consulta no válida</p>
             <h3>La búsqueda no es válida</h3>
             <p>Escribe al menos un carácter con letras o números y como máximo 100 caracteres.</p>
@@ -110,7 +108,6 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
 
         {state.status === "catalogue-not-ready" ? (
           <div className="notice notice-info" role="alert">
-            <span className="notice-symbol" aria-hidden="true">◷</span>
             <p className="notice-kicker">Catálogo en preparación</p>
             <h3>El catálogo todavía no está disponible</h3>
             <p>
@@ -125,7 +122,6 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
 
         {state.status === "error" ? (
           <div className="notice notice-danger" role="alert">
-            <span className="notice-symbol notice-symbol-danger" aria-hidden="true">×</span>
             <p className="notice-kicker">Error de carga</p>
             <h3>No se pudo completar la búsqueda</h3>
             <p>{state.message}</p>
@@ -142,6 +138,7 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
           <CatalogueLoading
             message="Buscando resultados para la nueva consulta…"
             placeholders={placeholders}
+            shape="index"
           />
         ) : null}
 
@@ -153,7 +150,6 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
 
             {state.model.results.length === 0 ? (
               <div className="notice notice-empty">
-                <span className="notice-symbol" aria-hidden="true"><span className="search-icon" /></span>
                 <p className="notice-kicker">Sin resultados</p>
                 <h3>No hay coincidencias en el catálogo local</h3>
                 <p className="text-ink">
@@ -165,7 +161,7 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
                 </p>
               </div>
             ) : (
-              <ul className="release-grid" aria-label="Resultados de la búsqueda">
+              <ul className="search-index" aria-label="Resultados de la búsqueda">
                 {state.model.results.map((result) => (
                   <li className="min-w-0" key={result.gameId}>
                     <GameSearchCard result={result} />

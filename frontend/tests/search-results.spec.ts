@@ -81,7 +81,7 @@ async function expectStackedScores(page: Page) {
     if (list === null) return null;
     const title = item.querySelector(".card-title")?.getBoundingClientRect();
     const genres = item.querySelector(".card-genres")?.getBoundingClientRect();
-    const body = item.querySelector(".card-body")?.getBoundingClientRect();
+    const body = item.querySelector(".search-card-record")?.getBoundingClientRect();
     const box = list.getBoundingClientRect();
     return {
       belowTitle: title !== undefined && box.top >= title.bottom,
@@ -122,8 +122,8 @@ function cards(page: Page) {
 
 // Controlled HTTP responses isolate the redesigned card and page states (#188); the packaged
 // search journey owns the real API, matching and ranking.
-for (const [width, columns] of [[1320, 6], [834, 4], [390, 2], [320, 2]] as const) {
-  test(`search results keep a bounded, scannable grid at ${width}px`, async ({ page }) => {
+for (const [width, columns] of [[1320, 3], [834, 2], [390, 1], [320, 1]] as const) {
+  test(`search results keep a bounded, scannable catalogue index at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await scriptSearch(page);
@@ -135,11 +135,11 @@ for (const [width, columns] of [[1320, 6], [834, 4], [390, 2], [320, 2]] as cons
     await expect(page.getByText("Catálogo de juegos")).toBeVisible();
     await expect(page.getByRole("status")).toHaveText("16 juegos del catálogo local · Página 1 de 3");
     await expect(cards(page)).toHaveCount(6);
-    expect(await page.locator(".search-page .release-grid").evaluate((grid) =>
+    expect(await page.locator(".search-page .search-index").evaluate((grid) =>
       getComputedStyle(grid).gridTemplateColumns.split(" ").length,
     )).toBe(columns);
 
-    // Every card in a row shares one height, whatever its alias, platforms or title length.
+    // Every entry in a row shares one height, whatever its alias, platforms or title length.
     const boxes = await cards(page).evaluateAll((items) =>
       items.map((item) => {
         const box = item.getBoundingClientRect();
@@ -173,7 +173,7 @@ for (const [width, columns] of [[1320, 6], [834, 4], [390, 2], [320, 2]] as cons
     await expect(page.getByText("Datos locales desactualizados")).toHaveCount(0);
 
     const metadataSizes = await page
-      .locator(".search-card-alias, .search-card-year, .search-card-platform-more, .discovery-score-count")
+      .locator(".search-card-alias, .search-card-year, .platform-mark-more, .discovery-score-count")
       .evaluateAll((elements) => elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize)));
     expect(Math.min(...metadataSizes)).toBeGreaterThanOrEqual(11);
 

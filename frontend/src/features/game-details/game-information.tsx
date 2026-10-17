@@ -64,44 +64,43 @@ export function GameInformation({ game }: { game: GameDetails }) {
   const groups = allGroups.filter((group) => group.values.length > 0);
 
   return (
-    <section
-      className="game-panel game-information game-detail-facts"
-      aria-labelledby="game-information-title"
-    >
-      <h2 className="game-panel-title" id="game-information-title">
+    <section className="game-information" aria-labelledby="game-information-title">
+      <h2 className="game-information-title" id="game-information-title">
         Información del juego
       </h2>
-      {credits.length > 0 || groups.length > 0 ? (
-        <dl className="game-facts">
-          {credits.map((credit) => (
-            <div className="game-fact game-fact-credit" key={credit.label}>
-              <dt>
-                <FactIcon fact={credit.fact} />
-                {credit.label}
-              </dt>
-              <dd>{names.format(credit.companies.map((company) => company.name))}</dd>
-            </div>
-          ))}
-          {groups.map((group) => (
-            <div className="game-fact" key={group.label}>
-              <dt>
-                <FactIcon fact={group.fact} />
-                {group.label}
-              </dt>
-              <dd>
-                <ul className="game-chips">
-                  {group.values.map((value) => (
-                    <li className="game-chip" key={value.id}>
-                      {value.name}
-                    </li>
-                  ))}
-                </ul>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-      <GameReleaseList releases={game.releases} />
+      <div className="game-information-body">
+        {credits.length > 0 || groups.length > 0 ? (
+          <dl className="game-facts">
+            {credits.map((credit) => (
+              <div className="game-fact game-fact-credit" key={credit.label}>
+                <dt>
+                  <FactIcon fact={credit.fact} />
+                  {credit.label}
+                </dt>
+                <dd>{names.format(credit.companies.map((company) => company.name))}</dd>
+              </div>
+            ))}
+            {groups.map((group) => (
+              <div className="game-fact" key={group.label}>
+                <dt>
+                  <FactIcon fact={group.fact} />
+                  {group.label}
+                </dt>
+                <dd>
+                  <ul className="game-chips">
+                    {group.values.map((value) => (
+                      <li className="game-chip" key={value.id}>
+                        {value.name}
+                      </li>
+                    ))}
+                  </ul>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
+        <GameReleaseList releases={game.releases} />
+      </div>
     </section>
   );
 }

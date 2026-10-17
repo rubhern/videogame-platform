@@ -1,9 +1,9 @@
 /**
  * Detail-shaped placeholder for the public game page.
  *
- * <p>It mirrors the real composition — the cover above its readings, beside the editorial opening
- * and structured facts — so the arriving record lands in the same frame instead
- * of replacing a catalogue grid. The live status belongs to the caller; the placeholders stay silent.
+ * <p>It mirrors the real composition — the title beside the cover, the readings' row, the summary
+ * and the information — so the arriving record lands in the same frame instead of replacing a
+ * catalogue grid. The live status belongs to the caller; the placeholders stay silent.
  */
 export function GameDetailsLoading({ message }: { message: string }) {
   return (
@@ -17,17 +17,16 @@ export function GameDetailsLoading({ message }: { message: string }) {
           <span className="skeleton detail-skeleton-title" />
           <span className="skeleton detail-skeleton-aliases" />
         </div>
-        <div className="game-detail-identity">
-          <div className="game-artwork">
-            <span className="skeleton skeleton-cover" />
-          </div>
-          <div className="game-scores">
-            <span className="skeleton detail-skeleton-score" />
-            <span className="skeleton detail-skeleton-rating" />
-          </div>
+        <div className="game-artwork">
+          <span className="skeleton skeleton-cover" />
+        </div>
+        <div className="game-scores">
+          <span className="skeleton detail-skeleton-score" />
+          <span className="skeleton detail-skeleton-score" />
+          <span className="skeleton detail-skeleton-rating" />
         </div>
         <span className="skeleton detail-skeleton-summary" />
-        <span className="skeleton detail-skeleton-information game-detail-facts" />
+        <span className="skeleton detail-skeleton-information" />
       </div>
     </div>
   );

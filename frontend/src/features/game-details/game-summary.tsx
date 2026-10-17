@@ -67,7 +67,7 @@ export function GameSummary({ summary }: { summary: GameDetails["summary"] }) {
         </button>
       ) : null}
       {"provenance" in summary ? (
-        <p className="game-panel-source">
+        <p className="game-source">
           {"translation" in summary && summary.translation ? (
             <>
               Traducción automática de Gameómetro · Fuente del original: {summary.provenance.sourceName}

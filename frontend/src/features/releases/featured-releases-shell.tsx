@@ -102,9 +102,6 @@ function UnrankedNotice({ model }: { model: FeaturedReleasesViewModel }) {
   const unranked = model.selection.status === "popularity-unavailable";
   return (
     <div className={`notice ${unranked ? "notice-info" : "notice-empty"}`}>
-      <span aria-hidden="true" className="notice-symbol">
-        {unranked ? "◷" : <span className="search-icon" />}
-      </span>
       <p className="notice-kicker">{unranked ? "Sin datos de atención" : "Sin lanzamientos"}</p>
       <h2>
         {unranked
@@ -133,7 +130,7 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
     <section aria-labelledby="featured-title" className="hero-page featured-page">
       <div className="page-container featured-section">
         <div className="featured-heading">
-          <HeroTitle accent="del mes" id="featured-title" lead="Lanzamientos" />
+          <HeroTitle id="featured-title" title="Lanzamientos del mes" />
           <FeaturedMonthSelector currentMonth={model?.currentMonth ?? null} month={displayMonth} />
         </div>
 
@@ -148,9 +145,6 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
 
         {state.status === "catalogue-not-ready" ? (
           <div className="notice notice-info">
-            <span aria-hidden="true" className="notice-symbol">
-              ◷
-            </span>
             <p className="notice-kicker">Catálogo en preparación</p>
             <h2>El catálogo todavía no está disponible</h2>
             <p>
@@ -166,9 +160,6 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
 
         {state.status === "error" ? (
           <div className="notice notice-danger" role="alert">
-            <span aria-hidden="true" className="notice-symbol notice-symbol-danger">
-              ×
-            </span>
             <p className="notice-kicker">Error de carga</p>
             <h2>No se pudieron cargar los lanzamientos destacados</h2>
             <p>{state.message}</p>
@@ -197,7 +188,7 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
               <section aria-labelledby="featured-others-title" className="featured-others">
                 <div className="featured-others-heading">
                   <h2 className="featured-others-title" id="featured-others-title">
-                    Otros lanzamientos <span className="title-accent">destacados</span>
+                    Otros lanzamientos destacados
                   </h2>
                   <Link className="featured-all-link view-action" to={releasesPath}>
                     Ver todos los lanzamientos <span aria-hidden="true">→</span>

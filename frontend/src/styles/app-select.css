@@ -8,11 +8,12 @@
   .app-select-label {
     display: block;
     margin-bottom: 8px;
-    color: var(--color-subtle);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
     line-height: 1.45;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
   }
 
@@ -22,25 +23,24 @@
     min-height: 44px;
     align-items: center;
     gap: 9px;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 8px 14px;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 8px 12px;
     color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-canvas) 42%, transparent);
-    box-shadow: var(--glass-highlight);
+    background: var(--control);
     font-size: 0.8125rem;
     text-align: left;
   }
 
   .app-select-trigger:hover,
   .app-select-trigger[aria-expanded="true"] {
-    border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    border-color: var(--line-ice-strong);
+    background: var(--control-hover);
   }
 
   .app-select-trigger:focus-visible {
     border-color: var(--color-accent);
-    border-radius: 999px;
+    border-radius: 6px;
     outline: 2px solid var(--color-accent);
     outline-offset: 3px;
   }
@@ -235,15 +235,14 @@
     width: 100%;
     max-height: 288px;
     overflow-y: auto;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--glass-border));
-    border-radius: 18px;
+    border: 1px solid var(--color-line);
+    border-top: 2px solid var(--color-ice);
+    border-radius: 4px;
     padding: 6px;
     color: var(--color-ink);
-    background: var(--glass-solid);
-    box-shadow: var(--glass-highlight), var(--elevation-lift);
+    background: var(--overlay);
+    box-shadow: var(--shadow-overlay);
     scrollbar-color: var(--color-line) transparent;
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -263,7 +262,7 @@
     align-items: center;
     gap: 10px;
     border: 0;
-    border-radius: 12px;
+    border-radius: 3px;
     padding: 8px 10px;
     color: var(--color-ink);
     background: transparent;
@@ -279,7 +278,7 @@
 
   .app-select-option:hover,
   .app-select-option[data-active="true"] {
-    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+    background: color-mix(in srgb, var(--color-ice) 12%, transparent);
   }
 
   .app-select-option[aria-selected="true"] {
@@ -306,7 +305,7 @@
     min-height: 40px;
     align-items: center;
     gap: 10px;
-    border-radius: 12px;
+    border-radius: 3px;
     padding: 8px 10px;
     color: var(--color-ink);
     background: transparent;
@@ -323,7 +322,7 @@
 
   .app-multiselect-option:hover,
   .app-multiselect-option[data-active="true"] {
-    background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+    background: color-mix(in srgb, var(--color-ice) 12%, transparent);
   }
 
   .app-multiselect-option[aria-selected="true"] {
@@ -337,8 +336,8 @@
     width: 17px;
     height: 17px;
     border: 1.5px solid color-mix(in srgb, var(--color-ink) 34%, transparent);
-    border-radius: 5px;
-    background: color-mix(in srgb, var(--color-surface) 70%, transparent);
+    border-radius: 3px;
+    background: var(--control);
   }
 
   .app-multiselect-check[data-checked="true"] {

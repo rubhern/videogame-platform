@@ -6,7 +6,7 @@ import { MyRatingCard } from "../features/ratings/my-rating-card";
 import { useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import { AppSelect } from "../shared/ui/app-select";
-import { CinematicStage } from "../shared/ui/cinematic-stage";
+import { StageLight } from "../shared/ui/stage-light";
 import { HeroTitle } from "../shared/ui/hero-title";
 
 /**
@@ -17,7 +17,7 @@ import { HeroTitle } from "../shared/ui/hero-title";
  */
 function MyRatingsLoading() {
   return <div aria-hidden="true" className="my-ratings-list">
-    {[0, 1, 2].map(index => <div className="my-rating-card" key={index}>
+    {[0, 1, 2].map(index => <div className="my-rating-card my-rating-card-loading" key={index}>
       <span className="skeleton my-rating-skeleton-cover" />
       <div className="my-rating-body">
         <span className="skeleton skeleton-title" />
@@ -51,20 +51,20 @@ export function MyRatingsPage() {
     heading.current?.focus();
   }
   const data = query.data;
+  // The opening is lit by the games on this page of the collection, never by a placeholder image.
+  const lights = (data?.items ?? []).flatMap(({ game }) => "attribution" in game.primaryCover && game.primaryCover.attribution ? [game.primaryCover.url] : []);
   return <section className="hero-page my-ratings-page" aria-labelledby="my-ratings-title">
-    <CinematicStage variant="collection" />
-    <div className="page-container search-section">
-      <div className="hero-heading">
-        <p className="eyebrow eyebrow-dot">Tu colección de notas</p>
-        <HeroTitle id="my-ratings-title" lead="Mis" accent="puntuaciones" />
-      </div>
+    <StageLight images={lights} />
+    <div className="page-container">
+      <header className="page-head">
+        <p className="eyebrow">Tu colección de notas</p>
+        <HeroTitle id="my-ratings-title" title="Mis puntuaciones" />
+      </header>
       {session.isPending ? <p className="result-count" role="status">Comprobando sesión…</p>
         : session.isError ? <div className="notice notice-danger" role="alert">
-          <span className="notice-symbol notice-symbol-danger" aria-hidden="true">×</span>
           <p className="notice-kicker">Sesión</p>
           <p>No se pudo comprobar tu sesión.</p><button className="button button-danger" onClick={() => { void session.refetch(); }}>Reintentar</button>
         </div> : csrfToken === null || query.error?.code === "AUTHENTICATION_REQUIRED" ? <div className="notice notice-empty" role="status">
-          <span className="notice-symbol" aria-hidden="true">◷</span>
           <h2>Necesitas una sesión activa</h2>
           <p>Inicia sesión para volver a tus puntuaciones.</p>
           <a className="button button-primary" href={authenticationStartUrl("/mis-puntuaciones")}>Iniciar sesión</a>
@@ -134,7 +134,6 @@ export function MyRatingsPage() {
           <p role="status" className="result-count">{message || (query.isFetching ? "Actualizando puntuaciones…" :
             data ? `${data.page.totalItems} puntuaciones · Página ${data.page.number} de ${Math.max(data.page.totalPages, 1)}` : "")}</p>
           {query.isError ? <div className="notice notice-danger" role="alert">
-            <span className="notice-symbol notice-symbol-danger" aria-hidden="true">×</span>
             <p className="notice-kicker">Error de carga</p>
             <p>No se pudieron cargar tus puntuaciones. Inténtalo de nuevo.</p>
             <button className="button button-danger" onClick={() => { void query.refetch(); }}>Reintentar carga</button>
@@ -142,7 +141,6 @@ export function MyRatingsPage() {
           {query.isPending ? <MyRatingsLoading />
             : data ? <>
               {data.items.length === 0 ? <div className="notice notice-empty" role="status">
-                <span className="notice-symbol" aria-hidden="true"><span className="search-icon" /></span>
                 <p className="notice-kicker">Sin resultados</p>
                 <h3>{data.page.totalItems > 0 ? "Esta página ya no tiene resultados" :
                   params.q ? "No hay puntuaciones que coincidan con tu búsqueda" : "Todavía no has puntuado ningún juego"}</h3>

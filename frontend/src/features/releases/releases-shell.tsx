@@ -1,10 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
-import { CinematicStage } from "../../shared/ui/cinematic-stage";
 import { HeroTitle } from "../../shared/ui/hero-title";
+import { StageLight } from "../../shared/ui/stage-light";
 import { ReleaseCard } from "./release-card";
+import { ReleaseWindowScale } from "./release-window-scale";
 import { ReleasesApproximateDates } from "./releases-approximate-dates";
 import { ReleasesFilters } from "./releases-filters";
 import { ReleasesPagination } from "./releases-pagination";
@@ -16,6 +17,7 @@ import {
   type ReleasesSearch,
 } from "./releases-search";
 import { releaseViewTitle, type ReleasesViewModel } from "./releases-view-model";
+import { toWindowScale } from "./window-scale";
 
 export type ReleasesShellState =
   | { status: "loading" }
@@ -35,11 +37,9 @@ type ReleasesShellProps = {
   onRetry: () => void;
 };
 
-// The hero splits each window title into its display lead and editorial accent; together they
-// read exactly as the view title.
-const heroTitles: Record<ReleaseView, { lead: string; accent: string }> = {
-  recent: { lead: "Lanzamientos", accent: "recientes" },
-  upcoming: { lead: "Próximos", accent: "lanzamientos" },
+const contexts: Record<ReleaseView, string> = {
+  recent: "Ya disponibles",
+  upcoming: "En calendario",
 };
 
 function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string {
@@ -75,6 +75,8 @@ function LoadingFilters() {
 export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
   const resultsHeadingRef = useRef<HTMLHeadingElement>(null);
   const previousPage = useRef(search.page);
+  // The release a visitor points at or focuses lifts its needle on the window's scale.
+  const [activeDay, setActiveDay] = useState<string | null>(null);
 
   useEffect(() => {
     if (previousPage.current === search.page) {
@@ -86,35 +88,43 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
 
   const model = state.status === "ready" ? state.model : null;
   const isTransitioning = state.status === "ready" && state.isPlaceholderData;
+  const shown = model !== null && !isTransitioning ? model : null;
+  // The period and its scale wait as quiet placeholders only while a read is under way.
+  const waiting = state.status === "loading" || isTransitioning;
   const isBeyondLastPage =
     model !== null &&
     model.page.totalItems > 0 &&
     model.page.totalPages > 0 &&
     model.page.number > model.page.totalPages;
+  const scale =
+    shown === null ? null : toWindowScale(shown.window.from, shown.window.to, shown.evaluatedOn);
+  const releaseDays = (shown?.items ?? []).flatMap((item) => item.releaseGroups[0]?.day ?? []);
+  // The opening is lit by the first games the page presents, never by a placeholder image.
+  const lights = (shown?.items ?? []).flatMap((item) => (item.cover.kind === "fallback" ? [] : [item.cover.url]));
+
   return (
     <section aria-labelledby="releases-title" className="hero-page releases-page">
-      <CinematicStage variant="releases" />
+      <StageLight images={lights} />
       <div className="page-container releases-section">
-        <div className="releases-heading">
-          <div>
-            <div className="releases-kicker-row">
-              <p className="eyebrow eyebrow-dot">
-                {search.view === "recent" ? "Ya disponibles" : "En calendario"}
+        <header className="page-head releases-heading">
+          <p className="eyebrow">{contexts[search.view]}</p>
+          <div className="page-head-row">
+            <HeroTitle id="releases-title" title={releaseViewTitle(search.view)} />
+            {shown === null ? (
+              waiting ? <span aria-hidden="true" className="release-period release-period-pending" /> : null
+            ) : (
+              <p className="release-period">
+                <span aria-hidden="true">{shown.windowRange}</span>
+                <span className="sr-only">{shown.windowDescription}</span>
               </p>
-              {model !== null && !isTransitioning ? (
-                <p className="release-period">
-                  <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
-                    <rect x="2.5" y="4.5" width="15" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" />
-                    <path d="M6 2.5v4M14 2.5v4M2.5 8.5h15" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
-                  </svg>
-                  <span className="release-period-full">{model.windowDescription}</span>
-                  <span className="release-period-compact">{model.compactWindowDescription}</span>
-                </p>
-              ) : null}
-            </div>
-            <HeroTitle id="releases-title" {...heroTitles[search.view]} />
+            )}
           </div>
-        </div>
+          {scale === null ? (
+            waiting ? <div aria-hidden="true" className="window-scale window-scale-pending" /> : null
+          ) : (
+            <ReleaseWindowScale activeDay={activeDay} releaseDays={releaseDays} scale={scale} />
+          )}
+        </header>
 
         <div className="releases-controls">
           <div className="releases-toolbar">
@@ -136,9 +146,6 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
 
         {state.status === "catalogue-not-ready" ? (
           <div className="notice notice-info" role="status">
-            <span className="notice-symbol" aria-hidden="true">
-              ◷
-            </span>
             <p className="notice-kicker">Catálogo en preparación</p>
             <h3>El catálogo todavía no está disponible</h3>
             <p>
@@ -154,9 +161,6 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
 
         {state.status === "unsupported-filters" ? (
           <div className="notice notice-warning" role="alert">
-            <span className="notice-symbol notice-symbol-warning" aria-hidden="true">
-              !
-            </span>
             <p className="notice-kicker">Revisa la selección</p>
             <h3>Filtro no admitido</h3>
             <p>{state.message}</p>
@@ -171,9 +175,6 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
 
         {state.status === "error" ? (
           <div className="notice notice-danger" role="alert">
-            <span className="notice-symbol notice-symbol-danger" aria-hidden="true">
-              ×
-            </span>
             <p className="notice-kicker">Error de carga</p>
             <h3>No se pudieron cargar los lanzamientos</h3>
             <p>{state.message}</p>
@@ -194,9 +195,6 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
           <>
             {state.model.items.length === 0 ? (
               <div className="notice notice-empty" role="status">
-                <span className="notice-symbol" aria-hidden="true">
-                  <span className="search-icon" />
-                </span>
                 <p className="notice-kicker">Sin resultados</p>
                 <h3>
                   {isBeyondLastPage
@@ -220,8 +218,8 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
             ) : (
               <ul aria-label={releaseViewTitle(state.model.view)} className="release-grid">
                 {state.model.items.map((item) => (
-                  <li className="min-w-0" key={item.gameId}>
-                    <ReleaseCard item={item} />
+                  <li className="release-grid-cell" key={item.gameId}>
+                    <ReleaseCard item={item} onPoint={setActiveDay} />
                   </li>
                 ))}
               </ul>
