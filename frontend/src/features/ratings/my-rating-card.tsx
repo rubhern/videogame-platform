@@ -154,11 +154,6 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
       <h2 className="card-title" id={id}><Link to={path}>{game.canonicalTitle}</Link></h2>
       <GameGenres genres={game.genres} />
       <DiscoveryScores scores={scores} title={game.canonicalTitle} />
-      <p className="my-rating-dates">
-        {createdDate === updatedDate ? <>Puntuado el <time dateTime={personalRating.createdAt}>{createdDate}</time></>
-          : <>Actualizado el <time dateTime={personalRating.updatedAt}>{updatedDate}</time>
-            <span> · Puntuado el <time dateTime={personalRating.createdAt}>{createdDate}</time></span></>}
-      </p>
     </div>
     <div className="my-rating-score" onBlur={(event) => {
       const next = event.relatedTarget;
@@ -170,8 +165,10 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
         aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? editorId : undefined}
         onClick={() => { if (open) close(false); else openEditor(); }}>
         <GameMeter className="my-rating-meter" value={current} />
-        <span className="my-rating-label">Tu puntuación {band ? <b>{thermalLabels[band]}</b> : null}</span>
-        <strong>{current}/10</strong>
+        <span className="my-rating-label">Tu puntuación</span>
+        <span className="my-rating-reading">
+          <strong>{current}/10</strong>{band ? <b>{thermalLabels[band]}</b> : null}
+        </span>
         <span className="my-rating-hint" aria-hidden="true" />
       </button>
       {open ? <div ref={editor} id={editorId} className="my-rating-editor" role="dialog"
@@ -221,5 +218,11 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
         </div>
       </div> : null}
     </div>
+    {/* The latest date leads; each date stays whole and a wrapped one never starts with its separator. */}
+    <p className="my-rating-dates"><span>
+      {createdDate === updatedDate ? <span>Puntuado el <time dateTime={personalRating.createdAt}>{createdDate}</time></span>
+        : <><span>Actualizado el <time dateTime={personalRating.updatedAt}>{updatedDate}</time></span>
+          <span><span className="my-rating-dates-separator"> · </span>Puntuado el <time dateTime={personalRating.createdAt}>{createdDate}</time></span></>}
+    </span></p>
   </article>;
 }

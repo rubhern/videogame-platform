@@ -140,11 +140,26 @@ describe("Mis puntuaciones", () => {
     const fetchMock = stub(request => Response.json(page(rating, 11, Number(new URL(request.url).searchParams.get("page") ?? 1))));
     renderApp("/mis-puntuaciones");
     await screen.findByText("Élite Dangerous");
-    await userEvent.click(screen.getByRole("combobox", { name: /^Ordenar por/ }));
-    await userEvent.click(screen.getByRole("option", { name: "Título" }));
+    // One selector names the field and the direction together, so every combination stays reachable.
+    const order = screen.getByRole("combobox", { name: "Orden Más recientes" });
+    await userEvent.click(order);
+    const orders = screen.getAllByRole("option");
+    expect(orders).toHaveLength(6);
+    ["Más recientes", "Más antiguas", "Título A–Z", "Título Z–A", "Nota más alta", "Nota más baja"]
+      .forEach((name, index) => expect(orders[index]).toHaveAccessibleName(name));
+    expect(orders[0]).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("option", { name: "Título Z–A" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([request]) => {
       const url = new URL((request as Request).url);
-      return url.searchParams.get("sort") === "canonicalTitle" && url.searchParams.get("direction") === "asc";
+      return url.searchParams.get("sort") === "canonicalTitle" && url.searchParams.get("direction") === "desc"
+        && url.searchParams.get("page") === "1";
+    })).toBe(true));
+    expect(screen.getByRole("heading", { name: "Resultados de mis puntuaciones" })).toHaveFocus();
+    await userEvent.click(screen.getByRole("combobox", { name: /^Orden/ }));
+    await userEvent.click(screen.getByRole("option", { name: "Nota más baja" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([request]) => {
+      const url = new URL((request as Request).url);
+      return url.searchParams.get("sort") === "ratingValue" && url.searchParams.get("direction") === "asc";
     })).toBe(true));
     await userEvent.click(await screen.findByRole("button", { name: "Página siguiente" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([request]) => new URL((request as Request).url).searchParams.get("page") === "2")).toBe(true));
