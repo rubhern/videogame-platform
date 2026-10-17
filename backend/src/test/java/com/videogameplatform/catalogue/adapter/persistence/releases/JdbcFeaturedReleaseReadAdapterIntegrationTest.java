@@ -26,8 +26,9 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * PostgreSQL evidence for UC-010: which releases qualify for a month, how their games rank by the
- * local popularity signal, how ties and missing signals behave, and which releases are presented.
+ * PostgreSQL evidence for UC-010: which releases qualify for a week or a month, how their games rank
+ * by the local popularity signal, how ties and missing signals behave, and which releases are
+ * presented.
  */
 @Execution(ExecutionMode.SAME_THREAD)
 class JdbcFeaturedReleaseReadAdapterIntegrationTest {
@@ -40,6 +41,9 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     private static final String EUROPE = "20000000-0000-4000-8000-000000000002";
     private static final Instant OBSERVED = Instant.parse("2026-10-02T05:00:00Z");
     private static final YearMonth OCTOBER = YearMonth.of(2026, 10);
+
+    /** ISO week 53 of 2032 runs from Monday 27 December 2032 to Sunday 2 January 2033. */
+    private static final LocalDate WEEK_53_OF_2032 = LocalDate.parse("2032-12-27");
 
     private static JdbcTemplate admin;
     private static JdbcFeaturedReleaseReadAdapter adapter;
@@ -66,6 +70,7 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         emptyCatalogueAdapter =
                 adapter(migrate(PostgreSqlTestDatabase.isolatedDatabaseName("featured_empty")));
         seedOctober();
+        seedYearEndWeek();
     }
 
     @Test
@@ -204,6 +209,64 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
     }
 
     @Test
+    void aWeekCrossingMonthsAdmitsOnlyExactDaysAndGamesFirstReleasedInsideIt() {
+        // Monday 28 September to Sunday 4 October 2026. Charlie's 1 October qualifies. Bravo is
+        // known only to October, which is never assigned to a week; Echo's 30 September is inside
+        // the week but its own first release is in November; Alpha's days fall outside the week.
+        var week =
+                adapter.findFeaturedReleases(week(LocalDate.parse("2026-09-28"), 50, 25))
+                        .orElseThrow();
+
+        assertThat(week.items()).extracting(Item::canonicalTitle).containsExactly("Charlie");
+        assertThat(week.items().getFirst().releases())
+                .extracting(ReleaseRow::releaseDate)
+                .containsExactly(new ReleaseDate.Day(LocalDate.parse("2026-10-01")));
+    }
+
+    @Test
+    void ranksAYearCrossingWeekByHypesThenUniqueGameIdPresentingOnlyItsDays() {
+        var week = adapter.findFeaturedReleases(week(WEEK_53_OF_2032, 6, 25)).orElseThrow();
+
+        // Quebec leads; Oscar and Papa tie and keep the unique game id order across the new year.
+        // Romeo (month precision only), Sierra (first released the week before) and Tango (the
+        // Monday after) never qualify for the week, whatever their attention.
+        assertThat(week.items())
+                .extracting(Item::canonicalTitle)
+                .containsExactly("Quebec", "Oscar", "Papa");
+        assertThat(week.qualifyingReleases()).isTrue();
+        // Quebec's January month precision release stays out of the week's presentation.
+        assertThat(week.items().getFirst().releases())
+                .extracting(ReleaseRow::releaseDate)
+                .containsExactly(new ReleaseDate.Day(LocalDate.parse("2032-12-31")));
+        assertThat(week.items().get(2).releases())
+                .extracting(ReleaseRow::releaseDate)
+                .containsExactly(new ReleaseDate.Day(LocalDate.parse("2033-01-02")));
+    }
+
+    @Test
+    void theMonthKeepsItsOwnSemanticsBesideTheWeeksItHolds() {
+        // December 2032 admits Romeo's month precision and Sierra's earlier first release, which no
+        // week does; Papa's 2 January belongs to January.
+        var december =
+                adapter.findFeaturedReleases(criteria(YearMonth.of(2032, 12), 6, 25)).orElseThrow();
+
+        assertThat(december.items())
+                .extracting(Item::canonicalTitle)
+                .containsExactly("Romeo", "Sierra", "Quebec", "Oscar");
+    }
+
+    @Test
+    void aWeekHoldingOnlyCoarserDatesHasNoQualifyingReleases() {
+        // Romeo is known only to December 2032; no week of December may claim it.
+        var week =
+                adapter.findFeaturedReleases(week(LocalDate.parse("2032-12-06"), 6, 25))
+                        .orElseThrow();
+
+        assertThat(week.items()).isEmpty();
+        assertThat(week.qualifyingReleases()).isFalse();
+    }
+
+    @Test
     void anUnpublishedCatalogueIsNotReadyRatherThanEmpty() {
         assertThat(emptyCatalogueAdapter.findFeaturedReleases(criteria(OCTOBER, 6, 25))).isEmpty();
     }
@@ -290,6 +353,36 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
             YearMonth month, int limit, int releaseGroupLimit) {
         return new FeaturedReleaseReadPort.Criteria(
                 month.atDay(1), month.atEndOfMonth(), limit, releaseGroupLimit);
+    }
+
+    private static FeaturedReleaseReadPort.Criteria week(
+            LocalDate monday, int limit, int releaseGroupLimit) {
+        return new FeaturedReleaseReadPort.Criteria(
+                monday, monday.plusDays(6), limit, releaseGroupLimit);
+    }
+
+    /** Candidates around ISO week 53 of 2032, far from the October fixtures. */
+    private static void seedYearEndWeek() {
+        game(15, "Oscar", "40");
+        first(15, "2032-12-27");
+        day(151, 15, PS5, WORLDWIDE, "2032-12-27", "announced", "not_required", "full_release");
+        game(16, "Papa", "40");
+        first(16, "2033-01-02");
+        day(161, 16, XBOX, WORLDWIDE, "2033-01-02", "announced", "not_required", "full_release");
+        game(17, "Quebec", "60");
+        first(17, "2032-12-31");
+        day(171, 17, PS5, WORLDWIDE, "2032-12-31", "announced", "not_required", "full_release");
+        month(172, 17, WINDOWS, WORLDWIDE, 2033, 1);
+        game(18, "Romeo", "99");
+        first(18, "2032-12-27");
+        month(181, 18, PS5, WORLDWIDE, 2032, 12);
+        game(19, "Sierra", "98");
+        first(19, "2032-12-20");
+        day(191, 19, PS5, EUROPE, "2032-12-20", "announced", "not_required", "beta");
+        day(192, 19, PS5, WORLDWIDE, "2032-12-29", "announced", "not_required", "full_release");
+        game(28, "Tango", "97");
+        first(28, "2033-01-03");
+        day(281, 28, PS5, WORLDWIDE, "2033-01-03", "announced", "not_required", "full_release");
     }
 
     private static void seedOctober() {

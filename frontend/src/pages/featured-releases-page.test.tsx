@@ -79,9 +79,11 @@ function item(
 
 function featured(overrides: Partial<FeaturedReleases> = {}): FeaturedReleases {
   return {
+    granularity: "month",
     month: "2026-10",
     evaluatedOn: "2026-10-03",
     window: { from: "2026-10-01", to: "2026-10-31" },
+    navigation: { previous: "2026-09", next: "2026-11" },
     selection: {
       status: "ranked",
       popularityFreshness: "fresh",
@@ -95,6 +97,27 @@ function featured(overrides: Partial<FeaturedReleases> = {}): FeaturedReleases {
     ...overrides,
   };
 }
+
+/** The current ISO week on 3 October 2026: Monday 28 September to Sunday 4 October. */
+function featuredWeek(overrides: Partial<FeaturedReleases> = {}): FeaturedReleases {
+  const { evaluatedOn, selection } = featured();
+  return {
+    evaluatedOn,
+    selection,
+    granularity: "week",
+    week: "2026-W40",
+    window: { from: "2026-09-28", to: "2026-10-04" },
+    navigation: { previous: "2026-W39", next: "2026-W41" },
+    items: [
+      item("game-lead", "Juego destacado", "2026-10-01"),
+      item("game-two", "Segundo juego", "2026-09-30"),
+    ],
+    ...overrides,
+  };
+}
+
+/** The current month's route while the week is the landing granularity. */
+const MONTH = "/?granularity=month";
 
 function problem(status: number, code: Problem["code"]): Response {
   return Response.json(
@@ -150,13 +173,67 @@ afterEach(() => {
 });
 
 describe("featured releases page", () => {
-  it("presents the current month's featured release first and up to five more", async () => {
-    const fetchMock = stubFeatured(featured());
+  it("opens on the current week's featured release, Monday to Sunday", async () => {
+    const fetchMock = stubFeatured(featuredWeek());
     renderApp("/");
 
     const hero = await screen.findByRole("article", { name: "Juego destacado" });
+    // The browser names only the granularity; the API derives the current week in Madrid.
+    expect(requestedUrl(fetchMock).search).toBe("?granularity=week");
+    expect(screen.getByRole("heading", { level: 1, name: "Lanzamientos semanales" })).toBeVisible();
+    expect(within(hero).getByText("Lanzamiento de la semana")).toBeVisible();
+    const switcher = screen.getByRole("navigation", { name: "Periodo de los destacados" });
+    expect(within(switcher).getByRole("link", { name: "Semana" })).toHaveAttribute(
+      "aria-current",
+      "true",
+    );
+    expect(within(switcher).getByRole("link", { name: "Mes" })).toHaveAttribute(
+      "href",
+      "/?granularity=month",
+    );
+    expect(within(switcher).getByRole("link", { name: "Mes" })).not.toHaveAttribute("aria-current");
+    const weeks = screen.getByRole("navigation", { name: "Semana de la selección" });
+    expect(within(weeks).getByText("28 sep – 4 oct 2026")).toBeVisible();
+    expect(
+      within(weeks).getByText("Semana del 28 de septiembre al 4 de octubre de 2026"),
+    ).toBeInTheDocument();
+    expect(within(weeks).getByRole("time")).toHaveAttribute("dateTime", "2026-W40");
+    expect(
+      within(weeks).getByRole("link", {
+        name: "Semana anterior: la semana del 21 al 27 de septiembre de 2026",
+      }),
+    ).toHaveAttribute("href", "/?week=2026-W39");
+    expect(
+      within(weeks).getByRole("link", {
+        name: "Semana siguiente: la semana del 5 al 11 de octubre de 2026",
+      }),
+    ).toHaveAttribute("href", "/?week=2026-W41");
+    // The current week needs no way back to itself.
+    expect(screen.queryByRole("link", { name: "Semana actual" })).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Lanzamientos destacados de la semana del 28 de septiembre al 4 de octubre de 2026",
+    );
+    // Thursday 1 October is the release's day; Saturday 3 October is today.
+    expect(
+      within(hero).getByText(
+        "Calendario de la semana del 28 de septiembre al 4 de octubre de 2026: hoy es sábado 3, día 6 de 7; lanzamiento el jueves 1.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("region", { name: "Otros lanzamientos destacados" })).getAllByRole(
+        "heading",
+        { level: 3 },
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("presents the current month's featured release first and up to five more", async () => {
+    const fetchMock = stubFeatured(featured());
+    renderApp(MONTH);
+
+    const hero = await screen.findByRole("article", { name: "Juego destacado" });
     expect(requestedUrl(fetchMock).pathname).toBe("/api/v1/featured-releases");
-    expect(requestedUrl(fetchMock).searchParams.has("month")).toBe(false);
+    expect(requestedUrl(fetchMock).search).toBe("?granularity=month");
     expect(screen.getByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
     expect(within(hero).getByText("Lanzamiento del mes")).toBeVisible();
     expect(within(hero).getByText("15 de octubre de 2026")).toBeInTheDocument();
@@ -205,7 +282,7 @@ describe("featured releases page", () => {
       ] },
       { ...other, ...extra, genres, summary: { kind: "editorial", text: "Other summary secret", language: "es" } },
     ] }));
-    renderApp("/");
+    renderApp(MONTH);
 
     const hero = await screen.findByRole("article", { name: "Juego destacado" });
     const link = within(hero).getByRole("link", { name: "Juego destacado" });
@@ -231,7 +308,7 @@ describe("featured releases page", () => {
   it("omits missing enrichment and navigates to details through the hero with Enter", async () => {
     stubFeatured(featured());
     const user = userEvent.setup();
-    const { router } = renderApp("/");
+    const { router } = renderApp(MONTH);
     const hero = await screen.findByRole("article", { name: "Juego destacado" });
     expect(within(hero).queryByRole("list", { name: "Géneros" })).toBeNull();
     expect(hero.querySelector(".featured-hero-summary")).toBeNull();
@@ -258,7 +335,7 @@ describe("featured releases page", () => {
         ],
       }),
     );
-    renderApp("/");
+    renderApp(MONTH);
 
     const lead = await screen.findByRole("article", { name: "Juego destacado" });
     const heading = within(lead).getByRole("heading", { level: 2, name: "Juego destacado" });
@@ -291,7 +368,7 @@ describe("featured releases page", () => {
         ],
       }),
     );
-    renderApp("/");
+    renderApp(MONTH);
 
     const lead = await screen.findByRole("article", { name: "Onimusha: Way of the Sword" });
     const heading = within(lead).getByRole("heading", {
@@ -314,7 +391,7 @@ describe("featured releases page", () => {
         ],
       }),
     );
-    renderApp("/");
+    renderApp(MONTH);
 
     const lead = await screen.findByRole("article", { name: "Juego destacado" });
     const heading = within(lead).getByRole("heading", { level: 2 });
@@ -326,7 +403,7 @@ describe("featured releases page", () => {
 
   it("states the month's progress and the release's day in words beside the temporal G", async () => {
     stubFeatured(featured());
-    renderApp("/");
+    renderApp(MONTH);
 
     const hero = await screen.findByRole("article", { name: "Juego destacado" });
     // The G is decorative; the same reading, from the API's evaluated date, is text.
@@ -370,7 +447,7 @@ describe("featured releases page", () => {
     // One minute before midnight in Madrid (UTC+2) on 3 October.
     vi.setSystemTime(new Date("2026-10-03T21:59:00Z"));
     const fetchMock = stubFeatured(featured(), featured({ evaluatedOn: "2026-10-04" }));
-    renderApp("/");
+    renderApp(MONTH);
 
     const hero = await screen.findByRole("article", { name: "Juego destacado" });
     expect(within(hero).getByText(/hoy es el día 3 de 31/)).toBeInTheDocument();
@@ -383,98 +460,255 @@ describe("featured releases page", () => {
 
   it("omits the other featured releases when only one game is ranked", async () => {
     stubFeatured(featured({ items: [item("game-lead", "Juego destacado", "2026-10-15")] }));
-    renderApp("/");
+    renderApp(MONTH);
 
     await screen.findByRole("article", { name: "Juego destacado" });
     expect(screen.queryByRole("region", { name: "Otros lanzamientos destacados" })).toBeNull();
   });
 
-  it("steps through months in the URL and returns to the landing route for the current one", async () => {
+  it("steps through months in the URL and offers the way back to the current month", async () => {
     const user = userEvent.setup();
     const fetchMock = stubFeatured(
-      featured({ month: "2026-09", window: { from: "2026-09-01", to: "2026-09-30" } }),
+      featured({
+        month: "2026-09",
+        window: { from: "2026-09-01", to: "2026-09-30" },
+        navigation: { previous: "2026-08", next: "2026-10" },
+      }),
       featured(),
     );
     const { router } = renderApp("/?month=2026-09");
 
     await screen.findByRole("article", { name: "Juego destacado" });
     expect(requestedUrl(fetchMock).searchParams.get("month")).toBe("2026-09");
+    expect(screen.getByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
     const months = screen.getByRole("navigation", { name: "Mes de la selección" });
     expect(within(months).getByText("Septiembre 2026")).toBeVisible();
     expect(within(months).getByRole("link", { name: "Mes anterior: agosto de 2026" })).toHaveAttribute(
       "href",
       "/?month=2026-08",
     );
+    expect(screen.getByRole("link", { name: "Mes actual" })).toHaveAttribute(
+      "href",
+      "/?granularity=month",
+    );
     const next = within(months).getByRole("link", { name: "Mes siguiente: octubre de 2026" });
-    expect(next).toHaveAttribute("href", "/");
+    expect(next).toHaveAttribute("href", "/?month=2026-10");
 
     await user.click(next);
 
-    expect(router.state.location.search).toBe("");
-    expect(await within(months).findByText("Octubre 2026")).toBeVisible();
-    expect(requestedUrl(fetchMock, 1).searchParams.has("month")).toBe(false);
+    expect(router.state.location.search).toBe("?month=2026-10");
+    expect(
+      await within(screen.getByRole("navigation", { name: "Mes de la selección" })).findByText(
+        "Octubre 2026",
+      ),
+    ).toBeVisible();
+    expect(requestedUrl(fetchMock, 1).searchParams.get("month")).toBe("2026-10");
+    // October holds the API's evaluated date: it is the current month.
+    expect(screen.queryByRole("link", { name: "Mes actual" })).toBeNull();
   });
 
-  it("returns to the landing route when the URL names an impossible month", async () => {
-    const fetchMock = stubFeatured(featured());
-    const { router } = renderApp("/?month=2026-13");
+  it("steps through weeks across months, back to the current week and through history", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubFeatured(
+      featuredWeek({
+        week: "2026-W44",
+        window: { from: "2026-10-26", to: "2026-11-01" },
+        navigation: { previous: "2026-W43", next: "2026-W45" },
+        items: [item("game-lead", "Juego destacado", "2026-10-30")],
+      }),
+      featuredWeek({
+        week: "2026-W45",
+        window: { from: "2026-11-02", to: "2026-11-08" },
+        navigation: { previous: "2026-W44", next: "2026-W46" },
+        items: [item("game-lead", "Juego destacado", "2026-11-05")],
+      }),
+      featuredWeek(),
+    );
+    const { router } = renderApp("/?week=2026-W44");
+
+    const hero = await screen.findByRole("article", { name: "Juego destacado" });
+    expect(requestedUrl(fetchMock).search).toBe("?week=2026-W44");
+    const weeks = screen.getByRole("navigation", { name: "Semana de la selección" });
+    expect(within(weeks).getByText("26 oct – 1 nov 2026")).toBeVisible();
+    // A future week shows no elapsed progress and names its release's weekday.
+    expect(
+      within(hero).getByText(
+        "Calendario de la semana del 26 de octubre al 1 de noviembre de 2026: la semana aún no ha empezado; lanzamiento el viernes 30.",
+      ),
+    ).toBeInTheDocument();
+    const current = screen.getByRole("link", { name: "Semana actual" });
+    expect(current).toHaveAttribute("href", "/");
+
+    await user.click(within(weeks).getByRole("link", { name: /^Semana siguiente/ }));
+    expect(router.state.location.search).toBe("?week=2026-W45");
+    expect(
+      await within(screen.getByRole("navigation", { name: "Semana de la selección" })).findByText(
+        "2–8 nov 2026",
+      ),
+    ).toBeVisible();
+
+    await user.click(screen.getByRole("link", { name: "Semana actual" }));
+    expect(router.state.location.search).toBe("");
+    expect(
+      await within(screen.getByRole("navigation", { name: "Semana de la selección" })).findByText(
+        "28 sep – 4 oct 2026",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Semana actual" })).toBeNull();
+    expect(requestedUrl(fetchMock, 2).search).toBe("?granularity=week");
+
+    // Browser history restores the weeks visited, served from the query cache.
+    await router.navigate(-1);
+    expect(router.state.location.search).toBe("?week=2026-W45");
+    expect(
+      await within(screen.getByRole("navigation", { name: "Semana de la selección" })).findByText(
+        "2–8 nov 2026",
+      ),
+    ).toBeVisible();
+  });
+
+  it("switches granularity to the current period of the other one", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubFeatured(
+      featuredWeek({
+        week: "2026-W44",
+        window: { from: "2026-10-26", to: "2026-11-01" },
+        items: [item("game-lead", "Juego destacado", "2026-10-30")],
+      }),
+      featured(),
+      featuredWeek(),
+    );
+    const { router } = renderApp("/?week=2026-W44");
+    await screen.findByRole("article", { name: "Juego destacado" });
+    const switcher = screen.getByRole("navigation", { name: "Periodo de los destacados" });
+
+    // Keyboard: the switch's links are ordinary tab stops before the steps.
+    within(switcher).getByRole("link", { name: "Semana" }).focus();
+    await user.tab();
+    expect(within(switcher).getByRole("link", { name: "Mes" })).toHaveFocus();
+    await user.keyboard("{Enter}");
+
+    expect(router.state.location.search).toBe("?granularity=month");
+    expect(await screen.findByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
+    expect(
+      await within(screen.getByRole("navigation", { name: "Mes de la selección" })).findByText(
+        "Octubre 2026",
+      ),
+    ).toBeVisible();
+    expect(requestedUrl(fetchMock, 1).search).toBe("?granularity=month");
+
+    await user.click(
+      within(screen.getByRole("navigation", { name: "Periodo de los destacados" })).getByRole(
+        "link",
+        { name: "Semana" },
+      ),
+    );
+    expect(router.state.location.search).toBe("");
+    expect(await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" })).toBeVisible();
+    expect(requestedUrl(fetchMock, 2).search).toBe("?granularity=week");
+  });
+
+  it("takes the canonical form of a malformed or contradictory URL", async () => {
+    const fetchMock = stubFeatured(featuredWeek());
+    const { router, unmount } = renderApp("/?month=2026-13");
 
     await screen.findByRole("article", { name: "Juego destacado" });
-    expect(requestedUrl(fetchMock).searchParams.has("month")).toBe(false);
+    expect(requestedUrl(fetchMock).search).toBe("?granularity=week");
     expect(router.state.location.search).toBe("");
+    unmount();
+
+    stubFeatured(featured());
+    const second = renderApp("/?granularity=month&month=2026-10");
+    await screen.findByRole("article", { name: "Juego destacado" });
+    expect(second.router.state.location.search).toBe("?month=2026-10");
   });
 
-  it("offers only months of the current year: January has no previous, December no next", async () => {
+  it("disables the steps the API does not offer at its navigation bounds", async () => {
     stubFeatured(
-      featured({ month: "2026-01", window: { from: "2026-01-01", to: "2026-01-31" } }),
+      featured({
+        month: "2025-12",
+        window: { from: "2025-12-01", to: "2025-12-31" },
+        navigation: { next: "2026-01" },
+      }),
     );
-    const { unmount } = renderApp("/?month=2026-01");
-    let months = await screen.findByRole("navigation", { name: "Mes de la selección" });
-    expect(within(months).getByText("Enero 2026")).toBeVisible();
+    const { unmount } = renderApp("/?month=2025-12");
+    await screen.findByRole("article", { name: "Juego destacado" });
+    let months = screen.getByRole("navigation", { name: "Mes de la selección" });
+    // Ten months back reaches into the previous year.
+    expect(within(months).getByText("Diciembre 2025")).toBeVisible();
     // A disabled step stays in place: named, announced as unavailable, without a destination
     // and outside the tab order.
     const previous = within(months).getByRole("link", { name: "Mes anterior" });
     expect(previous).toHaveAttribute("aria-disabled", "true");
     expect(previous).not.toHaveAttribute("href");
     expect(previous).not.toHaveAttribute("tabindex");
-    expect(within(months).getByRole("link", { name: "Mes siguiente: febrero de 2026" })).toHaveAttribute(
+    expect(within(months).getByRole("link", { name: "Mes siguiente: enero de 2026" })).toHaveAttribute(
       "href",
-      "/?month=2026-02",
+      "/?month=2026-01",
     );
     unmount();
 
     stubFeatured(
-      featured({ month: "2026-12", window: { from: "2026-12-01", to: "2026-12-31" } }),
+      featuredWeek({
+        week: "2027-W05",
+        window: { from: "2027-02-01", to: "2027-02-07" },
+        navigation: { previous: "2027-W04" },
+        selection: { status: "no_qualifying_releases" },
+        items: [],
+      }),
     );
-    renderApp("/?month=2026-12");
-    months = await screen.findByRole("navigation", { name: "Mes de la selección" });
-    expect(within(months).getByText("Diciembre 2026")).toBeVisible();
-    expect(within(months).getByRole("link", { name: "Mes siguiente" })).toHaveAttribute(
+    renderApp("/?week=2027-W05");
+    await screen.findByRole("heading", {
+      name: "No hay lanzamientos en la semana del 1 al 7 de febrero de 2027",
+    });
+    months = screen.getByRole("navigation", { name: "Semana de la selección" });
+    expect(within(months).getByRole("link", { name: "Semana siguiente" })).toHaveAttribute(
       "aria-disabled",
       "true",
     );
-    expect(within(months).getByRole("link", { name: "Mes anterior: noviembre de 2026" })).toHaveAttribute(
-      "href",
-      "/?month=2026-11",
-    );
+    expect(
+      within(months).getByRole("link", {
+        name: "Semana anterior: la semana del 25 al 31 de enero de 2027",
+      }),
+    ).toHaveAttribute("href", "/?week=2027-W04");
+    // An empty future week says so honestly, without synthetic picks.
+    expect(
+      screen.getByRole("heading", {
+        name: "No hay lanzamientos en la semana del 1 al 7 de febrero de 2027",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText("El catálogo local no tiene estrenos con día confirmado dentro de esta semana."),
+    ).toBeVisible();
+    expect(screen.queryByRole("article")).toBeNull();
   });
 
-  it("returns to the current month when the API rejects a month outside the current year", async () => {
+  it("returns to the current period when the API rejects one outside its bounds", async () => {
     const fetchMock = stubFeatured(problem(422, "FILTER_INVALID"), featured());
-    const { router } = renderApp("/?month=2025-12");
+    const { router } = renderApp("/?month=2024-01");
 
     await screen.findByRole("article", { name: "Juego destacado" });
-    expect(requestedUrl(fetchMock).searchParams.get("month")).toBe("2025-12");
-    expect(requestedUrl(fetchMock, 1).searchParams.has("month")).toBe(false);
-    expect(router.state.location.search).toBe("");
-    // Another year's selection is never presented, nor a new error state.
-    expect(screen.queryByText(/2025/)).toBeNull();
+    expect(requestedUrl(fetchMock).searchParams.get("month")).toBe("2024-01");
+    expect(requestedUrl(fetchMock, 1).search).toBe("?granularity=month");
+    expect(router.state.location.search).toBe("?granularity=month");
+    // A period outside the bounds is never presented, nor a new error state.
+    expect(screen.queryByText(/2024/)).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(
       within(screen.getByRole("navigation", { name: "Mes de la selección" })).getByText(
         "Octubre 2026",
       ),
     ).toBeVisible();
+  });
+
+  it("returns to the current week when the API rejects a week outside its bounds", async () => {
+    const fetchMock = stubFeatured(problem(422, "FILTER_INVALID"), featuredWeek());
+    const { router } = renderApp("/?week=2027-W30");
+
+    await screen.findByRole("article", { name: "Juego destacado" });
+    expect(requestedUrl(fetchMock).searchParams.get("week")).toBe("2027-W30");
+    expect(requestedUrl(fetchMock, 1).search).toBe("?granularity=week");
+    expect(router.state.location.search).toBe("");
   });
 
   it("keeps a stale ranking usable without a selection note", async () => {
@@ -487,7 +721,7 @@ describe("featured releases page", () => {
         },
       }),
     );
-    renderApp("/");
+    renderApp(MONTH);
 
     await screen.findByRole("article", { name: "Juego destacado" });
     expect(screen.queryByText(/Selección automática|atención registrada/)).toBeNull();
@@ -504,7 +738,7 @@ describe("featured releases page", () => {
         items: [],
       }),
     );
-    const first = renderApp("/");
+    const first = renderApp(MONTH);
 
     expect(
       await screen.findByRole("heading", { name: "Aún no hay lanzamientos destacados en octubre de 2026" }),
@@ -528,7 +762,7 @@ describe("featured releases page", () => {
   it("separates a catalogue that is not ready from a technical failure and retries on request", async () => {
     const user = userEvent.setup();
     stubFeatured(problem(503, "CATALOGUE_NOT_READY"));
-    const first = renderApp("/");
+    const first = renderApp(MONTH);
 
     expect(
       await screen.findByRole("heading", { name: "El catálogo todavía no está disponible" }),
@@ -537,7 +771,7 @@ describe("featured releases page", () => {
     first.unmount();
 
     const fetchMock = stubFeatured(problem(500, "INTERNAL_ERROR"), featured());
-    renderApp("/");
+    renderApp(MONTH);
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("No se pudieron cargar los lanzamientos destacados");
     expect(alert).toHaveTextContent("Referencia para soporte: correlation-featured");

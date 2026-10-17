@@ -6,26 +6,40 @@ import com.videogameplatform.catalogue.application.details.GameDetailsResult;
 import java.net.URI;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Provider-independent result of UC-010. {@code items} is the ranking, highest popularity first:
- * the first item is the month's featured release and up to five more follow. Each item presents
- * only the game's qualifying releases inside the month, at most one per platform.
+ * Provider-independent result of UC-010. {@code window} is the represented week or month, first
+ * and last day inclusive. {@code items} is the ranking, highest popularity first: the first item
+ * is the period's featured release and up to five more follow. Each item presents only the game's
+ * qualifying releases inside the period, at most one per platform.
  */
 public record FeaturedReleasesResult(
-        YearMonth month,
+        BrowseFeaturedReleasesUseCase.Granularity granularity,
         LocalDate evaluatedOn,
         BrowseReleasesResult.Window window,
+        Navigation navigation,
         Selection selection,
         List<Item> items) {
 
     public FeaturedReleasesResult {
+        java.util.Objects.requireNonNull(granularity, "granularity");
+        java.util.Objects.requireNonNull(navigation, "navigation");
         items = List.copyOf(items);
         if (items.isEmpty() == selection instanceof Selection.Ranked) {
             throw new IllegalArgumentException("Only a ranked selection holds featured items");
+        }
+    }
+
+    /**
+     * The first days of the adjacent periods of the same granularity inside the navigation bounds;
+     * each is empty at its bound.
+     */
+    public record Navigation(Optional<LocalDate> previous, Optional<LocalDate> next) {
+        public Navigation {
+            previous = java.util.Objects.requireNonNull(previous, "previous");
+            next = java.util.Objects.requireNonNull(next, "next");
         }
     }
 
@@ -97,10 +111,10 @@ public record FeaturedReleasesResult(
         record Ranked(CatalogueFreshness popularityFreshness, Instant popularityObservedAt)
                 implements Selection {}
 
-        /** The month has qualifying releases, but none of their games has a popularity signal. */
+        /** The period has qualifying releases, but none of their games has a popularity signal. */
         record PopularityUnavailable() implements Selection {}
 
-        /** The local catalogue holds no qualifying release inside the month. */
+        /** The local catalogue holds no qualifying release inside the period. */
         record NoQualifyingReleases() implements Selection {}
     }
 }

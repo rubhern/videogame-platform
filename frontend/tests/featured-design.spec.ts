@@ -1,7 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
-import { coverMedia, featuredItem, featuredReleases } from "./fixtures/releases";
+import {
+  coverMedia,
+  featuredItem,
+  featuredReleases,
+  featuredWeekReleases,
+} from "./fixtures/releases";
 
 type FeaturedReleases = ReturnType<typeof featuredReleases>;
 
@@ -34,11 +39,58 @@ function fixtureImage(id: string): string {
   );
 }
 
-/** Serves the featured releases of whichever month the page asks for, and their images. */
+const DAY_MS = 86_400_000;
+const isoDay = (time: number) => new Date(time).toISOString().slice(0, 10);
+
+/** The Monday of an ISO week `YYYY-Www`: the week holding 4 January is the year's first. */
+function isoWeekMonday(week: string): number {
+  const year = Number(week.slice(0, 4));
+  const fourth = Date.UTC(year, 0, 4);
+  const firstMonday = fourth - ((new Date(fourth).getUTCDay() + 6) % 7) * DAY_MS;
+  return firstMonday + (Number(week.slice(6)) - 1) * 7 * DAY_MS;
+}
+
+function isoWeek(time: number): string {
+  const thursday = time + 3 * DAY_MS;
+  const year = new Date(thursday).getUTCFullYear();
+  const number = Math.floor((thursday - isoWeekMonday(`${year}-W01`)) / (7 * DAY_MS)) + 1;
+  return `${year}-W${String(number).padStart(2, "0")}`;
+}
+
+/**
+ * Like the API on the fixtures' evaluated date, Thursday 13 August 2026: ISO week 33 is current
+ * and weeks reach 16 either way (W17 to W49); months reach ten back (October 2025) and, with the
+ * 180-day acquisition horizon ending on 9 February 2027, forward to January 2027.
+ */
+const CURRENT_WEEK = isoWeekMonday("2026-W33");
+const MONTHS = { first: "2025-10", last: "2027-01" };
+
+function filterInvalid(pointer: string) {
+  return {
+    status: 422,
+    contentType: "application/problem+json",
+    json: {
+      type: "urn:videogame-platform:problem:filter_invalid",
+      title: "Release filter is invalid",
+      status: 422,
+      code: "FILTER_INVALID",
+      category: "validation",
+      correlationId: "correlation-period",
+      violations: [{ pointer, message: "Use a supported period." }],
+    },
+  };
+}
+
+function shiftMonth(month: string, offset: number): string {
+  const index = Number(month.slice(0, 4)) * 12 + Number(month.slice(5)) - 1 + offset;
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
+}
+
+/** Serves the featured releases of whichever week or month the page asks for, and their images. */
 async function scriptFeatured(
   page: Page,
   missingImages: ReadonlySet<string> = new Set(),
-  adjust: (month: FeaturedReleases) => FeaturedReleases = (month) => month,
+  adjust: (period: FeaturedReleases) => FeaturedReleases = (period) => period,
 ) {
   await page.route("https://images.igdb.com/**", (route) => {
     const id = new URL(route.request().url()).pathname.split("/").pop()?.split(".")[0] ?? "";
@@ -48,28 +100,43 @@ async function scriptFeatured(
   });
   await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: false } }));
   await page.route("**/api/v1/featured-releases*", (route) => {
-    const month = new URL(route.request().url()).searchParams.get("month") ?? "2026-08";
-    const [year, number] = month.split("-");
-    // Like the API, a month outside the fixtures' current year (2026) fails filter validation.
-    if (year !== "2026") {
+    const params = new URL(route.request().url()).searchParams;
+    const week = params.get("week");
+    if (week !== null || params.get("granularity") === "week") {
+      const monday = week === null ? CURRENT_WEEK : isoWeekMonday(week);
+      const offset = Math.round((monday - CURRENT_WEEK) / (7 * DAY_MS));
+      if (Math.abs(offset) > 16) return route.fulfill(filterInvalid("/query/week"));
+      const navigation = {
+        ...(offset > -16 ? { previous: isoWeek(monday - 7 * DAY_MS) } : {}),
+        ...(offset < 16 ? { next: isoWeek(monday + 7 * DAY_MS) } : {}),
+      };
       return route.fulfill({
-        status: 422,
-        contentType: "application/problem+json",
-        json: {
-          type: "urn:videogame-platform:problem:filter_invalid",
-          title: "Release filter is invalid",
-          status: 422,
-          code: "FILTER_INVALID",
-          category: "validation",
-          correlationId: "correlation-month",
-          violations: [{ pointer: "/query/month", message: "Use a supported month." }],
-        },
+        json: adjust(
+          featuredWeekReleases({
+            week: isoWeek(monday),
+            window: { from: isoDay(monday), to: isoDay(monday + 6 * DAY_MS) },
+            navigation,
+          }),
+        ),
       });
     }
+    const month = params.get("month") ?? "2026-08";
+    if (month < MONTHS.first || month > MONTHS.last) {
+      return route.fulfill(filterInvalid("/query/month"));
+    }
+    const [year, number] = month.split("-");
     const last = new Date(Date.UTC(Number(year), Number(number), 0)).getUTCDate();
+    const navigation = {
+      ...(month > MONTHS.first ? { previous: shiftMonth(month, -1) } : {}),
+      ...(month < MONTHS.last ? { next: shiftMonth(month, 1) } : {}),
+    };
     return route.fulfill({
       json: adjust(
-        featuredReleases({ month, window: { from: `${month}-01`, to: `${month}-${last}` } }),
+        featuredReleases({
+          month,
+          window: { from: `${month}-01`, to: `${month}-${last}` },
+          navigation,
+        }),
       ),
     });
   });
@@ -87,7 +154,8 @@ for (const width of [320, 390, 834, 1320]) {
         translation: { kind: "machine_translation", sourceText: "Explore a world.", sourceLanguage: "en", current: true },
       } } : {}),
     })) }));
-    await page.goto("/");
+    // The month composition; the week has its own opening check below.
+    await page.goto("/?granularity=month");
 
     const hero = page.getByRole("article", { name: LEAD });
     await expect(hero).toBeVisible();
@@ -169,7 +237,7 @@ for (const width of [320, 390, 834, 1320]) {
       expect(body?.y ?? 0).toBeGreaterThan(visual?.y ?? 0);
       expect(body?.y ?? 0).toBeLessThan((visual?.y ?? 0) + (visual?.height ?? 0));
     } else {
-      // Phones run the art on from the month selector; the seal rises over the art's faded foot
+      // Phones run the art on from the period selector; the seal rises over the art's faded foot
       // and the copy follows beneath it at the column's width.
       const month = await page.getByRole("navigation", { name: "Mes de la selección" }).boundingBox();
       const seal = await hero.locator(".featured-dial-emblem").boundingBox();
@@ -241,7 +309,7 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(action.locator("a, button, input, select, summary, [tabindex]")).toHaveCount(0);
     // The summary stays in the response and on the game page; the featured hero leaves it out.
     await expect(hero.getByText(SUMMARY.trim().slice(0, 40))).toHaveCount(0);
-    // The heading is the title and the month selector alone.
+    // The heading is the title and the period selector alone.
     await expect(page.getByText(/Selección del mes|Selección automática/)).toHaveCount(0);
     await expect(hero.getByRole("list", { name: "Géneros" })).toHaveText("AventuraRol (RPG)");
     await expect(others.locator(".featured-card-genres")).toHaveCount(5);
@@ -295,11 +363,153 @@ for (const width of [320, 390, 834, 1320]) {
   });
 }
 
+function middle(box: { y: number; height: number } | null): number {
+  if (box === null) throw new Error("Missing element frame");
+  return box.y + box.height / 2;
+}
+
+// The landing week: the heading keeps the title, the Semana/Mes switch and the steps balanced,
+// and the same G reads seven divisions.
+for (const width of [320, 390, 834, 1320]) {
+  test(`week opening, period switch and seven-day G at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await scriptFeatured(page);
+    await page.goto("/");
+
+    const hero = page.getByRole("article", { name: LEAD });
+    await expect(hero).toBeVisible();
+    const title = page.getByRole("heading", { level: 1, name: "Lanzamientos semanales" });
+    await expect(title).toBeVisible();
+    await expect(hero.getByText("Lanzamiento de la semana")).toBeVisible();
+    const switcher = page.getByRole("navigation", { name: "Periodo de los destacados" });
+    await expect(switcher.getByRole("link", { name: "Semana" })).toHaveAttribute("aria-current", "true");
+    await expect(switcher.getByRole("link", { name: "Mes" })).not.toHaveAttribute("aria-current");
+    // Ice marks the selection; nothing in the heading takes fire.
+    const selected = switcher.locator('[aria-current="true"]');
+    const label = page.locator(".featured-period-label");
+    await expect(selected).toHaveCSS("color", await label.evaluate((element) => getComputedStyle(element).color));
+    const weeks = page.getByRole("navigation", { name: "Semana de la selección" });
+    await expect(weeks.getByText("10–16 ago 2026")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Semana actual" })).toHaveCount(0);
+
+    // The weekly title reads as one line from common phone widths up.
+    const titleLines = await title.evaluate(
+      (element) => element.getBoundingClientRect().height / Number.parseFloat(getComputedStyle(element).lineHeight),
+    );
+    if (width >= 360) expect(titleLines).toBeLessThan(1.5);
+    const titleBox = await title.boundingBox();
+    const switchBox = await switcher.boundingBox();
+    const stepsBox = await weeks.boundingBox();
+    if (width >= 1024) {
+      // Desktop: title, switch and steps share the heading's one row.
+      expect(Math.abs(middle(switchBox) - middle(stepsBox))).toBeLessThan(3);
+      expect(Math.abs(middle(titleBox) - middle(switchBox))).toBeLessThan(8);
+    } else if (width >= 360) {
+      // The switch and the steps share one row, under the title where it needs the width.
+      expect(Math.abs(middle(switchBox) - middle(stepsBox))).toBeLessThan(3);
+      if (width < 620) expect(switchBox?.y ?? 0).toBeGreaterThanOrEqual((titleBox?.y ?? 0) + (titleBox?.height ?? 0) - 1);
+    }
+    // Every control keeps a comfortable target.
+    for (const control of await page.locator(".featured-granularity-option, .featured-period-step").all()) {
+      expect((await control.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+
+    // Thursday 13 August is today and Friday 14 the featured release's day.
+    await expect(
+      hero.getByText(
+        "Calendario de la semana del 10 al 16 de agosto de 2026: hoy es jueves 13, día 4 de 7; lanzamiento el viernes 14.",
+        { exact: true },
+      ),
+    ).toBeAttached();
+    const dial = hero.locator(width >= 620 ? ".featured-dial-g" : ".featured-dial-emblem");
+    await expect(dial).toBeVisible();
+    await expect(dial).toHaveClass(/month-dial-current/);
+    await expect(dial.locator(".month-dial-progress")).toHaveCount(1);
+    if (width >= 620) {
+      // Seven major divisions; today and the release's day give their numerals to their markers.
+      await expect(dial.locator(".month-dial-numeral")).toHaveText(["10", "11", "12", "15", "16"]);
+      await expect(dial.locator(".month-dial-launch")).toHaveText("14");
+      await expect(dial.getByText("hoy", { exact: true })).toHaveCount(1);
+      await expect(dial.locator(".month-dial-ticks-minor")).toHaveAttribute("d", "");
+    } else {
+      await expect(dial.locator(".month-dial-readout")).toHaveText("14ago 2026");
+    }
+    // Every card's unrolled scale is the same week of seven divisions.
+    await expect(page.locator(".featured-card .month-strip-current")).toHaveCount(5);
+    await expect(page.locator(".featured-card").first().locator(".month-strip-scale line")).toHaveCount(7);
+    await expectAccessibleLayout(page);
+    await page.screenshot({ path: test.info().outputPath(`featured-week-${width}.png`), fullPage: true });
+
+    // Another week adds the way back to the current one without crowding the opening.
+    await weeks.getByRole("link", { name: /^Semana siguiente/ }).click();
+    await expect(page).toHaveURL(/\/\?week=2026-W34$/);
+    await expect(weeks.getByText("17–23 ago 2026")).toBeVisible();
+    await expect(hero).toBeVisible();
+    const current = page.getByRole("link", { name: "Semana actual" });
+    await expect(current).toBeVisible();
+    expect((await current.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(width < 620 ? 32 : 44);
+    await expectAccessibleLayout(page);
+    await page.screenshot({ path: test.info().outputPath(`featured-next-week-${width}.png`) });
+  });
+}
+
+test("weeks step through the URL across months, back to the current week and through history", async ({ page }) => {
+  await page.setViewportSize({ width: 1320, height: 900 });
+  await scriptFeatured(page);
+  await page.goto("/");
+  const weeks = page.getByRole("navigation", { name: "Semana de la selección" });
+  const dial = page.locator(".featured-dial-g");
+  await expect(page.getByRole("article", { name: LEAD })).toBeVisible();
+
+  // Keyboard: the steps are ordinary links with visible focus.
+  const next = weeks.getByRole("link", { name: "Semana siguiente: la semana del 17 al 23 de agosto de 2026" });
+  await next.focus();
+  await expect(next).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/\?week=2026-W34$/);
+  await expect(weeks.getByText("17–23 ago 2026")).toBeVisible();
+  // A future week shows no elapsed progress and no today.
+  await expect(dial).toHaveClass(/month-dial-future/);
+  await expect(dial.locator(".month-dial-progress")).toHaveCount(0);
+  await expect(dial.getByText("hoy", { exact: true })).toHaveCount(0);
+  await expect(dial.locator(".month-dial-launch")).toHaveText("21");
+
+  // A week entering a new month names the month on its first day.
+  await page.goto("/?week=2026-W36");
+  await expect(weeks.getByText("31 ago – 6 sep 2026")).toBeVisible();
+  await expect(dial.locator(".month-dial-numeral").filter({ hasText: "1 sep" })).toHaveCount(1);
+
+  // A past week is lit completely.
+  await page.goto("/?week=2026-W30");
+  await expect(weeks.getByText("20–26 jul 2026")).toBeVisible();
+  await expect(dial).toHaveClass(/month-dial-past/);
+  await expect(dial.locator(".month-dial-progress")).toHaveCount(1);
+  await page.getByRole("link", { name: "Semana actual" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(weeks.getByText("10–16 ago 2026")).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/\?week=2026-W30$/);
+  await expect(weeks.getByText("20–26 jul 2026")).toBeVisible();
+  await page.goForward();
+  await expect(page).toHaveURL(/\/$/);
+
+  // Switching granularity opens the other one's current period.
+  const switcher = page.getByRole("navigation", { name: "Periodo de los destacados" });
+  await switcher.getByRole("link", { name: "Mes" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/\?granularity=month$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Mes de la selección" }).getByText("Agosto 2026")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Mes actual" })).toHaveCount(0);
+  await expect(page.locator(".featured-dial-g .month-dial-numeral").first()).toHaveText("1");
+  await expectAccessibleLayout(page);
+});
+
 test("the temporal G lights the month by the API's evaluated date and marks the release's day", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 900 });
   // Every game's presented release falls in whichever month is asked for; in July the month's
   // featured release is known only to the month.
-  await scriptFeatured(page, new Set(), (month) => ({
+  await scriptFeatured(page, new Set(), (month) => month.granularity === "week" ? month : ({
     ...month,
     items: month.items.map((item, index) => ({
       ...item,
@@ -320,7 +530,7 @@ test("the temporal G lights the month by the API's evaluated date and marks the 
   }));
 
   const cases = [
-    ["/", "current", "Calendario de agosto de 2026: hoy es el día 13 de 31; lanzamiento el día 20."],
+    ["/?granularity=month", "current", "Calendario de agosto de 2026: hoy es el día 13 de 31; lanzamiento el día 20."],
     [
       "/?month=2026-02",
       "past",
@@ -360,7 +570,11 @@ test("the temporal G lights the month by the API's evaluated date and marks the 
   // The phone seal reads the same date inside its bowl, at the API's precision, and its marker
   // carries no second label: a day reads over its month, a month over its year.
   await page.setViewportSize({ width: 390, height: 844 });
-  for (const [path, readout] of [["/", "20ago 2026"], ["/?month=2026-07", "jul2026"]] as const) {
+  for (const [path, readout] of [
+    ["/?granularity=month", "20ago 2026"],
+    ["/?month=2026-07", "jul2026"],
+    ["/", "14ago 2026"],
+  ] as const) {
     await page.goto(path);
     const seal = page.locator(".featured-dial-emblem");
     await expect(seal.locator(".month-dial-readout")).toHaveText(readout);
@@ -384,39 +598,62 @@ test("a provider image that cannot load steps down to the product fallback", asy
   await expectAccessibleLayout(page);
 });
 
-test("month steps stop at January and December of the current year", async ({ page }) => {
+test("period steps stop at the API's navigation bounds", async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 900 });
   await scriptFeatured(page);
-  await page.goto("/?month=2026-01");
+  await page.goto("/?month=2025-10");
 
   const months = page.getByRole("navigation", { name: "Mes de la selección" });
-  await expect(months.getByText("Enero 2026")).toBeVisible();
+  await expect(page.getByRole("article", { name: LEAD })).toBeVisible();
+  // Ten months back crosses into the previous year.
+  await expect(months.getByText("Octubre 2025")).toBeVisible();
   const previous = months.getByRole("link", { name: "Mes anterior" });
   await expect(previous).toHaveAttribute("aria-disabled", "true");
   // A disabled step is dimmed, inert and outside the tab order; the enabled one still focuses.
   await expect(previous).toHaveCSS("opacity", "0.35");
   expect(await previous.evaluate((element) => (element as HTMLElement).tabIndex)).toBe(-1);
-  const next = months.getByRole("link", { name: "Mes siguiente: febrero de 2026" });
+  const next = months.getByRole("link", { name: "Mes siguiente: noviembre de 2025" });
   await next.focus();
   await expect(next).toHaveCSS("outline-style", "solid");
   await expectAccessibleLayout(page);
 
-  await page.goto("/?month=2026-12");
-  await expect(months.getByText("Diciembre 2026")).toBeVisible();
+  // The forward bound is the last month wholly inside the acquisition horizon.
+  await page.goto("/?month=2027-01");
+  await expect(months.getByText("Enero 2027")).toBeVisible();
+  await expect(page.getByRole("article", { name: LEAD })).toBeVisible();
   await expect(months.getByRole("link", { name: "Mes siguiente" })).toHaveAttribute(
     "aria-disabled",
     "true",
   );
-  await months.getByRole("link", { name: "Mes anterior: noviembre de 2026" }).click();
-  await expect(page).toHaveURL(/\/\?month=2026-11$/);
-  await expect(months.getByRole("link", { name: "Mes siguiente: diciembre de 2026" })).toBeVisible();
+  await months.getByRole("link", { name: "Mes anterior: diciembre de 2026" }).click();
+  await expect(page).toHaveURL(/\/\?month=2026-12$/);
+  await expect(months.getByRole("link", { name: "Mes siguiente: enero de 2027" })).toBeVisible();
 
-  // A month of another year typed into the URL returns to the current month, never its content.
-  for (const month of ["2019-03", "2027-01"]) {
-    await page.goto(`/?month=${month}`);
-    await expect(page).toHaveURL(/\/$/);
-    await expect(months.getByText("Agosto 2026")).toBeVisible();
-    await expect(page.getByText(month.slice(0, 4), { exact: false })).toHaveCount(0);
+  const weeks = page.getByRole("navigation", { name: "Semana de la selección" });
+  await page.goto("/?week=2026-W17");
+  await expect(page.getByRole("article", { name: LEAD })).toBeVisible();
+  await expect(weeks.getByText("20–26 abr 2026")).toBeVisible();
+  await expect(weeks.getByRole("link", { name: "Semana anterior" })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+  await page.goto("/?week=2026-W49");
+  await expect(page.getByRole("article", { name: LEAD })).toBeVisible();
+  await expect(weeks.getByText("30 nov – 6 dic 2026")).toBeVisible();
+  await expect(weeks.getByRole("link", { name: "Semana siguiente" })).toHaveAttribute(
+    "aria-disabled",
+    "true",
+  );
+
+  // A period outside the bounds typed into the URL returns to the current one, never its content.
+  for (const [path, expected, label] of [
+    ["/?month=2019-03", /\/\?granularity=month$/, "Agosto 2026"],
+    ["/?month=2027-02", /\/\?granularity=month$/, "Agosto 2026"],
+    ["/?week=2027-W30", /\/$/, "10–16 ago 2026"],
+  ] as const) {
+    await page.goto(path);
+    await expect(page).toHaveURL(expected);
+    await expect(page.getByRole("navigation", { name: /de la selección$/ }).getByText(label)).toBeVisible();
   }
 });
 
@@ -429,7 +666,7 @@ test("a hero without landscape media presents the designed fallback, never its c
       ...month.items.slice(1),
     ],
   }));
-  await page.goto("/");
+  await page.goto("/?granularity=month");
 
   const hero = page.getByRole("article", { name: "Fable" });
   await expect(hero.locator(".featured-art")).toHaveAttribute("data-art-kind", "fallback");
@@ -445,10 +682,10 @@ for (const state of ["loading", "unranked", "empty", "error"] as const) {
     await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: false } }));
     await page.route("**/api/v1/featured-releases*", async (route) => {
       if (state === "loading") return; // Kept pending until the page closes, without timing sleeps.
-      if (retry) return route.fulfill({ json: featuredReleases() });
+      if (retry) return route.fulfill({ json: featuredWeekReleases() });
       if (state === "unranked" || state === "empty") {
         return route.fulfill({
-          json: featuredReleases({
+          json: featuredWeekReleases({
             selection: {
               status: state === "unranked" ? "popularity_unavailable" : "no_qualifying_releases",
             },
@@ -472,10 +709,16 @@ for (const state of ["loading", "unranked", "empty", "error"] as const) {
       await expect(page.getByRole("article")).toHaveCount(0);
     } else if (state === "unranked") {
       await expect(
-        page.getByRole("heading", { name: "Aún no hay lanzamientos destacados en agosto de 2026" }),
+        page.getByRole("heading", {
+          name: "Aún no hay lanzamientos destacados en la semana del 10 al 16 de agosto de 2026",
+        }),
       ).toBeVisible();
     } else if (state === "empty") {
-      await expect(page.getByRole("heading", { name: "No hay lanzamientos en agosto de 2026" })).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "No hay lanzamientos en la semana del 10 al 16 de agosto de 2026",
+        }),
+      ).toBeVisible();
       await expect(page.getByRole("link", { name: "Ver lanzamientos recientes" })).toHaveAttribute(
         "href",
         "/?view=recent&weeks=1",
@@ -505,7 +748,16 @@ for (const forcedColors of ["none", "active"] as const) {
     // As in the packaged journeys, measure normal-palette contrast before testing forced colours.
     await expectAccessibleLayout(page);
     await page.emulateMedia({ reducedMotion: "reduce", forcedColors });
-    await page.getByRole("link", { name: "Mes siguiente: septiembre de 2026" }).focus();
+    // The selected granularity keeps a painted, non-colour cue in forced colours too.
+    await expect(
+      page.locator('.featured-granularity-option[aria-current="true"]'),
+    ).toHaveText("Semana");
+    expect(
+      await page
+        .locator('.featured-granularity-option[aria-current="true"]')
+        .evaluate((element) => getComputedStyle(element, "::after").content),
+    ).not.toBe("none");
+    await page.getByRole("link", { name: /^Semana siguiente/ }).focus();
     await page.keyboard.press("Tab");
     await expect(link).toBeFocused();
     await expect(page.locator(".featured-hero")).toHaveCSS("outline-style", "solid");
@@ -522,7 +774,16 @@ test("reference G keeps its silhouette across content, month lengths and viewpor
   await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: false } }));
   let title = "Phantom Blade Zero";
   let month = "2026-10";
-  await page.route("**/api/v1/featured-releases*", (route) => route.fulfill({ json: featuredReleases({
+  await page.route("**/api/v1/featured-releases*", (route) => route.fulfill({ json:
+    new URL(route.request().url()).searchParams.has("week")
+      // ISO week 53 of 2026 crosses into 2027; the G keeps the same silhouette for seven days.
+      ? featuredWeekReleases({
+        week: "2026-W53",
+        evaluatedOn: "2026-12-31",
+        window: { from: "2026-12-28", to: "2027-01-03" },
+        items: [featuredItem(1, title, { precision: "day", value: "2027-01-01" })],
+      })
+      : featuredReleases({
     month,
     evaluatedOn: `${month}-16`,
     window: { from: `${month}-01`, to: `${month}-${new Date(Number(month.slice(0, 4)), Number(month.slice(5)), 0).getDate()}` },
@@ -584,6 +845,17 @@ test("reference G keeps its silhouette across content, month lengths and viewpor
         expect(overflow.css).toBe("visible");
       }
     }
+    await page.goto("/?week=2026-W53");
+    const week = page.locator(width < 620 ? ".featured-dial-emblem" : ".featured-dial-g");
+    await expect(week).toBeVisible();
+    expect(await week.locator(".month-dial-track").getAttribute("d")).toBe(baseline);
+    await expect(week).toHaveAttribute("viewBox", "0 0 450 382");
+    await expect(page.getByRole("navigation", { name: "Semana de la selección" }).getByText("28 dic 2026 – 3 ene 2027")).toBeVisible();
+    if (width >= 620) {
+      await expect(week.locator(".month-dial-numeral").filter({ hasText: "1 ene" })).toHaveCount(0);
+      await expect(week.locator(".month-dial-launch")).toHaveText("1 ene");
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBe(0);
     await page.screenshot({ path: test.info().outputPath(`reference-g-${width}.png`), fullPage: true });
   }
 });

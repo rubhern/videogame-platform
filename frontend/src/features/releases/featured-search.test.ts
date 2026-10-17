@@ -1,32 +1,66 @@
 import { describe, expect, it } from "vitest";
 
-import { featuredSearchPath, readFeaturedSearch, shiftMonth } from "./featured-search";
+import {
+  DEFAULT_FEATURED_GRANULARITY,
+  featuredSearchPath,
+  isCanonicalFeaturedSearch,
+  readFeaturedSearch,
+} from "./featured-search";
 
 function read(query: string) {
   return readFeaturedSearch(new URLSearchParams(query));
 }
 
 describe("featured releases navigable state", () => {
-  it("represents the current month unless the URL names a valid one", () => {
-    expect(read("")).toEqual({ month: null });
-    expect(read("month=2026-10")).toEqual({ month: "2026-10" });
-    // Values outside the contract shape never reach the API.
+  it("opens on the current week, the single default granularity", () => {
+    expect(DEFAULT_FEATURED_GRANULARITY).toBe("week");
+    expect(read("")).toEqual({ granularity: "week", period: null });
+    expect(featuredSearchPath({ granularity: "week", period: null })).toBe("/");
+  });
+
+  it("reads a named week or month, or the current period of a named granularity", () => {
+    expect(read("week=2026-W42")).toEqual({ granularity: "week", period: "2026-W42" });
+    expect(read("week=2026-W53")).toEqual({ granularity: "week", period: "2026-W53" });
+    expect(read("month=2026-10")).toEqual({ granularity: "month", period: "2026-10" });
+    expect(read("granularity=month")).toEqual({ granularity: "month", period: null });
+    expect(read("granularity=week")).toEqual({ granularity: "week", period: null });
+    expect(read("granularity=week&week=2026-W42")).toEqual({
+      granularity: "week",
+      period: "2026-W42",
+    });
+  });
+
+  it("never sends a value outside the contract shape or a contradiction to the API", () => {
     for (const invalid of ["2026-13", "0000-01", "2026-1", "26-10", "2026-10-01", ""]) {
-      expect(read(`month=${invalid}`)).toEqual({ month: null });
+      expect(read(`month=${invalid}`)).toEqual({ granularity: "week", period: null });
     }
+    for (const invalid of ["2026-W54", "2026-W00", "2026-W5", "2026W42", "0000-W01", ""]) {
+      expect(read(`week=${invalid}`)).toEqual({ granularity: "week", period: null });
+    }
+    expect(read("week=2026-W42&month=2026-10")).toEqual({ granularity: "week", period: null });
+    expect(read("granularity=month&week=2026-W42")).toEqual({
+      granularity: "week",
+      period: null,
+    });
+    expect(read("granularity=day")).toEqual({ granularity: "week", period: null });
   });
 
-  it("keeps the landing route for the current month and names any other", () => {
-    expect(featuredSearchPath(null)).toBe("/");
-    expect(featuredSearchPath("2026-09")).toBe("/?month=2026-09");
-  });
+  it("keeps one canonical route for every state", () => {
+    expect(featuredSearchPath({ granularity: "month", period: null })).toBe("/?granularity=month");
+    expect(featuredSearchPath({ granularity: "month", period: "2026-09" })).toBe("/?month=2026-09");
+    expect(featuredSearchPath({ granularity: "week", period: "2027-W01" })).toBe("/?week=2027-W01");
 
-  it("steps across years and stops at the contract's month bounds", () => {
-    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
-    expect(shiftMonth("2027-01", -1)).toBe("2026-12");
-    expect(shiftMonth("2026-10", -1)).toBe("2026-09");
-    expect(shiftMonth("0001-01", -1)).toBeNull();
-    expect(shiftMonth("9999-12", 1)).toBeNull();
-    expect(shiftMonth("not-a-month", 1)).toBeNull();
+    for (const canonical of ["", "week=2026-W42", "month=2026-09", "granularity=month"]) {
+      expect(isCanonicalFeaturedSearch(new URLSearchParams(canonical))).toBe(true);
+    }
+    for (const other of [
+      "granularity=week",
+      "granularity=month&month=2026-09",
+      "month=2026-13",
+      "week=2026-W42&month=2026-10",
+      "utm=feed",
+    ]) {
+      expect(isCanonicalFeaturedSearch(new URLSearchParams(other))).toBe(false);
+    }
   });
 });

@@ -76,8 +76,8 @@ class FeaturedReleaseScalabilityIT {
                         LocalDate.of(2026, 8, 1), LocalDate.of(2026, 8, 31), 6, 25);
 
         var result = adapter.findFeaturedReleases(criteria).orElseThrow();
-        JsonNode plan = explain(admin, pageSql());
-        record(rows, plan);
+        JsonNode plan = explain(admin, pageSql("2026-08-01", "2026-08-31"));
+        record(rows, "month", plan);
 
         assertThat(result.items()).hasSize(6);
         // Every generated release shares one platform, so each game presents exactly one.
@@ -92,6 +92,32 @@ class FeaturedReleaseScalabilityIT {
                         "game_featured_evidence",
                         "game_featured_media");
         assertThat(sequentialScans(plan)).filteredOn(unboundedTables::contains).isEmpty();
+
+        // A week, Monday 27 July to Sunday 2 August holding the shared first-release date, takes
+        // the
+        // same bounded path over a narrower period.
+        var week =
+                adapter.findFeaturedReleases(
+                                new FeaturedReleaseReadPort.Criteria(
+                                        LocalDate.of(2026, 7, 27), LocalDate.of(2026, 8, 2), 6, 25))
+                        .orElseThrow();
+        JsonNode weekPlan = explain(admin, pageSql("2026-07-27", "2026-08-02"));
+        record(rows, "week", weekPlan);
+        assertThat(week.items()).hasSize(6);
+        assertThat(week.items())
+                .allSatisfy(
+                        item ->
+                                assertThat(item.releases())
+                                        .allSatisfy(
+                                                release ->
+                                                        assertThat(release.releaseDate())
+                                                                .isInstanceOf(
+                                                                        com.videogameplatform
+                                                                                .catalogue.domain
+                                                                                .ReleaseDate.Day
+                                                                                .class)));
+        assertThat(indexNames(weekPlan)).contains("ix_release_browse_period");
+        assertThat(sequentialScans(weekPlan)).filteredOn(unboundedTables::contains).isEmpty();
     }
 
     @Test
@@ -227,14 +253,14 @@ class FeaturedReleaseScalabilityIT {
     }
 
     /** The adapter's SQL with literal parameters, so EXPLAIN plans exactly what it runs. */
-    private static String pageSql() throws Exception {
+    private static String pageSql(String periodStart, String periodEnd) throws Exception {
         var field = JdbcFeaturedReleaseReadAdapter.class.getDeclaredField("PAGE_SQL");
         field.setAccessible(true);
         return ((String) field.get(null))
                 .replace(":genreLimit", "2")
                 .replace(":publicationId", "'" + PUBLICATION_ID + "'")
-                .replace(":monthStart", "'2026-08-01'")
-                .replace(":monthEnd", "'2026-08-31'")
+                .replace(":periodStart", "'" + periodStart + "'")
+                .replace(":periodEnd", "'" + periodEnd + "'")
                 .replace(":releaseGroupLimit", "25")
                 .replace(":limit", "6");
     }
@@ -245,13 +271,14 @@ class FeaturedReleaseScalabilityIT {
         return OBJECT_MAPPER.readTree(json).get(0);
     }
 
-    private static void record(int rows, JsonNode plan) throws Exception {
+    private static void record(int rows, String period, JsonNode plan) throws Exception {
         Path directory = Files.createDirectories(Path.of("target", "query-plans"));
-        Path output = directory.resolve("featured-" + rows + "-month.json");
+        Path output = directory.resolve("featured-" + rows + "-" + period + ".json");
         Files.writeString(
                 output, OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(plan));
         System.out.printf(
-                "Featured month: rows=%d, executionMs=%s, sharedHitBlocks=%s, plan=%s%n",
+                "Featured %s: rows=%d, executionMs=%s, sharedHitBlocks=%s, plan=%s%n",
+                period,
                 rows,
                 plan.path("Execution Time"),
                 plan.path("Plan").path("Shared Hit Blocks"),

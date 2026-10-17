@@ -12,8 +12,9 @@ import com.videogameplatform.catalogue.application.cover.port.CatalogueCoverRefe
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.cover.port.ProviderImageReferenceResolver;
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
-import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
-import com.videogameplatform.catalogue.application.releases.FeaturedMonthOutOfRangeException;
+import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase.Granularity;
+import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase.Query;
+import com.videogameplatform.catalogue.application.releases.FeaturedPeriodOutOfRangeException;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.FeaturedImage;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.FeaturedImage.Presentation;
@@ -33,7 +34,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
@@ -41,6 +41,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class FeaturedReleaseServiceTest {
+
+    private static final ZoneId MADRID = ZoneId.of("Europe/Madrid");
 
     /** 30 September at UTC is already 1 October in Madrid, the trusted evaluation zone. */
     private static final Instant MADRID_FIRST_OF_OCTOBER = Instant.parse("2026-09-30T22:30:00Z");
@@ -58,84 +60,155 @@ class FeaturedReleaseServiceTest {
     void featuresTheCurrentMadridMonthByDefaultWithABoundedRanking() {
         var result =
                 service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())))
-                        .browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()));
+                        .browse(Query.current(Granularity.MONTH));
 
-        assertThat(result.month()).isEqualTo(YearMonth.of(2026, 10));
+        assertThat(result.granularity()).isEqualTo(Granularity.MONTH);
         assertThat(result.evaluatedOn()).isEqualTo(LocalDate.parse("2026-10-01"));
-        assertThat(captured.get().monthStart()).isEqualTo(LocalDate.parse("2026-10-01"));
-        assertThat(captured.get().monthEnd()).isEqualTo(LocalDate.parse("2026-10-31"));
-        // One featured release of the month and up to five more.
+        assertThat(captured.get().periodStart()).isEqualTo(LocalDate.parse("2026-10-01"));
+        assertThat(captured.get().periodEnd()).isEqualTo(LocalDate.parse("2026-10-31"));
+        // One featured release of the period and up to five more.
         assertThat(captured.get().limit()).isEqualTo(6);
         assertThat(captured.get().releaseGroupLimit()).isEqualTo(25);
+        assertThat(result.navigation().previous()).contains(LocalDate.parse("2026-09-01"));
+        assertThat(result.navigation().next()).contains(LocalDate.parse("2026-11-01"));
     }
 
     @Test
-    void anotherMonthKeepsItsOwnBoundsWhileEvaluationStaysToday() {
+    void featuresTheCurrentMadridIsoWeekFromMondayToSundayAcrossMonths() {
+        // Thursday 1 October 2026 in Madrid belongs to the week of Monday 28 September.
         var result =
                 service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())))
-                        .browse(
-                                new BrowseFeaturedReleasesUseCase.Query(
-                                        Optional.of(YearMonth.of(2026, 2))));
+                        .browse(Query.current(Granularity.WEEK));
 
-        assertThat(result.month()).isEqualTo(YearMonth.of(2026, 2));
-        assertThat(result.window().from()).isEqualTo(LocalDate.parse("2026-02-01"));
-        assertThat(result.window().to()).isEqualTo(LocalDate.parse("2026-02-28"));
-        assertThat(result.evaluatedOn()).isEqualTo(LocalDate.parse("2026-10-01"));
+        assertThat(result.granularity()).isEqualTo(Granularity.WEEK);
+        assertThat(result.window().from()).isEqualTo(LocalDate.parse("2026-09-28"));
+        assertThat(result.window().to()).isEqualTo(LocalDate.parse("2026-10-04"));
+        assertThat(captured.get().periodStart()).isEqualTo(LocalDate.parse("2026-09-28"));
+        assertThat(captured.get().periodEnd()).isEqualTo(LocalDate.parse("2026-10-04"));
+        assertThat(captured.get().limit()).isEqualTo(6);
+        assertThat(result.navigation().previous()).contains(LocalDate.parse("2026-09-21"));
+        assertThat(result.navigation().next()).contains(LocalDate.parse("2026-10-05"));
     }
 
     @Test
-    void onlyAMonthOfTheCurrentMadridYearIsFeaturedAndAnotherYearIsNeverRead() {
+    void anotherPeriodKeepsItsOwnBoundsWhileEvaluationStaysToday() {
         var service = service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())));
-        for (YearMonth month : List.of(YearMonth.of(2026, 1), YearMonth.of(2026, 12))) {
-            assertThat(
-                            service.browse(
-                                            new BrowseFeaturedReleasesUseCase.Query(
-                                                    Optional.of(month)))
-                                    .month())
-                    .isEqualTo(month);
-        }
+
+        var month = service.browse(month("2026-02-01"));
+        assertThat(month.window().from()).isEqualTo(LocalDate.parse("2026-02-01"));
+        assertThat(month.window().to()).isEqualTo(LocalDate.parse("2026-02-28"));
+        assertThat(month.evaluatedOn()).isEqualTo(LocalDate.parse("2026-10-01"));
+
+        var week = service.browse(week("2026-10-26"));
+        assertThat(week.window().from()).isEqualTo(LocalDate.parse("2026-10-26"));
+        assertThat(week.window().to()).isEqualTo(LocalDate.parse("2026-11-01"));
+        assertThat(week.evaluatedOn()).isEqualTo(LocalDate.parse("2026-10-01"));
+    }
+
+    @Test
+    void weeksReachSixteenWeeksEitherWayAndNoFurther() {
+        var service = service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())));
+
+        var earliest = service.browse(week("2026-06-08"));
+        assertThat(earliest.navigation().previous()).isEmpty();
+        assertThat(earliest.navigation().next()).contains(LocalDate.parse("2026-06-15"));
+        // Sixteen weeks after 28 September reaches into the next year.
+        var latest = service.browse(week("2027-01-18"));
+        assertThat(latest.window().to()).isEqualTo(LocalDate.parse("2027-01-24"));
+        assertThat(latest.navigation().previous()).contains(LocalDate.parse("2027-01-11"));
+        assertThat(latest.navigation().next()).isEmpty();
+
         captured.set(null);
-        for (YearMonth month :
-                List.of(YearMonth.of(2025, 12), YearMonth.of(2027, 1), YearMonth.of(2019, 3))) {
-            assertThatThrownBy(
-                            () ->
-                                    service.browse(
-                                            new BrowseFeaturedReleasesUseCase.Query(
-                                                    Optional.of(month))))
-                    .isInstanceOf(FeaturedMonthOutOfRangeException.class);
+        for (String outside : List.of("2026-06-01", "2027-01-25", "2019-03-04")) {
+            assertThatThrownBy(() -> service.browse(week(outside)))
+                    .isInstanceOfSatisfying(
+                            FeaturedPeriodOutOfRangeException.class,
+                            exception ->
+                                    assertThat(exception.granularity())
+                                            .isEqualTo(Granularity.WEEK));
         }
         assertThat(captured.get()).isNull();
     }
 
     @Test
-    void theCurrentYearFollowsTheMadridDateAcrossNewYear() {
-        // 31 December at 23:30 UTC is already 1 January in Madrid, the trusted evaluation zone.
+    void monthsReachTenMonthsBackAcrossTheYearBoundary() {
+        var service = service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())));
+
+        var earliest = service.browse(month("2025-12-01"));
+        assertThat(earliest.window().to()).isEqualTo(LocalDate.parse("2025-12-31"));
+        assertThat(earliest.navigation().previous()).isEmpty();
+        assertThat(earliest.navigation().next()).contains(LocalDate.parse("2026-01-01"));
+
+        captured.set(null);
+        assertThatThrownBy(() -> service.browse(month("2025-11-01")))
+                .isInstanceOfSatisfying(
+                        FeaturedPeriodOutOfRangeException.class,
+                        exception ->
+                                assertThat(exception.granularity()).isEqualTo(Granularity.MONTH));
+        assertThat(captured.get()).isNull();
+    }
+
+    @Test
+    void monthsReachForwardOnlyToTheLastMonthWhollyInsideTheAcquisitionHorizon() {
+        // 1 October plus 180 days is 30 March 2027: March is not wholly inside, February is.
+        var service = service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())));
+        var latest = service.browse(month("2027-02-01"));
+        assertThat(latest.navigation().previous()).contains(LocalDate.parse("2027-01-01"));
+        assertThat(latest.navigation().next()).isEmpty();
+        assertThatThrownBy(() -> service.browse(month("2027-03-01")))
+                .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
+
+        // Two days later the horizon ends on 1 April 2027, so March is wholly inside.
+        var later =
+                service(
+                        port(new FeaturedReleaseReadPort.Result("v1", false, List.of())),
+                        Clock.fixed(Instant.parse("2026-10-03T10:00:00Z"), MADRID),
+                        180);
+        assertThat(later.browse(month("2027-03-01")).navigation().next()).isEmpty();
+
+        // Without a horizon only the current month remains forward; weeks keep their own bounds.
+        var noHorizon =
+                service(
+                        port(new FeaturedReleaseReadPort.Result("v1", false, List.of())),
+                        Clock.fixed(MADRID_FIRST_OF_OCTOBER, MADRID),
+                        0);
+        var current = noHorizon.browse(Query.current(Granularity.MONTH));
+        assertThat(current.navigation().previous()).contains(LocalDate.parse("2026-09-01"));
+        assertThat(current.navigation().next()).isEmpty();
+        assertThatThrownBy(() -> noHorizon.browse(month("2026-11-01")))
+                .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
+        assertThat(noHorizon.browse(week("2027-01-11")).navigation().next())
+                .contains(LocalDate.parse("2027-01-18"));
+    }
+
+    @Test
+    void theCurrentPeriodsFollowTheMadridDateAcrossNewYear() {
+        // 31 December at 23:30 UTC is already Friday 1 January 2027 in Madrid.
         var service =
                 service(
                         port(new FeaturedReleaseReadPort.Result("v1", false, List.of())),
-                        Clock.fixed(
-                                Instant.parse("2026-12-31T23:30:00Z"), ZoneId.of("Europe/Madrid")));
+                        Clock.fixed(Instant.parse("2026-12-31T23:30:00Z"), MADRID),
+                        180);
 
-        assertThat(
-                        service.browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()))
-                                .month())
-                .isEqualTo(YearMonth.of(2027, 1));
-        assertThatThrownBy(
-                        () ->
-                                service.browse(
-                                        new BrowseFeaturedReleasesUseCase.Query(
-                                                Optional.of(YearMonth.of(2026, 12)))))
-                .isInstanceOf(FeaturedMonthOutOfRangeException.class);
+        var month = service.browse(Query.current(Granularity.MONTH));
+        assertThat(month.window().from()).isEqualTo(LocalDate.parse("2027-01-01"));
+        assertThat(month.navigation().previous()).contains(LocalDate.parse("2026-12-01"));
+        // ISO week 53 of 2026 runs from Monday 28 December to Sunday 3 January.
+        var week = service.browse(Query.current(Granularity.WEEK));
+        assertThat(week.window().from()).isEqualTo(LocalDate.parse("2026-12-28"));
+        assertThat(week.window().to()).isEqualTo(LocalDate.parse("2027-01-03"));
+        assertThat(week.navigation().next()).contains(LocalDate.parse("2027-01-04"));
+        assertThat(service.browse(month("2026-03-01")).navigation().previous()).isEmpty();
     }
 
     @Test
     void namesAnUnrankedMonthAndAnEmptyMonthDifferently() {
         var unranked =
                 service(port(new FeaturedReleaseReadPort.Result("v1", true, List.of())))
-                        .browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()));
+                        .browse(Query.current(Granularity.MONTH));
         var empty =
                 service(port(new FeaturedReleaseReadPort.Result("v1", false, List.of())))
-                        .browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()));
+                        .browse(Query.current(Granularity.MONTH));
 
         assertThat(unranked.selection()).isInstanceOf(Selection.PopularityUnavailable.class);
         assertThat(unranked.items()).isEmpty();
@@ -151,7 +224,7 @@ class FeaturedReleaseServiceTest {
                                 port(
                                         new FeaturedReleaseReadPort.Result(
                                                 "v1", true, List.of(item("a", recent)))))
-                        .browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()));
+                        .browse(Query.current(Granularity.MONTH));
         var stale =
                 service(
                                 port(
@@ -159,7 +232,7 @@ class FeaturedReleaseServiceTest {
                                                 "v1",
                                                 true,
                                                 List.of(item("a", recent), item("b", old)))))
-                        .browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()));
+                        .browse(Query.current(Granularity.MONTH));
 
         assertThat(fresh.selection())
                 .isEqualTo(new Selection.Ranked(CatalogueFreshness.FRESH, recent));
@@ -180,7 +253,7 @@ class FeaturedReleaseServiceTest {
                                                 "v1",
                                                 true,
                                                 List.of(item("a", MADRID_FIRST_OF_OCTOBER)))))
-                        .browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()));
+                        .browse(Query.current(Granularity.MONTH));
 
         var item = result.items().getFirst();
         assertThat(item.release().primaryCover())
@@ -263,7 +336,7 @@ class FeaturedReleaseServiceTest {
                                 port(
                                         new FeaturedReleaseReadPort.Result(
                                                 "v1", true, List.of(first, second))))
-                        .browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()));
+                        .browse(Query.current(Granularity.MONTH));
         assertThat(result.items())
                 .extracting(item -> item.release().gameId())
                 .containsExactly("a", "b");
@@ -295,7 +368,7 @@ class FeaturedReleaseServiceTest {
                                                                 Optional.empty(),
                                                                 Optional.empty()),
                                                         item("c", MADRID_FIRST_OF_OCTOBER)))))
-                        .browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()));
+                        .browse(Query.current(Granularity.MONTH));
 
         // The hero never presents a cover as its image, even when a provider cover exists.
         assertThat(result.items().getFirst().image())
@@ -318,19 +391,24 @@ class FeaturedReleaseServiceTest {
         assertThatThrownBy(
                         () ->
                                 service(criteria -> Optional.empty())
-                                        .browse(
-                                                new BrowseFeaturedReleasesUseCase.Query(
-                                                        Optional.empty())))
+                                        .browse(Query.current(Granularity.MONTH)))
                 .isInstanceOf(CatalogueNotReadyException.class);
     }
 
     @Test
-    void rejectsAMonthOutsideTheSupportedYears() {
-        assertThatThrownBy(
-                        () ->
-                                new BrowseFeaturedReleasesUseCase.Query(
-                                        Optional.of(YearMonth.of(0, 1))))
-                .isInstanceOf(IllegalArgumentException.class);
+    void aPeriodIsNamedByItsFirstDayInsideTheSupportedYears() {
+        assertThatThrownBy(() -> month("0000-01-01")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> week("2026-10-13")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> month("2026-10-02")).isInstanceOf(IllegalArgumentException.class);
+        assertThat(week("2026-10-12").periodStart()).contains(LocalDate.parse("2026-10-12"));
+    }
+
+    private static Query week(String monday) {
+        return new Query(Granularity.WEEK, Optional.of(LocalDate.parse(monday)));
+    }
+
+    private static Query month(String first) {
+        return new Query(Granularity.MONTH, Optional.of(LocalDate.parse(first)));
     }
 
     private FeaturedReleaseReadPort port(FeaturedReleaseReadPort.Result result) {
@@ -342,17 +420,18 @@ class FeaturedReleaseServiceTest {
 
     private FeaturedReleasesResult.Item only(FeaturedReleaseReadPort.Item item) {
         return service(port(new FeaturedReleaseReadPort.Result("v1", true, List.of(item))))
-                .browse(new BrowseFeaturedReleasesUseCase.Query(Optional.empty()))
+                .browse(Query.current(Granularity.MONTH))
                 .items()
                 .getFirst();
     }
 
     /** Resolvers that name the rendition in the URL, so each test sees which one was chosen. */
     private static FeaturedReleaseService service(FeaturedReleaseReadPort port) {
-        return service(port, Clock.fixed(MADRID_FIRST_OF_OCTOBER, ZoneId.of("Europe/Madrid")));
+        return service(port, Clock.fixed(MADRID_FIRST_OF_OCTOBER, MADRID), 180);
     }
 
-    private static FeaturedReleaseService service(FeaturedReleaseReadPort port, Clock clock) {
+    private static FeaturedReleaseService service(
+            FeaturedReleaseReadPort port, Clock clock, int forwardAcquisitionDays) {
         return new FeaturedReleaseService(
                 port,
                 new CatalogueCoverPolicy(
@@ -368,7 +447,8 @@ class FeaturedReleaseServiceTest {
                                 URI.create(sourceUrl)),
                 clock,
                 new ReleaseBrowsePolicy(25),
-                new CatalogueFreshnessPolicy(Duration.ofDays(7)));
+                new CatalogueFreshnessPolicy(Duration.ofDays(7)),
+                new FeaturedPeriodPolicy(forwardAcquisitionDays));
     }
 
     private static FeaturedReleaseReadPort.MediaReference media(

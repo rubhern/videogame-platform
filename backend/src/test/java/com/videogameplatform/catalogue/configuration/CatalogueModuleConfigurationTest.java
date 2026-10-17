@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCoverReferenceResolver;
+import com.videogameplatform.catalogue.adapter.scheduling.CatalogueSynchronizationScheduler.Policy;
+import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.cover.internal.CatalogueCoverPolicy;
 import com.videogameplatform.catalogue.application.cover.port.ProviderCoverReferenceResolver;
 import com.videogameplatform.catalogue.application.details.port.GameDetailsReadPort;
@@ -11,6 +13,7 @@ import com.videogameplatform.catalogue.application.details.port.GameListingReadP
 import com.videogameplatform.catalogue.application.internal.CatalogueFreshnessPolicy;
 import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
+import com.videogameplatform.catalogue.application.releases.FeaturedPeriodOutOfRangeException;
 import com.videogameplatform.catalogue.application.releases.GetExternalPlayerScoresUseCase;
 import com.videogameplatform.catalogue.application.releases.internal.ExternalPlayerScoresService;
 import com.videogameplatform.catalogue.application.releases.internal.FeaturedReleaseService;
@@ -43,7 +46,13 @@ class CatalogueModuleConfigurationTest {
                     .withPropertyValues(
                             "catalogue.releases.release-group-limit=12",
                             "catalogue.releases.freshness-threshold=P14D",
-                            "catalogue.search.release-context-limit=2");
+                            "catalogue.search.release-context-limit=2",
+                            "catalogue.synchronization.scheduling.near-term.cron=0 0 4 * * *",
+                            "catalogue.synchronization.scheduling.near-term.past-days=28",
+                            "catalogue.synchronization.scheduling.near-term.future-days=28",
+                            "catalogue.synchronization.scheduling.upcoming.cron=0 0 5 * * SUN",
+                            "catalogue.synchronization.scheduling.upcoming.past-days=0",
+                            "catalogue.synchronization.scheduling.upcoming.future-days=180");
 
     @Test
     void registersTheCatalogueUseCaseAndPoliciesFromTypedRuntimeConfiguration() {
@@ -71,6 +80,59 @@ class CatalogueModuleConfigurationTest {
                     assertThat(context.getBean(CatalogueSearchPolicy.class))
                             .isEqualTo(new CatalogueSearchPolicy(2));
                 });
+    }
+
+    @Test
+    void boundsFeaturedMonthsByTheConfiguredForwardAcquisitionHorizon() {
+        // 21 August plus 40 days is 30 September: September is the last month wholly inside it.
+        contextRunner
+                .withPropertyValues("catalogue.synchronization.scheduling.upcoming.future-days=40")
+                .run(
+                        context -> {
+                            var featured = context.getBean(BrowseFeaturedReleasesUseCase.class);
+                            // Inside the bounds the read proceeds and finds no publication.
+                            assertThatThrownBy(() -> featured.browse(month("2026-09-01")))
+                                    .isInstanceOf(CatalogueNotReadyException.class);
+                            assertThatThrownBy(() -> featured.browse(month("2026-10-01")))
+                                    .isInstanceOf(FeaturedPeriodOutOfRangeException.class);
+                        });
+        // A disabled upcoming policy leaves the daily 28 days: 18 September, so August is last.
+        contextRunner
+                .withPropertyValues("catalogue.synchronization.scheduling.upcoming.cron=-")
+                .run(
+                        context ->
+                                assertThatThrownBy(
+                                                () ->
+                                                        context.getBean(
+                                                                        BrowseFeaturedReleasesUseCase
+                                                                                .class)
+                                                                .browse(month("2026-09-01")))
+                                        .isInstanceOf(FeaturedPeriodOutOfRangeException.class));
+    }
+
+    @Test
+    void theForwardAcquisitionHorizonIsTheWidestPolicyNotDisabledWhateverTheSwitch() {
+        var nearTerm = new Policy("0 0 4 * * *", 28, 28);
+        var upcoming = new Policy("0 0 5 * * SUN", 0, 180);
+        assertThat(
+                        new CatalogueSchedulingProperties(false, nearTerm, upcoming)
+                                .forwardAcquisitionDays())
+                .isEqualTo(180);
+        assertThat(
+                        new CatalogueSchedulingProperties(true, nearTerm, new Policy("-", 0, 180))
+                                .forwardAcquisitionDays())
+                .isEqualTo(28);
+        assertThat(
+                        new CatalogueSchedulingProperties(
+                                        true, new Policy("-", 28, 28), new Policy("-", 0, 180))
+                                .forwardAcquisitionDays())
+                .isZero();
+    }
+
+    private static BrowseFeaturedReleasesUseCase.Query month(String first) {
+        return new BrowseFeaturedReleasesUseCase.Query(
+                BrowseFeaturedReleasesUseCase.Granularity.MONTH,
+                Optional.of(java.time.LocalDate.parse(first)));
     }
 
     @Test

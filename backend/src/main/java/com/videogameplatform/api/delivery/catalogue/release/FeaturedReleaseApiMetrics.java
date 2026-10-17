@@ -1,5 +1,6 @@
 package com.videogameplatform.api.delivery.catalogue.release;
 
+import com.videogameplatform.catalogue.application.releases.BrowseFeaturedReleasesUseCase.Granularity;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.FeaturedImage;
 import com.videogameplatform.catalogue.application.releases.FeaturedReleasesResult.Selection;
@@ -9,9 +10,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Bounded-cardinality telemetry for the featured selection: why it holds what it holds, how current
- * its popularity evidence is, whether the visitor chose another month, and which kind of image the
- * featured release of the month presents. No game, month value, image or popularity value is ever
- * a dimension.
+ * its popularity evidence is, whether it represents a week or a month, whether the visitor named a
+ * period rather than the current one, and which kind of image the featured release presents. No
+ * game, period value, image or popularity value is ever a dimension.
  */
 @Component
 final class FeaturedReleaseApiMetrics {
@@ -25,15 +26,23 @@ final class FeaturedReleaseApiMetrics {
     }
 
     void recordSelection(
-            Selection selection, boolean monthRequested, List<FeaturedReleasesResult.Item> items) {
+            Granularity granularity,
+            Selection selection,
+            boolean periodRequested,
+            List<FeaturedReleasesResult.Item> items) {
         registry.counter(
                         SELECTION,
                         "status",
                         status(selection),
                         "freshness",
                         freshness(selection),
-                        "month",
-                        monthRequested ? "requested" : "current",
+                        "granularity",
+                        switch (granularity) {
+                            case WEEK -> "week";
+                            case MONTH -> "month";
+                        },
+                        "period",
+                        periodRequested ? "requested" : "current",
                         "lead_image",
                         items.isEmpty() ? "none" : image(items.getFirst().image()))
                 .increment();

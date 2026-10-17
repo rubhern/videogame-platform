@@ -145,9 +145,11 @@ export function featuredItem(
 export function featuredReleases(overrides: Partial<FeaturedReleases> = {}): FeaturedReleases {
   const lead = "Una aventura extraordinariamente larga: más allá del horizonte";
   return {
+    granularity: "month",
     month: "2026-08",
     evaluatedOn: "2026-08-13",
     window: { from: "2026-08-01", to: "2026-08-31" },
+    navigation: { previous: "2026-07", next: "2026-09" },
     selection: {
       status: "ranked",
       popularityFreshness: "fresh",
@@ -183,6 +185,40 @@ export function featuredReleases(overrides: Partial<FeaturedReleases> = {}): Fea
       featuredItem(5, "Subnautica 2", { precision: "day", value: "2026-08-11" }),
       featuredItem(6, "The Witcher IV", { precision: "day", value: "2026-08-31" }, undefined, landscapeMedia("artwork", "arwitcher", "The Witcher IV")),
     ],
+    ...overrides,
+  };
+}
+
+const DAY_MS = 86_400_000;
+
+function plusDays(day: string, days: number): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/**
+ * The same ranked games as a week, Monday to Sunday, the landing granularity: a week only ever
+ * presents exact days inside it, so each game's release moves onto a day of the window. The
+ * featured release falls on Friday; the API's evaluated date, Thursday 13 August 2026, is today
+ * in the default ISO week 33.
+ */
+export function featuredWeekReleases(overrides: Partial<FeaturedReleases> = {}): FeaturedReleases {
+  const { evaluatedOn, selection, items } = featuredReleases();
+  const window = overrides.window ?? { from: "2026-08-10", to: "2026-08-16" };
+  const offsets = [4, 0, 2, 5, 1, 6];
+  return {
+    granularity: "week",
+    week: "2026-W33",
+    evaluatedOn,
+    window,
+    navigation: { previous: "2026-W32", next: "2026-W34" },
+    selection,
+    items: items.map((item, index) => ({
+      ...item,
+      releases: item.releases.map((release) => ({
+        ...release,
+        releaseDate: { precision: "day", value: plusDays(window.from, offsets[index] ?? 0) },
+      })),
+    })),
     ...overrides,
   };
 }

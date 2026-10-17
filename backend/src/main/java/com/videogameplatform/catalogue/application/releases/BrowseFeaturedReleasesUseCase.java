@@ -1,33 +1,57 @@
 package com.videogameplatform.catalogue.application.releases;
 
-import java.time.YearMonth;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Public application contract for UC-010: the automatic featured releases of a calendar month. */
+/**
+ * Public application contract for UC-010: the automatic featured releases of a calendar week or
+ * month.
+ */
 public interface BrowseFeaturedReleasesUseCase {
 
     /**
-     * @throws FeaturedMonthOutOfRangeException when the month lies outside the current calendar
-     *     year at the trusted evaluation date
+     * @throws FeaturedPeriodOutOfRangeException when the period lies outside the navigation bounds
+     *     at the trusted evaluation date
      */
     FeaturedReleasesResult browse(Query query);
 
+    /** The calendar period a selection represents: an ISO week (Monday to Sunday) or a month. */
+    enum Granularity {
+        WEEK,
+        MONTH
+    }
+
     /**
-     * The month to feature. Empty means the current calendar month at the trusted evaluation date;
-     * a visitor never supplies the evaluation date itself. Only a month of that date's calendar
-     * year can be featured.
+     * The period to feature, named by its first day: a Monday for a week, the first of the month
+     * for a month. Empty means the current week or month at the trusted evaluation date; a
+     * visitor never supplies the evaluation date itself.
      */
-    record Query(Optional<YearMonth> month) {
+    record Query(Granularity granularity, Optional<LocalDate> periodStart) {
         public Query {
-            month = Objects.requireNonNull(month, "month");
-            month.ifPresent(
-                    value -> {
-                        if (value.getYear() < 1 || value.getYear() > 9999) {
+            Objects.requireNonNull(granularity, "granularity");
+            periodStart = Objects.requireNonNull(periodStart, "periodStart");
+            periodStart.ifPresent(
+                    start -> {
+                        if (start.getYear() < 1 || start.getYear() > 9999) {
                             throw new IllegalArgumentException(
-                                    "A featured month must fall in years 1 through 9999");
+                                    "A featured period must start in years 1 through 9999");
+                        }
+                        boolean aligned =
+                                granularity == Granularity.WEEK
+                                        ? start.getDayOfWeek() == DayOfWeek.MONDAY
+                                        : start.getDayOfMonth() == 1;
+                        if (!aligned) {
+                            throw new IllegalArgumentException(
+                                    "A featured period starts on a Monday or a first of month");
                         }
                     });
+        }
+
+        /** The current period of the granularity. */
+        public static Query current(Granularity granularity) {
+            return new Query(granularity, Optional.empty());
         }
     }
 }
