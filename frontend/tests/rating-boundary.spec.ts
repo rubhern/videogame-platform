@@ -99,11 +99,24 @@ test.describe("real Keycloak rating journey", () => {
     await expect(reading(page)).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar");
     await expect(community.getByText("Sin nota todavía")).toBeVisible();
 
-    // Logout returns the header to the anonymous state and clears the session cookie.
+    // Logout returns the header to the anonymous state and clears the session cookie. The header
+    // turns anonymous before the page navigates through the identity provider's logout, so wait
+    // for the document that returns from Keycloak before reading the cookies.
+    const origin = new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://application:8080").origin;
+    let loggedOut = false;
+    page.on("request", (sent) => {
+      if (sent.isNavigationRequest() && sent.url().includes("/protocol/openid-connect/logout")) loggedOut = true;
+    });
+    const returned = page.waitForEvent(
+      "framenavigated",
+      (frame) => frame === page.mainFrame() && frame.url() === `${origin}/` && loggedOut,
+    );
     await page.getByRole("button", { name: "Mi cuenta" }).click();
     await page.getByRole("button", { name: "Cerrar sesión" }).click();
+    await returned;
+    await page.waitForLoadState("load");
     await expect(page.getByText("Mi cuenta")).toHaveCount(0);
-    await expect(await context.cookies(new URL(process.env.PLAYWRIGHT_BASE_URL ?? "http://application:8080").origin)).toEqual([]);
+    await expect.poll(() => context.cookies(origin)).toEqual([]);
   });
 
 
