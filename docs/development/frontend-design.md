@@ -62,7 +62,9 @@ The copy occupies a separate reading zone, with a bounded title size. The canoni
 is fixed relative to the SVG viewport, clears the inner bowl and arm, and vertically centres the
 copy regardless of subtitle or scores. Titles stay inside its width; score sources use two compact
 columns. Content that exceeds the zone scales down proportionally to fit in full, without
-scrollbars, clipping or moving below the G. Phones retain the existing compact emblem with full-width copy beneath the art.
+scrollbars, clipping or moving below the G. Phones keep the G as a compact seal with full-width
+copy beneath it ([featured releases](#featured-releases)); the seal alone carries the release's
+compact date inside its bowl as the instrument's readout, in place of the marker's label.
 The `Lanzamiento del mes` context sits outside the instrument's reading zone. The description and
 automatic selection message remain absent. The rail is a thinner blue band around the reference
 centreline, with feathered, barely visible rims, soft dark separation from the art and a fading arm. Day 1, every fifth day and
@@ -487,14 +489,26 @@ month replaces the hero and the row with an informational or empty notice that n
 and links to Recientes.
 
 From 1024px the G and the art share the hero, and the row has five columns; at 1440×900 and
-1320×900 the hero and the whole row open within the first view. Tablets put the art above the G,
-which stands centred over its faded lower edge, and lay the row in three columns. Phones stack
-the 16:9 art over the copy, keep the G as a small emblem over the art's lower corner, and retain
-the whole frame as the game link. Their meta row sets the date, the platforms and the region as
-three groups spread across one row whenever they fit, the platforms in the cards' compact form
-(the first two marks and the exact `+N`, every name still announced); a group that cannot fit
-moves whole to a second row, so no group ever breaks or shrinks. Below 480px each card takes the
-full column. Forced colours keep the art beside or above the copy, never behind it.
+1320×900 the hero and the whole row open within the first view. Below 1024px the art starts
+behind the month selector and fades in under it, so the page opening and the art read as one
+stage; over the art the badge keeps a close, edgeless shade of night. Tablets put the art above
+the G, which stands centred over its faded lower edge, and lay the row in three columns.
+Post-MVP (#325, implemented; awaiting owner review), phones frame the art a little taller than
+16:9, capped in height on wider phones, and set the G as the release's seal: about two fifths of
+the column wide, on the copy's left, rising over the art's faded foot with a soft shade of night
+in its bowl. The bowl reads the release's compact date at its own precision — the day over its
+month and year, a coarser period over its year, `Por confirmar` quietly — and the marker on the
+rim carries no second label. Beneath the seal, off the art, the badge introduces the title at its
+left edge, and the copy follows at the full width of the column, with the whole hero still the
+game link. Because the seal reads the date, the release row keeps the date for assistive
+technology only. The platforms, the region and the genres then run as one left-aligned sequence,
+`platforms · region | genre · genre`: fine dots within a group, a fine upright between the release
+and the genres, which stay quieter. The platforms keep the cards' compact form (the first two
+marks and the exact `+N`, every name still announced). The sequence wraps only between whole
+facts, a fact starting a line drops its separator, and nothing is spread apart, broken or
+truncated to hold one line. A month the G cannot draw keeps the date in the row. Below 480px each card takes the full column. Forced colours keep the art
+beside or above the copy, never behind it: the page opening, the art and the seal each keep
+their own room.
 
 ## Public game details
 
