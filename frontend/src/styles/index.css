@@ -49,3 +49,14 @@
   --color-hot: #ff9446;
   --color-burn: #ff5b3d;
 }
+
+/* Legal review uses the shared shell and reading tokens; no provider artwork. */
+.legal-document { max-width: 72rem; }
+.legal-document > p { max-width: 75ch; line-height: 1.75; margin-block: 1.25rem; }
+.legal-document h2 { margin-block: 2rem 1rem; font-size: 1.5rem; }
+.legal-document a, .legal-links a { color: var(--color-accent); text-decoration: underline; }
+.legal-document code { overflow-wrap: anywhere; }
+.legal-table { overflow-x: auto; margin-block: 1.5rem; }
+.legal-table table { border-collapse: collapse; width: 100%; }
+.legal-table th, .legal-table td { text-align: left; padding: .75rem; border-bottom: 1px solid currentColor; vertical-align: top; }
+.legal-links { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 1rem; }

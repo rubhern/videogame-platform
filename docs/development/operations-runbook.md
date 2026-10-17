@@ -684,19 +684,28 @@ validation, end-to-end reset through the owner tunnel and reboot persistence on
 
 ## Personal-data requests and account revocation
 
-Policy: the [#274 research](../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion)
-(manual owner procedures, D10; ledger and replay, D21–D23), the
+**#274 locally prepared, pending owner review and CI:** the
+[approved design and evidence boundary](data-protection.md#local-implementation-and-acceptance)
+now have administrative implementations and draft product review pages. Existing
+private-dev erasure/replay behavior remains available. Production cleanup execution
+requires the #275 deny/drain adapter and protected archive/proof/holds stores; no real
+timer is installed. Production/Lenovo qualification remains #275/#276. No host changes
+or legal publication are authorized by local success.
+
+Policy: the [data-protection procedure](data-protection.md#rights-request-procedure)
+owns request verification, deadlines, recipients and legal limitations. The
 [platform design](../architecture/deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)
-and [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md).
-`deploy/private-dev/bin/personal-data` acts on one runtime; `personal-data-ledger`
+and [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)
+own the revocation boundary. `deploy/private-dev/bin/personal-data` acts on one runtime; `personal-data-ledger`
 runs on the owner's workstation and owns the ledger. The
 [private-dev procedure](../../deploy/private-dev/README.md#personal-data-requests)
 gives the exact host command. **Disposable-gate evidence only (#274):**
 `scripts/validate-personal-data.sh` proves every path below with synthetic accounts;
 it is **not exercised** on `vgpdev`.
 
-Before acting, verify the requester: the request comes from the account's own address
-or a signed-in session, and the owner finds the Keycloak user ID in the Admin Console.
+Before acting, verify the requester with a fresh check of account control under the
+[rights procedure](data-protection.md#rights-request-procedure); a matching sender
+header alone is insufficient. The owner finds the Keycloak user ID in the Admin Console.
 Never act on an identifier supplied by the requester, and give each request an opaque
 reference (for example `REQ-2026-0001`), never an address or a name. Reply within one
 month.
@@ -913,3 +922,89 @@ tailnet policy, HTTPS device access, restart persistence, host resource headroom
 non-tailnet IPv4/IPv6 denial. Those remain real-host acceptance under #38 after
 explicit deployment approval. Application/Keycloak routes and the separate Grafana
 ingress retain their own acceptance boundaries.
+
+## Privacy phase-2 administration
+
+These are local preparation commands, not authorization to use real accounts. Follow
+the [approved policy and limits](data-protection.md#local-implementation-and-acceptance)
+and the verified existing host-command procedure above. All paths below are
+placeholders for private owner storage; do not put real source data in this repository,
+CI, agent-accessible workspaces or private-dev mounts. Each directory must already
+exist with owner-only access; archive roots and keys must be separate. The second
+archive/ledger copy must have an independently qualified failure domain, which path
+validation alone cannot establish.
+
+Pass global arguments before the subcommand. For example, use the same reviewed
+host command as the existing rights procedure, with its exact production HTTPS issuer
+ending `/realms/gameometro` and the selected container names. Production mutation
+requires a named application container even when stopped; a missing or uninspectable
+container never proves session absence. #275 must qualify the restore-time container
+state and actual origin/issuer/database pairing before real use:
+
+```bash
+personal-data-ledger --ledger <owner-ledger> --ledger-copy <independent-ledger> \
+  --host-command "<reviewed production host command>" \
+  cleanup-unverified
+```
+
+This probes only, reports candidates and never enters maintenance. For any profiled
+erasure/cleanup, add the following global options: `--archive-root <owner-archive>`,
+`--archive-copy <independent-archive>`, `--proof-root <separate-proof-store>`,
+`--holds <protected-holds-store>`, `--gnupg-home <off-VPS-owner-keyring>`,
+`--recipient <full-encryption-key-fingerprint>` and `--signer <full-signing-key-fingerprint>`.
+Use owner-unlocked GPG keys; pass no passphrase in arguments, environment or logs.
+The existing `erase --request <opaque-reference> --keycloak-user-id <UUID>` selects
+the ordinary profile automatically from the account’s explicit verification state in production. No individual ratings
+are retained by that profile. A protected `<subject-UUID>.json` hold file selects a
+particular-case profile; its closed source scope is `caseReference`, `reason`,
+`gameIds` (at most 100 canonical UUIDs) and optional UTC `until` (at least initial
+three-year expiry). No file is the normal case; malformed/missing stores refuse.
+
+Only after #275/#276 drain acceptance may `cleanup-unverified --execute
+--maintenance-command "<trusted adapter>"` be used or scheduled. The adapter accepts
+`enter`, `check` or `exit`, each followed by `--run-id <UUID>`, and returns JSON
+`{"issuer":"<exact HTTPS issuer>","runId":"<same UUID>","state":"drained"}`
+for enter/check, or `state: "released"` for exit. It must deny all relevant native
+identity mutation entry points and drain in-flight requests, serialize administrative
+identity/restore/deployment operations, keep that fence until exit, and settle
+management requests before release even after client timeout. A reload/sleep or
+self-asserted JSON is insufficient. No real adapter ships in #274. The protected Admin credential must permit filtered
+user reads, management-client discovery and effective client-role reads; inability
+to establish role exclusion stops execution. Execute performs
+key/storage preflight, locks the ledger, re-reads candidates, checks the fence and
+uses the existing erasure steps; `exit` is attempted even if enter loses its response.
+A failed exit is an operational failure requiring owner recovery, never proof that
+normal identity service resumed. Inspect backlog/skips; resolve incomplete operations
+with the same archive options and `retry --maintenance-command "<trusted adapter>"`
+before another cleanup. Cleanup retry re-enters the fence and rechecks the original
+recorded cutoff, verification, effective administrative roles and particular holds;
+newly verified/protected accounts stop for private reconciliation. It reuses the first
+capture, also when identity deletion already completed. Legacy private-dev `retry`
+and restore `replay` keep their existing semantics. Missing-cutoff staged cleanup
+entries require explicit reconciliation, not a reconstructed eligibility guess. Empty probes do not
+retry committed incomplete operations; inspect `status` as part of owner monitoring.
+
+Restore replay remains deletion-only for completed and legacy requests. If the ledger
+contains an incomplete profiled operation, pass the same protected archive/key/proof/
+holds options: replay must recover its first source without recapturing data or
+resetting expiry. A missing first source, new ordinary-case hold or newly verified/
+protected incomplete-cleanup account blocks replay and reopening. Reconcile privately
+with the original runtime/source or a reviewed recovery decision; do not mark the
+entry complete or discard its reference to bypass the refusal. Explicit cleanup
+retry may finish original capture under the fence; replay never takes a new snapshot.
+
+With the same protected archive/key options, `archive-verify --request <reference>`
+checks both copies without outputting source fields. `archive-review --request
+<reference>` records annual review; add `--hold-reason <opaque-case-reference>` and/or
+`--extend-until <UTC-time>` for justified retention, or `--release-hold` after its
+reason expires. Use an opaque case/ground reference in command arguments; keep
+personal correspondence in protected storage. CLI output reports dates/hold state,
+not private grounds/history. Review history is signed and bounded; staged `.pending`
+files or conflicting signed copies stop verification and purge for owner reconciliation.
+Never discard those files as routine cleanup or bypass a requested hold. `archive-purge --request <reference>` is dry-run; add `--execute`
+only for the reviewed expired case. Repeat for explicitly selected cases; there is
+no automatic whole-archive scan or purge schedule. Preserve destruction proofs when
+restoring stores, then reapply purge to any restored matching ciphertext before
+access. Signed partial destruction can resume; unsigned intent or inconsistent
+review states require private reconciliation. Snapshot/media disposal and protected
+hold/proof retention are separately verified operator responsibilities.

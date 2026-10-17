@@ -7,8 +7,9 @@ owner's personal-data-ledger drives it, records every step before and after it r
 the recorded erasures after a restore. Accounts are addressed only by their Keycloak user ID; the
 product UserId is derived from the exact OIDC issuer the application uses, as the BFF does.
 
-Every command prints one JSON object. Only `export` prints personal data; the others print
-identifiers and counts. Keycloak is reached through its Admin API, PostgreSQL and the BFF's
+Every command prints one JSON object. `export` and the restricted archive read commands
+print personal source data to the owner-side pipe; never log their output. Other commands
+print identifiers and counts. Keycloak is reached through its Admin API, PostgreSQL and the BFF's
 private management port through `docker exec`, so nothing is added to any HTTP route.
 """
 
@@ -89,6 +90,17 @@ class Runtime:
         postgres_container: str,
         application_container: str | None,
     ) -> None:
+        parsed_issuer = urllib.parse.urlsplit(issuer)
+        issuer_parts = parsed_issuer.path.split("/")
+        if (not parsed_issuer.netloc or parsed_issuer.username or parsed_issuer.password
+                or parsed_issuer.query or parsed_issuer.fragment
+                or len(issuer_parts) != 3 or issuer_parts[1] != "realms"
+                or issuer_parts[2] not in (REALM, "gameometro")
+                or parsed_issuer.scheme not in ("http", "https")
+                or (issuer_parts[2] == "gameometro" and parsed_issuer.scheme != "https")):
+            raise ProvisioningError("The runtime needs an exact supported issuer; production requires HTTPS")
+        # Retain the existing HTTP issuer of the isolated private/disposable test realm.
+        self.realm = issuer_parts[2]
         self.admin = provisioning.KeycloakAdmin(origin)
         self.admin.authenticate(admin_username, admin_password)
         self.issuer = issuer
@@ -99,7 +111,7 @@ class Runtime:
     # Keycloak ------------------------------------------------------------------------------
 
     def keycloak(self, method: str, path: str, body: object = None, *, missing_ok: bool = False) -> object:
-        url = f"{self.admin.origin}/admin/realms/{REALM}{path}"
+        url = f"{self.admin.origin}/admin/realms/{self.realm}{path}"
         headers = {"Accept": "application/json", "Authorization": f"Bearer {self.admin.access_token}"}
         data = None
         if body is not None:
@@ -108,7 +120,9 @@ class Runtime:
         request = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
             with self.admin.opener.open(request, timeout=20) as response:
-                payload = response.read()
+                payload = response.read(1024 * 1024 + 1)
+                if len(payload) > 1024 * 1024:
+                    raise ProvisioningError("Keycloak response exceeded the administrative byte limit")
         except urllib.error.HTTPError as error:
             if error.code == 404 and missing_ok:
                 return None
@@ -120,6 +134,21 @@ class Runtime:
     def account(self, keycloak_user_id: str) -> dict[str, object] | None:
         found = self.keycloak("GET", f"/users/{keycloak_user_id}", missing_ok=True)
         return found if isinstance(found, dict) else None
+
+    def eligible_human(self, user: dict[str, object]) -> bool:
+        if any(user.get(key) for key in ("serviceAccountClientId", "federationLink")):
+            return False
+        clients = self.keycloak("GET", "/clients?clientId=realm-management&first=0&max=2")
+        if (not isinstance(clients, list) or len(clients) != 1
+                or clients[0].get("clientId") != "realm-management"):
+            raise ProvisioningError("Cannot establish production administrative-role exclusion")
+        client_id = canonical_uuid(str(clients[0].get("id", "")), "management client UUID")
+        subject = canonical_uuid(str(user.get("id", "")), "source account UUID")
+        # The native effective-role endpoint expands composites and inherited group roles.
+        roles = self.keycloak("GET", f"/users/{subject}/role-mappings/clients/{client_id}/composite")
+        if not isinstance(roles, list):
+            raise ProvisioningError("Unknown production administrative-role state")
+        return not roles
 
     def keycloak_sessions(self, keycloak_user_id: str) -> list[dict[str, object]]:
         found = self.keycloak("GET", f"/users/{keycloak_user_id}/sessions", missing_ok=True)
@@ -137,10 +166,10 @@ class Runtime:
                 "--set", "ON_ERROR_STOP=1", "--set", f"user_id={user_id}",
                 f"--dbname={APPLICATION_DATABASE}", "--file=-",
             ],
-            input=statement, capture_output=True, text=True, check=False, timeout=60,
+            input="SET statement_timeout = '20s'; SET lock_timeout = '5s';\n" + statement, capture_output=True, text=True, check=False, timeout=60,
         )
         if result.returncode != 0:
-            raise ProvisioningError(f"PostgreSQL refused the statement: {result.stderr.strip()[:300]}")
+            raise ProvisioningError("PostgreSQL refused the statement; inspect protected diagnostics privately")
         return result.stdout.strip()
 
     def rating_count(self, user_id: str) -> int:
@@ -176,12 +205,16 @@ class Runtime:
 
     def application_running(self) -> bool:
         if not self.application_container:
+            if self.realm == "gameometro":
+                raise ProvisioningError("Production operations require a named application container, even when stopped")
             return False
         result = subprocess.run(
             ["docker", "inspect", "--format", "{{.State.Running}}", self.application_container],
             capture_output=True, text=True, check=False, timeout=30,
         )
-        return result.returncode == 0 and result.stdout.strip() == "true"
+        if result.returncode != 0 or result.stdout.strip() not in ("true", "false"):
+            raise ProvisioningError("Cannot establish the application container state")
+        return result.stdout.strip() == "true"
 
     def revoke_bff_sessions(self, user_id: str) -> int:
         assert self.application_container
@@ -232,6 +265,54 @@ def identify(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
         "userId": derive_user_id(runtime.issuer, keycloak_user_id),
         "account": "absent" if account is None else ("enabled" if account.get("enabled") else "disabled"),
     }
+
+
+def cleanup_candidates(runtime: Runtime, cutoff: int, maximum: int) -> dict[str, object]:
+    if not 1 <= maximum <= 100 or cutoff < 0:
+        raise ProvisioningError("Invalid candidate budget")
+    query = urllib.parse.urlencode({"emailVerified": "false", "createdBefore": cutoff,
+                                  "first": 0, "max": maximum, "briefRepresentation": "true"})
+    users = runtime.keycloak("GET", f"/users?{query}")
+    if not isinstance(users, list) or len(users) > maximum:
+        raise ProvisioningError("Invalid bounded candidate response")
+    # Only minimal discovery data crosses the administration boundary.
+    return {"issuer": runtime.issuer, "candidates": [
+        {"keycloakUserId": user.get("id"), "createdTimestamp": user.get("createdTimestamp"),
+         "emailVerified": user.get("emailVerified"),
+         "eligibleHuman": not any(user.get(key) for key in
+                                   ("serviceAccountClientId", "federationLink"))}
+        for user in users]}
+
+
+def archive_snapshot(runtime: Runtime, subject: str) -> dict[str, object]:
+    user = runtime.account(subject)
+    if user is None:
+        return {"issuer": runtime.issuer, "account": None}
+    return {"issuer": runtime.issuer, "userId": derive_user_id(runtime.issuer, subject),
+            "account": {"keycloakUserId": subject, "email": user.get("email"),
+                        "createdTimestamp": user.get("createdTimestamp"),
+                        "emailVerified": user.get("emailVerified"), "enabled": user.get("enabled"),
+                        "eligibleHuman": runtime.eligible_human(user)},
+            "ratingCount": runtime.rating_count(derive_user_id(runtime.issuer, subject))}
+
+
+def archive_rating_page(runtime: Runtime, subject: str, selected: str, after: str) -> dict[str, object]:
+    # Exceptional cases name at most 100 relevant games; never export all ordinary ratings.
+    games = selected.split(",")
+    if not 1 <= len(games) <= 100 or len(set(games)) != len(games):
+        raise ProvisioningError("A case must name 1-100 distinct GameIds")
+    for game in games:
+        canonical_uuid(game, "GameId")
+    canonical_uuid(after, "after GameId")
+    literals = ",".join("'" + game + "'::uuid" for game in games)
+    rows = runtime.sql(f"""
+        SELECT coalesce(json_agg(page ORDER BY page."gameId"), '[]'::json)
+        FROM (SELECT game_id AS "gameId", value, created_at AS "createdAt", updated_at AS "updatedAt"
+              FROM ratings.rating
+              WHERE user_id = :'user_id' AND game_id IN ({literals})
+                AND game_id > '{after}'::uuid ORDER BY game_id LIMIT 100) page;
+        """, derive_user_id(runtime.issuer, subject))
+    return {"issuer": runtime.issuer, "ratings": json.loads(rows)}
 
 
 def export(runtime: Runtime, keycloak_user_id: str) -> dict[str, object]:
@@ -373,8 +454,9 @@ def compose_issuer(compose: list[str]) -> str:
     if result.returncode != 0:
         raise ProvisioningError("docker compose could not render the runtime configuration")
     issuer = json.loads(result.stdout)["services"]["application"]["environment"].get("OIDC_ISSUER_URI")
-    if not isinstance(issuer, str) or not issuer.startswith("https://"):
-        raise ProvisioningError("The application has no HTTPS OIDC issuer configured")
+    if (not isinstance(issuer, str) or not issuer.startswith("https://")
+            or not issuer.endswith("/realms/" + REALM)):
+        raise ProvisioningError("The private-dev application needs its exact private realm HTTPS issuer")
     return issuer
 
 
@@ -457,14 +539,22 @@ def main() -> int:
     parser.add_argument("--issuer", help="With --origin: the application's exact OIDC issuer")
     parser.add_argument("--postgres-container", help="With --origin")
     parser.add_argument("--application-container", help="With --origin; omitted means stopped")
-    parser.add_argument("command", choices=("identify", "export", *STEPS))
-    parser.add_argument("--keycloak-user-id", required=True)
+    parser.add_argument("command", choices=("identify", "export", "cleanup-candidates", "archive-snapshot", "archive-ratings", *STEPS))
+    parser.add_argument("--keycloak-user-id")
+    parser.add_argument("--cutoff-ms", type=int)
+    parser.add_argument("--max", type=int, default=100)
+    parser.add_argument("--game-ids")
+    parser.add_argument("--after-game-id", default="00000000-0000-0000-0000-000000000000")
     parser.add_argument("--user-id", help="UserId recorded in the ledger; required for erasure steps")
     parser.add_argument("--application-must-be-stopped", action="store_true",
                         help="Refuse while the application runs (restore replay)")
     arguments = parser.parse_args()
 
-    keycloak_user_id = canonical_uuid(arguments.keycloak_user_id, "--keycloak-user-id")
+    keycloak_user_id = None
+    if arguments.command != "cleanup-candidates":
+        if not arguments.keycloak_user_id:
+            parser.error("--keycloak-user-id is required")
+        keycloak_user_id = canonical_uuid(arguments.keycloak_user_id, "--keycloak-user-id")
     if arguments.user_id is not None:
         canonical_uuid(arguments.user_id, "--user-id")
     if arguments.command in STEPS and arguments.user_id is None:
@@ -473,7 +563,15 @@ def main() -> int:
         parser.error("--project and --keycloak-origin apply only to --private-dev-env-file")
 
     runtime = explicit_runtime(arguments) if arguments.origin else private_dev_runtime(arguments)
-    if arguments.command == "identify":
+    if arguments.command == "cleanup-candidates":
+        if arguments.cutoff_ms is None:
+            parser.error("cleanup-candidates requires --cutoff-ms")
+        result = cleanup_candidates(runtime, arguments.cutoff_ms, arguments.max)
+    elif arguments.command == "archive-snapshot":
+        result = archive_snapshot(runtime, keycloak_user_id)
+    elif arguments.command == "archive-ratings":
+        result = archive_rating_page(runtime, keycloak_user_id, arguments.game_ids or "", arguments.after_game_id)
+    elif arguments.command == "identify":
         result = identify(runtime, keycloak_user_id)
     elif arguments.command == "export":
         if arguments.application_must_be_stopped:

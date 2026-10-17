@@ -223,7 +223,7 @@ case.write_state(restored)
 receipts = case.directory / "receipts"
 receipts.mkdir(mode=0o700)
 refused = case.run("replay", "--receipt", str(receipts / "refused.json"), expect=1)
-assert "application is running" in refused.stderr, refused.stderr
+assert "revoke failed" in refused.stderr, refused.stderr
 assert not (receipts / "refused.json").exists()
 restored["applicationRunning"] = False
 case.write_state(restored)
@@ -318,6 +318,12 @@ assert case.copy.read_text() == complete
 case.copy = case.ledger
 assert "separate file" in case.run("status", expect=1).stderr
 
+# Old private-dev references keep their semantics even if they share the new cleanup prefix.
+case=Case()
+case.run("erase","--request","CLEAN-LEGACY-REQUEST","--keycloak-user-id",TARGET,fault="delete-ratings:after",expect=1)
+case.run("retry")
+assert_target_erased(case.read_state())
+
 print("Deletion-ledger driver proven: write-ahead, interruption before and after every step, "
-      "idempotent retry, restore replay with refusals, issuer guard, no personal data in the ledger, and "
+      "idempotent retry, restore replay with refusals, issuer guard, no source emails/ratings/secrets in the ledger, and "
       "no change before the record is durable in two independent copies.")

@@ -130,7 +130,7 @@ learning; they are not market targets.
 | Demand/differentiation unvalidated | Keep claims narrow; use real observations before expanding product scope |
 | Provider quality | Explicit import policy, validation before publication, explicit uncertainty/provenance/review state, local reads |
 | Spanish data gaps | Product-owned aliases/editorial content; never present translation as provider content |
-| Provider/licensing scope | Private non-commercial baseline remains; public metadata/media acceptance is a launch gate under the [public-use investigation](../research/public-production-topology.md#provider-and-image-review); the external-score direction below is approved, with acquisition, local storage and discovery presentation implemented (#255, awaiting review), and public/commercial authorization pending #274; no copied game image binaries |
+| Provider/licensing scope | Private non-commercial baseline remains; the current public-use risk treatment is recorded [below](#public-release-and-sustainability); the external-score direction below is approved, with acquisition, local storage and discovery presentation implemented (#255, awaiting review), and unresolved rights under #274; no copied game image binaries |
 | Provider coupling/outage | Internal identity, anti-corruption adapter, last valid local snapshot, no request-path IGDB; provider drives acquisition, never serving |
 | Scope/architecture expansion | Focused product journeys and modular monolith; complexity requires evidence or bounded learning objective |
 | Accounts/personal ratings | Delegated identity, principal-derived ownership, privacy/security controls |
@@ -158,8 +158,9 @@ scale remains a direction, without evidence of a real community or demand yet.
   context beside the personal rating, to `Mis puntuaciones` (all implemented, awaiting review);
   the search typeahead keeps them absent, and the remaining screens are still pending phase 4.
   Defer IGDB critic scores and OpenCritic; reject
-  combined `total_rating` scores. Public/commercial authorization remains pending
-  [#274](https://github.com/rubhern/videogame-platform/issues/274).
+  combined `total_rating` scores. For the non-commercial public direction, the owner accepts the unresolved
+  rights risk as recorded [below](#public-release-and-sustainability); commercial use
+  remains unapproved.
 - Always show each available valid score with its source and positive vote count,
   including a single vote. No minimum sample threshold may hide either Gameómetro
   or IGDB scores. Keep the two sources separate; sample size never changes provenance
@@ -205,16 +206,39 @@ owns the technical proposal and environment boundaries; the
 separates permission to contract from permission to expose. Best effort does not
 waive personal-data protection, account recovery, provider rights or security.
 
-**Owner-approved public account baseline (#274), unbuilt:** accounts are for adults
+**Owner-approved public account baseline (#274), prepared; public operation pending:** accounts are for adults
 (18+) by explicit declaration, without collecting a birth date or identity document;
 email is the sign-in identifier and names are not required. The owner, a natural
-person, is the data controller, with a dedicated public identity and contact email;
-whether LSSI also requires a postal address or tax ID is settled before publication.
-Accounts and ratings are kept until deleted unless a legal obligation applies. Access,
+person **Rubén Hernández López**, is the data controller and authorizes publication of
+his legal name and contact `hola@gameometro.com`. The initial project is personal and
+non-economic: no ads, affiliation, sponsorship, donations, sales or professional
+promotion. On those facts the owner adopts the interpretation that LSSI article 10
+domicile/NIF publication does not initially apply; this is not legal certainty and
+must be reassessed on an activity change or contrary authoritative criterion.
+Verified accounts and ratings are kept until deleted, regardless of inactivity,
+unless a legal obligation applies. Never-verified accounts are to be deleted after
+30 days from creation; cleanup is prepared locally with a mandatory verified
+maintenance fence and is not scheduled on a real environment. Access,
 export, rectification and deletion use manual administrative procedures; no privacy
-portal is built for launch. Provider content of uncertain authorization (translations,
-decorative images, IGDB scores) is verified before exposure, otherwise replaced by
-originals or disabled; private-dev keeps its current behaviour. The
+portal is built for launch. The [public legal drafts](../legal/public-texts-es.md) await owner review; the
+[data-protection record](../development/data-protection.md) owns operational duties,
+the initial legal-blocking schedule, owner-approved A/B/C and the local
+implementation/remaining production evidence.
+Mailjet Free remains selected for transactional mail; the owner accepts its
+professional-use contractual uncertainty without another eligibility inquiry, while
+DPA/retention/transfer duties remain. The [platform design](../architecture/deployment/mvp-platform-and-delivery.md#independent-secrets-data-and-recovery)
+owns selected production storage and remaining host evidence.
+
+**Owner decision, 2026-10-17 (#274), superseding preventive suppression:** retain
+current IGDB content, including translations, external scores, covers and decorative
+images, without advance hiding/disable controls or new feature flags. The IGDB query
+remains unanswered; silence is not permission and lawful use is not established. The
+owner knowingly accepts that uncertainty and will assess concrete objections,
+restrictions or takedown requests when received, including temporarily suspending
+public Gameómetro while finding a solution. This acceptance does not discharge
+licence/copyright, attribution, termination/deletion or personal-data obligations;
+CDN transparency, lawful-basis and transfer questions remain launch requirements.
+No further IGDB contact is authorized. The
 [#274 research](../research/public-release-rights-and-privacy.md) records evidence,
 legal uncertainties and remaining gates.
 

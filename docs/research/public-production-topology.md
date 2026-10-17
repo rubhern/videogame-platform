@@ -112,6 +112,10 @@ or reject it. Owner review of the actual total/commitment precedes purchase.
 
 ## Provider and image review
 
+Historical assessment: the [Product Brief](../product/product-brief.md#public-release-and-sustainability)
+owns the superseding 2026-10-17 IGDB risk acceptance without advance content
+suppression. Legal privacy/transfer duties and separate public go/no-go remain.
+
 Primary sources reviewed: [IGDB API documentation](https://api-docs.igdb.com/#getting-started),
 [FAQ](https://api-docs.igdb.com/#faq),
 [image reference](https://api-docs.igdb.com/#images),
@@ -133,13 +137,12 @@ agreement requires lawful use and respect for third-party rights. Conclusion:
 **metadata route supported; public media acceptance conditional**. This is a
 specific launch gate, not an unresolved hosting choice.
 
-Before exposure the owner must record a terms/rights assessment covering normalized
-metadata, localized derivative text, covers, artworks, screenshots and logos, and
-the existing detail-page attribution/source-link placement. If the documents cannot
-resolve a material permission/attribution ambiguity, obtain IGDB clarification through
-an owner-authorized contact; no message was sent here. Disable disputed references
-and use product-owned fallback while unresolved. Do not silently proxy/cache/copy
-binaries or expose a raw data dump/provider API. No external-score use is approved.
+The historical recommendation to seek clarification or disable uncertain references
+is superseded by the [current owner risk decision](../product/product-brief.md#public-release-and-sustainability).
+No further IGDB inquiry or advance content suppression is required or authorized.
+Attribution, actual contractual/copyright duties and CDN privacy obligations remain.
+Do not silently proxy/cache/copy binaries or expose a raw data dump/provider API.
+Current external-score direction is owned by the Product Brief.
 Monetization (including ads/affiliate/sponsorship), changed terms or broader reuse
 reopens this gate independently of infrastructure spend.
 

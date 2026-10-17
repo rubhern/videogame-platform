@@ -1,6 +1,6 @@
 # Public release: provider rights, privacy and account data (#274)
 
-- **Status:** Phase 1 complete; owner decisions recorded 2026-10-15; IGDB reply pending.
+- **Status:** A/B/C owner-approved and phase 2 prepared locally (2026-10-17); final copy/provider/host acceptance pending. IGDB rights uncertainty accepted; no further query.
   Phase 2 (production identity) increments 1–4 are merged on `main`: the production
   realm (D12–D19), revocation, session bound and coordinated logout (running in
   private-dev, never operated), the email provider (E1–E6) and the canonical issuer
@@ -9,8 +9,8 @@
   one real SMTP message. On 2026-10-16 private-dev applied the identity policy and
   selected the Mailjet relay (verified with both read-only checks). Privacy increment 1 (export, erasure, deletion ledger and
   restore replay, D21–D23) is implemented and proven with synthetic accounts in a
-  disposable gate on 2026-10-16, pending owner review, not exercised on a host. Legal
-  texts and provider-content switches are not started. Abuse admission/security signals
+  disposable gate on 2026-10-16, pending owner review, not exercised on a host. Spanish legal drafts and operational records are prepared; sections 10–12 record owner decisions, revised design and local phase-2 evidence;
+  advance provider-content switches were expressly rejected by the owner on 2026-10-17. Abuse admission/security signals
   are prepared locally. On 2026-10-17 the owner accepted R17 conditionally and
   approved default-off API admission; mandatory proxy/VPS evidence remains pending (7.6–7.8)
 - **Research date:** 2026-10-14 (sources); code re-checked 2026-10-15; production realm
@@ -34,7 +34,7 @@ log ceiling in [observability](../development/observability.md#public-production
 acceptance checks in the [public gates](../development/delivery-lifecycle.md#public-production-gates).
 
 Labels: **[V]** verified in the cited source on the research date or in the code at
-the source revision; **[D]** owner decision of 2026-10-15; **[I]** interpretation that
+the source revision; **[D]** owner decision (date specified, initially 2026-10-15); **[I]** interpretation that
 needs legal review before it is relied on; **[U]** unresolved; **[R]** recommendation.
 
 ## Sources consulted (2026-10-14)
@@ -186,6 +186,11 @@ after launch would detach every rating from its account.
 
 ## 4. Rights handling, revocation and deletion
 
+Historical design and synthetic evidence below; the maintained
+[rights procedure](../development/data-protection.md#rights-request-procedure)
+and [operator commands](../development/operations-runbook.md#personal-data-requests-and-account-revocation)
+own current handling. Email rectification is administrative (D16), not self-service.
+
 **[D]** Manual, owner-run administrative procedures; no privacy portal at launch.
 
 | Right | Path |
@@ -283,16 +288,16 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
 
 | ID | Risk | Criticity | Status / launch impact |
 |---|---|---|---|
-| R1 | No privacy notice, terms, adult declaration or contact exists | Critical | **Blocks accounts** |
+| R1 | Final privacy/terms not approved/published; controller identity approved | Critical | **Blocks accounts**; [Spanish drafts](../legal/public-texts-es.md) prepared, native declaration exists, rights contact selected; no final publication |
 | R2 | Unverified email registration, no password policy or brute-force protection | Critical | **Blocks accounts**; production realm prepared and tested (7.1), not deployed |
 | R3 | An open BFF session survives account disable/delete and can recreate ratings | High | **Blocks accounts** until operated on the production host; mechanism implemented and proven with synthetic accounts (7.2) |
-| R4 | No production email route for verification/recovery | High | **Blocks accounts**; Mailjet Free account and sending subdomain exist (7.3, E1–E6); written professional-use acceptance and production delivery proof (#276) pending |
+| R4 | Production email delivery/continuity and data-processing terms need proof | High | Mailjet Free retained under owner-accepted contractual uncertainty, no further eligibility inquiry; actual DPA/retention/transfers and #276 delivery/failure proof remain |
 | R5 | Erasure, ledger and restore replay not implemented or rehearsed | High | **Blocks accounts**; implemented and proven in a disposable gate (7.5); a host rehearsal in private-dev and the production restore path (#275) remain |
-| R6 | LSSI may require a published postal address and tax ID | High | **Blocks publishing the legal notice** until answered |
-| R7 | Translated summaries may breach the no-modification clause | High | Blocks public translations unless IGDB or a legal answer allows them |
-| R8 | IGDB scores not confirmed for public display; #279 widens their surfaces | High | Publication blocked until restrictions are verified (D11) |
-| R9 | Decorative artworks/screenshots/logos lack clear coverage | Medium | Rights review before launch (D7); covers unaffected |
-| R10 | Browser requests to the US-controlled CDN disclose IP and referrer origin | Medium | No-referrer and disclosure before exposure; privacy review open (D8) |
+| R6 | Initial non-economic/LSSI interpretation may be challenged or become outdated | High | Owner adopts no initial address/NIF publication on the stated personal/non-economic facts; legal name publication authorized. Not an unresolved owner decision or proof of universal exemption; reopen on activity/legal criterion change |
+| R7 | Translated summaries may breach the no-modification clause | High | Owner accepts unresolved rights risk, 2026-10-17 (D6); no advance suppression. No permission inferred |
+| R8 | IGDB scores not confirmed for public display; #279 widens their surfaces | High | Owner accepts unresolved rights risk, 2026-10-17 (D11); current scores retained, no advance switch |
+| R9 | Decorative artworks/screenshots/logos lack clear coverage | Medium | Owner accepts unresolved rights risk, 2026-10-17 (D7); covers and decorative media retained |
+| R10 | Browser requests to the US-controlled CDN disclose IP and referrer origin | Medium | Current references/referrer behaviour retained (D8); disclosure, lawful basis and international-transfer assessment still block privacy acceptance |
 | R11 | Keycloak logs keep failed-login IP and username with no age limit | Medium | Production realm logs no events (7.1); 7-day ceiling before accounts (D9) |
 | R12 | Issuer URL change would orphan every rating | Medium | Fix the canonical issuer before accounts |
 | R13 | Twitch licence revocable at any time | Medium | Contingency runbook; can follow launch |
@@ -308,17 +313,17 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
 
 | ID | Decision | Consequence |
 |---|---|---|
-| D1 | Natural-person controller with a dedicated identity and contact email | LSSI address/tax-ID question answered before publication |
+| D1 | Rubén Hernández López, natural-person controller; legal name publication authorized, contact `hola@gameometro.com` | Initial personal/non-economic activity and LSSI interpretation adopted; no initial domicile/NIF publication, reassess on changed facts/criterion (section 10) |
 | D2 | AI-assisted research on official sources; a one-off legal consultation only for a material uncertainty that cannot reasonably be resolved | No compliance claim; section 6.3 lists candidates |
 | D3 | Adults only (18+) by explicit declaration; no birth date or identity document | Registration terms carry the declaration |
 | D4 | Email as sign-in identifier; no required names | Production realm user profile |
 | D5 | Query sent to `support@igdb.com`; reply pending; no further email | Record the reply when it arrives |
-| D6 | Translations unchanged in private-dev; authorized before exposure, otherwise originals or disabled | Public content switch |
-| D7 | Images unchanged in private-dev; decorative-image rights reviewed before launch; approved cover mechanism kept where supported | Public content switch for featured media |
-| D8 | Direct IGDB references, no-referrer where appropriate, third-party requests disclosed; privacy review pending | Referrer change and notice text |
-| D9 | Accounts and ratings until deletion, save legal obligations; logs ≤ 7 days; backups ≤ 35 days; deletion evidence while restorable backups exist | Platform and observability updated |
-| D10 | Manual administrative procedures for access, export, rectification and deletion; no portal | Section 4 |
-| D11 | IGDB scores remain a product goal; restrictions verified before publication, neither assumed prohibited nor confirmed | Public score switch until verified |
+| D6 | Retain current translations, including for public direction; uncertainty knowingly accepted (revised 2026-10-17) | No advance suppression; [current owner decision](../product/product-brief.md#public-release-and-sustainability) |
+| D7 | Retain current covers and decorative images; uncertainty knowingly accepted (revised 2026-10-17) | Evaluate actual objections, including temporary public suspension; no advance switch |
+| D8 | Keep current direct references without anticipatory content suppression (revised 2026-10-17); disclose third-party requests | No referrer change implemented; CDN legal basis, roles and transfer safeguards still require resolution; owner acceptance alone cannot satisfy them |
+| D9 | Verified accounts/ratings until deletion regardless of inactivity; never-verified accounts expire at 30 days from creation; sessions 30 min idle/8 h max, logs ≤7 days, backups ≤35 days | Updated owner policy, cleanup locally prepared and unscheduled; [data-protection record](../development/data-protection.md) owns separate legal-blocking/proof/ledger schedules |
+| D10 | Manual administrative procedures for access, export, rectification and deletion; no portal | [Operational procedure](../development/data-protection.md#rights-request-procedure), using the existing tools |
+| D11 | Retain current IGDB scores without an advance switch; public rights uncertainty accepted (revised 2026-10-17) | Not a finding of lawful use or approval of commercial use |
 | D12 | Public realm `gameometro` | The full OIDC issuer (identity HTTPS origin plus `/realms/gameometro`) is fixed before the first real account and never changes, because every rating is keyed by a `UserId` derived from it (R12) |
 | D13 | Passwords of 12 to 128 characters, no artificial composition rules | Realm password policy (7.1) |
 | D14 | Per-account temporary lockout after five failures, from one minute up to 15 | Realm brute-force policy (7.1) |
@@ -327,7 +332,7 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
 | D17 | Logging out of Gameómetro also ends that browser's Keycloak session with standard OIDC | Implemented (7.2, [ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md)) |
 | D18 | Administrative revocation invalidates BFF sessions directly with standard Spring Security capabilities; no per-request PostgreSQL check, no new dependency | Implemented (7.2, ADR-0027) |
 | D19 | Keep Keycloak's native registration declaration (18+ and conditions) | No per-account evidence of the accepted text; no complex customization without a justified need |
-| E1–E6 | Transactional email: Mailjet Free preferred and conditional, Scaleway as documented replacement, no card or overage, dedicated sending subdomain, real reply address, account created only with the domain | Section 7.3; free account opened by the owner, no card |
+| E1–E6 | Mailjet Free retained for transactional mail without further professional-use clarification; owner accepts that contractual uncertainty (phase 1 update, 2026-10-17); no card/overage, dedicated sender, real replies | Section 7.3; free account exists. DPA, retention/transfers and actual production proof remain; Scaleway is a documented contingency, not an automatic switch |
 | D21 | The deletion ledger lives on the owner's workstation with a mandatory second copy on independent owner storage; an owner-side driver records each step in both before it runs it on the host through a stateless command over SSH (copy added 2026-10-16) | Write-ahead holds even if the host or the workstation is lost mid-procedure; no new service (7.5) |
 | D22 | Replay is a mandatory restore step: refused while the restored application runs, verified per entry, receipt kept. Host-loss recovery restores into the live project only on a host without its containers or volumes, and deployments are refused until the replay is verified (refined 2026-10-16) | `restore-private-dev` runs it; `deploy-private-dev` checks only the pending-replay marker (7.5) |
 | D23 | Exports include current Keycloak sessions (start, last access, IP) besides the profile and ratings | Stored personal data is returned on access (GDPR 15) |
@@ -343,10 +348,13 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
   session lifetime and coordinated logout (7.2); fixed canonical issuer (D12); email
   provider selected with DPA. Reuse #273's recovery.
 - **Privacy workflows:** export/erasure with the ledger, restore replay and the
-  synthetic rehearsal including failures are implemented (7.5); incident register,
-  Spanish legal texts and cookie paragraph, record of processing remain.
-- **Provider content:** public switches for translations, decorative media and IGDB
-  scores; no-referrer on provider images and links; licence-termination runbook.
+  synthetic rehearsal including failures are implemented (7.5); the [legal drafts](../legal/public-texts-es.md) and
+  [operational record](../development/data-protection.md) are prepared; owner approval
+  and the publication prerequisites remain open.
+- **Provider content:** follow the [superseding owner decision](../product/product-brief.md#public-release-and-sustainability);
+  no public switches, flags or anticipatory catalogue changes. CDN notice/legal basis/
+  transfer assessment and actual contractual obligations remain; evaluate objections
+  when received, including public suspension.
 - **Abuse:** registration/login/recovery limits and measured R17 disclosure under the
   [owner-approved conditional gate](../development/delivery-lifecycle.md#r17-conditional-acceptance-and-opening-conditions),
   bounded identity security signals (R18) and bounded expensive anonymous reads.
@@ -355,25 +363,28 @@ The ledger is the durable record that makes erasure repeatable. Designed here as
 
 | Question | Resolution path (D2) |
 |---|---|
-| Does LSSI 10 apply to a free, ad-free service (address, tax ID)? | Official sources first; consultation candidate if still unclear |
+| Initial LSSI economic-activity scope | Owner adopts non-economic interpretation on stated facts; no initial domicile/NIF, reassess on changed facts/criterion (section 10) |
 | Is an unverified 18+ declaration sufficient, and is contract the right basis? | Research; consultation candidate |
-| Do expiring encrypted backups meet LOPDGDD 32 blocking? | Research; consultation candidate |
+| Does the restricted archive meet statutory blocking and case-specific limitation periods? | Three-year initial term/annual review decided; design B, field-level grounds/longer holds and implementation validation remain. Backups/ledger are not the archive |
 | Joint controllership and US transfer for CDN requests; DPF status | Privacy review (D8) |
-| Translations, decorative media, scores, public JSON, retention | IGDB reply (D5); otherwise originals/disable |
+| Translations, decorative media, scores, public JSON, retention | IGDB reply pending (D5), no further contact; owner accepts uncertainty, no advance suppression (D6/D7/D11) |
 | Deletion duty vs backups after licence termination | Only if termination happens |
 | Digital Services Act relevance | Recheck before user-generated content |
-| Keycloak cookies | Inventoried in 7.4: strictly necessary, no consent banner justified **[I]**; the cookie paragraph of the privacy notice remains to be written |
+| Keycloak cookies | Inventoried in 7.4: strictly necessary, no consent banner justified **[I]**; the [cookie draft](../legal/public-texts-es.md#cookies-y-almacenamiento-del-navegador) prepared; final host review pending |
 
 ### 6.4 Effective launch blockers
 
 **Before opening accounts:** R1–R5, R11, R12, R14 and R18 resolved with evidence; R17
 conditional-acceptance measures verified before exposure; netcup DPA
 concluded; incident runbook with AEPD and Twitch reporting; legal notice published
-only after R6 is answered.
+under the adopted D1/R6 interpretation, final text approval and remaining
+processor/privacy obligations; R6 is no longer an unanswered owner-policy question.
 
-**Before exposing specific provider content:** translations (R7), IGDB scores (R8)
-and decorative media (R9) authorized or switched to originals/off; no-referrer and
-CDN disclosure in place (R10).
+**Provider content:** R7–R9 remain legally unresolved but no longer demand advance
+suppression under the [2026-10-17 owner decision](../product/product-brief.md#public-release-and-sustainability).
+No silence-as-permission or compliance claim. R10 still requires CDN transparency,
+a defensible legal basis and resolution of applicable roles/transfer safeguards
+before privacy acceptance; acceptance of IP/copyright uncertainty cannot waive GDPR.
 
 **Can follow launch:** licence-termination runbook (R13), abuse refinements beyond
 the essential limits (R15), self-service rights (R16), DSA recheck.
@@ -510,7 +521,7 @@ stores in the United States and its paid tier equals the whole contingency.
 
 | ID | Decision | Consequence |
 |---|---|---|
-| E1 | Preferred provider: **Mailjet Free**, conditional on Mailjet accepting the account and on Keycloak sending through its SMTP relay in practice | Selected, not contracted. The professional-use clause below must be resolved before relying on it |
+| E1 | **Mailjet Free** retained for exclusively transactional mail; owner accepts professional-use uncertainty without another clarification request (superseding earlier written-acceptance requirement, 2026-10-17) | Account opened, sender verified as previously reported; no vendor permission inferred. DPA/retention/transfer and actual-production evidence remain |
 | E2 | Replacement option: **Scaleway Transactional Email**, documented only | No second integration and never both services contracted. Switching changes only runtime SMTP inputs and DNS |
 | E3 | Free plan, no card, no automatic overage charges; sending should stop at the quota rather than cost money | Excludes card-backed pay-as-you-go while Mailjet qualifies. Scaleway, the replacement, needs a card and has no hard EUR cap (worst case about EUR 2.94/month within its default quota): choosing it later reopens E3 |
 | E4 | Dedicated sending subdomain `mail.gameometro.com` (D20) | SPF, DKIM and DMARC of the subdomain stay independent of the contact mailbox (D1) |
@@ -528,15 +539,17 @@ stores in the United States and its paid tier equals the whole contingency.
 | 5 | Mailjet branding on SMTP mail | Help centre: the logo appears only in templates built with the Email Editor or the Subscription Form Builder; removing it is not offered on Free or Starter (excerpt; page 403). Keycloak builds its own messages, so SMTP mail should be unbranded | **[V]** by official excerpt; prove in #276 |
 | 6 | Approval, domain, SPF/DKIM/DMARC, bounces | Domain or subdomain verification with Mailjet-generated SPF and DKIM; DMARC is ours; hard bounces and spam reports block the address, pre-blocking exists, the reason is visible in statistics; Webhooks are in the free plan. No published account-approval criteria; reviews and temporary limits exist | Mechanisms **[V]**; approval **[U]** |
 
-**Condition that may invalidate E1:** Mailjet's Terms state "The Services are
-exclusively reserved for a professional use". Gameómetro is a free, non-commercial
-service run by a natural person. Whether that counts as professional use is an
-interpretation **[I]**; if it does not, Mailjet may suspend the account for breach
-(Terms 3.4), which would stop verification and recovery mail without warning. This is
-not resolved by documentation. Keep E1 only if, at sign-up (E6), Mailjet confirms in
-writing that this use is accepted; otherwise move to E2 and decide E3 again. Scaleway's
-conditions name natural persons explicitly.
-
+**Contractual uncertainty, consciously accepted by the owner (phase 1 update,
+2026-10-17):** Mailjet's Terms restrict use to professional/commercial purposes;
+the owner retains Mailjet Free for this personal non-commercial transactional use
+without requesting clarification. This supersedes the earlier requirement for written
+eligibility acceptance. No vendor authorization or harmlessness is inferred: a
+restriction/suspension could interrupt verification and recovery. Handle an actual
+objection or outage under the incident/continuity procedure; any provider change
+needs a fresh reviewed decision, not an automatic E2 purchase. Keep this internal
+contract-risk analysis out of public privacy copy. DPA/entity, processing retention
+and transfer obligations are independently unresolved; acceptance of commercial-use
+uncertainty cannot waive them.
 Further differences from the initial assessment: Mailjet is not EU-only (US support
 sub-processors under SCCs and DPF, which section 3 asks to disclose) and keeps routing
 metadata for its own purposes. Neither invalidates E1 on its own; both belong in the
@@ -570,8 +583,8 @@ about EUR 2.94/month within its default quota, still inside the envelope.
    are read in Mailjet's statistics ("details" column) or through its event webhook if
    a later need justifies one. No webhook or receiving service is planned now.
 4. **Account (E6).** Free plan, no card; sub-processor change notifications subscribed
-   (DPA, 30 days' notice); the Terms, DPA version and the professional-use answer
-   captured with their dates.
+   (DPA, 30 days' notice); the actual Terms/DPA acceptance and versions captured privately with their dates;
+   no further professional-use clarification is requested under revised E1.
 
 #### Domain and sending subdomain (2026-10-16)
 
@@ -585,12 +598,12 @@ customer identifier, personal data or credential is kept in the repository.
 
 Pending, owner-operated; none is passed by this document:
 
-- Mailjet's written answer on the professional-use clause (E1), recorded with its date.
+- Revised E1 records owner acceptance of professional-use uncertainty; no written
+  eligibility answer is sought or required by the owner. DPA/retention/transfers remain.
 - DMARC report address (`rua`) to an owner-read mailbox before tightening the policy;
   the SPF qualifier is neutral (`?all`) and can become `~all` after clean reports.
 - The public privacy and rights contact (D1): `hola@gameometro.com` is the reviewed
-  Reply-To of the private-dev relay; whether rights requests use it or a separate
-  address is an owner decision for the privacy notice.
+  Reply-To of the private-dev relay; the owner selected the same address for rights requests on 2026-10-17.
 - Renewal tariffs of the domain and any bundled mailbox read in OVHcloud.
 - The issuer validated on the real host before the first real account (D12).
 
@@ -599,8 +612,8 @@ Pending, owner-operated; none is passed by this document:
 Carried to the launch proof (#276) and the public gates; none is passed by this
 document:
 
-- Mailjet's written acceptance of the use (professional-use clause) and account
-  approval; otherwise E2 with a new E3 decision.
+- Actual account/service continuity and data-processing conditions; professional-use
+  uncertainty is owner-accepted under revised E1. E2/E3 are not an automatic switch.
 - Real delivery of verification and recovery mail from Keycloak through the relay to
   at least two large mailbox providers; SPF, DKIM and DMARC `pass` in received
   headers; no Mailjet branding; replies reaching the contact mailbox; a deliberate
@@ -727,8 +740,8 @@ entry is purged automatically.
 | #275 | Paired backups and restore exercise | #275 applies the 35-day ceiling; its restore path calls the ledger replay before reopening (a stub until the privacy phase lands) |
 | #275 | Production logging | #275 enforces the 7-day age limit and the Keycloak logging configuration |
 | #275 | Same canonical documents (platform design, gates) | Small sequential documentation changes |
-| [#279](https://github.com/rubhern/videogame-platform/issues/279) quality signals | Extends IGDB scores to the game page and search (merged on `main`, phase 4 pending) while D11 keeps publication conditional | Keep score rendering in shared components so one public switch covers every surface |
-| #279 | No-referrer touches score links in `shared/score/discovery-scores.tsx` and `game-details-content.tsx` | Apply after #279 phase 4 merges, or in one coordinated small change |
+| [#279](https://github.com/rubhern/videogame-platform/issues/279) quality signals | Extends IGDB scores to the game page and search (merged on `main`, phase 4 pending) under revised D11 risk acceptance | Keep current rendering; no advance public switch |
+| #279 | Provider links/referrer are part of the current CDN inventory | No referrer/catalogue change in this increment; disclose actual behaviour in the legal draft |
 
 ## Evidence limits
 
@@ -1125,3 +1138,228 @@ Mailpit, never the real relay. There is no commit, push, deployment or new depen
 Final artefact assessment: backend `0.39.1-SNAPSHOT`, frontend `0.30.6`, OpenAPI
 `3.13.1` for this single uncommitted increment; the internal flag adds no wire change
 or additional version increment. GitHub Project status stays `In progress`.
+
+## 9. Legal and operational increment (2026-10-17)
+
+**Prepared, not published or owner-approved as final legal text.** Code reviewed at
+`2aa1570` (`main`), including production realm, shared Keycloak theme, React shell/router,
+BFF/session inventory (7.4), `personal-data` export and ledger tooling, and the
+operations runbook. No production host, private-dev, DNS, mailbox or supplier account
+was changed. No message to IGDB was sent.
+
+The [Product Brief](../product/product-brief.md#public-release-and-sustainability)
+owns the explicit superseding owner decision: D6–D8/D11 accept current IGDB use
+without advance suppression, including translations, scores, covers and decorative
+images. R7–R9 are accepted uncertainty, not demonstrated rights. R10's data-protection
+obligations remain. The unanswered query is not authorization. Actual objections or
+restrictions trigger assessment, including temporary public suspension. Existing
+attribution, rate limits, licence revocation/deletion duties and copyright are not
+waived. There is no new architecture or content-control implementation.
+
+Maintained deliverables are the [Spanish review copy](../legal/public-texts-es.md)
+and the [processing register and operating procedures](../development/data-protection.md).
+The latter owns suppliers, rights, incidents and publication prerequisites; this
+section owns only the evidence and legal interpretation supporting them. R1/R14
+remain open; phase-1 section 10 subsequently resolves the D1/R6 owner choices; preparing a draft does not satisfy their publication/contract gates.
+
+### Official-source findings and limits
+
+Sources read on 2026-10-17. **[V]** means source verified, not applicability certified;
+**[I]** is interpretation; **[D]** is an explicit owner decision; **[U]** remains open.
+
+| Question and official evidence | Finding and disposition |
+|---|---|
+| Identity: [GDPR 13](https://eur-lex.europa.eu/legal-content/ES/TXT/HTML/?uri=CELEX:32016R0679), [LSSI 10 and annex (a)](https://www.boe.es/buscar/act.php?id=BOE-A-2002-13758) | **[V]** Controller identity/contact required. If LSSI applies: name, residence/domicile or qualifying establishment address, email/effective contact and NIF; registry/authorization/professional particulars only when applicable. GDPR does not itself generically require public NIF. **[I]** Strictly non-economic hobby publication can fall outside LSSI; free access alone does not exclude indirect economic activity. **[D/I]** Owner subsequently confirmed the non-economic facts and adopted no initial domicile/NIF publication; legal name is authorized. Section 10 owns reopening conditions, not a categorical exemption |
+| Age, account basis and information: GDPR 5/6/8/12/13; [LOPDGDD 7/11](https://www.boe.es/buscar/act.php?id=BOE-A-2018-16673) | **[D]** Keep adult-only native declaration and no birth-date/ID collection. **[I]** Contract for objectively necessary account/rating operations; security/recovery interest needs necessity/balancing. **[U]** Proportionality of age assurance and final legal review; Spain's consent threshold is not proof that every age check/contract is sufficient |
+| Rights and identity: [AEPD identification FAQ](https://www.aepd.es/preguntas-frecuentes/1-tus-derechos/3-identificacion-con-dni/FAQ-0108-para-el-ejercicio-de-estos-derechos-es-necesario-facilitar-la-copia-del-dni), GDPR 12/15–21 | **[V]** No routine ID copy; additional evidence on reasonable doubt, one-month response with justified extension. **[I]** Matching sender header alone is insufficient; fresh control verification and protected export delivery are needed. **[U]** Rehearse manual email rectification and effective restriction beyond sign-in revocation; no such new automation is claimed |
+| Blocking: LOPDGDD 32 | **[V]** Reservation against ordinary use/visibility during applicable liability limitation; technical exception requires a secure authentic dated copy, not ordinary recovery backup by default. **[U]** Define actual data/grounds/periods and implementation sufficiency. Neither owner acceptance nor 35-day encrypted backup expiry establishes compliance |
+| Cookies: [AEPD cookie guide](https://www.aepd.es/guias/guia-cookies.pdf), necessary-cookie discussion, pp. 9–10; LSSI 22.2 | **[V]** Exemptions depend on purpose/necessity, not merely first-party status. **[I]** 7.4's authentication, security and requested-language inventory supports no banner. Persistent `KEYCLOAK_SESSION` (8 h) needs particular scrutiny: session-auth exemption alone does not prove necessity, and the app does not use the status iframe. **[U]** Reconfirm native purpose/behaviour and all cookies/storage/CDN on actual proxy/hosts; do not infer that all persistent Keycloak cookies are automatically exempt |
+| Suppliers: [netcup DPA procedure](https://www.netcup.com/en/helpcenter/documentation/general/dpa), [OVHcloud Spanish contracts](https://www.ovhcloud.com/es/terms-and-conditions/contracts/), GDPR 28 | **[V]** Published contractual entry points; netcup offers its contract generator. **[U]** Actual account/product/entity, applicable agreement, location/subprocessors and acceptance evidence. OVHcloud domain registration is not evidence of an email processing agreement; no US OVH entity substituted for the owner's actual contract |
+| Mailjet: [Terms](https://www.mailjet.com/legal/terms/), [Sinch DPA](https://sinch.com/legal/terms-and-conditions/other-sinch-terms-conditions/data-processing-agreement/), [subprocessors](https://sinch.com/legal/data-protection-agreement-sub-processors/) | **[V]** Professional/commercial-use clauses remain; DPA includes post-termination deletion within 90 days subject to exceptions. Mailjet cloud datacentres listed in Germany/Belgium, US support among recipients. **[D]** Subsequent phase-1 decision accepts eligibility uncertainty without further query; **[U]** in-service retention and actual transfer coverage remain. A successful SMTP message proves neither eligibility nor EU-only processing |
+| CDN roles/transfers: [Fashion ID C-40/17 official case record](https://eur-lex.europa.eu/legal-content/es/CASE/?uri=CELEX:62017CJ0040), GDPR 26/Chapter V | Official case summary retrieved; full judgment endpoint did not yield readable text. **[I]** Embedded social-plugin reasoning cannot mechanically establish CDN joint controllership or a transfer mechanism. **[U]** Current roles, recipient/DPF scope or other safeguards, lawful basis and retention. No claim that EU edge location settles US access or that content-rights risk acceptance waives privacy |
+| Breaches: [AEPD notification guidance and route](https://www.aepd.es/derechos-y-deberes/cumple-tus-deberes/medidas-de-cumplimiento/brechas-de-datos-personales-notificacion), GDPR 33/34 | **[V]** Risk-based authority notice, normally AEPD for proposed Spanish operation, within 72 h where feasible; high-risk people notice without undue delay; all breaches documented. **[I]** Owner-run protected register and staged notices are proportionate; do not wait for complete forensics. **[U]** Actual contacts/coverage, tabletop and response proof |
+
+No evidence reviewed makes a generic compliance promise, settles DSA applicability or
+confirms all copyright licences. Non-commercial operation does not imply household
+exemption. DPO/DPIA screening remains proportional to actual processing; it is not
+an exemption from records/security. Material unresolved legal issues may need the
+bounded consultation already permitted by D2, not a silent change to product scope.
+
+### Integration disposition and version assessment
+
+Only documentation/portal navigation changes are appropriate with the current
+inputs. Do not display missing controller, supplier or transfer fields as final text.
+The canonical integration plan specifies future footer routes, the production-only
+Keycloak basic layer and native terms/adult declaration; no duplicate credential flow,
+privacy-consent checkbox, consent banner or IGDB switch is added. The chosen rights
+address is `hola@gameometro.com` **[D]**; section 10 consolidates subsequent
+identity, Mailjet, retention and storage owner decisions.
+
+#274 remains **In progress** for owner legal/text decisions and supplier prerequisites.
+#275 prepares runtime safeguards; #276 proves actual VPS, SMTP, cookies/storage and
+recovery before separate exposure approval. No backend/frontend/API/PoC release
+content changes, so no executable SemVer bump. Local portal checks validate document
+availability and links, not lawfulness or production operation.
+
+## 10. Owner consolidation and phase-1 design
+
+**2026-10-17, explicit owner decisions; design/copy approval and implementation remain
+separate.** This section supersedes unresolved owner choices in section 9, not its
+verified source facts. No A/B/C code, host changes, messages, purchases or Git
+publication occur in phase 1.
+
+| Decision now closed by owner | Canonical disposition |
+|---|---|
+| D1 identification and initial LSSI interpretation | Legal name **Rubén Hernández López** authorized for public notice; `hola@gameometro.com`. Initial activity is personal/non-economic with no ads, affiliation, sponsorship, donations, sales or professional promotion. Adopt no initial domicile/NIF publication under the economic-activity scope, with explicit reconsideration if facts or applicable legal criteria change |
+| D6–D8/D11 IGDB | Unchanged conscious acceptance of current contents without preventive hiding/catalogue changes; no further permission inquiries. Concrete objections may lead to correction or suspension. CDN privacy duties remain independent |
+| E1 Mailjet | Keep Free for exclusively transactional mail; accept professional-use contractual uncertainty without further eligibility inquiry. No vendor approval inferred. Remove internal eligibility discussions from public notices; processing/DPA/retention/transfers remain material checks |
+| D9 pending signup and legal reservation | Thirty-day never-verified cleanup; verified accounts and ratings until erasure regardless of inactivity. Initial blocked-data term three years with twelve-month review, case-specific longer obligations/holds; suppression proof, blocked payload and deletion ledger remain separate |
+| Storage | VPS live state; Lenovo vgpdev off-VPS encrypted backups/restricted legal archive, isolated from private-dev/agents/development; independent second archive/ledger copies; keys protected off VPS separately from ciphertext. No host mutation. #275/#276 own effective isolation, locations/transfers and recovery proof |
+
+### Further official evidence and design limits
+
+- **[V]** [LSSI annex (a) and article 10](https://www.boe.es/buscar/act.php?id=BOE-A-2002-13758)
+  distinguish economic services, including free-to-user economic activity, from the
+  owner's asserted non-economic facts. **[D/I]** No initial address/NIF is the
+  adopted interpretation, not a court/regulator ruling. GDPR legal-name/contact
+  information remains. No fresh identity approval is needed for the same name/facts.
+- **[V]** [LOPDGDD 32 and 72–74](https://www.boe.es/buscar/act.php?id=BOE-A-2018-16673)
+  require restricted reservation when applicable and have differing administrative
+  limitation periods. [Civil Code 1964(2), 1968–1973](https://www.boe.es/buscar/act.php?id=BOE-A-1889-4763)
+  include a five-year general personal-action term, distinct tort rules and effects
+  of accrual/interruption. **[D]** The three-year initial policy does not override
+  those; **[U]** classify actual obligations/claims and holds rather than store every
+  field for the longest imaginable period. No blanket deletion-at-three-years rule.
+- **[V]** [Mailjet terms](https://www.mailjet.com/legal/terms/) still contain the
+  professional/commercial-use restriction. [Sinch DPA](https://sinch.com/legal/terms-and-conditions/other-sinch-terms-conditions/data-processing-agreement/)
+  and [subprocessors](https://sinch.com/legal/data-protection-agreement-sub-processors/)
+  remain available; the latter lists Mailjet datacentres in Germany/Belgium and US
+  support recipients. **[D]** Eligibility risk accepted without another inquiry;
+  **[U]** actual agreement/entity, in-service retention and recipient-specific transfer
+  safeguards are not established by that acceptance or one successful SMTP message.
+  OVHcloud's [contract entry point](https://www.ovhcloud.com/es/terms-and-conditions/contracts/)
+  and netcup's [DPA procedure](https://www.netcup.com/en/helpcenter/documentation/general/dpa)
+  do not prove the right contract attached to the selected service/account.
+- **[V]** Mailjet's [retention help page](https://documentation.mailjet.com/hc/en-us/articles/360042755094-How-long-are-my-statistics-kept),
+  updated 2026-06-09 and read in this phase, states Free statistics/campaigns: 90 days;
+  contacts/templates: account lifetime. This narrows the earlier unknown statistics
+  period; it does not prove all SMTP content, recipient, bounce/suppression and
+  routing-data expiry. Do not create contact lists or export statistics merely to
+  retain them longer. The [Spanish OVHcloud DPA v5](https://storage.gra.cloud.ovh.net/v1/AUTH_325716a587c64897acbef9a4a4726e38/contracts/c898199-OVH_Data_Protection_Agreement-ES-5.0.pdf)
+  distinguishes hosting location from remote processing and describes transfers/
+  subprocessors; verify the version actually incorporated in the owner's service,
+  not a generic all-EU assumption. No provider was contacted.
+- **[V]** [Keycloak 26.7 Admin REST](https://www.keycloak.org/docs-api/26.7.0/rest-api/index.html#_users)
+  documents `createdBefore`, `emailVerified`, `first`, `max` and brief representations.
+  Its [pinned JPA provider](https://github.com/keycloak/keycloak/blob/26.7.0/model/jpa/src/main/java/org/keycloak/models/jpa/JpaUserProvider.java)
+  filters age/verification in SQL and orders by username;
+  [UserEntity](https://github.com/keycloak/keycloak/blob/26.7.0/model/jpa/src/main/java/org/keycloak/models/jpa/entities/UserEntity.java)
+  declares realm/username uniqueness. **[I]** bounded first-page deletion avoids
+  shifting-offset skips on this local-user provider, with identity mutations drained.
+  **[U]** no local concurrency/SQL-plan/runtime proof in this design-only phase.
+
+### Material questions still affecting public opening
+
+| Question | Why it matters / gate |
+|---|---|
+| Actual Mailjet/OVHcloud entity, incorporated processing agreement, retention/erasure and non-EEA recipients/safeguards; netcup agreement when contracting | GDPR processor/transparency/transfer obligations. #274 records adequate terms/evidence before public use; signed/order-specific details follow authorized contracting in #275/#276. Commercial eligibility is an accepted continuity risk, not an unanswered query task |
+| CDN role for browser transmission, necessary/balanced lawful basis and actual transfer mechanism/recipient scope | Privacy acceptance still pending; copyright risk acceptance does not satisfy GDPR. No automatic DPF/EU-only claim or new catalogue controls. A generic vendor-policy link is not a completed assessment |
+| Field-level blocking basis and longer liability schedule where applicable | Statutory reservation and erasure cannot be replaced with a receipt or unlimited full export; phase-1 design needs approval and phase 2 evidence before real deletion. A three-year default is decided, not legal proof that every claim ends then |
+| Actual privilege isolation on Lenovo and independent storage/key locations | A contract is not needed with oneself, but root/Docker/agent access can defeat isolation. Design A/B refusal and #275/#276 host/access/transfer/recovery evidence are necessary. Do not claim a directory permission protects against privileged agents |
+| Final public transfer/retention particulars and approved version | Spanish copy is cleaner and identity-complete, but public deployment waits for concrete Article 13 information and approved/implemented safeguards. No public warnings about unasked commercial queries or allegations of illegality |
+
+No additional inquiry to IGDB or Mailjet is authorized. DPO/DPIA screening and adult
+policy are reviewed proportionately against existing purposes; no new generic legal
+exercise or paid service is introduced by this phase. The four accepted ordinary
+retention/session ceilings remain unchanged. The [canonical A/B/C design](../development/data-protection.md#phase-1-design-for-approval)
+owns implementation detail and test expectations; this evidence section does not
+repeat the design or claim it is implemented.
+
+
+## 11. Proportionate A/B adjustment after owner review
+
+**2026-10-17, recommendation awaiting A/B implementation authorization.** The owner
+approves the general direction and technical C, with public publication conditional
+on final text review and verified supplier/operating claims. This adjustment changes
+no runtime. [Design A/B](../development/data-protection.md#phase-1-design-for-approval)
+owns the revised mechanism and field profiles; section 10's settled policy remains.
+
+- **A:** recommend a bounded read-only candidate probe before any maintenance, not
+  unconditional daily closure. An empty run leaves identity flows available. Only a
+  positive probe/pending committed mutation needing the fence invokes preflight and
+  one brief deny/drain/re-read window for up to one page; a concurrent verification
+  before drain excludes the account. There is still a real future-proxy dependency:
+  routing reload alone proves no upstream drain. No native atomic conditional delete
+  or less disruptive per-user proxy mechanism has been demonstrated. #275/#276 must
+  prove the window and bounded recovery; do not claim the revised design needs no
+  interruption when candidates exist.
+- **B:** propose two centrally reviewed, versioned ordinary profiles selected
+  automatically: pending signup and verified-user erasure. They retain only minimal
+  encrypted account identity facts; no ordinary rating rows or whole exports. An
+  explicit particular claim can retain named relevant rating rows/other necessary
+  evidence under its own scope/expiry. The absence of a hold or bespoke classification
+  is normal, not a reason to block erasure or retain everything. Genuine anomaly,
+  missing copy or corrupt policy/hold data is handled separately.
+
+**Legal support and limit:** [LOPDGDD article 32](https://www.boe.es/buscar/act.php?id=BOE-A-2018-16673#a3-4)
+requires blocking on relevant erasure/rectification and restricts use/visibility and
+time by possible processing responsibilities; a pre-existing claim is not required
+for ordinary blocking. [AEPD report 0148/2019](https://www.aepd.es/documento/2019-0148.pdf),
+particularly pp. 8–9, discusses minimization, necessary retention and that reservation
+purpose. It concerns another sector/context and is **not a ruling approving this
+web's exact profile**. Neither source expressly authorizes replacing all blocked
+source data with a receipt or exempting unverified signups. Therefore the recommendation
+keeps a minimal source identity record for both ordinary profiles and records its
+necessity assessment centrally. Omitting ordinary rating values is an interpretation
+to validate once as policy before real use, not demonstrated compliance or a legal
+guarantee. If review requires additional fields, revise the fixed profile before
+opening; no manual legal decision should be required for each automatic deletion.
+
+Three-year initial blocking, twelve-month review and justified longer duties/holds
+remain. Suppression proof, blocked source and replay ledger remain distinct; so do
+two independent archive copies, protected off-VPS keys and Lenovo isolation. No new
+service/database, host mutation, external inquiry, commit or deployment.
+
+## 12. Owner-authorized phase 2, local review boundary
+
+On 2026-10-17 the owner approved revised A/B and technical C, including minimum
+ordinary identity profiles, ordinary-rating exclusion and additional fields only
+for particular claims/responsibilities. Implementation now reuses the existing
+administrative tools and deletion ledger. The [canonical acceptance record](../development/data-protection.md#local-implementation-and-acceptance)
+distinguishes local code/evidence from CI and #275/#276 deployment obligations;
+the [runbook](../development/operations-runbook.md#privacy-phase-2-administration)
+owns usage. Frontend `0.31.0` introduces development review routes and generated
+Keycloak review copy outside the import directory. Production publication remains
+disabled; these are proposed final Spanish texts for owner review, not effective notices.
+
+Synthetic archive/ledger fault and GPG tests, bounded read/streaming checks, frontend
+component/routing checks and desktop/mobile legal-content accessibility checks passed.
+A disposable PostgreSQL equivalent-key fixture exercised the exceptional archive SQL
+with 5,000 synthetic rows; it is not full-runtime qualification. WSL clock movement
+required pinning only the disposable synthetic GPG clock, with a negative control;
+no production clock/signature validation was weakened. Native Keycloak filters and
+archive projections were added to the existing full disposable CI procedure, which
+was deliberately not rerun locally. No current-commit CI result exists yet.
+
+No services, databases, real archive destinations, timers, Lenovo changes, imported
+realm changes, commits or deployments were introduced. Article 32 field-scope
+uncertainty and justified longer applicable periods remain documented, as do unresolved
+supplier/DPA/transfer/operating facts. Acceptance of the design does not close those
+public-opening gates or publish provider claims as verified.
+
+## 13. Final local privacy review, 2026-10-18
+
+Owner-requested review retained A/B/C scope, content-rights and Mailjet eligibility
+decisions; no publication, commit or deployment was authorized. Regression tests
+reproduced unsafe cleanup retry without a fence and purge ignoring a staged review.
+Corrections also cover native effective administrative-role exclusion, directory
+creation durability, newly added holds, diagnostic redaction, explicit final
+verification and replay scan timing. The [canonical implementation record](../development/data-protection.md#local-implementation-and-acceptance)
+and [operator procedure](../development/operations-runbook.md#privacy-phase-2-administration)
+record corrected behavior and host limits. The native effective-role call follows
+the [pinned Keycloak implementation](https://github.com/keycloak/keycloak/blob/26.7.0/services/src/main/java/org/keycloak/services/resources/admin/ClientRoleMappingsResource.java),
+which expands direct, composite and group-inherited roles; the disposable CI scenario
+now asserts an administrative account is excluded. Native runtime/complete pipeline
+proof remains CI, and actual isolation/drain/recovery remains #275/#276. Public
+copy still awaits final approval and supplier/basis/transfer/operating evidence;
+Article 32 scope uncertainty and justified longer obligations remain unchanged.

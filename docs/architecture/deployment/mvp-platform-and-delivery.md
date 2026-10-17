@@ -566,6 +566,18 @@ Reuse logical dumps encrypted to the owner's public key, checksummed manifests,
 bounded retention and isolated restore. Proposed initial recovery objectives for
 owner acceptance are **RPO <=24 hours for the last verified off-host pair** and
 **RTO <=48 hours after incident detection**; neither is measured or a commercial SLA.
+**Owner storage decision (#274 phase 1, 2026-10-17), not deployed:** use the future
+VPS for live production state and owner-managed Lenovo `vgpdev` for encrypted
+production backups and a restricted legal archive, isolated from private-dev,
+repositories, agents and ordinary development processes. Legal archive and deletion
+ledger each require an independent second copy; the concrete medium/location remain
+private operating inputs. Protected keys stay off VPS and separate from encrypted
+files. The [data-protection design](../../development/data-protection.md#b-restricted-legal-archive)
+owns field/retention/sealing requirements and refusal when privilege isolation cannot
+be proved (including root/Docker access). #275 prepares that separation; #276 proves
+actual access, transfer/location, copy/expiry and recovery. No Lenovo mutation or
+storage provisioning is authorized here. Legal archives are not rolling backups.
+
 Backup history, off-host copies included, is owner-limited to **35 days** (#274);
 propose seven daily copies plus one weekly copy for four weeks. Size the independent
 destination and prove the scheduled copy/check cadence; a dump left on the VPS is
@@ -586,8 +598,9 @@ restored Keycloak without the application and the replay refuses while the appli
 runs; host-loss recovery is the only restore into the live project, only on a host
 without that project's state, and deployments stay refused until its replay is
 verified. #275's restore path must offer the same Keycloak-only start and block. The
-[#274 research](../../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion)
-holds the design and the
+[data-protection record](../../development/data-protection.md#phase-1-design-for-approval)
+owns the future cleanup/archive design; the existing ledger design evidence remains
+in [#274 research](../../research/public-release-rights-and-privacy.md#4-rights-handling-revocation-and-deletion), and the
 [operations runbook](../../development/operations-runbook.md#personal-data-requests-and-account-revocation)
 the procedure. Roles/secrets are
 reconstructed separately. Provider snapshots can aid rollback but cannot replace
