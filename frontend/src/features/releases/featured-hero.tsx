@@ -8,7 +8,7 @@ import { FeaturedArtFrame } from "./featured-art";
 import { NeedleIcon } from "../../shared/brand/needle-icon";
 import { CalendarIcon } from "./featured-icons";
 import type { FeaturedLead } from "./featured-releases-view-model";
-import { MonthDial } from "./month-dial";
+import { MonthDial, type DialReadout } from "./month-dial";
 import { DIAL_HEIGHT, DIAL_WIDTH } from "./month-dial-geometry";
 import { describeMonthScale, type MonthTimeline } from "./month-timeline";
 import { ReleaseOverflow } from "./release-overflow";
@@ -23,6 +23,15 @@ type FeaturedHeroProps = {
 
 /** Phones show this many platform marks and the exact count of the rest, as the cards do. */
 const COMPACT_PLATFORMS = 2;
+
+/**
+ * The compact date as the seal's readout: `29 oct 2026` reads as the day over its month, a coarser
+ * period as its lead over the year, and a date without numerals (`Por confirmar`) quietly.
+ */
+function toReadout(shortDate: string): DialReadout {
+  const [lead = shortDate, ...rest] = shortDate.split(" ");
+  return { lead, rest: rest.length === 0 ? null : rest.join(" "), quiet: !/\d/u.test(shortDate) };
+}
 
 function longestWord(text: string): number {
   return Math.max(...text.split(/\s+/u).map((word) => word.length));
@@ -115,6 +124,7 @@ export function FeaturedHero({ lead, timeline, monthPhrase }: FeaturedHeroProps)
               height={DIAL_HEIGHT}
               mark={lead.mark}
               markLabel={markLabel}
+              readout={toReadout(markLabel)}
               timeline={timeline}
               width={DIAL_WIDTH}
             />
@@ -140,54 +150,58 @@ export function FeaturedHero({ lead, timeline, monthPhrase }: FeaturedHeroProps)
                   )}
                 </Link>
               </h2>
-              {primaryGroup === undefined ? null : (
-                <ul aria-label="Lanzamiento" className="featured-hero-meta">
-                  <li className="featured-hero-date">
-                    <CalendarIcon />
-                    <span aria-hidden="true">{primaryGroup.shortDate}</span>
-                    <span className="sr-only">{primaryGroup.date}</span>
-                  </li>
-                  <li className="featured-hero-platforms">
-                    {/* Recognized platforms show their marks, named for assistive technology and
-                        as a tooltip; an unrecognized one keeps its name beside the generic mark.
-                        Phones keep the first marks and the exact count of the rest; every name
-                        stays announced. */}
-                    <ul aria-label="Plataformas" className="featured-platform-marks">
-                      {primaryGroup.platforms.map((name, index) => {
-                        const icon = platformIcon(primaryGroup.platformIds[index] ?? "", name);
-                        return (
-                          <li key={`${name}-${index}`} title={name}>
-                            <SelectIcon name={icon} />
-                            {icon === "platform" ? (
-                              <span className="featured-platform-name">{name}</span>
-                            ) : (
-                              <span className="sr-only">{name}</span>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                    {morePlatforms > 0 ? (
-                      <span aria-hidden="true" className="featured-platform-more">
-                        +{morePlatforms}
-                      </span>
-                    ) : null}
-                  </li>
-                  <li className="featured-hero-region">
-                    <SelectIcon name="worldwide" />
-                    <span>{primaryGroup.region}</span>
-                  </li>
-                </ul>
-              )}
+              {/* Release and genres form one run of facts: a column on the G, one wrapping line on
+                  phones. The wrapper adds no semantics. */}
+              <div className="featured-hero-facts">
+                {primaryGroup === undefined ? null : (
+                  <ul aria-label="Lanzamiento" className="featured-hero-meta">
+                    <li className="featured-hero-date">
+                      <CalendarIcon />
+                      <span aria-hidden="true">{primaryGroup.shortDate}</span>
+                      <span className="sr-only">{primaryGroup.date}</span>
+                    </li>
+                    <li className="featured-hero-platforms">
+                      {/* Recognized platforms show their marks, named for assistive technology and
+                          as a tooltip; an unrecognized one keeps its name beside the generic mark.
+                          Phones keep the first marks and the exact count of the rest; every name
+                          stays announced. */}
+                      <ul aria-label="Plataformas" className="featured-platform-marks">
+                        {primaryGroup.platforms.map((name, index) => {
+                          const icon = platformIcon(primaryGroup.platformIds[index] ?? "", name);
+                          return (
+                            <li key={`${name}-${index}`} title={name}>
+                              <SelectIcon name={icon} />
+                              {icon === "platform" ? (
+                                <span className="featured-platform-name">{name}</span>
+                              ) : (
+                                <span className="sr-only">{name}</span>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                      {morePlatforms > 0 ? (
+                        <span aria-hidden="true" className="featured-platform-more">
+                          +{morePlatforms}
+                        </span>
+                      ) : null}
+                    </li>
+                    <li className="featured-hero-region">
+                      <SelectIcon name="worldwide" />
+                      <span>{primaryGroup.region}</span>
+                    </li>
+                  </ul>
+                )}
+                {lead.genres.length === 0 ? null : (
+                  <ul aria-label="Géneros" className="featured-genres">
+                    {lead.genres.map((genre) => (
+                      <li key={genre.genreId}>{genre.name}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               {timeline === null ? null : (
                 <p className="sr-only">{describeMonthScale(timeline, lead.mark, monthPhrase)}</p>
-              )}
-              {lead.genres.length === 0 ? null : (
-                <ul aria-label="Géneros" className="featured-genres">
-                  {lead.genres.map((genre) => (
-                    <li key={genre.genreId}>{genre.name}</li>
-                  ))}
-                </ul>
               )}
               <DiscoveryScores scores={lead.scores} title={lead.title} layout="hero" />
               {lead.facts.length === 0 ? null : (

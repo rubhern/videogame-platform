@@ -103,25 +103,46 @@ for (const width of [320, 390, 834, 1320]) {
       await expect(hero.getByText("Plataforma recién adquirida")).toBeVisible();
     } else {
       await expect(hero.locator(".featured-platform-more")).toHaveText("+2");
-      // Date, platforms and region share one row at 390px; narrower phones may move the region
-      // to a second row, but always as a whole group: no group ever breaks inside.
-      const rows = await hero
-        .locator(".featured-hero-meta > li")
-        .evaluateAll((groups) =>
-          groups.map((group) => {
-            const box = group.getBoundingClientRect();
-            return { middle: box.top + box.height / 2, height: box.height };
+      // The seal reads the date, so the row keeps it for assistive technology only.
+      const meta = hero.getByRole("list", { name: "Lanzamiento" });
+      await expect(meta).toContainText("20 de agosto de 2026");
+      await expect(meta.locator(".featured-hero-date")).toHaveCSS("position", "absolute");
+      await expect(hero.locator(".featured-dial-emblem .month-dial-readout")).toHaveText("20ago 2026");
+      // Platforms, region and genres run as one left-aligned sequence that wraps by whole facts:
+      // each fact follows the previous one closely or starts a line at the title's edge, and no
+      // fact breaks inside.
+      const titleLeft = (await hero.locator(".featured-hero-title").boundingBox())?.x ?? 0;
+      const facts = await hero
+        .locator(".featured-hero-platforms, .featured-hero-region, .featured-genres li")
+        .evaluateAll((items) =>
+          items.map((item) => {
+            // Each fact keeps its separator in the space before its content.
+            const box = item.getBoundingClientRect();
+            const left = box.left + Number.parseFloat(getComputedStyle(item).paddingLeft);
+            return { left, right: box.right, middle: box.top + box.height / 2, height: box.height };
           }),
         );
-      expect(rows.every((row) => row.height <= 24)).toBe(true);
-      const [date, marks, region] = rows;
-      expect(Math.abs((marks?.middle ?? 0) - (date?.middle ?? 99))).toBeLessThan(2);
-      const regionOnDateRow = Math.abs((region?.middle ?? 0) - (date?.middle ?? 99)) < 2;
-      if (width === 390) {
-        expect(regionOnDateRow).toBe(true);
-      } else if (!regionOnDateRow) {
-        expect(region?.middle ?? 0).toBeGreaterThan((date?.middle ?? 0) + 10);
+      expect(facts).toHaveLength(4);
+      expect(facts.every((fact) => fact.height <= 24)).toBe(true);
+      for (const [index, fact] of facts.entries()) {
+        const previous = facts[index - 1];
+        const sameLine = previous !== undefined && Math.abs(fact.middle - previous.middle) < 4;
+        if (sameLine) expect(fact.left - previous.right).toBeLessThan(18);
+        else expect(Math.abs(fact.left - titleLeft)).toBeLessThan(2);
       }
+      if (width === 390) {
+        // A common release reads as one line.
+        expect(new Set(facts.map((fact) => Math.round(fact.middle / 4))).size).toBe(1);
+      }
+      // The badge introduces the title: beneath the seal, off the art, at the title's edge.
+      const badge = await hero.locator(".featured-badge").boundingBox();
+      const seal = await hero.locator(".featured-dial-emblem").boundingBox();
+      const heading = await hero.locator(".featured-hero-title").boundingBox();
+      expect(badge?.y ?? 0).toBeGreaterThanOrEqual((seal?.y ?? 0) + (seal?.height ?? 0) - 1);
+      expect(Math.abs((badge?.x ?? 0) - titleLeft)).toBeLessThan(2);
+      const lead = (heading?.y ?? 0) - ((badge?.y ?? 0) + (badge?.height ?? 0));
+      expect(lead).toBeGreaterThanOrEqual(4);
+      expect(lead).toBeLessThan(20);
     }
     // The whole hero is one native link; metadata introduces no controls.
     await expect(hero.getByRole("link", { name: /Explorar lanzamientos/ })).toHaveCount(0);
@@ -143,10 +164,19 @@ for (const width of [320, 390, 834, 1320]) {
       expect((visual?.x ?? 0) + (visual?.width ?? 0)).toBeGreaterThanOrEqual(
         (card?.x ?? 0) + (card?.width ?? 0) - 1,
       );
-    } else {
-      // Tablets and phones stack the art over the copy, which reaches up over its faded edge.
+    } else if (width >= 620) {
+      // Tablets stack the art over the copy, which reaches up over its faded edge.
       expect(body?.y ?? 0).toBeGreaterThan(visual?.y ?? 0);
       expect(body?.y ?? 0).toBeLessThan((visual?.y ?? 0) + (visual?.height ?? 0));
+    } else {
+      // Phones run the art on from the month selector; the seal rises over the art's faded foot
+      // and the copy follows beneath it at the column's width.
+      const month = await page.getByRole("navigation", { name: "Mes de la selección" }).boundingBox();
+      const seal = await hero.locator(".featured-dial-emblem").boundingBox();
+      expect(visual?.y ?? 0).toBeLessThan((month?.y ?? 0) + (month?.height ?? 0));
+      expect(seal?.y ?? 0).toBeLessThan((visual?.y ?? 0) + (visual?.height ?? 0));
+      expect(body?.y ?? 0).toBeGreaterThanOrEqual((seal?.y ?? 0) + (seal?.height ?? 0) - 1);
+      expect(body?.width ?? 0).toBeGreaterThan(width - 40);
     }
     // The temporal G holds the copy from tablet width; phones keep it as a small emblem.
     const enclosing = hero.locator(".featured-dial-g");
@@ -162,7 +192,7 @@ for (const width of [320, 390, 834, 1320]) {
     } else {
       await expect(enclosing).toBeHidden();
       await expect(emblem).toBeVisible();
-      // The emblem never takes over the phone: it stays a fraction of the screen.
+      // The seal never takes over the phone: it stays a fraction of the screen.
       const mark = await emblem.boundingBox();
       expect((mark?.width ?? 999) * (mark?.height ?? 999)).toBeLessThan(width * 844 * 0.1);
     }
@@ -236,6 +266,12 @@ for (const width of [320, 390, 834, 1320]) {
       const box = await action.boundingBox();
       if (!box) throw new Error("Featured link has no frame");
       await action.click({ position: { x: box.width - 18, y: 18 } });
+      await expect(page).toHaveURL(new RegExp(`${destination}$`));
+      await page.goBack();
+      // The art itself, away from the seal and the copy, is the same target.
+      const art = await hero.locator(".featured-hero-visual").boundingBox();
+      if (!art) throw new Error("Featured art has no frame");
+      await page.mouse.click(art.x + art.width * 0.75, art.y + art.height * 0.45);
       await expect(page).toHaveURL(new RegExp(`${destination}$`));
       await page.goBack();
     }
@@ -320,6 +356,16 @@ test("the temporal G lights the month by the API's evaluated date and marks the 
     await expect(page.locator(`.featured-card .month-strip-${phase}`)).toHaveCount(5);
   }
   await expectAccessibleLayout(page);
+
+  // The phone seal reads the same date inside its bowl, at the API's precision, and its marker
+  // carries no second label: a day reads over its month, a month over its year.
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const [path, readout] of [["/", "20ago 2026"], ["/?month=2026-07", "jul2026"]] as const) {
+    await page.goto(path);
+    const seal = page.locator(".featured-dial-emblem");
+    await expect(seal.locator(".month-dial-readout")).toHaveText(readout);
+    await expect(seal.locator(".month-dial-launch text, .month-dial-mark-label")).toHaveCount(0);
+  }
 });
 
 test("a provider image that cannot load steps down to the product fallback", async ({ page }) => {

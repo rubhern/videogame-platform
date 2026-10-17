@@ -12,8 +12,20 @@ type MonthDialProps = {
   height: number;
   /** The hero's G carries numerals and a finer scale; the phone emblem keeps its markers. */
   detail: "full" | "emblem";
+  /**
+   * The release's compact date, set inside the bowl as the instrument's own readout: its leading
+   * part (the day, or the coarser period) over the rest. The readout replaces the marker's label.
+   */
+  readout?: DialReadout;
   className?: string;
 };
+
+/** A date without a numeral, such as `Por confirmar`, reads quietly: both lines at the small size. */
+export type DialReadout = { lead: string; rest: string | null; quiet: boolean };
+
+/** The bowl's reading centre in the fixed viewport, clear of the arm and both rims. */
+const READOUT_X = 214;
+const READOUT_Y = 206;
 
 const round = (value: number) => Math.round(value * 100) / 100;
 
@@ -51,6 +63,7 @@ export function MonthDial({
   width,
   height,
   detail,
+  readout,
   className,
 }: MonthDialProps) {
   const id = useId();
@@ -223,7 +236,7 @@ export function MonthDial({
       )}
 
       {mark.kind === "day" ? (
-        <LaunchNeedle full={full} half={geometry.pointAt(at(mark.day)).half} label={String(mark.day)} point={geometry.pointAt(at(mark.day))} />
+        <LaunchNeedle full={full} half={geometry.pointAt(at(mark.day)).half} label={readout === undefined ? String(mark.day) : null} point={geometry.pointAt(at(mark.day))} />
       ) : null}
 
       {mark.kind === "span" ? (
@@ -234,7 +247,9 @@ export function MonthDial({
               d={`${segment(out(start, half + 1), out(start, half + 9))}${segment(out(end, half + 1), out(end, half + 9))}`}
             />
           )}
-          <MarkLabel offset={half + labelGap + 6} point={end} text={markLabel} />
+          {readout === undefined ? (
+            <MarkLabel offset={half + labelGap + 6} point={end} text={markLabel} />
+          ) : null}
         </g>
       ) : null}
 
@@ -242,7 +257,7 @@ export function MonthDial({
         <OutsideMark
           direction={mark.kind}
           half={half}
-          label={markLabel}
+          label={readout === undefined ? markLabel : null}
           point={mark.kind === "before" ? start : end}
         />
       ) : null}
@@ -250,9 +265,36 @@ export function MonthDial({
       {mark.kind === "unknown" ? (
         <g className="month-dial-unknown">
           <circle cx={out(end, half + 10).x} cy={out(end, half + 10).y} r={full ? 6 : 4} />
-          <MarkLabel offset={half + 24} point={end} text="Por confirmar" />
+          {readout === undefined ? (
+            <MarkLabel offset={half + 24} point={end} text="Por confirmar" />
+          ) : null}
         </g>
       ) : null}
+
+      {readout === undefined ? null : (
+        <text
+          className="month-dial-readout"
+          textAnchor="middle"
+          x={READOUT_X}
+          y={READOUT_Y - (readout.quiet ? 22 : 0)}
+        >
+          <tspan
+            className={readout.quiet ? "month-dial-readout-rest" : "month-dial-readout-lead"}
+            // A day keeps the full size; a longer period narrows to stay inside the bowl.
+            fontSize={
+              readout.quiet ? undefined : round(Math.min(150, 330 / Math.max(readout.lead.length, 1)))
+            }
+            x={READOUT_X}
+          >
+            {readout.lead}
+          </tspan>
+          {readout.rest === null ? null : (
+            <tspan className="month-dial-readout-rest" x={READOUT_X} y={READOUT_Y + (readout.quiet ? 30 : 66)}>
+              {readout.rest}
+            </tspan>
+          )}
+        </text>
+      )}
     </svg>
   );
 }
@@ -286,7 +328,7 @@ export function DialSilhouette({
 function LaunchNeedle({ point, half, label, full }: {
   point: DialPoint;
   half: number;
-  label: string;
+  label: string | null;
   full: boolean;
 }) {
   const id = useId();
@@ -312,9 +354,11 @@ function LaunchNeedle({ point, half, label, full }: {
         <circle className="month-dial-needle" r={radius} />
         <circle className="month-dial-needle-core" r={radius * 0.34} />
       </g>
-      <text dominantBaseline="central" textAnchor={anchorFor(point)} x={labelPoint.x} y={labelPoint.y}>
-        {label}
-      </text>
+      {label === null ? null : (
+        <text dominantBaseline="central" textAnchor={anchorFor(point)} x={labelPoint.x} y={labelPoint.y}>
+          {label}
+        </text>
+      )}
     </g>
   );
 }
@@ -344,7 +388,7 @@ function OutsideMark({
   point: DialPoint;
   half: number;
   direction: "before" | "after";
-  label: string;
+  label: string | null;
 }) {
   const centre = out(point, half + 9);
   // Time runs along the tangent; a release before the month points back against it.
@@ -359,7 +403,7 @@ function OutsideMark({
   return (
     <g className="month-dial-outside">
       <path d={`M${arm(1).x} ${arm(1).y}L${tip.x} ${tip.y}L${arm(-1).x} ${arm(-1).y}`} />
-      <MarkLabel offset={half + 24} point={point} text={label} />
+      {label === null ? null : <MarkLabel offset={half + 24} point={point} text={label} />}
     </g>
   );
 }
