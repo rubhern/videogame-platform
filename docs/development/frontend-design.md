@@ -643,25 +643,39 @@ title as native links, up to two localized genres beneath the title, and the edi
 **Tu puntuación** reading. No summary, developer, publisher,
 game mode or release-specific platform/region context is shown: these are Game ratings.
 There is no **Ver ficha** CTA and the complete row is never a link. Post-MVP (#279,
-implemented; awaiting owner review), the read-only community and IGDB readings are the
-compact readings of the [discovery score rules](#featured-releases), unchanged, in one row
-directly beneath the genres: secondary context in the game's column, never a second panel
-competing with the personal score. A row shows only its valid sources and omits the readings
-without any; the IGDB attribution is its only link besides the title. **Tu puntuación** keeps
-the row's right edge: beside the game from tablet width and beneath it on phones, where the
-readings wrap within the game's column. Calendar dates are quiet secondary text without hours: one
-**Puntuado el …** when creation and update have the same visible date; otherwise compact
-**Actualizado el …** with the original date. The personal score
-is a Gameómetro reading — its G-meter, its temperature in words and the number at reading size —
-in the language of the game page: it is the reason the row exists. The private filters share one
-row of night controls under the title rather than four loose fields, and stay separate from the
-header's public catalogue search. Pages hold
-10 ratings by default, with 10, 20 or 50 to choose from.
+implemented; awaiting owner review), the read-only community and IGDB readings follow the
+[discovery score rules](#featured-releases) directly beneath the genres: secondary context in
+the game's column, never a second panel competing with the personal score. A row shows only its
+valid sources and omits the readings without any; the IGDB attribution is its only link besides
+the title. Post-MVP (#325, implemented; awaiting owner review), the ledger sets them a step
+larger than cards so both sources compare without zooming, stacked with marks and means aligned
+until the game's column holds them side by side. The cover's provider credit stays visible and
+linked as one quiet line in the readout voice beneath the cover. On phones the cover anchors the
+line and the game, **Tu puntuación** and its dates read down one column beside it; when that
+column is narrow for its text — the narrowest phones or enlarged text — the score and its dates
+take the full line beneath the game. From 760px the score keeps the row's right edge, centred
+beside the game and its dates. Calendar dates are quiet secondary text without hours: one
+**Puntuado el …** when creation and update have the same visible date; otherwise **Actualizado el
+…** leads, followed by **Puntuado el …**. Each date stays whole, and one that wraps drops its
+separator rather than starting a line with it. The personal score is a Gameómetro reading — its
+G-meter, the **Tu puntuación** label, the number at reading size and its temperature in words on
+the number's baseline, wrapping beneath it only when it must — in the language of the game page:
+it is the reason the row exists, so it stays more prominent than the source readings. The private
+filters are night controls under the title, separate from the header's public catalogue search:
+one search field whose **Buscar** action is joined to its right edge, then one **Orden** selector
+that names the field and the direction together (**Más recientes**, **Más antiguas**, **Título
+A–Z**, **Título Z–A**, **Nota más alta**, **Nota más baja**) and the page size. Searching still
+waits for **Buscar** or Enter; an order or page size applies on selection and returns to the
+first page. Phones set the search on one row and the order and page size on the next, their
+words carrying the value without decorative icons; below 360px the order shows its direction
+arrow in place of its word. From 720px the three share one row. Pages hold 10 ratings by
+default, with 10, 20 or 50 to choose from.
 
 Post-MVP (#210), the score reading is the row's only maintenance control: a night control with
-a caret that opens an anchored, non-modal, opaque panel whose top edge takes the pending value's
-temperature. The panel hangs from the reading's right
-edge from tablet width and spans the row beneath it on phones. It overlays the rows below
+a caret, set apart by a hairline, that opens an anchored, non-modal, opaque panel whose top edge
+takes the pending value's temperature. The panel spans the whole line beneath the reading on
+phones, hangs from the reading's left edge while the reading sits under the game, and from its
+right edge once the reading has a column of its own. It overlays the rows below
 instead of growing its own, so the cover, title and dates never move. The panel holds the
 game page's keypad and its key (one shared component), a G-meter and reading for the pending
 value in its temperature, and the persisted value named beside it while they differ. Then

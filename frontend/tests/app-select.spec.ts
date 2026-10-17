@@ -80,11 +80,11 @@ test("personal rating dropdowns use the same keyboard and visual treatment", asy
   });
 
   await page.goto("/mis-puntuaciones");
-  const sort = page.getByRole("combobox", { name: /^Ordenar por/ });
+  const sort = page.getByRole("combobox", { name: /^Orden/ });
   await expect(sort).toBeVisible();
   await sort.focus();
   await page.keyboard.press("ArrowDown");
-  await expect(page.getByRole("listbox", { name: "Ordenar por" })).toBeVisible();
+  await expect(page.getByRole("listbox", { name: "Orden" })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Editar puntuación" }).click();
   const score = page.getByRole("combobox", { name: /^Nueva puntuación/ });
