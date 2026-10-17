@@ -61,40 +61,42 @@ function CommunityScore({ statistics }: { statistics: GameDetails["ratingStatist
       <h2 className="game-reading-label" id="statistics-title">
         Puntuación de la comunidad
       </h2>
-      <GameMeter className="game-reading-meter" value={mean} />
-      <div className="game-reading-body">
-        {available === null ? (
-          <div role="status">
+      <div className="game-reading-figure">
+        <GameMeter className="game-reading-meter" value={mean} />
+        <div className="game-reading-body">
+          {available === null ? (
             <p className="game-reading-empty">Nota no disponible</p>
-            <p className="game-reading-description">
-              Las estadísticas no están disponibles temporalmente. Puedes seguir consultando el
-              juego.
-            </p>
-          </div>
-        ) : mean === null ? (
-          <>
+          ) : mean === null ? (
             <p className="game-reading-empty">Sin nota todavía</p>
-            <p className="game-reading-description">Todavía no hay puntuaciones para este juego.</p>
-          </>
-        ) : (
-          <>
-            <p aria-label={`Nota media: ${decimal(mean)} de 10`} className="game-reading-value">
-              {decimal(mean)}
-              <span>/10</span>
-            </p>
-            {band === null ? null : (
-              <p className="game-reading-band">
-                <span className="sr-only">Temperatura: </span>
-                {thermalLabels[band]}
+          ) : (
+            <>
+              <p aria-label={`Nota media: ${decimal(mean)} de 10`} className="game-reading-value">
+                {decimal(mean)}
+                <span>/10</span>
               </p>
-            )}
-            <p className="game-reading-description">
-              Basada en <strong>{available.count.toLocaleString("es-ES")}</strong>{" "}
-              {available.count === 1 ? "puntuación" : "puntuaciones"}
-            </p>
-          </>
-        )}
+              {band === null ? null : (
+                <p className="game-reading-band">
+                  <span className="sr-only">Temperatura: </span>
+                  {thermalLabels[band]}
+                </p>
+              )}
+            </>
+          )}
+        </div>
       </div>
+      {/* The count stays as readable as the mean, so a reading from one vote says so plainly. */}
+      {available === null ? (
+        <p className="game-reading-description" role="status">
+          Las estadísticas no están disponibles temporalmente. Puedes seguir consultando el juego.
+        </p>
+      ) : mean === null ? (
+        <p className="game-reading-description">Todavía no hay puntuaciones para este juego.</p>
+      ) : (
+        <p className="game-reading-description">
+          Basada en <strong>{available.count.toLocaleString("es-ES")}</strong>{" "}
+          {available.count === 1 ? "puntuación" : "puntuaciones"}
+        </p>
+      )}
     </section>
   );
 }
@@ -112,24 +114,26 @@ function ExternalScore({ score, title }: { score: ExternalPlayerScore; title: st
       <h2 className="game-reading-label" id="external-score-title">
         Jugadores IGDB
       </h2>
-      <div className="game-reading-meter game-external-score-mark">
-        <a
-          aria-label={`Jugadores IGDB: fuente de la puntuación de ${title}`}
-          href={score.attributionUrl}
-        >
-          <img alt="" height="41" src="/assets/providers/igdb.svg" width="82" />
-        </a>
+      <div className="game-reading-figure">
+        <div className="game-reading-meter game-external-score-mark">
+          <a
+            aria-label={`Jugadores IGDB: fuente de la puntuación de ${title}`}
+            href={score.attributionUrl}
+          >
+            <img alt="" height="41" src="/assets/providers/igdb.svg" width="82" />
+          </a>
+        </div>
+        <div className="game-reading-body">
+          <p aria-label={`Nota media: ${decimal(score.value)} de 10`} className="game-reading-value">
+            {decimal(score.value)}
+            <span>/10</span>
+          </p>
+        </div>
       </div>
-      <div className="game-reading-body">
-        <p aria-label={`Nota media: ${decimal(score.value)} de 10`} className="game-reading-value">
-          {decimal(score.value)}
-          <span>/10</span>
-        </p>
-        <p className="game-reading-description">
-          Basada en <strong>{exactCount.format(score.count)}</strong>{" "}
-          {score.count === 1 ? "valoración" : "valoraciones"}
-        </p>
-      </div>
+      <p className="game-reading-description">
+        Basada en <strong>{exactCount.format(score.count)}</strong>{" "}
+        {score.count === 1 ? "valoración" : "valoraciones"}
+      </p>
     </section>
   );
 }
@@ -186,9 +190,9 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
       </div>
 
       {/* The ratings belong to the whole game. The community's is the product's own reading and
-          leads; IGDB's supporting reading and the visitor's own follow beside it. IGDB's is
+          leads; IGDB's supporting reading sits beside it and the visitor's own follows. IGDB's is
           omitted, never invented, without a score. */}
-      <div className="game-scores">
+      <div className="game-scores" data-sources={externalScore === null ? 1 : 2}>
         <CommunityScore statistics={game.ratingStatistics} />
         <div className="game-scores-aside">
           {externalScore === null ? null : (

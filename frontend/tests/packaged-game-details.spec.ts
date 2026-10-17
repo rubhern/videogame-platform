@@ -230,10 +230,11 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
     await expect(page.getByText("Lanzamiento completo")).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
 
-    // A known stage reads as quieter secondary text under its date.
-    const dateLayout = await page.locator(".game-release-when dd").first().evaluate((when) => {
-      const date = when.querySelector(".game-release-date");
-      const stage = when.querySelector(".game-release-stage");
+    // A known stage reads as quieter secondary text, on the line beneath its date on phones and
+    // beside it on a wide ledger.
+    const dateLayout = await page.locator(".game-release-group").first().evaluate((group) => {
+      const date = group.querySelector(".game-release-date");
+      const stage = group.querySelector(".game-release-stage dd");
       if (!date || !stage) throw new Error("Release date and stage missing");
       return {
         dateBottom: date.getBoundingClientRect().bottom,
@@ -242,7 +243,7 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
         stageSize: Number.parseFloat(getComputedStyle(stage).fontSize),
       };
     });
-    expect(dateLayout.stageTop).toBeGreaterThanOrEqual(dateLayout.dateBottom - 1);
+    if (width < 760) expect(dateLayout.stageTop).toBeGreaterThanOrEqual(dateLayout.dateBottom - 1);
     expect(dateLayout.stageSize).toBeLessThan(dateLayout.dateSize);
 
     // Every platform and region reads at once; the further record waits, whole and unmerged,
@@ -454,15 +455,18 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
       expect(Math.abs(personal.x - external.x)).toBeLessThanOrEqual(1);
       expect(personal.y).toBeGreaterThan(external.y + external.height);
       expect(summary.y).toBeGreaterThan(Math.max(score.y + score.height, personal.y + personal.height));
-    } else if (width >= 760) {
-      // Tablets keep the readings beside the cover, one beneath the other.
-      expect(score.x).toBeGreaterThan(cover.x + cover.width);
-      expect(external.y).toBeGreaterThan(score.y + score.height);
-      expect(personal.y).toBeGreaterThan(external.y + external.height);
-      expect(summary.y).toBeGreaterThan(personal.y + personal.height);
     } else {
-      expect(external.y).toBeGreaterThan(score.y + score.height);
-      expect(personal.y).toBeGreaterThan(external.y + external.height);
+      // Below the desktop the two sources read side by side, the community's first, with their
+      // labels and counts on shared rows; the visitor's own reading follows beneath both.
+      if (width >= 760) expect(score.x).toBeGreaterThan(cover.x + cover.width);
+      expect(external.x).toBeGreaterThan(score.x + score.width - 1);
+      expect(Math.abs(external.y - score.y)).toBeLessThanOrEqual(1);
+      const counts = await page.locator(".game-scores .game-reading-description").evaluateAll((nodes) =>
+        nodes.map((node) => Math.round(node.getBoundingClientRect().top)),
+      );
+      expect(new Set(counts).size).toBe(1);
+      expect(personal.y).toBeGreaterThan(Math.max(score.y + score.height, external.y + external.height));
+      expect(personal.width).toBeGreaterThan(score.width + external.width - 2);
       expect(summary.y).toBeGreaterThan(personal.y + personal.height);
     }
 
@@ -522,7 +526,7 @@ for (const width of [320, 390, 834, 1024, 1320]) {
     await expect(information.getByText("Géneros", { exact: true })).toHaveCount(0);
     await expect(information.getByText("Modos de juego", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Leer más" })).toHaveCount(0);
-    await expect(calendar.locator(".game-release-row")).toHaveCount(1);
+    await expect(calendar.locator(".game-release-group")).toHaveCount(1);
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const metadata = await information.locator(".game-facts").boundingBox();
@@ -535,6 +539,99 @@ for (const width of [320, 390, 834, 1024, 1320]) {
       Number.parseFloat(getComputedStyle(element).fontSize))).toBeLessThanOrEqual(40);
   });
 }
+
+// #325: platforms sharing a whole context read as one calendar line; a distinct status keeps its own.
+for (const width of [320, 390, 1320]) {
+  test(`grouped calendar and centred cover at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const game = gameDetailsFixture();
+    const [original] = game.releases;
+    if (!original) throw new Error("Fixture needs a release");
+    const shared = {
+      ...original,
+      stage: "full_release",
+      region: { regionId: "worldwide", name: "Mundial" },
+      releaseDate: { precision: "day", value: "2026-09-24" },
+      verificationLevel: "provider_only",
+    } as const;
+    game.releases = [
+      { ...shared, releaseId: "ps5", platform: { platformId: "playstation-5", name: "PlayStation 5" } },
+      { ...shared, releaseId: "mac", platform: { platformId: "mac", name: "Mac" } },
+      { ...shared, releaseId: "pc", platform: { platformId: "pc", name: "Windows PC" } },
+      { ...shared, releaseId: "xbox", platform: { platformId: "xbox-series-x-s", name: "Xbox Series X|S" } },
+      { ...shared, releaseId: "switch", platform: { platformId: "nintendo-switch", name: "Nintendo Switch" }, status: "cancelled" },
+    ];
+    await page.route("**/api/v1/games/*", (route) => route.fulfill({ json: game }));
+    await page.goto(gamePath);
+    const calendar = page.getByRole("region", { name: "Fechas y plataformas" });
+    await expect(calendar.locator(".game-release-group")).toHaveCount(2);
+    const first = calendar.locator(".game-release-group").first();
+    await expect(first.getByText("24 de septiembre de 2026")).toHaveCount(1);
+    await expect(first.locator(".game-release-platforms li")).toHaveText([
+      "PlayStation 5",
+      "Mac",
+      "Windows PC",
+      "Xbox Series X|S",
+    ]);
+    await expect(calendar.locator(".game-release-group").nth(1)).toContainText("Cancelado");
+    await page.evaluate(() => document.fonts.ready);
+    // Platforms fill as many columns as fit: two side by side on a 390px phone, one at 320px.
+    const tops = await first.locator(".game-release-platforms li").evaluateAll((items) =>
+      items.map((item) => Math.round(item.getBoundingClientRect().top)),
+    );
+    if (width === 320) expect(new Set(tops).size).toBe(4);
+    else expect(tops[0]).toBe(tops[1]);
+    if (width < 760) {
+      // The portrait cover stands centred in the column.
+      const cover = await page.locator(".game-artwork").boundingBox();
+      const column = await page.locator(".game-detail-layout").boundingBox();
+      if (!cover || !column) throw new Error("Cover and column must render");
+      expect(Math.abs(cover.x + cover.width / 2 - (column.x + column.width / 2))).toBeLessThanOrEqual(1);
+    }
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+// Enlarged text stacks whole reading groups and spec lines instead of shrinking or clipping them.
+test("readings and spec sheet reflow under 150% text at 390px", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.addInitScript(() =>
+    document.addEventListener("DOMContentLoaded", () => {
+      document.documentElement.style.fontSize = "150%";
+    }),
+  );
+  const game = gameDetailsFixture();
+  game.developers = [{ companyId: "dev", name: "Insomniac Games" }];
+  game.externalScore = {
+    source: "igdb",
+    kind: "player",
+    value: 7.5,
+    scale: 10,
+    count: 43,
+    attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/resident-evil-requiem" },
+    observedAt: "2026-08-01T10:00:00Z",
+  };
+  await page.route("**/api/v1/games/*", (route) => route.fulfill({ json: game }));
+  await page.goto(gamePath);
+  const community = await page.getByRole("region", { name: "Puntuación de la comunidad" }).boundingBox();
+  const external = await page.getByRole("region", { name: "Jugadores IGDB" }).boundingBox();
+  if (!community || !external) throw new Error("Both readings must render");
+  expect(external.y).toBeGreaterThanOrEqual(community.y + community.height);
+  const fact = page.locator(".game-fact").filter({ hasText: "Desarrollador" });
+  const term = await fact.locator("dt").boundingBox();
+  const value = await fact.locator("dd").boundingBox();
+  if (!term || !value) throw new Error("The developer fact must render");
+  expect(value.y).toBeGreaterThanOrEqual(term.y + term.height - 1);
+  // The shared header's own reflow is reviewed separately; the page's content stays in view.
+  const clipped = await page.locator("main").evaluate((main) =>
+    [...main.querySelectorAll("*")].filter((element) => {
+      const box = element.getBoundingClientRect();
+      return box.width > 0 && box.right > innerWidth + 0.5 && !element.closest(".stage-light");
+    }).length,
+  );
+  expect(clipped).toBe(0);
+});
 
 // #209: nothing decorative animates perpetually beneath the page, which would redraw every
 // blurred surface each frame on high-density phones, and the fixed grain overscans the viewport

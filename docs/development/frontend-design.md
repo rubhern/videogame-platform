@@ -537,12 +537,21 @@ as a spec sheet at its natural height, with no empty rows, forced stretching or 
 keeps the hero's two columns: the metadata under the cover's column and **Fechas y plataformas**
 under the copy's, their headings set as peers on the sheet's first line, so the facts and the
 calendar read as one composition rather than a list beside a table. Tablets keep the cover beside
-the title and the readings, which stack in the same order with the supporting readings behind a
-hairline, then give the summary and the information the full width, the calendar below the
-metadata. Phones open with the
-title, then cover, the readings in that order, summary and information, with the calendar
-nested last. Source order follows this phone reading order, so keyboard navigation never jumps
-back to the identity after the summary. Release-discovery cards, full search results and
+the title and the readings, then give the summary and the information the full width, the
+calendar below the metadata. Phones open with the title, then cover, the readings in that order,
+summary and information, with the calendar nested last. Source order follows this phone reading
+order, so keyboard navigation never jumps back to the identity after the summary.
+
+Post-MVP (#325, implemented; awaiting owner review), below 1024px the two source readings form
+one band under a single hairline: the community reading in the wider column and **Jugadores IGDB**
+beside it behind a vertical hairline, their labels, figures and counts on shared rows so the two
+means compare straight across; without an IGDB reading the community's takes the band. **Tu
+puntuación** follows beneath both at the band's full width. When the band is narrower than about
+17.5em of its own text — enlarged text rather than any phone width from 320px — each reading
+takes the full width, IGDB's beneath a hairline, and nothing shrinks or truncates. On phones the
+cover stands centred in the column, about two thirds of its width and at most 272px, with its
+caption centred beneath it, and the stage's light gathers around the cover itself and fades out
+before the title and the readings. Release-discovery cards, full search results and
 `Mis puntuaciones` rows carry scores under the discovery rules above; the search typeahead keeps
 them absent, and other screens carry none until #279 phase 4 reviews them.
 
@@ -558,7 +567,8 @@ separate, supporting reading: the community reading's parts at a smaller size an
 neutral ink rather than a temperature, so it never reads as Gameómetro's own. The white
 [IGDB mark](../../frontend/public/assets/providers/README.md) stands in the meter's place and is
 the only link, to this game's source work. The mean keeps its /10 scale, followed on the same
-line while it fits by `Basada en N valoraciones` with the exact count, including one. It never takes a band or a temperature, and without a valid mean and positive count the whole reading is omitted, never
+line while it fits by `Basada en N valoraciones` with the exact count, including one; in the
+paired band below the desktop the count takes the counts' shared row. It never takes a band or a temperature, and without a valid mean and positive count the whole reading is omitted, never
 filled, whatever the community reading shows. Loading reserves no place for it.
 
 **Tu puntuación** stays secondary to the source readings: one compact reading in the
@@ -606,29 +616,44 @@ no credit.
 when the same companies hold both roles. Each role can list several companies. **Géneros** and
 **Modos de juego** follow as scannable tags carrying the catalogue's names exactly as served.
 Beside the calendar on a wide sheet the metadata is one column; spanning a tablet sheet it uses
-two, with company roles above taxonomy; phones use a natural single column. Spacing and
-typography separate fields without inner cards. Unknown facts are omitted, never filled; when no
+two, with company roles above taxonomy; phones use a natural single column. Post-MVP (#325,
+implemented; awaiting owner review), below 1024px each field is a specification line, its label
+in a fixed column with the value beside it on the same baseline, and the label returns above its
+value when the sheet is narrower than about 19em of its own text, at 320px or under enlarged text.
+Spacing and typography separate fields without inner cards. Unknown facts are omitted, never filled; when no
 metadata is known, the sheet proceeds directly to its calendar without empty placeholders.
 
 **Fechas y plataformas** is a lower-level heading inside the spec sheet, set in the same display
 voice as **Información del juego**, set apart from known metadata by its own column or position,
-with no surface of its own; its rows are a ledger between hairlines. It lists the
-presented release of every platform and region, in the API's presented-release order, so a
-visitor reads every date without choosing anything first; no
-selector is invented and none is needed. Each row reads as three groups where it fits — where,
-when and the status — rather than as spreadsheet columns: the platform mark and name over the
-region mark and name, both marks in one shared slot so the names align; the date at its own
-precision in the readout voice and in ice, with its known normalized Spanish stage as quiet
-secondary text beneath it (an unknown stage is left unstated); and the status in words, led by a
-marker whose shape differs per state (a filled stop once released, an open ring while ahead, a
-diamond for a delay, a bar for a cancellation or an unknown status). Phones stack where, then
-when, with the status opposite the platform. A pending review is flagged on its row, under the
-platform's name, with a warning marker that does not rely on colour, and verified evidence is
-credited there. Synchronization age is internal operational evidence: no row, notice or source line states
-it, and the source attribution names only the sources. Rows are a list whose values are named for assistive
-technology, never a table. Further records of the same platform and region stay whole, one row
-each, in a closed native disclosure, `Otras fechas registradas (N)`, whose summary carries the
-review notice when any of them is pending review. The block closes with its attribution: the
+with no surface of its own; its lines are a ledger between hairlines. It lists the
+presented release of every platform and region, so a visitor reads every date without choosing
+anything first; no selector is invented and none is needed.
+
+Post-MVP (#325, implemented; awaiting owner review; it replaces one row per platform and region
+in the API's presented-release order), the ledger has one line per release *context*: releases
+whose date and precision, region, status, stage, review status and verification level are all
+identical share a line, which states that context once and then lists every platform it covers,
+so four platforms launching together in one region read as one date. Grouping is presentation
+only: no Release is merged, rewritten or dropped, a value that differs between releases is never
+stated as shared, and a release whose context is its own keeps a line of its own, so a
+cancellation on the same day as a launch, a delay or a different stage always reads apart. Lines
+run as a calendar, from the earliest period their date can mean to the latest, with unknown dates
+last and lines that start together in the API's order; platforms keep the API's order within a
+line. Each line opens with the date at its own precision in the readout voice and in ice, with
+the status in words opposite it, led by a marker whose shape differs per state (a filled stop once
+released, an open ring while ahead, a diamond for a delay, a bar for a cancellation or an unknown
+status); then the region mark and name and the known normalized Spanish stage as quiet secondary
+text (an unknown stage is left unstated), beneath the date on phones and beside it on a wide
+ledger; then the platforms, each mark in one shared slot so the names align, in as many columns
+as fit and one beneath the other when none do, a single platform taking the whole line. A pending
+review is flagged under the line's platforms with a warning marker that does not rely on colour,
+and verified evidence is credited there. Synchronization age is internal operational evidence: no
+line, notice or source line states it, and the source attribution names only the sources. Lines
+are a list whose values are named for assistive technology — the date, status, region, stage and
+the list of platforms each line covers — never a table. Further records of the same platform and
+region stay whole in a closed native disclosure, `Otras fechas registradas (N)`, where `N` counts
+those records and their lines follow the same grouping, and whose summary carries the review
+notice when any of them is pending review. The block closes with its attribution: the
 release sources. Further provenance timestamps and the
 provider-only verification default stay out of the primary hierarchy. A game without releases
 says “No hay lanzamientos comerciales registrados.”.
