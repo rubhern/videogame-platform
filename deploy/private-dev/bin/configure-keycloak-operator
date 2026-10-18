@@ -3,8 +3,8 @@
 """Align the catalogue operator role on an existing realm and grant or revoke it.
 
 Startup import never changes an existing realm, so this command adds the BFF client's
-`catalogue-operator` role and its ID-token mapper exactly as the reviewed production realm
-import declares them. Both are additive and leave accounts, credentials and other clients
+`catalogue-operator` role and its ID-token mapper exactly as the private-dev and local realm
+import declares them; the production realm test proves the production import declares the same. Both are additive and leave accounts, credentials and other clients
 untouched. Granting or revoking the role changes one named account; a session keeps the
 authority it signed in with until it ends, so revoke its sessions to withdraw access at once.
 """
@@ -22,7 +22,7 @@ import urllib.parse
 sys.dont_write_bytecode = True
 
 repository_root = pathlib.Path(__file__).resolve().parents[3]
-production_import = repository_root / "deploy/public-production/keycloak/import/gameometro-realm.json"
+realm_import = repository_root / "docker/keycloak/import/videogame-platform-realm.json"
 # Connection handling and the admin client stay owned by the mail configuration command.
 _loader = importlib.machinery.SourceFileLoader(
     "private_dev_keycloak_mail", str(repository_root / "deploy/private-dev/bin/configure-keycloak-mail")
@@ -41,7 +41,7 @@ ROLE = "catalogue-operator"
 
 
 def desired() -> tuple[dict[str, object], dict[str, object]]:
-    realm = json.loads(production_import.read_text(encoding="utf-8"))
+    realm = json.loads(realm_import.read_text(encoding="utf-8"))
     [role] = [role for role in realm["roles"]["client"][CLIENT_ID] if role["name"] == ROLE]
     [client] = [client for client in realm["clients"] if client["clientId"] == CLIENT_ID]
     [mapper] = [mapper for mapper in client["protocolMappers"] if mapper["config"]["claim.name"] == "product_roles"]

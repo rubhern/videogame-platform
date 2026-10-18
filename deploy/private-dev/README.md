@@ -531,8 +531,8 @@ Post-MVP (#247, implemented; awaiting owner review): catalogue administration an
 session signed in with the BFF client's `catalogue-operator` role
 ([ADR-0028](../../docs/decisions/0028-authorize-catalogue-operators-with-a-bff-client-role.md)).
 The realm import declares the role and its ID-token mapper, but startup import never changes
-the existing realm, so `bin/configure-keycloak-operator` aligns them exactly as the
-production import declares them. It is additive: accounts, credentials, other clients and the
+the existing realm, so `bin/configure-keycloak-operator` aligns them exactly as that
+import declares them; the production realm test proves the production import matches. It is additive: accounts, credentials, other clients and the
 identity policy are untouched, so it needs no snapshot. Without the role nobody can read the
 administration API; the application fails closed.
 

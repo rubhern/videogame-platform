@@ -68,7 +68,7 @@ def unmanaged() -> dict[str, object]:
     return {name: value for name, value in representation.items() if name != "protocolMappers"}
 
 
-# The local realm import already declares exactly the production role and mapper.
+# A fresh import of the local realm already declares exactly the role and mapper.
 assert run("--check").returncode == 0
 assert module.drift(client, role, mapper) == []
 

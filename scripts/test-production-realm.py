@@ -231,6 +231,12 @@ assert client["protocolMappers"] == [
         },
     }
 ]
+# Private-dev and local realms are aligned from their own import, which must declare the same
+# role and mapper as production (configure-keycloak-operator reads it, never this file).
+local_realm = json.loads((repository_root / "docker/keycloak/import/videogame-platform-realm.json").read_text(encoding="utf-8"))
+[local_client] = [entry for entry in local_realm["clients"] if entry["clientId"] == client["clientId"]]
+assert local_realm["roles"] == realm["roles"], "local and production realms declare the same client roles"
+assert local_client["protocolMappers"] == client["protocolMappers"], "local and production BFF mappers match"
 
 print("Production realm import is isolated, minimal and matches the reviewed identity policy.")
 
