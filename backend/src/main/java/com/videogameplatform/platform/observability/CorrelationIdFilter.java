@@ -82,6 +82,8 @@ final class CorrelationIdFilter extends OncePerRequestFilter {
                     "RATING_STATISTICS_READ_FAILED",
                     "PERSONAL_RATINGS_READ_FAILED",
                     "RATING_WRITE_FAILED",
+                    "ACCESS_DENIED",
+                    "COVERAGE_RANGE_INVALID",
                     "AUTHENTICATION_CANCELLED",
                     "AUTHENTICATION_FAILED");
     private final MeterRegistry registry;

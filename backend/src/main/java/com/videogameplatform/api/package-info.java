@@ -3,6 +3,7 @@
         displayName = "API Delivery",
         allowedDependencies = {
             "catalogue::application",
+            "catalogue::acquisition",
             "catalogue::cover",
             "catalogue::releases",
             "catalogue::search",

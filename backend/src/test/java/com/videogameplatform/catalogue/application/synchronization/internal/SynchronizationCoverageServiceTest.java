@@ -6,8 +6,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage.LastScan;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage.Period;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage.LastScan;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage.Period;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.CoveredInterval;
 import java.time.Instant;

@@ -525,6 +525,38 @@ values in Mailjet, outbound port 587 from the host and, if it is blocked, the
 documented fallback `PRIVATE_DEV_SMTP_RELAY_PORT=2525` followed by step 5 again.
 Without event logging, read lockouts in the Admin Console under the user's details.
 
+## Catalogue operator role
+
+Post-MVP (#247, implemented; awaiting owner review): catalogue administration answers only a
+session signed in with the BFF client's `catalogue-operator` role
+([ADR-0028](../../docs/decisions/0028-authorize-catalogue-operators-with-a-bff-client-role.md)).
+The realm import declares the role and its ID-token mapper, but startup import never changes
+the existing realm, so `bin/configure-keycloak-operator` aligns them exactly as the
+production import declares them. It is additive: accounts, credentials, other clients and the
+identity policy are untouched, so it needs no snapshot. Without the role nobody can read the
+administration API; the application fails closed.
+
+Run it only after owner review, merge and separate approval to operate on `vgpdev`, from the
+installed merged revision, as root:
+
+```bash
+operator=(python3 deploy/private-dev/bin/configure-keycloak-operator \
+  --private-dev-env-file /etc/videogame-platform/dev/runtime.env)
+"${operator[@]}" --check || true
+"${operator[@]}"
+"${operator[@]}" --check
+"${operator[@]}" --grant 'owner-account-username'
+"${operator[@]}" --list-holders
+```
+
+The username is the account's exact Keycloak username (its email under the email
+identifier policy). A grant applies from that account's next sign-in, so sign out and in
+again, then open **Mi cuenta → Panel de administrador**. `--revoke` removes the role from
+new sessions only; to end access at once, also revoke the account's sessions with the
+[revocation procedure](../../docs/development/operations-runbook.md#personal-data-requests-and-account-revocation). Locally, run the same command with
+`--origin http://localhost:8180 --admin-username <local admin> --admin-password-file /dev/stdin`
+against an existing local realm; a freshly imported local realm already declares the role.
+
 ## Personal-data requests
 
 Post-MVP (#274). The

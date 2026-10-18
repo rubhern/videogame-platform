@@ -59,7 +59,8 @@ DECLARATION_REQUIRED = "Para crear tu cuenta, confirma que tienes 18 años o má
 DECLARATION_LABEL = "Declaro que tengo 18 años o más y acepto las condiciones de uso de Gameómetro."
 VERIFY_TITLE = "Verifica tu email"
 RECOVERY_SENT = "Si el email corresponde a una cuenta, recibirás en breve un enlace para crear una nueva contraseña."
-ID_TOKEN_CLAIMS = {"exp", "iat", "auth_time", "jti", "iss", "aud", "sub", "typ", "azp", "nonce", "sid", "at_hash"}
+# product_roles appears only for an account holding a BFF client role (#247).
+ID_TOKEN_CLAIMS = {"exp", "iat", "auth_time", "jti", "iss", "aud", "sub", "typ", "azp", "nonce", "sid", "at_hash", "product_roles"}
 
 # Every credential, address, link key and token the journey handles must stay out of the log.
 sensitive: list[str] = [socket.gethostbyname(socket.gethostname())]
@@ -453,6 +454,7 @@ status, tokens = token_request(
 assert status == 200 and tokens["scope"] == "openid", tokens
 identity = claims(tokens["id_token"])
 assert set(identity) <= ID_TOKEN_CLAIMS, f"unexpected ID-token claims: {set(identity) - ID_TOKEN_CLAIMS}"
+assert not identity.get("product_roles"), "a newly registered account holds no product role"
 assert identity["iss"] == ISSUER and identity["aud"] == CLIENT_ID and identity["sub"] == verified["id"]
 assert claims(tokens["refresh_token"])["typ"] == "Refresh", "no offline token"
 userinfo = urllib.request.Request(

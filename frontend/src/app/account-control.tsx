@@ -88,6 +88,18 @@ export function AccountControl() {
             </svg>
             Mis puntuaciones
           </Link>
+          {/* Navigation only: the server authorizes every administration read itself. */}
+          {session.data.capabilities.includes("catalogue_administration") ? (
+            <Link className="account-option" onClick={() => setOpen(false)} to="/administracion/catalogo">
+              <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+                <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+                <circle cx="7" cy="5" r="1.6" fill="currentColor" />
+                <circle cx="13" cy="10" r="1.6" fill="currentColor" />
+                <circle cx="9" cy="15" r="1.6" fill="currentColor" />
+              </svg>
+              Panel de administrador
+            </Link>
+          ) : null}
           <button
             className="account-option"
             disabled={logout.isPending}

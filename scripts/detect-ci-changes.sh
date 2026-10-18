@@ -137,7 +137,7 @@ for path in "${changed_paths[@]}"; do
       enable build frontend browser backend container
       matched=true
       ;;
-    scripts/validate-identity.sh | scripts/test-keycloak-mail-configuration.py | docker/keycloak/* | backend/src/main/resources/application-oidc.yaml)
+    scripts/validate-identity.sh | scripts/test-keycloak-mail-configuration.py | scripts/test-keycloak-operator-role.py | docker/keycloak/* | backend/src/main/resources/application-oidc.yaml)
       enable identity browser backend
       matched=true
       ;;

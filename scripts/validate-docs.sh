@@ -35,6 +35,7 @@ required_files=(
   "backend/README.md"
   "backend/postman/README.md"
   "backend/postman/actuator.postman_collection.json"
+  "backend/postman/catalogue-administration.postman_collection.json"
   "backend/postman/catalogue-releases.postman_collection.json"
   "backend/postman/catalogue-search.postman_collection.json"
   "backend/postman/featured-releases.postman_collection.json"

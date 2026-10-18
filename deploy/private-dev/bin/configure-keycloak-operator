@@ -1,0 +1,212 @@
+#!/usr/bin/env python3
+
+"""Align the catalogue operator role on an existing realm and grant or revoke it.
+
+Startup import never changes an existing realm, so this command adds the BFF client's
+`catalogue-operator` role and its ID-token mapper exactly as the reviewed production realm
+import declares them. Both are additive and leave accounts, credentials and other clients
+untouched. Granting or revoking the role changes one named account; a session keeps the
+authority it signed in with until it ends, so revoke its sessions to withdraw access at once.
+"""
+
+from __future__ import annotations
+
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import pathlib
+import sys
+import urllib.parse
+
+sys.dont_write_bytecode = True
+
+repository_root = pathlib.Path(__file__).resolve().parents[3]
+production_import = repository_root / "deploy/public-production/keycloak/import/gameometro-realm.json"
+# Connection handling and the admin client stay owned by the mail configuration command.
+_loader = importlib.machinery.SourceFileLoader(
+    "private_dev_keycloak_mail", str(repository_root / "deploy/private-dev/bin/configure-keycloak-mail")
+)
+_spec = importlib.util.spec_from_loader(_loader.name, _loader)
+assert _spec is not None
+mail = importlib.util.module_from_spec(_spec)
+_loader.exec_module(mail)
+
+provisioning = mail.provisioning
+ProvisioningError = provisioning.ProvisioningError
+REALM = provisioning.REALM
+ADMIN_REALM = f"/admin/realms/{REALM}"
+CLIENT_ID = "videogame-platform-bff"
+ROLE = "catalogue-operator"
+
+
+def desired() -> tuple[dict[str, object], dict[str, object]]:
+    realm = json.loads(production_import.read_text(encoding="utf-8"))
+    [role] = [role for role in realm["roles"]["client"][CLIENT_ID] if role["name"] == ROLE]
+    [client] = [client for client in realm["clients"] if client["clientId"] == CLIENT_ID]
+    [mapper] = [mapper for mapper in client["protocolMappers"] if mapper["config"]["claim.name"] == "product_roles"]
+    return role, mapper
+
+
+class Client:
+    """Admin API reads and writes for the BFF client's role, mapper and role holders."""
+
+    def __init__(self, admin: object) -> None:
+        self.admin = admin
+        clients = self.get(f"/clients?{urllib.parse.urlencode({'clientId': CLIENT_ID})}")
+        if not isinstance(clients, list) or len(clients) != 1:
+            raise ProvisioningError(f"Realm {REALM} has no single {CLIENT_ID} client")
+        self.path = f"/clients/{clients[0]['id']}"
+        self.uuid = clients[0]["id"]
+
+    def get(self, path: str) -> object:
+        payload, _ = self.admin._request("GET", f"{ADMIN_REALM}{path}", expected={200})
+        return json.loads(payload) if payload else None
+
+    def send(self, method: str, path: str, body: object, expected: set[int]) -> None:
+        self.admin._request(method, f"{ADMIN_REALM}{path}", body=body, expected=expected)
+
+    def role(self) -> dict[str, object] | None:
+        roles = self.get(f"{self.path}/roles")
+        if not isinstance(roles, list):
+            raise ProvisioningError("Keycloak returned invalid client roles")
+        return next((role for role in roles if role.get("name") == ROLE), None)
+
+    def mapper(self, name: str) -> dict[str, object] | None:
+        mappers = self.get(f"{self.path}/protocol-mappers/models")
+        if not isinstance(mappers, list):
+            raise ProvisioningError("Keycloak returned invalid protocol mappers")
+        return next((mapper for mapper in mappers if mapper.get("name") == name), None)
+
+    def account(self, username: str) -> dict[str, object]:
+        query = urllib.parse.urlencode({"username": username, "exact": "true", "briefRepresentation": "true"})
+        users = self.get(f"/users?{query}")
+        if not isinstance(users, list) or len(users) != 1:
+            raise ProvisioningError("No single account has exactly that username")
+        return users[0]
+
+    def holders(self) -> list[str]:
+        users = self.get(f"{self.path}/roles/{ROLE}/users?{urllib.parse.urlencode({'briefRepresentation': 'true'})}")
+        if not isinstance(users, list):
+            raise ProvisioningError("Keycloak returned invalid role holders")
+        return sorted(str(user.get("username") or "") for user in users)
+
+
+def drift(client: Client, role: dict[str, object], mapper: dict[str, object]) -> list[str]:
+    differing: list[str] = []
+    current = client.role()
+    if current is None or current.get("description") != role["description"] or current.get("composite"):
+        differing.append("role")
+    current_mapper = client.mapper(mapper["name"])
+    if current_mapper is None or any(
+        current_mapper.get(name) != mapper[name] for name in ("protocol", "protocolMapper")
+    ) or current_mapper.get("config") != mapper["config"]:
+        differing.append("mapper")
+    return differing
+
+
+def apply(client: Client, role: dict[str, object], mapper: dict[str, object], differing: list[str]) -> None:
+    if "role" in differing:
+        current = client.role()
+        body = {"name": role["name"], "description": role["description"], "composite": False}
+        if current is None:
+            client.send("POST", f"{client.path}/roles", body, {201})
+        else:
+            client.send("PUT", f"{client.path}/roles/{ROLE}", {**current, **body}, {204})
+    if "mapper" in differing:
+        current_mapper = client.mapper(mapper["name"])
+        body = {name: mapper[name] for name in ("name", "protocol", "protocolMapper", "consentRequired", "config")}
+        if current_mapper is None:
+            client.send("POST", f"{client.path}/protocol-mappers/models", body, {201})
+        else:
+            client.send(
+                "PUT",
+                f"{client.path}/protocol-mappers/models/{current_mapper['id']}",
+                {**body, "id": current_mapper["id"]},
+                {204},
+            )
+
+
+def change_holder(client: Client, username: str, grant: bool) -> bool:
+    current = client.role()
+    if current is None:
+        raise ProvisioningError(f"Role {ROLE} is missing; align the realm before granting it")
+    account = client.account(username)
+    mapping = f"/users/{account['id']}/role-mappings/clients/{client.uuid}"
+    held = client.get(mapping)
+    holds = isinstance(held, list) and any(entry.get("name") == ROLE for entry in held)
+    if holds == grant:
+        return False
+    client.send("POST" if grant else "DELETE", mapping, [{"id": current["id"], "name": ROLE}], {204})
+    return True
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Check, align, grant or revoke the catalogue operator role.")
+    target = parser.add_mutually_exclusive_group(required=True)
+    target.add_argument("--private-dev-env-file", type=pathlib.Path)
+    target.add_argument("--origin", help="Keycloak origin for local or disposable environments")
+    parser.add_argument("--admin-username", help="Master-realm administrator, with --origin")
+    parser.add_argument("--admin-password-file", type=pathlib.Path, help="Password input (for example /dev/stdin), with --origin")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="Report whether the role and its mapper are aligned")
+    mode.add_argument("--grant", metavar="USERNAME", help="Grant the role to the account with exactly this username")
+    mode.add_argument("--revoke", metavar="USERNAME", help="Revoke the role from the account with exactly this username")
+    mode.add_argument("--list-holders", action="store_true", help="Print the usernames that hold the role")
+    arguments = parser.parse_args()
+
+    if arguments.origin:
+        if not arguments.admin_username or not arguments.admin_password_file:
+            parser.error("--origin requires --admin-username and --admin-password-file")
+        origin, username, password = mail.explicit_connection(arguments.origin, arguments.admin_username, arguments.admin_password_file)
+    else:
+        if arguments.admin_username or arguments.admin_password_file:
+            parser.error("--private-dev-env-file reads the administrator from protected runtime files")
+        origin, username, password = mail.private_dev_connection(arguments.private_dev_env_file)
+
+    role, mapper = desired()
+    admin = provisioning.KeycloakAdmin(origin)
+    admin.authenticate(username, password)
+    client = Client(admin)
+
+    if arguments.list_holders:
+        for holder in client.holders():
+            print(holder)
+        return 0
+    if arguments.grant or arguments.revoke:
+        if drift(client, role, mapper):
+            raise ProvisioningError("The role or its mapper is not aligned; run this command without a mode first")
+        grant = bool(arguments.grant)
+        changed = change_holder(client, arguments.grant or arguments.revoke, grant)
+        if not changed:
+            print(f"The account {'already holds' if grant else 'does not hold'} {ROLE}; nothing changed.")
+        elif grant:
+            print(f"Granted {ROLE}; it applies from the account's next sign-in.")
+        else:
+            print(f"Revoked {ROLE}; sessions signed in earlier keep it until they end or are revoked.")
+        return 0
+
+    differing = drift(client, role, mapper)
+    if arguments.check:
+        if differing:
+            print(f"Realm {REALM} catalogue operator configuration differs: {', '.join(differing)}", file=sys.stderr)
+            return 1
+        print(f"Realm {REALM} declares the reviewed catalogue operator role and mapper.")
+        return 0
+    if not differing:
+        print(f"Realm {REALM} already declares the reviewed catalogue operator role and mapper; nothing changed.")
+        return 0
+    apply(client, role, mapper, differing)
+    remaining = drift(client, role, mapper)
+    if remaining:
+        raise ProvisioningError(f"Keycloak did not retain the catalogue operator configuration: {', '.join(remaining)}")
+    print(f"Updated realm {REALM}: {', '.join(differing)}.")
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, ProvisioningError, ValueError, KeyError) as error:
+        print(f"Keycloak catalogue operator configuration failed: {error}", file=sys.stderr)
+        raise SystemExit(1) from None

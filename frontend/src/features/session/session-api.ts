@@ -1,11 +1,17 @@
+import type { components } from "../../shared/api/generated/schema";
 import {
   productApiClient,
   type ProductApiClient,
 } from "../../shared/api/product-api-client";
 
+export type SessionCapability = components["schemas"]["SessionCapability"];
+
+/**
+ * Capabilities only guide navigation; the server authorizes every protected operation itself.
+ */
 export type SessionState =
   | { authenticated: false }
-  | { authenticated: true; csrfToken: string };
+  | { authenticated: true; csrfToken: string; capabilities: readonly SessionCapability[] };
 
 /** Reads the minimal BFF session state. Tokens and identity never reach the browser. */
 export async function getSession(
@@ -20,7 +26,11 @@ export async function getSession(
     throw new Error("The session request failed.");
   }
   if (data && data.authenticated === true && "csrfToken" in data) {
-    return { authenticated: true, csrfToken: data.csrfToken };
+    return {
+      authenticated: true,
+      csrfToken: data.csrfToken,
+      capabilities: "capabilities" in data && data.capabilities ? data.capabilities : [],
+    };
   }
   return { authenticated: false };
 }

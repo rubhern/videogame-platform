@@ -62,6 +62,10 @@ remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
   untrusted.
 - Keycloak authenticates; the BFF validates the protocol and maps validated
   `issuer + subject` to product `UserId`. Product authorization stays in the backend.
+  Proposed (#247, [ADR-0028](../decisions/0028-authorize-catalogue-operators-with-a-bff-client-role.md);
+  implemented, awaiting owner review): the only role the BFF reads is the
+  `catalogue-operator` client role from its validated ID token, mapped at sign-in to the
+  operator authority that catalogue administration requires.
 - IGDB data is untrusted input and must be normalized and validated before
   publication. It is the catalogue's acquisition source, never its serving source, and
   provider identities never become product identity.
@@ -149,6 +153,12 @@ authentication, revocable by a private management operation that personal writes
 cannot outrun, and ended in Keycloak too on logout
 ([ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md),
 [platform design](deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)).
+
+Catalogue administration (#247) is a read-only product-port surface under
+`/api/v1/admin`, answered only for the operator authority. API delivery reaches it through
+Catalogue's `acquisition` application contract, which reads run and coverage evidence and
+cannot reach synchronization or the provider (`ProviderBoundaryTest`); synchronization
+commands stay on the private management interface.
 
 The product API is contract-first HTTP/JSON. OpenAPI generates frontend types and
 backend Spring interfaces/transport models; manual delivery adapters map to

@@ -51,6 +51,19 @@ class ProviderBoundaryTest {
                             "..catalogue.adapter.provider..",
                             "..catalogue.adapter.scheduling..");
 
+    /** The read contract HTTP delivery may use for acquisition evidence stays read-only. */
+    @ArchTest
+    static final ArchRule ACQUISITION_EVIDENCE_CANNOT_REACH_THE_PROVIDER_OR_SYNCHRONIZATION =
+            noClasses()
+                    .that()
+                    .resideInAPackage("..catalogue.application.acquisition..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "..catalogue.application.synchronization..",
+                            "..catalogue.adapter..",
+                            "..catalogue.configuration..");
+
     @ArchTest
     static final ArchRule ONLY_THE_PROVIDER_ADAPTER_USES_PROVIDER_TRANSPORT_MODELS =
             noClasses()

@@ -1,5 +1,6 @@
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
+import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
 import { DiscoveryPage } from "../pages/discovery-page";
 import { GameDetailsPage } from "../pages/game-details-page";
 import { NotFoundPage } from "../pages/not-found-page";
@@ -15,6 +16,7 @@ export const appRoutes: RouteObject[] = [
       { index: true, element: <DiscoveryPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
+      { path: "administracion/catalogo", element: <CatalogueAdministrationPage /> },
       { path: "games/:gameId/:slug?", element: <GameDetailsPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],

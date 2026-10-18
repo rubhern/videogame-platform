@@ -333,6 +333,17 @@ retained run reports above. Judge a covered period's scan age against the decisi
 because no staleness threshold exists. An uncovered period is input for a deliberate
 operator interval, never an automatic backfill.
 
+Post-MVP (#247, implemented; awaiting owner review): the same evidence is readable without
+SSH at `/administracion/catalogo`, reached from **Mi cuenta → Panel de administrador**
+by a session signed in with the `catalogue-operator` role
+([ADR-0028](../decisions/0028-authorize-catalogue-operators-with-a-bff-client-role.md)). It
+shows the run in flight, flagged when it has stopped giving heartbeats, the last twenty
+retained runs with their outcome code and counters, and coverage by decade, year and month
+with each period's last complete scan. Its "recent" reading is a presentation policy of
+seven days, not a threshold. The view is read-only: starting a run stays on the management
+command. The [private-dev runbook](../../deploy/private-dev/README.md#catalogue-operator-role)
+owns how the role is configured, granted and revoked.
+
 Runtime provider/trigger failure preserves last-valid Game state and stays outside
 readiness and product reads. Inspect trigger outcome/duration and existing run/provider
 counters via the [observability catalogue](observability.md); scheduled failure uses

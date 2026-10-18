@@ -92,6 +92,13 @@ BFF route that redirects through the identity provider's end-session endpoint; t
 token appears only in that redirect, as the standard `id_token_hint`, never in an API
 response. Session/personal/command responses use `Cache-Control: no-store`.
 
+Operations under `/admin` require a server-derived authority as well as a session: an
+anonymous request is `401`, a signed-in session without the authority is `403
+ACCESS_DENIED`, and both precede validation. `GET /session` may name the session's
+capabilities for navigation only; the server authorizes every request. Administration
+responses are `no-store` and never carry provider payloads, credentials, provider names or
+internal topology.
+
 ## Caching, observability, and compatibility
 
 Public reads may use explicit `Cache-Control`, `ETag`, and `If-None-Match`; validators

@@ -442,6 +442,8 @@ python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(enc
   "$repository_root/deploy/private-dev/bin/configure-keycloak-mail"
 python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
   "$repository_root/deploy/private-dev/bin/configure-keycloak-identity"
+python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
+  "$repository_root/deploy/private-dev/bin/configure-keycloak-operator"
 for personal_data_command in personal-data personal-data-ledger; do
   python3 -c 'import pathlib, sys; compile(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"), sys.argv[1], "exec")' \
     "$repository_root/deploy/private-dev/bin/$personal_data_command"

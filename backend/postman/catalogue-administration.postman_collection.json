@@ -1,0 +1,207 @@
+{
+  "info": {
+    "name": "VideoGame Platform Backend - Catalogue Administration",
+    "description": "Executable #247 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; no OAuth token or credential belongs in this collection. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Bootstrap operator session",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/session",
+        "description": "Requires the browser-created vgp_session cookie of an account holding the catalogue-operator role, signed in after the role was granted."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "const operator = body.authenticated === true && Array.isArray(body.capabilities) && body.capabilities.includes(\"catalogue_administration\");",
+              "pm.test(\"Session holds the catalogue administration capability\", () => pm.expect(operator, \"Sign in with an account holding the catalogue-operator client role and sync the localhost cookie with Postman Interceptor\").to.eql(true));",
+              "pm.test(\"No raw role or claim is exposed\", () => pm.expect(JSON.stringify(body)).not.to.match(/catalogue-operator|product_roles|ROLE_/));",
+              "if (!operator) { pm.execution.setNextRequest(null); }"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Synchronization status and bounded recent runs",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization",
+        "description": "The run holding synchronization ownership, when one exists, and at most twenty finished retained runs."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Operator evidence is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "const body = pm.response.json();",
+              "pm.test(\"At most twenty finished runs, newest first\", () => {",
+              "    pm.expect(body.recentRuns).to.be.an(\"array\");",
+              "    pm.expect(body.recentRuns.length).to.be.at.most(20);",
+              "    for (let i = 1; i < body.recentRuns.length; i++) {",
+              "        pm.expect(Date.parse(body.recentRuns[i].startedAt)).to.be.at.most(Date.parse(body.recentRuns[i - 1].startedAt));",
+              "    }",
+              "});",
+              "pm.test(\"Results use the closed vocabulary; abandoned runs have no counters\", () => body.recentRuns.forEach((run) => {",
+              "    pm.expect([\"succeeded\", \"partial\", \"failed\", \"abandoned\"]).to.include(run.result);",
+              "    if (run.result === \"abandoned\") pm.expect(run).not.to.have.property(\"counters\");",
+              "}));",
+              "pm.test(\"No provider name or internal report field\", () => pm.expect(JSON.stringify(body)).not.to.match(/IGDB|inspectedReleaseDates|providerLatencyMillis/));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Coverage of one year as consecutive periods",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization-coverage?from=1997-01-01&to=1997-12-31",
+        "description": "Durable coverage, independent of retained run history. A year always fits one bounded answer."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "pm.test(\"Operator evidence is never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "const body = pm.response.json();",
+              "pm.test(\"Periods are consecutive and start at from\", () => {",
+              "    pm.expect(body.periods[0].from).to.eql(\"1997-01-01\");",
+              "    pm.expect(body).not.to.have.property(\"continuesFrom\");",
+              "    pm.expect(body.periods[body.periods.length - 1].to).to.eql(\"1997-12-31\");",
+              "});",
+              "pm.test(\"Only covered periods carry their last complete scan\", () => body.periods.forEach((period) => {",
+              "    pm.expect([\"covered\", \"never_covered\"]).to.include(period.status);",
+              "    pm.expect(Object.prototype.hasOwnProperty.call(period, \"lastScan\")).to.eql(period.status === \"covered\");",
+              "}));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reversed coverage range",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization-coverage?from=1997-12-31&to=1997-01-01",
+        "description": "from must not be after to."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code COVERAGE_RANGE_INVALID\", () => pm.expect(pm.response.json().code).to.eql(\"COVERAGE_RANGE_INVALID\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Missing coverage bound",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization-coverage?from=1997-01-01",
+        "description": "Both bounds are required ISO dates."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code REQUEST_MALFORMED\", () => pm.expect(pm.response.json().code).to.eql(\"REQUEST_MALFORMED\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Unknown administration query parameter",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization?limit=500",
+        "description": "The bounded history has no client-chosen size."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code REQUEST_PARAMETER_UNKNOWN\", () => pm.expect(pm.response.json().code).to.eql(\"REQUEST_PARAMETER_UNKNOWN\"));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

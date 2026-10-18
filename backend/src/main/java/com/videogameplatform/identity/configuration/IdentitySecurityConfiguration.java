@@ -2,9 +2,11 @@ package com.videogameplatform.identity.configuration;
 
 import com.videogameplatform.identity.adapter.operator.SessionRevocationEndpoint;
 import com.videogameplatform.identity.adapter.session.PendingIdentityProviderLogout;
+import com.videogameplatform.identity.adapter.web.ProductRoleAuthorities;
 import com.videogameplatform.identity.adapter.web.SecurityContextCurrentUser;
 import com.videogameplatform.identity.adapter.web.SessionRevocation;
 import com.videogameplatform.identity.application.CurrentUser;
+import com.videogameplatform.identity.application.ProductAuthorities;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -61,6 +63,7 @@ public class IdentitySecurityConfiguration {
 
     static final String AUTHORIZATION_BASE_URI = "/auth/login";
     static final String SESSION_PATH = "/api/v1/session";
+    static final String ADMINISTRATION_PATHS = "/api/v1/admin/**";
     private static final String CONTENT_SECURITY_POLICY =
             "default-src 'self'; "
                     + "base-uri 'self'; "
@@ -120,6 +123,10 @@ public class IdentitySecurityConfiguration {
                                 authorize
                                         .requestMatchers("/api/v1/me/**")
                                         .authenticated()
+                                        // Catalogue administration needs the operator
+                                        // authority; an anonymous request still gets 401.
+                                        .requestMatchers(ADMINISTRATION_PATHS)
+                                        .hasAuthority(ProductAuthorities.CATALOGUE_OPERATOR)
                                         .anyRequest()
                                         .permitAll())
                 .requestCache(cache -> cache.disable())
@@ -205,6 +212,10 @@ public class IdentitySecurityConfiguration {
                     oauth2 ->
                             oauth2.loginPage("/auth/start")
                                     .authorizedClientRepository(authorizedClients)
+                                    .userInfoEndpoint(
+                                            userInfo ->
+                                                    userInfo.userAuthoritiesMapper(
+                                                            new ProductRoleAuthorities()))
                                     .authorizationEndpoint(
                                             endpoint ->
                                                     endpoint.authorizationRequestResolver(

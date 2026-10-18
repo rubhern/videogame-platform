@@ -128,7 +128,8 @@ them back.
   and account sit on night with ice edges. Post-MVP (#151), the navigation is named **Lanzamientos** and holds
   **Destacados**, **Recientes** and **Próximos**; Destacados is the landing route. The account
   control provides `Mi cuenta`, `Mis puntuaciones` and CSRF-protected logout for an
-  authenticated session. Post-MVP (#162), anonymous browsing also exposes primary
+  authenticated session, and **Panel de administrador** only when the session names
+  that capability (#247). Post-MVP (#162), anonymous browsing also exposes primary
   `Iniciar sesión` and secondary `Crear cuenta` links that start BFF/OIDC navigation
   directly to the hosted Gameómetro identity screens;
   discovery stays anonymous and the inline rating authentication boundary remains available.
@@ -718,6 +719,43 @@ command. A concurrent or ambiguous command keeps further commands disabled until
 succeeds; a failed read keeps the existing **Reintentar carga** recovery. Announce outcomes
 and move focus to the results after maintenance or pagination. Empty ratings, no search
 matches, an exhausted page and load failure remain distinct.
+
+## Catalogue administration
+
+Post-MVP (#247, implemented; awaiting owner review), `/administracion/catalogo` is the
+operator's ledger of catalogue acquisition, not a product screen: plain night without a
+stage, art, G or score instrument, under the shared header and page opening (**Administración
+del catálogo** over **Sincronización y cobertura**). Players never see it; a signed-out
+visitor gets the sign-in notice and a signed-in account without the role a warning notice,
+both from the server's answer rather than from hidden navigation.
+
+Two tabs split the page, **Ejecuciones** (the default) and **Cobertura**: a labelled
+tablist under the opening whose selection lives in the URL (`tab`), operated by click,
+arrow keys, Home and End, and marked by ink, weight and an ice rule rather than colour alone.
+Coverage is read only while its tab is open.
+
+In **Ejecuciones**, **Ejecución actual** states the run in flight, its interval, start and last heartbeat, or
+calmly that none runs, with an **Actualizar estado** action; a stalled run adds a `warning`
+line, and while a run is in flight the page reads its status again every fifteen seconds.
+**Ejecuciones recientes** lists the retained finished runs newest first as hairline cards:
+the result in words, its start and duration, interval, stable outcome code, what the result
+means for coverage, and the Game, Release and provider-request counters. An abandoned run
+says it has no counters rather than showing zeros. The lead states that failed,
+interrupted or abandoned runs never change recorded coverage.
+
+**Cobertura** opens with the three terms — covered, never covered (since coverage has
+been recorded, whatever Games the catalogue already holds), freshness —
+then a year-and-month overview with drill-down rather than a heatmap: a decade's years,
+the selected year's months and the selected month's periods, all in the URL (`tab`,
+`year`, `month`) and drawn from bounded coverage reads. Year and month tables state the coverage in
+words, the covered days, the oldest complete scan and freshness ("Reciente" within seven
+days, otherwise its age), plus a note when a covering run had failed Games; a summary the
+server's bounded answer did not reach says so instead of claiming never covered. Each status
+pairs its words with a marker whose shape differs (filled, half-filled, ring, dashed ring;
+a square for a failed or abandoned run), so no state depends on colour, and forced colours
+keep the shapes. Tables sit in a labelled, focusable region that may scroll sideways on
+phones while the page never does; their cells keep words whole. Choosing a year or month is
+a native link, marks it with `aria-current`, and moves focus to the level that changed.
 
 ## Server-backed states
 

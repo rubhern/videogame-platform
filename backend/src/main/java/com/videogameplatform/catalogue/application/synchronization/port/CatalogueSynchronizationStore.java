@@ -1,8 +1,9 @@
 package com.videogameplatform.catalogue.application.synchronization.port;
 
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationStatus;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderGameDetails;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderRegion;
@@ -56,6 +57,27 @@ public interface CatalogueSynchronizationStore {
     /** One stored disjoint interval and the latest complete scan that covered it. */
     record CoveredInterval(
             LocalDate from, LocalDate to, SynchronizationCoverage.LastScan lastScan) {}
+
+    /**
+     * The run holding run ownership, if any, first, then at most {@code limit} finished retained
+     * runs, newest first; one statement reads them, so a run finishing meanwhile appears once.
+     */
+    List<RetainedRun> retainedRuns(int limit);
+
+    /**
+     * A retained run row. An empty {@code result} is a run still holding ownership, without
+     * completion, outcome or counters; counters are also absent when no report was recorded.
+     */
+    record RetainedRun(
+            UUID runId,
+            LocalDate from,
+            LocalDate to,
+            Instant startedAt,
+            Instant heartbeatAt,
+            Optional<SynchronizationStatus.Result> result,
+            Optional<Instant> completedAt,
+            Optional<String> outcomeCode,
+            Optional<CatalogueSynchronizationReport.Counters> counters) {}
 
     record GameState(
             UUID gameId,
