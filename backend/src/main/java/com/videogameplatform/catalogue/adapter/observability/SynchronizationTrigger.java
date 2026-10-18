@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.adapter.observability;
 /** Closed trigger and policy metric vocabularies; configuration never supplies tag values. */
 public enum SynchronizationTrigger {
     MANUAL("manual", "none"),
+    ADMINISTRATION("administration", "none"),
     NEAR_TERM("scheduled", "near_term"),
     UPCOMING("scheduled", "upcoming");
 

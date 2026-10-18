@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Catalogue Administration",
-    "description": "Executable #247 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; no OAuth token or credential belongs in this collection. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate.",
+    "description": "Executable #247 and #248 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -29,7 +29,12 @@
               "const operator = body.authenticated === true && Array.isArray(body.capabilities) && body.capabilities.includes(\"catalogue_administration\");",
               "pm.test(\"Session holds the catalogue administration capability\", () => pm.expect(operator, \"Sign in with an account holding the catalogue-operator client role and sync the localhost cookie with Postman Interceptor\").to.eql(true));",
               "pm.test(\"No raw role or claim is exposed\", () => pm.expect(JSON.stringify(body)).not.to.match(/catalogue-operator|product_roles|ROLE_/));",
-              "if (!operator) { pm.execution.setNextRequest(null); }"
+              "if (operator) {",
+              "    pm.collectionVariables.set(\"csrfToken\", body.csrfToken);",
+              "} else {",
+              "    pm.collectionVariables.unset(\"csrfToken\");",
+              "    pm.execution.setNextRequest(null);",
+              "}"
             ]
           }
         }
@@ -202,6 +207,187 @@
           }
         }
       ]
+    },
+    {
+      "name": "Reject synchronization request without CSRF",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"from\":\"2026-10-01\",\"to\":\"2026-10-01\"}"
+        },
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization",
+        "description": "A state change needs the session-bound CSRF token; nothing starts."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code CSRF_VALIDATION_FAILED\", () => pm.expect(pm.response.json().code).to.eql(\"CSRF_VALIDATION_FAILED\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reversed synchronization interval",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"from\":\"2026-12-31\",\"to\":\"2026-10-01\"}"
+        },
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization",
+        "description": "from must not be after to; rejected before any run starts."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code SYNCHRONIZATION_RANGE_INVALID\", () => pm.expect(pm.response.json().code).to.eql(\"SYNCHRONIZATION_RANGE_INVALID\"));",
+              "pm.test(\"Names the date to correct\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/to\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Synchronization interval longer than 184 days",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"from\":\"2026-01-01\",\"to\":\"2026-07-04\"}"
+        },
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization",
+        "description": "One request covers at most a calendar half-year; longer backfill is a separate workflow."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 422\", () => pm.response.to.have.status(422));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code SYNCHRONIZATION_RANGE_INVALID\", () => pm.expect(pm.response.json().code).to.eql(\"SYNCHRONIZATION_RANGE_INVALID\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Request a one-day bounded synchronization",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"from\":\"2026-10-01\",\"to\":\"2026-10-01\"}"
+        },
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization",
+        "description": "Answers before any provider work. 202 returns the accepted run, followed through the status request; 409 means another run holds the single ownership; 422 SYNCHRONIZATION_DISABLED means this environment has no provider credentials. Nothing is retried."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Accepted, already running or disabled\", () => pm.expect([202, 409, 422]).to.include(pm.response.code));",
+              "pm.test(\"Command answers are never stored\", () => pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\"));",
+              "const body = pm.response.json();",
+              "if (pm.response.code === 202) {",
+              "    pm.test(\"The accepted run names its identity and interval only\", () => {",
+              "        pm.expect(body.runId).to.be.a(\"string\").and.not.be.empty;",
+              "        pm.expect(body.from).to.eql(\"2026-10-01\");",
+              "        pm.expect(body.to).to.eql(\"2026-10-01\");",
+              "        pm.expect(JSON.stringify(body)).not.to.match(/IGDB|client|secret|actuator/i);",
+              "    });",
+              "} else {",
+              "    pm.test(\"Stable rejection code\", () => pm.expect(pm.response.code === 409 ? \"SYNCHRONIZATION_ALREADY_RUNNING\" : \"SYNCHRONIZATION_DISABLED\").to.eql(body.code));",
+              "}"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "csrfToken",
+      "value": ""
     }
   ]
 }

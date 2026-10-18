@@ -67,13 +67,15 @@ with a dedicated short statement timeout; health details remain hidden.
   say what committed writes did to the stored usable score. The upsert's own
   `RETURNING old/new` classifies it, so there is no extra query per Game. A Game that
   neither held nor now holds a usable score, a kept score and an answer older than the
-  stored check change none of them. Only manual and scheduled commands record these
-  meters; repair batches appear in the retained run reports only. A failed score write
+  stored check change none of them. Only manual, administration and scheduled triggers record
+  these meters; repair batches appear in the retained run reports only. A failed score write
   rolls back its whole Game and is counted only as a failed Game.
 - Trigger meters `catalogue.synchronization.trigger{trigger,policy,outcome}` and
-  `.trigger.duration{trigger,policy,outcome}` distinguish `manual/none` from
-  `scheduled/near_term` and `scheduled/upcoming`, with the closed synchronization
-  outcome vocabulary. Duration is monotonic wall time, including unexpected trigger
+  `.trigger.duration{trigger,policy,outcome}` distinguish `manual/none` (management
+  command), `administration/none` (operator request, #248) and `scheduled/near_term` and
+  `scheduled/upcoming`, with the closed synchronization outcome vocabulary. An
+  administration trigger records only accepted runs, timed on their background worker; a
+  rejected request starts nothing and is visible as its HTTP request's stable error code. Duration is monotonic wall time, including unexpected trigger
   failure. Every returned report also contributes once to the existing aggregate run
   meters/counters. A failure before a report exists contributes only to trigger meters;
   it does not invent a durable run. Dates, IDs, cron strings and exception messages are
@@ -586,8 +588,10 @@ reads durable interval coverage under the same boundary. The
 [backend README](../../backend/README.md#persistence-and-observability) owns
 invocation and the [operations runbook](operations-runbook.md#catalogue-synchronization)
 owns the private-dev procedure. The command remains an exceptional operator path
-alongside the opt-in scheduled inbound adapter. Both are absent from the product
-OpenAPI contract; the command inherits the management-port boundary below, so no
+alongside the opt-in scheduled inbound adapter and the operator's bounded request on the
+product port (#248), which answers before any provider work. The management command and the
+scheduler are absent from the product OpenAPI contract; the command inherits the
+management-port boundary below, and the request requires the operator authority, so no
 visitor request can trigger a provider call. Scheduler state and provider outcomes
 are never health dependencies.
 

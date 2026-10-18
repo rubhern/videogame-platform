@@ -1,16 +1,18 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.15.0
+  version: 3.16.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, weekly and monthly
     featured releases, bounded-catalogue search, public game details, BFF session discovery, the
-    authenticated user's ratings, and the catalogue operator's read-only synchronization
-    status and coverage. It contains only the twelve approved method/path operations.
+    authenticated user's ratings, and the catalogue operator's synchronization status,
+    coverage and bounded synchronization request. It contains only the thirteen approved
+    method/path operations.
 
-    Authentication navigation under `/auth` and every synchronization command are separate
-    BFF and operational boundaries and are intentionally not exposed here. Provider
+    Authentication navigation under `/auth` and the management-port synchronization, repair
+    and localization commands are separate BFF and operational boundaries and are
+    intentionally not exposed here. Provider
     image binaries are loaded from an approved CDN reference or replaced by a
     product-owned fallback; this API does not copy, proxy, or redistribute them.
 servers:
@@ -29,9 +31,10 @@ tags:
     description: Minimal BFF session state without identity or provider tokens.
   - name: Catalogue administration
     description: |
-      Read-only catalogue acquisition evidence for sessions holding the catalogue operator
-      authority. It reads local run and coverage evidence only and never starts, schedules or
-      reaches a synchronization or the provider.
+      Catalogue acquisition for sessions holding the catalogue operator authority: reads of
+      local run and coverage evidence, and one command that requests a bounded
+      synchronization and returns before any provider work. No operation here waits for, or
+      exposes, the provider.
 security: []
 paths:
   /releases:
@@ -1284,6 +1287,66 @@ paths:
         '422': { $ref: '#/components/responses/AdministrationValidationFailed' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
+    post:
+      tags: [Catalogue administration]
+      operationId: requestCatalogueSynchronization
+      summary: Request one bounded synchronization of an inclusive release-date interval
+      description: |
+        Requires an authenticated session holding the catalogue operator authority and its
+        session-bound CSRF token. Validates the inclusive `from`–`to` interval, takes the single
+        synchronization ownership and answers `202` with the accepted run before any provider
+        work begins; the run continues in the background. Follow it with
+        `GET /admin/catalogue/synchronization`: the accepted `runId` is the `currentRun` while it
+        runs and then appears in `recentRuns` with its result. The run is the same
+        synchronization and reconciliation as every other trigger, and its coverage follows the
+        same rules.
+
+        Only one synchronization runs at a time, whatever started it: while another run holds
+        ownership the request is rejected with `409 SYNCHRONIZATION_ALREADY_RUNNING` and starts
+        nothing. An environment without provider access rejects it with `422
+        SYNCHRONIZATION_DISABLED`. The interval is at most 184 days, any calendar half-year,
+        between 1950-01-01 and 2099-12-31; longer historical backfill is a separate,
+        resumable operator workflow. Nothing is retried automatically, and the response never
+        carries a provider payload, credential, provider identifier or internal topology.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CatalogueSynchronizationWindow' }
+            examples:
+              quarter: { value: { from: '2026-10-01', to: '2026-12-31' } }
+      responses:
+        '202':
+          description: |
+            The run holds synchronization ownership and continues in the background. The
+            response reports acceptance only, never the run's result.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AcceptedSynchronizationRun' }
+              examples:
+                accepted:
+                  value:
+                    runId: 0f7a2c1e-5b8d-4c1a-9e3f-2a6b7c8d9e01
+                    from: '2026-10-01'
+                    to: '2026-12-31'
+                    startedAt: '2026-10-18T10:15:30Z'
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AdministrationCommandForbidden' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '409': { $ref: '#/components/responses/SynchronizationAlreadyRunning' }
+        '413': { $ref: '#/components/responses/RequestTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '422': { $ref: '#/components/responses/SynchronizationRequestRejected' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
   /admin/catalogue/synchronization-coverage:
     get:
       tags: [Catalogue administration]
@@ -2368,7 +2431,9 @@ components:
     SessionCapability:
       type: string
       enum: [catalogue_administration]
-      description: '`catalogue_administration` reads catalogue synchronization status and coverage.'
+      description: |
+        `catalogue_administration` reads catalogue synchronization status and coverage and
+        requests a bounded synchronization.
     SessionState:
       oneOf:
         - $ref: '#/components/schemas/AnonymousSession'
@@ -2527,6 +2592,26 @@ components:
       type: integer
       format: int64
       minimum: 0
+    CatalogueSynchronizationWindow:
+      type: object
+      required: [from, to]
+      description: |
+        An inclusive release-date interval of at most 184 days between 1950-01-01 and
+        2099-12-31, with `from` not after `to`.
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+      additionalProperties: false
+    AcceptedSynchronizationRun:
+      type: object
+      required: [runId, from, to, startedAt]
+      description: The accepted run; its progress and result are read from the run status.
+      properties:
+        runId: { $ref: '#/components/schemas/SynchronizationRunId' }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        startedAt: { type: string, format: date-time }
+      unevaluatedProperties: false
     CatalogueSynchronizationCoverage:
       type: object
       required: [from, to, periods]
@@ -2601,6 +2686,9 @@ components:
         - RATING_WRITE_FAILED
         - ACCESS_DENIED
         - COVERAGE_RANGE_INVALID
+        - SYNCHRONIZATION_RANGE_INVALID
+        - SYNCHRONIZATION_ALREADY_RUNNING
+        - SYNCHRONIZATION_DISABLED
     ErrorCategory:
       type: string
       enum: [validation, authentication, authorization, not_found, business_rule, conflict, dependency, technical]
@@ -2692,6 +2780,44 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             requestParameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    AdministrationCommandForbidden:
+      description: |
+        The session's principal lacks the operator authority, or the state change lacks valid
+        session-bound CSRF proof or same-origin browser metadata.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            accessDenied: { $ref: '#/components/examples/AccessDenied' }
+            csrfValidationFailed: { $ref: '#/components/examples/CsrfValidationFailed' }
+    SynchronizationAlreadyRunning:
+      description: Another synchronization holds the single run ownership; nothing was started.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            synchronizationAlreadyRunning: { $ref: '#/components/examples/SynchronizationAlreadyRunning' }
+    SynchronizationRequestRejected:
+      description: |
+        A date is missing, or the interval is reversed, too long or outside the supported dates;
+        the body has an undeclared property; or this environment has no provider access.
+        Nothing was started.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            synchronizationRangeInvalid: { $ref: '#/components/examples/SynchronizationRangeInvalid' }
+            synchronizationDisabled: { $ref: '#/components/examples/SynchronizationDisabled' }
+            propertyUnknown: { $ref: '#/components/examples/RequestPropertyUnknown' }
     CoverageValidationFailed:
       description: The range is reversed or unsupported, repeats a parameter, or has an undeclared parameter.
       headers:
@@ -3008,6 +3134,48 @@ components:
           - pointer: /query/to
             code: COVERAGE_RANGE_INVALID
             message: Must not precede from.
+    SynchronizationRangeInvalid:
+      value:
+        type: urn:videogame-platform:problem:synchronization-range-invalid
+        title: Synchronization interval is invalid
+        status: 422
+        detail: Use from not after to, at most 184 days apart, between 1950-01-01 and 2099-12-31.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: SYNCHRONIZATION_RANGE_INVALID
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /to
+            code: SYNCHRONIZATION_RANGE_INVALID
+            message: Must not precede from or be more than 183 days after it.
+    SynchronizationDisabled:
+      value:
+        type: urn:videogame-platform:problem:synchronization-disabled
+        title: Synchronization is disabled
+        status: 422
+        detail: This environment has no provider access; nothing was started.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: SYNCHRONIZATION_DISABLED
+        category: business_rule
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /synchronization
+            code: SYNCHRONIZATION_DISABLED
+            message: Configure provider access before requesting a synchronization.
+    SynchronizationAlreadyRunning:
+      value:
+        type: urn:videogame-platform:problem:synchronization-already-running
+        title: A synchronization is already running
+        status: 409
+        detail: Wait for the current run to finish, then request again.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: SYNCHRONIZATION_ALREADY_RUNNING
+        category: conflict
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /synchronization
+            code: SYNCHRONIZATION_ALREADY_RUNNING
+            message: Only one synchronization runs at a time.
     CsrfValidationFailed:
       value:
         type: urn:videogame-platform:problem:csrf-validation-failed

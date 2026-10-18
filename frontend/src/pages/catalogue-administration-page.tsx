@@ -3,9 +3,13 @@ import { useRef, useState, type KeyboardEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import {
-  ADMINISTRATION_KEY, AdministrationError, getSynchronizationStatus, type SynchronizationStatus,
+  AdministrationError, getSynchronizationStatus, SYNCHRONIZATION_STATUS_KEY, type SynchronizationStatus,
 } from "../features/catalogue-administration/administration-api";
 import { CoverageExplorer, MAX_YEAR, MIN_YEAR } from "../features/catalogue-administration/coverage-explorer";
+import { SynchronizationRequest } from "../features/catalogue-administration/synchronization-request";
+import {
+  readRequestedRun, type RequestedRun,
+} from "../features/catalogue-administration/synchronization-request-state";
 import { CurrentRunPanel, RecentRuns } from "../features/catalogue-administration/synchronization-runs";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 import { useSession } from "../features/session/use-session";
@@ -19,6 +23,8 @@ const TABS: { id: PanelTab; label: string }[] = [
 
 /** While a run is in flight the status is read again on this cadence; no push channel exists. */
 const RUNNING_REFRESH_MS = 15_000;
+/** A run this page requested is followed more closely, and only until it finishes. */
+const REQUESTED_REFRESH_MS = 5_000;
 
 function selectedYear(value: string | null, fallback: number): number {
   const year = value !== null && /^\d{4}$/.test(value) ? Number(value) : fallback;
@@ -102,12 +108,19 @@ export function CatalogueAdministrationPage() {
   const year = selectedYear(params.get("year"), now.getUTCFullYear());
   const month = selectedMonth(params.get("month"));
   const authenticated = session.data?.authenticated === true;
+  const csrfToken = session.data?.authenticated === true ? session.data.csrfToken : null;
+  // The run this visit requested; its progress is read from the ordinary status, never stored.
+  const [requested, setRequested] = useState<RequestedRun | null>(null);
   const status = useQuery<SynchronizationStatus, AdministrationError>({
-    queryKey: [...ADMINISTRATION_KEY, "status"],
+    queryKey: SYNCHRONIZATION_STATUS_KEY,
     queryFn: ({ signal }) => getSynchronizationStatus(signal),
     enabled: authenticated,
     staleTime: 0,
-    refetchInterval: (query) => (query.state.data?.currentRun ? RUNNING_REFRESH_MS : false),
+    refetchInterval: (query) => {
+      const phase = requested ? readRequestedRun(requested, query.state.data, query.state.dataUpdatedAt).phase : null;
+      if (phase === "accepted" || phase === "running") return REQUESTED_REFRESH_MS;
+      return query.state.data?.currentRun ? RUNNING_REFRESH_MS : false;
+    },
   });
   const code = status.error?.code;
 
@@ -138,6 +151,16 @@ export function CatalogueAdministrationPage() {
                     <div className="admin-panel" id={`admin-panel-${tab}`} role="tabpanel"
                       aria-labelledby={`admin-tab-${tab}`}>
                     {tab === "ejecuciones" ? <>
+                    {csrfToken ? <section className="admin-section" aria-labelledby="admin-request-title">
+                      <h2 id="admin-request-title">Solicitar sincronización</h2>
+                      <p className="admin-lead">
+                        Sincroniza con el proveedor los juegos que se lanzan entre dos fechas, con la misma
+                        reconciliación que la sincronización programada. La solicitud responde en cuanto la
+                        ejecución empieza; su progreso y su resultado se leen de su estado.
+                      </p>
+                      <SynchronizationRequest csrfToken={csrfToken} status={status.data}
+                        statusReadAt={status.dataUpdatedAt} requested={requested} onAccepted={setRequested} />
+                    </section> : null}
                     <section className="admin-section" aria-labelledby="admin-current-title">
                       <div className="admin-section-head">
                         <h2 id="admin-current-title">Ejecución actual</h2>

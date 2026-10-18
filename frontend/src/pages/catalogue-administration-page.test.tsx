@@ -209,3 +209,141 @@ describe("Catalogue administration", () => {
     expect(await screen.findByRole("region", { name: "Ejecución actual" })).toBeVisible();
   });
 });
+
+describe("Catalogue synchronization request", () => {
+  const accepted = { runId: "run-new", from: "2026-10-01", to: "2026-12-31", startedAt: "2026-10-18T10:15:30Z" };
+  const running = {
+    runId: "run-new", from: "2026-10-01", to: "2026-12-31", startedAt: "2026-10-18T10:15:30Z",
+    lastHeartbeatAt: "2026-10-18T10:15:40Z", stalled: false,
+  };
+  const finished = {
+    runId: "run-new", from: "2026-10-01", to: "2026-12-31", startedAt: "2026-10-18T10:15:30Z",
+    completedAt: "2026-10-18T10:20:00Z", result: "partial", outcomeCode: "SYNCHRONIZATION_COMPLETED_WITH_FAILURES", counters,
+  };
+  const problem = (status: number, code: string, pointer?: string) => Response.json(
+    { code, correlationId: `corr-${status}`, ...(pointer ? { violations: [{ pointer, code, message: "m" }] } : {}) },
+    { status, headers: { "Content-Type": "application/problem+json" } });
+
+  /** Every session read, status read and request, with what each request carried. */
+  function stubRequests(answer: () => Response, statuses: unknown[] = [{ recentRuns: [] }]) {
+    const posts: { csrf: string | null; body: unknown }[] = [];
+    let sessionReads = 0;
+    let statusReads = 0;
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const request = input instanceof Request ? input : new Request(input, init);
+      const url = new URL(request.url);
+      if (url.pathname === "/api/v1/session") {
+        sessionReads++;
+        return Response.json({ authenticated: true, csrfToken: "csrf", capabilities: ["catalogue_administration"] });
+      }
+      if (request.method === "POST") {
+        posts.push({ csrf: request.headers.get("X-CSRF-Token"), body: await request.json() });
+        return answer();
+      }
+      const next = statuses[Math.min(statusReads, statuses.length - 1)];
+      statusReads++;
+      return Response.json(next);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return { posts, sessionReads: () => sessionReads };
+  }
+
+  async function requestInterval(from: string, to: string) {
+    await userEvent.type(await screen.findByLabelText("Desde"), from);
+    await userEvent.type(screen.getByLabelText("Hasta"), to);
+    await userEvent.click(screen.getByRole("button", { name: "Solicitar sincronización" }));
+  }
+
+  it("accepts an interval with CSRF proof and follows the run through the status until its result", async () => {
+    const { posts } = stubRequests(() => Response.json(accepted, { status: 202 }),
+      [{ recentRuns: [] }, { currentRun: running, recentRuns: [] }, { recentRuns: [finished] }]);
+    renderApp("/administracion/catalogo");
+
+    await requestInterval("2026-10-01", "2026-12-31");
+
+    expect(posts).toEqual([{ csrf: "csrf", body: { from: "2026-10-01", to: "2026-12-31" } }]);
+    const feedback = await screen.findByRole("heading", { name: "Sincronización en curso" });
+    const notice = feedback.closest("[role=status]") as HTMLElement;
+    await waitFor(() => expect(notice).toHaveFocus());
+    expect(notice).toHaveTextContent("Solicitud aceptada");
+    // A run in flight blocks a second request until it finishes.
+    expect(screen.getByRole("button", { name: "Solicitar sincronización" })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Actualizar estado" }));
+
+    expect(await within(notice).findByRole("heading", { name: "Completa con juegos fallidos" })).toBeVisible();
+    expect(notice).toHaveTextContent("los juegos fallidos conservan su último estado válido");
+    expect(screen.getByRole("button", { name: "Solicitar sincronización" })).toBeEnabled();
+  });
+
+  it("explains an invalid interval beside its field without sending anything", async () => {
+    const { posts } = stubRequests(() => Response.json(accepted, { status: 202 }));
+    renderApp("/administracion/catalogo");
+
+    await requestInterval("2026-12-31", "2026-10-01");
+
+    const to = screen.getByLabelText("Hasta");
+    expect(to).toHaveAttribute("aria-invalid", "true");
+    expect(to).toHaveAccessibleDescription("No puede ser anterior a la fecha de inicio.");
+    expect(to).toHaveFocus();
+
+    await userEvent.clear(screen.getByLabelText("Desde"));
+    await userEvent.type(screen.getByLabelText("Desde"), "2026-01-01");
+    await userEvent.clear(to);
+    await userEvent.type(to, "2026-07-04");
+    await userEvent.click(screen.getByRole("button", { name: "Solicitar sincronización" }));
+
+    expect(to).toHaveAccessibleDescription("El intervalo admite como máximo 184 días.");
+    expect(posts).toHaveLength(0);
+  });
+
+  it("puts a server-rejected bound on the field the server names", async () => {
+    stubRequests(() => problem(422, "SYNCHRONIZATION_RANGE_INVALID", "/from"));
+    renderApp("/administracion/catalogo");
+
+    await requestInterval("2026-10-01", "2026-12-31");
+
+    const from = screen.getByLabelText("Desde");
+    await waitFor(() => expect(from).toHaveAttribute("aria-invalid", "true"));
+    expect(from).toHaveFocus();
+  });
+
+  it.each([
+    ["SYNCHRONIZATION_ALREADY_RUNNING", 409, "Ya hay una sincronización en curso"],
+    ["SYNCHRONIZATION_DISABLED", 422, "La sincronización no está disponible"],
+    ["ACCESS_DENIED", 403, "Tu cuenta no puede solicitar sincronizaciones"],
+  ])("states that a %s rejection started nothing", async (code, status, heading) => {
+    stubRequests(() => problem(status, code));
+    renderApp("/administracion/catalogo");
+
+    await requestInterval("2026-10-01", "2026-12-31");
+
+    const notice = (await screen.findByRole("heading", { name: heading })).closest("[role=status]") as HTMLElement;
+    await waitFor(() => expect(notice).toHaveFocus());
+    expect(notice.querySelector(".notice")).toHaveClass("notice-warning");
+  });
+
+  it("renews the session's CSRF proof after a rejected one", async () => {
+    const { sessionReads } = stubRequests(() => problem(403, "CSRF_VALIDATION_FAILED"));
+    renderApp("/administracion/catalogo");
+    await screen.findByLabelText("Desde");
+    const before = sessionReads();
+
+    await requestInterval("2026-10-01", "2026-12-31");
+
+    expect(await screen.findByRole("heading", { name: "No se pudo verificar la solicitud" })).toBeVisible();
+    await waitFor(() => expect(sessionReads()).toBeGreaterThan(before));
+  });
+
+  it("keeps a technical failure safe with its support reference", async () => {
+    stubRequests(() => problem(500, "INTERNAL_ERROR"));
+    renderApp("/administracion/catalogo");
+
+    await requestInterval("2026-10-01", "2026-12-31");
+
+    const heading = await screen.findByRole("heading", { name: "No se pudo solicitar la sincronización" });
+    const notice = heading.closest(".notice") as HTMLElement;
+    expect(notice).toHaveClass("notice-danger");
+    expect(notice).toHaveTextContent("corr-500");
+  });
+});

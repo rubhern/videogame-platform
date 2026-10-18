@@ -2,7 +2,9 @@ package com.videogameplatform.api.delivery.catalogue.administration;
 
 import static com.videogameplatform.test.RegisteredOidcSession.oidcSession;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -59,14 +61,17 @@ class CatalogueAdministrationApiIntegrationTest {
         PostgreSqlTestDatabase.configureSpringDatabase(registry, DATABASE, false);
     }
 
+    private static JdbcTemplate adminJdbc() {
+        return new JdbcTemplate(
+                new DriverManagerDataSource(
+                        PostgreSqlTestDatabase.adminUrl(DATABASE),
+                        PostgreSqlTestDatabase.adminUsername(),
+                        PostgreSqlTestDatabase.adminPassword()));
+    }
+
     @BeforeEach
     void evidence() {
-        JdbcTemplate admin =
-                new JdbcTemplate(
-                        new DriverManagerDataSource(
-                                PostgreSqlTestDatabase.adminUrl(DATABASE),
-                                PostgreSqlTestDatabase.adminUsername(),
-                                PostgreSqlTestDatabase.adminPassword()));
+        JdbcTemplate admin = adminJdbc();
         admin.update("DELETE FROM catalogue.synchronization_run");
         admin.update("DELETE FROM catalogue.synchronization_coverage");
         coveringRun = UUID.randomUUID();
@@ -209,6 +214,39 @@ class CatalogueAdministrationApiIntegrationTest {
         expectProblem(get(STATUS).param("limit", "500"), 422, "REQUEST_PARAMETER_UNKNOWN");
         expectProblem(get(COVERAGE).param("from", "1997-01-01"), 400, "REQUEST_MALFORMED");
         expectProblem(coverage("1997-13-01", "1997-12-31"), 400, "REQUEST_MALFORMED");
+    }
+
+    @Test
+    void anEnvironmentWithoutProviderAccessRejectsASynchronizationRequestAndStartsNothing()
+            throws Exception {
+        Integer runs =
+                adminJdbc()
+                        .queryForObject(
+                                "SELECT count(*) FROM catalogue.synchronization_run",
+                                Integer.class);
+        MockHttpServletResponse response =
+                mockMvc.perform(
+                                post(STATUS)
+                                        .with(operator())
+                                        .with(csrf().asHeader())
+                                        .contentType(MediaType.APPLICATION_JSON)
+                                        .accept(MediaType.APPLICATION_JSON)
+                                        .content("{\"from\":\"2026-10-01\",\"to\":\"2026-12-31\"}"))
+                        .andExpect(status().isUnprocessableContent())
+                        .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+                        .andExpect(jsonPath("$.code").value("SYNCHRONIZATION_DISABLED"))
+                        .andExpect(jsonPath("$.category").value("business_rule"))
+                        .andReturn()
+                        .getResponse();
+
+        OpenApiResponseContract.load("/admin/catalogue/synchronization", "post")
+                .assertJsonResponse(response, 422, "Problem");
+        assertThat(
+                        adminJdbc()
+                                .queryForObject(
+                                        "SELECT count(*) FROM catalogue.synchronization_run",
+                                        Integer.class))
+                .isEqualTo(runs);
     }
 
     @Test

@@ -64,6 +64,22 @@ class ProviderBoundaryTest {
                             "..catalogue.adapter..",
                             "..catalogue.configuration..");
 
+    /**
+     * The command contract HTTP delivery may use to request a synchronization exposes acceptance
+     * only: never the use case, the owned run, the executor or the provider.
+     */
+    @ArchTest
+    static final ArchRule ADMINISTRATION_COMMANDS_CANNOT_REACH_THE_PROVIDER_OR_SYNCHRONIZATION =
+            noClasses()
+                    .that()
+                    .resideInAPackage("..catalogue.application.administration..")
+                    .should()
+                    .dependOnClassesThat()
+                    .resideInAnyPackage(
+                            "..catalogue.application.synchronization..",
+                            "..catalogue.adapter..",
+                            "..catalogue.configuration..");
+
     @ArchTest
     static final ArchRule ONLY_THE_PROVIDER_ADAPTER_USES_PROVIDER_TRANSPORT_MODELS =
             noClasses()

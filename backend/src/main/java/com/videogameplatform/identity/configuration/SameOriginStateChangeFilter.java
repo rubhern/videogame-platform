@@ -15,12 +15,17 @@ import org.springframework.security.authentication.InsufficientAuthenticationExc
 import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/** Authenticates personal APIs before CSRF and rejects cross-origin state changes. */
+/**
+ * Authenticates personal and administration APIs before CSRF and rejects cross-origin state
+ * changes.
+ */
 final class SameOriginStateChangeFilter extends OncePerRequestFilter {
 
     private static final String FETCH_SITE_HEADER = "Sec-Fetch-Site";
 
     private static final String PERSONAL_API_PATH = "/api/v1/me/";
+
+    private static final String ADMINISTRATION_API_PATH = "/api/v1/admin/";
 
     private final CsrfProblemAccessDeniedHandler accessDeniedHandler;
     private final AuthenticationProblemEntryPoint authenticationEntryPoint;
@@ -37,14 +42,17 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !isPersonalApi(request) && !isSessionMutation(request);
+        return !isPersonalApi(request)
+                && !isAdministrationApi(request)
+                && !isSessionMutation(request);
     }
 
     @Override
     protected void doFilterInternal(
             HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        if (isPersonalApi(request) && currentUser.currentUserId().isEmpty()) {
+        if ((isPersonalApi(request) || isAdministrationApi(request))
+                && currentUser.currentUserId().isEmpty()) {
             authenticationEntryPoint.commence(
                     request,
                     response,
@@ -64,6 +72,11 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
         return request.getRequestURI().startsWith(request.getContextPath() + PERSONAL_API_PATH);
     }
 
+    private static boolean isAdministrationApi(HttpServletRequest request) {
+        return request.getRequestURI()
+                .startsWith(request.getContextPath() + ADMINISTRATION_API_PATH);
+    }
+
     private static boolean isSessionMutation(HttpServletRequest request) {
         return HttpMethod.POST.matches(request.getMethod())
                 && (request.getContextPath() + IdentitySecurityConfiguration.SESSION_PATH)
@@ -74,7 +87,8 @@ final class SameOriginStateChangeFilter extends OncePerRequestFilter {
         return isSessionMutation(request)
                 || (isPersonalApi(request)
                         && (HttpMethod.PUT.matches(request.getMethod())
-                                || HttpMethod.DELETE.matches(request.getMethod())));
+                                || HttpMethod.DELETE.matches(request.getMethod())))
+                || (isAdministrationApi(request) && HttpMethod.POST.matches(request.getMethod()));
     }
 
     private static boolean hasTrustedOrigin(HttpServletRequest request) {

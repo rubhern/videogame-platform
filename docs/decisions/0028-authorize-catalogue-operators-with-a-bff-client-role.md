@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-10-18
 - **Owner:** Ruben Hernandez
-- **Scope:** Product authorization for catalogue administration reads (#247)
+- **Scope:** Product authorization for catalogue administration reads (#247) and the bounded synchronization request (#248)
 - **Relates to:** [ADR-0003](0003-use-a-same-origin-bff-and-http-json-api.md), [ADR-0007](0007-use-keycloak-as-the-initial-identity-provider.md), [ADR-0017](0017-discover-catalogue-members-automatically-from-igdb.md#coverage-and-freshness) and [ADR-0027](0027-revoke-and-end-bff-sessions-in-the-application.md)
 
 ## Context
@@ -31,8 +31,13 @@ endpoints must stay off the product port.
   without the authority is `403 ACCESS_DENIED`, before any validation or read.
 - `GET /session` may list server-derived capabilities, never roles or claims, so the
   frontend can offer navigation; hiding navigation is never the control.
-- The administration operations are reads of local evidence only. They never start a
-  synchronization (#248 owns that decision) and never call the provider.
+- The administration reads use local evidence only and never call the provider. The one
+  administration command, requesting a bounded synchronization (#248), reuses this
+  authority rather than a second role: whoever reads acquisition evidence is the person who
+  acts on it, and the single-owner deployment has no separation-of-duties need. As a
+  cookie-authenticated state change it also requires the session-bound CSRF token and
+  same-origin browser metadata, and an anonymous request is `401` before CSRF is judged. It
+  answers before any provider call.
 - Authorities are fixed at sign-in for the session's life. A grant applies from the next
   sign-in; a revocation applies to new sessions, and the owner ends existing ones with the
   ADR-0027 revocation procedure.
@@ -51,6 +56,9 @@ endpoints must stay off the product port.
   browser no safe path.
 - **Probe the administration API to decide navigation:** rejected; it costs a request per
   page and still discloses the same fact to the same person.
+- **A separate synchronization role for #248:** rejected for now; the one owner would hold
+  both, and a second role would add a realm declaration, a mapper value and an alignment
+  step without a distinct holder.
 
 ## Consequences
 
@@ -60,8 +68,8 @@ endpoints must stay off the product port.
   must end at once.
 - The session representation gains an optional capability list, an additive contract
   change.
-- Further operator capabilities, including #248's command, need their own role or an
-  explicit decision to reuse this one, plus CSRF protection for any state change.
+- Further operator capabilities need their own role or an explicit decision to reuse this
+  one, as #248 records above, plus CSRF protection for any state change.
 
 ## Revisit when
 

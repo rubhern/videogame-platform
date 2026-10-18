@@ -790,6 +790,23 @@ tablist under the opening whose selection lives in the URL (`tab`), operated by 
 arrow keys, Home and End, and marked by ink, weight and an ice rule rather than colour alone.
 Coverage is read only while its tab is open.
 
+Post-MVP (#248, implemented; awaiting owner review), **Ejecuciones** opens with **Solicitar
+sincronización**: a lead saying the run is the ordinary reconciliation and answers once it
+starts, then two labelled native date fields, **Desde** and **Hasta**, and the primary
+action, stacked on phones and in one row from 620px, followed by the limits in words (both
+dates included, at most 184 days between 1950 and 2099, one synchronization at a time,
+scheduled ones included). The page checks those limits before sending and the server
+decides; an invalid date is marked invalid, described beside its field, and takes focus.
+While any run is in flight the action is disabled with a quiet line saying why. When a
+request settles, focus moves to one status region beneath the form whose notice names the
+outcome in words: an accepted request reads **Sincronización en curso** until the ordinary
+status shows its result, then the finished run's result and explanation in the same words
+as **Ejecuciones recientes**, tone following the result; a run in flight elsewhere, missing
+provider access, a lost CSRF proof (renewed for the retry) or a lost role is a `warning`
+that says nothing started; a lost session offers sign-in; any other failure is a `danger`
+notice with its support reference. While the requested run has not finished the status is
+read every five seconds instead of fifteen.
+
 In **Ejecuciones**, **Ejecución actual** states the run in flight, its interval, start and last heartbeat, or
 calmly that none runs, with an **Actualizar estado** action; a stalled run adds a `warning`
 line, and while a run is in flight the page reads its status again every fifteen seconds.

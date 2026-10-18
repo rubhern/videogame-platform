@@ -99,3 +99,45 @@ test("the coverage calendar drills down from a year to a month by keyboard", asy
   await expect(page.getByRole("heading", { name: "Periodos de diciembre de 1997" })).toBeFocused();
   await expect(page.getByRole("region", { name: "Periodos de diciembre de 1997" }).getByRole("listitem")).toHaveCount(2);
 });
+
+test("an operator requests a bounded synchronization by keyboard and follows it accessibly", async ({ page }) => {
+  await install(page);
+  const posts: { csrf: string | undefined; body: unknown }[] = [];
+  await page.route("**/api/v1/admin/catalogue/synchronization", (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      posts.push({ csrf: request.headers()["x-csrf-token"], body: request.postDataJSON() });
+      return route.fulfill({ status: 202, headers: { "Cache-Control": "no-store" },
+        json: { runId: "run-new", from: "2026-10-01", to: "2026-12-31", startedAt: "2026-10-18T10:15:30Z" } });
+    }
+    return route.fulfill({ headers: { "Cache-Control": "no-store" }, json: posts.length === 0 ? { recentRuns: [] } : {
+      currentRun: { runId: "run-new", from: "2026-10-01", to: "2026-12-31", startedAt: "2026-10-18T10:15:30Z",
+        lastHeartbeatAt: "2026-10-18T10:15:40Z", stalled: false },
+      recentRuns: [],
+    } });
+  });
+  await page.goto("/administracion/catalogo");
+
+  const from = page.getByLabel("Desde");
+  const to = page.getByLabel("Hasta");
+  const submit = page.getByRole("button", { name: "Solicitar sincronización" });
+  await from.fill("2026-12-31");
+  await to.fill("2026-10-01");
+  await submit.focus();
+  await page.keyboard.press("Enter");
+  await expect(to).toHaveAttribute("aria-invalid", "true");
+  await expect(to).toBeFocused();
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
+  expect(posts).toHaveLength(0);
+
+  await from.fill("2026-10-01");
+  await to.fill("2026-12-31");
+  await submit.focus();
+  await page.keyboard.press("Enter");
+
+  const notice = page.getByRole("status").filter({ has: page.getByRole("heading", { name: "Sincronización en curso" }) });
+  await expect(notice).toBeFocused();
+  await expect(submit).toBeDisabled();
+  expect(posts).toEqual([{ csrf: "browser-csrf", body: { from: "2026-10-01", to: "2026-12-31" } }]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
+});

@@ -98,7 +98,11 @@ anonymous request is `401`, a signed-in session without the authority is `403
 ACCESS_DENIED`, and both precede validation. `GET /session` may name the session's
 capabilities for navigation only; the server authorizes every request. Administration
 responses are `no-store` and never carry provider payloads, credentials, provider names or
-internal topology.
+internal topology. An administration command is an authenticated state change with the same
+CSRF and same-origin requirements; an anonymous one is `401` before CSRF is judged. Work that
+outlives a request, such as a synchronization, answers `202` with the accepted identity once
+it is owned, and the client follows it through the existing status read with bounded
+refetching rather than holding the request open; a conflicting run is `409`.
 
 ## Caching, observability, and compatibility
 
