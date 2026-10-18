@@ -27,8 +27,12 @@
 !/docs/architecture/
 !/docs/architecture/api/
 !/docs/architecture/api/openapi.yaml
+!/docs/legal/public-texts-es.md
 
 !/scripts/backend-artifact.sh
+!/scripts/prepare-legal-content.mjs
+
+!/deploy/public-production/keycloak/legal-review.json
 
 !/docker/
 !/docker/keycloak/

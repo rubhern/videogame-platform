@@ -1,0 +1,11 @@
+{
+  "status": "draft",
+  "revision": "privacy-274-review-1",
+  "notForRealmImport": true,
+  "localizationTexts": {
+    "es": {
+      "termsText": "<p>Responsable: Rubén Hernández López. Trataremos tu email, los datos necesarios para proteger tu cuenta y tus puntuaciones para prestarte el servicio que solicitas. La gestión de cuenta y puntuaciones se basa en la ejecución de las condiciones de uso; la seguridad, en nuestro interés legítimo, según se explica en la política de privacidad. Puedes ejercer tus derechos en <a href=\"mailto:hola@gameometro.com\">hola@gameometro.com</a>. Consulta la política de privacidad para conocer destinatarios, conservación, transferencias y todos tus derechos.</p><p>Crear una cuenta requiere tener al menos 18 años y aceptar las condiciones de uso. La información de privacidad se facilita para que conozcas el tratamiento; no te pedimos que consientas tratamientos opcionales para utilizar tu cuenta.</p><p>Consulta la <a href=\"https://gameometro.com/privacidad\">política de privacidad</a> y las <a href=\"https://gameometro.com/condiciones\">condiciones de uso</a> antes de registrarte.</p>"
+    }
+  },
+  "basicInformationForReview": "Responsable: Rubén Hernández López. Trataremos tu email, los datos\nnecesarios para proteger tu cuenta y tus puntuaciones para prestarte el servicio\nque solicitas. La gestión de cuenta y puntuaciones se basa en la ejecución de las\ncondiciones de uso; la seguridad, en nuestro interés legítimo, según se explica en la política de privacidad. Puedes ejercer tus derechos en\n[hola@gameometro.com](mailto:hola@gameometro.com). Consulta la política de privacidad\npara conocer destinatarios, conservación, transferencias y todos tus derechos.\n\nCrear una cuenta requiere tener al menos 18 años y aceptar las condiciones de uso.\nLa información de privacidad se facilita para que conozcas el tratamiento; no te\npedimos que consientas tratamientos opcionales para utilizar tu cuenta."
+}

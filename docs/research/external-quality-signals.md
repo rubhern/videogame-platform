@@ -1,5 +1,11 @@
 # External quality signals for catalogue discovery
 
+Current public non-commercial risk treatment is owned by the
+[Product Brief](../product/product-brief.md#public-release-and-sustainability)
+(2026-10-17); it supersedes the preventive public deferral in this historical study
+without establishing legal permission. Commercial use remains unapproved.
+
+
 - **Status:** Owner-approved research decisions; #255 phase 1 (acquisition and storage) implemented, awaiting review; presentation pending
 - **Evidence date:** 2026-10-14
 - **Decision owner:** Ruben Hernandez; approved 2026-10-14
@@ -18,15 +24,15 @@ decisions, the original technical proposal and the
 
 | Candidate | Owner decision | Reason and permitted next step |
 |---|---|---|
-| IGDB | **ADOPT**, player score only | Useful measured coverage; no second integration. First implementation targets current private non-commercial operation. Public use remains conditional on the rights gate below. |
+| IGDB | **ADOPT**, player score only | Useful measured coverage; no second integration. First implementation targets current private non-commercial operation. Current non-commercial public risk treatment follows the Product Brief; this study does not prove rights. |
 | IGDB critic aggregate | **DEFER** | Small samples and insufficient underlying-review provenance for a default discovery fallback. Revisit only if provenance/coverage improves. |
 | IGDB combined score/count | **REJECT** | Blends different populations; neither Gameómetro sentiment nor a transparent player signal. Do not ingest/serve these in #255. |
 | OpenCritic | **DEFER** | Potentially useful criticism, but additional benefit and an authorized, zero-cost storage/display contract are unproven. No integration or subscription. |
 
-Product approval does not authorize public exposure or monetization. Those
-authorizations remain pending in #274.
-Public non-commercial adoption is **DEFER** pending release/rights acceptance;
-commercial/ad-supported adoption is **DEFER** pending a suitable provider agreement.
+The [Product Brief](../product/product-brief.md#public-release-and-sustainability)
+owns the current public non-commercial decision, superseding this study's original
+deferral. Separate exposure/privacy gates remain; commercial/ad-supported adoption
+is **DEFER** pending a suitable provider agreement.
 
 ## Official semantics and limits
 

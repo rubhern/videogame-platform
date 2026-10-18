@@ -5,6 +5,8 @@ import { GameDetailsPage } from "../pages/game-details-page";
 import { NotFoundPage } from "../pages/not-found-page";
 import { SearchPage } from "../pages/search-page";
 import { MyRatingsPage } from "../pages/my-ratings-page";
+import { legalPublicationApproved } from "../shared/legal/publication";
+import { legalRoutes } from "../shared/legal/legal-routes";
 import { AppShell } from "./app-shell";
 
 export const appRoutes: RouteObject[] = [
@@ -16,6 +18,7 @@ export const appRoutes: RouteObject[] = [
       { path: "search", element: <SearchPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
       { path: "games/:gameId/:slug?", element: <GameDetailsPage /> },
+      ...(import.meta.env.DEV || legalPublicationApproved ? legalRoutes(true) : []),
       { path: "*", element: <NotFoundPage /> },
     ],
   },

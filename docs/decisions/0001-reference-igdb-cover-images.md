@@ -87,8 +87,10 @@ featured-media rules are FEAT-003 and FEAT-004 in the
 
 Public-release reconsideration is documented by the
 [2026-10-14 investigation](../research/public-production-topology.md#provider-and-image-review).
-Its conditional metadata/media findings do not expand this historical private-use
-approval; the [public gates](../development/delivery-lifecycle.md#public-production-gates)
+Its findings do not prove rights. The [Product Brief](../product/product-brief.md#public-release-and-sustainability)
+records the 2026-10-17 owner acceptance of public non-commercial uncertainty, without
+advance suppression, and reconsideration on actual objections, including suspension.
+Reference mode, attribution and no copied binaries remain unchanged; the [public gates](../development/delivery-lifecycle.md#public-production-gates)
 require a recorded rights/attribution decision before exposure.
 
 Reopen before a public or commercial release, monetization, binary copying or

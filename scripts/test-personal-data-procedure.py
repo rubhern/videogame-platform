@@ -164,6 +164,29 @@ for values in accounts.values():
     values["id"] = admin.create(values["username"], values["email"], values["password"])
 target_id, other_id = accounts["target"]["id"], accounts["other"]["id"]
 
+# Native candidate filters are exercised only in the disposable CI realm. No cleanup runs.
+pending_id = admin.create("pd-pending-filter", "pd-pending-filter@example.test", secrets.token_hex(16))
+status, _, _ = admin.request("PUT", f"/users/{pending_id}", {"emailVerified": False})
+assert status == 204
+created = admin.account(pending_id)["createdTimestamp"]
+def candidates(cutoff: int) -> list[dict]:
+    result = json.loads(run(shlex.split(host_command) + ["cleanup-candidates", "--cutoff-ms", str(cutoff), "--max", "100"]).stdout)
+    assert result["issuer"] == issuer and len(result["candidates"]) <= 100
+    return result["candidates"]
+assert pending_id not in [item["keycloakUserId"] for item in candidates(created - 1)]
+assert pending_id in [item["keycloakUserId"] for item in candidates(created + 1)]
+assert not {target_id, other_id} & {item["keycloakUserId"] for item in candidates(created + 1)}
+# Effective management roles exclude an otherwise ordinary pending human account.
+status, management_clients, _ = admin.request("GET", "/clients?clientId=realm-management&max=2")
+assert status == 200 and len(management_clients) == 1
+management_id = management_clients[0]["id"]
+status, management_role, _ = admin.request("GET", f"/clients/{management_id}/roles/view-users")
+assert status == 200
+assert admin.request("POST", f"/users/{pending_id}/role-mappings/clients/{management_id}", [management_role])[0] == 204
+pending_source = json.loads(run(shlex.split(host_command) + ["archive-snapshot", "--keycloak-user-id", pending_id]).stdout)
+assert pending_source["account"]["eligibleHuman"] is False
+assert admin.request("DELETE", f"/users/{pending_id}")[0] == 204
+
 # Two devices of the target account and one of the other, each with a real BFF session; one
 # rating per account written through the product API, so the stored UserId is the BFF's own.
 sessions_helper("login", "target-phone:TARGET_USERNAME:TARGET_PASSWORD:7",
@@ -173,6 +196,15 @@ identity = json.loads(run(shlex.split(host_command) + ["identify", "--keycloak-u
 other_identity = json.loads(run(shlex.split(host_command) + ["identify", "--keycloak-user-id", other_id]).stdout)
 target_user, other_user = identity["userId"], other_identity["userId"]
 assert ratings_of(target_user) == 1 and ratings_of(other_user) == 1, "the derived UserId differs from the BFF's"
+
+snapshot = json.loads(run(shlex.split(host_command) + ["archive-snapshot", "--keycloak-user-id", target_id]).stdout)
+assert snapshot["ratingCount"] == 1 and snapshot["userId"] == target_user
+assert set(snapshot["account"]) == {"keycloakUserId", "email", "createdTimestamp", "emailVerified", "enabled", "eligibleHuman"}
+scoped = json.loads(run(shlex.split(host_command) + ["archive-ratings", "--keycloak-user-id", target_id,
+    "--game-ids", "30000000-0000-4000-8000-000000000005"]).stdout)
+assert scoped["issuer"] == issuer
+assert len(scoped["ratings"]) == 1 and scoped["ratings"][0]["value"] == 7
+assert set(scoped["ratings"][0]) == {"gameId", "value", "createdAt", "updatedAt"}
 
 # The real host command refuses out-of-order and mismatched steps before changing anything.
 def refused(*arguments: str) -> str:
@@ -291,8 +323,12 @@ receipts = owner
 run(["docker", "start", application])
 wait_for("Application", application_ready)
 refused = ledger_run("replay", "--receipt", str(receipts / "replay-refused.json"), expect=1)
-assert b"application is running" in refused.stderr, refused.stderr
-assert admin.account(target_id) is not None, "a refused replay changes nothing"
+# The ledger deliberately hides raw host diagnostics; validate its public failure contract
+# and the actual refusal, without restoring diagnostic leakage just to satisfy the test.
+assert b"revoke failed (exit 1)" in refused.stderr, refused.stderr
+assert b"application is running" not in refused.stderr, refused.stderr
+assert admin.account(target_id)["enabled"] is True and ratings_of(target_user) == 1, "a refused replay changes nothing"
+assert not (receipts / "replay-refused.json").exists(), "a refused replay cannot certify restoration"
 run(["docker", "stop", application])
 ledger_run("replay", "--receipt", str(receipts / "replay.json"))
 receipt = json.loads((receipts / "replay.json").read_text())

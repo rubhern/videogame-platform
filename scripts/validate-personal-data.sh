@@ -46,7 +46,8 @@ trap 'test_failed=true' ERR
 
 cd "$repository_root"
 
-python3 -I scripts/test-personal-data-ledger.py
+python3 -I scripts/test-personal-data-read-model.py
+python3 -I scripts/test-personal-data-privacy.py
 
 if ! docker info >/dev/null 2>&1; then
   echo "Docker must be running to prove the personal-data procedure." >&2

@@ -42,6 +42,17 @@ Production assets are written to ignored `frontend/dist/`; build the deployable
 same-origin JAR with `bash scripts/package-application.sh` and validate the packaged
 browser path with `bash scripts/validate-browser.sh`.
 
+## Legal-copy review
+
+Vite development exposes `/privacidad`, `/condiciones`, `/aviso-legal` and `/cookies`
+with a draft notice and footer links. Production publication remains disabled in
+`src/shared/legal/publication.ts` pending the [recorded approval gates](../docs/development/data-protection.md#local-implementation-and-acceptance).
+Edit the canonical [Spanish proposals](../docs/legal/public-texts-es.md), then run
+`node scripts/prepare-legal-content.mjs` from the repository root. Build/tests check
+that both the safe React data and the staged, non-imported Keycloak review JSON match
+the source. Never edit generated copy or activate publication as a substitute for
+owner review and provider/operating verification.
+
 ## Structure and ownership
 
 | Path | Responsibility |
