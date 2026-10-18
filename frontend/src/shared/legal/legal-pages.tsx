@@ -47,4 +47,3 @@ export function LegalPage({ document }: { document: DocumentKey }) {
     </article>
   );
 }
-
