@@ -225,6 +225,38 @@
         "description": "Starts the existing BFF/OIDC transaction with the closed registration intent. The authorization resolver adds supported prompt=create without accepting browser-supplied state, nonce or PKCE material."
       },
       "response": []
+    },
+    {
+      "name": "Catalogue administration requires a session",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization",
+        "description": "While signed out, operator reads answer 401 without a redirect."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code AUTHENTICATION_REQUIRED\", () => pm.expect(pm.response.json().code).to.eql(\"AUTHENTICATION_REQUIRED\"));",
+              "pm.test(\"Fetches are not redirected\", () => pm.expect(pm.response.headers.get(\"Location\")).to.eql(undefined));"
+            ]
+          }
+        }
+      ]
     }
   ],
   "event": [

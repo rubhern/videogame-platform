@@ -1,5 +1,6 @@
 package com.videogameplatform.api.delivery;
 
+import com.videogameplatform.api.generated.CatalogueAdministrationApi;
 import com.videogameplatform.api.generated.CatalogueApi;
 import com.videogameplatform.api.generated.FeaturedReleasesApi;
 import com.videogameplatform.api.generated.RatingsApi;
@@ -79,13 +80,17 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
         return true;
     }
 
-    /** The public catalogue reads declare a closed query; other operations are unaffected. */
+    /**
+     * The public catalogue, personal and administration reads declare a closed query; other
+     * operations are unaffected.
+     */
     private static boolean isClosedQueryOperation(HandlerMethod method) {
         Class<?> beanType = method.getBeanType();
         return ReleasesApi.class.isAssignableFrom(beanType)
                 || FeaturedReleasesApi.class.isAssignableFrom(beanType)
                 || CatalogueApi.class.isAssignableFrom(beanType)
-                || RatingsApi.class.isAssignableFrom(beanType);
+                || RatingsApi.class.isAssignableFrom(beanType)
+                || CatalogueAdministrationApi.class.isAssignableFrom(beanType);
     }
 
     private static Set<QueryParameter> queryParameters(HandlerMethod method) {
@@ -101,6 +106,9 @@ final class StrictQueryParameterInterceptor implements HandlerInterceptor {
             return ProblemCode.PAGINATION_INVALID;
         }
         if (Set.of("sort", "direction").contains(parameter.name())) return ProblemCode.SORT_INVALID;
+        if (Set.of("from", "to").contains(parameter.name())) {
+            return ProblemCode.COVERAGE_RANGE_INVALID;
+        }
         return SEARCH_PARAMETER.equals(parameter.name())
                 ? ProblemCode.SEARCH_QUERY_INVALID
                 : ProblemCode.FILTER_INVALID;

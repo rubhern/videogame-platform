@@ -153,7 +153,10 @@ export interface paths {
         };
         /**
          * Read minimal BFF session state
-         * @description Returns `200` without exposing tokens, claims, roles, email, or an internal user ID.
+         * @description Returns `200` without exposing tokens, claims, raw identity-provider roles, email, or an
+         *     internal user ID. An authenticated session may list the server-derived product
+         *     `capabilities` its own principal holds, so the client can offer matching navigation;
+         *     the server still authorizes every protected operation itself.
          */
         get: operations["getSession"];
         put?: never;
@@ -232,6 +235,62 @@ export interface paths {
          * @description Current eligibility never blocks owner deletion; success returns updated aggregate state.
          */
         delete: operations["deleteMyRating"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalogue/synchronization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read the current synchronization run and bounded recent run history
+         * @description Requires an authenticated session holding the catalogue operator authority. Returns the
+         *     run that currently holds synchronization ownership, when one exists, and at most twenty
+         *     finished runs that bounded run history still retains, newest first. Run history is
+         *     operational evidence, not coverage: a failed, interrupted, abandoned or partial run never
+         *     changes coverage, and a run pruned from history keeps the coverage it recorded. Counters
+         *     are absent, never zero, for a run that reported none. No provider payload, credential,
+         *     provider identifier or internal topology is returned, and the read never calls the
+         *     provider.
+         */
+        get: operations["getCatalogueSynchronizationStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalogue/synchronization-coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read durable synchronization coverage of an inclusive release-date range
+         * @description Requires an authenticated session holding the catalogue operator authority. Answers the
+         *     inclusive `from`–`to` release-date range as consecutive periods in date order, each
+         *     either `covered` or `never_covered`. A covered period was completely scanned by a
+         *     synchronization run at a known time; that time is freshness evidence for the client's
+         *     own presentation policy, never a claim that provider data cannot change later. Nothing
+         *     becomes stale on the server. A period's `failedGames` is the covering run's own count of
+         *     Games that kept their last valid state; it describes the whole run, not that period.
+         *     PostgreSQL reads at most five hundred stored intervals, so one answer holds at most 1001
+         *     periods whatever the range length. A longer answer ends the day before `continuesFrom`,
+         *     from which the client may ask again. The read never calls the provider.
+         */
+        get: operations["getCatalogueSynchronizationCoverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -804,7 +863,17 @@ export interface components {
         AuthenticatedSession: {
             authenticated: boolean;
             csrfToken: string;
+            /**
+             * @description Server-derived product capabilities of this session's principal; absent when it
+             *     holds none. They guide navigation only and never replace server authorization.
+             */
+            capabilities?: components["schemas"]["SessionCapability"][];
         };
+        /**
+         * @description `catalogue_administration` reads catalogue synchronization status and coverage.
+         * @enum {string}
+         */
+        SessionCapability: "catalogue_administration";
         SessionState: components["schemas"]["AnonymousSession"] | components["schemas"]["AuthenticatedSession"];
         PersonalRating: {
             gameId: components["schemas"]["GameId"];
@@ -857,8 +926,107 @@ export interface components {
             personalRating: null;
             ratingStatistics: components["schemas"]["AvailableRatingStatistics"];
         };
+        CatalogueSynchronizationStatus: {
+            currentRun?: components["schemas"]["CurrentSynchronizationRun"];
+            /** @description Finished runs that run history retains, newest first. */
+            recentRuns: components["schemas"]["FinishedSynchronizationRun"][];
+        };
+        /**
+         * @description The run holding synchronization ownership. `stalled` means its worker has not proven it
+         *     is alive within the abandonment period; the next run start records it as abandoned.
+         */
+        CurrentSynchronizationRun: {
+            runId: components["schemas"]["SynchronizationRunId"];
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            lastHeartbeatAt: string;
+            stalled: boolean;
+        };
+        /**
+         * @description `partial` committed some Games: `SYNCHRONIZATION_COMPLETED_WITH_FAILURES` scanned the
+         *     whole interval with failed Games, while `SYNCHRONIZATION_INTERRUPTED` stopped before its
+         *     last provider page and covers nothing. `abandoned` lost its worker and has no counters.
+         */
+        FinishedSynchronizationRun: {
+            runId: components["schemas"]["SynchronizationRunId"];
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            completedAt: string;
+            result: components["schemas"]["SynchronizationRunResult"];
+            /**
+             * @description Stable machine-facing outcome code; clients may present unknown codes verbatim.
+             * @example SYNCHRONIZATION_COMPLETED
+             * @example SYNCHRONIZATION_COMPLETED_WITH_FAILURES
+             * @example SYNCHRONIZATION_INTERRUPTED
+             * @example SYNCHRONIZATION_FAILED
+             * @example SYNCHRONIZATION_ABANDONED
+             */
+            outcomeCode: string;
+            counters?: components["schemas"]["SynchronizationRunCounters"];
+        };
         /** @enum {string} */
-        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED";
+        SynchronizationRunResult: "succeeded" | "partial" | "failed" | "abandoned";
+        /** @description Opaque run correlation; a coverage scan names the run that recorded it. */
+        SynchronizationRunId: string;
+        SynchronizationRunCounters: {
+            createdGames: components["schemas"]["RunCount"];
+            updatedGames: components["schemas"]["RunCount"];
+            unchangedGames: components["schemas"]["RunCount"];
+            deferredGames: components["schemas"]["RunCount"];
+            failedGames: components["schemas"]["RunCount"];
+            createdReleases: components["schemas"]["RunCount"];
+            updatedReleases: components["schemas"]["RunCount"];
+            unchangedReleases: components["schemas"]["RunCount"];
+            deletedReleases: components["schemas"]["RunCount"];
+            providerRequests: components["schemas"]["RunCount"];
+            providerRetries: components["schemas"]["RunCount"];
+        };
+        /** Format: int64 */
+        RunCount: number;
+        CatalogueSynchronizationCoverage: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** @description Consecutive periods in date order, from `from` to `to` or to the day before `continuesFrom`. */
+            periods: components["schemas"]["CoveragePeriod"][];
+            /**
+             * Format: date
+             * @description Present only when the answer reached its bound before `to`; the first unanswered day.
+             */
+            continuesFrom?: string;
+        };
+        /** @description `lastScan` is present exactly when `status` is `covered`. */
+        CoveragePeriod: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            status: components["schemas"]["CoverageStatus"];
+            lastScan?: components["schemas"]["CoverageScan"];
+        };
+        /** @enum {string} */
+        CoverageStatus: "covered" | "never_covered";
+        CoverageScan: {
+            runId: components["schemas"]["SynchronizationRunId"];
+            /** Format: date-time */
+            scanStartedAt: string;
+            /** Format: date-time */
+            scanCompletedAt: string;
+            failedGames: components["schemas"]["RunCount"];
+        };
+        /** @enum {string} */
+        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -919,6 +1087,39 @@ export interface components {
         };
         /** @description The state-changing request lacks valid session-bound CSRF proof. */
         CsrfValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The authenticated session's principal lacks the authority this operation requires. */
+        AccessDenied: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The request has a query parameter this operation does not declare. */
+        AdministrationValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The range is reversed or unsupported, repeats a parameter, or has an undeclared parameter. */
+        CoverageValidationFailed: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
                 "Cache-Control": components["headers"]["NoStoreCacheControl"];
@@ -1272,6 +1473,16 @@ export interface components {
         RatingSort: "updatedAt" | "canonicalTitle" | "ratingValue";
         /** @description Defaults to `desc` for `updatedAt`, otherwise to `asc`. */
         SortDirection: "asc" | "desc";
+        /**
+         * @description First day of the inclusive release-date range, an ISO calendar date.
+         * @example 2026-01-01
+         */
+        CoverageFrom: string;
+        /**
+         * @description Last day of the inclusive range; it must not precede `from`.
+         * @example 2026-12-31
+         */
+        CoverageTo: string;
         /**
          * @description Opaque public representation tag for a conditional read.
          * @example "catalogue-version-opaque"
@@ -1835,6 +2046,74 @@ export interface operations {
             412: components["responses"]["RatingWriteConflict"];
             428: components["responses"]["PreconditionRequired"];
             500: components["responses"]["RatingWriteFailed"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getCatalogueSynchronizationStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current run, when one exists, and the bounded recent finished runs. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueSynchronizationStatus"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessDenied"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["AdministrationValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getCatalogueSynchronizationCoverage: {
+        parameters: {
+            query: {
+                /**
+                 * @description First day of the inclusive release-date range, an ISO calendar date.
+                 * @example 2026-01-01
+                 */
+                from: components["parameters"]["CoverageFrom"];
+                /**
+                 * @description Last day of the inclusive range; it must not precede `from`.
+                 * @example 2026-12-31
+                 */
+                to: components["parameters"]["CoverageTo"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Consecutive covered and never-covered periods of the range. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogueSynchronizationCoverage"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessDenied"];
+            406: components["responses"]["NotAcceptable"];
+            422: components["responses"]["CoverageValidationFailed"];
+            500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };
     };

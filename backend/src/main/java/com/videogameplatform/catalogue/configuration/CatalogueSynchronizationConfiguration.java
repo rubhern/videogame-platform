@@ -8,12 +8,14 @@ import com.videogameplatform.catalogue.adapter.persistence.synchronization.JdbcC
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbApiClient;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbApiSettings;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCatalogueProviderAdapter;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverageQuery;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverageQuery;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationStatusQuery;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import com.videogameplatform.catalogue.application.synchronization.internal.CatalogueSynchronizationService;
 import com.videogameplatform.catalogue.application.synchronization.internal.CoverSelectionPolicy;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationCoverageService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
+import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationStatusService;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationProgress;
@@ -174,6 +176,12 @@ class CatalogueSynchronizationConfiguration {
     @Bean
     SynchronizationCoverageQuery synchronizationCoverageQuery(CatalogueSynchronizationStore store) {
         return new SynchronizationCoverageService(store);
+    }
+
+    @Bean
+    SynchronizationStatusQuery synchronizationStatusQuery(
+            CatalogueSynchronizationStore store, Clock clock, SynchronizationPolicy policy) {
+        return new SynchronizationStatusService(store, clock, policy);
     }
 
     @Bean

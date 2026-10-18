@@ -13,6 +13,7 @@
 | `UC-003` | View game details                   | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page                                   |
 | `UC-009` | Synchronize catalogue from provider | Operator / scheduler  | Synchronize every provider Game in a caller-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
 | `UC-010` | Browse weekly or monthly featured releases | Visitor          | Application derives evaluation date, the current ISO week and calendar month (or validates a selected period inside the navigation bounds); PostgreSQL selects the qualifying releases inside the period, ranks their games by the local popularity signal with a unique tie-breaker, limits the ranking to six and presents at most one release per platform; unranked, empty, stale and fallback are valid states; never call provider |
+| `UC-011` | Inspect catalogue acquisition state | Catalogue operator    | Post-MVP (#247): read the run in flight, at most twenty finished retained runs with their outcome and counters, and durable coverage of an inclusive release-date range as bounded consecutive periods; local evidence only, never a provider call or a synchronization start; only a session holding the operator authority |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
 of the releases matching the requested view and active filters, only the presented
@@ -344,8 +345,9 @@ would start after revocation is refused with `AUTHENTICATION_REQUIRED`.
 
 | Category               | Principal codes / guarantees                                                                                                                                                                                                          |
 |------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Validation             | `SEARCH_QUERY_INVALID`, `FILTER_INVALID` (including a malformed or out-of-bounds featured week or month), `PLATFORM_NOT_SUPPORTED`, `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`; do not execute invalid work                                  |
+| Validation             | `COVERAGE_RANGE_INVALID`, `SEARCH_QUERY_INVALID`, `FILTER_INVALID` (including a malformed or out-of-bounds featured week or month), `PLATFORM_NOT_SUPPORTED`, `REGION_NOT_SUPPORTED`, `SORT_INVALID`, `RATING_VALUE_INVALID`; do not execute invalid work                                  |
 | Authentication/replay  | `AUTHENTICATION_REQUIRED/FAILED/CANCELLED`, `RETURN_CONTEXT_INVALID/EXPIRED/REPLAYED`; no duplicate logical command                                                                                                                   |
+| Authorization          | `ACCESS_DENIED` for a signed-in session without the operation's authority; decided before validation or any read                                                                                                                       |
 | Domain/conflict        | `GAME_NOT_FOUND`, `RATING_NOT_ELIGIBLE`, `RATING_ALREADY_EXISTS`, `RATING_NOT_FOUND`, `RATING_WRITE_CONFLICT`, `RELEASE_DATA_REVIEW_REQUIRED`; preserve valid state                                                                   |
 | Local reads            | `CATALOGUE_NOT_READY`, `CATALOGUE_READ_FAILED`, `RATING_STATISTICS_READ_FAILED`, `PERSONAL_RATINGS_READ_FAILED`; never request-path provider fallback or cross-user partial data                                                      |
 | Writes                 | `RATING_WRITE_FAILED`, `SYNCHRONIZATION_WRITE_FAILED`; previous valid state remains                                                                                                                                                   |
@@ -356,7 +358,13 @@ writes, and one game per provider reference. Synchronization expands catalogue
 membership only through the import policy, and publishes a cover only after it
 validates. Exact HTTP mapping is owned by OpenAPI and API conventions; the internal
 synchronization command is an operator endpoint on the management port and is
-deliberately outside the product contract.
+deliberately outside the product contract. `UC-011` exposes only reads of its run and
+coverage evidence on the product port, to the catalogue operator
+([ADR-0028](../../decisions/0028-authorize-catalogue-operators-with-a-bff-client-role.md)).
+A failed, interrupted or abandoned run appears in that history without changing coverage;
+an abandoned run has no counters rather than zero ones. Freshness stays a presentation
+reading of the last complete scan, never a stored state, and the read is never shown to
+players.
 
 ### Explicit current-release repair (UC-009, post-MVP #212)
 

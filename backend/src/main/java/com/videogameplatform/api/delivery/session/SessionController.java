@@ -3,8 +3,12 @@ package com.videogameplatform.api.delivery.session;
 import com.videogameplatform.api.generated.SessionApi;
 import com.videogameplatform.api.generated.model.AnonymousSession;
 import com.videogameplatform.api.generated.model.AuthenticatedSession;
+import com.videogameplatform.api.generated.model.SessionCapability;
 import com.videogameplatform.api.generated.model.SessionState;
+import com.videogameplatform.identity.application.ProductAuthorities;
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -31,7 +35,7 @@ public class SessionController implements SessionApi {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         SessionState body =
                 isAuthenticatedOidcSession(authentication)
-                        ? authenticatedSession()
+                        ? authenticatedSession(authentication)
                         : new AnonymousSession(false);
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
     }
@@ -43,12 +47,22 @@ public class SessionController implements SessionApi {
         return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
     }
 
-    private AuthenticatedSession authenticatedSession() {
+    private AuthenticatedSession authenticatedSession(Authentication authentication) {
         Object csrfAttribute = request.getAttribute(CsrfToken.class.getName());
         if (!(csrfAttribute instanceof CsrfToken csrfToken)) {
             throw new IllegalStateException("Authenticated session has no CSRF material");
         }
-        return new AuthenticatedSession(true, csrfToken.getToken());
+        // Only server-derived capabilities, never the identity provider's raw roles or claims.
+        Set<SessionCapability> capabilities = new LinkedHashSet<>();
+        if (authentication.getAuthorities().stream()
+                .anyMatch(
+                        authority ->
+                                ProductAuthorities.CATALOGUE_OPERATOR.equals(
+                                        authority.getAuthority()))) {
+            capabilities.add(SessionCapability.CATALOGUE_ADMINISTRATION);
+        }
+        return new AuthenticatedSession(true, csrfToken.getToken())
+                .capabilities(capabilities.isEmpty() ? null : capabilities);
     }
 
     private static boolean isAuthenticatedOidcSession(Authentication authentication) {

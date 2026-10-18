@@ -1,14 +1,15 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.14.0
+  version: 3.15.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, weekly and monthly
-    featured releases, bounded-catalogue search, public game details, BFF session discovery, and the
-    authenticated user's ratings. It contains only the ten approved method/path operations.
+    featured releases, bounded-catalogue search, public game details, BFF session discovery, the
+    authenticated user's ratings, and the catalogue operator's read-only synchronization
+    status and coverage. It contains only the twelve approved method/path operations.
 
-    Authentication navigation under `/auth` and catalogue synchronization are separate
+    Authentication navigation under `/auth` and every synchronization command are separate
     BFF and operational boundaries and are intentionally not exposed here. Provider
     image binaries are loaded from an approved CDN reference or replaced by a
     product-owned fallback; this API does not copy, proxy, or redistribute them.
@@ -26,6 +27,11 @@ tags:
     description: Current-user personal-rating reads and commands.
   - name: Session
     description: Minimal BFF session state without identity or provider tokens.
+  - name: Catalogue administration
+    description: |
+      Read-only catalogue acquisition evidence for sessions holding the catalogue operator
+      authority. It reads local run and coverage evidence only and never starts, schedules or
+      reaches a synchronization or the provider.
 security: []
 paths:
   /releases:
@@ -923,7 +929,11 @@ paths:
       tags: [Session]
       operationId: getSession
       summary: Read minimal BFF session state
-      description: Returns `200` without exposing tokens, claims, roles, email, or an internal user ID.
+      description: |
+        Returns `200` without exposing tokens, claims, raw identity-provider roles, email, or an
+        internal user ID. An authenticated session may list the server-derived product
+        `capabilities` its own principal holds, so the client can offer matching navigation;
+        the server still authorizes every protected operation itself.
       security:
         - sessionCookie: []
         - {}
@@ -940,6 +950,11 @@ paths:
                 anonymous: { value: { authenticated: false } }
                 authenticated:
                   value: { authenticated: true, csrfToken: opaque-csrf-token }
+                catalogueOperator:
+                  value:
+                    authenticated: true
+                    csrfToken: opaque-csrf-token
+                    capabilities: [catalogue_administration]
         '406': { $ref: '#/components/responses/NotAcceptable' }
         '500': { $ref: '#/components/responses/InternalError' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
@@ -1198,6 +1213,130 @@ paths:
         '428': { $ref: '#/components/responses/PreconditionRequired' }
         '500': { $ref: '#/components/responses/RatingWriteFailed' }
         '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/synchronization:
+    get:
+      tags: [Catalogue administration]
+      operationId: getCatalogueSynchronizationStatus
+      summary: Read the current synchronization run and bounded recent run history
+      description: |
+        Requires an authenticated session holding the catalogue operator authority. Returns the
+        run that currently holds synchronization ownership, when one exists, and at most twenty
+        finished runs that bounded run history still retains, newest first. Run history is
+        operational evidence, not coverage: a failed, interrupted, abandoned or partial run never
+        changes coverage, and a run pruned from history keeps the coverage it recorded. Counters
+        are absent, never zero, for a run that reported none. No provider payload, credential,
+        provider identifier or internal topology is returned, and the read never calls the
+        provider.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The current run, when one exists, and the bounded recent finished runs.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogueSynchronizationStatus' }
+              examples:
+                running:
+                  value:
+                    currentRun:
+                      runId: 0f7a2c1e-5b8d-4c1a-9e3f-2a6b7c8d9e01
+                      from: '2026-09-20'
+                      to: '2026-11-15'
+                      startedAt: '2026-10-18T04:00:00Z'
+                      lastHeartbeatAt: '2026-10-18T04:03:12Z'
+                      stalled: false
+                    recentRuns:
+                      - runId: 6a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                        from: '2026-09-19'
+                        to: '2026-11-14'
+                        startedAt: '2026-10-17T04:00:00Z'
+                        completedAt: '2026-10-17T04:06:41Z'
+                        result: partial
+                        outcomeCode: SYNCHRONIZATION_COMPLETED_WITH_FAILURES
+                        counters:
+                          createdGames: 3
+                          updatedGames: 41
+                          unchangedGames: 512
+                          deferredGames: 0
+                          failedGames: 2
+                          createdReleases: 7
+                          updatedReleases: 55
+                          unchangedReleases: 1290
+                          deletedReleases: 1
+                          providerRequests: 38
+                          providerRetries: 1
+                      - runId: 7b2c3d4e-5f6a-4b7c-9d8e-0f1a2b3c4d5e
+                        from: '2026-09-18'
+                        to: '2026-11-13'
+                        startedAt: '2026-10-16T04:00:00Z'
+                        completedAt: '2026-10-16T04:45:00Z'
+                        result: abandoned
+                        outcomeCode: SYNCHRONIZATION_ABANDONED
+                neverRun:
+                  value:
+                    recentRuns: []
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/AdministrationValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
+  /admin/catalogue/synchronization-coverage:
+    get:
+      tags: [Catalogue administration]
+      operationId: getCatalogueSynchronizationCoverage
+      summary: Read durable synchronization coverage of an inclusive release-date range
+      description: |
+        Requires an authenticated session holding the catalogue operator authority. Answers the
+        inclusive `from`–`to` release-date range as consecutive periods in date order, each
+        either `covered` or `never_covered`. A covered period was completely scanned by a
+        synchronization run at a known time; that time is freshness evidence for the client's
+        own presentation policy, never a claim that provider data cannot change later. Nothing
+        becomes stale on the server. A period's `failedGames` is the covering run's own count of
+        Games that kept their last valid state; it describes the whole run, not that period.
+        PostgreSQL reads at most five hundred stored intervals, so one answer holds at most 1001
+        periods whatever the range length. A longer answer ends the day before `continuesFrom`,
+        from which the client may ask again. The read never calls the provider.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CoverageFrom'
+        - $ref: '#/components/parameters/CoverageTo'
+      responses:
+        '200':
+          description: Consecutive covered and never-covered periods of the range.
+          headers:
+            X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+            Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CatalogueSynchronizationCoverage' }
+              examples:
+                partlyCovered:
+                  value:
+                    from: '2026-01-01'
+                    to: '2026-12-31'
+                    periods:
+                      - { from: '2026-01-01', to: '2026-03-31', status: never_covered }
+                      - from: '2026-04-01'
+                        to: '2026-06-30'
+                        status: covered
+                        lastScan:
+                          runId: 6a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d
+                          scanStartedAt: '2026-10-01T04:00:00Z'
+                          scanCompletedAt: '2026-10-01T04:30:00Z'
+                          failedGames: 0
+                      - { from: '2026-07-01', to: '2026-12-31', status: never_covered }
+        '400': { $ref: '#/components/responses/MalformedRequest' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/AccessDenied' }
+        '406': { $ref: '#/components/responses/NotAcceptable' }
+        '422': { $ref: '#/components/responses/CoverageValidationFailed' }
+        '500': { $ref: '#/components/responses/InternalError' }
+        '503': { $ref: '#/components/responses/ServiceOverloaded' }
 components:
   securitySchemes:
     sessionCookie:
@@ -1353,6 +1492,20 @@ components:
       required: false
       description: Defaults to `desc` for `updatedAt`, otherwise to `asc`.
       schema: { type: string, enum: [asc, desc] }
+    CoverageFrom:
+      name: from
+      in: query
+      required: true
+      description: First day of the inclusive release-date range, an ISO calendar date.
+      schema: { type: string, format: date }
+      example: '2026-01-01'
+    CoverageTo:
+      name: to
+      in: query
+      required: true
+      description: Last day of the inclusive range; it must not precede `from`.
+      schema: { type: string, format: date }
+      example: '2026-12-31'
     PublicIfNoneMatch:
       name: If-None-Match
       in: header
@@ -2204,7 +2357,18 @@ components:
           type: boolean
           not: { const: false }
         csrfToken: { type: string, minLength: 1 }
+        capabilities:
+          type: array
+          uniqueItems: true
+          description: |
+            Server-derived product capabilities of this session's principal; absent when it
+            holds none. They guide navigation only and never replace server authorization.
+          items: { $ref: '#/components/schemas/SessionCapability' }
       unevaluatedProperties: false
+    SessionCapability:
+      type: string
+      enum: [catalogue_administration]
+      description: '`catalogue_administration` reads catalogue synchronization status and coverage.'
     SessionState:
       oneOf:
         - $ref: '#/components/schemas/AnonymousSession'
@@ -2289,6 +2453,119 @@ components:
       properties:
         personalRating: { type: 'null', x-jackson-json-include-policy: ALWAYS }
         ratingStatistics: { $ref: '#/components/schemas/AvailableRatingStatistics' }
+    CatalogueSynchronizationStatus:
+      type: object
+      required: [recentRuns]
+      properties:
+        currentRun: { $ref: '#/components/schemas/CurrentSynchronizationRun' }
+        recentRuns:
+          type: array
+          maxItems: 20
+          description: Finished runs that run history retains, newest first.
+          items: { $ref: '#/components/schemas/FinishedSynchronizationRun' }
+      unevaluatedProperties: false
+    CurrentSynchronizationRun:
+      type: object
+      description: |
+        The run holding synchronization ownership. `stalled` means its worker has not proven it
+        is alive within the abandonment period; the next run start records it as abandoned.
+      required: [runId, from, to, startedAt, lastHeartbeatAt, stalled]
+      properties:
+        runId: { $ref: '#/components/schemas/SynchronizationRunId' }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        startedAt: { type: string, format: date-time }
+        lastHeartbeatAt: { type: string, format: date-time }
+        stalled: { type: boolean }
+      unevaluatedProperties: false
+    FinishedSynchronizationRun:
+      type: object
+      description: |
+        `partial` committed some Games: `SYNCHRONIZATION_COMPLETED_WITH_FAILURES` scanned the
+        whole interval with failed Games, while `SYNCHRONIZATION_INTERRUPTED` stopped before its
+        last provider page and covers nothing. `abandoned` lost its worker and has no counters.
+      required: [runId, from, to, startedAt, completedAt, result, outcomeCode]
+      properties:
+        runId: { $ref: '#/components/schemas/SynchronizationRunId' }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        startedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time }
+        result: { $ref: '#/components/schemas/SynchronizationRunResult' }
+        outcomeCode:
+          type: string
+          pattern: '^[A-Z][A-Z0-9_]{0,63}$'
+          description: Stable machine-facing outcome code; clients may present unknown codes verbatim.
+          examples: [SYNCHRONIZATION_COMPLETED, SYNCHRONIZATION_COMPLETED_WITH_FAILURES, SYNCHRONIZATION_INTERRUPTED, SYNCHRONIZATION_FAILED, SYNCHRONIZATION_ABANDONED]
+        counters: { $ref: '#/components/schemas/SynchronizationRunCounters' }
+      unevaluatedProperties: false
+    SynchronizationRunResult:
+      type: string
+      enum: [succeeded, partial, failed, abandoned]
+    SynchronizationRunId:
+      type: string
+      minLength: 1
+      maxLength: 64
+      description: Opaque run correlation; a coverage scan names the run that recorded it.
+    SynchronizationRunCounters:
+      type: object
+      required: [createdGames, updatedGames, unchangedGames, deferredGames, failedGames, createdReleases, updatedReleases, unchangedReleases, deletedReleases, providerRequests, providerRetries]
+      properties:
+        createdGames: { $ref: '#/components/schemas/RunCount' }
+        updatedGames: { $ref: '#/components/schemas/RunCount' }
+        unchangedGames: { $ref: '#/components/schemas/RunCount' }
+        deferredGames: { $ref: '#/components/schemas/RunCount' }
+        failedGames: { $ref: '#/components/schemas/RunCount' }
+        createdReleases: { $ref: '#/components/schemas/RunCount' }
+        updatedReleases: { $ref: '#/components/schemas/RunCount' }
+        unchangedReleases: { $ref: '#/components/schemas/RunCount' }
+        deletedReleases: { $ref: '#/components/schemas/RunCount' }
+        providerRequests: { $ref: '#/components/schemas/RunCount' }
+        providerRetries: { $ref: '#/components/schemas/RunCount' }
+      unevaluatedProperties: false
+    RunCount:
+      type: integer
+      format: int64
+      minimum: 0
+    CatalogueSynchronizationCoverage:
+      type: object
+      required: [from, to, periods]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        periods:
+          type: array
+          minItems: 1
+          maxItems: 1001
+          description: Consecutive periods in date order, from `from` to `to` or to the day before `continuesFrom`.
+          items: { $ref: '#/components/schemas/CoveragePeriod' }
+        continuesFrom:
+          type: string
+          format: date
+          description: Present only when the answer reached its bound before `to`; the first unanswered day.
+      unevaluatedProperties: false
+    CoveragePeriod:
+      type: object
+      required: [from, to, status]
+      properties:
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        status: { $ref: '#/components/schemas/CoverageStatus' }
+        lastScan: { $ref: '#/components/schemas/CoverageScan' }
+      description: '`lastScan` is present exactly when `status` is `covered`.'
+      unevaluatedProperties: false
+    CoverageStatus:
+      type: string
+      enum: [covered, never_covered]
+    CoverageScan:
+      type: object
+      required: [runId, scanStartedAt, scanCompletedAt, failedGames]
+      properties:
+        runId: { $ref: '#/components/schemas/SynchronizationRunId' }
+        scanStartedAt: { type: string, format: date-time }
+        scanCompletedAt: { type: string, format: date-time }
+        failedGames: { $ref: '#/components/schemas/RunCount' }
+      unevaluatedProperties: false
     ProblemCode:
       type: string
       enum:
@@ -2322,6 +2599,8 @@ components:
         - RATING_STATISTICS_READ_FAILED
         - PERSONAL_RATINGS_READ_FAILED
         - RATING_WRITE_FAILED
+        - ACCESS_DENIED
+        - COVERAGE_RANGE_INVALID
     ErrorCategory:
       type: string
       enum: [validation, authentication, authorization, not_found, business_rule, conflict, dependency, technical]
@@ -2393,6 +2672,37 @@ components:
           schema: { $ref: '#/components/schemas/Problem' }
           examples:
             csrfValidationFailed: { $ref: '#/components/examples/CsrfValidationFailed' }
+    AccessDenied:
+      description: The authenticated session's principal lacks the authority this operation requires.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            accessDenied: { $ref: '#/components/examples/AccessDenied' }
+    AdministrationValidationFailed:
+      description: The request has a query parameter this operation does not declare.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            requestParameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
+    CoverageValidationFailed:
+      description: The range is reversed or unsupported, repeats a parameter, or has an undeclared parameter.
+      headers:
+        X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
+        Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+          examples:
+            coverageRangeInvalid: { $ref: '#/components/examples/CoverageRangeInvalid' }
+            requestParameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     GameNotFound:
       description: No supported internal game exists for the supplied identifier.
       headers:
@@ -2674,6 +2984,30 @@ components:
         code: AUTHENTICATION_REQUIRED
         category: authentication
         correlationId: correlation-opaque
+    AccessDenied:
+      value:
+        type: urn:videogame-platform:problem:access-denied
+        title: Access is denied
+        status: 403
+        detail: This session is not allowed to use this resource.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: ACCESS_DENIED
+        category: authorization
+        correlationId: correlation-opaque
+    CoverageRangeInvalid:
+      value:
+        type: urn:videogame-platform:problem:coverage-range-invalid
+        title: Coverage range is invalid
+        status: 422
+        detail: Use one from and one to date, with from not after to.
+        instance: urn:videogame-platform:problem-instance:opaque
+        code: COVERAGE_RANGE_INVALID
+        category: validation
+        correlationId: correlation-opaque
+        violations:
+          - pointer: /query/to
+            code: COVERAGE_RANGE_INVALID
+            message: Must not precede from.
     CsrfValidationFailed:
       value:
         type: urn:videogame-platform:problem:csrf-validation-failed

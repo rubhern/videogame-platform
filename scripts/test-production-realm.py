@@ -151,7 +151,21 @@ assert realm["adminEventsEnabled"] is False and realm["adminEventsDetailsEnabled
 
 # --- Self-service deletion stays unavailable ---
 # Keycloak's defaults neither grant the delete-account role nor enable its required action.
-assert "roles" not in realm and "defaultRole" not in realm and "requiredActions" not in realm
+# The only declared role is the BFF client's own catalogue operator role (#247); no realm role,
+# default role or composite exists, and nobody holds it by default.
+assert realm["roles"] == {
+    "client": {
+        "videogame-platform-bff": [
+            {
+                "name": "catalogue-operator",
+                "description": "Reads catalogue synchronization status and coverage in the catalogue administration view.",
+                "composite": False,
+                "clientRole": True,
+            }
+        ]
+    }
+}
+assert "defaultRole" not in realm and "requiredActions" not in realm
 assert "delete-account" not in text and "delete_account" not in text, "no deletion capability is configured"
 
 # --- Mail: authenticated, encrypted submission from runtime secrets ---
@@ -196,6 +210,33 @@ for disabled_grant in (
     assert client_attributes[disabled_grant] == "false", disabled_grant
 assert "*" not in json.dumps(client), "no wildcard origin or redirect"
 assert not any(name.startswith("backchannel.") for name in client_attributes), "ADR-0027: no back-channel logout"
+# The BFF reads product roles only from its own ID token: no access token, user info or
+# introspection carries them (#247).
+assert client["protocolMappers"] == [
+    {
+        "name": "product roles",
+        "protocol": "openid-connect",
+        "protocolMapper": "oidc-usermodel-client-role-mapper",
+        "consentRequired": False,
+        "config": {
+            "usermodel.clientRoleMapping.clientId": "videogame-platform-bff",
+            "claim.name": "product_roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "false",
+            "lightweight.claim": "false",
+        },
+    }
+]
+# Private-dev and local realms are aligned from their own import, which must declare the same
+# role and mapper as production (configure-keycloak-operator reads it, never this file).
+local_realm = json.loads((repository_root / "docker/keycloak/import/videogame-platform-realm.json").read_text(encoding="utf-8"))
+[local_client] = [entry for entry in local_realm["clients"] if entry["clientId"] == client["clientId"]]
+assert local_realm["roles"] == realm["roles"], "local and production realms declare the same client roles"
+assert local_client["protocolMappers"] == client["protocolMappers"], "local and production BFF mappers match"
 
 print("Production realm import is isolated, minimal and matches the reviewed identity policy.")
 

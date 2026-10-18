@@ -16,6 +16,7 @@ class AuthenticationReturnTargetTest {
                 "/?view=recent&weeks=1",
                 "/search?q=Final+Fantasy&page=2",
                 "/mis-puntuaciones",
+                "/administracion/catalogo?tab=cobertura&year=1997&month=12",
                 "/games/game-1/a-game?platformId=pc&regionId=europe"
             })
     void preservesOnlyKnownProductPathsAndTheirNavigationState(String target) {
@@ -43,6 +44,8 @@ class AuthenticationReturnTargetTest {
                 "/search?q=%",
                 "/search#//evil",
                 "/search?q=%5cevil",
+                "/administracion/catalogo?from=1997-01-01",
+                "/administracion/catalogo/../../auth/start",
                 "javascript:alert(1)"
             })
     void rejectsExternalEncodedServerAndUnexpectedDestinations(String target) {

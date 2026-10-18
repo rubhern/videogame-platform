@@ -18,7 +18,8 @@ backend API changes, update its tracked requests and assertions in the same chan
 | `catalogue-search` | Canonical-title and approved-alias matching, diacritic-insensitive prefix matching, ambiguous and zero-result outcomes, deterministic pagination, separate work-level scores with revalidating public headers, conditional reads |
 | `game-details` | Public details, release evidence listed platform by platform with each presented record first, empty statistics, the optional separate IGDB player score, conditional requests, missing games, strict query rejection |
 | `personal-ratings` | Authenticated read, conditional create/update/delete, strong ETag reuse from the private collection, scoped search and ordering, the optional separate IGDB player score, duplicate/stale-write and CSRF rejection |
-| `session` | Anonymous session state, CSRF-protected logout rejection and the inert logout-completion route; successful OIDC login and Keycloak logout are covered by the real-browser identity gate instead |
+| `catalogue-administration` | Operator-only synchronization status with bounded recent runs, durable coverage of a year as consecutive periods, never-stored responses, and stable range and query rejections; needs an operator session |
+| `session` | Anonymous session state, anonymous rejection of catalogue administration, CSRF-protected logout rejection and the inert logout-completion route; successful OIDC login and Keycloak logout are covered by the real-browser identity gate instead |
 | `actuator` | Discovery, health groups, build info, metrics, the `cataloguesync` operator command asserting the credential-free `SYNCHRONIZATION_DISABLED` outcome, and `sessionrevocation` with a synthetic `UserId` that has no session plus its malformed-identifier rejection |
 | `igdb-exploration` | Development-only IGDB queries; uses `igdb.postman_environment.json`, private provider credentials and the [quick guide](igdb-exploration.md), independently of the backend and its local environment |
 
@@ -73,3 +74,12 @@ Never add a `POST /login`, passwords, tokens or session cookies to a tracked fil
    stale update, prove CSRF rejection and delete the rating, leaving the seed game
    ready for another run. If an earlier run stopped after creation, read and delete
    the rating with its current `ETag` before expecting the create step to return `201`.
+
+## Authenticated catalogue-administration run
+
+Follow the personal-rating procedure above with an account that holds the BFF client's
+`catalogue-operator` role, granted before that sign-in: authorities are fixed when a
+session signs in. The [private-dev runbook](../../deploy/private-dev/README.md#catalogue-operator-role)
+owns how the role is configured and granted. Run **Catalogue Administration** in its
+defined order; its first request stops the run with an actionable message unless the
+session reports the `catalogue_administration` capability.

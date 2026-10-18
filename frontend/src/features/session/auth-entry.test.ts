@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { authenticationStartUrl, safeReturnTo } from "./auth-entry";
 
 describe("account entry navigation", () => {
-  it.each(["/", "/?view=upcoming&weeks=4", "/search?q=Final+Fantasy&page=2", "/mis-puntuaciones", "/games/game-1/a-game?platformId=pc&regionId=europe"])("preserves %s", (path) => {
+  it.each(["/", "/?view=upcoming&weeks=4", "/search?q=Final+Fantasy&page=2", "/mis-puntuaciones", "/administracion/catalogo?tab=cobertura&year=1997&month=12", "/games/game-1/a-game?platformId=pc&regionId=europe"])("preserves %s", (path) => {
     expect(safeReturnTo(path)).toBe(path);
     expect(new URL(authenticationStartUrl(path), "https://app.example").searchParams.get("returnTo")).toBe(path);
   });

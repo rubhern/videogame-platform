@@ -102,6 +102,16 @@ public class ApiExceptionHandler {
                             exception.pointer(),
                             "Use an integer inside the supported pagination range.");
             case SEARCH_QUERY_INVALID -> searchQueryInvalid(response, exception.pointer());
+            case COVERAGE_RANGE_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Coverage range is invalid",
+                            "Use one from and one to date, with from not after to.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Use a single ISO date that does not precede from.");
             case REQUEST_PARAMETER_UNKNOWN ->
                     problem(
                             response,

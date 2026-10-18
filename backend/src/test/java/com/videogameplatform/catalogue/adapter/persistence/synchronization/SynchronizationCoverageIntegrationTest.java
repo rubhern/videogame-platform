@@ -3,11 +3,11 @@ package com.videogameplatform.catalogue.adapter.persistence.synchronization;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage.LastScan;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage.Period;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage.LastScan;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage.Period;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationCoverageService;
 import com.videogameplatform.catalogue.application.synchronization.port.SynchronizationWriteException;

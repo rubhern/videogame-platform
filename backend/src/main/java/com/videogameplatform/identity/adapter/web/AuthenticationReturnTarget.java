@@ -15,6 +15,7 @@ public final class AuthenticationReturnTarget {
             Set.of("view", "month", "weeks", "platformIds", "regionIds", "page", "pageSize");
     private static final Set<String> SEARCH_QUERY = Set.of("q", "page", "pageSize");
     private static final Set<String> GAME_QUERY = Set.of("platformId", "regionId");
+    private static final Set<String> ADMINISTRATION_QUERY = Set.of("tab", "year", "month");
 
     private AuthenticationReturnTarget() {}
 
@@ -35,6 +36,8 @@ public final class AuthenticationReturnTarget {
                 allowed = SEARCH_QUERY;
             } else if ("/mis-puntuaciones".equals(path)) {
                 allowed = Set.of();
+            } else if ("/administracion/catalogo".equals(path)) {
+                allowed = ADMINISTRATION_QUERY;
             } else if (path != null && GAME_PATH.matcher(path).matches()) {
                 allowed = GAME_QUERY;
             } else {

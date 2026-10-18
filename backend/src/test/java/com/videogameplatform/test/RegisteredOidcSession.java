@@ -4,13 +4,16 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.function.Consumer;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUserAuthority;
 import org.springframework.security.test.context.TestSecurityContextHolder;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.OidcLoginRequestPostProcessor;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -31,6 +34,25 @@ public final class RegisteredOidcSession {
 
     public static RequestPostProcessor oidcSession(Consumer<OidcIdToken.Builder> idToken) {
         return register(oidcLogin().idToken(authenticatedNow(idToken)));
+    }
+
+    /**
+     * Signs in with the authorities that sign-in derives from the ID token, so a test proves the
+     * BFF's own authority mapping rather than authorities it chose itself.
+     */
+    public static RequestPostProcessor oidcSession(
+            Consumer<OidcIdToken.Builder> idToken, GrantedAuthoritiesMapper signInAuthorities) {
+        Consumer<OidcIdToken.Builder> claims = authenticatedNow(idToken);
+        OidcIdToken.Builder builder = OidcIdToken.withTokenValue("id-token").subject("user");
+        claims.accept(builder);
+        OidcIdToken token = builder.build();
+        return register(
+                oidcLogin()
+                        .idToken(claims)
+                        .authorities(
+                                List.copyOf(
+                                        signInAuthorities.mapAuthorities(
+                                                List.of(new OidcUserAuthority(token))))));
     }
 
     public static RequestPostProcessor oidcSession(

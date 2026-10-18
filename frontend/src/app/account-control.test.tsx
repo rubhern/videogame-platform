@@ -25,6 +25,24 @@ function renderControl(path = "/") {
 }
 
 describe("header account control", () => {
+  it("offers catalogue administration only to a session holding that capability", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ authenticated: true, csrfToken: "csrf" })));
+    const player = renderControl();
+    await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
+    expect(screen.getByRole("link", { name: "Mis puntuaciones" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: "Panel de administrador" })).not.toBeInTheDocument();
+    player.unmount();
+
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({
+      authenticated: true, csrfToken: "csrf", capabilities: ["catalogue_administration"],
+    })));
+    renderControl();
+    await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
+    expect(screen.getByRole("link", { name: "Panel de administrador" }))
+      .toHaveAttribute("href", "/administracion/catalogo");
+  });
+
   it("starts BFF navigation with the intended game for both account actions", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ authenticated: false })));
     renderControl("/games/game-1/a-game?platformId=pc&regionId=europe");

@@ -1,4 +1,4 @@
-package com.videogameplatform.catalogue.application.synchronization;
+package com.videogameplatform.catalogue.application.acquisition;
 
 import java.time.LocalDate;
 

@@ -1,8 +1,8 @@
 package com.videogameplatform.catalogue.application.synchronization.internal;
 
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage.Period;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverageQuery;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage.Period;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverageQuery;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.CoveredInterval;
 import java.time.LocalDate;

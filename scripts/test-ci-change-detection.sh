@@ -100,6 +100,11 @@ run_case keycloak-mail-configuration \
   'identity,browser,backend' \
   'frontend,migrations,provider_fixtures,container'
 
+run_case keycloak-operator-role \
+  'scripts/test-keycloak-operator-role.py' \
+  'identity,browser,backend' \
+  'frontend,migrations,provider_fixtures,container'
+
 run_case backend \
   'backend/src/main/java/com/videogameplatform/catalogue/application/internal/ReleaseCatalogueService.java' \
   'backend,sonar,codeql_java' \

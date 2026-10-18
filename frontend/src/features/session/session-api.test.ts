@@ -33,6 +33,19 @@ describe("session API", () => {
     await expect(getSession(client(fetchMock))).resolves.toEqual({
       authenticated: true,
       csrfToken: "opaque-token",
+      capabilities: [],
+    });
+  });
+
+  it("keeps the server-derived capabilities of an authenticated session", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+      authenticated: true, csrfToken: "opaque-token", capabilities: ["catalogue_administration"],
+    }));
+
+    await expect(getSession(client(fetchMock))).resolves.toEqual({
+      authenticated: true,
+      csrfToken: "opaque-token",
+      capabilities: ["catalogue_administration"],
     });
   });
 

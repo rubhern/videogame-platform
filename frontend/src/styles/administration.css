@@ -1,0 +1,443 @@
+/* Catalogue administration: an operator's plain ledger on night, without stage or instruments.
+   Every state carries a marker whose shape differs, so nothing depends on colour alone.
+   docs/development/frontend-design.md owns the rules. */
+
+@layer components {
+  /* ---------------------------------------------------------------- Tabs */
+
+  /* Two night tabs on one hairline; the selected one is ink, heavier and carries an ice rule,
+     so selection never depends on colour alone. */
+  .admin-tabs {
+    display: flex;
+    gap: 4px;
+    margin-top: 24px;
+    border-bottom: 1px solid var(--color-line);
+  }
+
+  .admin-tab {
+    position: relative;
+    min-height: 44px;
+    border: 0;
+    padding: 10px 16px;
+    color: var(--color-muted);
+    background: transparent;
+    font: inherit;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .admin-tab:hover {
+    color: var(--color-ink);
+  }
+
+  .admin-tab:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+
+  .admin-tab[aria-selected="true"] {
+    color: var(--color-ink);
+    font-weight: 750;
+  }
+
+  .admin-tab[aria-selected="true"]::after {
+    position: absolute;
+    right: 12px;
+    bottom: -1px;
+    left: 12px;
+    height: 3px;
+    border-radius: 2px 2px 0 0;
+    background: var(--color-ice);
+    content: "";
+  }
+
+  .admin-section {
+    display: grid;
+    gap: 14px;
+    margin-top: 28px;
+  }
+
+  .admin-section h2,
+  .admin-level h3 {
+    margin: 0;
+    color: var(--color-ink);
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-stretch: 108%;
+    font-weight: 750;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+  }
+
+  .admin-level h3 {
+    font-size: 1.0625rem;
+  }
+
+  .admin-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 16px;
+  }
+
+  .admin-lead,
+  .admin-footnote,
+  .admin-quiet {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  .admin-lead {
+    max-width: 70ch;
+  }
+
+  .admin-block {
+    display: block;
+  }
+
+  .admin-warning {
+    margin: 0;
+    border-left: 3px solid var(--color-warning);
+    padding-left: 12px;
+    color: var(--color-warning);
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  /* ---------------------------------------------------------------- Markers */
+
+  .admin-mark {
+    display: inline-block;
+    flex: none;
+    width: 0.75rem;
+    height: 0.75rem;
+    margin-right: 0.5rem;
+    border: 2px solid var(--color-ice);
+    border-radius: 50%;
+    vertical-align: -0.05em;
+  }
+
+  .admin-mark[data-coverage="complete"],
+  .admin-mark[data-tone="complete"] {
+    background: var(--color-ice);
+  }
+
+  .admin-mark[data-coverage="partial"],
+  .admin-mark[data-tone="partial"] {
+    background: linear-gradient(90deg, var(--color-ice) 50%, transparent 50%);
+  }
+
+  .admin-mark[data-coverage="never"] {
+    border-color: var(--color-muted);
+  }
+
+  .admin-mark[data-coverage="unknown"] {
+    border-style: dashed;
+    border-color: var(--color-subtle);
+  }
+
+  /* A failed run is a square, never a circle; a run in flight is a ring around a dot. */
+  .admin-mark[data-tone="failed"] {
+    border-color: var(--color-danger);
+    border-radius: 2px;
+  }
+
+  .admin-mark[data-tone="running"] {
+    background: radial-gradient(circle, var(--color-ice) 30%, transparent 34%);
+  }
+
+  /* ---------------------------------------------------------------- Runs */
+
+  .admin-current,
+  .admin-run {
+    display: grid;
+    gap: 10px;
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+    padding: 16px 18px;
+    background: color-mix(in srgb, var(--control) 92%, transparent);
+  }
+
+  .admin-current[data-stalled="true"] {
+    border-left: 3px solid var(--color-warning);
+  }
+
+  .admin-runs {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .admin-run-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 16px;
+  }
+
+  .admin-run-result {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    color: var(--color-ink);
+    font-size: 1rem;
+    font-weight: 700;
+  }
+
+  .admin-run-time,
+  .admin-run-explanation {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-facts {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .admin-facts > div {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, max-content) minmax(0, 1fr);
+    gap: 2px 14px;
+  }
+
+  .admin-facts dt {
+    color: var(--color-muted);
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .admin-facts dd {
+    margin: 0;
+    color: var(--color-ink);
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-code {
+    overflow-wrap: anywhere;
+  }
+
+  /* ---------------------------------------------------------------- Coverage */
+
+  .admin-glossary {
+    display: grid;
+    gap: 8px;
+    max-width: 78ch;
+    margin: 0;
+    font-size: 0.875rem;
+    line-height: 1.55;
+  }
+
+  .admin-glossary dt {
+    display: inline;
+    color: var(--color-ink);
+    font-weight: 700;
+  }
+
+  .admin-glossary dt::after {
+    content: ": ";
+  }
+
+  .admin-glossary dd {
+    display: inline;
+    margin: 0;
+    color: var(--color-muted);
+  }
+
+  .admin-coverage-explorer {
+    display: grid;
+    gap: 16px;
+  }
+
+  .admin-decades {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+  }
+
+  .admin-decade {
+    margin: 0;
+    color: var(--g-ice);
+    font-size: 1.125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-level {
+    display: grid;
+    gap: 12px;
+  }
+
+  .admin-level h3:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 4px;
+  }
+
+  /* Tables may scroll sideways on narrow screens; the page itself never does. */
+  .admin-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+  }
+
+  .admin-table-scroll:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .admin-table {
+    width: 100%;
+    min-width: 640px;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .admin-table caption {
+    padding: 10px 14px;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+    text-align: left;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    border-top: 1px solid var(--color-line);
+    padding: 9px 14px;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  /* Cells keep their words whole; the region scrolls instead. Freshness may wrap its note. */
+  .admin-table th,
+  .admin-table td:not(:last-child) {
+    white-space: nowrap;
+  }
+
+  .admin-table thead th {
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .admin-table tbody th a {
+    color: var(--color-ink);
+    font-weight: 700;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-ice) 40%, transparent);
+    text-underline-offset: 3px;
+  }
+
+  .admin-table tbody th a:hover {
+    color: var(--color-ice-light);
+    text-decoration-color: var(--color-ice);
+  }
+
+  .admin-table tbody th a[aria-current="true"] {
+    text-decoration-thickness: 2px;
+    text-decoration-color: var(--color-ice);
+  }
+
+  .admin-table tr[data-selected] > * {
+    background: color-mix(in srgb, var(--color-ice) 7%, transparent);
+  }
+
+  .admin-table tr[data-selected] > th {
+    box-shadow: inset 3px 0 0 var(--color-ice);
+  }
+
+  .admin-coverage {
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+    color: var(--color-ink);
+  }
+
+  .admin-coverage .admin-quiet {
+    margin-left: 0.35em;
+  }
+
+  .admin-freshness {
+    color: var(--color-ink);
+  }
+
+  .admin-freshness[data-recent="true"] {
+    color: var(--color-ice-light);
+    font-weight: 700;
+  }
+
+  .admin-periods {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .admin-periods li {
+    border-top: 1px solid var(--color-line);
+    padding-top: 8px;
+    color: var(--color-ink);
+  }
+
+  @media (max-width: 619px) {
+    .admin-facts > div {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .admin-current,
+    .admin-run {
+      padding: 14px;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .admin-tab[aria-selected="true"]::after {
+      background: Highlight;
+    }
+
+    .admin-mark {
+      border-color: CanvasText;
+      forced-color-adjust: none;
+    }
+
+    .admin-mark[data-coverage="complete"],
+    .admin-mark[data-tone="complete"] {
+      background: CanvasText;
+    }
+
+    .admin-mark[data-coverage="partial"],
+    .admin-mark[data-tone="partial"] {
+      background: linear-gradient(90deg, CanvasText 50%, transparent 50%);
+    }
+
+    .admin-mark[data-tone="running"] {
+      background: radial-gradient(circle, CanvasText 30%, transparent 34%);
+    }
+  }
+}

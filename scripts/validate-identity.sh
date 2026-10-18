@@ -170,6 +170,18 @@ docker run --rm \
   "$playwright_image" \
   python3 scripts/test-keycloak-mail-configuration.py
 
+docker run --rm \
+  --network "$identity_network" \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=16m \
+  --env KEYCLOAK_TEST_ORIGIN=http://keycloak:8080 \
+  --env KEYCLOAK_TEST_ADMIN_USERNAME=local-admin \
+  --env KEYCLOAK_TEST_ADMIN_PASSWORD="$keycloak_admin_password" \
+  --volume "$repository_root:/work:ro" \
+  --workdir /work \
+  "$playwright_image" \
+  python3 scripts/test-keycloak-operator-role.py
+
 docker run --detach \
   --name "$application_container" \
   --network "$identity_network" \
@@ -233,8 +245,9 @@ docker run --rm \
     tests/rating-boundary.spec.ts \
     tests/password-recovery.spec.ts \
     tests/session-revocation.spec.ts \
+    tests/catalogue-administration-identity.spec.ts \
     --reporter=line \
     --trace=off
 
 test_failed=false
-printf '%s\n' 'Real Keycloak 26.7 browser/BFF/session, revocation/logout and Mailpit password-recovery proof passed.'
+printf '%s\n' 'Real Keycloak 26.7 browser/BFF/session, revocation/logout, catalogue operator authority and Mailpit password-recovery proof passed.'

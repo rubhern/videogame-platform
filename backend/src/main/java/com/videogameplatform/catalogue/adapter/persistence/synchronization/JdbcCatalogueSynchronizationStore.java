@@ -1,9 +1,10 @@
 package com.videogameplatform.catalogue.adapter.persistence.synchronization;
 
 import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationStatus;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderCompany;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderPlatform;
@@ -1280,6 +1281,56 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                                             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                                             0, 0, 0, 0, 0, 0, 0, 0, 0)));
                 });
+    }
+
+    @Override
+    public List<RetainedRun> retainedRuns(int limit) {
+        // At most one run holds ownership (unique partial index) and retention prunes finished
+        // runs to a configured bound, so this reads at most `limit` plus one rows.
+        return jdbc.query(
+                """
+                SELECT * FROM (
+                    SELECT run_id,window_from,window_to,started_at,heartbeat_at,completed_at,
+                        run_status,outcome_code,report,0 AS ownership_order
+                    FROM catalogue.synchronization_run
+                    WHERE provider=:provider AND run_status='running'
+                    UNION ALL
+                    (SELECT run_id,window_from,window_to,started_at,heartbeat_at,completed_at,
+                        run_status,outcome_code,report,1 AS ownership_order
+                    FROM catalogue.synchronization_run
+                    WHERE provider=:provider AND run_status<>'running'
+                    ORDER BY started_at DESC,run_id DESC
+                    LIMIT :limit)
+                ) runs
+                ORDER BY ownership_order,started_at DESC,run_id DESC
+                """,
+                new MapSqlParameterSource().addValue("provider", provider).addValue("limit", limit),
+                (rs, row) -> {
+                    String report = rs.getString("report");
+                    return new RetainedRun(
+                            rs.getObject("run_id", UUID.class),
+                            rs.getObject("window_from", java.time.LocalDate.class),
+                            rs.getObject("window_to", java.time.LocalDate.class),
+                            instant(rs, "started_at"),
+                            instant(rs, "heartbeat_at"),
+                            runResult(rs.getString("run_status")),
+                            Optional.ofNullable(instant(rs, "completed_at")),
+                            Optional.ofNullable(rs.getString("outcome_code")),
+                            report == null
+                                    ? Optional.empty()
+                                    : Optional.of(readReport(report).counters()));
+                });
+    }
+
+    private static Optional<SynchronizationStatus.Result> runResult(String status) {
+        return switch (status) {
+            case "running" -> Optional.empty();
+            case "succeeded" -> Optional.of(SynchronizationStatus.Result.SUCCEEDED);
+            case "partial" -> Optional.of(SynchronizationStatus.Result.PARTIAL);
+            case "failed" -> Optional.of(SynchronizationStatus.Result.FAILED);
+            case "abandoned" -> Optional.of(SynchronizationStatus.Result.ABANDONED);
+            default -> throw new IllegalStateException("Unknown synchronization run status");
+        };
     }
 
     private CatalogueSynchronizationReport readReport(String stored) {

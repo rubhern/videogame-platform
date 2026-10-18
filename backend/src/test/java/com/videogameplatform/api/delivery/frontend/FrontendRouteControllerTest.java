@@ -31,6 +31,9 @@ class FrontendRouteControllerTest {
         mockMvc.perform(get("/mis-puntuaciones"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+        mockMvc.perform(get("/administracion/catalogo").param("year", "1997"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
         mockMvc.perform(get("/games/pragmata"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));

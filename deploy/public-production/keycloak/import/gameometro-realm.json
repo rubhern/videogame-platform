@@ -123,6 +123,18 @@
       ]
     }
   ],
+  "roles": {
+    "client": {
+      "videogame-platform-bff": [
+        {
+          "name": "catalogue-operator",
+          "description": "Reads catalogue synchronization status and coverage in the catalogue administration view.",
+          "composite": false,
+          "clientRole": true
+        }
+      ]
+    }
+  },
   "clients": [
     {
       "clientId": "videogame-platform-bff",
@@ -156,7 +168,26 @@
         "oauth2.device.authorization.grant.enabled": "false",
         "oidc.ciba.grant.enabled": "false",
         "standard.token.exchange.enabled": "false"
-      }
+      },
+      "protocolMappers": [
+        {
+          "name": "product roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "usermodel.clientRoleMapping.clientId": "videogame-platform-bff",
+            "claim.name": "product_roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "false",
+            "lightweight.claim": "false"
+          }
+        }
+      ]
     }
   ],
   "localizationTexts": {

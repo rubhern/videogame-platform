@@ -510,7 +510,8 @@ and readiness probes. It records `http.method`, `http.route` (the registered tem
 resolved even when a security filter rejected the request before MVC, otherwise
 `UNMATCHED`), `http.status_code`, `http.outcome`, `duration_ms`, and `error.code` when
 the answering boundary reports one: the Problem code, `AUTHENTICATION_REQUIRED`,
-`CSRF_VALIDATION_FAILED`, `AUTHENTICATION_CANCELLED` or `AUTHENTICATION_FAILED`.
+`CSRF_VALIDATION_FAILED`, `ACCESS_DENIED`, `AUTHENTICATION_CANCELLED` or
+`AUTHENTICATION_FAILED`.
 Expected client errors stay at `INFO`; `5xx` completions are `WARN`.
 
 Technical failures: the API boundary writes one `ERROR` with `error.code`,

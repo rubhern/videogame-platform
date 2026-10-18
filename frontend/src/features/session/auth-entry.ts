@@ -7,6 +7,7 @@ export function safeReturnTo(candidate: string | null): string {
   const keys = path === "/" ? ["view", "weeks", "platformIds", "regionIds", "page", "pageSize"]
     : path === "/search" ? ["q", "page", "pageSize"]
       : path === "/mis-puntuaciones" ? []
+        : path === "/administracion/catalogo" ? ["tab", "year", "month"]
         : /^\/games\/[a-z0-9-]{1,100}(?:\/[a-z0-9-]{1,200})?$/.test(path ?? "") ? ["platformId", "regionId"]
           : null;
   if (!keys || candidate.includes("#") || candidate.includes("\\")) return "/";

@@ -13,6 +13,7 @@
 @import "./my-ratings.css";
 @import "./app-select.css";
 @import "./search-suggestions.css";
+@import "./administration.css";
 
 /* Semantic roles. Use them through these names; never place palette values in JSX. */
 @theme {

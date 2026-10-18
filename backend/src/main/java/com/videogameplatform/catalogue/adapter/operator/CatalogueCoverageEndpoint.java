@@ -1,7 +1,7 @@
 package com.videogameplatform.catalogue.adapter.operator;
 
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverage;
-import com.videogameplatform.catalogue.application.synchronization.SynchronizationCoverageQuery;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage;
+import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverageQuery;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
