@@ -32,10 +32,23 @@ async function fixtures(page: Page) {
     page: { number: Number(new URL(route.request().url()).searchParams.get("page") ?? 1), size: 12, totalItems: 24, totalPages: 2 },
   } }));
   await page.route("**/api/v1/games/*", route => route.fulfill({ json: gameDetailsFixture() }));
+  await page.route("**/api/v1/me/ratings/*", route => route.fulfill({
+    status: 404, json: { code: "RATING_NOT_FOUND" },
+  }));
 }
 
 async function at(page: Page, y: number) {
   await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(y, -1);
+}
+
+async function openFromReadingPosition(page: Page, link: Locator) {
+  // Playwright may scroll again while waiting for an animated link to become
+  // actionable. Capture the reading position at navigation, after that movement.
+  const position = page.evaluate(() => new Promise<number>(resolve => {
+    window.addEventListener("click", () => resolve(scrollY), { once: true, capture: true });
+  }));
+  await link.click();
+  return position;
 }
 
 /** Inspect painted text without scrolling a locator into view or changing its styles. */
@@ -72,9 +85,8 @@ for (const width of [390, 412, 1320]) {
         await page.goto(path);
         const link = page.getByRole("link", { name: "Juego 11", exact: true });
         await link.scrollIntoViewIfNeeded();
-        const before = await page.evaluate(() => scrollY);
+        const before = await openFromReadingPosition(page, link);
         expect(before).toBeGreaterThan(100);
-        await link.click();
         await expect(page.getByRole("heading", { level: 1, name: "Resident Evil Requiem" })).toBeVisible();
         await at(page, 0);
         await page.evaluate(() => scrollTo(0, 300));
@@ -91,8 +103,7 @@ for (const width of [390, 412, 1320]) {
       await page.goto("/?view=recent&pageSize=12");
       const next = page.getByRole("link", { name: "Página siguiente" });
       await next.scrollIntoViewIfNeeded();
-      const before = await page.evaluate(() => scrollY);
-      await next.click();
+      const before = await openFromReadingPosition(page, next);
       await expect(page).toHaveURL(/page=2/);
       await at(page, 0);
       await page.goBack();
@@ -117,8 +128,7 @@ for (const width of [390, 412, 1320]) {
       await page.goto("/mis-puntuaciones");
       const link = page.getByRole("link", { name: "Nota 9", exact: true });
       await link.scrollIntoViewIfNeeded();
-      const before = await page.evaluate(() => scrollY);
-      await link.click();
+      const before = await openFromReadingPosition(page, link);
       await expect(page.getByRole("heading", { level: 1, name: "Resident Evil Requiem" })).toBeVisible();
       await page.goBack();
       await expect.poll(() => Boolean(releaseRead)).toBe(true);

@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { LoaderFunctionArgs } from "react-router-dom";
 
 import { gameDetailsQueryOptions } from "../features/game-details/game-details-api";
-import { initialMyRatingsQuery, myRatingsQueryOptions } from "../features/ratings/my-ratings-api";
+import { initialMyRatingsQuery, listMyRatings } from "../features/ratings/my-ratings-api";
 import { readFeaturedSearch } from "../features/releases/featured-search";
 import { readDiscoveryView, readReleasesSearch } from "../features/releases/releases-search";
 import { featuredReleasesQueryOptions } from "../features/releases/use-featured-releases-query";
@@ -33,9 +33,10 @@ export function routeReadiness(queryClient: QueryClient) {
         queryFn: ({ signal }) => getSession(undefined, signal),
       }).catch(() => null);
       if (session?.authenticated) {
-        // gcTime: 0 is intentional. Hand this first read directly to the mounting page,
-        // since an unobserved personal query may be collected before React commits it.
-        return queryClient.fetchQuery(myRatingsQueryOptions(initialMyRatingsQuery)).catch(() => null);
+        // gcTime: 0 is intentional. Do not create an unobserved personal query:
+        // its collection timer can race the page's first subscription. Hand the
+        // bounded, abortable read to the page, which seeds its observed query.
+        return listMyRatings(initialMyRatingsQuery, request.signal).catch(() => null);
       }
     }
     return null;

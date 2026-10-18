@@ -434,15 +434,24 @@ context; switching discovery sections or submitting another catalogue search sta
 the top. Shorter results may naturally clamp the viewport to the available height.
 
 React Router owns restoration after the destination's bounded TanStack Query read is
-ready. Keep focus movement separate from scrolling: route and pagination focus uses
+ready. Mount restoration with that ready destination, not its hydration fallback, whose
+shorter height can clamp a saved offset. Keep focus movement separate from scrolling:
+route and pagination focus uses
 `preventScroll`, while the skip link still takes the reader to main content. Do not reset
 scroll after artwork, fonts or background refreshes, or add timed scroll retries.
 The shared header, page titles and controls must paint on their first return into the
 viewport, regardless of scroll direction or browser-toolbar resizing.
 
+Query-only game-detail navigation, including consuming the authentication-return
+marker, keeps the existing game read; it must not overwrite a rating command's returned
+statistics with an unnecessary reload. Explicit query refresh and mutation reconciliation
+remain owned by TanStack Query.
+
 Personal filters remain transient under [personal ratings](#personal-ratings-collection):
 returning to that route reads its default collection rather than persisting personal
 filter state in history or browser storage.
+The initial default collection read is fresh while mounted and still refreshes on
+mutation invalidation; leaving the page immediately discards its query cache.
 
 ## Featured releases
 

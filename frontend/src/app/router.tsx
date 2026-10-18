@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { createBrowserRouter, type RouteObject } from "react-router-dom";
+import { createBrowserRouter, ScrollRestoration, type RouteObject } from "react-router-dom";
 
 import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
 import { DiscoveryPage } from "../pages/discovery-page";
@@ -37,8 +37,20 @@ export function createAppRouter(queryClient: QueryClient) {
         ...route,
         children: route.children.map(child => ({
           ...child,
+          // Initial restoration needs the ready page's height, not its fallback.
+          element: <>{child.element}<ScrollRestoration /></>,
           loader,
-          hydrateFallbackElement: child.element,
+          ...(child.path?.startsWith("games/") ? {
+            // The public game read has no query parameters. Consuming an auth
+            // marker must not refetch over a rating command's returned aggregate.
+            shouldRevalidate: ({ currentUrl, nextUrl, defaultShouldRevalidate }) =>
+              currentUrl.pathname === nextUrl.pathname
+                ? false
+                : defaultShouldRevalidate,
+          } satisfies Pick<RouteObject, "shouldRevalidate"> : {}),
+          // A destination must mount once, after its read. Mounting it as its own
+          // fallback can resume rating commands before hydration then discard them.
+          hydrateFallbackElement: <p className="page-container" role="status">Cargando página…</p>,
         })),
       };
     }),

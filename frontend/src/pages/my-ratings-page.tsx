@@ -53,7 +53,12 @@ export function MyRatingsPage() {
     ...myRatingsQueryOptions(params),
     ...(params === initialMyRatingsQuery && initialData ? { initialData } : {}),
     refetchOnMount: false,
-    enabled: csrfToken !== null, retry: false, staleTime: 0, gcTime: 0,
+    // The loader just read the default collection. Treat that handoff as fresh
+    // while mounted; mutation invalidation still refreshes it, and gcTime: 0
+    // still removes it on departure. This also avoids a duplicate mount read
+    // if React yields before the first query subscription commits.
+    staleTime: params === initialMyRatingsQuery && initialData ? Infinity : 0,
+    enabled: csrfToken !== null, retry: false, gcTime: 0,
   });
   function change(next: MyRatingsQuery) {
     setMessage(""); setParams(next); heading.current?.focus();

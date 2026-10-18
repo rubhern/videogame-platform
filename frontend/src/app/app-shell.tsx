@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Link, Outlet, ScrollRestoration, useLocation, useNavigation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigation } from "react-router-dom";
 
 import {
   readDiscoveryView,
@@ -91,7 +91,6 @@ export function AppShell() {
       ) : null}
       <main aria-busy={navigation.state === "loading"} id="main-content" ref={mainContentRef} tabIndex={-1}>
         <Outlet />
-        <ScrollRestoration />
       </main>
 
       <footer className="site-footer">

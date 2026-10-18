@@ -664,18 +664,13 @@ for (const width of [320, 390, 834, 1320]) {
     const ambient = await page.evaluate(() => {
       const frame = document.querySelector(".app-frame");
       if (!frame) throw new Error("App frame missing");
-      return ["::after"].map((pseudo) => {
-        const style = getComputedStyle(frame, pseudo);
-        return {
-          position: style.position,
-          edges: [style.top, style.right, style.bottom, style.left].map(Number.parseFloat),
-        };
-      });
+      return {
+        background: getComputedStyle(frame).backgroundImage,
+        overlay: getComputedStyle(frame, "::after").content,
+      };
     });
-    for (const layer of ambient) {
-      expect(layer.position).toBe("fixed");
-      for (const edge of layer.edges) expect(edge).toBeLessThan(0);
-    }
+    expect(ambient.background).toContain("data:image/svg+xml");
+    expect(ambient.overlay).toBe("none");
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
