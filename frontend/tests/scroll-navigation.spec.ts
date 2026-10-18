@@ -166,7 +166,7 @@ for (const width of [390, 412, 1320]) {
       await expect(page.getByRole("main")).toBeFocused();
     });
 
-    test("refresh and a data-dependent deep anchor restore after async loading", async ({ page }) => {
+    test("refresh keeps no offset in browser storage and a data-dependent deep anchor restores after async loading", async ({ page }) => {
       await fixtures(page);
       const path = "/games/30000000-0000-4000-8000-000000000005/resident-evil-requiem";
       await page.goto(path);
@@ -185,7 +185,11 @@ for (const width of [390, 412, 1320]) {
       await expect.poll(() => requested).toBe(true);
       resolveRead?.();
       await expect(page.getByRole("heading", { level: 1, name: "Resident Evil Requiem" })).toBeVisible();
-      await at(page, 300);
+      // Offsets live in memory only: the privacy baseline keeps Web Storage empty, so a
+      // reloaded document starts at the top.
+      await at(page, 0);
+      expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })))
+        .toEqual({ local: 0, session: 0 });
       await page.unroute("**/api/v1/games/*");
       await page.route("**/api/v1/games/*", route => route.fulfill({ json: gameDetailsFixture() }));
       await page.goto(`${path}#statistics-title`);

@@ -434,7 +434,10 @@ context; switching discovery sections or submitting another catalogue search sta
 the top. Shorter results may naturally clamp the viewport to the available height.
 
 React Router owns restoration after the destination's bounded TanStack Query read is
-ready. Mount restoration with that ready destination, not its hydration fallback, whose
+ready. Saved offsets live only in the document's memory: never persist them in
+`localStorage`, `sessionStorage` or IndexedDB, which stay empty under the
+[privacy findings](../research/public-release-rights-and-privacy.md#third-party-requests-from-the-browser).
+A reload or a return from the identity provider therefore starts at the top. Mount restoration with that ready destination, not its hydration fallback, whose
 shorter height can clamp a saved offset. Keep focus movement separate from scrolling:
 route and pagination focus uses
 `preventScroll`, while the skip link still takes the reader to main content. Do not reset

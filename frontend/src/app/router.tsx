@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { createBrowserRouter, ScrollRestoration, type RouteObject } from "react-router-dom";
+import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
 import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
 import { DiscoveryPage } from "../pages/discovery-page";
@@ -12,6 +12,7 @@ import { legalRoutes } from "../shared/legal/legal-routes";
 import { routeReadiness } from "./route-readiness";
 import { RouteLoading } from "./route-loading";
 import { AppShell } from "./app-shell";
+import { MemoryScrollRestoration } from "./memory-scroll-restoration";
 
 export const appRoutes: RouteObject[] = [
   {
@@ -39,7 +40,7 @@ export function createAppRouter(queryClient: QueryClient) {
         children: route.children.map(child => ({
           ...child,
           // Initial restoration needs the ready page's height, not its fallback.
-          element: <>{child.element}<ScrollRestoration /></>,
+          element: <>{child.element}<MemoryScrollRestoration /></>,
           loader,
           ...(child.path?.startsWith("games/") ? {
             // The public game read has no query parameters. Consuming an auth
