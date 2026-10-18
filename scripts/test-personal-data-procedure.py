@@ -323,8 +323,12 @@ receipts = owner
 run(["docker", "start", application])
 wait_for("Application", application_ready)
 refused = ledger_run("replay", "--receipt", str(receipts / "replay-refused.json"), expect=1)
-assert b"application is running" in refused.stderr, refused.stderr
-assert admin.account(target_id) is not None, "a refused replay changes nothing"
+# The ledger deliberately hides raw host diagnostics; validate its public failure contract
+# and the actual refusal, without restoring diagnostic leakage just to satisfy the test.
+assert b"revoke failed (exit 1)" in refused.stderr, refused.stderr
+assert b"application is running" not in refused.stderr, refused.stderr
+assert admin.account(target_id)["enabled"] is True and ratings_of(target_user) == 1, "a refused replay changes nothing"
+assert not (receipts / "replay-refused.json").exists(), "a refused replay cannot certify restoration"
 run(["docker", "stop", application])
 ledger_run("replay", "--receipt", str(receipts / "replay.json"))
 receipt = json.loads((receipts / "replay.json").read_text())
