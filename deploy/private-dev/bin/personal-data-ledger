@@ -20,6 +20,8 @@ import contextlib
 import datetime
 import fcntl
 import hashlib
+import importlib.util
+import time
 import json
 import os
 import pathlib
@@ -28,9 +30,18 @@ import shlex
 import stat
 import subprocess
 import sys
+import uuid
 from collections.abc import Iterator
 
 sys.dont_write_bytecode = True
+
+_archive_spec = importlib.util.spec_from_file_location(
+    "personal_data_archive", pathlib.Path(__file__).resolve().parents[1] / "lib/personal_data_archive.py")
+archive_module = importlib.util.module_from_spec(_archive_spec)
+_archive_spec.loader.exec_module(archive_module)
+ArchiveError = archive_module.ArchiveError
+MAX_LEDGER_BYTES = 128 * 1024 * 1024
+MAX_EVENT_BYTES = 8192
 
 LEDGER_VERSION = 1
 STEPS = ("revoke", "delete-ratings", "delete-identity", "verify")
@@ -72,8 +83,12 @@ def _fsync_directory(path: pathlib.Path) -> None:
 
 
 def _require_private(path: pathlib.Path, *, directory: bool) -> None:
-    mode = path.stat().st_mode
-    if (stat.S_ISDIR(mode) != directory) or mode & 0o077:
+    if path.is_symlink() or path.absolute() != path.resolve():
+        raise LedgerError("Protected ledger paths must not use symlinks")
+    metadata = path.stat()
+    mode = metadata.st_mode
+    expected_type = stat.S_ISDIR(mode) if directory else stat.S_ISREG(mode)
+    if not expected_type or mode & 0o077 or metadata.st_uid != os.geteuid() or (not directory and metadata.st_nlink != 1):
         kind = "directory" if directory else "file"
         raise LedgerError(f"The ledger {kind} {path} must be private to its owner (no group or other access)")
 
@@ -100,7 +115,7 @@ class LedgerFile:
         self.path = path
         self.label = label
         # A missing directory means unmounted or mistyped storage: never create it.
-        parent = path.parent.resolve(strict=True)
+        parent = path.parent.absolute()
         _require_private(parent, directory=True)
         if not path.exists():
             if not create:
@@ -109,7 +124,8 @@ class LedgerFile:
             os.close(descriptor)
             _fsync_directory(parent)
         _require_private(path, directory=False)
-        self.handle = open(path, "a+", encoding="utf-8")
+        descriptor = os.open(path, os.O_RDWR | os.O_APPEND | os.O_NOFOLLOW)
+        self.handle = os.fdopen(descriptor, "a+", encoding="utf-8")
         try:
             fcntl.flock(self.handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
@@ -145,7 +161,7 @@ class Ledger:
         for candidate in (path, copy):
             if candidate is not None:
                 try:
-                    _require_private(candidate.parent.resolve(strict=True), directory=True)
+                    _require_private(candidate.parent.absolute(), directory=True)
                 except FileNotFoundError:
                     raise LedgerError(f"The ledger storage {candidate.parent} is not available") from None
         try:
@@ -160,57 +176,95 @@ class Ledger:
                 ):
                     raise LedgerError("--ledger-copy must be a separate file on independent storage")
                 self.files.append(LedgerFile(copy, "ledger copy", create=create or primary_exists))
-            self.events = self._reconcile()
+            self._reconcile()
         except BaseException:
             self.close()
             raise
 
-    def _reconcile(self) -> list[dict[str, object]]:
-        contents = [ledger_file.content() for ledger_file in self.files]
-        for ledger_file, content in zip(self.files, contents):
-            _parse(content, ledger_file.label)
-        longest = max(contents, key=len)
-        for ledger_file, content in zip(self.files, contents):
-            if not longest.startswith(content):
-                raise LedgerError(
-                    "The ledger and its copy diverge; compare them by hand before any run"
-                )
-            if content != longest:
-                ledger_file.write(longest[len(content):])
-                print(f"Brought the {ledger_file.label} up to date from the other copy.", file=sys.stderr)
-        return _parse(longest, "ledger")
+    def _reconcile(self) -> None:
+        # Validate and compare streams before extending a prefix copy. Never retain history in RAM.
+        for file in self.files:
+            if file.path.stat().st_size > MAX_LEDGER_BYTES:
+                raise LedgerError("Ledger exceeds the reviewed byte budget")
+            for _event in self.events(file):
+                pass
+        longest = max(self.files, key=lambda file: file.path.stat().st_size)
+        for file in self.files:
+            size = file.path.stat().st_size
+            with file.path.open("rb") as short, longest.path.open("rb") as full:
+                remaining = size
+                while remaining:
+                    chunk = short.read(min(65536, remaining))
+                    if full.read(len(chunk)) != chunk:
+                        raise LedgerError("The ledger and its copy diverge; compare them before any run")
+                    remaining -= len(chunk)
+                if size < longest.path.stat().st_size:
+                    with file.path.open("ab") as output:
+                        while chunk := full.read(65536):
+                            output.write(chunk)
+                        output.flush()
+                        os.fsync(output.fileno())
+                    print(f"Brought the {file.label} up to date from the other copy.", file=sys.stderr)
+
+    def events(self, source: LedgerFile | None = None) -> Iterator[dict[str, object]]:
+        with (source or self.files[0]).path.open("r", encoding="utf-8") as stream:
+            while line := stream.readline(MAX_EVENT_BYTES + 1):
+                if len(line.encode()) > MAX_EVENT_BYTES or not line.endswith("\n"):
+                    raise LedgerError("Ledger has an oversized event or an incomplete line")
+                yield from _parse(line, "ledger")
+
+    def entry(self, subject: str) -> dict[str, object] | None:
+        entry = None
+        for event in self.events():
+            if event["keycloakUserId"] != subject:
+                continue
+            if event["event"] == "requested":
+                if entry is not None:
+                    raise LedgerError("Duplicate erasure request for one immutable subject")
+                entry = {"request": event["request"], "keycloakUserId": subject,
+                         "userId": event["userId"], "requestedAt": event["at"],
+                         "archiveProfile": event.get("archiveProfile"), "steps": {}, "completedAt": None}
+                if "cleanupCutoffMs" in event:
+                    entry["cleanupCutoffMs"] = event["cleanupCutoffMs"]
+            elif entry is None:
+                raise LedgerError("The ledger records a step before its request")
+            elif event["event"] == "step":
+                entry["steps"][event["step"]] = event["outcome"]
+            else:
+                entry["completedAt"] = event["at"]
+        return entry
 
     def append(self, event: dict[str, object]) -> None:
         record = {"v": LEDGER_VERSION, "at": now(), **event}
         line = json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n"
+        if len(line.encode()) > MAX_EVENT_BYTES:
+            raise LedgerError("Ledger event exceeds its byte budget")
+        for ledger_file in self.files:
+            if ledger_file.path.stat().st_size + len(line.encode()) > MAX_LEDGER_BYTES:
+                raise LedgerError("Ledger byte budget exhausted")
         for ledger_file in self.files:
             ledger_file.write(line)
-        self.events.append(record)
 
     def digest(self) -> str:
-        return hashlib.sha256(self.files[0].path.read_bytes()).hexdigest()
+        digest = hashlib.sha256()
+        with self.files[0].path.open("rb") as stream:
+            while chunk := stream.read(65536):
+                digest.update(chunk)
+        return digest.hexdigest()
 
-    def entries(self) -> list[dict[str, object]]:
-        """Fold events into one entry per account, in request order."""
-        entries: dict[str, dict[str, object]] = {}
-        for event in self.events:
-            key = str(event["keycloakUserId"])
+    def entries(self) -> Iterator[dict[str, object]]:
+        # Bounded memory; offline scans have a byte/deadline guard, not an unbounded map of users.
+        deadline = time.monotonic() + 120
+        for event in self.events():
+            if time.monotonic() > deadline:
+                raise LedgerError("Ledger scan deadline reached; resume explicitly")
             if event["event"] == "requested":
-                entries.setdefault(key, {
-                    "request": event["request"],
-                    "keycloakUserId": key,
-                    "userId": event["userId"],
-                    "requestedAt": event["at"],
-                    "steps": {},
-                    "completedAt": None,
-                })
-            elif key not in entries:
-                raise LedgerError("The ledger records a step before its request")
-            elif event["event"] == "step":
-                entries[key]["steps"][event["step"]] = event["outcome"]
-            else:
-                entries[key]["completedAt"] = event["at"]
-        return list(entries.values())
+                entry = self.entry(event["keycloakUserId"])
+                resumed_at = time.monotonic()
+                yield entry
+                # Account work is separately bounded; the scan guard must not time out on IO
+                # performed by the caller while this iterator is suspended (notably replay).
+                deadline += time.monotonic() - resumed_at
 
     def close(self) -> None:
         for ledger_file in self.files:
@@ -242,8 +296,9 @@ def run_host(host_command: list[str], arguments: list[str]) -> dict[str, object]
     except OSError as error:
         raise LedgerError(f"The host command could not start: {error.strerror}") from None
     if result.returncode != 0:
-        message = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else f"exit {result.returncode}"
-        raise LedgerError(message[:300])
+        # Remote diagnostics can contain emails, SQL values or credentials. Never copy them
+        # into the deletion ledger or the caller's logs.
+        raise LedgerError(f"{arguments[0]} failed (exit {result.returncode}); inspect the host privately")
     try:
         answer = json.loads(result.stdout)
     except json.JSONDecodeError:
@@ -265,14 +320,26 @@ def run_steps(
     entry: dict[str, object],
     *,
     replay: bool,
+    archive=None,
 ) -> list[dict[str, object]]:
     results = []
     for step in STEPS:
+        if step == "delete-ratings" and entry.get("archiveProfile") and not replay:
+            if archive is None:
+                raise LedgerError("This erasure requires its protected two-copy legal archive")
+            receipt = ensure_archive(archive, host_command, entry)
+            if ledger is not None:
+                ledger.append({"event": "step", "keycloakUserId": entry["keycloakUserId"],
+                               "step": "archive", "outcome": "done",
+                               "detail": {"reference": receipt["reference"],
+                                          "ciphertextSha256": receipt["ciphertextSha256"]}})
         arguments = [step, "--keycloak-user-id", str(entry["keycloakUserId"]), "--user-id", str(entry["userId"])]
         if replay:
             arguments.append("--application-must-be-stopped")
         try:
             answer = run_host(host_command, arguments)
+            if step == "verify" and answer.get("verified") is not True:
+                raise LedgerError("The host did not explicitly verify erasure")
         except LedgerError as error:
             if ledger is not None:
                 ledger.append({"event": "step", "keycloakUserId": entry["keycloakUserId"], "step": step,
@@ -283,6 +350,8 @@ def run_steps(
             ledger.append({"event": "step", "keycloakUserId": entry["keycloakUserId"], "step": step,
                            "outcome": "done", "detail": detail})
         results.append({"step": step, **detail})
+    if not replay and entry.get("archiveProfile"):
+        write_suppression_proof(archive, entry)
     if ledger is not None:
         ledger.append({"event": "completed", "keycloakUserId": entry["keycloakUserId"]})
     return results
@@ -292,6 +361,195 @@ def identify(host_command: list[str], keycloak_user_id: str) -> dict[str, object
     answer = run_host(host_command, ["identify", "--keycloak-user-id", keycloak_user_id])
     canonical_uuid(str(answer.get("userId", "")), "The derived UserId")
     return answer
+
+
+def archive_from(arguments):
+    if not getattr(arguments, "archive_root", None):
+        return None
+    values = (arguments.archive_copy, arguments.gnupg_home, arguments.recipient, arguments.signer)
+    if not all(values):
+        raise LedgerError("Archive requires two roots, owner keyring and full recipient/signer fingerprints")
+    result = archive_module.Archive(arguments.archive_root, *values)
+    result.holds = arguments.holds
+    if result.holds is not None:
+        result.holds = archive_module.private(result.holds, True)
+    result.proof_root = arguments.proof_root
+    if result.proof_root is not None:
+        result.proof_root = archive_module.private(result.proof_root, True)
+        if any(root == result.proof_root or root in result.proof_root.parents
+               or result.proof_root in root.parents for root in result.roots):
+            raise LedgerError("Suppression proof must use a store separate from blocked source")
+    return result
+
+
+def require_proof(archive):
+    if archive is None or archive.proof_root is None or archive.holds is None:
+        raise LedgerError("Profiled erasure requires separate --proof-root and configured --holds stores")
+
+
+def write_suppression_proof(archive, entry):
+    require_proof(archive)
+    sealed = archive.verify(entry["request"])
+    path = archive.proof_root / (entry["request"] + ".json")
+    if path.exists():
+        proof = json.loads(archive_module.read(path, 16384))
+        if proof.get("archiveSha256") != sealed["ciphertextSha256"] or proof.get("verifiedAbsent") is not True:
+            raise LedgerError("Suppression proof conflicts with this completed operation")
+        return
+    # No email, subject, rating values or source payload in the administrative proof.
+    proof = {"kind": "account-suppression-proof", "reference": entry["request"],
+             "completedAt": now(), "profile": entry["archiveProfile"], "verifiedAbsent": True,
+             "archiveSha256": sealed["ciphertextSha256"], "procedure": "privacy-274-v1"}
+    archive_module.write(path, archive_module.encoded(proof))
+
+
+def ensure_archive(archive, host_command, entry):
+    if archive.holds is not None:
+        hold_path = archive.holds / (entry["keycloakUserId"] + ".json")
+        if (hold_path.exists() or hold_path.is_symlink()) and entry["archiveProfile"] != "case-hold-v1":
+            raise LedgerError("A particular hold now exists; reconcile it before ordinary erasure")
+    if archive.has_source(entry["request"]):
+        # Never replace the first pre-delete capture on retry, even if identity is now absent.
+        return archive.seal(entry)
+    source = run_host(host_command, ["archive-snapshot", "--keycloak-user-id", entry["keycloakUserId"]])
+    identity = identify(host_command, entry["keycloakUserId"])
+    if source.get("issuer") != identity.get("issuer") or source.get("userId") != entry["userId"]:
+        raise LedgerError("Archive belongs to another runtime identity")
+    hold, ratings = None, []
+    if archive.holds is not None:
+        hold_path = archive_module.private(archive.holds, True) / (entry["keycloakUserId"] + ".json")
+        if hold_path.exists() or hold_path.is_symlink():
+            hold = json.loads(archive_module.read(hold_path, 16384))
+    if hold and entry["archiveProfile"] != "case-hold-v1":
+        raise LedgerError("A concrete hold exists; use its explicit exceptional archive profile")
+    if entry["archiveProfile"] == "case-hold-v1":
+        if not hold:
+            raise LedgerError("The exceptional profile requires its protected particular-case file")
+        games = hold.get("gameIds", [])
+        if not isinstance(games, list) or len(games) > 100:
+            raise LedgerError("Exceptional selection exceeds 100 games")
+        for game in games:
+            canonical_uuid(game, "case GameId")
+        if games:
+            response = run_host(host_command, ["archive-ratings", "--keycloak-user-id", entry["keycloakUserId"],
+                                              "--game-ids", ",".join(games)])
+            if response.get("issuer") != source["issuer"]:
+                raise LedgerError("Exceptional ratings belong to another issuer")
+            ratings = response["ratings"]
+            if not isinstance(ratings, list) or len(ratings) > 100:
+                raise LedgerError("Exceptional source exceeded its page budget")
+    return archive.seal(entry, source, hold, ratings)
+
+
+def candidate_page(host_command, cutoff, maximum):
+    page = run_host(host_command, ["cleanup-candidates", "--cutoff-ms", str(cutoff), "--max", str(maximum)])
+    issuer = page.get("issuer")
+    candidates = page.get("candidates")
+    if (not isinstance(issuer, str) or not issuer.endswith("/realms/gameometro") or
+            not issuer.startswith("https://") or not isinstance(candidates, list) or len(candidates) > maximum):
+        raise LedgerError("Invalid production candidate response")
+    return issuer, candidates
+
+
+def maintenance(command, action, run_id, issuer):
+    result = run_host(command, [action, "--run-id", run_id])
+    expected = "drained" if action in ("enter", "check") else "released"
+    if (result.get("state") != expected or result.get("runId") != run_id or result.get("issuer") != issuer):
+        raise LedgerError("Maintenance adapter did not acknowledge the exact run, issuer and drain state")
+
+
+def archive_preflight(archive):
+    # Signing and round-trip encryption prove private-key access before identity maintenance.
+    challenge = b"gameometro-archive-preflight"
+    archive.sign(challenge)
+    ciphertext = archive.gpg("--trust-model", "always", "--recipient", archive.recipient, "--encrypt", data=challenge)
+    if archive.gpg("--decrypt", data=ciphertext) != challenge:
+        raise LedgerError("Archive key preflight did not decrypt its challenge")
+
+
+def command_cleanup(arguments, host_command):
+    # No schedule is installed. The future #275 adapter must really deny/drain and release identity.
+    cutoff = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000) - 30 * 86400000
+    issuer, found = candidate_page(host_command, cutoff, 1)
+    if not found:
+        print(json.dumps({"candidates": 0, "maintenance": False}))
+        return 0
+    if not arguments.execute:
+        print(json.dumps({"candidatesPresent": True, "maintenance": False, "dryRun": True}))
+        return 0
+    archive = archive_from(arguments)
+    if archive is None or not arguments.maintenance_command:
+        raise LedgerError("Cleanup execute requires legal archive and a real deny/drain adapter (#275)")
+    require_proof(archive)
+    adapter = shlex.split(arguments.maintenance_command)
+    run_id = str(uuid.uuid4())
+    deadline = time.monotonic() + 120
+    with open_ledger(arguments.ledger, arguments.ledger_copy, create=True) as ledger:
+        if any(not entry["completedAt"] for entry in ledger.entries()):
+            raise LedgerError("Resolve committed incomplete erasures with retry before new cleanup")
+        archive_preflight(archive)
+        latest_issuer, latest = candidate_page(host_command, cutoff, 1)
+        if latest_issuer != issuer:
+            raise LedgerError("Candidate issuer changed during preflight")
+        if not latest:
+            print(json.dumps({"candidates": 0, "maintenance": False}))
+            return 0
+        # Enter can partially succeed then lose its answer: release still runs in finally.
+        try:
+            maintenance(adapter, "enter", run_id, issuer)
+            current_issuer, page = candidate_page(host_command, cutoff, 100)
+            if current_issuer != issuer:
+                raise LedgerError("Candidate issuer changed inside maintenance")
+            completed, skipped = 0, 0
+            for candidate in page:
+                if time.monotonic() >= deadline:
+                    break
+                subject = canonical_uuid(str(candidate.get("keycloakUserId", "")), "candidate subject")
+                maintenance(adapter, "check", run_id, issuer)
+                source = run_host(host_command, ["archive-snapshot", "--keycloak-user-id", subject])
+                user = source.get("account")
+                created = user.get("createdTimestamp") if isinstance(user, dict) else None
+                if (source.get("issuer") != issuer or not isinstance(user, dict) or
+                        user.get("emailVerified") is not False or user.get("eligibleHuman") is not True or
+                        type(created) is not int or not 0 < created <= cutoff or source.get("ratingCount") != 0):
+                    skipped += 1
+                    continue
+                if archive.holds and (archive.holds / (subject + ".json")).exists():
+                    skipped += 1
+                    continue
+                entry = ledger.entry(subject)
+                if entry:
+                    raise LedgerError("An existing subject unexpectedly reappeared; reconcile restore/replay")
+                reference = "CLEAN-" + str(uuid.uuid4())
+                entry = {"request": reference, "keycloakUserId": subject,
+                         "userId": canonical_uuid(str(source.get("userId", "")), "derived UserId"),
+                         "archiveProfile": "pending-signup-v1", "cleanupCutoffMs": cutoff}
+                ledger.append({"event": "requested", **entry})
+                run_steps(ledger, host_command, entry, replay=False, archive=archive)
+                completed += 1
+            _, backlog = candidate_page(host_command, cutoff, 1)
+            print(json.dumps({"erased": completed, "skipped": skipped, "backlog": bool(backlog)}))
+        finally:
+            maintenance(adapter, "exit", run_id, issuer)
+    return 0
+
+
+def command_archive(arguments, _host_command):
+    archive = archive_from(arguments)
+    if archive is None:
+        raise LedgerError("Archive operation requires protected storage/key arguments")
+    if arguments.command == "archive-verify":
+        answer = archive.verify(arguments.request)
+        answer = {"reference": answer["reference"], "profile": answer["profile"], "verified": True}
+    elif arguments.command == "archive-review":
+        review = archive.review(arguments.request, hold_reason=arguments.hold_reason,
+                                extend_until=arguments.extend_until, release_hold=arguments.release_hold)
+        answer = {key: review[key] for key in ("reference", "reviewedAt", "reviewAt", "expiresAt")}
+        answer["held"] = bool(review["holdReason"])
+    else:
+        answer = archive.purge(arguments.request, arguments.execute)
+    print(json.dumps(answer, sort_keys=True))
+    return 0
 
 
 # Commands ------------------------------------------------------------------------------------
@@ -320,7 +578,7 @@ def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int
     request = request_reference(arguments.request)
     keycloak_user_id = canonical_uuid(arguments.keycloak_user_id, "--keycloak-user-id")
     with open_ledger(arguments.ledger, arguments.ledger_copy, create=True) as ledger:
-        existing = next((entry for entry in ledger.entries() if entry["keycloakUserId"] == keycloak_user_id), None)
+        existing = ledger.entry(keycloak_user_id)
         if existing is not None:
             if existing["completedAt"]:
                 print(f"Already erased under request {existing['request']} at {existing['completedAt']}; nothing changed.")
@@ -329,25 +587,90 @@ def command_erase(arguments: argparse.Namespace, host_command: list[str]) -> int
         identity = identify(host_command, keycloak_user_id)
         if identity["account"] == "absent":
             raise LedgerError("No account has this Keycloak user ID in the target runtime; nothing recorded")
+        profile = arguments.archive_profile
+        if str(identity.get("issuer", "")).endswith("/realms/gameometro"):
+            # Requester verification is distinct from the account's stored email-verification state.
+            if profile is None:
+                source = run_host(host_command, ["archive-snapshot", "--keycloak-user-id", keycloak_user_id])
+                account = source.get("account")
+                if (source.get("issuer") != identity["issuer"] or source.get("userId") != identity["userId"]
+                        or not isinstance(account, dict) or type(account.get("emailVerified")) is not bool):
+                    raise LedgerError("Cannot select an ordinary archive profile for this exact account")
+                profile = "requested-account-v1" if account["emailVerified"] else "pending-signup-v1"
+        archive = archive_from(arguments) if profile else None
+        if profile:
+            require_proof(archive)
+            if not arguments.archive_profile:
+                hold_path = archive.holds / (keycloak_user_id + ".json")
+                if hold_path.exists() or hold_path.is_symlink():
+                    # A protected particular-case record is the explicit exception, not a default full export.
+                    archive_module.read(hold_path, 16384)
+                    profile = "case-hold-v1"
         # Write-ahead: the request is durable before the first mutation.
         ledger.append({"event": "requested", "request": request, "keycloakUserId": keycloak_user_id,
-                       "userId": identity["userId"]})
-        entry = ledger.entries()[-1]
-        results = run_steps(ledger, host_command, entry, replay=False)
+                       "userId": identity["userId"], **({"archiveProfile": profile} if profile else {})})
+        entry = ledger.entry(keycloak_user_id)
+        results = run_steps(ledger, host_command, entry, replay=False, archive=archive)
     print(json.dumps({"request": request, "keycloakUserId": keycloak_user_id, "steps": results}, sort_keys=True))
     return 0
 
 
 def command_retry(arguments: argparse.Namespace, host_command: list[str]) -> int:
-    with open_ledger(arguments.ledger, arguments.ledger_copy) as ledger:
-        pending = [entry for entry in ledger.entries() if not entry["completedAt"]]
-        if not pending:
-            print("No incomplete erasure; nothing changed.")
-            return 0
-        for entry in pending:
-            # Every step again, in order: each one is harmless when already done.
-            run_steps(ledger, host_command, entry, replay=False)
+    with open_ledger(arguments.ledger, arguments.ledger_copy) as ledger, contextlib.ExitStack() as fence:
+        count, archive, active_fence, fence_deadline = 0, None, None, None
+        for entry in ledger.entries():
+            if entry["completedAt"]:
+                continue
+            if count >= 100 or (fence_deadline is not None and time.monotonic() >= fence_deadline):
+                raise LedgerError("Retry admission budget reached; invoke retry again")
+            if entry.get("archiveProfile"):
+                if archive is None:
+                    archive = archive_from(arguments)
+                require_proof(archive)
+            is_cleanup = "cleanupCutoffMs" in entry or (entry.get("archiveProfile") == "pending-signup-v1"
+                                                        and entry["request"].startswith("CLEAN-"))
+            if is_cleanup:
+                cutoff = entry.get("cleanupCutoffMs")
+                if type(cutoff) is not int or cutoff <= 0 or not arguments.maintenance_command:
+                    raise LedgerError("Cleanup retry requires its recorded cutoff and a deny/drain adapter (#275)")
+                identity = identify(host_command, entry["keycloakUserId"])
+                issuer = identity.get("issuer", "")
+                if (identity["userId"] != entry["userId"] or not issuer.startswith("https://")
+                        or not issuer.endswith("/realms/gameometro")):
+                    raise LedgerError("Cleanup retry belongs to another runtime identity")
+                if active_fence is None:
+                    archive_preflight(archive)
+                    adapter = shlex.split(arguments.maintenance_command)
+                    run_id = str(uuid.uuid4())
+                    # Register before enter: an acknowledgement can be lost after entry succeeds.
+                    fence.callback(maintenance, adapter, "exit", run_id, issuer)
+                    maintenance(adapter, "enter", run_id, issuer)
+                    active_fence = (adapter, run_id, issuer)
+                    fence_deadline = time.monotonic() + 120
+                if active_fence[2] != issuer:
+                    raise LedgerError("Cleanup retry issuer changed inside maintenance")
+                maintenance(active_fence[0], "check", active_fence[1], issuer)
+                source = run_host(host_command, ["archive-snapshot", "--keycloak-user-id", entry["keycloakUserId"]])
+                user = source.get("account")
+                hold_path = archive.holds / (entry["keycloakUserId"] + ".json")
+                if hold_path.exists() or hold_path.is_symlink():
+                    raise LedgerError("Cleanup retry has a particular hold; reconcile before erasure")
+                if source.get("issuer") != issuer:
+                    raise LedgerError("Cleanup retry source issuer changed")
+                if user is None:
+                    if not archive.has_source(entry["request"]):
+                        raise LedgerError("Absent cleanup account has no first sealed source to recover")
+                    archive.seal(entry)
+                elif (not isinstance(user, dict) or user.get("emailVerified") is not False
+                      or user.get("eligibleHuman") is not True or type(user.get("createdTimestamp")) is not int
+                      or not 0 < user["createdTimestamp"] <= cutoff or source.get("ratingCount") != 0
+                      or source.get("userId") != entry["userId"]):
+                    raise LedgerError("Cleanup retry account is no longer eligible; reconcile without deleting it")
+            run_steps(ledger, host_command, entry, replay=False, archive=archive)
+            count += 1
             print(f"Request {entry['request']} completed.")
+        if count == 0:
+            print("No incomplete erasure; nothing changed.")
     return 0
 
 
@@ -369,27 +692,59 @@ def command_replay(arguments: argparse.Namespace, host_command: list[str]) -> in
         runtime = None
         # Every entry, not only those after the recovery point: replay is idempotent and this
         # avoids clock and backup-pair boundary mistakes.
+        entry_count = 0
+        incomplete = []
+        archive = None
         for entry in entries:
+            entry_count += 1
+            if not entry["completedAt"]:
+                if len(incomplete) >= 100:
+                    raise LedgerError("More than 100 incomplete erasures require a bounded recovery review")
+                incomplete.append(entry["request"])
             identity = identify(host_command, str(entry["keycloakUserId"]))
             if identity["userId"] != entry["userId"]:
                 raise LedgerError("The target derives another UserId: its issuer changed. Stop and investigate.")
             runtime = identity["runtime"]
+            if not entry["completedAt"] and entry.get("archiveProfile"):
+                if archive is None:
+                    archive = archive_from(arguments)
+                require_proof(archive)
+                hold_path = archive.holds / (entry["keycloakUserId"] + ".json")
+                if ((hold_path.exists() or hold_path.is_symlink())
+                        and entry["archiveProfile"] != "case-hold-v1"):
+                    raise LedgerError("An incomplete erasure has a new particular hold; reconcile before replay")
+                # No fresh snapshot is allowed here. Recover only the original first capture;
+                # otherwise replay could erase the last remaining source and make retry impossible.
+                archive.seal(entry)
+                if "cleanupCutoffMs" in entry or (entry["archiveProfile"] == "pending-signup-v1"
+                                                  and entry["request"].startswith("CLEAN-")):
+                    cutoff = entry.get("cleanupCutoffMs")
+                    if type(cutoff) is not int or cutoff <= 0:
+                        raise LedgerError("Incomplete cleanup replay needs its recorded cutoff")
+                    source = run_host(host_command, ["archive-snapshot", "--keycloak-user-id", entry["keycloakUserId"]])
+                    user = source.get("account")
+                    if source.get("issuer") != identity.get("issuer"):
+                        raise LedgerError("Incomplete cleanup replay source issuer changed")
+                    if user is not None and (not isinstance(user, dict) or user.get("emailVerified") is not False
+                            or user.get("eligibleHuman") is not True or type(user.get("createdTimestamp")) is not int
+                            or not 0 < user["createdTimestamp"] <= cutoff or source.get("ratingCount") != 0
+                            or source.get("userId") != entry["userId"]):
+                        raise LedgerError("Incomplete cleanup replay is no longer eligible; reconcile without deletion")
             run_steps(None, host_command, entry, replay=True)
-        incomplete = [entry["request"] for entry in entries if not entry["completedAt"]]
     receipt = {
         "kind": "deletion-ledger-replay",
         "replayedAt": now(),
         "runtime": runtime,
         "ledgerSha256": digest,
-        "entries": len(entries),
-        "verified": len(entries),
+        "entries": entry_count,
+        "verified": entry_count,
         "incompleteInLedger": incomplete,
         "outcome": "verified",
     }
     descriptor = os.open(receipt_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
         handle.write(json.dumps(receipt, indent=2, sort_keys=True) + "\n")
-    print(f"Replayed and verified {len(entries)} erasure(s); receipt {receipt_path}.")
+    print(f"Replayed and verified {entry_count} erasure(s); receipt {receipt_path}.")
     if incomplete:
         print(f"Incomplete in the ledger, finish with retry against the live runtime: {', '.join(incomplete)}")
     return 0
@@ -400,6 +755,13 @@ def main() -> int:
     parser.add_argument("--ledger", type=pathlib.Path, required=True, help="Ledger file in protected owner storage")
     parser.add_argument("--ledger-copy", type=pathlib.Path,
                         help="Second ledger file on storage independent of the workstation; required to erase")
+    parser.add_argument("--proof-root", type=pathlib.Path)
+    parser.add_argument("--archive-root", type=pathlib.Path)
+    parser.add_argument("--archive-copy", type=pathlib.Path)
+    parser.add_argument("--gnupg-home", type=pathlib.Path)
+    parser.add_argument("--recipient")
+    parser.add_argument("--signer")
+    parser.add_argument("--holds", type=pathlib.Path, help="Protected per-subject particular-case files")
     parser.add_argument("--host-command", help="Command line that runs personal-data in the target runtime")
     commands = parser.add_subparsers(dest="command", required=True)
     export = commands.add_parser("export", help="Write one account's data export (no ledger entry)")
@@ -409,19 +771,37 @@ def main() -> int:
     erase = commands.add_parser("erase", help="Record and run one account's erasure")
     erase.add_argument("--request", required=True)
     erase.add_argument("--keycloak-user-id", required=True)
-    commands.add_parser("retry", help="Run every incomplete erasure again")
+    erase.add_argument("--archive-profile", choices=archive_module.PROFILES)
+    cleanup = commands.add_parser("cleanup-unverified", help="Dry-run by default; never installs a timer")
+    cleanup.add_argument("--execute", action="store_true")
+    cleanup.add_argument("--maintenance-command", help="Trusted #275 enter/check/exit deny-drain adapter")
+    for name in ("archive-verify", "archive-review", "archive-purge"):
+        command = commands.add_parser(name)
+        command.add_argument("--request", required=True)
+        if name == "archive-review":
+            command.add_argument("--hold-reason")
+            command.add_argument("--extend-until")
+            command.add_argument("--release-hold", action="store_true")
+        if name == "archive-purge":
+            command.add_argument("--execute", action="store_true")
+    retry = commands.add_parser("retry", help="Run every incomplete erasure again")
+    retry.add_argument("--maintenance-command", help="Required deny/drain adapter for cleanup recovery")
     commands.add_parser("status", help="List ledger entries (identifiers and states only)")
     replay = commands.add_parser("replay", help="Reapply every erasure to a restored runtime before it reopens")
     replay.add_argument("--receipt", type=pathlib.Path, required=True)
     arguments = parser.parse_args()
 
     host_command = shlex.split(arguments.host_command) if arguments.host_command else None
-    if arguments.command != "status" and not host_command:
+    if arguments.command not in ("status", "archive-verify", "archive-review", "archive-purge") and not host_command:
         parser.error(f"{arguments.command} requires --host-command")
-    if arguments.command in ("erase", "retry") and arguments.ledger_copy is None:
+    if arguments.command in ("erase", "retry", "cleanup-unverified") and arguments.ledger_copy is None:
         # No mutation may start unless its record is durable on two independent storages.
         parser.error(f"{arguments.command} requires --ledger-copy on storage independent of this workstation")
     handler = {
+        "cleanup-unverified": command_cleanup,
+        "archive-verify": command_archive,
+        "archive-review": command_archive,
+        "archive-purge": command_archive,
         "export": command_export,
         "erase": command_erase,
         "retry": command_retry,
@@ -434,6 +814,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (OSError, LedgerError) as error:
+    except (OSError, LedgerError, ArchiveError, ValueError, KeyError, subprocess.TimeoutExpired) as error:
         print(f"personal-data-ledger failed: {error}", file=sys.stderr)
         raise SystemExit(1) from None

@@ -4,7 +4,11 @@ import {
   FeaturedReleasesShell,
   type FeaturedShellState,
 } from "../features/releases/featured-releases-shell";
-import { readFeaturedSearch } from "../features/releases/featured-search";
+import {
+  featuredSearchPath,
+  isCanonicalFeaturedSearch,
+  readFeaturedSearch,
+} from "../features/releases/featured-search";
 import { useFeaturedReleasesQuery } from "../features/releases/use-featured-releases-query";
 
 export function FeaturedReleasesPage() {
@@ -12,14 +16,17 @@ export function FeaturedReleasesPage() {
   const search = readFeaturedSearch(searchParams);
   const query = useFeaturedReleasesQuery(search);
 
-  // A requested month the contract does not accept, malformed or outside the current calendar
-  // year (which only the API's trusted date knows), returns to the landing route, the current
-  // month, rather than presenting another year's selection or a new error state.
-  if (
-    searchParams.has("month") &&
-    (search.month === null || (query.isError && query.error.code === "FILTER_INVALID"))
-  ) {
-    return <Navigate replace to="/" />;
+  // A URL the contract does not accept, malformed or contradictory, takes the canonical form of
+  // what it reads as, so the address always names the period shown.
+  if (!isCanonicalFeaturedSearch(searchParams)) {
+    return <Navigate replace to={featuredSearchPath(search)} />;
+  }
+  // A period outside the navigation bounds, which only the API's trusted date knows, returns to
+  // the current period of the same granularity rather than presenting a new error state.
+  if (search.period !== null && query.isError && query.error.code === "FILTER_INVALID") {
+    return (
+      <Navigate replace to={featuredSearchPath({ granularity: search.granularity, period: null })} />
+    );
   }
 
   let state: FeaturedShellState;

@@ -1,11 +1,11 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.14.0
+  version: 3.15.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
-    Provider-independent, same-origin contract for release discovery, monthly featured
-    releases, bounded-catalogue search, public game details, BFF session discovery, the
+    Provider-independent, same-origin contract for release discovery, weekly and monthly
+    featured releases, bounded-catalogue search, public game details, BFF session discovery, the
     authenticated user's ratings, and the catalogue operator's read-only synchronization
     status and coverage. It contains only the twelve approved method/path operations.
 
@@ -20,7 +20,7 @@ tags:
   - name: Releases
     description: Public recent and upcoming release discovery.
   - name: Featured releases
-    description: Public automatic selection of a calendar month's featured releases.
+    description: Public automatic selection of a calendar week's or month's featured releases.
   - name: Catalogue
     description: Public reads from the bounded local catalogue.
   - name: Ratings
@@ -280,24 +280,31 @@ paths:
     get:
       tags: [Featured releases]
       operationId: getFeaturedReleases
-      summary: Read the automatic featured releases of one calendar month
+      summary: Read the automatic featured releases of one calendar week or month
       description: |
-        Reads the automatic selection of one calendar month from the last valid local catalogue.
-        Candidates are the games with a qualifying commercial release inside the month: its known
-        date lies inside the month (an exact day of the month, or month precision equal to the
-        month) and it is neither cancelled, delayed, nor pending review. Only Full Release
-        participates. A candidate must be an accepted import type, not an edition, with its
-        own known first release in this month and positive locally stored IGDB Hypes.
-        Candidates rank by Hypes descending, then `gameId` ascending. A
-        game without a usable popularity signal stays a normal catalogue and discovery result but
-        is not ranked, and no popularity value is ever invented. The first item is the month's
-        featured release and up to five more follow; fewer items are returned rather than filling
-        slots. Popularity measures provider-observed attention, never quality, a rating, or an
-        editorial recommendation, and the signal value itself is not exposed. The application
-        derives the evaluation date and the default month, the current calendar month, in
-        `Europe/Madrid`. Another month of the current calendar year may be selected; it is ranked
-        with the same current local popularity evidence, because no popularity history is kept.
-        A month of another year is never featured. PostgreSQL selects the
+        Reads the automatic selection of one calendar period from the last valid local catalogue:
+        an ISO 8601 week, Monday to Sunday, or a calendar month. Candidates are the games with a
+        qualifying commercial release inside the period: its known date period lies entirely
+        inside it (an exact day of the period, or, for a month, month precision equal to the
+        month) and it is neither cancelled, delayed, nor pending review. A week therefore only
+        ever holds day-precision releases; a month, quarter, year or unknown date is never
+        assigned to a week. Only Full Release participates. A candidate must be an accepted
+        import type, not an edition, with its own known first release in this period and
+        positive locally stored IGDB Hypes. Candidates rank by Hypes descending, then `gameId`
+        ascending. A game without a usable popularity signal stays a normal catalogue and
+        discovery result but is not ranked, and no popularity value is ever invented. The first
+        item is the period's featured release and up to five more follow; fewer items are
+        returned rather than filling slots. Popularity measures provider-observed attention,
+        never quality, a rating, or an editorial recommendation, and the signal value itself is
+        not exposed. The application derives the evaluation date, the current week and the
+        current month in `Europe/Madrid`. Without parameters the current calendar month is
+        served. Any period inside the navigation bounds may be selected; it is ranked with the
+        same current local popularity evidence, because no popularity history is kept. Weeks
+        reach 16 weeks before and after the current week. Months reach 10 calendar months back,
+        across years, and forward to the last calendar month lying entirely inside the
+        configured forward horizon of catalogue acquisition; the bound states what acquisition
+        is configured to cover, never that the local catalogue is complete. `navigation` names
+        the adjacent periods inside these bounds. PostgreSQL selects the
         qualifying releases, ranks and limits the games, and presents at most one release per
         platform before anything reaches the application. Each item also carries the landscape
         context-selected image and optional decorative secondary-card logo,
@@ -307,11 +314,13 @@ paths:
         is served from PostgreSQL; no provider or translator is called.
       security: []
       parameters:
+        - $ref: '#/components/parameters/FeaturedGranularity'
+        - $ref: '#/components/parameters/FeaturedWeek'
         - $ref: '#/components/parameters/FeaturedMonth'
         - $ref: '#/components/parameters/PublicIfNoneMatch'
       responses:
         '200':
-          description: The month's featured selection, possibly empty.
+          description: The period's featured selection, possibly empty.
           headers:
             X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
             Cache-Control: { $ref: '#/components/headers/DiscoveryCacheControl' }
@@ -328,9 +337,11 @@ paths:
                     artwork and optional logo metadata (the hero title stays text); the second has no usable artwork or screenshot, so its
                     provider cover is shown whole.
                   value:
+                    granularity: month
                     month: 2026-10
                     evaluatedOn: '2026-10-03'
                     window: { from: '2026-10-01', to: '2026-10-31' }
+                    navigation: { previous: 2026-09, next: 2026-11 }
                     selection:
                       status: ranked
                       popularityFreshness: fresh
@@ -444,9 +455,11 @@ paths:
                     valid local popularity evidence, whose oldest acquisition is older than the
                     catalogue freshness policy.
                   value:
+                    granularity: month
                     month: 2026-09
                     evaluatedOn: '2026-10-03'
                     window: { from: '2026-09-01', to: '2026-09-30' }
+                    navigation: { previous: 2026-08, next: 2026-10 }
                     selection:
                       status: ranked
                       popularityFreshness: stale
@@ -484,18 +497,42 @@ paths:
                             reviewStatus: not_required
                 popularityUnavailable:
                   summary: Qualifying releases exist but none has a popularity signal
+                  description: |
+                    `granularity=week` without `week`: the current ISO week in `Europe/Madrid`,
+                    Monday to Sunday.
                   value:
-                    month: 2026-11
+                    granularity: week
+                    week: 2026-W40
                     evaluatedOn: '2026-10-03'
-                    window: { from: '2026-11-01', to: '2026-11-30' }
+                    window: { from: '2026-09-28', to: '2026-10-04' }
+                    navigation: { previous: 2026-W39, next: 2026-W41 }
                     selection: { status: popularity_unavailable }
                     items: []
                 noQualifyingReleases:
-                  summary: The local catalogue holds no qualifying release in the month
+                  summary: The local catalogue holds no qualifying release in the week
+                  description: |
+                    `week=2026-W53`: a week crossing into the next calendar year, Monday 28
+                    December 2026 to Sunday 3 January 2027.
                   value:
-                    month: 2026-12
+                    granularity: week
+                    week: 2026-W53
                     evaluatedOn: '2026-10-03'
-                    window: { from: '2026-12-01', to: '2026-12-31' }
+                    window: { from: '2026-12-28', to: '2027-01-03' }
+                    navigation: { previous: 2026-W52, next: 2027-W01 }
+                    selection: { status: no_qualifying_releases }
+                    items: []
+                lastMonth:
+                  summary: The last month inside the forward acquisition horizon
+                  description: |
+                    With a 180-day forward acquisition horizon evaluated on 3 October 2026, the
+                    horizon ends on 1 April 2027, so March 2027 is the last month lying entirely
+                    inside it and `next` is absent.
+                  value:
+                    granularity: month
+                    month: 2027-03
+                    evaluatedOn: '2026-10-03'
+                    window: { from: '2027-03-01', to: '2027-03-31' }
+                    navigation: { previous: 2027-02 }
                     selection: { status: no_qualifying_releases }
                     items: []
         '304': { $ref: '#/components/responses/PublicNotModified' }
@@ -1347,14 +1384,40 @@ components:
         ended, so `true` combined with `view=recent` yields 422 `FILTER_INVALID`.
       schema: { type: boolean, default: false }
       example: true
+    FeaturedGranularity:
+      name: granularity
+      in: query
+      required: false
+      description: |
+        Period granularity. Omitted, it is `week` when `week` is present and `month` otherwise,
+        so a request without parameters keeps serving the current calendar month. Without a
+        period parameter of its own, it selects the current week or month in `Europe/Madrid`.
+        Combining it with the other granularity's period parameter yields 422 `FILTER_INVALID`
+        for that parameter.
+      schema: { $ref: '#/components/schemas/FeaturedGranularity' }
+      example: week
+    FeaturedWeek:
+      name: week
+      in: query
+      required: false
+      description: |
+        ISO 8601 week to feature as `YYYY-Www`, Monday to Sunday; `YYYY` is the week-based year,
+        so `2026-W53` runs from 28 December 2026 to 3 January 2027. It must lie within 16 weeks
+        before or after the current week in `Europe/Madrid`. A malformed week, week 53 of a
+        year with 52 weeks, a week outside the bounds, or a week combined with `month` or
+        `granularity=month` yields 422 `FILTER_INVALID` for `/query/week`.
+      schema: { $ref: '#/components/schemas/IsoWeek' }
+      example: 2026-W42
     FeaturedMonth:
       name: month
       in: query
       required: false
       description: |
-        Calendar month to feature as `YYYY-MM`, a month of the current calendar year in
-        `Europe/Madrid`. Omitted, it is the current calendar month. A malformed month, or a month
-        of another year, yields 422 `FILTER_INVALID` for `/query/month`.
+        Calendar month to feature as `YYYY-MM`. It must lie between 10 calendar months before
+        the current month in `Europe/Madrid`, across years, and the last calendar month lying
+        entirely inside the configured forward acquisition horizon; the current month is always
+        accepted. A malformed month, a month outside the bounds, or a month combined with
+        `granularity=week` yields 422 `FILTER_INVALID` for `/query/month`.
       schema: { $ref: '#/components/schemas/CalendarMonth' }
       example: 2026-10
     PlatformIdsQuery:
@@ -1916,16 +1979,44 @@ components:
       pattern: '^(?!0000)[0-9]{4}-(0[1-9]|1[0-2])$'
       description: A calendar month as `YYYY-MM`, from `0001-01` through `9999-12`.
       examples: [2026-10]
+    IsoWeek:
+      type: string
+      pattern: '^(?!0000)[0-9]{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$'
+      description: |
+        An ISO 8601 week as `YYYY-Www`: the week-based year and the week number, `01` through
+        `52`, or `53` in a year that has one. Weeks start on Monday.
+      examples: [2026-W42]
+    FeaturedGranularity:
+      type: string
+      enum: [week, month]
+      # Keep Spring's generated enum identifiers identical to the accepted query values.
+      x-enum-varnames: [week, month]
+      description: The calendar period a featured selection represents.
+    FeaturedPeriod:
+      type: string
+      pattern: '^(?!0000)[0-9]{4}-((0[1-9]|1[0-2])|W(0[1-9]|[1-4][0-9]|5[0-3]))$'
+      description: |
+        A featured period of the response's own granularity: an `IsoWeek` for `week`, a
+        `CalendarMonth` for `month`.
+      examples: [2026-W43, 2026-11]
+    FeaturedNavigation:
+      type: object
+      description: |
+        The adjacent periods of the same granularity that may be requested. Each is absent at
+        its navigation bound; the bounds are the operation's, evaluated in `Europe/Madrid`.
+      properties:
+        previous: { $ref: '#/components/schemas/FeaturedPeriod' }
+        next: { $ref: '#/components/schemas/FeaturedPeriod' }
     FeaturedSelection:
       type: object
       required: [status]
       description: |
         Why the featured selection holds what it holds. `ranked`: at least one game with a
-        qualifying release in the month has a usable popularity signal, `items` holds the ranking,
-        and both popularity fields are present. `popularity_unavailable`: the month has qualifying
-        releases but none of their games has a usable popularity signal, so nothing is ranked.
-        `no_qualifying_releases`: the local catalogue holds no qualifying release inside the month.
-        A stale selection is still the last valid local ranking.
+        qualifying release in the period has a usable popularity signal, `items` holds the
+        ranking, and both popularity fields are present. `popularity_unavailable`: the period has
+        qualifying releases but none of their games has a usable popularity signal, so nothing is
+        ranked. `no_qualifying_releases`: the local catalogue holds no qualifying release inside
+        the period. A stale selection is still the last valid local ranking.
       properties:
         status:
           type: string
@@ -1944,21 +2035,28 @@ components:
             is at least this current.
     FeaturedReleases:
       type: object
-      required: [month, evaluatedOn, window, selection, items]
+      description: |
+        Since 3.14.0, `month` is present only for the `month` granularity and `week` only for
+        `week`. A client that never sends `granularity=week` or `week` always receives `month`,
+        as before; a client opting into weeks reads `granularity` first.
+      required: [granularity, evaluatedOn, window, navigation, selection, items]
       properties:
+        granularity: { $ref: '#/components/schemas/FeaturedGranularity' }
         month: { $ref: '#/components/schemas/CalendarMonth' }
+        week: { $ref: '#/components/schemas/IsoWeek' }
         evaluatedOn: { type: string, format: date }
         window:
           $ref: '#/components/schemas/ReleaseWindow'
-          description: The first and the last day of the month, inclusive.
+          description: The first and the last day of the week or month, inclusive.
+        navigation: { $ref: '#/components/schemas/FeaturedNavigation' }
         selection: { $ref: '#/components/schemas/FeaturedSelection' }
         items:
           type: array
           maxItems: 6
           description: |
-            Ranked games, highest popularity first. The first item is the month's featured release
-            and up to five other featured releases follow. Each item holds only the game's
-            qualifying releases inside the month, at most one per platform, chosen by the
+            Ranked games, highest popularity first. The first item is the period's featured
+            release and up to five other featured releases follow. Each item holds only the game's
+            qualifying releases inside the period, at most one per platform, chosen by the
             `ReleaseItem` presentation precedence with the earliest date first; an exact day comes
             before month precision, then the earlier date. Empty unless `selection.status` is
             `ranked`.
@@ -1967,8 +2065,8 @@ components:
       type: object
       required: [gameId, slug, canonicalTitle, primaryCover, featuredImage, releases]
       description: |
-        One ranked game of the month: the `ReleaseItem` fields, holding the game's qualifying
-        presented releases inside the month, plus the landscape image and the optional title
+        One ranked game of the period: the `ReleaseItem` fields, holding the game's qualifying
+        presented releases inside the period, plus the landscape image and the optional title
         logo featured discovery presents.
       properties:
         gameId: { $ref: '#/components/schemas/GameId' }
@@ -2047,7 +2145,7 @@ components:
         suitable landscape media, the game's provider cover in a designed treatment, then the
         product fallback. A `fill` image may be cropped to fill a landscape frame; a `contain`
         image is shown whole inside a designed treatment and never stretched or cropped. `url`
-        suits the featured release of the month and `compactUrl` the other featured releases. A
+        suits the featured release of the period and `compactUrl` the other featured releases. A
         provider image carries its mandatory attribution (ADR-0001).
       oneOf:
         - $ref: '#/components/schemas/ProviderFeaturedImage'
@@ -2714,8 +2812,8 @@ components:
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     FeaturedReleaseValidationFailed:
       description: |
-        The requested month is malformed or outside the current calendar year, or a request
-        parameter is invalid.
+        The requested week or month is malformed, outside the navigation bounds or combined with
+        the other granularity, or a request parameter is invalid.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }

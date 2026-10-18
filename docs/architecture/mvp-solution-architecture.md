@@ -27,7 +27,7 @@ Scheduled inbound adapter (opt-in) / Operator (exceptional management-port comma
       -> IGDB adapter -> normalize/validate -> import or update
           -> atomic current Game state, featured evidence, external player score
              + catalogue revision in PostgreSQL
-              -> public reads, including the monthly featured releases (ADR-0021)
+              -> public reads, including the weekly and monthly featured releases (ADR-0021)
 
 External boundaries:
   private catalogue translation helper (acquisition/backfill only; ADR-0022/ADR-0024)

@@ -69,7 +69,7 @@ test("featured cards fit two three-digit counts and abbreviate thousands without
   } }));
   for (const width of [320, 390, 834, 1320]) {
     await page.setViewportSize({ width, height: 1050 });
-    await page.goto("/");
+    await page.goto("/?granularity=month");
     await page.evaluate(() => document.fonts.ready);
     const cards = page.locator(".featured-card");
     await expect(cards).toHaveCount(5);
@@ -121,7 +121,7 @@ for (const width of [320, 390, 834, 1320]) {
       })),
       page: { number: 1, size: 6, totalItems: states.length, totalPages: 1 },
     } }));
-    await page.goto("/");
+    await page.goto("/?granularity=month");
     await page.evaluate(() => document.fonts.ready);
     const hero = page.locator(".featured-hero");
     const ratings = hero.getByRole("list", { name: /^Puntuaciones de / });

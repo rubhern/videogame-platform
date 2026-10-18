@@ -10,9 +10,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Outbound query port for one calendar month's featured releases from the current publication.
+ * Outbound query port for one calendar period's featured releases (a week or a month) from the
+ * current publication.
  *
- * <p>The store selects the qualifying releases inside the month, ranks their games by the local
+ * <p>The store selects the qualifying releases inside the period, ranks their games by the local
  * popularity signal with a unique final tie-breaker, limits the ranking and presents at most one
  * release per platform, so request memory stays {@code O(limit x releaseGroupLimit)}.
  */
@@ -21,11 +22,15 @@ public interface FeaturedReleaseReadPort {
     /** Empty when no catalogue publication exists yet. */
     Optional<Result> findFeaturedReleases(Criteria criteria);
 
-    /** The month as its inclusive first and last day, the ranking bound and the release bound. */
-    record Criteria(LocalDate monthStart, LocalDate monthEnd, int limit, int releaseGroupLimit) {
+    /**
+     * The period as its inclusive first and last day, the ranking bound and the release bound. A
+     * release qualifies only when its whole known date period lies inside these days, so a week
+     * admits exact days alone.
+     */
+    record Criteria(LocalDate periodStart, LocalDate periodEnd, int limit, int releaseGroupLimit) {
         public Criteria {
-            if (monthStart == null || monthEnd == null || monthEnd.isBefore(monthStart)) {
-                throw new IllegalArgumentException("A featured month needs ordered bounds");
+            if (periodStart == null || periodEnd == null || periodEnd.isBefore(periodStart)) {
+                throw new IllegalArgumentException("A featured period needs ordered bounds");
             }
             if (limit < 1 || releaseGroupLimit < 1) {
                 throw new IllegalArgumentException("A featured ranking must be bounded");
@@ -34,8 +39,8 @@ public interface FeaturedReleaseReadPort {
     }
 
     /**
-     * {@code items} is the bounded ranking. {@code qualifyingReleases} states whether the month
-     * holds any qualifying release at all, which tells an unranked month apart from an empty one.
+     * {@code items} is the bounded ranking. {@code qualifyingReleases} states whether the period
+     * holds any qualifying release at all, which tells an unranked period apart from an empty one.
      */
     record Result(String publicationVersion, boolean qualifyingReleases, List<Item> items) {
         public Result {

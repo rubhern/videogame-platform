@@ -1,7 +1,7 @@
 {
   "name": "@videogame-platform/frontend",
   "private": true,
-  "version": "0.32.0",
+  "version": "0.34.0",
   "type": "module",
   "description": "Frontend walking skeleton for VideoGame Platform",
   "engines": {
@@ -9,16 +9,17 @@
     "npm": ">=11 <12"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "npm run check:legal && vite build",
     "dev": "vite",
     "generate-api": "openapi-typescript ../docs/architecture/api/openapi.yaml -o src/shared/api/generated/schema.d.ts",
     "lint": "eslint . --max-warnings 0",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "npm run check:legal && vitest run",
     "test:e2e": "playwright test",
     "test:e2e:list": "playwright test --list",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
-    "verify": "npm run generate-api && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e:list"
+    "verify": "npm run generate-api && npm run lint && npm run typecheck && npm run test && npm run build && npm run test:e2e:list",
+    "check:legal": "node ../scripts/prepare-legal-content.mjs --check"
   },
   "dependencies": {
     "@tanstack/react-query": "5.101.4",

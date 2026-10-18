@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "5a1f2b9c-1510-4e1a-9f0d-151151151151",
     "name": "VideoGame Platform Backend - Featured Releases",
-    "description": "Executable examples for the OpenAPI GET /api/v1/featured-releases contract implemented through the Maven-generated FeaturedReleasesApi interface and a bounded PostgreSQL ranking. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
+    "description": "Executable examples for the OpenAPI GET /api/v1/featured-releases contract implemented through the Maven-generated FeaturedReleasesApi interface and a bounded PostgreSQL ranking of one ISO week or calendar month. Run against a disposable local database initialized with the tracked development seed; no provider credential or request-path provider call is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -18,7 +18,8 @@
               "});",
               "pm.test(\"Response follows the reviewed featured-releases contract\", function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"selection\", \"items\");",
+              "    pm.expect(body).to.have.all.keys(\"granularity\", \"month\", \"evaluatedOn\", \"window\", \"navigation\", \"selection\", \"items\");",
+              "    pm.expect(body.granularity).to.eql(\"month\");",
               "    pm.expect(body.month).to.match(/^[0-9]{4}-(0[1-9]|1[0-2])$/);",
               "    pm.expect(body.window.from).to.eql(body.month + \"-01\");",
               "    pm.expect(body.window.to.slice(0, 7)).to.eql(body.month);",
@@ -58,6 +59,11 @@
               "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
               "});",
               "pm.collectionVariables.set(\"featuredEtag\", pm.response.headers.get(\"ETag\"));",
+              "pm.test(\"Navigation names the adjacent months inside the bounds\", function () {",
+              "    const navigation = pm.response.json().navigation;",
+              "    pm.expect(navigation.previous).to.match(/^[0-9]{4}-(0[1-9]|1[0-2])$/);",
+              "    pm.collectionVariables.set(\"featuredPreviousMonth\", navigation.previous);",
+              "});",
               "pm.test(\"Each featured game presents a landscape image and an optional logo honestly\", function () {",
               "    pm.response.json().items.forEach(function (item) {",
               "        const image = item.featuredImage;",
@@ -191,18 +197,6 @@
       "name": "Featured releases of another month",
       "event": [
         {
-          "listen": "prerequest",
-          "script": {
-            "exec": [
-              "// Featured months stay within the current calendar year in Europe/Madrid.",
-              "const year = new Intl.DateTimeFormat(\"en\", { timeZone: \"Europe/Madrid\", year: \"numeric\" }).format(new Date());",
-              "pm.collectionVariables.set(\"featuredYear\", year);"
-            ],
-            "type": "text/javascript",
-            "packages": {}
-          }
-        },
-        {
           "listen": "test",
           "script": {
             "exec": [
@@ -211,7 +205,8 @@
               "});",
               "pm.test(\"Response follows the reviewed featured-releases contract\", function () {",
               "    const body = pm.response.json();",
-              "    pm.expect(body).to.have.all.keys(\"month\", \"evaluatedOn\", \"window\", \"selection\", \"items\");",
+              "    pm.expect(body).to.have.all.keys(\"granularity\", \"month\", \"evaluatedOn\", \"window\", \"navigation\", \"selection\", \"items\");",
+              "    pm.expect(body.granularity).to.eql(\"month\");",
               "    pm.expect(body.month).to.match(/^[0-9]{4}-(0[1-9]|1[0-2])$/);",
               "    pm.expect(body.window.from).to.eql(body.month + \"-01\");",
               "    pm.expect(body.window.to.slice(0, 7)).to.eql(body.month);",
@@ -251,9 +246,11 @@
               "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
               "});",
               "pm.test(\"The requested month is the represented month\", function () {",
-              "    const month = pm.collectionVariables.get(\"featuredYear\") + \"-10\";",
-              "    pm.expect(pm.response.json().month).to.eql(month);",
-              "    pm.expect(pm.response.json().window).to.eql({ from: month + \"-01\", to: month + \"-31\" });",
+              "    const month = pm.collectionVariables.get(\"featuredPreviousMonth\");",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.month).to.eql(month);",
+              "    pm.expect(body.window.from).to.eql(month + \"-01\");",
+              "    pm.expect(body.navigation.next).to.be.a(\"string\");",
               "});",
               "pm.test(\"Each featured game presents a landscape image and an optional logo honestly\", function () {",
               "    pm.response.json().items.forEach(function (item) {",
@@ -319,7 +316,7 @@
           }
         ],
         "url": {
-          "raw": "{{baseUrl}}/api/v1/featured-releases?month={{featuredYear}}-10",
+          "raw": "{{baseUrl}}/api/v1/featured-releases?month={{featuredPreviousMonth}}",
           "host": [
             "{{baseUrl}}"
           ],
@@ -331,11 +328,183 @@
           "query": [
             {
               "key": "month",
-              "value": "{{featuredYear}}-10"
+              "value": "{{featuredPreviousMonth}}"
             }
           ]
         },
         "description": "A visitor may select another month of the current calendar year in Europe/Madrid, here October; it is ranked with the same current local popularity evidence because no popularity history is kept. With the development seed, October 2026 features Crimson Desert."
+      },
+      "response": []
+    },
+    {
+      "name": "Current week featured releases",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response represents one ISO week from Monday to Sunday\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"granularity\", \"week\", \"evaluatedOn\", \"window\", \"navigation\", \"selection\", \"items\");",
+              "    pm.expect(body.granularity).to.eql(\"week\");",
+              "    pm.expect(body.week).to.match(/^[0-9]{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$/);",
+              "    const from = new Date(body.window.from + \"T00:00:00Z\");",
+              "    const to = new Date(body.window.to + \"T00:00:00Z\");",
+              "    pm.expect(from.getUTCDay()).to.eql(1);",
+              "    pm.expect((to - from) / 86400000).to.eql(6);",
+              "    pm.expect([\"ranked\", \"popularity_unavailable\", \"no_qualifying_releases\"]).to.include(body.selection.status);",
+              "    pm.expect(body.items.length).to.be.at.most(6);",
+              "    if (body.selection.status !== \"ranked\") {",
+              "        pm.expect(body.items).to.be.empty;",
+              "    }",
+              "});",
+              "pm.test(\"A week presents only exact days inside it, one release per platform\", function () {",
+              "    const body = pm.response.json();",
+              "    body.items.forEach(function (item) {",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release.releaseDate.precision).to.eql(\"day\");",
+              "            pm.expect(release.releaseDate.value >= body.window.from && release.releaseDate.value <= body.window.to).to.be.true;",
+              "            pm.expect([\"cancelled\", \"delayed\"]).to.not.include(release.status);",
+              "            pm.expect(release.reviewStatus).to.eql(\"not_required\");",
+              "        });",
+              "    });",
+              "});",
+              "pm.test(\"The popularity value itself is never exposed\", function () {",
+              "    pm.expect(pm.response.text()).to.not.include(\"hypes\");",
+              "});",
+              "pm.test(\"Public cache and correlation headers are present\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
+              "});",
+              "pm.test(\"Navigation names the adjacent weeks inside the bounds\", function () {",
+              "    const navigation = pm.response.json().navigation;",
+              "    pm.expect(navigation.next).to.match(/^[0-9]{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$/);",
+              "    pm.collectionVariables.set(\"featuredNextWeek\", navigation.next);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?granularity=week",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "granularity",
+              "value": "week"
+            }
+          ]
+        },
+        "description": "Reads the automatic selection of the current Europe/Madrid calendar month from local PostgreSQL state. The first item is the month's featured release and up to five more follow, ranked by the locally stored IGDB Hypes count with gameId ascending as the tie-breaker; only distinct accepted products first released in the month with a qualifying Full Release and positive Hypes participate. No provider is called."
+      },
+      "response": []
+    },
+    {
+      "name": "Featured releases of another week",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "pm.test(\"Response represents one ISO week from Monday to Sunday\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.all.keys(\"granularity\", \"week\", \"evaluatedOn\", \"window\", \"navigation\", \"selection\", \"items\");",
+              "    pm.expect(body.granularity).to.eql(\"week\");",
+              "    pm.expect(body.week).to.match(/^[0-9]{4}-W(0[1-9]|[1-4][0-9]|5[0-3])$/);",
+              "    const from = new Date(body.window.from + \"T00:00:00Z\");",
+              "    const to = new Date(body.window.to + \"T00:00:00Z\");",
+              "    pm.expect(from.getUTCDay()).to.eql(1);",
+              "    pm.expect((to - from) / 86400000).to.eql(6);",
+              "    pm.expect([\"ranked\", \"popularity_unavailable\", \"no_qualifying_releases\"]).to.include(body.selection.status);",
+              "    pm.expect(body.items.length).to.be.at.most(6);",
+              "    if (body.selection.status !== \"ranked\") {",
+              "        pm.expect(body.items).to.be.empty;",
+              "    }",
+              "});",
+              "pm.test(\"A week presents only exact days inside it, one release per platform\", function () {",
+              "    const body = pm.response.json();",
+              "    body.items.forEach(function (item) {",
+              "        const platforms = item.releases.map(function (release) { return release.platform.platformId; });",
+              "        pm.expect(new Set(platforms).size).to.eql(platforms.length);",
+              "        item.releases.forEach(function (release) {",
+              "            pm.expect(release.releaseDate.precision).to.eql(\"day\");",
+              "            pm.expect(release.releaseDate.value >= body.window.from && release.releaseDate.value <= body.window.to).to.be.true;",
+              "            pm.expect([\"cancelled\", \"delayed\"]).to.not.include(release.status);",
+              "            pm.expect(release.reviewStatus).to.eql(\"not_required\");",
+              "        });",
+              "    });",
+              "});",
+              "pm.test(\"The popularity value itself is never exposed\", function () {",
+              "    pm.expect(pm.response.text()).to.not.include(\"hypes\");",
+              "});",
+              "pm.test(\"Public cache and correlation headers are present\", function () {",
+              "    pm.expect(pm.response.headers.get(\"X-Correlation-ID\")).to.be.a(\"string\").and.not.empty;",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.include(\"public\");",
+              "    pm.expect(pm.response.headers.get(\"ETag\")).to.match(/^\"[0-9a-f]{64}\"$/);",
+              "});",
+              "pm.test(\"The requested week is the represented week\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.week).to.eql(pm.collectionVariables.get(\"featuredNextWeek\"));",
+              "    pm.expect(body.navigation.previous).to.be.a(\"string\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?week={{featuredNextWeek}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "week",
+              "value": "{{featuredNextWeek}}"
+            }
+          ]
+        },
+        "description": "Reads the automatic selection of the current Europe/Madrid calendar month from local PostgreSQL state. The first item is the month's featured release and up to five more follow, ranked by the locally stored IGDB Hypes count with gameId ascending as the tie-breaker; only distinct accepted products first released in the month with a qualifying Full Release and positive Hypes participate. No provider is called."
       },
       "response": []
     },
@@ -393,7 +562,7 @@
       "response": []
     },
     {
-      "name": "Month outside the current year",
+      "name": "Month outside the navigation bounds",
       "event": [
         {
           "listen": "test",
@@ -442,6 +611,169 @@
           ]
         },
         "description": "A well-formed month outside the current calendar year in Europe/Madrid fails the same filter validation as a malformed one; historical years are never featured."
+      },
+      "response": []
+    },
+    {
+      "name": "Week outside the navigation bounds",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/week\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?week=2000-W01",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "week",
+              "value": "2000-W01"
+            }
+          ]
+        },
+        "description": "A month outside YYYY-MM from 0001-01 through 9999-12 is rejected before any work."
+      },
+      "response": []
+    },
+    {
+      "name": "Week 53 of a year with 52 weeks",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/week\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?week=2025-W53",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "week",
+              "value": "2025-W53"
+            }
+          ]
+        },
+        "description": "A month outside YYYY-MM from 0001-01 through 9999-12 is rejected before any work."
+      },
+      "response": []
+    },
+    {
+      "name": "Month combined with the week granularity",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 422\", function () {",
+              "    pm.response.to.have.status(422);",
+              "});",
+              "pm.test(\"Stable filter code and violation are returned\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.code).to.eql(\"FILTER_INVALID\");",
+              "    pm.expect(body.correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "    pm.expect(body.violations[0].pointer).to.eql(\"/query/month\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/featured-releases?granularity=week&month=2026-10",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "featured-releases"
+          ],
+          "query": [
+            {
+              "key": "granularity",
+              "value": "week"
+            },
+            {
+              "key": "month",
+              "value": "2026-10"
+            }
+          ]
+        },
+        "description": "A month outside YYYY-MM from 0001-01 through 9999-12 is rejected before any work."
       },
       "response": []
     },
@@ -504,7 +836,11 @@
       "type": "string"
     },
     {
-      "key": "featuredYear",
+      "key": "featuredPreviousMonth",
+      "value": ""
+    },
+    {
+      "key": "featuredNextWeek",
       "value": ""
     }
   ],

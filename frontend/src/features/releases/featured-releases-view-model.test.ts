@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import type { components } from "../../shared/api/generated/schema";
 import {
-  adjacentMonths,
   formatMonthLabel,
   formatMonthPhrase,
+  formatRequestedPeriodLabel,
+  formatWeekPhrase,
+  formatWeekRange,
+  isoWeekWindow,
   toFeaturedReleasesViewModel,
   toWordmark,
 } from "./featured-releases-view-model";
@@ -61,9 +64,11 @@ function item(
 
 function response(overrides: Partial<FeaturedReleases> = {}): FeaturedReleases {
   return {
+    granularity: "month",
     month: "2026-10",
     evaluatedOn: "2026-10-03",
     window: { from: "2026-10-01", to: "2026-10-31" },
+    navigation: { previous: "2026-09", next: "2026-11" },
     selection: {
       status: "ranked",
       popularityFreshness: "fresh",
@@ -74,42 +79,107 @@ function response(overrides: Partial<FeaturedReleases> = {}): FeaturedReleases {
   };
 }
 
-describe("featured releases view model", () => {
-  it("steps only between months of the evaluated month's calendar year", () => {
-    expect(adjacentMonths("2026-06", "2026-10")).toEqual({ previous: "2026-05", next: "2026-07" });
-    expect(adjacentMonths("2026-01", "2026-10")).toEqual({ previous: null, next: "2026-02" });
-    expect(adjacentMonths("2026-12", "2026-10")).toEqual({ previous: "2026-11", next: null });
-    // A month of another year offers no step at all.
-    expect(adjacentMonths("2025-06", "2026-10")).toEqual({ previous: null, next: null });
-  });
+function month(value: string, to: string, overrides: Partial<FeaturedReleases> = {}) {
+  return response({ month: value, window: { from: `${value}-01`, to }, ...overrides });
+}
 
-  it("names the represented month and the evaluated one", () => {
+function week(value: string, from: string, to: string, overrides: Partial<FeaturedReleases> = {}) {
+  const { evaluatedOn, selection, items } = response();
+  return {
+    evaluatedOn,
+    selection,
+    items,
+    granularity: "week",
+    week: value,
+    window: { from, to },
+    navigation: {},
+    ...overrides,
+  } satisfies FeaturedReleases;
+}
+
+describe("featured releases view model", () => {
+  it("names the represented month and its neighbours from the API's navigation", () => {
     expect(formatMonthLabel("2026-10")).toBe("Octubre 2026");
     expect(formatMonthPhrase("2026-01")).toBe("enero de 2026");
     expect(formatMonthLabel("0001-12")).toBe("Diciembre 1");
 
-    const model = toFeaturedReleasesViewModel(response({ month: "2027-02" }));
-    expect(model.monthLabel).toBe("Febrero 2027");
-    expect(model.monthPhrase).toBe("febrero de 2027");
-    expect(model.currentMonth).toBe("2026-10");
+    const model = toFeaturedReleasesViewModel(
+      month("2027-02", "2027-02-28", { navigation: { previous: "2027-01" } }),
+    );
+    expect(model.granularity).toBe("month");
+    expect(model.period).toBe("2027-02");
+    expect(model.periodLabel).toBe("Febrero 2027");
+    expect(model.periodPhrase).toBe("febrero de 2027");
+    expect(model.isCurrent).toBe(false);
+    expect(model.previous).toEqual({ period: "2027-01", phrase: "enero de 2027" });
+    // The API's last month inside the forward horizon offers no next step.
+    expect(model.next).toBeNull();
+    expect(toFeaturedReleasesViewModel(response()).isCurrent).toBe(true);
   });
 
-  it("reads the month's progress from the evaluated date the same response states", () => {
-    expect(toFeaturedReleasesViewModel(response()).timeline).toEqual({
-      month: "2026-10",
+  it("names a week by its exact days, across months and years", () => {
+    expect(formatWeekPhrase("2026-10-12", "2026-10-18")).toBe(
+      "la semana del 12 al 18 de octubre de 2026",
+    );
+    expect(formatWeekRange("2026-09-28", "2026-10-04")).toBe(
+      "del 28 de septiembre al 4 de octubre de 2026",
+    );
+    expect(formatWeekRange("2026-12-28", "2027-01-03")).toBe(
+      "del 28 de diciembre de 2026 al 3 de enero de 2027",
+    );
+
+    const model = toFeaturedReleasesViewModel(
+      week("2026-W53", "2026-12-28", "2027-01-03", {
+        navigation: { previous: "2026-W52", next: "2027-W01" },
+      }),
+    );
+    expect(model.granularity).toBe("week");
+    expect(model.period).toBe("2026-W53");
+    expect(model.periodLabel).toBe("28 dic 2026 – 3 ene 2027");
+    expect(model.periodPhrase).toBe("la semana del 28 de diciembre de 2026 al 3 de enero de 2027");
+    // A neighbouring week is the API's own window moved by seven days.
+    expect(model.previous).toEqual({
+      period: "2026-W52",
+      phrase: "la semana del 21 al 27 de diciembre de 2026",
+    });
+    expect(model.next).toEqual({ period: "2027-W01", phrase: "la semana del 4 al 10 de enero de 2027" });
+  });
+
+  it("knows whether today lies inside the represented week", () => {
+    expect(
+      toFeaturedReleasesViewModel(week("2026-W40", "2026-09-28", "2026-10-04")).isCurrent,
+    ).toBe(true);
+    expect(
+      toFeaturedReleasesViewModel(week("2026-W41", "2026-10-05", "2026-10-11")).isCurrent,
+    ).toBe(false);
+  });
+
+  it("labels a URL-requested period before its response arrives", () => {
+    expect(isoWeekWindow("2026-W42")).toEqual({ from: "2026-10-12", to: "2026-10-18" });
+    expect(isoWeekWindow("2026-W01")).toEqual({ from: "2025-12-29", to: "2026-01-04" });
+    expect(isoWeekWindow("2026-W53")).toEqual({ from: "2026-12-28", to: "2027-01-03" });
+    expect(isoWeekWindow("2020-W53")).toEqual({ from: "2020-12-28", to: "2021-01-03" });
+    expect(isoWeekWindow("2025-W53")).toBeNull();
+    expect(formatRequestedPeriodLabel("week", "2026-W42")).toBe("12–18 oct 2026");
+    expect(formatRequestedPeriodLabel("month", "2026-10")).toBe("Octubre 2026");
+  });
+
+  it("reads the period's progress from the window and evaluated date the same response states", () => {
+    expect(toFeaturedReleasesViewModel(response()).timeline).toMatchObject({
+      granularity: "month",
       days: 31,
       phase: "current",
       today: 3,
     });
-    expect(toFeaturedReleasesViewModel(response({ month: "2026-02" })).timeline).toEqual({
-      month: "2026-02",
-      days: 28,
-      phase: "past",
-      today: null,
-    });
-    expect(toFeaturedReleasesViewModel(response({ month: "2026-11" })).timeline?.phase).toBe(
-      "future",
-    );
+    expect(
+      toFeaturedReleasesViewModel(month("2026-02", "2026-02-28")).timeline,
+    ).toMatchObject({ days: 28, phase: "past", today: null });
+    expect(
+      toFeaturedReleasesViewModel(month("2026-11", "2026-11-30")).timeline?.phase,
+    ).toBe("future");
+    expect(
+      toFeaturedReleasesViewModel(week("2026-W40", "2026-09-28", "2026-10-04")).timeline,
+    ).toMatchObject({ granularity: "week", days: 7, phase: "current", today: 6 });
   });
 
   it("marks each game's first presented release at the precision the contract states", () => {
@@ -130,7 +200,25 @@ describe("featured releases view model", () => {
     ]);
   });
 
-  it("splits the ranking into the month's featured release and the others in order", () => {
+  it("marks a week's release on its weekday and never assigns a coarser date to a day", () => {
+    const model = toFeaturedReleasesViewModel(
+      week("2026-W40", "2026-09-28", "2026-10-04", {
+        items: [
+          item("a", [release({ releaseDate: { precision: "day", value: "2026-10-01" } })]),
+          item("b", [release({ releaseDate: { precision: "month", value: "2026-10" } })]),
+          item("c", [release({ releaseDate: { precision: "day", value: "2026-10-05" } })]),
+        ],
+      }),
+    );
+    // Thursday 1 October is the week's fourth division.
+    expect(model.lead?.mark).toEqual({ kind: "day", day: 4 });
+    expect(model.others.map((other) => other.mark)).toEqual([
+      { kind: "span", open: true },
+      { kind: "after" },
+    ]);
+  });
+
+  it("splits the ranking into the period's featured release and the others in order", () => {
     const model = toFeaturedReleasesViewModel(response());
 
     expect(model.lead?.gameId).toBe("a");

@@ -1,10 +1,10 @@
 import { useId, type CSSProperties } from "react";
 
 import { DIAL_VIEWBOX, MONTH_DIAL_GEOMETRY, type DialPoint } from "./month-dial-geometry";
-import { scalePosition, type MonthTimeline, type ReleaseMark } from "./month-timeline";
+import { scalePosition, type PeriodTimeline, type ReleaseMark } from "./period-timeline";
 
 type MonthDialProps = {
-  timeline: MonthTimeline;
+  timeline: PeriodTimeline;
   mark: ReleaseMark;
   /** The release's compact date, written beside a mark that has no single day. */
   markLabel: string;
@@ -29,9 +29,19 @@ const READOUT_Y = 206;
 
 const round = (value: number) => Math.round(value * 100) / 100;
 
-/** Days that carry a major mark and, on the hero's G, a numeral: 1, every fifth and the last. */
-function isMajor(day: number, days: number): boolean {
-  return day === 1 || day === days || day % 5 === 0;
+/**
+ * Divisions that carry a major mark and, on the hero's G, a numeral: every day of a week, and of
+ * a month the first, every fifth and the last.
+ */
+function isMajor(timeline: PeriodTimeline, day: number): boolean {
+  return timeline.granularity === "week" || day === 1 || day === timeline.days || day % 5 === 0;
+}
+
+/** A division's numeral: its day of the month, with the month where a week enters a new one. */
+function numeralText(timeline: PeriodTimeline, day: number): string {
+  const division = timeline.divisions[day - 1];
+  if (division === undefined) return String(day);
+  return division.month === null ? String(division.day) : `${division.day} ${division.month}`;
 }
 
 /** Labels outside the band lean away from it, whichever side of the G they sit on. */
@@ -51,10 +61,11 @@ function segment(from: { x: number; y: number }, to: { x: number; y: number }): 
 }
 
 /**
- * Gameómetro's temporal G: the month as the brand mark's stroke. The crossbar opens the month, the
- * bowl runs clockwise from day 1 to its last day, cold light fills the days already gone by the
- * API's evaluated date, and the fire needle marks the featured release's day. It is decorative:
- * the hero states the same progress and date in words.
+ * Gameómetro's temporal G: the represented week or month as the brand mark's stroke. The crossbar
+ * opens the period, the bowl runs clockwise from its first day to its last (Monday to Sunday, or
+ * the month's 28 to 31 days), cold light fills the days already gone by the API's evaluated date,
+ * and the fire needle marks the featured release's day. The silhouette never changes with the
+ * period. It is decorative: the hero states the same progress and date in words.
  */
 export function MonthDial({
   timeline,
@@ -81,10 +92,12 @@ export function MonthDial({
         : 0;
   const isElapsed = (day: number) => timeline.phase === "past" || (today !== null && day <= today);
   const launchDay = mark.kind === "day" ? mark.day : null;
-  // Numerals stand outside the band, where the markers' own labels go; they give way to them.
+  // Numerals stand outside the band, where the markers' own labels go; they give way to them. A
+  // week's divisions stand far enough apart that only the marked day itself gives way.
+  const reach = timeline.granularity === "week" ? 0 : 2;
   const nearMarker = (day: number) =>
-    (launchDay !== null && Math.abs(day - launchDay) <= 2) ||
-    (timeline.phase === "current" && today !== null && Math.abs(day - today) <= 2);
+    (launchDay !== null && Math.abs(day - launchDay) <= reach) ||
+    (timeline.phase === "current" && today !== null && Math.abs(day - today) <= reach);
 
   // Both lengths are centred on the temporal path, inset from either rim.
   let elapsedTicks = "";
@@ -93,7 +106,7 @@ export function MonthDial({
   for (let day = 1; day <= days; day += 1) {
     const point = geometry.pointAt(at(day));
     const half = point.half;
-    const major = isMajor(day, days);
+    const major = isMajor(timeline, day);
     if (!major && !full) continue;
     const reach = half * (major ? 0.62 : 0.25);
     const tick = segment(out(point, -reach), out(point, reach));
@@ -105,11 +118,17 @@ export function MonthDial({
   const numerals = full
     ? Array.from({ length: days }, (_, index) => index + 1)
         // A fifth day right before the last one keeps its mark but lends its numeral to the last.
-        .filter((day) => isMajor(day, days) && !nearMarker(day) && (day === days || days - day > 2))
+        .filter(
+          (day) =>
+            isMajor(timeline, day) &&
+            !nearMarker(day) &&
+            (day === days || days - day > reach),
+        )
         .map((day) => {
           const point = geometry.pointAt(at(day));
           return {
             day,
+            text: numeralText(timeline, day),
             point: out(point, point.half + 11),
             // The last day sits next to the terminal's cut on the top, where time runs to the
             // right: its numeral ends at its mark instead of reaching past the cut.
@@ -124,7 +143,7 @@ export function MonthDial({
   const labelGap = full ? 13 : 9;
   // Next to the launch day, "hoy" steps out past the needle's own label instead of covering it.
   const todayLabelOffset =
-    launchDay !== null && today !== null && Math.abs(today - launchDay) <= 2
+    launchDay !== null && today !== null && Math.abs(today - launchDay) <= reach
       ? half + (full ? 44 : 30)
       : half + labelGap;
   const start = geometry.pointAt(geometry.scaleStart);
@@ -208,7 +227,7 @@ export function MonthDial({
         <path className="month-dial-ticks month-dial-ticks-pending" d={pendingTicks} />
         <path className="month-dial-ticks month-dial-ticks-elapsed" d={elapsedTicks} />
       </g>
-      {numerals.map(({ day, point, anchor }) => (
+      {numerals.map(({ day, text, point, anchor }) => (
         <text
           className={`month-dial-numeral${isElapsed(day) ? " month-dial-numeral-elapsed" : ""}`}
           dominantBaseline="central"
@@ -217,7 +236,7 @@ export function MonthDial({
           x={point.x}
           y={point.y}
         >
-          {day}
+          {text}
         </text>
       ))}
 
@@ -236,7 +255,7 @@ export function MonthDial({
       )}
 
       {mark.kind === "day" ? (
-        <LaunchNeedle full={full} half={geometry.pointAt(at(mark.day)).half} label={readout === undefined ? String(mark.day) : null} point={geometry.pointAt(at(mark.day))} />
+        <LaunchNeedle full={full} half={geometry.pointAt(at(mark.day)).half} label={readout === undefined ? numeralText(timeline, mark.day) : null} point={geometry.pointAt(at(mark.day))} />
       ) : null}
 
       {mark.kind === "span" ? (
@@ -378,7 +397,7 @@ function MarkLabel({ point, offset, text }: { point: DialPoint; offset: number; 
   );
 }
 
-/** A release known to fall outside the month: a chevron at the scale's end it lies beyond. */
+/** A release known to fall outside the period: a chevron at the scale's end it lies beyond. */
 function OutsideMark({
   point,
   half,
@@ -391,7 +410,7 @@ function OutsideMark({
   label: string | null;
 }) {
   const centre = out(point, half + 9);
-  // Time runs along the tangent; a release before the month points back against it.
+  // Time runs along the tangent; a release before the period points back against it.
   const sign = direction === "after" ? 1 : -1;
   const tangentX = -point.ny * sign;
   const tangentY = point.nx * sign;

@@ -33,8 +33,9 @@ usefully expressed once in the contract.
 - Release windows/evaluation date use application time in `Europe/Madrid`; clients
   select only the bounded week horizon and, for upcoming, whether approximate dates are
   included, never the evaluation date or raw dates. Featured releases default to the
-  current calendar month; a client may select another calendar month (`YYYY-MM`), never a
-  day or the evaluation date. Day/month/quarter/year/unknown
+  current calendar month; a client may select the current ISO week (`granularity=week`),
+  another ISO week (`YYYY-Www`) or another calendar month (`YYYY-MM`) inside the navigation
+  bounds the API states, never a day or the evaluation date. Day/month/quarter/year/unknown
   remain a closed representation.
 - Catalogue search is trimmed, non-blank, bounded to 100 Unicode code points,
   case/diacritic-insensitive, all-token, non-fuzzy, and searches only canonical title

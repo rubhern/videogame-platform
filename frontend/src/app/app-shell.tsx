@@ -7,6 +7,7 @@ import {
   releasesSearchPath,
 } from "../features/releases/releases-search";
 import { BrandMark, BrandWordmark } from "../shared/brand/brand-logo";
+import { LegalLinks } from "../shared/legal/legal-links";
 import { AccountControl } from "./account-control";
 import { CatalogueSearch } from "./catalogue-search";
 
@@ -94,6 +95,7 @@ export function AppShell() {
             <BrandMark className="site-footer-mark" />
             Gameómetro
           </span>
+          <LegalLinks />
         </div>
       </footer>
     </div>

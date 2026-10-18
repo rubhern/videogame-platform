@@ -43,7 +43,7 @@ information.
   kinship.
 - *The needle* points at a concrete value or event: a score on the G-meter, a release's day on
   the temporal G or a scale. It is never decoration and never an award.
-- *The scale* represents time: the hero's temporal G, a compact month scale or the release
+- *The scale* represents time: the hero's temporal G, a compact period scale or the release
   windows' day scale. Use it where a calendar position means something, never as an ornament on
   screens without one.
 - *The G-meter and temperatures* read scores only, under
@@ -51,11 +51,11 @@ information.
   temperature, and fire on a scale is never a hot score.
 - *The stage* is the art's own light, graded so the interface reads over it.
 
-**The temporal G** is the represented month drawn in the owner-selected reference silhouette.
+**The temporal G** is the represented week or month drawn in the owner-selected reference silhouette.
 Its outer and inner cubic Bézier rims are traced in one fixed SVG viewport; their midpoint
 curve supplies arc length, the temporal fill, ticks and markers. The compact, near-circular
 bowl, naturally curved bottom, open right side and integrated arm remain identical for every
-month, title, score set and viewport. Scaling always preserves both axes equally, including
+period, title, score set and viewport. Scaling always preserves both axes equally, including
 the phone emblem. [`month-dial-geometry.ts`](../../frontend/src/features/releases/month-dial-geometry.ts)
 owns the trace and arc-length sampling; there is no content-sized ellipse or superellipse.
 The copy occupies a separate reading zone, with a bounded title size. The canonical inset rectangle
@@ -65,25 +65,28 @@ columns. Content that exceeds the zone scales down proportionally to fit in full
 scrollbars, clipping or moving below the G. Phones keep the G as a compact seal with full-width
 copy beneath it ([featured releases](#featured-releases)); the seal alone carries the release's
 compact date inside its bowl as the instrument's readout, in place of the marker's label.
-The `Lanzamiento del mes` context sits outside the instrument's reading zone. The description and
+The `Lanzamiento de la semana` or `Lanzamiento del mes` context sits outside the instrument's reading zone. The description and
 automatic selection message remain absent. The rail is a thinner blue band around the reference
-centreline, with feathered, barely visible rims, soft dark separation from the art and a fading arm. Day 1, every fifth day and
-the last day carry longer divisions; all divisions are centred within the band and inset from both
-rims. Quiet, unoutlined numerals sit outside it. The elapsed blue stays clearly visible on dark and
-bright art, including a complete past month. Days advance clockwise from just after the arm's
-corner to just before the top terminal, equally spaced by arc length for 28, 29, 30 and 31 days.
-One ice light fills the days gone by the API's `evaluatedOn` (`Europe/Madrid`), with a close, faint
-glow: all of a past month, up to today in the current month, none of a future one. A fine `hoy`
-notch marks today in the current month only. A tapered fire needle with a circular pivot and warm
+centreline, with feathered, barely visible rims, soft dark separation from the art and a fading arm. A
+month's day 1, every fifth day and its last day carry longer divisions; a week's seven days all do.
+All divisions are centred within the band and inset from both rims. Quiet, unoutlined numerals sit
+outside it: each day's date in the month, and in a week the day that starts a new month adds its
+short name (`1 nov`). The elapsed blue stays clearly visible on dark and bright art, including a
+complete past period. Days advance clockwise from just after the arm's corner to just before the
+top terminal, equally spaced by arc length: Monday to Sunday for a week, 28 to 31 days for a month,
+over the API's own window, so a week crossing months or years reads as one scale. One ice light
+fills the days gone by the API's `evaluatedOn` (`Europe/Madrid`), with a close, faint glow: all of a
+past period, up to today in the current one, none of a future one. A fine `hoy` notch marks today
+in the current period only. A tapered fire needle with a circular pivot and warm
 core, following the brand mark, marks the presented release's day in every phase; compact scales
 use the same blade-and-pivot language. A release known only to its month, quarter or year spans the
-scale, dashed when its interval reaches beyond the month; one outside the month gets a chevron at
+scale, dashed when its interval reaches beyond the period; one outside the period gets a chevron at
 that end; an unknown date gets a dashed ring named `Por confirmar`. A day is never invented. The G
 is decorative: a visually hidden sentence states the same progress and day. While the page stays
 open across midnight in Madrid the selection is read again, so the scale follows the API's new
 date; the browser's clock only times that read.
 
-**Compact month scales** unroll the same month in a line under a card: the crossbar as the first
+**Compact period scales** unroll the same week or month in a line under a card: the crossbar as the first
 upright tick, the elapsed days in the same ice, today's notch, the release's fire needle and its
 compact date. They stay thinner and quieter than the titles and readings beside them.
 
@@ -112,7 +115,7 @@ quarter or year take no needle; the scale never invents a day. It is decorative:
 beside the title and each card state the same dates in words.
 
 **Where it applies.** Every React product screen uses the families, the stage and the vocabulary
-where they carry meaning, and each keeps its own composition: Destacados is the month's stage,
+where they carry meaning, and each keeps its own composition: Destacados is the period's stage,
 the release windows a cover wall under their day scale, search a catalogue index, the game page
 its own cover's stage and `Mis puntuaciones` a thermal ledger. No screen repeats the temporal G or
 becomes another landing hero. Glass panels, aurora washes, the lit serif accent, tracked mono
@@ -153,7 +156,7 @@ them back.
   absent without results. Switching between Destacados and the release windows belongs to the
   main navigation only.
 - Keep the current release view as the only `h1`: **Lanzamientos recientes**, **Próximos
-  lanzamientos**, or **Lanzamientos del mes** on Destacados. **Ya disponibles** or **En
+  lanzamientos**, or **Lanzamientos semanales** / **Lanzamientos del mes** on Destacados. **Ya disponibles** or **En
   calendario** introduces the title, and the API-derived window follows it as the instrument's
   readout in ice, at the precision the API states (`11–17 oct 2026`, `28 sep – 25 oct 2026`),
   while assistive technology reads it in full (`Del 11 de octubre de 2026 al 17 de octubre de
@@ -173,7 +176,7 @@ them back.
   covers fill the column in the standard frame so the artwork leads the card. Under the cover,
   the first relevant release's date follows the fire needle in its compact form at the same
   precision (`25 sep 2026`, `sep 2026`, `T3 2026`, `2026`, `Por confirmar`), in the ember the
-  month scale gives a release's date on Destacados; the full wording stays in the release row
+  period scale gives a release's date on Destacados; the full wording stays in the release row
   for assistive technology. Then the title, which is the game link, the score readings, and one
   compact release row: the platforms sharing that date and region as their marks (the first
   three drawn, every name announced and the exact `+N` of the rest), then the region. Up to two
@@ -421,16 +424,32 @@ the executable values; these constraints hold wherever they are used:
 
 ## Featured releases
 
-Post-MVP (#151), **Destacados** is the landing route and implements the
-[brand identity](#brand-identity). The heading is the only `h1`, **Lanzamientos del mes**, beside
-the month selector: the previous-month link, the represented month and the next-month link,
-with no caption and no selection note. The current month is the landing route itself. The
-selector offers only the months of the current calendar year, which the API's trusted date
-states: January's previous step and December's next step stay in place as disabled links
-(dimmed, announced as unavailable, outside the tab order), and the selector waits as a
-placeholder until a response states the current month. A requested month the API rejects,
-malformed or of another year, returns to the landing route; another year's selection is never
-presented. Popularity is attention: never call a selection the best, a winner or a quality
+Post-MVP (#151; weeks #329, implemented and awaiting owner review), **Destacados** is the
+landing route and implements the [brand identity](#brand-identity). It opens on the current
+week; `DEFAULT_FEATURED_GRANULARITY` in
+[`featured-search.ts`](../../frontend/src/features/releases/featured-search.ts) is the only place
+that decides it. The heading is the only `h1`, **Lanzamientos semanales** or **Lanzamientos
+del mes**, beside the period selector, with no caption and no selection note. The selector is
+the instrument's readout. First comes a compact **Semana | Mes** switch: two links in the
+condensed voice, parted by a fine upright, the selected one in ice over a short ice bar, without
+a filled background, frame or dropdown. Then the previous-period step, the represented period
+and the next-period step. A week reads as its exact days at the precision they need (`12–18 oct
+2026`, `28 sep – 4 oct 2026`, `28 dic 2026 – 3 ene 2027`), read in full by assistive technology;
+a month reads as `Octubre 2026`. While another period is shown, a quiet underlined **Semana
+actual** or **Mes actual** link follows and returns to the current one. Switching granularity
+always opens that granularity's current period. Every choice is a native link, so the period
+lives in the URL and in browser history: `/` is the current period of the default granularity,
+`?granularity=` names the current period of the other one, and `?week=YYYY-Www` or
+`?month=YYYY-MM` names a period. Only the API states the navigation bounds and the
+adjacent periods. A step at a bound, or a step whose bounds are still loading, stays in place
+as a disabled link (dimmed, announced as unavailable, outside the tab order). The readout waits
+as a placeholder until the URL or a response names the period. A malformed or contradictory URL
+takes its canonical form. A period the API rejects returns to the current period of the same
+granularity, and its selection is never presented. Ice marks the selection, focus and elapsed
+time. Fire stays with the release's day and the featured-release badge, never a control. On
+desktop the title, the switch and the steps share one row. Below 620px the title takes the
+first row, the switch and the steps share the second, and the way back takes the end of that
+row or a short line of its own. Popularity is attention: never call a selection the best, a winner or a quality
 judgement, never show its value, and mark the featured release with the fire needle, never a
 crown, trophy or medal. The response's selection state and freshness stay in the model; the page
 does not restate them as a note (owner decision, 2026-10-16).
@@ -444,9 +463,9 @@ steps down to the provider cover shown whole, then to the product-owned landscap
 hero steps down to the designed fallback and keeps its cover, shown whole, only as the last
 resort. The composition never breaks.
 
-The hero is the month's featured release. Its art spans the stage to the right edge and up
+The hero is the period's featured release. Its art spans the stage to the right edge and up
 behind the header on wide screens; the temporal G stands on the left and frames the copy. The
-copy holds the **Lanzamiento del mes** badge with the fire needle, then always the canonical
+copy holds the **Lanzamiento de la semana** or **Lanzamiento del mes** badge with the fire needle, then always the canonical
 title as Gameómetro's own wordmark, never a provider logo: Mona Sans' widest heavy cut, in
 capitals, cast in moonlit silver that the art may tint only through a blend that keeps every
 channel light. A subtitle that the canonical title introduces with a colon or a spaced dash
@@ -481,17 +500,18 @@ to five wide artwork cards straight on the stage. Each card's landscape frame ca
 context-selected media under `FEAT-003` in the
 [domain model](../architecture/domain/mvp-domain-model.md); a screenshot may carry the game's
 existing decorative logo, and artwork is shown as it is. Beneath the frame come the compact
-month scale with the release's compact date, the title on one line (its full text stays the link
+period scale with the release's compact date, the title on one line (its full text stays the link
 and its tooltip) as the only keyboard stop, the readings, one release line with up to three
 platform marks, the exact `+N` and the region, then up to two localized genres and the overflow
 control. Pointing at a card's art or title lights and underlines its title link. Cards omit
 summary, developer, publisher and game modes. Fewer games mean fewer cards. An unranked or empty
-month replaces the hero and the row with an informational or empty notice that names the month
-and links to Recientes.
+period replaces the hero and the row with an informational or empty notice that names the
+period and links to Recientes; a week's empty notice says that no release with a confirmed day
+starts inside it. Nothing fills an empty period with unrelated releases.
 
 From 1024px the G and the art share the hero, and the row has five columns; at 1440×900 and
 1320×900 the hero and the whole row open within the first view. Below 1024px the art starts
-behind the month selector and fades in under it, so the page opening and the art read as one
+behind the period selector and fades in under it, so the page opening and the art read as one
 stage; over the art the badge keeps a close, edgeless shade of night. Tablets put the art above
 the G, which stands centred over its faded lower edge, and lay the row in three columns.
 Post-MVP (#325, implemented; awaiting owner review), phones frame the art a little taller than
@@ -507,7 +527,7 @@ technology only. The platforms, the region and the genres then run as one left-a
 and the genres, which stay quieter. The platforms keep the cards' compact form (the first two
 marks and the exact `+N`, every name still announced). The sequence wraps only between whole
 facts, a fact starting a line drops its separator, and nothing is spread apart, broken or
-truncated to hold one line. A month the G cannot draw keeps the date in the row. Below 480px each card takes the full column. Forced colours keep the art
+truncated to hold one line. A period the G cannot draw keeps the date in the row. Below 480px each card takes the full column. Forced colours keep the art
 beside or above the copy, never behind it: the page opening, the art and the seal each keep
 their own room.
 

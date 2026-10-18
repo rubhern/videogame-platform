@@ -4,7 +4,7 @@
 - **Date:** 2026-10-03
 - **Owner:** Ruben Hernandez
 - **Scope:** Private, non-commercial learning MVP
-- **Issue:** [#151](https://github.com/rubhern/videogame-platform/issues/151)
+- **Issue:** [#151](https://github.com/rubhern/videogame-platform/issues/151); amended by [#329](https://github.com/rubhern/videogame-platform/issues/329)
 
 ## Context
 
@@ -64,7 +64,8 @@ wide artwork, which the catalogue's portrait covers cannot provide without disto
   Rollback requires the prior schema/backup and application together; Visits cannot be inferred
   from Hypes. This is unpublished #151 data, not a change to an accepted release contract.
 - **Served honestly.** The current calendar month in `Europe/Madrid` is the default;
-  a visitor may select another month of the current calendar year, which is ranked with
+  a visitor may select another month of the current calendar year (navigation bounds amended
+  on 2026-10-17, below), which is ranked with
   the same current signals. A month of another year is an invalid filter: historical
   browsing is not part of featured discovery.
   The response states whether the month is ranked, unranked for lack of signals or
@@ -73,6 +74,29 @@ wide artwork, which the catalogue's portrait covers cannot provide without disto
   presented as attention, never as quality or an award. Each item carries its landscape
   context-selected image, whether it may be cropped to fill or must be shown whole, and an optional secondary-card logo when one
   exists.
+
+## Amendment 2026-10-17
+
+[#329](https://github.com/rubhern/videogame-platform/issues/329) adds the ISO week, Monday to
+Sunday in `Europe/Madrid`, as a second featured period. It also replaces the current-year limit
+on months with bounded navigation. The owner decided this; the ranking, evidence and media
+decisions above are unchanged.
+
+- **Same rule, narrower period.** `FEAT-001` and `FEAT-002` apply unchanged to the selected
+  period: the release's known date period lies wholly inside it, and the game's own first
+  release falls inside it. A week therefore admits exact days only, and no coarser date is
+  assigned to an invented week. The same query and period index serve both granularities.
+- **Bounded navigation.** Weeks reach 16 weeks either way from the current week. Months reach 10
+  months back, across years, and forward to the last month lying wholly inside the configured
+  forward acquisition horizon: the widest future window of the recurring synchronization
+  policies that are not disabled (180 days by default). It is read from the same configuration
+  that drives acquisition, never restated. This bound expresses intent, not completeness: whether
+  a period was actually scanned remains ADR-0017's coverage evidence. Without the parameter that
+  names a granularity, the API still serves the current month. The landing granularity is a
+  single frontend decision.
+- **Consequence.** An operator who narrows or disables the upcoming policy also shortens how
+  far forward months may be browsed. A game whose first-release evidence lies in another week
+  than its catalogued day appears in its month and in no week.
 
 ## Alternatives considered
 

@@ -3,12 +3,12 @@ import type { CSSProperties } from "react";
 import {
   elapsedPosition,
   scalePosition,
-  type MonthTimeline,
+  type PeriodTimeline,
   type ReleaseMark,
-} from "./month-timeline";
+} from "./period-timeline";
 
 type MonthStripProps = {
-  timeline: MonthTimeline;
+  timeline: PeriodTimeline;
   mark: ReleaseMark;
   /** The release's compact date, at its own precision. */
   label: string;
@@ -28,8 +28,8 @@ function labelPosition(mark: ReleaseMark, days: number): number {
 }
 
 /**
- * The temporal G unrolled under a card: the same month, the same cold light for the days gone by
- * and the same fire marker, quieter than the hero's G. It starts with a short upright stroke, the
+ * The temporal G unrolled under a card: the same week or month, the same cold light for the days
+ * gone by and the same fire marker, quieter than the hero's G. It starts with a short upright stroke, the
  * G's crossbar, and it is decorative: the card states its release date in words.
  */
 export function MonthStrip({ timeline, mark, label }: MonthStripProps) {
@@ -59,7 +59,7 @@ export function MonthStrip({ timeline, mark, label }: MonthStripProps) {
         ) : null}
         {Array.from({ length: days }, (_, index) => {
           const day = index + 1;
-          const major = day === days || day % 5 === 0;
+          const major = timeline.granularity === "week" || day === days || day % 5 === 0;
           return (
             <line
               className={
