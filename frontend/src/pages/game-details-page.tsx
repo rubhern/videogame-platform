@@ -3,8 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import {
   GameDetailsApiError,
-  gameDetailsQueryKey,
-  getGameDetails,
+  gameDetailsQueryOptions,
 } from "../features/game-details/game-details-api";
 import { GameDetailsContent } from "../features/game-details/game-details-content";
 import { GameDetailsLoading } from "../features/game-details/game-details-loading";
@@ -20,8 +19,8 @@ function BackToReleases() {
 export function GameDetailsPage() {
   const { gameId = "" } = useParams();
   const query = useQuery({
-    queryKey: gameDetailsQueryKey(gameId),
-    queryFn: ({ signal }) => getGameDetails(gameId, undefined, signal),
+    ...gameDetailsQueryOptions(gameId),
+    refetchOnMount: false,
     retry: false,
     staleTime: 0,
   });

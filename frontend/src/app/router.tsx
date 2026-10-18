@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
 
 import { CatalogueAdministrationPage } from "../pages/catalogue-administration-page";
@@ -8,6 +9,7 @@ import { SearchPage } from "../pages/search-page";
 import { MyRatingsPage } from "../pages/my-ratings-page";
 import { legalPublicationApproved } from "../shared/legal/publication";
 import { legalRoutes } from "../shared/legal/legal-routes";
+import { routeReadiness } from "./route-readiness";
 import { AppShell } from "./app-shell";
 
 export const appRoutes: RouteObject[] = [
@@ -26,6 +28,19 @@ export const appRoutes: RouteObject[] = [
   },
 ];
 
-export function createAppRouter() {
-  return createBrowserRouter(appRoutes);
+export function createAppRouter(queryClient: QueryClient) {
+  const loader = routeReadiness(queryClient);
+  return createBrowserRouter(
+    appRoutes.map(route => {
+      if (route.index || !route.children) return route;
+      return {
+        ...route,
+        children: route.children.map(child => ({
+          ...child,
+          loader,
+          hydrateFallbackElement: child.element,
+        })),
+      };
+    }),
+  );
 }

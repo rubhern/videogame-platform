@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "react-router-dom";
 
 import { AppProviders } from "./app/app-providers";
+import { createAppQueryClient } from "./app/query-client";
 import { createAppRouter } from "./app/router";
 import "./styles/index.css";
 
@@ -18,10 +19,13 @@ if (rootElement === null) {
   throw new Error("The frontend root element is missing.");
 }
 
+const queryClient = createAppQueryClient();
+const router = createAppRouter(queryClient);
+
 createRoot(rootElement).render(
   <StrictMode>
-    <AppProviders>
-      <RouterProvider router={createAppRouter()} />
+    <AppProviders queryClient={queryClient}>
+      <RouterProvider router={router} />
     </AppProviders>
   </StrictMode>,
 );

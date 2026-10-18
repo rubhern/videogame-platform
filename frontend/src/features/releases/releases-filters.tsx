@@ -52,6 +52,7 @@ export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersP
                 platformIds: toggleFilterValue(search.platformIds, platformId),
                 page: 1,
               }),
+              { preventScrollReset: true },
             );
           }}
           options={toOptions(platforms, (platform) => platformIcon(platform.id, platform.name))}
@@ -68,6 +69,7 @@ export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersP
                 regionIds: toggleFilterValue(search.regionIds, regionId),
                 page: 1,
               }),
+              { preventScrollReset: true },
             );
           }}
           options={toOptions(regions, (region) => regionIcon(region.id, region.name))}
@@ -75,6 +77,7 @@ export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersP
         />
         {hasActiveFilters(search) ? (
           <Link
+            preventScrollReset
             className="filter-reset"
             to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
           >

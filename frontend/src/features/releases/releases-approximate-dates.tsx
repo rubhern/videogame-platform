@@ -19,6 +19,7 @@ export function ReleasesApproximateDates({ search }: { search: ReleasesSearch })
               includeApproximateDates: event.currentTarget.checked,
               page: 1,
             }),
+            { preventScrollReset: true },
           );
         }}
         type="checkbox"

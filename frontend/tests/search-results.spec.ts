@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { analyzeAccessibility } from "./fixtures/accessibility";
 import type { GameSearchPage } from "../src/features/search/game-search-api";
 import { releasePage } from "./fixtures/releases";
+import { gameDetailsFixture } from "../src/test/game-details-fixture";
 
 type GameSummary = GameSearchPage["items"][number];
 
@@ -66,6 +67,7 @@ const firstPage: GameSearchPage = {
 };
 
 async function scriptSearch(page: Page) {
+  await page.route("**/api/v1/games/*", route => route.fulfill({ json: gameDetailsFixture() }));
   await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: false } }));
   await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
   await page.route("**/api/v1/games?*", async (route) => {

@@ -114,24 +114,19 @@
     isolation: isolate;
     min-height: 100vh;
     flex-direction: column;
-    background: var(--color-canvas);
+    background-color: var(--color-canvas);
+    /* Paint faint grain in the canvas itself, keeping decoration out of fixed translucent
+       compositor layers during deep scrolling and mobile browser-toolbar resizing. */
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--color-canvas) 95%, transparent) 0 100%),
+      var(--grain);
     color: var(--color-ink);
   }
 
-  /* Film grain keeps the large dark gradients from banding. It overscans the viewport: a phone
-     resizes fixed layers as its URL bar shows or hides, and a layer cut to the viewport would
-     briefly leave an ungrained, visibly darker strip at the top or bottom edge. */
-  .app-frame::after {
-    position: fixed;
-    z-index: -1;
-    inset: -18vmax;
-    opacity: 0.05;
-    pointer-events: none;
-    background-image: var(--grain);
-    content: "";
-  }
-
   .app-frame > main {
+    /* Router restoration owns the viewport; swapping an async loading shell must not
+       make the browser choose a different descendant as its scroll anchor. */
+    overflow-anchor: none;
     flex: 1;
   }
 
@@ -1403,6 +1398,10 @@
   /* ---------------------------------------------------------------- Forced colours */
 
   @media (forced-colors: active) {
+    .app-frame {
+      background-image: none;
+    }
+
     .account-entry-links a { background: Canvas; color: CanvasText; border-color: ButtonText; box-shadow: none; }
     .nav-link[aria-current="page"] {
       outline: 2px solid Highlight;
@@ -1422,7 +1421,6 @@
     }
 
     /* Decorative light carries no meaning: drop it so system colours stay authoritative. */
-    .app-frame::after,
     .cover-link::before,
     .cover-link::after {
       display: none;

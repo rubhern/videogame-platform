@@ -12,6 +12,13 @@ import {
 } from "./game-search-params";
 import { toGameSearchViewModel, type GameSearchViewModel } from "./game-search-view-model";
 
+export function gameSearchQueryOptions(params: GameSearchParams) {
+  return {
+    queryKey: ["game-search", params],
+    queryFn: () => searchGames(toGameSearchQuery(params)),
+  };
+}
+
 /**
  * Owns the server state for UC-002.
  *
@@ -20,8 +27,8 @@ import { toGameSearchViewModel, type GameSearchViewModel } from "./game-search-v
  */
 export function useGameSearchQuery(params: GameSearchParams) {
   return useQuery<GameSearchPage, GameSearchApiError, GameSearchViewModel>({
-    queryKey: ["game-search", params],
-    queryFn: () => searchGames(toGameSearchQuery(params)),
+    ...gameSearchQueryOptions(params),
+    refetchOnMount: false,
     select: toGameSearchViewModel,
     enabled: hasSearchableQuery(params),
     placeholderData: keepPreviousData,

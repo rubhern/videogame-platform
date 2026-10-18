@@ -20,3 +20,13 @@ export async function listMyRatings(query: MyRatingsQuery, signal?: AbortSignal,
   throw new MyRatingsError(error?.code ?? null,
     error?.correlationId ?? response.headers.get("X-Correlation-ID"));
 }
+
+export const initialMyRatingsQuery: MyRatingsQuery = { page: 1, pageSize: 10 };
+
+export function myRatingsQueryOptions(params: MyRatingsQuery) {
+  return {
+    queryKey: [...MY_RATINGS_KEY, params],
+    queryFn: ({ signal }: { signal: AbortSignal }) => listMyRatings(params, signal),
+    gcTime: 0,
+  };
+}

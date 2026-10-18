@@ -20,6 +20,13 @@ function toQuery(search: FeaturedSearch): FeaturedReleasesQuery {
   return search.granularity === "week" ? { week: search.period } : { month: search.period };
 }
 
+export function featuredReleasesQueryOptions(search: FeaturedSearch) {
+  return {
+    queryKey: ["featured-releases", search.granularity, search.period],
+    queryFn: () => getFeaturedReleases(toQuery(search)),
+  };
+}
+
 /** Read again a few seconds past midnight, so the server's own clock has reached the new day. */
 const NEW_DAY_GRACE_MS = 5_000;
 
@@ -48,8 +55,8 @@ export function useFeaturedReleasesQuery(search: FeaturedSearch) {
   }, [queryClient]);
 
   return useQuery<FeaturedReleasesResponse, ReleasesApiError, FeaturedReleasesViewModel>({
-    queryKey: ["featured-releases", search.granularity, search.period],
-    queryFn: () => getFeaturedReleases(toQuery(search)),
+    ...featuredReleasesQueryOptions(search),
+    refetchOnMount: false,
     select: toFeaturedReleasesViewModel,
     placeholderData: keepPreviousData,
   });
