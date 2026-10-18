@@ -8,7 +8,7 @@ import {
 import { GameDetailsContent } from "../features/game-details/game-details-content";
 import { GameDetailsLoading } from "../features/game-details/game-details-loading";
 
-function BackToReleases() {
+export function BackToReleases() {
   return (
     <Link className="button view-action view-action-back" to="/">
       <span aria-hidden="true">←</span> Volver a lanzamientos

@@ -86,9 +86,9 @@ export function AppShell() {
         </div>
       </header>
 
-      {navigation.state === "loading" ? (
-        <p className="sr-only" role="status">Cargando página…</p>
-      ) : null}
+      <p className="sr-only" aria-live="polite">
+        {navigation.state === "loading" ? "Cargando página…" : ""}
+      </p>
       <main aria-busy={navigation.state === "loading"} id="main-content" ref={mainContentRef} tabIndex={-1}>
         <Outlet />
       </main>

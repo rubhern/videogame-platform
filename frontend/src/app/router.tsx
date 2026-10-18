@@ -10,6 +10,7 @@ import { MyRatingsPage } from "../pages/my-ratings-page";
 import { legalPublicationApproved } from "../shared/legal/publication";
 import { legalRoutes } from "../shared/legal/legal-routes";
 import { routeReadiness } from "./route-readiness";
+import { RouteLoading } from "./route-loading";
 import { AppShell } from "./app-shell";
 
 export const appRoutes: RouteObject[] = [
@@ -50,7 +51,7 @@ export function createAppRouter(queryClient: QueryClient) {
           } satisfies Pick<RouteObject, "shouldRevalidate"> : {}),
           // A destination must mount once, after its read. Mounting it as its own
           // fallback can resume rating commands before hydration then discard them.
-          hydrateFallbackElement: <p className="page-container" role="status">Cargando página…</p>,
+          hydrateFallbackElement: <RouteLoading />,
         })),
       };
     }),

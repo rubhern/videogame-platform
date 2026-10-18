@@ -439,6 +439,8 @@ shorter height can clamp a saved offset. Keep focus movement separate from scrol
 route and pagination focus uses
 `preventScroll`, while the skip link still takes the reader to main content. Do not reset
 scroll after artwork, fonts or background refreshes, or add timed scroll retries.
+Hydration reuses the existing loading surfaces without mounting page data or command
+effects. Navigation announcements remain separate from the result's live status.
 The shared header, page titles and controls must paint on their first return into the
 viewport, regardless of scroll direction or browser-toolbar resizing.
 

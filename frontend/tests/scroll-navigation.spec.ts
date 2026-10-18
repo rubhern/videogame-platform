@@ -269,6 +269,35 @@ for (const width of [390, 412, 1320]) {
 }
 
 
+test("a pending search keeps one result status and announces navigation separately", async ({ page }) => {
+  await page.setViewportSize({ width: 1320, height: 740 });
+  await fixtures(page);
+  await page.goto("/search?q=juego&pageSize=12");
+  await expect(page.getByRole("link", { name: "Juego 0", exact: true })).toBeVisible();
+  let finishRead: (() => void) | undefined;
+  const pending = new Promise<void>(resolve => { finishRead = resolve; });
+  let requested = false;
+  await page.route("**/api/v1/games?*", async route => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.get("q") !== "otro" || params.get("pageSize") === "5") return route.fallback();
+    requested = true;
+    await pending;
+    return route.fallback();
+  });
+  const search = page.getByRole("combobox", { name: "Buscar en el catálogo" });
+  await search.fill("otro");
+  await search.press("Enter");
+  await expect.poll(() => requested).toBe(true);
+  await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "true");
+  await expect(page.getByRole("status")).toHaveCount(1);
+  await expect(page.locator(".app-frame > [aria-live=polite]")).toHaveText("Cargando página…");
+  finishRead?.();
+  await expect(page).toHaveURL(/q=otro/);
+  await expect(page.getByRole("main")).toHaveAttribute("aria-busy", "false");
+  await expect(page.getByRole("status")).toHaveCount(1);
+  await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
+});
+
 test.describe("shared shell on a high-density touch screen", () => {
   test.use({ viewport: { width: 412, height: 915 }, isMobile: true, hasTouch: true, deviceScaleFactor: 3.5 });
   for (const path of ["/", "/?view=recent&pageSize=12", "/?view=upcoming&pageSize=12", "/search?q=juego&pageSize=12"]) {

@@ -1,0 +1,35 @@
+import { useLocation } from "react-router-dom";
+
+import { GameDetailsLoading } from "../features/game-details/game-details-loading";
+import { FeaturedReleasesShell } from "../features/releases/featured-releases-shell";
+import { readFeaturedSearch } from "../features/releases/featured-search";
+import { readDiscoveryView, readReleasesSearch } from "../features/releases/releases-search";
+import { ReleasesShell } from "../features/releases/releases-shell";
+import { readGameSearchParams } from "../features/search/game-search-params";
+import { GameSearchShell } from "../features/search/game-search-shell";
+import { BackToReleases } from "../pages/game-details-page";
+
+/** Preserve each public page's loading surface without mounting its query or command effects. */
+export function RouteLoading() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const state = { status: "loading" } as const;
+  const onRetry = () => undefined; // Loading surfaces do not expose a retry action.
+
+  if (location.pathname === "/") {
+    return readDiscoveryView(params) === "featured"
+      ? <FeaturedReleasesShell search={readFeaturedSearch(params)} state={state} onRetry={onRetry} />
+      : <ReleasesShell search={readReleasesSearch(params)} state={state} onRetry={onRetry} />;
+  }
+  if (location.pathname === "/search") {
+    return <GameSearchShell params={readGameSearchParams(params)} state={state} onRetry={onRetry} />;
+  }
+  if (location.pathname.startsWith("/games/")) {
+    return <section className="game-details-section"><div className="page-container">
+      <h1 className="sr-only">Detalle del juego</h1>
+      <GameDetailsLoading message="Cargando el juego…" />
+      <div className="game-details-back"><BackToReleases /></div>
+    </div></section>;
+  }
+  return <p className="page-container" role="status">Cargando página…</p>;
+}
