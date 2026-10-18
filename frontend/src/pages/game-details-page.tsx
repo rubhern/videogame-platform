@@ -8,7 +8,6 @@ import {
 } from "../features/game-details/game-details-api";
 import { GameDetailsContent } from "../features/game-details/game-details-content";
 import { GameDetailsLoading } from "../features/game-details/game-details-loading";
-import { CinematicStage } from "../shared/ui/cinematic-stage";
 
 function BackToReleases() {
   return (
@@ -43,18 +42,10 @@ export function GameDetailsPage() {
           </>
         ) : query.isError ? (
           <>
-            {/* Without a cover to light the page, a failed read keeps the product's own stage. */}
-            <CinematicStage variant="search" />
             <div
               className={`notice ${informational ? "notice-info" : "notice-danger"}`}
               role="alert"
             >
-              <span
-                aria-hidden="true"
-                className={`notice-symbol ${informational ? "" : "notice-symbol-danger"}`}
-              >
-                {missing ? "?" : notReady ? "i" : "!"}
-              </span>
               <p className="notice-kicker">Ficha del catálogo</p>
               <h1>
                 {missing

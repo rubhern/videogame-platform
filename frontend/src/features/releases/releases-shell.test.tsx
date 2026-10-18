@@ -28,6 +28,7 @@ const pragmata: ReleaseListItem = {
       key: "quarter|2026-Q2|worldwide",
       date: "2.º trimestre de 2026",
       shortDate: "T2 2026",
+      day: null,
       region: "Mundial",
       platforms: ["Windows PC"],
       platformIds: ["windows-pc"],
@@ -47,8 +48,10 @@ function viewModel(overrides: Partial<ReleasesViewModel> = {}): ReleasesViewMode
   return {
     view: "recent",
     title: "Lanzamientos recientes",
+    window: { from: "2026-08-07", to: "2026-08-13" },
+    evaluatedOn: "2026-08-13",
     windowDescription: "Del 13 de febrero de 2026 al 13 de agosto de 2026",
-    compactWindowDescription: "Del 13/02/2026 al 13/08/2026",
+    windowRange: "13 feb – 13 ago 2026",
     platforms: [
       { id: "platform-pc", name: "Windows PC" },
       { id: "platform-ps5", name: "PlayStation 5" },
@@ -88,7 +91,7 @@ describe("releases shell", () => {
     renderShell({ status: "ready", model: viewModel(), isRefreshing: false, isPlaceholderData: false });
 
     expect(screen.getByText("Del 13 de febrero de 2026 al 13 de agosto de 2026")).toBeInTheDocument();
-    expect(screen.getByText("Del 13/02/2026 al 13/08/2026")).toBeInTheDocument();
+    expect(screen.getByText("13 feb – 13 ago 2026")).toBeInTheDocument();
     expect(screen.getByText("Ya disponibles").parentElement).toContainElement(
       screen.getByText("Del 13 de febrero de 2026 al 13 de agosto de 2026"),
     );
@@ -99,7 +102,8 @@ describe("releases shell", () => {
     const card = within(results.getAllByRole("listitem")[0] as HTMLElement);
     expect(card.getByRole("heading", { level: 3, name: "Pragmata" })).toBeInTheDocument();
     // The compact visible row shows the first release's date, its grouped platforms and region.
-    expect(card.getByText("Windows PC · Mundial")).toBeInTheDocument();
+    expect(card.getByRole("list", { name: "Plataformas de Pragmata" })).toHaveTextContent("Windows PC");
+    expect(card.getByText("Mundial")).toBeInTheDocument();
     expect(card.getByText("2.º trimestre de 2026")).toBeInTheDocument();
     expect(card.queryByRole("button", { name: /lanzamientos más/ })).not.toBeInTheDocument();
     expect(card.queryByText("Publicado")).not.toBeInTheDocument();

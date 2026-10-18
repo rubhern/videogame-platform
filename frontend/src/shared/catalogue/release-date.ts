@@ -41,12 +41,24 @@ export function formatCalendarDay(value: string): string {
     : `${Number(match[3])} de ${month} de ${match[1]}`;
 }
 
-/** Compact presentation of an API-provided calendar day for narrow release headers. */
-export function formatCompactCalendarDay(value: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  return match === null || monthName(match[2] ?? "") === null
-    ? "Fecha no disponible"
-    : `${match[3]}/${match[2]}/${match[1]}`;
+/**
+ * A window between two API-provided calendar days, as compact as the shared parts allow:
+ * `11–17 oct 2026`, `28 sep – 25 oct 2026` or `29 dic 2026 – 4 ene 2027`.
+ */
+export function formatDayRange(from: string, to: string): string {
+  const start = /^(\d{4})-(\d{2})-(\d{2})$/.exec(from);
+  const end = /^(\d{4})-(\d{2})-(\d{2})$/.exec(to);
+  const startMonth = start === null ? null : shortMonthName(start[2] ?? "");
+  const endMonth = end === null ? null : shortMonthName(end[2] ?? "");
+  if (start === null || end === null || startMonth === null || endMonth === null) {
+    return "Fecha no disponible";
+  }
+  const [, startYear, , startDay] = start;
+  const [, endYear, , endDay] = end;
+  const last = `${Number(endDay)} ${endMonth} ${endYear}`;
+  if (startYear !== endYear) return `${Number(startDay)} ${startMonth} ${startYear} – ${last}`;
+  if (startMonth !== endMonth) return `${Number(startDay)} ${startMonth} – ${last}`;
+  return `${Number(startDay)}–${last}`;
 }
 
 const shortMonths = [
@@ -64,7 +76,7 @@ const shortMonths = [
   "dic",
 ] as const;
 
-function shortMonthName(month: string): string | null {
+export function shortMonthName(month: string): string | null {
   const number = Number(month);
   return Number.isInteger(number) && number >= 1 && number <= 12
     ? (shortMonths[number - 1] ?? null)

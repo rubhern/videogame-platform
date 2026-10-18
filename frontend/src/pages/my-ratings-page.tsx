@@ -5,8 +5,8 @@ import { listMyRatings, MY_RATINGS_KEY, MyRatingsError, type MyRatingsPage, type
 import { MyRatingCard } from "../features/ratings/my-rating-card";
 import { useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
-import { AppSelect } from "../shared/ui/app-select";
-import { CinematicStage } from "../shared/ui/cinematic-stage";
+import { AppSelect, type AppSelectOption } from "../shared/ui/app-select";
+import { StageLight } from "../shared/ui/stage-light";
 import { HeroTitle } from "../shared/ui/hero-title";
 
 /**
@@ -17,7 +17,7 @@ import { HeroTitle } from "../shared/ui/hero-title";
  */
 function MyRatingsLoading() {
   return <div aria-hidden="true" className="my-ratings-list">
-    {[0, 1, 2].map(index => <div className="my-rating-card" key={index}>
+    {[0, 1, 2].map(index => <div className="my-rating-card my-rating-card-loading" key={index}>
       <span className="skeleton my-rating-skeleton-cover" />
       <div className="my-rating-body">
         <span className="skeleton skeleton-title" />
@@ -28,6 +28,16 @@ function MyRatingsLoading() {
     </div>)}
   </div>;
 }
+
+/** Every sort field in both directions, named as a reader would ask for the order. */
+const orders: AppSelectOption[] = [
+  { value: "updatedAt:desc", label: "Más recientes", icon: "descending" },
+  { value: "updatedAt:asc", label: "Más antiguas", icon: "ascending" },
+  { value: "canonicalTitle:asc", label: "Título A–Z", icon: "ascending" },
+  { value: "canonicalTitle:desc", label: "Título Z–A", icon: "descending" },
+  { value: "ratingValue:desc", label: "Nota más alta", icon: "descending" },
+  { value: "ratingValue:asc", label: "Nota más baja", icon: "ascending" },
+];
 
 export function MyRatingsPage() {
   const session = useSession();
@@ -51,20 +61,20 @@ export function MyRatingsPage() {
     heading.current?.focus();
   }
   const data = query.data;
+  // The opening is lit by the games on this page of the collection, never by a placeholder image.
+  const lights = (data?.items ?? []).flatMap(({ game }) => "attribution" in game.primaryCover && game.primaryCover.attribution ? [game.primaryCover.url] : []);
   return <section className="hero-page my-ratings-page" aria-labelledby="my-ratings-title">
-    <CinematicStage variant="collection" />
-    <div className="page-container search-section">
-      <div className="hero-heading">
-        <p className="eyebrow eyebrow-dot">Tu colección de notas</p>
-        <HeroTitle id="my-ratings-title" lead="Mis" accent="puntuaciones" />
-      </div>
+    <StageLight images={lights} />
+    <div className="page-container">
+      <header className="page-head">
+        <p className="eyebrow">Tu colección de notas</p>
+        <HeroTitle id="my-ratings-title" title="Mis puntuaciones" />
+      </header>
       {session.isPending ? <p className="result-count" role="status">Comprobando sesión…</p>
         : session.isError ? <div className="notice notice-danger" role="alert">
-          <span className="notice-symbol notice-symbol-danger" aria-hidden="true">×</span>
           <p className="notice-kicker">Sesión</p>
           <p>No se pudo comprobar tu sesión.</p><button className="button button-danger" onClick={() => { void session.refetch(); }}>Reintentar</button>
         </div> : csrfToken === null || query.error?.code === "AUTHENTICATION_REQUIRED" ? <div className="notice notice-empty" role="status">
-          <span className="notice-symbol" aria-hidden="true">◷</span>
           <h2>Necesitas una sesión activa</h2>
           <p>Inicia sesión para volver a tus puntuaciones.</p>
           <a className="button button-primary" href={authenticationStartUrl("/mis-puntuaciones")}>Iniciar sesión</a>
@@ -82,9 +92,11 @@ export function MyRatingsPage() {
               change(next);
             }}>
             <div className="my-ratings-search">
-              <label htmlFor="my-ratings-search">Título o alias de tus juegos puntuados</label>
+              {/* The adjacent Buscar action and the placeholder carry the purpose visibly; the label names the field. */}
+              <label className="sr-only" htmlFor="my-ratings-search">Título o alias de tus juegos puntuados</label>
               <div className="my-ratings-search-field">
-                <input id="my-ratings-search" type="search" value={search} autoComplete="off"
+                <span className="search-icon" aria-hidden="true" />
+                <input id="my-ratings-search" type="search" value={search} autoComplete="off" placeholder="Título o alias"
                   aria-invalid={inputError !== null} aria-describedby={inputError ? "my-ratings-input-error" : undefined}
                   onChange={(event) => setSearch(event.target.value)} />
                 <button className="button button-primary" type="submit">
@@ -92,37 +104,24 @@ export function MyRatingsPage() {
                 </button>
               </div>
             </div>
+            {/* One control orders the collection: each option names its field and its direction. */}
             <AppSelect
-              className="my-ratings-select"
-              icon="clock"
-              label="Ordenar por"
-              onChange={(sort) => {
-                if (sort === "updatedAt" || sort === "canonicalTitle" || sort === "ratingValue")
-                  change({ ...params, sort, direction: sort === "updatedAt" ? "desc" : "asc", page: 1 });
-              }}
-              options={[
-                { value: "updatedAt", label: "Última actualización", icon: "clock" },
-                { value: "canonicalTitle", label: "Título", icon: "title" },
-                { value: "ratingValue", label: "Mi nota", icon: "rating" },
-              ]}
-              value={params.sort ?? "updatedAt"}
-            />
-            <AppSelect
-              className="my-ratings-select"
+              className="my-ratings-select my-ratings-sort"
               icon="descending"
-              label="Dirección"
-              onChange={(direction) => {
-                if (direction === "asc" || direction === "desc") change({ ...params, direction, page: 1 });
+              inlineLabel
+              label="Orden"
+              onChange={(order) => {
+                const [sort, direction] = order.split(":");
+                if ((sort === "updatedAt" || sort === "canonicalTitle" || sort === "ratingValue")
+                  && (direction === "asc" || direction === "desc")) change({ ...params, sort, direction, page: 1 });
               }}
-              options={[
-                { value: "desc", label: "Descendente", icon: "descending" },
-                { value: "asc", label: "Ascendente", icon: "ascending" },
-              ]}
-              value={params.direction ?? "desc"}
+              options={orders}
+              value={`${params.sort ?? "updatedAt"}:${params.direction ?? "desc"}`}
             />
             <AppSelect
-              className="my-ratings-select"
+              className="my-ratings-select my-ratings-page-size"
               icon="page-size"
+              inlineLabel
               label="Por página"
               onChange={(pageSize) => change({ ...params, pageSize: Number(pageSize), page: 1 })}
               options={[10, 20, 50].map((size) => ({ value: String(size), label: String(size) }))}
@@ -134,7 +133,6 @@ export function MyRatingsPage() {
           <p role="status" className="result-count">{message || (query.isFetching ? "Actualizando puntuaciones…" :
             data ? `${data.page.totalItems} puntuaciones · Página ${data.page.number} de ${Math.max(data.page.totalPages, 1)}` : "")}</p>
           {query.isError ? <div className="notice notice-danger" role="alert">
-            <span className="notice-symbol notice-symbol-danger" aria-hidden="true">×</span>
             <p className="notice-kicker">Error de carga</p>
             <p>No se pudieron cargar tus puntuaciones. Inténtalo de nuevo.</p>
             <button className="button button-danger" onClick={() => { void query.refetch(); }}>Reintentar carga</button>
@@ -142,7 +140,6 @@ export function MyRatingsPage() {
           {query.isPending ? <MyRatingsLoading />
             : data ? <>
               {data.items.length === 0 ? <div className="notice notice-empty" role="status">
-                <span className="notice-symbol" aria-hidden="true"><span className="search-icon" /></span>
                 <p className="notice-kicker">Sin resultados</p>
                 <h3>{data.page.totalItems > 0 ? "Esta página ya no tiene resultados" :
                   params.q ? "No hay puntuaciones que coincidan con tu búsqueda" : "Todavía no has puntuado ningún juego"}</h3>

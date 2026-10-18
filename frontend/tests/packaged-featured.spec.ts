@@ -15,17 +15,33 @@ function trackProviderRequests(page: Page): string[] {
   return providerRequests;
 }
 
-test("the packaged featured releases read local PostgreSQL month by month", async ({ page }) => {
+test("the packaged featured releases read local PostgreSQL week by week and month by month", async ({ page }) => {
   const providerRequests = trackProviderRequests(page);
 
   await page.goto("/");
 
-  // The browser gate pins the clock to 13 August 2026, and the deterministic seed holds no
-  // qualifying release that month: the landing route says so instead of failing.
-  await expect(page.getByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
+  // The browser gate pins the clock to Thursday 13 August 2026, and the deterministic seed holds
+  // no qualifying release in its ISO week: the landing route says so instead of failing.
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Lanzamientos semanales" }),
+  ).toBeVisible();
   await expect(
     page.getByRole("navigation", { name: "Lanzamientos" }).getByRole("link", { name: "Destacados" }),
   ).toHaveAttribute("aria-current", "page");
+  await expect(
+    page.getByRole("heading", { name: "No hay lanzamientos en la semana del 10 al 16 de agosto de 2026" }),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Semana siguiente: la semana del 17 al 23 de agosto de 2026" }).click();
+  await expect(page).toHaveURL(/\/\?week=2026-W34$/);
+  await expect(page.getByRole("link", { name: "Semana actual" })).toHaveAttribute("href", "/");
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
+
+  await page
+    .getByRole("navigation", { name: "Periodo de los destacados" })
+    .getByRole("link", { name: "Mes" })
+    .click();
+  await expect(page).toHaveURL(/\/\?granularity=month$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "No hay lanzamientos en agosto de 2026" })).toBeVisible();
 
   await page.getByRole("link", { name: "Mes siguiente: septiembre de 2026" }).click();

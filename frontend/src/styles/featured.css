@@ -9,25 +9,6 @@
   /* ---------------------------------------------------------------- Instrument palette */
 
   .featured-page {
-    /* The instrument in the brand families: ice lights elapsed time, fire marks the featured
-       release. Score readings keep the thermal palette of their own bands. */
-    --g-ice: var(--color-ice-light);
-    --g-ice-deep: var(--color-ice);
-    /* Elapsed time: one cold blue for the hero's G and the cards' scales, in every phase. */
-    --g-lit-top: #8caeea;
-    --g-lit: #7199df;
-    --g-lit-bottom: #527dbd;
-    --g-fire: var(--color-fire);
-    --g-ember: var(--color-fire-light);
-    /* The unlit rail: a night channel inside a hairline of ice. */
-    --g-track: color-mix(in srgb, var(--color-ice) 7%, var(--color-night));
-    --g-edge: color-mix(in srgb, var(--color-ice) 40%, transparent);
-    --g-tick: color-mix(in srgb, var(--color-ice) 46%, #6b7486);
-    --g-numeral: color-mix(in srgb, var(--color-ice-light) 62%, var(--color-muted));
-    --g-steel: color-mix(in srgb, var(--color-ice) 40%, var(--color-subtle));
-    /* The needle's hub keeps the mark's warm core. */
-    --g-hub-core: #fff4dc;
-
     /* The stage bleeds to the viewport's edges; nothing may scroll sideways because of it. */
     overflow-x: clip;
   }
@@ -47,12 +28,6 @@
     pointer-events: none;
   }
 
-  /* The ambient aurora belongs to the other screens; this stage is lit by the game. */
-  .app-frame:has(.featured-page)::before {
-    background: none;
-    animation: none;
-  }
-
   /* ---------------------------------------------------------------- Page opening */
 
   .featured-heading {
@@ -64,32 +39,6 @@
     gap: 6px 26px;
   }
 
-  .featured-page .hero-title {
-    margin: 0;
-    font-size: clamp(1.5rem, 2.2vw, 1.875rem);
-    font-stretch: 112%;
-    font-weight: 800;
-    line-height: 1.1;
-    letter-spacing: -0.02em;
-    text-shadow: 0 2px 18px color-mix(in srgb, var(--color-canvas) 80%, transparent);
-  }
-
-  /* The title reads as one phrase: no lit serif accent on this page. */
-  .featured-page .title-accent {
-    padding: 0;
-    color: inherit;
-    background: none;
-    -webkit-background-clip: border-box;
-    background-clip: border-box;
-    font-family: inherit;
-    font-size: inherit;
-    font-stretch: inherit;
-    font-style: normal;
-    font-weight: inherit;
-    letter-spacing: inherit;
-    filter: none;
-  }
-
   .featured-icon {
     display: block;
     width: 18px;
@@ -97,20 +46,99 @@
     flex: none;
   }
 
-  /* The month as the instrument's own readout: steps on either side of a condensed label. */
-  .featured-month {
+  /* The period as the instrument's own readout: the Semana/Mes switch, then steps on either side
+     of a condensed label, then the way back to the current period while another one is shown.
+     Ice marks the selection; nothing here takes fire or a filled background. */
+  .featured-period {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 18px;
+  }
+
+  .featured-granularity ul {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* A fine upright parts the two choices, as the hero's facts part their groups. */
+  .featured-granularity li + li {
+    display: flex;
+    align-items: center;
+  }
+
+  .featured-granularity li + li::before {
+    width: 1px;
+    height: 16px;
+    background: var(--color-line);
+    content: "";
+  }
+
+  .featured-granularity-option {
+    position: relative;
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    padding-inline: 12px;
+    border-radius: 6px;
+    color: var(--color-muted);
+    font-size: 0.9375rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .featured-granularity li:first-child .featured-granularity-option {
+    padding-inline-start: 0;
+  }
+
+  .featured-granularity-option:hover {
+    color: var(--color-ink);
+  }
+
+  .featured-granularity-option:focus-visible {
+    outline-offset: 0;
+  }
+
+  /* The selected granularity reads in ice over a short ice bar: a selection, never an event. */
+  .featured-granularity-option[aria-current="true"] {
+    color: var(--g-ice);
+  }
+
+  .featured-granularity-option[aria-current="true"]::after {
+    position: absolute;
+    bottom: 7px;
+    left: 50%;
+    width: 18px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--g-ice-deep);
+    content: "";
+    transform: translateX(-50%);
+  }
+
+  .featured-granularity li:first-child .featured-granularity-option[aria-current="true"]::after {
+    left: calc(50% - 6px);
+  }
+
+  .featured-period-stepper {
     display: inline-flex;
     min-height: 44px;
     align-items: center;
   }
 
-  .featured-month-skeleton {
+  .featured-period-skeleton {
     width: 216px;
     border-radius: 6px;
     background: color-mix(in srgb, var(--color-ink) 6%, transparent);
   }
 
-  .featured-month-step {
+  .featured-period-step {
     display: inline-flex;
     width: 40px;
     height: 44px;
@@ -120,23 +148,23 @@
     color: var(--color-muted);
   }
 
-  .featured-month-step:not(.featured-month-step-disabled):hover {
+  .featured-period-step:not(.featured-period-step-disabled):hover {
     color: var(--color-ink);
     background: color-mix(in srgb, var(--color-ink) 8%, transparent);
   }
 
-  .featured-month-step:focus-visible {
+  .featured-period-step:focus-visible {
     border-radius: 6px;
     outline-offset: 0;
   }
 
-  /* January and December end the current year: the step stays in place, dimmed and inert. */
-  .featured-month-step-disabled {
+  /* A navigation bound, or bounds still unknown: the step stays in place, dimmed and inert. */
+  .featured-period-step-disabled {
     cursor: default;
     opacity: 0.35;
   }
 
-  .featured-month-label {
+  .featured-period-label {
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -148,12 +176,32 @@
     font-weight: 700;
     letter-spacing: 0.01em;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
 
-  .featured-month-label .featured-icon {
+  .featured-period-label .featured-icon {
     width: 17px;
     height: 17px;
     color: var(--g-ice-deep);
+  }
+
+  /* The way back reads quietly beside the readout, a link and nothing more. */
+  .featured-period-current {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-muted) 45%, transparent);
+    text-underline-offset: 4px;
+    white-space: nowrap;
+  }
+
+  .featured-period-current:hover {
+    color: var(--color-ink);
+    text-decoration-color: currentColor;
   }
 
   /* ---------------------------------------------------------------- Featured frames */
@@ -596,6 +644,30 @@
     stroke-width: 5;
   }
 
+  /* The phone seal's readout: the release's day in the readout cut, its month and year beneath,
+     in the light the dial's own copy uses. */
+  .month-dial-readout {
+    fill: var(--color-ink);
+    font-stretch: 75%;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    paint-order: stroke;
+    stroke: color-mix(in srgb, var(--color-canvas) 55%, transparent);
+    stroke-width: 6px;
+    text-transform: uppercase;
+  }
+
+  .month-dial-readout-lead {
+    letter-spacing: -0.01em;
+  }
+
+  .month-dial-readout-rest {
+    fill: var(--g-ice);
+    font-size: 50px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+  }
+
   /* ---------------------------------------------------------------- Hero copy */
 
   /* The fixed zone measures available space; natural copy is fitted only when it is too tall. */
@@ -645,9 +717,6 @@
     color: var(--g-fire);
   }
 
-  .featured-needle-core {
-    fill: var(--g-hub-core);
-  }
 
   /* The canonical title as Gameómetro's own wordmark. The heading keeps the full title as text; the
      size follows the name so its longest word fits one line and the whole name three. */
@@ -760,6 +829,11 @@
     letter-spacing: 0.01em;
     text-transform: uppercase;
     white-space: nowrap;
+  }
+
+  /* The release row and the genres keep their own rows on the G; phones run them together. */
+  .featured-hero-facts {
+    display: contents;
   }
 
   /* Platform marks keep their ratio at the row height, spaced rather than divided. */
@@ -1337,74 +1411,6 @@
     }
   }
 
-  /* ---------------------------------------------------------------- States on this stage */
-
-  /* A state is still a message, set as an instrument plate: opaque and square-shouldered, its tone
-     on the top edge and in a plain ring, its kicker in words rather than tracked capitals. */
-  .featured-page .notice {
-    border: 1px solid color-mix(in srgb, var(--notice-tone) 34%, var(--color-line));
-    border-radius: 10px;
-    background: color-mix(in srgb, var(--color-surface) 94%, transparent);
-    box-shadow: var(--elevation-lift);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  .featured-page .notice::before {
-    inset: 0 0 auto;
-    height: 3px;
-    background: var(--notice-tone);
-    opacity: 0.75;
-  }
-
-  .featured-page .notice-symbol {
-    width: 46px;
-    height: 46px;
-    border: 2px solid color-mix(in srgb, var(--notice-tone) 70%, transparent);
-    background: none;
-    box-shadow: none;
-    font-family: var(--font-sans);
-  }
-
-  .featured-page .notice-kicker {
-    color: var(--notice-tone);
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    font-weight: 650;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
-  .featured-page .notice-footnote {
-    font-family: var(--font-sans);
-    font-size: 0.8125rem;
-    letter-spacing: 0;
-    text-transform: none;
-  }
-
-  .featured-page .button {
-    border-radius: 6px;
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-
-  .featured-page .button-primary,
-  .featured-page .button-primary:hover {
-    border-color: transparent;
-    color: var(--color-canvas);
-    background: var(--color-ice-light);
-    box-shadow: none;
-  }
-
-  .featured-page .button-primary:hover {
-    background: #fff;
-  }
-
-  .featured-page .button-danger {
-    background: var(--color-danger);
-    box-shadow: none;
-  }
-
   /* ---------------------------------------------------------------- Loading */
 
   .featured-hero-placeholder {
@@ -1499,9 +1505,10 @@
   /* Tablets and phones put the art above the G, edge to edge and fading into it; the G follows,
      reaching up over the art's lower edge. */
   @media (max-width: 1023px) {
+    /* The art starts behind the page opening and fades in under it: one stage, no seam. */
     .featured-hero {
       display: block;
-      margin-top: 12px;
+      margin-top: -22px;
     }
 
     .featured-hero-visual {
@@ -1513,8 +1520,8 @@
       left: auto;
       aspect-ratio: 2 / 1;
       margin-inline: calc(50% - 50vw);
-      -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 12%, #000 52%, transparent 100%);
-      mask-image: linear-gradient(180deg, transparent 0%, #000 12%, #000 52%, transparent 100%);
+      -webkit-mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 0.55) 12%, #000 26%, #000 52%, transparent 100%);
+      mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 0.55) 12%, #000 26%, #000 52%, transparent 100%);
     }
 
     .featured-hero-visual::after {
@@ -1551,6 +1558,18 @@
 
     .featured-badge {
       left: calc(50% - var(--dial-w) / 2 + 80px);
+      isolation: isolate;
+    }
+
+    /* Over the art the badge keeps a close, soft shade of night, so bright art never swallows
+       its ember; it is a shadow, not a plate, and has no edge. */
+    .featured-badge::before {
+      position: absolute;
+      z-index: -1;
+      inset: -24px -44px;
+      background: radial-gradient(closest-side, color-mix(in srgb, var(--color-canvas) 84%, transparent) 36%, color-mix(in srgb, var(--color-canvas) 40%, transparent) 66%, transparent);
+      content: "";
+      pointer-events: none;
     }
 
     .featured-dial::before {
@@ -1558,41 +1577,74 @@
     }
   }
 
-  /* Phones: the art in a 16:9 frame, the G as a small emblem over its lower corner, and the copy
-     beneath at the full width of the column. */
+  /* Phones: the art runs on from the period selector, the G becomes the release's seal rising over
+     the art's foot with the date in its bowl, and the copy follows at the full column width. */
   @media (max-width: 619px) {
     .featured-heading {
       gap: 4px 12px;
     }
 
-    .featured-page .hero-title {
-      font-size: clamp(1.375rem, 6.6vw, 1.75rem);
-    }
-
-    .featured-month {
+    /* The switch and the steps share the row under the title; the way back to the current
+       period, shown only while another one is, takes the end of the row or a line of its own. */
+    .featured-period {
       width: 100%;
-      justify-content: space-between;
+      gap: 0 10px;
     }
 
-    .featured-month-label {
-      font-size: 1.125rem;
+    .featured-granularity-option {
+      padding-inline: 10px;
+      font-size: 0.875rem;
     }
 
-    .featured-month-label .featured-icon {
+    .featured-period-stepper {
+      margin-inline-start: auto;
+    }
+
+    .featured-period-step {
+      width: 36px;
+    }
+
+    .featured-period-label {
+      padding-inline: 2px;
+      font-size: 1rem;
+    }
+
+    .featured-period-label .featured-icon {
       display: none;
     }
 
-    .featured-hero-visual {
-      aspect-ratio: 16 / 9;
-      -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 10%, #000 56%, transparent 100%);
-      mask-image: linear-gradient(180deg, transparent 0%, #000 10%, #000 56%, transparent 100%);
+    .featured-period-current {
+      min-height: 32px;
+      margin-inline-start: auto;
+      font-size: 0.8125rem;
     }
 
+    /* The stage runs on from the page opening: the art starts behind the period selector and
+       fades in under it, so heading, month and art read as one lit stage. */
+    .featured-hero {
+      margin-top: -34px;
+    }
+
+    /* A little taller than 16:9, so the art keeps its subject between the month above and the
+       seal below; wider phones stop growing it. */
+    .featured-hero-visual {
+      height: min(66.7vw, 340px);
+      aspect-ratio: auto;
+      -webkit-mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 0.55) 16%, #000 34%, #000 60%, transparent 100%);
+      mask-image: linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 0.55) 16%, #000 34%, #000 60%, transparent 100%);
+    }
+
+    /* The G is the release's seal: it rises out of the art's lower edge on the copy's side and
+       holds the release's date in its bowl. The badge then introduces the title beneath it. */
     .featured-dial {
-      display: block;
+      --seal-w: clamp(140px, 46vw, 208px);
+      display: grid;
+      grid-template-columns: var(--seal-w) minmax(0, 1fr);
+      grid-template-rows: auto auto auto;
+      align-items: center;
       width: auto;
       min-height: 0;
-      margin: -34px 0 0;
+      margin: calc(var(--seal-w) * -0.6) 0 0;
       padding: 0;
     }
 
@@ -1601,19 +1653,54 @@
       display: none;
     }
 
+    /* The seal and the badge are positioned so they paint over the art, while the dial itself
+       stays unpositioned: the title link's target keeps spanning the whole hero. The seal's own
+       face, a soft shade of night in its bowl, carries the readout over any art. */
     .featured-dial .featured-dial-emblem {
-      width: 150px;
+      position: relative;
+      grid-area: 1 / 1;
+      display: block;
+      background: radial-gradient(36% 40% at 48% 52%, color-mix(in srgb, var(--color-canvas) 78%, transparent), color-mix(in srgb, var(--color-canvas) 46%, transparent) 64%, transparent);
+      width: 100%;
       height: auto;
       aspect-ratio: 450 / 382;
-      position: absolute;
-      top: calc(56.25vw - 150px);
-      right: -12px;
-      display: block;
+      margin-left: calc(var(--seal-w) * -0.05);
       pointer-events: none;
     }
 
-    .featured-hero-zone {
+    /* At a third of the hero's size the rail keeps its whole silhouette over any art. */
+    .featured-dial-emblem .month-dial-track {
+      fill: color-mix(in srgb, var(--color-ice) 18%, var(--color-night));
+      fill-opacity: 0.9;
+    }
+
+    .featured-dial-emblem .month-dial-edge {
+      stroke-opacity: 0.3;
+    }
+
+    /* The badge is the title's kicker: left-aligned with it, off the art, on night. */
+    .featured-badge {
+      grid-area: 2 / 1 / auto / -1;
+      position: relative;
+      inset: auto;
+      margin: 4px 0 0;
+      font-size: 0.875rem;
+    }
+
+    .featured-badge::before {
+      display: none;
+    }
+
+    /* The placeholder has no seal yet: its copy waits under the art at the column's width. */
+    .featured-hero-placeholder .featured-dial {
       display: block;
+      margin-top: 16px;
+    }
+
+    .featured-hero-zone {
+      grid-area: 3 / 1 / auto / -1;
+      display: block;
+      margin-top: 8px;
     }
 
     .featured-hero-body {
@@ -1624,12 +1711,6 @@
 
     .featured-hero .discovery-scores-hero {
       width: auto;
-    }
-
-    .featured-badge {
-      position: static;
-      margin-bottom: 12px;
-      font-size: 0.875rem;
     }
 
     .featured-hero-title {
@@ -1647,14 +1728,61 @@
       }
     }
 
-    /* Date, platforms and region share one row across the width whenever they fit. Each group
-       keeps to one line, so a group that cannot fit moves whole to a second row instead of
-       breaking or shrinking. The platforms keep the cards' compact marks: the first two and the
-       exact count of the rest, every name still announced. */
-    .featured-hero-meta {
-      justify-content: space-between;
-      gap: 6px 9px;
+    /* Platforms · region | genres: one left-aligned run that wraps by whole groups, never by
+       spreading groups apart. Each fact carries its separator in the space before it, and each
+       group steps back over that space; the run clips at the column's edge, so a fact starting a
+       line drops its separator. The
+       platforms keep the cards' compact marks: the first two and the exact count of the rest,
+       every name still announced. */
+    .featured-hero-facts {
+      --fact-gap: 15px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px var(--fact-gap);
+      overflow-x: clip;
       font-size: 0.8125rem;
+      line-height: 1.4;
+    }
+
+    .featured-hero-facts > ul {
+      flex: none;
+      max-width: calc(100% + var(--fact-gap));
+      margin-left: calc(var(--fact-gap) * -1);
+      flex-wrap: wrap;
+      gap: 4px 0;
+      margin-block: 0;
+      font-size: inherit;
+    }
+
+    .featured-hero-facts > ul > li {
+      position: relative;
+      padding-left: var(--fact-gap);
+    }
+
+    .featured-hero-facts > ul > li::before {
+      position: absolute;
+      top: 50%;
+      left: calc(var(--fact-gap) / 2);
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.5;
+      translate: -50% -50%;
+    }
+
+    .featured-hero-region::before,
+    .featured-genres li::before {
+      content: "";
+    }
+
+    /* The genres are a group of their own: a fine upright divides them from the release. */
+    .featured-genres li:first-child::before {
+      width: 1px;
+      height: 0.95em;
+      border-radius: 0;
+      opacity: 0.4;
     }
 
     .featured-hero-meta > li {
@@ -1663,9 +1791,24 @@
       white-space: nowrap;
     }
 
+    .featured-genres li {
+      gap: 0;
+    }
+
     .featured-hero-date {
       font-size: 1.0625rem;
       line-height: 1.2;
+    }
+
+    /* The seal reads the date, so the row keeps it for assistive technology alone; without a
+       seal (a month the dial cannot draw) the row still shows it. */
+    .featured-dial:has(.featured-dial-emblem) .featured-hero-date {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
     }
 
     .featured-hero-meta .featured-icon,
@@ -1731,11 +1874,36 @@
   }
 
   @media (forced-colors: active) {
+    .featured-granularity-option[aria-current="true"]::after,
+    .featured-granularity li + li::before {
+      forced-color-adjust: none;
+      background: CanvasText;
+    }
+
     .featured-page::before,
     .featured-hero-light,
     .featured-hero-visual::after,
-    .featured-dial::before {
+    .featured-dial::before,
+    .featured-badge::before {
       display: none;
+    }
+
+    .month-dial-readout {
+      stroke: none;
+    }
+
+    .featured-dial .featured-dial-emblem {
+      background: none;
+    }
+
+    .month-dial-readout-rest {
+      fill: CanvasText;
+    }
+
+    /* The facts' separators are painted marks, so they keep the system text colour. */
+    .featured-hero-facts > ul > li::before {
+      forced-color-adjust: none;
+      background: CanvasText;
     }
 
     .featured-hero:has(.featured-hero-game-link:focus-visible) {
@@ -1838,6 +2006,20 @@
 
     .month-strip-label {
       color: CanvasText;
+    }
+  }
+
+  /* Without masks and shades nothing may sit on the art: the page opening, the art and the seal
+     each keep their own room. */
+  @media (forced-colors: active) and (max-width: 1023px) {
+    .featured-hero {
+      margin-top: 12px;
+    }
+  }
+
+  @media (forced-colors: active) and (max-width: 619px) {
+    .featured-dial {
+      margin-top: 12px;
     }
   }
 

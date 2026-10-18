@@ -1,9 +1,8 @@
-import type { CSSProperties } from "react";
 import { Link } from "react-router-dom";
 
 import { GameGenres } from "../../shared/catalogue/game-genres";
+import { PlatformMarks } from "../../shared/catalogue/platform-marks";
 import { CatalogueCover } from "../../shared/ui/catalogue-cover";
-import { SelectIcon } from "../../shared/ui/select-icon";
 import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { hiddenPlatformsLabel, type GameSearchResult } from "./game-search-view-model";
 
@@ -12,50 +11,40 @@ type GameSearchCardProps = {
 };
 
 /**
- * A bounded search result (#188): cover, title, the discovery score readings (#279), an
- * explaining alias, the year context and the compact platform summary. Its height never depends
- * on how many releases the game has; the game page owns the complete release context and the
+ * One entry of the catalogue index (#188): the cover beside its record — the known year or range,
+ * the title as the only keyboard stop besides the score attribution, an explaining alias, the
+ * discovery readings (#279), up to two genres and the compact platform summary. Its height never
+ * depends on how many releases the game has; the game page owns the release context and the
  * cover attribution.
  */
 export function GameSearchCard({ result }: GameSearchCardProps) {
   const gamePath = `/games/${result.gameId}/${result.slug}`;
   const { platforms, hiddenPlatformCount } = result;
-  // The card is lit by its own cover: the same image, blurred beneath it.
-  const coverLight = { "--cover-art": `url(${JSON.stringify(result.cover.url)})` } as CSSProperties;
 
   return (
-    <article className="catalogue-card search-card" style={coverLight}>
+    <article className="catalogue-card search-card">
       <CatalogueCover caption={false} cover={result.cover} to={gamePath} />
-      <div className="card-body">
+      <div className="search-card-record">
+        <p className="search-card-year">
+          <span className="sr-only">Lanzamiento: </span>
+          {result.year}
+        </p>
         <h3 className="card-title">
           <Link to={gamePath}>{result.title}</Link>
         </h3>
-        <DiscoveryScores scores={result.scores} title={result.title} />
-        <GameGenres genres={result.genres} />
         {result.matchedAlias === null ? null : (
           <p className="search-card-alias">
             Coincidencia: <span>{result.matchedAlias}</span>
           </p>
         )}
-        <p className="search-card-year">
-          <span className="sr-only">Lanzamiento: </span>
-          {result.year}
-        </p>
+        <DiscoveryScores scores={result.scores} title={result.title} />
+        <GameGenres genres={result.genres} />
         {platforms.length === 0 ? null : (
-          <ul aria-label={`Plataformas de ${result.title}`} className="search-card-platforms">
-            {platforms.map((platform) => (
-              <li key={platform.id} title={platform.name}>
-                <SelectIcon name={platform.icon} />
-                <span className="sr-only">{platform.name}</span>
-              </li>
-            ))}
-            {hiddenPlatformCount === 0 ? null : (
-              <li className="search-card-platform-more" title={hiddenPlatformsLabel(hiddenPlatformCount)}>
-                <span aria-hidden="true">+{hiddenPlatformCount}</span>
-                <span className="sr-only">{hiddenPlatformsLabel(hiddenPlatformCount)}</span>
-              </li>
-            )}
-          </ul>
+          <PlatformMarks
+            label={`Plataformas de ${result.title}`}
+            marks={platforms.map((platform) => ({ key: platform.id, ...platform }))}
+            more={{ count: hiddenPlatformCount, label: hiddenPlatformsLabel(hiddenPlatformCount) }}
+          />
         )}
       </div>
     </article>

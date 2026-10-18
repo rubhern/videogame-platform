@@ -46,9 +46,11 @@ const releasesResponse = {
 } as const satisfies components["schemas"]["ReleasePage"];
 
 const featuredResponse = {
-  month: "2026-08",
+  granularity: "week",
+  week: "2026-W33",
   evaluatedOn: "2026-08-13",
-  window: { from: "2026-08-01", to: "2026-08-31" },
+  window: { from: "2026-08-10", to: "2026-08-16" },
+  navigation: { previous: "2026-W32", next: "2026-W34" },
   selection: {
     status: "ranked",
     popularityFreshness: "fresh",
@@ -86,11 +88,11 @@ afterEach(() => {
 });
 
 describe("application routing", () => {
-  it("opens on the featured releases of the month through the application providers", async () => {
+  it("opens on the featured releases of the week through the application providers", async () => {
     renderApp();
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Lanzamientos del mes" }),
+      await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" }),
     ).toBeInTheDocument();
     expect(
       await screen.findByRole("heading", { level: 2, name: "Pragmata" }),
@@ -128,7 +130,7 @@ describe("application routing", () => {
 
     await user.click(within(releases).getByRole("link", { name: "Destacados" }));
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Lanzamientos del mes" }),
+      await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" }),
     ).toBeInTheDocument();
     expect(router.state.location.search).toBe("");
   });
@@ -136,7 +138,7 @@ describe("application routing", () => {
   it("presents the product as Gameómetro in the shell", async () => {
     renderApp();
 
-    await screen.findByRole("heading", { level: 1, name: "Lanzamientos del mes" });
+    await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" });
     expect(screen.getByRole("link", { name: "Gameómetro · Inicio" })).toHaveAttribute("href", "/");
     expect(within(screen.getByRole("contentinfo")).getByText("Gameómetro")).toBeVisible();
   });
@@ -145,7 +147,7 @@ describe("application routing", () => {
     const user = userEvent.setup();
     renderApp();
 
-    await screen.findByRole("heading", { level: 1, name: "Lanzamientos del mes" });
+    await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" });
     const sections = screen.getByRole("navigation", { name: "Lanzamientos" });
     expect(within(sections).queryByRole("link", { name: "Buscar" })).not.toBeInTheDocument();
     expect(screen.queryByText("Catálogo de lanzamientos · MVP privado")).not.toBeInTheDocument();
@@ -170,7 +172,7 @@ describe("application routing", () => {
     homeLink.focus();
     await user.keyboard("{Enter}");
 
-    await screen.findByRole("heading", { level: 1, name: "Lanzamientos del mes" });
+    await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" });
     expect(screen.getByRole("main")).toHaveFocus();
   });
 

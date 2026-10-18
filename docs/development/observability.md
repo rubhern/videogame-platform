@@ -37,13 +37,13 @@ with a dedicated short statement timeout; health details remain hidden.
   percentile histogram supports latency analysis without defining an SLO.
 - `catalogue.releases.result.count{view}` is the one release-specific meter and
   records successful page yield for the closed `recent`/`upcoming` vocabulary.
-- `catalogue.featured.selection{status,freshness,month,lead_image}` counts successful
-  featured reads (#151): `status` is `ranked`, `popularity_unavailable` or
-  `no_qualifying_releases`; `freshness` is `fresh`, `stale` or `none`; `month` is
-  `current` or `requested`; `lead_image` is the featured release's image kind,
+- `catalogue.featured.selection{status,freshness,granularity,period,lead_image}` counts
+  successful featured reads (#151, #329): `status` is `ranked`, `popularity_unavailable` or
+  `no_qualifying_releases`; `freshness` is `fresh`, `stale` or `none`; `granularity` is
+  `week` or `month`; `period` is `current` or `requested`; `lead_image` is the featured release's image kind,
   `artwork`, `screenshot`, `fallback` or `none`, because the hero never presents a cover. A
   rising `stale` or `popularity_unavailable` share means popularity acquisition is behind,
-  and a rising `fallback` share means media acquisition is; no game, month, image or
+  and a rising `fallback` share means media acquisition is; no game, period value, image or
   popularity value is a tag.
 - `catalogue.game.details{eligibility,aggregate}` counts successful detail reads,
   including conditional responses. Eligibility uses the six contract reason codes;

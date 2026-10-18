@@ -80,7 +80,8 @@ catalogue:
     retained-runs: ${CATALOGUE_SYNC_RETAINED_RUNS:50}
     abandon-run-after: ${CATALOGUE_SYNC_ABANDON_RUN_AFTER:PT30M}
     scheduling:
-      # Opt-in even when credentials exist; '-' disables an individual policy.
+      # Opt-in even when credentials exist; '-' disables an individual policy. The widest
+      # future-days of the policies not disabled also bounds featured months (UC-010).
       enabled: ${CATALOGUE_SYNC_SCHEDULING_ENABLED:false}
       near-term:
         cron: "${CATALOGUE_SYNC_NEAR_TERM_CRON:0 0 4 * * *}"

@@ -1,13 +1,18 @@
-import { formatReleaseDateShort } from "../../shared/catalogue/release-date";
+import {
+  formatCalendarDay,
+  formatDayRange,
+  formatReleaseDateShort,
+} from "../../shared/catalogue/release-date";
+import { toWordmark, type TitleWordmark } from "../../shared/catalogue/title-wordmark";
 import { releaseStatuses } from "../../shared/catalogue/release-labels";
 import type { FeaturedReleasesResponse } from "./featured-releases-api";
-import { shiftMonth } from "./featured-search";
+import type { FeaturedGranularity } from "./featured-search";
 import {
-  toMonthTimeline,
+  toPeriodTimeline,
   toReleaseMark,
-  type MonthTimeline,
+  type PeriodTimeline,
   type ReleaseMark,
-} from "./month-timeline";
+} from "./period-timeline";
 import { toReleaseListItem, type ReleaseListItem } from "./releases-view-model";
 
 type FeaturedResponseItem = FeaturedReleasesResponse["items"][number];
@@ -23,7 +28,7 @@ export const FEATURED_FALLBACK_URL = "/assets/featured/fallback.svg";
 export type FeaturedArt = {
   kind: "artwork" | "screenshot" | "cover" | "fallback";
   presentation: "fill" | "contain";
-  /** At the scale of the month's featured release. */
+  /** At the scale of the period's featured release. */
   url: string;
   /** At the scale of the other featured releases. */
   compactUrl: string;
@@ -41,7 +46,7 @@ export type FeaturedTitleLogo = { url: string; alt: string };
 export type FeaturedItem = ReleaseListItem & {
   art: FeaturedArt[];
   logo: FeaturedTitleLogo | null;
-  /** Where the first presented release falls on the represented month's temporal scale. */
+  /** Where the first presented release falls on the represented period's temporal scale. */
   mark: ReleaseMark;
 };
 
@@ -54,20 +59,11 @@ export type FeaturedSelectionState =
   | { status: "popularity-unavailable" }
   | { status: "no-qualifying-releases" };
 
-/**
- * The canonical title set as a product-owned wordmark: the name, then the subtitle an explicit
- * delimiter introduces. The lockup drops the delimiter visually; assistive technology and the
- * heading's text still read the canonical title unchanged.
- */
-export type FeaturedWordmark = {
-  main: string;
-  /** `:` or a spaced dash, as the canonical title writes it; empty without a subtitle. */
-  delimiter: string;
-  sub: string | null;
-};
+/** The canonical title set as Gameómetro's own wordmark (`shared/catalogue/title-wordmark`). */
+export type FeaturedWordmark = TitleWordmark;
 
 /**
- * The month's featured release: a featured item plus what its hero sets in words and light. Its
+ * The period's featured release: a featured item plus what its hero sets in words and light. Its
  * `art` never presents a cover first: landscape media, then the designed fallback, and the
  * provider cover only as the last resort when nothing else loads.
  */
@@ -79,20 +75,28 @@ export type FeaturedLead = FeaturedItem & {
   lightUrl: string;
 };
 
+/** An adjacent period the API offers: its contract value and how a sentence names it. */
+export type FeaturedPeriodStep = { period: string; phrase: string };
+
 export type FeaturedReleasesViewModel = {
-  month: string;
-  /** `Octubre 2026`, as the month selector shows it. */
-  monthLabel: string;
-  /** `octubre de 2026`, as a sentence says it. */
-  monthPhrase: string;
-  /** The evaluated month in `Europe/Madrid`, which the landing route represents. */
-  currentMonth: string;
+  granularity: FeaturedGranularity;
+  /** The represented period as the contract names it: `2026-W42` or `2026-10`. */
+  period: string;
+  /** `12–18 oct 2026` or `Octubre 2026`, as the period selector shows it. */
+  periodLabel: string;
+  /** `la semana del 12 al 18 de octubre de 2026` or `octubre de 2026`, as a sentence says it. */
+  periodPhrase: string;
+  /** Whether the API's evaluated date falls inside the represented period. */
+  isCurrent: boolean;
+  /** The adjacent periods inside the API's navigation bounds; null at a bound. */
+  previous: FeaturedPeriodStep | null;
+  next: FeaturedPeriodStep | null;
   /**
-   * The represented month as the temporal G reads it, from the evaluated date of this same
-   * response, so the progress always agrees with the selection shown; null only for a malformed
-   * response.
+   * The represented period as the temporal G reads it, from the window and evaluated date of this
+   * same response, so the progress always agrees with the selection shown; null only for a
+   * malformed response.
    */
-  timeline: MonthTimeline | null;
+  timeline: PeriodTimeline | null;
   selection: FeaturedSelectionState;
   lead: FeaturedLead | null;
   others: FeaturedItem[];
@@ -128,6 +132,113 @@ export function formatMonthLabel(month: string): string {
 export function formatMonthPhrase(month: string): string {
   const { name, year } = monthParts(month);
   return `${name} de ${year}`;
+}
+
+/**
+ * A week's days as a sentence names them, as compactly as the shared parts allow: `del 12 al 18 de
+ * octubre de 2026`, `del 28 de septiembre al 4 de octubre de 2026` or `del 28 de diciembre de 2026
+ * al 3 de enero de 2027`.
+ */
+export function formatWeekRange(from: string, to: string): string {
+  const [startDay = "", startMonth = "", startYear = ""] = formatCalendarDay(from).split(" de ");
+  const end = formatCalendarDay(to);
+  const [, endMonth = "", endYear = ""] = end.split(" de ");
+  const first =
+    startYear !== endYear
+      ? `${startDay} de ${startMonth} de ${startYear}`
+      : startMonth !== endMonth
+        ? `${startDay} de ${startMonth}`
+        : startDay;
+  return `del ${first} al ${end}`;
+}
+
+/** `la semana del 12 al 18 de octubre de 2026`. */
+export function formatWeekPhrase(from: string, to: string): string {
+  return `la semana ${formatWeekRange(from, to)}`;
+}
+
+const DAY_MS = 86_400_000;
+
+/** A contract day shifted by whole days; the API's window is the only source of the dates. */
+function shiftDay(value: string, days: number): string {
+  const [year = 0, month = 1, day = 1] = value.split("-").map(Number);
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  const shifted = new Date(date.getTime() + days * DAY_MS);
+  return [
+    String(shifted.getUTCFullYear()).padStart(4, "0"),
+    String(shifted.getUTCMonth() + 1).padStart(2, "0"),
+    String(shifted.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+/**
+ * The Monday-to-Sunday days of an ISO 8601 week `YYYY-Www`: the week holding the year's 4 January
+ * is its first. Only the URL-requested label uses it, until the response's own window arrives.
+ */
+export function isoWeekWindow(week: string): { from: string; to: string } | null {
+  const match = /^(\d{4})-W(\d{2})$/.exec(week);
+  if (match === null) return null;
+  const year = Number(match[1]);
+  const number = Number(match[2]);
+  const fourth = new Date(0);
+  fourth.setUTCFullYear(year, 0, 4);
+  const firstMonday = fourth.getTime() - ((fourth.getUTCDay() + 6) % 7) * DAY_MS;
+  const from = firstMonday + (number - 1) * 7 * DAY_MS;
+  const iso = (time: number) => {
+    const date = new Date(time);
+    return [
+      String(date.getUTCFullYear()).padStart(4, "0"),
+      String(date.getUTCMonth() + 1).padStart(2, "0"),
+      String(date.getUTCDate()).padStart(2, "0"),
+    ].join("-");
+  };
+  // Week 53 exists only when the year's last ISO week reaches it; 28 December is always in it.
+  const lastWeek = isoWeeksInYear(year);
+  return number < 1 || number > lastWeek ? null : { from: iso(from), to: iso(from + 6 * DAY_MS) };
+}
+
+function isoWeeksInYear(year: number): number {
+  const date = new Date(0);
+  date.setUTCFullYear(year, 11, 28);
+  const thursday = date.getTime() + (3 - ((date.getUTCDay() + 6) % 7)) * DAY_MS;
+  const january = new Date(0);
+  january.setUTCFullYear(new Date(thursday).getUTCFullYear(), 0, 1);
+  return Math.floor((thursday - january.getTime()) / (7 * DAY_MS)) + 1;
+}
+
+/** The selector's label for a URL-requested period before its response arrives. */
+export function formatRequestedPeriodLabel(
+  granularity: FeaturedGranularity,
+  period: string,
+): string | null {
+  if (granularity === "month") return formatMonthLabel(period);
+  const window = isoWeekWindow(period);
+  return window === null ? null : formatDayRange(window.from, window.to);
+}
+
+/** The live status's phrase for a URL-requested period before its response arrives. */
+export function formatRequestedPeriodPhrase(
+  granularity: FeaturedGranularity,
+  period: string,
+): string | null {
+  if (granularity === "month") return formatMonthPhrase(period);
+  const window = isoWeekWindow(period);
+  return window === null ? null : formatWeekPhrase(window.from, window.to);
+}
+
+/**
+ * How a sentence names an adjacent period. A neighbouring week is the represented window moved by
+ * seven days, so its dates come from the API's own window, never from a browser-side week rule.
+ */
+function stepPhrase(
+  granularity: FeaturedGranularity,
+  period: string,
+  window: { from: string; to: string },
+  offset: -1 | 1,
+): string {
+  if (granularity === "month") return formatMonthPhrase(period);
+  return formatWeekPhrase(shiftDay(window.from, offset * 7), shiftDay(window.to, offset * 7));
 }
 
 function toSelection(selection: FeaturedReleasesResponse["selection"]): FeaturedSelectionState {
@@ -195,7 +306,10 @@ function art(item: FeaturedResponseItem): FeaturedArt[] {
   return [first, ...coverStep, fallbackArt(item.canonicalTitle)];
 }
 
-function toFeaturedItem(item: FeaturedResponseItem, month: string): FeaturedItem {
+function toFeaturedItem(
+  item: FeaturedResponseItem,
+  timeline: PeriodTimeline | null,
+): FeaturedItem {
   const first = item.releases[0];
   return {
     ...toReleaseListItem(item),
@@ -204,27 +318,24 @@ function toFeaturedItem(item: FeaturedResponseItem, month: string): FeaturedItem
       item.logo === undefined ? null : { url: item.logo.url, alt: item.logo.alternativeText },
     // The first presented release is the card's visible release row, so its date is the one the
     // scale marks.
-    mark: first === undefined ? { kind: "unknown" } : toReleaseMark(first.releaseDate, month),
+    mark:
+      first === undefined || timeline === null
+        ? { kind: "unknown" }
+        : toReleaseMark(first.releaseDate, timeline),
   };
 }
 
-/** A subtitle follows the first colon or spaced dash, as in `Onimusha: Way of the Sword`. */
-const SUBTITLE = /^(.+?)(:| [-–—]) (.+)$/u;
-
-export function toWordmark(title: string): FeaturedWordmark {
-  const match = SUBTITLE.exec(title);
-  const [, main = "", delimiter = "", sub = ""] = match ?? [];
-  return main.trim() === "" || sub.trim() === ""
-    ? { main: title, delimiter: "", sub: null }
-    : { main, delimiter, sub };
-}
+export { toWordmark };
 
 /**
  * The hero sets the title itself and never presents a cover as its image: its landscape media
  * first, then the designed fallback, which the cover may light, and the cover shown whole only
  * when not even that can load.
  */
-function toFeaturedLead(item: FeaturedResponseItem, month: string): FeaturedLead {
+function toFeaturedLead(
+  item: FeaturedResponseItem,
+  timeline: PeriodTimeline | null,
+): FeaturedLead {
   const image = item.featuredImage;
   const landscape: FeaturedArt[] =
     image.kind === "artwork" || image.kind === "screenshot"
@@ -252,7 +363,7 @@ function toFeaturedLead(item: FeaturedResponseItem, month: string): FeaturedLead
         ]
       : [];
   return {
-    ...toFeaturedItem(item, month),
+    ...toFeaturedItem(item, timeline),
     art: [...landscape, fallbackArt(item.canonicalTitle), ...lastResort],
     facts: facts(item.releases[0]),
     wordmark: toWordmark(item.canonicalTitle),
@@ -264,28 +375,28 @@ export function toFeaturedReleasesViewModel(
   response: FeaturedReleasesResponse,
 ): FeaturedReleasesViewModel {
   const [lead, ...others] = response.items;
+  const { granularity, window, evaluatedOn } = response;
+  const period = (granularity === "week" ? response.week : response.month) ?? "";
+  const timeline = toPeriodTimeline(granularity, window, evaluatedOn);
+  const step = (target: string | undefined, offset: -1 | 1): FeaturedPeriodStep | null =>
+    target === undefined
+      ? null
+      : { period: target, phrase: stepPhrase(granularity, target, window, offset) };
   return {
-    month: response.month,
-    monthLabel: formatMonthLabel(response.month),
-    monthPhrase: formatMonthPhrase(response.month),
-    currentMonth: response.evaluatedOn.slice(0, 7),
-    timeline: toMonthTimeline(response.month, response.evaluatedOn),
+    granularity,
+    period,
+    periodLabel:
+      granularity === "week" ? formatDayRange(window.from, window.to) : formatMonthLabel(period),
+    periodPhrase:
+      granularity === "week"
+        ? formatWeekPhrase(window.from, window.to)
+        : formatMonthPhrase(period),
+    isCurrent: window.from <= evaluatedOn && evaluatedOn <= window.to,
+    previous: step(response.navigation.previous, -1),
+    next: step(response.navigation.next, 1),
+    timeline,
     selection: toSelection(response.selection),
-    lead: lead === undefined ? null : toFeaturedLead(lead, response.month),
-    others: others.map((other) => toFeaturedItem(other, response.month)),
+    lead: lead === undefined ? null : toFeaturedLead(lead, timeline),
+    others: others.map((other) => toFeaturedItem(other, timeline)),
   };
-}
-
-/**
- * The adjacent months within the calendar year of the evaluated month, the only year featured
- * discovery presents: January has no previous month and December no next one. The current
- * month is the landing route itself.
- */
-export function adjacentMonths(
-  month: string,
-  currentMonth: string,
-): { previous: string | null; next: string | null } {
-  const year = `${currentMonth.slice(0, 4)}-`;
-  const withinYear = (target: string | null) => (target?.startsWith(year) ? target : null);
-  return { previous: withinYear(shiftMonth(month, -1)), next: withinYear(shiftMonth(month, 1)) };
 }

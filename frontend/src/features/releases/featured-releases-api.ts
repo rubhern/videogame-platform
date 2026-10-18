@@ -9,7 +9,7 @@ export type FeaturedReleasesQuery = NonNullable<
   operations["getFeaturedReleases"]["parameters"]["query"]
 >;
 
-/** Reads the automatic featured releases of one month from the local catalogue (UC-010). */
+/** Reads the automatic featured releases of one week or month from the local catalogue (UC-010). */
 export async function getFeaturedReleases(
   query: FeaturedReleasesQuery,
   client: ProductApiClient = productApiClient,

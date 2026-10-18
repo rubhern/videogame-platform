@@ -103,8 +103,19 @@ test("logout ends this browser's Keycloak session so the next sign-in asks for c
     if (sent.isNavigationRequest()) navigation.push(sent.url());
   });
 
+  // The page shows the signed-out header before it navigates through the identity provider's
+  // logout, so wait for the document that returns from Keycloak, not the one already at `/`.
+  const returned = shared.page.waitForEvent(
+    "framenavigated",
+    (frame) =>
+      frame === shared.page.mainFrame() &&
+      frame.url() === `${applicationOrigin}/` &&
+      navigation.some((url) => url.includes("/protocol/openid-connect/logout")),
+  );
   await shared.page.getByRole("button", { name: "Mi cuenta" }).click();
   await shared.page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await returned;
+  await shared.page.waitForLoadState("load");
 
   await expect(shared.page).toHaveURL(`${applicationOrigin}/`);
   await expect(shared.page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();

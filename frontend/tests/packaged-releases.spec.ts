@@ -106,7 +106,13 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     await expect(releaseTitles(page)).toHaveText(["The Witcher IV"]);
     const witcher = releaseCard(page, "The Witcher IV");
     await expect(witcher.getByText("Fecha por confirmar")).toBeVisible();
-    await expect(witcher.getByText("Windows PC · Sin región confirmada")).toBeVisible();
+    // The release line draws the platform as its mark, named for assistive technology, and
+    // states the unconfirmed region in words.
+    await expect(
+      witcher.getByRole("list", { name: "Plataformas de The Witcher IV" }).getByRole("listitem"),
+    ).toHaveText(["Windows PC"]);
+    await expect(witcher.locator(".card-region")).toHaveText("Sin región confirmada");
+    await expect(witcher.locator(".card-region")).toBeVisible();
   });
 
   await test.step("an out-of-range shared page recovers to the only game", async () => {

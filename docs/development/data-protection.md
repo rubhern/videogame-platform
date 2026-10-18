@@ -278,7 +278,7 @@ No consent banner is justified by the current necessary-cookie inventory alone.
 | Production identity/proxy/abuse/mail/security channels, actual cookies/storage/CDN and contracts attached to the selected account/order | **#275/#276:** local preparation versus real-contract/host evidence; no production compliance claim from a document |
 | Purchase/opening | Separate owner authorizations under the [public gates](delivery-lifecycle.md#public-production-gates); #274 remains In progress through these decisions |
 
-Frontend capability increment: `0.31.0` (MINOR), with the root lock file updated. No
+Frontend capability increment: `0.33.0` (MINOR over integrated main `0.32.0`), with the root lock file updated. No
 backend/OpenAPI or PoC version change; administrative scripts have no independent
 release version. CI/host acceptance and final owner legal/publication approval remain
 distinct from local validation.

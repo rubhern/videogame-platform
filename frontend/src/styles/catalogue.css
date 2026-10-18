@@ -1,149 +1,198 @@
-/* Catalogue screens: the release windows, search results and the shared hero copy, grid and
-   cover-lit cards. The cinematic stage behind them lives in cinema.css. */
+/* Catalogue screens: the release windows' scale, filters and cover grid, and the search's catalogue
+   index. Openings and their stage live in stage.css; docs/development/frontend-design.md owns the
+   rules. */
 
 @layer components {
-  /* ---------------------------------------------------------------- Hero copy */
+  /* ---------------------------------------------------------------- Window scale */
 
-  .hero-page > .page-container {
-    padding-block: 4px 44px;
+  /* The window unrolled under the title: a night channel inside a hairline of ice, one division
+     per day, the elapsed days in the instrument's cold light, today's notch and a fire needle on
+     each day the page's releases fall on. Day centres sit at `--at`, from 0 to 1. */
+  .window-scale {
+    position: relative;
+    height: 50px;
+    margin-top: 12px;
   }
 
-  /* The title block sits right under the header, so the first row of covers is in view. */
-  .releases-heading,
-  .hero-heading {
-    display: flex;
-    flex-direction: column;
-    padding-bottom: 2px;
-    overflow-wrap: anywhere;
+  .window-scale-pending {
+    height: 50px;
   }
 
-  .releases-heading {
-    align-items: stretch;
+  .window-scale-pending::before {
+    position: absolute;
+    top: 24px;
+    right: 0;
+    left: 0;
+    height: 3px;
+    background: var(--g-track);
+    content: "";
   }
 
-  .releases-kicker-row {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px 18px;
+  .window-scale-rail {
+    position: absolute;
+    top: 24px;
+    right: 0;
+    left: 0;
+    height: 3px;
+    background: var(--g-track);
+    box-shadow: 0 0 0 0.5px color-mix(in srgb, #a3c6dc 55%, transparent);
   }
 
-  .hero-page .eyebrow {
-    margin: 0;
-    color: var(--color-accent-hover);
-    font-size: 0.71875rem;
-    text-shadow: 0 1px 12px var(--color-canvas);
+  .window-scale-lit {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: calc(var(--lit) * 100%);
+    background: linear-gradient(90deg, var(--g-lit-bottom), var(--g-lit) 60%, var(--g-lit-top));
+    box-shadow: 0 0 8px -1px color-mix(in srgb, var(--g-lit) 55%, transparent);
   }
 
-  .release-period {
-    display: inline-flex;
-    min-height: 34px;
-    align-items: center;
-    gap: 9px;
-    margin: 0;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 6px 14px 6px 11px;
-    color: var(--color-ink);
-    background: var(--glass);
-    box-shadow: var(--glass-highlight);
-    font-size: 0.75rem;
-    font-weight: 500;
-    line-height: 1.35;
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+  .window-scale-tick {
+    position: absolute;
+    top: -5px;
+    left: calc(var(--at) * 100%);
+    width: 1px;
+    height: 5px;
+    background: color-mix(in srgb, #c0d5e2 55%, transparent);
   }
 
-  .release-period svg {
-    width: 17px;
-    height: 17px;
-    flex: none;
-    color: var(--color-accent);
+  .window-scale-tick-major {
+    top: -9px;
+    height: 9px;
   }
 
-  /* Page titles: the wide display cut on one compact line, with the accent word in the lit serif. */
-  .hero-title,
-  .hero-page .page-title {
-    max-width: 100%;
-    margin-top: 10px;
-    font-size: clamp(1.75rem, 3.9vw, 3.25rem);
-    font-stretch: 115%;
-    font-weight: 850;
-    line-height: 1;
-    letter-spacing: -0.04em;
-    white-space: nowrap;
-    text-shadow:
-      0 2px 36px color-mix(in srgb, var(--color-canvas) 80%, transparent),
-      0 0 70px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  .window-scale-tick-elapsed {
+    background: color-mix(in srgb, var(--g-lit-top) 85%, transparent);
   }
 
-  .hero-title .title-accent {
-    filter: drop-shadow(0 0 26px color-mix(in srgb, var(--color-aurora) 45%, transparent));
+  /* The brand needle at the scale's size: a tapered fire blade standing on a hub with a warm core. */
+  .window-scale-needle {
+    position: absolute;
+    bottom: 1px;
+    left: calc(var(--at) * 100%);
+    width: 9px;
+    height: 24px;
+    margin-left: -4.5px;
+    transform-origin: 50% 100%;
   }
 
-  /* Visitor input and long titles step down a size so they still read as a title. */
-  .hero-title-long {
-    font-size: clamp(1.5rem, 3.2vw, 2.5rem);
-    white-space: normal;
+  .window-scale-needle::before {
+    position: absolute;
+    inset: 0 0 3px;
+    background: linear-gradient(0deg, var(--g-fire), var(--g-ember));
+    clip-path: polygon(50% 0, 78% 100%, 22% 100%);
+    content: "";
   }
 
-  /* Opacity-only entrance: browser checks measure the title block and the dock, so they are
-     never caught mid-transform. */
+  .window-scale-needle::after {
+    position: absolute;
+    bottom: -3px;
+    left: 50%;
+    width: 7px;
+    height: 7px;
+    box-sizing: border-box;
+    border: 2px solid var(--g-fire);
+    border-radius: 50%;
+    background: var(--g-hub-core);
+    content: "";
+    transform: translateX(-50%);
+  }
+
+  /* Pointing at one release quiets the others, so its day reads at a glance. */
+  .window-scale-pointing .window-scale-needle {
+    opacity: 0.35;
+  }
+
+  .window-scale-pointing .window-scale-needle-active {
+    opacity: 1;
+    transform: scaleY(1.3);
+  }
+
   @media (prefers-reduced-motion: no-preference) {
-    .releases-heading,
-    .hero-heading {
-      animation: fade-in 760ms var(--ease-out) both;
+    .window-scale-needle {
+      transition:
+        opacity var(--duration-fast) var(--ease-out),
+        transform var(--duration-normal) var(--ease-pop);
     }
 
-    .releases-toolbar,
-    .release-approximate-option {
-      animation: fade-in 760ms var(--ease-out) 120ms both;
+    .window-scale-lit {
+      animation: window-light 1100ms var(--ease-out) 120ms both;
+    }
+
+    .window-scale-needle {
+      animation: fade-in 420ms var(--ease-out) 900ms both;
     }
   }
 
-  /* ---------------------------------------------------------------- Filter dock */
+  .window-scale-today {
+    position: absolute;
+    top: -7px;
+    left: calc(var(--at) * 100%);
+    width: 2px;
+    height: 17px;
+    margin-left: -1px;
+    background: var(--color-ice-light);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-night) 70%, transparent);
+  }
 
-  /* The dock and, on the upcoming window, the approximate-date opt-in share one row under the
-     title; the opt-in wraps below the dock when the row runs out of width. */
+  .window-scale-numerals {
+    position: absolute;
+    top: 33px;
+    right: 0;
+    left: 0;
+    height: 16px;
+  }
+
+  .window-scale-numeral {
+    position: absolute;
+    left: calc(var(--at) * 100%);
+    color: var(--g-numeral);
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    transform: translateX(-50%);
+  }
+
+  .window-scale-numeral small {
+    margin-left: 3px;
+    color: var(--color-muted);
+    font-size: inherit;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .window-scale-numeral-today {
+    color: var(--color-ice-light);
+  }
+
+  .window-scale-numeral-active {
+    color: var(--g-ember);
+  }
+
+  /* ---------------------------------------------------------------- Filters */
+
+  /* The period, platform and region sit on night in one row of controls with hairline edges, as
+     the header's search does; the upcoming window's opt-in follows them. Its own stacking layer,
+     so the open lists paint above the cards. */
   .releases-controls {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px 12px;
-    margin-top: 16px;
-  }
-
-  /* Period, platform and region share one glass dock under the title. */
-  /* Its own stacking layer, so the open lists paint above the cards below the dock. */
-  .releases-toolbar {
     position: relative;
     z-index: 10;
     display: flex;
-    width: fit-content;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .releases-toolbar {
+    display: flex;
     max-width: 100%;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 6px;
-    background: var(--glass);
-    box-shadow: var(--glass-highlight), var(--elevation-lift);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
-  }
-
-  .releases-toolbar .app-select-trigger {
-    min-height: 44px;
-    border-color: transparent;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .releases-toolbar .app-select-trigger:hover,
-  .releases-toolbar .app-select-trigger[aria-expanded="true"] {
-    border-color: transparent;
-    background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+    gap: 10px;
   }
 
   .release-filters {
@@ -160,60 +209,35 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0;
-  }
-
-  /* Hairline dividers between the dock's controls. */
-  .releases-toolbar > * + *,
-  .release-facet-row > * + *,
-  .release-select-row > * + * {
-    position: relative;
-  }
-
-  .releases-toolbar > * + *::before,
-  .release-facet-row > .app-multiselect + .app-multiselect::before {
-    position: absolute;
-    top: 22%;
-    bottom: 22%;
-    left: 0;
-    width: 1px;
-    background: var(--glass-border);
-    content: "";
-  }
-
-  .release-facet-row .filter-reset {
-    margin-inline: 6px 4px;
+    gap: 10px;
   }
 
   .release-select-skeleton {
     display: inline-flex;
-    width: 210px;
+    width: 200px;
     max-width: 100%;
     min-height: 44px;
     flex: none;
-    margin-inline: 4px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    background: var(--control);
   }
 
-  /* Upcoming lists exact days by default; this glass pill, as tall as the dock, opts into
+  /* Upcoming lists exact days by default; this control, as tall as the others, opts into
      approximate dates. The native checkbox carries the state, so it never relies on colour. */
   .release-approximate-option {
     display: inline-flex;
-    min-height: 58px;
+    min-height: 44px;
     align-items: center;
     gap: 10px;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 6px 22px 6px 20px;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 6px 16px 6px 14px;
     color: var(--color-ink);
-    background: var(--glass);
-    box-shadow: var(--glass-highlight), var(--elevation-lift);
+    background: var(--control);
     font-size: 0.8125rem;
     font-weight: 600;
     cursor: pointer;
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
   }
 
   .release-approximate-option input {
@@ -221,257 +245,141 @@
     height: 18px;
     flex: none;
     margin: 0;
-    accent-color: var(--color-accent);
+    accent-color: var(--color-ice);
     cursor: pointer;
   }
 
   .release-approximate-option:hover {
-    border-color: color-mix(in srgb, var(--color-accent) 70%, transparent);
+    border-color: var(--line-ice-strong);
   }
 
   .release-approximate-option:has(input:checked) {
-    border-color: color-mix(in srgb, var(--color-accent) 80%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 16%, var(--glass));
+    border-color: var(--line-ice-strong);
+    color: var(--color-ice-light);
   }
 
   .release-approximate-option input:focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-ice);
     outline-offset: 2px;
   }
 
-  /* Where :has() is available the whole pill carries the focus ring, like the dock controls. */
+  /* Where :has() is available the whole control carries the focus ring, like the selects. */
   @supports selector(:has(*)) {
     .release-approximate-option input:focus-visible {
       outline: none;
     }
 
     .release-approximate-option:has(input:focus-visible) {
-      outline: 2px solid var(--color-accent);
+      outline: 2px solid var(--color-ice);
       outline-offset: 3px;
     }
   }
 
   @media (prefers-reduced-motion: no-preference) {
+    .releases-controls {
+      animation: fade-in 700ms var(--ease-out) 120ms both;
+    }
+
     .release-approximate-option {
-      transition:
-        border-color var(--duration-fast) var(--ease-out),
-        background-color var(--duration-fast) var(--ease-out);
+      transition: border-color var(--duration-fast) var(--ease-out);
     }
   }
 
-  /* ---------------------------------------------------------------- Grid */
+  /* ---------------------------------------------------------------- Release grid */
 
-  .release-grid,
-  .catalogue-grid {
+  /* Each card is a subgrid of the row it sits in, so dates, titles, readings and release lines
+     align across a row without reserving space a row does not need. */
+  .release-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px 10px;
-    margin: 18px 0 0;
+    column-gap: 12px;
+    margin: 26px 0 0;
     padding: 0;
     list-style: none;
   }
 
+  .release-grid-cell {
+    display: grid;
+    min-width: 0;
+    grid-row: span 8;
+    grid-template-rows: subgrid;
+    margin-bottom: 30px;
+  }
+
+  .release-grid > .loading-card {
+    margin-bottom: 30px;
+  }
+
   /* Results arrive as a short, capped stagger: later rows share the last step. */
   @media (prefers-reduced-motion: no-preference) {
-    .release-grid > li,
-    .catalogue-grid > li,
-    .release-grid > .loading-card {
+    .release-grid > *,
+    .search-index > * {
       animation: rise-in 520ms var(--ease-out) both;
     }
 
-    .release-grid > :nth-child(2) {
+    .release-grid > :nth-child(2),
+    .search-index > :nth-child(2) {
       animation-delay: 40ms;
     }
-    .release-grid > :nth-child(3) {
+    .release-grid > :nth-child(3),
+    .search-index > :nth-child(3) {
       animation-delay: 80ms;
     }
-    .release-grid > :nth-child(4) {
+    .release-grid > :nth-child(4),
+    .search-index > :nth-child(4) {
       animation-delay: 120ms;
     }
-    .release-grid > :nth-child(5) {
+    .release-grid > :nth-child(5),
+    .search-index > :nth-child(5) {
       animation-delay: 160ms;
     }
-    .release-grid > :nth-child(6) {
+    .release-grid > :nth-child(6),
+    .search-index > :nth-child(6) {
       animation-delay: 200ms;
     }
-    .release-grid > :nth-child(n + 7) {
+    .release-grid > :nth-child(n + 7),
+    .search-index > :nth-child(n + 7) {
       animation-delay: 240ms;
     }
   }
 
-  /* ---------------------------------------------------------------- Cover-lit cards */
+  /* ---------------------------------------------------------------- Catalogue cards */
 
-  /* The cover leads the card and lights it: a blurred copy of the same artwork glows beneath
-     it, and a glass surface gathers the card together on hover or keyboard focus. */
+  /* The cover leads; pointing at the card lights its frame and its title in ice, as Destacados'
+     cards do. The title link's target covers the card, so the card is one pointer target while
+     the title stays its only keyboard stop. */
   .catalogue-card {
     position: relative;
-    display: flex;
     min-width: 0;
-    height: 100%;
-    flex-direction: column;
-    isolation: isolate;
-    gap: 12px;
-    border-radius: 22px;
-    padding: 8px 8px 16px;
-  }
-
-  .catalogue-card::before {
-    position: absolute;
-    z-index: -2;
-    inset: 0;
-    border: 1px solid transparent;
-    border-radius: inherit;
-    content: "";
-  }
-
-  .catalogue-card::after {
-    position: absolute;
-    z-index: -1;
-    top: 18px;
-    right: 12%;
-    left: 12%;
-    aspect-ratio: var(--cover-aspect);
-    border-radius: 32%;
-    background: var(--cover-art) center / cover no-repeat;
-    content: "";
-    filter: blur(26px) saturate(1.9);
-    opacity: 0.5;
-    transform: translateY(18px) scale(0.96);
-  }
-
-  .catalogue-card:hover::before,
-  .catalogue-card:focus-within::before {
-    border-color: var(--glass-border);
-    background: linear-gradient(
-      170deg,
-      color-mix(in srgb, var(--color-raised) 72%, transparent),
-      color-mix(in srgb, var(--color-surface) 50%, transparent)
-    );
-    box-shadow: var(--glass-highlight), var(--elevation-lift);
-  }
-
-  /* On hover or focus the cover's light spills past the card as a coloured halo. */
-  .catalogue-card:hover::after,
-  .catalogue-card:focus-within::after {
-    opacity: 0.9;
-    transform: translateY(30px) scale(1.2);
   }
 
   .catalogue-card .cover-figure {
     position: relative;
-    overflow: hidden;
-    border-radius: 14px;
-    box-shadow:
-      0 0 0 1px color-mix(in srgb, var(--color-ink) 10%, transparent),
-      0 26px 40px -26px #000;
+    border-radius: 4px;
+    box-shadow: 0 18px 32px -22px #000;
   }
 
-  .catalogue-card .cover-link,
-  .catalogue-card .catalogue-cover {
-    border: 0;
-    border-radius: 14px;
+  .catalogue-card .cover-link::after {
+    transition: box-shadow var(--duration-fast) var(--ease-out);
   }
 
-  /* A band of light sweeps across the cover on hover or focus. */
-  .catalogue-card .cover-figure::after {
-    position: absolute;
-    z-index: 2;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(
-      115deg,
-      transparent 35%,
-      color-mix(in srgb, #fff 26%, transparent) 50%,
-      transparent 65%
-    );
-    content: "";
-    opacity: 0;
-    transform: translateX(-120%);
+  .catalogue-card:has(.card-title a:hover, .cover-link:hover) .cover-link::after {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--g-ice) 60%, transparent);
+  }
+
+  .catalogue-card:has(.card-title a:focus-visible) .cover-figure {
+    outline: 2px solid var(--g-ice);
+    outline-offset: 3px;
   }
 
   @media (prefers-reduced-motion: no-preference) {
-    .catalogue-card {
-      transition: transform var(--duration-normal) var(--ease-out);
+    .catalogue-cover {
+      transition: transform 480ms var(--ease-out);
     }
 
-    .catalogue-card::before,
-    .catalogue-card::after {
-      transition:
-        opacity var(--duration-normal) var(--ease-out),
-        transform var(--duration-slow) var(--ease-out),
-        background-color var(--duration-normal) var(--ease-out),
-        border-color var(--duration-normal) var(--ease-out),
-        box-shadow var(--duration-normal) var(--ease-out);
+    .catalogue-card:has(.card-title a:hover, .cover-link:hover) .catalogue-cover {
+      transform: scale(1.035);
     }
-
-    .catalogue-card .cover-figure::after {
-      transition:
-        transform 900ms var(--ease-out),
-        opacity var(--duration-fast) var(--ease-out);
-    }
-
-    .catalogue-card:hover,
-    .catalogue-card:focus-within {
-      transform: translateY(-6px);
-    }
-
-    .catalogue-card:hover .cover-figure::after,
-    .catalogue-card:focus-within .cover-figure::after {
-      opacity: 1;
-      transform: translateX(120%);
-    }
-  }
-
-  /* The release date rides on the cover as a glass chip; the full date stays in the row for
-     assistive technology. */
-  .card-date-badge,
-  .search-card .search-card-year {
-    position: absolute;
-    z-index: 3;
-    top: 18px;
-    left: 18px;
-    display: inline-flex;
-    max-width: calc(100% - 36px);
-    align-items: center;
-    gap: 7px;
-    margin: 0;
-    border: 1px solid color-mix(in srgb, var(--color-ink) 20%, transparent);
-    border-radius: 999px;
-    padding: 5px 10px 5px 8px;
-    color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-canvas) 58%, transparent);
-    box-shadow:
-      inset 0 1px 0 color-mix(in srgb, #fff 12%, transparent),
-      0 8px 20px -10px #000;
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    pointer-events: none;
-    -webkit-backdrop-filter: blur(10px) saturate(150%);
-    backdrop-filter: blur(10px) saturate(150%);
-  }
-
-  .card-date-badge::before,
-  .search-card .search-card-year::before {
-    width: 6px;
-    height: 6px;
-    flex: none;
-    border-radius: 50%;
-    background: var(--color-accent-hover);
-    box-shadow: 0 0 10px 2px color-mix(in srgb, var(--color-accent) 80%, transparent);
-    content: "";
-  }
-
-  .card-body {
-    display: flex;
-    min-width: 0;
-    flex: 1;
-    flex-direction: column;
-    gap: 7px;
-    padding-inline: 6px;
   }
 
   .card-title {
@@ -480,8 +388,8 @@
     font-family: var(--font-display);
     font-size: 1rem;
     font-stretch: 104%;
-    font-weight: 650;
-    line-height: 1.22;
+    font-weight: 700;
+    line-height: 1.25;
     letter-spacing: -0.015em;
   }
 
@@ -490,40 +398,47 @@
     text-decoration: none;
   }
 
-  /* The title link covers the card, so the whole card is one target while the title stays
-     the only keyboard stop. */
   .card-title a::after {
     position: absolute;
     z-index: 1;
     inset: 0;
-    border-radius: 22px;
     content: "";
-  }
-
-  .card-title a:hover {
-    color: var(--color-accent-hover);
   }
 
   .card-title a:focus-visible {
     outline: 0;
   }
 
-  .card-title a:focus-visible::after {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 2px;
+  .catalogue-card:has(.card-title a:hover, .cover-link:hover) .card-title a,
+  .card-title a:focus-visible {
+    color: var(--g-ice);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--g-lit) 70%, transparent);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
   }
 
-  /* Card metadata sits on the card surface, so it uses `muted` rather than `subtle`. */
-  .card-platform {
+  /* The release's date under the fire needle, as the month scale labels it on Destacados. */
+  .card-date {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin: 0;
-    color: var(--color-muted);
+    color: var(--g-ember);
     font-size: 0.75rem;
-    line-height: 1.5;
+    font-stretch: 87%;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
 
-  .search-release-date {
-    color: var(--color-accent-hover);
-    font-weight: 600;
+  .card-date-needle {
+    width: 9px;
+    height: 13px;
+    flex: none;
+    color: var(--g-fire);
   }
 
   .card-genres {
@@ -537,28 +452,24 @@
     white-space: nowrap;
   }
 
-  .release-card .card-body {
-    display: grid;
-    grid-template-rows: calc(2 * 1.22 * var(--release-title-size, 1rem)) 1.125rem 1.125rem auto 1fr;
-    align-content: start;
+  /* One release line: the date's platforms as marks, the exact count of further ones, the region. */
+  .card-release {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    line-height: 1.4;
   }
-  .release-card .card-title {
-    grid-row: 1;
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-  }
-  .release-card .card-release { grid-row: 2; min-width: 0; display: block; }
-  .release-card .card-platform {
-    display: block;
+
+  .card-region {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .release-card .card-genres { grid-row: 3; }
-  .release-card .card-statuses { grid-row: 4; }
-  .release-card .release-overflow { grid-row: 5; }
 
   .card-statuses {
     position: relative;
@@ -566,20 +477,100 @@
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
-    margin: 2px 0 0;
+    margin: 0;
     padding: 0;
     list-style: none;
   }
 
-  /* The single visible release row: the grouped platforms and the region. */
-  .card-release {
+  /* ---------------------------------------------------------------- Platform marks */
+
+  .platform-marks {
     display: flex;
+    min-width: 0;
+    flex: none;
     flex-wrap: wrap;
-    align-items: baseline;
-    gap: 2px 6px;
+    align-items: center;
+    gap: 4px 10px;
     margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .platform-mark {
+    display: inline-flex;
+    min-height: 20px;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .platform-marks .app-select-icon {
+    width: 18px;
+    height: 18px;
+    color: color-mix(in srgb, var(--color-ink) 82%, var(--color-muted));
+  }
+
+  /* Owner-provided wordmarks are wide: keep their ratio at the shared row height. */
+  .platform-marks .app-select-icon-playstation-5,
+  .platform-marks .app-select-icon-playstation-4 {
+    width: 40px;
+    height: 12px;
+  }
+
+  .platform-marks .app-select-icon-xbox-series-x-s,
+  .platform-marks .app-select-icon-nintendo-switch-2 {
+    width: 28px;
+    height: 14px;
+  }
+
+  .platform-mark-name {
+    color: var(--color-muted);
     font-size: 0.75rem;
+  }
+
+  .platform-mark-more {
+    flex: none;
+    border: 1px solid color-mix(in srgb, var(--color-ink) 18%, transparent);
+    border-radius: 3px;
+    padding: 0 5px;
+    color: var(--color-muted);
+    font-size: 0.6875rem;
     line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* ---------------------------------------------------------------- Release cards */
+
+  /* Cover, date, title, readings, release line, genres, review notice and further releases each
+     own a row of the card's subgrid. */
+  .release-card {
+    display: grid;
+    grid-row: 1 / -1;
+    grid-template-rows: subgrid;
+    align-content: start;
+  }
+
+  .release-card > .cover-figure { grid-row: 1; }
+  .release-card > .card-date { grid-row: 2; margin-top: 12px; }
+  .release-card > .card-title { grid-row: 3; margin-top: 7px; }
+  .release-card > .discovery-scores { grid-row: 4; margin-top: 8px; }
+  .release-card > .card-release { grid-row: 5; margin-top: 9px; }
+  .release-card > .card-genres { grid-row: 6; margin-top: 5px; }
+  .release-card > .card-statuses { grid-row: 7; margin-top: 8px; }
+  .release-card > .release-overflow { grid-row: 8; margin-top: 9px; }
+
+  /* Two lines at most; the full title stays the link's text. */
+  .release-card .card-title {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .release-card .discovery-scores-compact {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
   }
 
   /* ---------------------------------------------------------------- Release overflow */
@@ -589,8 +580,7 @@
   .release-overflow {
     position: relative;
     z-index: 2;
-    align-self: stretch;
-    margin-top: auto;
+    align-self: start;
   }
 
   /* An open popover overlaps the cards below; lift the grid cell that owns it. */
@@ -602,40 +592,44 @@
   .release-overflow-toggle {
     display: inline-flex;
     max-width: 100%;
+    min-height: 28px;
     align-items: center;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 4px 11px;
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+    padding: 3px 10px;
     color: var(--color-muted);
-    background: color-mix(in srgb, var(--color-ink) 5%, transparent);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    background: var(--control);
+    font-size: 0.75rem;
+    font-weight: 600;
     line-height: 1.4;
     cursor: pointer;
   }
 
   .release-overflow-toggle:hover,
   .release-overflow-toggle[aria-expanded="true"] {
-    border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
-    color: var(--color-ink);
-    background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+    border-color: var(--line-ice-strong);
+    color: var(--color-ice-light);
   }
 
   .release-overflow-popover {
     position: absolute;
     z-index: 5;
-    top: calc(100% + 8px);
+    top: calc(100% + 6px);
     left: 0;
-    right: 0;
     width: max-content;
-    max-width: 100%;
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
-    padding: 10px;
-    background: var(--glass-solid);
-    box-shadow: var(--glass-highlight), var(--elevation-lift);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    min-width: 100%;
+    max-width: min(320px, calc(100vw - 32px));
+    border: 1px solid var(--color-line);
+    border-top: 2px solid var(--color-ice);
+    border-radius: 4px;
+    padding: 12px 14px;
+    background: var(--overlay);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .release-overflow-popover:focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 2px;
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -645,97 +639,109 @@
   }
 
   .release-overflow-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    gap: 10px;
     margin: 0;
     padding: 0;
     list-style: none;
   }
 
   .release-overflow-list li {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px 6px;
+    display: grid;
+    justify-items: start;
+    gap: 3px;
     color: var(--color-muted);
     font-size: 0.75rem;
     line-height: 1.45;
   }
 
-  /* ---------------------------------------------------------------- Search cards */
+  .release-overflow-date {
+    color: var(--g-ember);
+    font-size: 0.8125rem;
+    font-stretch: 87%;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
 
-  /* A search result keeps one bounded stack under the cover: title, an explaining alias and the
-     compact platform row pinned to the card foot, so its height never follows the number of
-     releases. A long alias wraps inside its chip instead of truncating. */
+  /* ---------------------------------------------------------------- Search index */
+
+  /* The full search reads as the catalogue's index: each entry sets its cover beside its record,
+     separated from the next by a hairline rather than boxed. */
+  .search-index {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0 28px;
+    margin: 18px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .search-index > li,
+  .search-index > .loading-card {
+    border-top: 1px solid var(--color-line);
+  }
+
+  .search-card {
+    display: grid;
+    height: 100%;
+    grid-template-columns: 88px minmax(0, 1fr);
+    align-items: start;
+    gap: 16px;
+    padding: 16px 0 18px;
+  }
+
+  .search-card-record {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  /* The year leads the record in the instrument's readout voice; the date itself is no event, so
+     it takes ice, never fire. */
+  .search-card-year {
+    margin: 0;
+    color: var(--g-ice);
+    font-size: 0.8125rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .search-card .card-title {
+    font-size: 1.0625rem;
+  }
+
+  /* A long alias wraps instead of truncating; it explains the match, so it sits right under it. */
   .search-card-alias {
-    position: relative;
-    z-index: 2;
     max-width: 100%;
-    align-self: start;
-    margin: 2px 0 0;
-    border: 1px solid color-mix(in srgb, var(--color-accent) 36%, transparent);
-    border-radius: 999px;
-    padding: 3px 10px;
+    margin: 0;
     color: var(--color-muted);
-    background: color-mix(in srgb, var(--color-accent) 10%, transparent);
     font-size: 0.75rem;
     line-height: 1.4;
     overflow-wrap: anywhere;
   }
 
   .search-card-alias span {
-    color: var(--color-ink);
+    color: var(--color-ice-light);
     font-weight: 600;
   }
 
-  .search-card-platforms {
-    --platform-icon-size: 18px;
-
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 14px;
-    margin: auto 0 0;
-    padding: 8px 0 0;
-    list-style: none;
+  .search-card .discovery-scores {
+    margin-top: 2px;
   }
 
-  .search-card-platforms li {
-    display: inline-flex;
-    min-height: 22px;
-    align-items: center;
+  .search-card .platform-marks {
+    margin-top: 2px;
   }
 
-  .search-card-platforms .app-select-icon {
-    width: var(--platform-icon-size);
-    height: var(--platform-icon-size);
-    color: color-mix(in srgb, var(--color-ink) 88%, var(--color-muted));
-  }
-
-  /* Owner-provided wordmarks are wide: keep their ratio at the shared row height. */
-  .search-card-platforms .app-select-icon-playstation-5,
-  .search-card-platforms .app-select-icon-playstation-4 {
-    width: 40px;
-    height: 12px;
-  }
-
-  .search-card-platforms .app-select-icon-xbox-series-x-s,
-  .search-card-platforms .app-select-icon-nintendo-switch-2 {
-    width: 28px;
-    height: 14px;
-  }
-
-  .search-card-platforms .search-card-platform-more {
-    min-width: 30px;
-    justify-content: center;
-    border: 1px solid var(--glass-border);
-    border-radius: 999px;
-    padding: 1px 8px;
-    color: var(--color-muted);
-    background: color-mix(in srgb, var(--color-ink) 5%, transparent);
-    font-family: var(--font-mono);
-    font-size: 0.6875rem;
+  /* The ledger line lights in ice where the visitor points, as a selection would. */
+  .search-index > li:has(.card-title a:hover, .cover-link:hover) {
+    border-top-color: var(--line-ice-strong);
   }
 
   /* ---------------------------------------------------------------- Loading */
@@ -745,197 +751,129 @@
   }
 
   .catalogue-loading .result-count {
-    margin-top: 28px;
+    margin-top: 22px;
   }
 
-  /* Placeholders take the card's own shape, so arriving results land in the same frame. */
   .loading-card {
     display: grid;
     align-content: start;
     gap: 12px;
-    border-radius: 22px;
-    padding: 8px 8px 16px;
   }
 
-  .loading-card .skeleton-title,
-  .loading-card .skeleton-meta {
-    margin-inline: 6px;
+  .loading-card-lines {
+    display: grid;
+    gap: 9px;
   }
 
-  /* ---------------------------------------------------------------- Closing dock */
+  .loading-card-index {
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 16px;
+    padding: 16px 0 18px;
+  }
 
-  /* Both release windows close with one glass dock: the total, the pager and the other window. */
+  .loading-card-index .loading-card-lines {
+    align-content: start;
+    padding-top: 2px;
+  }
+
+  /* ---------------------------------------------------------------- Closing row */
+
+  /* The total sits left-aligned with the content it counts; the pager answers it on the right. */
   .releases-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px 20px;
-    margin-top: 28px;
-    border-radius: 28px;
-    padding: 10px 10px 10px 22px;
-    background: var(--glass);
-    /* The edge is light, not a rule: an inset hairline instead of a border. */
-    box-shadow:
-      inset 0 0 0 1px var(--glass-border),
-      var(--glass-highlight),
-      var(--elevation-lift);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    margin-top: 10px;
   }
 
   .releases-footer .result-count {
     margin: 0;
-    text-align: left;
   }
 
   .releases-footer .pagination,
   .releases-footer nav {
     margin: 0;
-    padding: 0;
-    border: 0;
   }
 
-  .releases-footer .view-action {
-    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
-  }
-
-  /* The search total sits with the title it counts. */
   .search-page .result-count {
-    margin-top: 18px;
+    margin-top: 20px;
   }
 
   /* ---------------------------------------------------------------- Responsive */
 
   @media (min-width: 620px) {
-    .hero-page > .page-container {
-      padding-block: 8px 52px;
-    }
-
-    .release-grid,
-    .catalogue-grid {
-      grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
-      gap: 20px 12px;
-    }
-
-    .releases-page .release-grid,
-    .search-page .release-grid {
+    .release-grid {
       grid-template-columns: repeat(3, minmax(0, 1fr));
+      column-gap: 14px;
     }
 
-    .release-card { --release-title-size: 1.0625rem; }
-
-    .card-title {
-      font-size: 1.0625rem;
+    .search-index {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .search-card-platforms {
-      --platform-icon-size: 20px;
+    .search-card,
+    .loading-card-index {
+      grid-template-columns: 104px minmax(0, 1fr);
+      gap: 18px;
+    }
+
+    .platform-marks .app-select-icon {
+      width: 20px;
+      height: 20px;
     }
   }
 
   @media (min-width: 780px) {
-    .releases-page .release-grid,
-    .search-page .release-grid {
+    .release-grid {
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }
 
   @media (min-width: 1024px) {
-    .hero-page > .page-container {
-      padding-block: 12px 60px;
-    }
-
-    .release-grid,
-    .catalogue-grid {
-      grid-template-columns: repeat(auto-fill, minmax(192px, 1fr));
-      gap: 26px 14px;
-      margin-top: 22px;
-    }
-
-    .releases-page .release-grid,
-    .search-page .release-grid {
+    .release-grid {
       grid-template-columns: repeat(5, minmax(0, 1fr));
+      column-gap: 16px;
+      margin-top: 30px;
+    }
+
+    .search-index {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      column-gap: 32px;
     }
   }
 
   @media (min-width: 1200px) {
-    .releases-page .release-grid,
-    .search-page .release-grid {
+    .release-grid {
       grid-template-columns: repeat(6, minmax(0, 1fr));
     }
   }
 
   @media (max-width: 619px) {
-    .releases-kicker-row {
-      width: 100%;
-      flex-wrap: nowrap;
-      gap: 8px;
+    .window-scale {
+      margin-top: 8px;
     }
 
-    .hero-page .eyebrow {
-      flex: none;
-      font-size: 0.5625rem;
-      letter-spacing: 0.14em;
-      white-space: nowrap;
-    }
-
-    .eyebrow-dot {
-      gap: 7px;
-    }
-
-    .release-period {
-      min-width: 0;
-      min-height: 30px;
-      flex: 1 1 auto;
-      justify-content: center;
-      gap: 0;
-      padding: 5px 8px;
-      font-size: 0.625rem;
-      white-space: nowrap;
-    }
-
-    .release-period svg,
-    .release-period-full {
-      display: none;
-    }
-
-    .release-period-compact {
-      display: inline;
-    }
-
-    .hero-title,
-    .hero-page .page-title {
-      font-size: clamp(1.25rem, 6.2vw, 1.75rem);
-      font-stretch: 100%;
-    }
-
-    .hero-title-long {
-      font-size: clamp(1.25rem, 5.6vw, 1.5rem);
-    }
-
-    /* On phones the dock becomes a two-row panel: the period, then both facets side by side. */
+    /* On phones the period spans the row and both facets share the next one. */
+    .releases-controls,
     .releases-toolbar {
-      display: grid;
       width: 100%;
-      grid-template-columns: minmax(0, 1fr);
-      border-radius: 24px;
     }
 
-    .releases-toolbar > * + *::before {
-      top: 0;
-      right: 14px;
-      bottom: auto;
-      left: 14px;
-      width: auto;
-      height: 1px;
+    .releases-toolbar > .app-select {
+      flex: 1 1 100%;
+    }
+
+    .release-filters {
+      flex: 1 1 100%;
     }
 
     .release-facet-row,
     .release-select-row {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      align-items: end;
     }
 
     .release-facet-row .filter-reset {
@@ -949,36 +887,20 @@
 
     .release-approximate-option {
       width: 100%;
-      min-height: 48px;
-      border-radius: 24px;
-      padding-inline: 18px;
       font-size: 0.75rem;
     }
 
-    /* Narrow covers keep more of their artwork visible under a tighter chip. */
-    .card-date-badge,
-    .search-card .search-card-year {
-      top: 14px;
-      left: 14px;
-      max-width: calc(100% - 28px);
-      gap: 5px;
-      padding: 4px 8px 4px 6px;
-      letter-spacing: 0.02em;
+    .card-title {
+      font-size: 0.9375rem;
     }
 
     .releases-footer {
-      border-radius: 24px;
-      padding: 12px;
-    }
-
-    .releases-footer .result-count {
-      width: 100%;
-      text-align: center;
+      flex-direction: column;
+      align-items: stretch;
     }
 
     /* Both pager links share one row on phones. */
     .releases-footer .pagination {
-      width: 100%;
       flex-wrap: nowrap;
       gap: 8px;
     }
@@ -986,46 +908,46 @@
     .releases-footer .pagination .button {
       min-width: 0;
       flex: 1 1 0;
-      justify-content: center;
       padding-inline: 10px;
       white-space: nowrap;
     }
   }
 
   @media (forced-colors: active) {
-    .release-period,
-    .releases-toolbar,
+    .window-scale {
+      display: none;
+    }
+
     .release-approximate-option,
-    .releases-footer,
     .release-overflow-toggle,
     .release-overflow-popover,
-    .search-card-alias,
-    .search-card-platform-more,
-    .card-date-badge,
-    .search-card .search-card-year,
-    .catalogue-card::before {
+    .platform-mark-more {
       border-color: ButtonText;
       color: CanvasText;
       background: Canvas;
       box-shadow: none;
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
     }
 
-    .catalogue-card::after,
-    .catalogue-card .cover-figure::after,
-    .card-date-badge::before,
-    .search-card .search-card-year::before {
-      display: none;
+    .card-date,
+    .search-card-year,
+    .search-card-alias span {
+      color: CanvasText;
     }
 
-    .hero-title,
-    .hero-page .page-title {
-      text-shadow: none;
+    /* A masked platform mark paints with its background, which forced colours turn into Canvas. */
+    .platform-marks span.app-select-icon {
+      forced-color-adjust: none;
+      background-color: CanvasText;
     }
+  }
+}
 
-    .hero-title .title-accent {
-      filter: none;
-    }
+@keyframes window-light {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+
+  to {
+    clip-path: inset(0 0 0 0);
   }
 }

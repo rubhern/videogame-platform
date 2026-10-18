@@ -230,10 +230,11 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
     await expect(page.getByText("Lanzamiento completo")).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
 
-    // A known stage reads as quieter secondary text under its date.
-    const dateLayout = await page.locator(".game-release-when dd").first().evaluate((when) => {
-      const date = when.querySelector(".game-release-date");
-      const stage = when.querySelector(".game-release-stage");
+    // A known stage reads as quieter secondary text, on the line beneath its date on phones and
+    // beside it on a wide ledger.
+    const dateLayout = await page.locator(".game-release-group").first().evaluate((group) => {
+      const date = group.querySelector(".game-release-date");
+      const stage = group.querySelector(".game-release-stage dd");
       if (!date || !stage) throw new Error("Release date and stage missing");
       return {
         dateBottom: date.getBoundingClientRect().bottom,
@@ -242,7 +243,7 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
         stageSize: Number.parseFloat(getComputedStyle(stage).fontSize),
       };
     });
-    expect(dateLayout.stageTop).toBeGreaterThanOrEqual(dateLayout.dateBottom - 1);
+    if (width < 760) expect(dateLayout.stageTop).toBeGreaterThanOrEqual(dateLayout.dateBottom - 1);
     expect(dateLayout.stageSize).toBeLessThan(dateLayout.dateSize);
 
     // Every platform and region reads at once; the further record waits, whole and unmerged,
@@ -278,14 +279,20 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
 
     // The compact rating opens from the keyboard, overlays what follows without moving it, and
     // returns focus to the reading on Escape.
-    const following = page.locator(width >= 1024 ? ".game-detail-facts" : ".game-summary");
-    const before = await following.boundingBox();
+    const following = page.locator(width >= 760 ? ".game-summary" : ".game-information");
+    // Document coordinates: focusing the reading may scroll it into view without moving anything.
+    const place = () =>
+      following.evaluate((element) => {
+        const box = element.getBoundingClientRect();
+        return { x: box.x + window.scrollX, y: box.y + window.scrollY, width: box.width, height: box.height };
+      });
+    const before = await place();
     await reading(page).focus();
     await page.keyboard.press("Enter");
     const panel = page.getByRole("dialog", { name: /^Tu puntuación de / });
     await expect(panel).toBeVisible();
     await expect(page.getByRole("button", { name: "1", exact: true })).toBeFocused();
-    expect(await following.boundingBox()).toEqual(before);
+    expect(await place()).toEqual(before);
     const box = await panel.boundingBox();
     if (!box) throw new Error("The keypad panel must be visible");
     expect(box.x).toBeGreaterThanOrEqual(0);
@@ -315,10 +322,15 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
       throw new Error("Detail composition must be visible");
     const metadata = await page.locator(".game-facts").boundingBox();
     if (!metadata) throw new Error("Known metadata must be visible");
-    expect(dates.x).toBeGreaterThan(information.x);
-    expect(dates.x + dates.width).toBeLessThan(information.x + information.width);
-    expect(dates.y).toBeGreaterThan(metadata.y + metadata.height);
-    expect(dates.y + dates.height).toBeLessThan(information.y + information.height);
+    expect(dates.x).toBeGreaterThanOrEqual(information.x);
+    expect(dates.x + dates.width).toBeLessThanOrEqual(information.x + information.width + 1);
+    expect(dates.y + dates.height).toBeLessThan(information.y + information.height + 1);
+    if (width >= 1024) {
+      // The spec sheet sets the facts beside the release ledger.
+      expect(dates.x).toBeGreaterThan(metadata.x + metadata.width);
+    } else {
+      expect(dates.y).toBeGreaterThan(metadata.y + metadata.height);
+    }
     await expect(page.getByRole("region", { name: "Información del juego" })
       .getByRole("heading", { level: 3, name: "Fechas y plataformas" })).toBeVisible();
     for (const role of ["Desarrollador", "Publisher"]) {
@@ -326,23 +338,22 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
         .locator("dd")).toHaveText("Capcom");
     }
     if (width >= 760) {
-      // Cover and both readings form one identity column; text keeps a separate reading measure.
-      expect(Math.abs(score.x - cover.x)).toBeLessThanOrEqual(1);
-      expect(score.y).toBeGreaterThan(cover.y + cover.height);
+      // The cover stands beside the title and the readings' row, which follows the title.
       expect(title.x).toBeGreaterThan(cover.x + cover.width);
-      expect(summary.x).toBeGreaterThan(cover.x + cover.width);
-      expect(summary.y).toBeGreaterThan(title.y + title.height);
+      expect(score.x).toBeGreaterThan(cover.x + cover.width);
+      expect(score.y).toBeGreaterThan(title.y + title.height);
+      // The visitor's reading follows the community's: beside it on the desktop, else beneath.
+      if (width >= 1024) expect(personal.x).toBeGreaterThan(score.x + score.width);
+      else expect(personal.y).toBeGreaterThan(score.y + score.height);
+      expect(summary.y).toBeGreaterThan(Math.max(score.y + score.height, personal.y + personal.height));
+      expect(information.y).toBeGreaterThan(Math.max(summary.y + summary.height, cover.y + cover.height));
     }
     if (width >= 1024) {
-      // One information card follows the editorial opening; releases use its full width.
-      expect(personal.y).toBeGreaterThan(score.y + score.height);
-      expect(information.x).toBeGreaterThan(cover.x + cover.width);
-      expect(information.y).toBeGreaterThan(summary.y + summary.height);
+      // The summary keeps the editorial column beside the cover.
+      expect(summary.x).toBeGreaterThan(cover.x + cover.width);
     } else if (width >= 760) {
-      // Tablets use a shared reading row before the full-width information card.
-      expect(score.y).toBeGreaterThan(summary.y + summary.height);
-      expect(personal.x).toBeGreaterThan(score.x + score.width);
-      expect(information.y).toBeGreaterThan(Math.max(score.y + score.height, personal.y + personal.height));
+      // Tablets give the summary the full width below the cover.
+      expect(summary.y).toBeGreaterThan(cover.y + cover.height);
     } else {
       // Phones start with the identity, then cover, scores, summary and structured facts.
       expect(cover.y).toBeGreaterThan(title.y + title.height);
@@ -429,27 +440,33 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
     const summary = await page.getByRole("region", { name: "Resumen" }).boundingBox();
     if (!cover || !score || !external || !personal || !summary)
       throw new Error("The readings must be visible");
-    // Both sources read their number from the same column, beside the meter or the mark.
-    const values = await page.locator(".game-scores .game-score-value").evaluateAll((nodes) =>
-      nodes.map((node) => node.getBoundingClientRect().left - (node.closest("section")?.getBoundingClientRect().left ?? 0)),
+    // The community's mean is the product's reading and leads; IGDB's supports it, smaller.
+    const sizes = await page.locator(".game-scores .game-reading-value").evaluateAll((nodes) =>
+      nodes.map((node) => Number.parseFloat(getComputedStyle(node).fontSize)),
     );
-    expect(values).toHaveLength(2);
-    expect(Math.abs((values[0] ?? 0) - (values[1] ?? 0))).toBeLessThanOrEqual(1);
+    expect(sizes).toHaveLength(2);
+    expect(sizes[0] ?? 0).toBeGreaterThan((sizes[1] ?? 0) * 1.5);
     if (width >= 1024) {
-      // The identity column stacks the community, IGDB and personal readings under the cover.
-      expect(Math.abs(external.x - cover.x)).toBeLessThanOrEqual(1);
-      expect(external.y).toBeGreaterThan(score.y + score.height);
-      expect(personal.y).toBeGreaterThan(external.y + external.height);
-    } else if (width >= 760) {
-      // Tablets give the two sources a shared row; the visitor's reading follows the community's.
-      expect(score.y).toBeGreaterThan(summary.y + summary.height);
+      // Beside the cover the community's reading leads the row; IGDB's and the visitor's own
+      // follow in the supporting column beside it, aligned with its top.
+      expect(score.x).toBeGreaterThan(cover.x + cover.width);
       expect(external.x).toBeGreaterThan(score.x + score.width);
-      expect(Math.abs(external.y + external.height / 2 - (score.y + score.height / 2))).toBeLessThanOrEqual(2);
-      expect(Math.abs(personal.x - score.x)).toBeLessThanOrEqual(1);
-      expect(personal.y).toBeGreaterThan(Math.max(score.y + score.height, external.y + external.height));
-    } else {
-      expect(external.y).toBeGreaterThan(score.y + score.height);
+      expect(Math.abs(external.y - score.y)).toBeLessThanOrEqual(2);
+      expect(Math.abs(personal.x - external.x)).toBeLessThanOrEqual(1);
       expect(personal.y).toBeGreaterThan(external.y + external.height);
+      expect(summary.y).toBeGreaterThan(Math.max(score.y + score.height, personal.y + personal.height));
+    } else {
+      // Below the desktop the two sources read side by side, the community's first, with their
+      // labels and counts on shared rows; the visitor's own reading follows beneath both.
+      if (width >= 760) expect(score.x).toBeGreaterThan(cover.x + cover.width);
+      expect(external.x).toBeGreaterThan(score.x + score.width - 1);
+      expect(Math.abs(external.y - score.y)).toBeLessThanOrEqual(1);
+      const counts = await page.locator(".game-scores .game-reading-description").evaluateAll((nodes) =>
+        nodes.map((node) => Math.round(node.getBoundingClientRect().top)),
+      );
+      expect(new Set(counts).size).toBe(1);
+      expect(personal.y).toBeGreaterThan(Math.max(score.y + score.height, external.y + external.height));
+      expect(personal.width).toBeGreaterThan(score.width + external.width - 2);
       expect(summary.y).toBeGreaterThan(personal.y + personal.height);
     }
 
@@ -509,21 +526,116 @@ for (const width of [320, 390, 834, 1024, 1320]) {
     await expect(information.getByText("Géneros", { exact: true })).toHaveCount(0);
     await expect(information.getByText("Modos de juego", { exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Leer más" })).toHaveCount(0);
-    await expect(calendar.locator(".game-release-row")).toHaveCount(1);
+    await expect(calendar.locator(".game-release-group")).toHaveCount(1);
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const metadata = await information.locator(".game-facts").boundingBox();
     const dates = await calendar.boundingBox();
     if (!metadata || !dates) throw new Error("Structured facts must be visible");
-    expect(dates.y).toBeGreaterThan(metadata.y + metadata.height);
+    // The release ledger follows the facts: beside them on the desktop spec sheet, else below.
+    if (width >= 1024) expect(dates.x).toBeGreaterThan(metadata.x + metadata.width);
+    else expect(dates.y).toBeGreaterThan(metadata.y + metadata.height);
     expect(await page.getByRole("heading", { level: 1 }).evaluate(element =>
       Number.parseFloat(getComputedStyle(element).fontSize))).toBeLessThanOrEqual(40);
   });
 }
 
-// #209: on phones nothing animates perpetually beneath the glass, which otherwise redraws every
-// blurred surface each frame, and the fixed ambient field overscans the viewport so Android's
-// moving URL bar never uncovers an edge. Tablet and desktop keep the stage's motion.
+// #325: platforms sharing a whole context read as one calendar line; a distinct status keeps its own.
+for (const width of [320, 390, 1320]) {
+  test(`grouped calendar and centred cover at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const game = gameDetailsFixture();
+    const [original] = game.releases;
+    if (!original) throw new Error("Fixture needs a release");
+    const shared = {
+      ...original,
+      stage: "full_release",
+      region: { regionId: "worldwide", name: "Mundial" },
+      releaseDate: { precision: "day", value: "2026-09-24" },
+      verificationLevel: "provider_only",
+    } as const;
+    game.releases = [
+      { ...shared, releaseId: "ps5", platform: { platformId: "playstation-5", name: "PlayStation 5" } },
+      { ...shared, releaseId: "mac", platform: { platformId: "mac", name: "Mac" } },
+      { ...shared, releaseId: "pc", platform: { platformId: "pc", name: "Windows PC" } },
+      { ...shared, releaseId: "xbox", platform: { platformId: "xbox-series-x-s", name: "Xbox Series X|S" } },
+      { ...shared, releaseId: "switch", platform: { platformId: "nintendo-switch", name: "Nintendo Switch" }, status: "cancelled" },
+    ];
+    await page.route("**/api/v1/games/*", (route) => route.fulfill({ json: game }));
+    await page.goto(gamePath);
+    const calendar = page.getByRole("region", { name: "Fechas y plataformas" });
+    await expect(calendar.locator(".game-release-group")).toHaveCount(2);
+    const first = calendar.locator(".game-release-group").first();
+    await expect(first.getByText("24 de septiembre de 2026")).toHaveCount(1);
+    await expect(first.locator(".game-release-platforms li")).toHaveText([
+      "PlayStation 5",
+      "Mac",
+      "Windows PC",
+      "Xbox Series X|S",
+    ]);
+    await expect(calendar.locator(".game-release-group").nth(1)).toContainText("Cancelado");
+    await page.evaluate(() => document.fonts.ready);
+    // Platforms fill as many columns as fit: two side by side on a 390px phone, one at 320px.
+    const tops = await first.locator(".game-release-platforms li").evaluateAll((items) =>
+      items.map((item) => Math.round(item.getBoundingClientRect().top)),
+    );
+    if (width === 320) expect(new Set(tops).size).toBe(4);
+    else expect(tops[0]).toBe(tops[1]);
+    if (width < 760) {
+      // The portrait cover stands centred in the column.
+      const cover = await page.locator(".game-artwork").boundingBox();
+      const column = await page.locator(".game-detail-layout").boundingBox();
+      if (!cover || !column) throw new Error("Cover and column must render");
+      expect(Math.abs(cover.x + cover.width / 2 - (column.x + column.width / 2))).toBeLessThanOrEqual(1);
+    }
+    expect((await analyzeAccessibility(page)).violations).toEqual([]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+// Enlarged text stacks whole reading groups and spec lines instead of shrinking or clipping them.
+test("readings and spec sheet reflow under 150% text at 390px", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 1000 });
+  await page.addInitScript(() =>
+    document.addEventListener("DOMContentLoaded", () => {
+      document.documentElement.style.fontSize = "150%";
+    }),
+  );
+  const game = gameDetailsFixture();
+  game.developers = [{ companyId: "dev", name: "Insomniac Games" }];
+  game.externalScore = {
+    source: "igdb",
+    kind: "player",
+    value: 7.5,
+    scale: 10,
+    count: 43,
+    attribution: { label: "Jugadores IGDB", sourceUrl: "https://www.igdb.com/games/resident-evil-requiem" },
+    observedAt: "2026-08-01T10:00:00Z",
+  };
+  await page.route("**/api/v1/games/*", (route) => route.fulfill({ json: game }));
+  await page.goto(gamePath);
+  const community = await page.getByRole("region", { name: "Puntuación de la comunidad" }).boundingBox();
+  const external = await page.getByRole("region", { name: "Jugadores IGDB" }).boundingBox();
+  if (!community || !external) throw new Error("Both readings must render");
+  expect(external.y).toBeGreaterThanOrEqual(community.y + community.height);
+  const fact = page.locator(".game-fact").filter({ hasText: "Desarrollador" });
+  const term = await fact.locator("dt").boundingBox();
+  const value = await fact.locator("dd").boundingBox();
+  if (!term || !value) throw new Error("The developer fact must render");
+  expect(value.y).toBeGreaterThanOrEqual(term.y + term.height - 1);
+  // The shared header's own reflow is reviewed separately; the page's content stays in view.
+  const clipped = await page.locator("main").evaluate((main) =>
+    [...main.querySelectorAll("*")].filter((element) => {
+      const box = element.getBoundingClientRect();
+      return box.width > 0 && box.right > innerWidth + 0.5 && !element.closest(".stage-light");
+    }).length,
+  );
+  expect(clipped).toBe(0);
+});
+
+// #209: nothing decorative animates perpetually beneath the page, which would redraw every
+// blurred surface each frame on high-density phones, and the fixed grain overscans the viewport
+// so Android's moving URL bar never uncovers an edge. The stage is lit by the cover and holds still.
 for (const width of [320, 390, 834, 1320]) {
   test(`decorative layers stay bounded at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 800 });
@@ -542,18 +654,17 @@ for (const width of [320, 390, 834, 1320]) {
             const target =
               animation.effect instanceof KeyframeEffect ? animation.effect.target : null;
             return (
-              (target?.closest(".cinema") || target?.classList.contains("app-frame")) &&
+              (target?.closest(".stage-light") || target?.classList.contains("app-frame")) &&
               (animation.timeline instanceof ScrollTimeline ||
                 animation.effect?.getTiming().iterations === Infinity)
             );
           }).length,
       );
-    if (width < 620) expect(await perpetual()).toBe(0);
-    else expect(await perpetual()).toBeGreaterThan(0);
+    expect(await perpetual()).toBe(0);
     const ambient = await page.evaluate(() => {
       const frame = document.querySelector(".app-frame");
       if (!frame) throw new Error("App frame missing");
-      return ["::before", "::after"].map((pseudo) => {
+      return ["::after"].map((pseudo) => {
         const style = getComputedStyle(frame, pseudo);
         return {
           position: style.position,

@@ -321,9 +321,10 @@ describe("public game details", () => {
     const rows = releaseRows();
     expect(rows).toHaveLength(3);
     const [ps5, pcWorld, pcEurope] = rows;
-    expect(ps5).toHaveTextContent(/PlayStation 5.*Europa.*27 de febrero de 2026.*Publicado/);
-    expect(pcWorld).toHaveTextContent(/Windows PC.*Mundial.*2\.º trimestre de 2027.*Programado/);
-    expect(pcEurope).toHaveTextContent(/Windows PC.*Europa.*Fecha por confirmar.*Retrasado/);
+    // Each line states its context — date, status, region — before the platforms it covers.
+    expect(ps5).toHaveTextContent(/27 de febrero de 2026.*Publicado.*Europa.*PlayStation 5/);
+    expect(pcWorld).toHaveTextContent(/2\.º trimestre de 2027.*Programado.*Mundial.*Windows PC/);
+    expect(pcEurope).toHaveTextContent(/Fecha por confirmar.*Retrasado.*Europa.*Windows PC/);
     expect(within(pcEurope as HTMLElement).getByText("Información pendiente de revisión")).toBeVisible();
     // Each value is still named for assistive technology.
     expect(within(ps5 as HTMLElement).getByText("Región", { selector: "dt" })).toHaveClass("sr-only");
@@ -335,6 +336,47 @@ describe("public game details", () => {
     // The ratings belong to the whole game, whatever the release context.
     expect(readingButton()).not.toHaveAttribute("aria-disabled");
     expect(gameRequests()).toHaveLength(1);
+  });
+  it("states a context shared by several platforms once, without merging or dropping a release", async () => {
+    const user = userEvent.setup();
+    const game = gameDetailsFixture();
+    const original = game.releases[0];
+    if (!original) throw new Error("Fixture needs a release");
+    const together = {
+      ...original,
+      region: { regionId: "worldwide", name: "Mundial" },
+      releaseDate: { precision: "day", value: "2026-09-24" },
+      stage: "full_release",
+      verificationLevel: "provider_only",
+    } as const;
+    game.releases = [
+      { ...together, releaseId: "ps5", platform: { platformId: "playstation-5", name: "PlayStation 5" } },
+      { ...together, releaseId: "ps5-advance", platform: { platformId: "playstation-5", name: "PlayStation 5" }, stage: "advance_access", releaseDate: { precision: "day", value: "2026-09-22" } },
+      { ...together, releaseId: "mac", platform: { platformId: "mac", name: "Mac" } },
+      { ...together, releaseId: "pc", platform: { platformId: "pc", name: "Windows PC" } },
+      { ...together, releaseId: "xbox", platform: { platformId: "xbox-series", name: "Xbox Series X|S" } },
+      // Same day and region, another status: never folded into the shared line.
+      { ...together, releaseId: "switch", platform: { platformId: "switch", name: "Nintendo Switch" }, status: "cancelled" },
+    ];
+    serve(game);
+    renderApp(path);
+    await screen.findByRole("heading", { level: 1, name: game.canonicalTitle });
+
+    const [shared, cancelled] = releaseRows();
+    expect(releaseRows()).toHaveLength(2);
+    expect(within(shared as HTMLElement).getAllByText("24 de septiembre de 2026")).toHaveLength(1);
+    expect(within(shared as HTMLElement).getAllByText("Publicado")).toHaveLength(1);
+    expect(
+      within(within(shared as HTMLElement).getByRole("list")).getAllByRole("listitem").map((item) => item.textContent),
+    ).toEqual(["PlayStation 5", "Mac", "Windows PC", "Xbox Series X|S"]);
+    expect(within(shared as HTMLElement).getByText("Plataformas", { selector: "dt" })).toHaveClass("sr-only");
+    expect(cancelled).toHaveTextContent(/24 de septiembre de 2026.*Cancelado.*Mundial.*Nintendo Switch/);
+
+    // The disclosure still counts records, and its advance access keeps its own stage and day.
+    const more = within(releasesBlock()).getByText("Otras fechas registradas (1)");
+    await user.click(more);
+    expect(within(releasesBlock()).getByText("22 de septiembre de 2026")).toBeVisible();
+    expect(within(releasesBlock()).getByText("Acceso previo")).toBeVisible();
   });
   it("flags a pending review among the further records on the disclosure itself", async () => {
     const game = gameDetailsFixture();
@@ -367,7 +409,7 @@ describe("public game details", () => {
     const mark = (name: string) =>
       within(releasesBlock())
         .getAllByText(name)[0]
-        ?.closest("dd")
+        ?.closest("li, dd")
         ?.querySelector("[class*='app-select-icon-']")?.className;
 
     expect(mark("PlayStation 5")).toContain("app-select-icon-playstation-5");

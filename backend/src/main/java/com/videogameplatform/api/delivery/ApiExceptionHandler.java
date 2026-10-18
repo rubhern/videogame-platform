@@ -1,6 +1,7 @@
 package com.videogameplatform.api.delivery;
 
 import com.videogameplatform.api.generated.model.ErrorCategory;
+import com.videogameplatform.api.generated.model.FeaturedGranularity;
 import com.videogameplatform.api.generated.model.Problem;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ReleaseView;
@@ -8,7 +9,7 @@ import com.videogameplatform.api.generated.model.Violation;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.details.GameNotFoundException;
-import com.videogameplatform.catalogue.application.releases.FeaturedMonthOutOfRangeException;
+import com.videogameplatform.catalogue.application.releases.FeaturedPeriodOutOfRangeException;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
 import com.videogameplatform.identity.application.CurrentUserUnavailableException;
@@ -296,11 +297,17 @@ public class ApiExceptionHandler {
         };
     }
 
-    /** A month outside the current year fails the same filter validation as a malformed one. */
-    @ExceptionHandler(FeaturedMonthOutOfRangeException.class)
-    ResponseEntity<Problem> featuredMonthOutOfRange(HttpServletResponse response) {
+    /** A period outside the navigation bounds fails the same filter validation as a malformed one. */
+    @ExceptionHandler(FeaturedPeriodOutOfRangeException.class)
+    ResponseEntity<Problem> featuredPeriodOutOfRange(
+            FeaturedPeriodOutOfRangeException exception, HttpServletResponse response) {
+        String pointer =
+                switch (exception.granularity()) {
+                    case WEEK -> "/query/week";
+                    case MONTH -> "/query/month";
+                };
         return requestInvalid(
-                new ApiRequestException(ProblemCode.FILTER_INVALID, "/query/month"), response);
+                new ApiRequestException(ProblemCode.FILTER_INVALID, pointer), response);
     }
 
     @ExceptionHandler(SearchQueryInvalidException.class)
@@ -448,7 +455,8 @@ public class ApiExceptionHandler {
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     ResponseEntity<Problem> requestValueInvalid(
             MethodArgumentTypeMismatchException exception, HttpServletResponse response) {
-        if (ReleaseView.class.equals(exception.getRequiredType())) {
+        if (ReleaseView.class.equals(exception.getRequiredType())
+                || FeaturedGranularity.class.equals(exception.getRequiredType())) {
             return problem(
                     response,
                     HttpStatus.UNPROCESSABLE_CONTENT,
