@@ -41,9 +41,22 @@ async function at(page: Page, y: number) {
   await expect.poll(() => page.evaluate(() => scrollY)).toBeCloseTo(y, -1);
 }
 
+/** Let finite entrance animations end; one cancelled by a rerender has nothing left to wait for. */
+async function settleAnimations(page: Page) {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await Promise.all(document.getAnimations().filter(animation =>
+      animation.effect?.getTiming().iterations !== Infinity && animation.timeline instanceof DocumentTimeline,
+    ).map(animation => animation.finished.catch(() => undefined)));
+  });
+}
+
 async function openFromReadingPosition(page: Page, link: Locator) {
-  // Playwright may scroll again while waiting for an animated link to become
-  // actionable. Capture the reading position at navigation, after that movement.
+  // An animating link fails Playwright's stability check, and each retry scrolls it
+  // with another alignment. Settle first so the reader's position survives the click,
+  // and still capture it at navigation in case Playwright moves it.
+  await settleAnimations(page);
+  await link.scrollIntoViewIfNeeded();
   const position = page.evaluate(() => new Promise<number>(resolve => {
     window.addEventListener("click", () => resolve(scrollY), { once: true, capture: true });
   }));
@@ -84,7 +97,6 @@ for (const width of [390, 412, 1320]) {
         await fixtures(page);
         await page.goto(path);
         const link = page.getByRole("link", { name: "Juego 11", exact: true });
-        await link.scrollIntoViewIfNeeded();
         const before = await openFromReadingPosition(page, link);
         expect(before).toBeGreaterThan(100);
         await expect(page.getByRole("heading", { level: 1, name: "Resident Evil Requiem" })).toBeVisible();
@@ -102,7 +114,6 @@ for (const width of [390, 412, 1320]) {
       await fixtures(page);
       await page.goto("/?view=recent&pageSize=12");
       const next = page.getByRole("link", { name: "Página siguiente" });
-      await next.scrollIntoViewIfNeeded();
       const before = await openFromReadingPosition(page, next);
       await expect(page).toHaveURL(/page=2/);
       await at(page, 0);
@@ -127,7 +138,6 @@ for (const width of [390, 412, 1320]) {
       });
       await page.goto("/mis-puntuaciones");
       const link = page.getByRole("link", { name: "Nota 9", exact: true });
-      await link.scrollIntoViewIfNeeded();
       const before = await openFromReadingPosition(page, link);
       await expect(page.getByRole("heading", { level: 1, name: "Resident Evil Requiem" })).toBeVisible();
       await page.goBack();
@@ -214,10 +224,7 @@ for (const width of [390, 412, 1320]) {
       await page.goto("/");
       const selector = page.getByRole("navigation", { name: "Periodo de los destacados" });
       await expect(selector).toBeVisible();
-      await page.evaluate(() => document.fonts.ready);
-      await page.evaluate(async () => {
-        await Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity && a.timeline instanceof DocumentTimeline).map(a => a.finished));
-      });
+      await settleAnimations(page);
       const title = page.getByRole("heading", { name: "Lanzamientos semanales", exact: true });
       await expect(title).toBeVisible();
       // Capture the viewport directly: Locator.screenshot can scroll the element and
@@ -317,12 +324,7 @@ test.describe("shared shell on a high-density touch screen", () => {
       } else if (path.startsWith("/search")) {
         await expect(page.locator(".stage-light-source")).toHaveCount(3);
       }
-      await page.evaluate(async () => {
-        await document.fonts.ready;
-        await Promise.all(document.getAnimations().filter(animation =>
-          animation.effect?.getTiming().iterations !== Infinity && animation.timeline instanceof DocumentTimeline,
-        ).map(animation => animation.finished));
-      });
+      await settleAnimations(page);
       const targets = controls ? [header, title, controls] : [header, title];
       const before = await Promise.all(targets.map(target => paintedTextPixels(page, target)));
       expect(Math.min(...before)).toBeGreaterThan(30);
