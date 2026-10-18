@@ -13,7 +13,7 @@ import { getSession } from "../features/session/session-api";
 import { SESSION_QUERY_KEY } from "../features/session/use-session";
 
 /** Complete the destination's read before the router restores its entry's scroll offset.
- * TanStack Query still owns data/errors; browser storage contains scroll offsets only.
+ * TanStack Query still owns data/errors; scroll offsets stay in memory; browser storage stays empty.
  */
 export function routeReadiness(queryClient: QueryClient) {
   return async ({ request, params }: LoaderFunctionArgs) => {
