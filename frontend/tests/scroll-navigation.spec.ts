@@ -54,7 +54,9 @@ async function settleAnimations(page: Page) {
 async function openFromReadingPosition(page: Page, link: Locator) {
   // An animating link fails Playwright's stability check, and each retry scrolls it
   // with another alignment. Settle first so the reader's position survives the click,
-  // and still capture it at navigation in case Playwright moves it.
+  // and still capture it at navigation in case Playwright moves it. The destination
+  // mounts after its route read, so wait for the link before collecting animations.
+  await expect(link).toBeVisible();
   await settleAnimations(page);
   await link.scrollIntoViewIfNeeded();
   const position = page.evaluate(() => new Promise<number>(resolve => {
