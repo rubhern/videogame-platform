@@ -19,7 +19,7 @@ export function ReleasesWeeks({ search }: { search: ReleasesSearch }) {
       label="Periodo:"
       onChange={(value) => {
         const weeks = value === "2" ? 2 : value === "4" ? 4 : 1;
-        void navigate(releasesSearchPath(search, { weeks, page: 1 }));
+        void navigate(releasesSearchPath(search, { weeks, page: 1 }), { preventScrollReset: true });
       }}
       options={options}
       value={String(search.weeks)}

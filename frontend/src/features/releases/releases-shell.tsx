@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
 import { HeroTitle } from "../../shared/ui/hero-title";
-import { StageLight } from "../../shared/ui/stage-light";
 import { ReleaseCard } from "./release-card";
 import { ReleaseWindowScale } from "./release-window-scale";
 import { ReleasesApproximateDates } from "./releases-approximate-dates";
@@ -83,7 +82,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
       return;
     }
     previousPage.current = search.page;
-    resultsHeadingRef.current?.focus();
+    resultsHeadingRef.current?.focus({ preventScroll: true });
   }, [search.page]);
 
   const model = state.status === "ready" ? state.model : null;
@@ -99,12 +98,9 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
   const scale =
     shown === null ? null : toWindowScale(shown.window.from, shown.window.to, shown.evaluatedOn);
   const releaseDays = (shown?.items ?? []).flatMap((item) => item.releaseGroups[0]?.day ?? []);
-  // The opening is lit by the first games the page presents, never by a placeholder image.
-  const lights = (shown?.items ?? []).flatMap((item) => (item.cover.kind === "fallback" ? [] : [item.cover.url]));
 
   return (
     <section aria-labelledby="releases-title" className="hero-page releases-page">
-      <StageLight images={lights} />
       <div className="page-container releases-section">
         <header className="page-head releases-heading">
           <p className="eyebrow">{contexts[search.view]}</p>

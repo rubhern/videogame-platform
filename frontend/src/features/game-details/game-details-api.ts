@@ -34,3 +34,10 @@ export async function getGameDetails(
   );
 }
 export type GameDetails = Awaited<ReturnType<typeof getGameDetails>>;
+
+export function gameDetailsQueryOptions(gameId: string) {
+  return {
+    queryKey: gameDetailsQueryKey(gameId),
+    queryFn: ({ signal }: { signal: AbortSignal }) => getGameDetails(gameId, undefined, signal),
+  };
+}

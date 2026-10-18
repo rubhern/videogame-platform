@@ -170,8 +170,9 @@ them back.
 - Beyond the approved featured releases ([below](#featured-releases)), do not add a ranking,
   editorial description, publisher, studio, new release window or destination solely
   because it appears in a reference.
-- Both release windows open on the stage lit by their first covers, two selectors for platform
-  and region, and twelve results per default page so six columns form two rows on wide desktop.
+- Both release windows use the plain night canvas, without decorative artwork behind the
+  header or filters, on phones and wider screens. They open with the platform and region
+  selectors and twelve results per default page so six columns form two rows on wide desktop.
   Keep the opening short enough that the first row of covers is fully visible at 1320×900. Its
   covers fill the column in the standard frame so the artwork leads the card. Under the cover,
   the first relevant release's date follows the fire needle in its compact form at the same
@@ -300,13 +301,15 @@ them back.
 Depth and motion belong to the visual language, not to individual screens. Global styles own
 the executable values; these constraints hold wherever they are used:
 
-- The canvas is night with one fixed grain tile that keeps large dark gradients from banding.
-  It never scrolls with the content, never sits above it, and nothing readable depends on it.
-  It overscans the viewport, so a phone's URL bar showing or hiding never uncovers an edge.
-- Every primary page opens on a stage lit by art it already shows, anchored to the top of the
-  document so it runs behind the header: Destacados by its featured release
-  ([below](#featured-releases)); the release windows, search and `Mis puntuaciones` by up to
-  three of the covers the page presents; a game's page by its own cover. Each image's hue, not
+- The canvas is night with faint grain painted directly into its background to keep dark
+  gradients from banding. It follows the document and never sits above readable content.
+  Do not implement it as a viewport-sized fixed translucent layer: deep scrolling and the
+  mobile browser toolbar must not invalidate the header or page content.
+- Featured, search, personal ratings and game details open on a stage lit by art they already
+  show, anchored to the top of the document so it runs behind the header: Destacados by its
+  featured release ([below](#featured-releases)); search and `Mis puntuaciones` by up to
+  three of the covers the page presents; a game's page by its own cover. The release windows
+  keep the plain night canvas under their opening and cover wall. Each image's hue, not
   its luminance, is blown up, blurred and capped in brightness, the copy's side stays in shade,
   and the light falls away into night before the content. It adds no request, stores and
   transforms no image, is hidden from assistive technology and takes no input. A product
@@ -421,6 +424,36 @@ the executable values; these constraints hold wherever they are used:
   Rating title links do not stretch over the card's editing controls.
 - Keep reduced-motion and forced-colour support. Do not require hover, animation, a fixed
   desktop width or a sticky header that can obscure focus.
+
+## Navigation and scroll position
+
+New page and result-page navigation starts at the top; an explicit fragment targets its
+named element. Browser Back/Forward restores each history entry's reading position,
+including query-driven pages. Release filters and Featured week/month changes preserve
+context; switching discovery sections or submitting another catalogue search starts at
+the top. Shorter results may naturally clamp the viewport to the available height.
+
+React Router owns restoration after the destination's bounded TanStack Query read is
+ready. Mount restoration with that ready destination, not its hydration fallback, whose
+shorter height can clamp a saved offset. Keep focus movement separate from scrolling:
+route and pagination focus uses
+`preventScroll`, while the skip link still takes the reader to main content. Do not reset
+scroll after artwork, fonts or background refreshes, or add timed scroll retries.
+Hydration reuses the existing loading surfaces without mounting page data or command
+effects. Navigation announcements remain separate from the result's live status.
+The shared header, page titles and controls must paint on their first return into the
+viewport, regardless of scroll direction or browser-toolbar resizing.
+
+Query-only game-detail navigation, including consuming the authentication-return
+marker, keeps the existing game read; it must not overwrite a rating command's returned
+statistics with an unnecessary reload. Explicit query refresh and mutation reconciliation
+remain owned by TanStack Query.
+
+Personal filters remain transient under [personal ratings](#personal-ratings-collection):
+returning to that route reads its default collection rather than persisting personal
+filter state in history or browser storage.
+The initial default collection read is fresh while mounted and still refreshes on
+mutation invalidation; leaving the page immediately discards its query cache.
 
 ## Featured releases
 

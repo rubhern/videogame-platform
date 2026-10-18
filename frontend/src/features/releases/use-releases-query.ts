@@ -4,6 +4,13 @@ import { getReleases, type ReleasePage, type ReleasesApiError } from "./releases
 import { toReleasesQuery, type ReleasesSearch } from "./releases-search";
 import { toReleasesViewModel, type ReleasesViewModel } from "./releases-view-model";
 
+export function releasesQueryOptions(search: ReleasesSearch) {
+  return {
+    queryKey: ["releases", search],
+    queryFn: () => getReleases(toReleasesQuery(search)),
+  };
+}
+
 /**
  * Owns the server state for UC-001. The previous page stays rendered while the next
  * one loads so filters, the evaluated window and pagination remain operable instead
@@ -11,8 +18,8 @@ import { toReleasesViewModel, type ReleasesViewModel } from "./releases-view-mod
  */
 export function useReleasesQuery(search: ReleasesSearch) {
   return useQuery<ReleasePage, ReleasesApiError, ReleasesViewModel>({
-    queryKey: ["releases", search],
-    queryFn: () => getReleases(toReleasesQuery(search)),
+    ...releasesQueryOptions(search),
+    refetchOnMount: false,
     select: toReleasesViewModel,
     placeholderData: keepPreviousData,
   });

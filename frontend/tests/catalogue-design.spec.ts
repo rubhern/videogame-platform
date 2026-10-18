@@ -43,6 +43,7 @@ for (const width of [320, 390, 834, 1320]) {
     });
     await page.goto("/?view=recent&pageSize=6");
     await expect(page.getByRole("link", { name: "Pragmata", exact: true })).toBeVisible();
+    await expect(page.locator(".stage-light")).toHaveCount(0);
     await expect(page.locator(".releases-footer")).toHaveCSS("border-top-width", "0px");
     // The window's scale: one division per day of the API's window and one fire needle per
     // release day on the page. It is decorative; the period is stated in words beside the title.

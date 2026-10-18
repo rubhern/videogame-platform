@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigation } from "react-router-dom";
 
 import {
   readDiscoveryView,
@@ -14,20 +14,21 @@ import { CatalogueSearch } from "./catalogue-search";
 export function AppShell() {
   const mainContentRef = useRef<HTMLElement>(null);
   const location = useLocation();
-  const previousPathname = useRef(location.pathname);
+  const navigation = useNavigation();
+  const discoveryView =
+    location.pathname === "/" ? readDiscoveryView(new URLSearchParams(location.search)) : null;
+  const pageIdentity = `${location.pathname}|${discoveryView ?? ""}`;
+  const previousPage = useRef(pageIdentity);
   const releaseSearch = readReleasesSearch(new URLSearchParams(location.search));
 
   useEffect(() => {
-    if (previousPathname.current === location.pathname) {
+    if (previousPage.current === pageIdentity) {
       return;
     }
 
-    previousPathname.current = location.pathname;
-    mainContentRef.current?.focus();
-  }, [location.pathname]);
-
-  const discoveryView =
-    location.pathname === "/" ? readDiscoveryView(new URLSearchParams(location.search)) : null;
+    previousPage.current = pageIdentity;
+    mainContentRef.current?.focus({ preventScroll: true });
+  }, [pageIdentity]);
 
   return (
     <div className="app-frame">
@@ -85,7 +86,10 @@ export function AppShell() {
         </div>
       </header>
 
-      <main id="main-content" ref={mainContentRef} tabIndex={-1}>
+      <p className="sr-only" aria-live="polite">
+        {navigation.state === "loading" ? "Cargando página…" : ""}
+      </p>
+      <main aria-busy={navigation.state === "loading"} id="main-content" ref={mainContentRef} tabIndex={-1}>
         <Outlet />
       </main>
 

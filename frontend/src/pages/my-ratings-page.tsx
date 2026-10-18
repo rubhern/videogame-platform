@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { listMyRatings, MY_RATINGS_KEY, MyRatingsError, type MyRatingsPage, type MyRatingsQuery } from "../features/ratings/my-ratings-api";
+import { Link, useLoaderData } from "react-router-dom";
+import { initialMyRatingsQuery, myRatingsQueryOptions, MyRatingsError, type MyRatingsPage, type MyRatingsQuery } from "../features/ratings/my-ratings-api";
 import { MyRatingCard } from "../features/ratings/my-rating-card";
 import { useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
@@ -40,18 +40,25 @@ const orders: AppSelectOption[] = [
 ];
 
 export function MyRatingsPage() {
+  const initialData = useLoaderData<MyRatingsPage | null>();
   const session = useSession();
   const csrfToken = session.data?.authenticated === true ? session.data.csrfToken : null;
   // Personal search and sort are transient; they never enter browser storage or navigation history.
-  const [params, setParams] = useState<MyRatingsQuery>({ page: 1, pageSize: 10 });
+  const [params, setParams] = useState<MyRatingsQuery>(initialMyRatingsQuery);
   const [search, setSearch] = useState("");
   const [inputError, setInputError] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const heading = useRef<HTMLHeadingElement>(null);
   const query = useQuery<MyRatingsPage, MyRatingsError>({
-    queryKey: [...MY_RATINGS_KEY, params],
-    queryFn: ({ signal }) => listMyRatings(params, signal),
-    enabled: csrfToken !== null, retry: false, staleTime: 0, gcTime: 0,
+    ...myRatingsQueryOptions(params),
+    ...(params === initialMyRatingsQuery && initialData ? { initialData } : {}),
+    refetchOnMount: false,
+    // The loader just read the default collection. Treat that handoff as fresh
+    // while mounted; mutation invalidation still refreshes it, and gcTime: 0
+    // still removes it on departure. This also avoids a duplicate mount read
+    // if React yields before the first query subscription commits.
+    staleTime: params === initialMyRatingsQuery && initialData ? Infinity : 0,
+    enabled: csrfToken !== null, retry: false, gcTime: 0,
   });
   function change(next: MyRatingsQuery) {
     setMessage(""); setParams(next); heading.current?.focus();

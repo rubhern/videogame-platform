@@ -60,6 +60,7 @@ function PeriodStep({
   }
   return (
     <Link
+      preventScrollReset
       aria-label={`${word}: ${step.phrase}`}
       className="featured-period-step"
       to={featuredSearchPath({ granularity, period: step.period })}
@@ -95,6 +96,7 @@ export function FeaturedPeriodSelector({ search, model }: FeaturedPeriodSelector
           {granularities.map((option) => (
             <li key={option.value}>
               <Link
+                preventScrollReset
                 aria-current={option.value === granularity ? "true" : undefined}
                 className="featured-granularity-option"
                 to={featuredSearchPath({ granularity: option.value, period: null })}
@@ -131,6 +133,7 @@ export function FeaturedPeriodSelector({ search, model }: FeaturedPeriodSelector
       )}
       {showsCurrentLink ? (
         <Link
+          preventScrollReset
           className="featured-period-current"
           to={featuredSearchPath({ granularity, period: null })}
         >

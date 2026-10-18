@@ -59,7 +59,7 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
       return;
     }
     previousRequest.current = request;
-    resultsHeadingRef.current?.focus();
+    resultsHeadingRef.current?.focus({ preventScroll: true });
   }, [params.query, params.page]);
 
   const placeholders = Math.min(params.pageSize, MAX_PLACEHOLDERS);
