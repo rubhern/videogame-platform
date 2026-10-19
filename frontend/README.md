@@ -9,7 +9,7 @@ anonymous account entry,
 an authenticated header account control and CSRF-protected logout that continues through
 Keycloak), the
 `UC-005`–`UC-007` inline personal rating on the game page, `UC-008`
-`/mis-puntuaciones`, and the operator-only `UC-011`/`UC-012` `/administracion/catalogo`. Behaviour is specified by the
+`/mis-puntuaciones`, and the operator-only `UC-011`–`UC-013` `/administracion/catalogo`. Behaviour is specified by the
 [use cases](../docs/architecture/application/mvp-use-cases.md) and the
 [frontend design guidelines](../docs/development/frontend-design.md); this README
 owns only how to build, run, and organise it.

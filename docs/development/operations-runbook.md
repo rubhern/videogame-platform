@@ -370,6 +370,38 @@ the application while a requested run is in flight. Intervals longer than half a
 to several requests, one after another, until resumable backfill
 ([#246](https://github.com/rubhern/videogame-platform/issues/246)) exists.
 
+Post-MVP (#342, implemented; awaiting owner review): **Ejecución actual** can end the run in
+flight, whatever started it: a scheduled, management or requested run.
+
+- **Detener sincronización** is the normal action. After a confirmation it records a stop
+  request on that run, by its identifier, and the panel reads *Detención solicitada* while
+  the run continues. The worker stops at its next safe point, before its next provider page
+  or Game. The provider call and Game write in progress finish first, bounded by the
+  provider request timeout and retries and by the write transaction timeout. The run then
+  appears in **Ejecuciones recientes** as *Detenida* (`SYNCHRONIZATION_STOPPED`, `partial` if
+  it committed Games, otherwise `failed`). A run that reads its last page before a safe point
+  keeps its ordinary result and notes that the stop came too late. Committed Games stay, no
+  coverage is recorded for the interval, earlier coverage stays, nothing retries, and
+  scheduling is unchanged. Request the interval again to cover it.
+- **Abandonar ejecución** is the exceptional recovery for an orphaned run. It is offered only
+  while the run is reported without recent heartbeats, older than
+  `CATALOGUE_SYNC_ABANDON_RUN_AFTER`, typically after the application stopped mid-run.
+  The server re-checks the heartbeat in the same statement that closes the run as
+  *Abandonada por un operador* (`SYNCHRONIZATION_ABANDONED_BY_OPERATOR`) and frees ownership
+  at once. A live worker's heartbeat wins: the answer is then `SYNCHRONIZATION_RUN_NOT_STALE`
+  and the run keeps going, so stop it instead. A worker that resumes after an abandonment
+  is refused at its next write, safe point or completion, records nothing more, and logs
+  `SYNCHRONIZATION_OWNERSHIP_LOST`.
+
+Neither action kills a process, interrupts a transaction or rolls back committed Games.
+Before abandoning a run whose application is still up, check the application log for that
+run's recent progress: a heartbeat older than the period means no page or Game finished in
+that time, which a long provider outage with retries can also cause. A finished or replaced
+run answers `SYNCHRONIZATION_RUN_FINISHED` or `SYNCHRONIZATION_RUN_NOT_FOUND` and changes
+nothing. Without the product origin, the BFF or Keycloak, no break-glass equivalent
+exists: an orphaned run is still taken over by the next run start once its heartbeat is
+older than the period, the management command included.
+
 The management command below stays the break-glass and diagnostic path: when the product
 origin, the BFF session or Keycloak is unavailable, or when the blocking report is wanted
 directly in the shell.
@@ -503,8 +535,8 @@ To check acquisition, open the synchronization dashboard's **IGDB player scores*
   reason to hide a score.
 
 PostgreSQL allows one active run; an abandoned
-worker is fenced after `CATALOGUE_SYNC_ABANDON_RUN_AFTER` before a successor can
-write. Provider failure never deletes local Games, Releases or covers; the previous
+worker is fenced after `CATALOGUE_SYNC_ABANDON_RUN_AFTER`, by the next run start or an
+operator's abandonment, before a successor can write. Provider failure never deletes local Games, Releases or covers; the previous
 valid publication keeps serving.
 
 

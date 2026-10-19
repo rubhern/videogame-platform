@@ -11,10 +11,12 @@ import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCatalogueProvid
 import com.videogameplatform.catalogue.adapter.scheduling.BackgroundSynchronizationExecutor;
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverageQuery;
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationStatusQuery;
+import com.videogameplatform.catalogue.application.administration.ControlCatalogueSynchronization;
 import com.videogameplatform.catalogue.application.administration.RequestCatalogueSynchronization;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import com.videogameplatform.catalogue.application.synchronization.internal.CatalogueSynchronizationService;
 import com.videogameplatform.catalogue.application.synchronization.internal.CoverSelectionPolicy;
+import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationControlService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationCoverageService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationRequestService;
@@ -222,6 +224,12 @@ class CatalogueSynchronizationConfiguration {
             SynchronizeCatalogueUseCase synchronization,
             BackgroundSynchronizationExecutor backgroundSynchronization) {
         return new SynchronizationRequestService(synchronization, backgroundSynchronization);
+    }
+
+    @Bean
+    ControlCatalogueSynchronization controlCatalogueSynchronization(
+            CatalogueSynchronizationStore store, Clock clock, SynchronizationPolicy policy) {
+        return new SynchronizationControlService(store, clock, policy);
     }
 
     @Bean

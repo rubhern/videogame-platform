@@ -66,6 +66,13 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
     static final String RELEASE_TUPLE_CONFLICT = "RELEASE_TUPLE_CONFLICT";
     static final String RECORD_REJECTED = "RECORD_REJECTED";
     static final String UNEXPECTED_FAILURE = "UNEXPECTED_FAILURE";
+    static final String STOPPED = "SYNCHRONIZATION_STOPPED";
+
+    /**
+     * The worker's own report after its run was abandoned. The store refuses every record of it,
+     * so it is returned to the trigger and its telemetry only, never stored.
+     */
+    static final String OWNERSHIP_LOST = "SYNCHRONIZATION_OWNERSHIP_LOST";
 
     private static final Set<ProviderMappingFailure> BLOCKING_MAPPING_FAILURES =
             Set.of(
@@ -203,8 +210,16 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         long afterGameId = 0;
         int pageNumber = 0;
         boolean intervalRead = false;
+        boolean stopped = false;
         try {
+            pages:
             while (true) {
+                // Safe points come before each provider page and each Game: the provider call and
+                // the Game write in progress always finish, and nothing later starts.
+                if (stopRequested(runId)) {
+                    stopped = true;
+                    break;
+                }
                 pageNumber++;
                 run.pageRequested(pageNumber, counters(counts));
                 final ReleasePage page;
@@ -230,6 +245,10 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                         new PageEvidence(lookUpLogos(pageNumber, page.gameIds(), run, counts));
                 int position = 0;
                 for (String providerId : page.gameIds()) {
+                    if (stopRequested(runId)) {
+                        stopped = true;
+                        break pages;
+                    }
                     position++;
                     synchronizeGame(
                             runId,
@@ -247,6 +266,15 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                     intervalRead = true;
                     break;
                 }
+            }
+            if (stopped) {
+                // An operator's stop leaves the interval unread: committed Games stay, nothing
+                // is covered, and the result says whether any Game was committed.
+                CatalogueSynchronizationReport result =
+                        report(runId, request, started, stoppedOutcome(counts), STOPPED, counts);
+                store.completeRun(result, policy.retainedRuns());
+                run.finished(result);
+                return result;
             }
             SynchronizationOutcome outcome = outcome(counts);
             CatalogueSynchronizationReport result =
@@ -277,6 +305,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         } catch (RuntimeException failure) {
             counts.failed++;
             run.runFailed(runFailure(failure), counters(counts));
+            boolean ownershipLost = ownershipLost(failure);
             CatalogueSynchronizationReport result =
                     report(
                             runId,
@@ -285,9 +314,12 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                             successfulGames(counts) > 0
                                     ? SynchronizationOutcome.PARTIAL
                                     : SynchronizationOutcome.FAILED,
-                            "SYNCHRONIZATION_FAILED",
+                            ownershipLost ? OWNERSHIP_LOST : "SYNCHRONIZATION_FAILED",
                             counts);
-            store.completeRun(result, policy.retainedRuns());
+            // An abandoned run is already finished; the store would refuse its completion.
+            if (!ownershipLost) {
+                store.completeRun(result, policy.retainedRuns());
+            }
             run.finished(result);
             if (!(failure instanceof ProviderRequestException
                     || failure instanceof SynchronizationWriteException)) {
@@ -326,9 +358,15 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                         ? SynchronizationProgress.NONE.started(
                                 null, request, started, providerIds.size())
                         : progress.started(runId, request, started, providerIds.size());
+        boolean stopped = false;
+        boolean ownershipLost = false;
         try {
             int position = 0;
             for (String id : providerIds) {
+                if (!dryRun && stopRequested(runId)) {
+                    stopped = true;
+                    break;
+                }
                 // Repair never discovers/imports an unknown Game reference.
                 try {
                     if (store.loadGame(id, policy.maxReleasesPerGame()).isEmpty()) {
@@ -336,6 +374,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                         continue;
                     }
                 } catch (SynchronizationWriteException failure) {
+                    rethrowIfOwnershipLost(failure);
                     fail(
                             new GameProgress(run, 1, ++position),
                             Failure.of(Stage.PERSISTENCE, failure.reason().name()),
@@ -355,6 +394,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
             }
         } catch (RuntimeException failure) {
             counts.failed++;
+            ownershipLost = ownershipLost(failure);
             run.runFailed(runFailure(failure), counters(counts));
         }
         var result =
@@ -362,11 +402,19 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                         runId,
                         request,
                         started,
-                        outcome(counts),
-                        dryRun ? "CATALOGUE_REPAIR_PREVIEW" : "CATALOGUE_REPAIR_COMPLETED",
+                        stopped ? stoppedOutcome(counts) : outcome(counts),
+                        dryRun
+                                ? "CATALOGUE_REPAIR_PREVIEW"
+                                : stopped
+                                        ? STOPPED
+                                        : ownershipLost
+                                                ? OWNERSHIP_LOST
+                                                : "CATALOGUE_REPAIR_COMPLETED",
                         counts);
         if (!dryRun) {
-            store.completeRun(result, policy.retainedRuns());
+            if (!ownershipLost) {
+                store.completeRun(result, policy.retainedRuns());
+            }
             run.finished(result);
         }
         return result;
@@ -448,6 +496,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                     Optional.empty(),
                     counts);
         } catch (SynchronizationWriteException failure) {
+            rethrowIfOwnershipLost(failure);
             // Loading the published Game failed; the store names it when it already knew it.
             fail(
                     game,
@@ -457,6 +506,32 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
         } catch (IllegalArgumentException _) {
             fail(game, Failure.of(Stage.RECONCILIATION, RECORD_REJECTED), Optional.empty(), counts);
         }
+    }
+
+    /** A safe point; a run that lost ownership fails at once instead of reading on. */
+    private boolean stopRequested(UUID runId) {
+        return store.checkpoint(runId) == CatalogueSynchronizationStore.RunControl.STOP_REQUESTED;
+    }
+
+    /**
+     * A lost lease is never one Game's failure: no later write of the run can commit, so the run
+     * ends instead of calling the provider for Games it can no longer publish.
+     */
+    private static void rethrowIfOwnershipLost(SynchronizationWriteException failure) {
+        if (failure.reason() == SynchronizationWriteException.Reason.OWNERSHIP_LOST) {
+            throw failure;
+        }
+    }
+
+    private static boolean ownershipLost(RuntimeException failure) {
+        return failure instanceof SynchronizationWriteException write
+                && write.reason() == SynchronizationWriteException.Reason.OWNERSHIP_LOST;
+    }
+
+    private static SynchronizationOutcome stoppedOutcome(Counts counts) {
+        return successfulGames(counts) > 0
+                ? SynchronizationOutcome.PARTIAL
+                : SynchronizationOutcome.FAILED;
     }
 
     private void fail(
@@ -565,6 +640,7 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
                     Optional.of(identity),
                     counts);
         } catch (SynchronizationWriteException failure) {
+            rethrowIfOwnershipLost(failure);
             fail(
                     game,
                     Failure.of(Stage.PERSISTENCE, failure.reason().name()),

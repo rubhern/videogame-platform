@@ -535,8 +535,9 @@ the existing realm, so `bin/configure-keycloak-operator` aligns them exactly as 
 import declares them; the production realm test proves the production import matches. It is additive: accounts, credentials, other clients and the
 identity policy are untouched, so it needs no snapshot. Without the role nobody can read the
 administration API; the application fails closed. Since #248 (implemented; awaiting owner
-review) the same role also lets its session request a bounded catalogue synchronization, so
-a grant authorizes provider acquisition runs as well as reads.
+review) the same role also lets its session request a bounded catalogue synchronization, and
+since #342 (implemented; awaiting owner review) stop or abandon any run in flight, so a grant
+authorizes starting and ending provider acquisition runs as well as reads.
 
 Run it only after owner review, merge and separate approval to operate on `vgpdev`, from the
 installed merged revision, as root:

@@ -48,7 +48,8 @@ public final class SynchronizationStatusService implements SynchronizationStatus
                                         run.to(),
                                         run.startedAt(),
                                         run.heartbeatAt(),
-                                        run.heartbeatAt().isBefore(now.minus(abandonRunAfter))));
+                                        run.heartbeatAt().isBefore(now.minus(abandonRunAfter)),
+                                        run.stopRequestedAt()));
             } else if (finished.size() < RECENT_RUNS) {
                 finished.add(
                         new FinishedRun(
@@ -59,7 +60,8 @@ public final class SynchronizationStatusService implements SynchronizationStatus
                                 run.completedAt().orElseThrow(),
                                 run.result().orElseThrow(),
                                 run.outcomeCode().orElseThrow(),
-                                run.counters().map(SynchronizationStatusService::counters)));
+                                run.counters().map(SynchronizationStatusService::counters),
+                                run.stopRequestedAt()));
             }
         }
         return new SynchronizationStatus(current, finished);

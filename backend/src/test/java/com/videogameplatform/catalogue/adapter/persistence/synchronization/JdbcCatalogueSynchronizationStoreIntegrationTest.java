@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.videogameplatform.catalogue.adapter.observability.CatalogueSynchronizationMetrics;
 import com.videogameplatform.catalogue.adapter.operator.CatalogueSynchronizationEndpoint;
 import com.videogameplatform.catalogue.adapter.scheduling.CatalogueSynchronizationScheduler;
+import com.videogameplatform.catalogue.application.administration.AbandonmentOutcome;
+import com.videogameplatform.catalogue.application.administration.StopRequestOutcome;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
@@ -1310,6 +1312,112 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
                 .isInstanceOf(SynchronizationWriteException.class);
     }
 
+    @Test
+    void anOperatorStopEndsTheRunAtTheNextSafePointKeepingCommittedGamesAndEarlierCoverage() {
+        provider.rows = List.of(new Row(1, "1"));
+        provider.works.put("1", work("1", pr("6", "11", "2026-03-01")));
+        provider.works.put("2", work("2", pr("6", "21", "2026-04-01")));
+        provider.works.put("3", work("3", pr("6", "31", "2026-05-01")));
+        assertThat(service.synchronize(WINDOW).outcome())
+                .isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        var earlierCoverage = jdbc.queryForList("SELECT * FROM catalogue.synchronization_coverage");
+        // Two pages of two and one Game; the stop arrives while Game 2 is being fetched.
+        provider.rows = List.of(new Row(1, "1"), new Row(2, "2"), new Row(3, "3"));
+        provider.fetched.clear();
+        provider.pageLimits.clear();
+        provider.onFetch =
+                id -> {
+                    if ("2".equals(id)) {
+                        assertThat(store.requestStop(runningRun(), NOW))
+                                .isInstanceOf(StopRequestOutcome.Requested.class);
+                    }
+                };
+
+        var report = service.synchronize(WINDOW);
+
+        // The Game in flight finishes, nothing after the safe point starts.
+        assertThat(provider.fetched).containsExactly("1", "2");
+        assertThat(provider.pageLimits).hasSize(1);
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_STOPPED");
+        assertThat(count("game_snapshot")).isEqualTo(2);
+        assertThat(jdbc.queryForList("SELECT * FROM catalogue.synchronization_coverage"))
+                .isEqualTo(earlierCoverage);
+        assertThat(
+                        jdbc.queryForMap(
+                                "SELECT run_status, outcome_code, stop_requested_at IS NOT NULL AS"
+                                        + " stop_requested, report IS NOT NULL AS reported"
+                                        + " FROM catalogue.synchronization_run WHERE run_id=?",
+                                report.runId()))
+                .isEqualTo(
+                        Map.of(
+                                "run_status",
+                                "partial",
+                                "outcome_code",
+                                "SYNCHRONIZATION_STOPPED",
+                                "stop_requested",
+                                true,
+                                "reported",
+                                true));
+
+        // Ownership was released and retrying the interval is the ordinary idempotent run.
+        provider.onFetch = id -> {};
+        assertThat(service.synchronize(WINDOW).outcome())
+                .isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(count("game_snapshot")).isEqualTo(3);
+    }
+
+    @Test
+    void aResumedWorkerOfAnOperatorAbandonedRunCannotPublishCoverOrFinishIt() {
+        provider.rows = List.of(new Row(1, "1"), new Row(2, "2"));
+        provider.works.put("1", work("1", pr("6", "11", "2026-03-01")));
+        provider.works.put("2", work("2", pr("6", "21", "2026-04-01")));
+        // The worker stalls in its provider call long enough to look orphaned and is abandoned.
+        provider.onFetch =
+                id -> {
+                    if ("1".equals(id)) {
+                        UUID run = runningRun();
+                        jdbc.update(
+                                "UPDATE catalogue.synchronization_run SET heartbeat_at=? WHERE"
+                                        + " run_id=?",
+                                java.sql.Timestamp.from(NOW.minus(Duration.ofHours(1))),
+                                run);
+                        assertThat(store.abandonRun(run, NOW, NOW.minus(Duration.ofMinutes(30))))
+                                .isInstanceOf(AbandonmentOutcome.Abandoned.class);
+                    }
+                };
+
+        var report = service.synchronize(WINDOW);
+
+        // It resumed with Game 1, was refused, and gave up instead of reading on.
+        assertThat(provider.fetched).containsExactly("1");
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_OWNERSHIP_LOST");
+        assertThat(count("game_snapshot")).isZero();
+        assertThat(count("synchronization_coverage")).isZero();
+        assertThat(
+                        jdbc.queryForMap(
+                                "SELECT run_status, outcome_code, report IS NULL AS unreported"
+                                        + " FROM catalogue.synchronization_run WHERE run_id=?",
+                                report.runId()))
+                .isEqualTo(
+                        Map.of(
+                                "run_status", "abandoned",
+                                "outcome_code", "SYNCHRONIZATION_ABANDONED_BY_OPERATOR",
+                                "unreported", true));
+
+        provider.onFetch = id -> {};
+        assertThat(service.synchronize(WINDOW).outcome())
+                .isEqualTo(SynchronizationOutcome.SUCCEEDED);
+        assertThat(count("game_snapshot")).isEqualTo(2);
+    }
+
+    private UUID runningRun() {
+        return jdbc.queryForObject(
+                "SELECT run_id FROM catalogue.synchronization_run WHERE run_status='running'",
+                UUID.class);
+    }
+
     private int count(String table) {
         return jdbc.queryForObject("SELECT count(*) FROM catalogue." + table, Integer.class);
     }
@@ -1508,6 +1616,10 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
         Map<String, ProviderWork> works = new HashMap<>();
         List<Integer> pageLimits = new ArrayList<>();
         List<String> fetched = new ArrayList<>();
+
+        /** Runs while the provider answers a Game, as an operator acting meanwhile would. */
+        java.util.function.Consumer<String> onFetch = id -> {};
+
         Map<String, List<ProviderImage>> logos = new HashMap<>();
         com.videogameplatform.catalogue.application.synchronization.port.ProviderRequestException
                 logoFailure;
@@ -1546,6 +1658,7 @@ class JdbcCatalogueSynchronizationStoreIntegrationTest {
 
         public ProviderWorkBatch fetchWorks(List<String> ids) {
             fetched.addAll(ids);
+            ids.forEach(onFetch);
             return new ProviderWorkBatch(
                     ids.stream().map(works::get).filter(Objects::nonNull).toList(),
                     ProviderCallStatistics.none());

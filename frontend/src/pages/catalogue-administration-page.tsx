@@ -6,6 +6,7 @@ import {
   AdministrationError, getSynchronizationStatus, SYNCHRONIZATION_STATUS_KEY, type SynchronizationStatus,
 } from "../features/catalogue-administration/administration-api";
 import { CoverageExplorer, MAX_YEAR, MIN_YEAR } from "../features/catalogue-administration/coverage-explorer";
+import { RunControls } from "../features/catalogue-administration/synchronization-control";
 import { SynchronizationRequest } from "../features/catalogue-administration/synchronization-request";
 import {
   readRequestedRun, type RequestedRun,
@@ -23,7 +24,7 @@ const TABS: { id: PanelTab; label: string }[] = [
 
 /** While a run is in flight the status is read again on this cadence; no push channel exists. */
 const RUNNING_REFRESH_MS = 15_000;
-/** A run this page requested is followed more closely, and only until it finishes. */
+/** A run this page requested, or one asked to stop, is followed more closely until it finishes. */
 const REQUESTED_REFRESH_MS = 5_000;
 
 function selectedYear(value: string | null, fallback: number): number {
@@ -119,7 +120,9 @@ export function CatalogueAdministrationPage() {
     refetchInterval: (query) => {
       const phase = requested ? readRequestedRun(requested, query.state.data, query.state.dataUpdatedAt).phase : null;
       if (phase === "accepted" || phase === "running") return REQUESTED_REFRESH_MS;
-      return query.state.data?.currentRun ? RUNNING_REFRESH_MS : false;
+      const current = query.state.data?.currentRun;
+      if (current?.stopRequestedAt) return REQUESTED_REFRESH_MS;
+      return current ? RUNNING_REFRESH_MS : false;
     },
   });
   const code = status.error?.code;
@@ -170,6 +173,7 @@ export function CatalogueAdministrationPage() {
                         </button>
                       </div>
                       <CurrentRunPanel run={status.data.currentRun} />
+                      {csrfToken ? <RunControls csrfToken={csrfToken} status={status.data} /> : null}
                     </section>
                     <section className="admin-section" aria-labelledby="admin-runs-title">
                       <h2 id="admin-runs-title">Ejecuciones recientes</h2>

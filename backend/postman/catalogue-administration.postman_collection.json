@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "VideoGame Platform Backend - Catalogue Administration",
-    "description": "Executable #247 and #248 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate.",
+    "description": "Executable #247, #248 and #342 examples for an authenticated local OIDC session holding the catalogue-operator client role. Sign in through Keycloak in a browser and sync the localhost cookie into Postman; the first request stores the session-bound CSRF token, and no OAuth token or credential belongs in this collection. The last request asks for a one-day synchronization: without provider credentials it is rejected as SYNCHRONIZATION_DISABLED, otherwise it is accepted or answered as already running. The stop and abandonment requests name a run that history never holds, so they never stop or abandon a real run: they prove CSRF enforcement and the stable not-found answer. Anonymous rejection is covered by the session collection and non-operator rejection by the backend integration tests and the real identity gate.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -73,7 +73,11 @@
               "    pm.expect([\"succeeded\", \"partial\", \"failed\", \"abandoned\"]).to.include(run.result);",
               "    if (run.result === \"abandoned\") pm.expect(run).not.to.have.property(\"counters\");",
               "}));",
-              "pm.test(\"No provider name or internal report field\", () => pm.expect(JSON.stringify(body)).not.to.match(/IGDB|inspectedReleaseDates|providerLatencyMillis/));"
+              "pm.test(\"No provider name or internal report field\", () => pm.expect(JSON.stringify(body)).not.to.match(/IGDB|inspectedReleaseDates|providerLatencyMillis/));",
+              "pm.test(\"A stop request is a time on the run it names, never a result\", () => {",
+              "    const runs = (body.currentRun ? [body.currentRun] : []).concat(body.recentRuns);",
+              "    runs.filter((run) => \"stopRequestedAt\" in run).forEach((run) => pm.expect(Date.parse(run.stopRequestedAt)).to.be.a(\"number\").and.not.NaN);",
+              "});"
             ]
           }
         }
@@ -378,6 +382,145 @@
               "} else {",
               "    pm.test(\"Stable rejection code\", () => pm.expect(pm.response.code === 409 ? \"SYNCHRONIZATION_ALREADY_RUNNING\" : \"SYNCHRONIZATION_DISABLED\").to.eql(body.code));",
               "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject run stop without CSRF",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization-runs/00000000-0000-4000-8000-000000000000/stop",
+        "description": "A stop is a state change and needs the session-bound CSRF token; nothing is recorded."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code CSRF_VALIDATION_FAILED\", () => pm.expect(pm.response.json().code).to.eql(\"CSRF_VALIDATION_FAILED\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Stop a run that history does not hold",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization-runs/00000000-0000-4000-8000-000000000000/stop",
+        "description": "A stop names one run by identifier, never whichever run is in flight. An unknown run is 404 and changes nothing; a finished one is 409 SYNCHRONIZATION_RUN_FINISHED, and a run in flight answers 202 with the first stop request's time."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code SYNCHRONIZATION_RUN_NOT_FOUND\", () => pm.expect(pm.response.json().code).to.eql(\"SYNCHRONIZATION_RUN_NOT_FOUND\"));",
+              "pm.test(\"The violation names the run path parameter\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/path/runId\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Abandon a run that history does not hold",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization-runs/00000000-0000-4000-8000-000000000000/abandon",
+        "description": "Abandonment is only for a run in flight whose heartbeat is older than CATALOGUE_SYNC_ABANDON_RUN_AFTER: 200 returns it finished as SYNCHRONIZATION_ABANDONED_BY_OPERATOR, a live run is 409 SYNCHRONIZATION_RUN_NOT_STALE, a finished one 409 SYNCHRONIZATION_RUN_FINISHED and an unknown one 404."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code SYNCHRONIZATION_RUN_NOT_FOUND\", () => pm.expect(pm.response.json().code).to.eql(\"SYNCHRONIZATION_RUN_NOT_FOUND\"));",
+              "pm.test(\"The violation names the run path parameter\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/path/runId\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Abandon a malformed run identifier",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "X-CSRF-Token",
+            "value": "{{csrfToken}}"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/admin/catalogue/synchronization-runs/not-a-run/abandon",
+        "description": "A value that is no run identifier names no run; it is the same 404."
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Problem Details are private and correlated\", () => {",
+              "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/problem+json\");",
+              "    pm.expect(pm.response.headers.get(\"Cache-Control\")).to.eql(\"no-store\");",
+              "    pm.expect(pm.response.json().correlationId).to.eql(pm.response.headers.get(\"X-Correlation-ID\"));",
+              "});",
+              "pm.test(\"Stable code SYNCHRONIZATION_RUN_NOT_FOUND\", () => pm.expect(pm.response.json().code).to.eql(\"SYNCHRONIZATION_RUN_NOT_FOUND\"));",
+              "pm.test(\"The violation names the run path parameter\", () => pm.expect(pm.response.json().violations[0].pointer).to.eql(\"/path/runId\"));"
             ]
           }
         }

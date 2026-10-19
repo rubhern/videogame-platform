@@ -3,6 +3,8 @@ package com.videogameplatform.catalogue.adapter.persistence.synchronization;
 import com.videogameplatform.catalogue.adapter.persistence.ReleaseDateRowMapper;
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage;
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationStatus;
+import com.videogameplatform.catalogue.application.administration.AbandonmentOutcome;
+import com.videogameplatform.catalogue.application.administration.StopRequestOutcome;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
@@ -149,6 +151,129 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                     fence(runId);
                 });
     }
+
+    @Override
+    public RunControl checkpoint(UUID runId) {
+        final List<Boolean> rows;
+        try {
+            // A single-row update by primary key: it proves liveness to an operator's abandonment
+            // check, which it serializes with, and never waits on provider work.
+            rows =
+                    transaction.execute(
+                            status ->
+                                    jdbc.query(
+                                            """
+                            UPDATE catalogue.synchronization_run SET heartbeat_at=CURRENT_TIMESTAMP
+                            WHERE run_id=:id AND provider=:provider AND run_status='running'
+                            RETURNING stop_requested_at IS NOT NULL
+                            """,
+                                            Map.of("id", runId, "provider", provider),
+                                            (rs, row) -> rs.getBoolean(1)));
+        } catch (DataAccessException | TransactionException failure) {
+            throw SynchronizationWriteFailures.classify(failure);
+        }
+        if (rows.isEmpty()) {
+            throw new SynchronizationWriteException(
+                    SynchronizationWriteException.Reason.OWNERSHIP_LOST);
+        }
+        return rows.getFirst() ? RunControl.STOP_REQUESTED : RunControl.CONTINUE;
+    }
+
+    @Override
+    public StopRequestOutcome requestStop(UUID runId, Instant requestedAt) {
+        return transaction.execute(
+                status -> {
+                    // Waits at most for one fenced Game write of the run; the first request's time
+                    // is kept.
+                    List<Instant> recorded =
+                            jdbc.query(
+                                    """
+                    UPDATE catalogue.synchronization_run
+                    SET stop_requested_at=COALESCE(stop_requested_at,:requested)
+                    WHERE run_id=:id AND provider=:provider AND run_status='running'
+                    RETURNING stop_requested_at
+                    """,
+                                    new MapSqlParameterSource()
+                                            .addValue("id", runId)
+                                            .addValue("provider", provider)
+                                            .addValue("requested", timestamp(requestedAt)),
+                                    (rs, row) -> instant(rs, "stop_requested_at"));
+                    if (!recorded.isEmpty()) {
+                        return new StopRequestOutcome.Requested(runId, recorded.getFirst());
+                    }
+                    return runState(runId).isEmpty()
+                            ? new StopRequestOutcome.NotFound()
+                            : new StopRequestOutcome.Finished();
+                });
+    }
+
+    @Override
+    public AbandonmentOutcome abandonRun(UUID runId, Instant abandonedAt, Instant staleBefore) {
+        return transaction.execute(
+                status -> {
+                    // A worker holding its run row in a fenced write makes this wait; READ
+                    // COMMITTED then re-checks the heartbeat that write renewed, so a live worker
+                    // keeps its run. Once this commits, every fence of the old worker fails.
+                    List<AbandonmentOutcome.Abandoned> abandoned =
+                            jdbc.query(
+                                    """
+                    UPDATE catalogue.synchronization_run
+                    SET run_status='abandoned', completed_at=GREATEST(:now,started_at),
+                        outcome_code=:code
+                    WHERE run_id=:id AND provider=:provider AND run_status='running'
+                      AND heartbeat_at<:before
+                    RETURNING run_id,window_from,window_to,started_at,completed_at,outcome_code
+                    """,
+                                    new MapSqlParameterSource()
+                                            .addValue("id", runId)
+                                            .addValue("provider", provider)
+                                            .addValue("now", timestamp(abandonedAt))
+                                            .addValue("before", timestamp(staleBefore))
+                                            .addValue(
+                                                    "code",
+                                                    AbandonmentOutcome.ABANDONED_BY_OPERATOR),
+                                    (rs, row) ->
+                                            new AbandonmentOutcome.Abandoned(
+                                                    rs.getObject("run_id", UUID.class),
+                                                    rs.getObject(
+                                                            "window_from",
+                                                            java.time.LocalDate.class),
+                                                    rs.getObject(
+                                                            "window_to", java.time.LocalDate.class),
+                                                    instant(rs, "started_at"),
+                                                    instant(rs, "completed_at"),
+                                                    rs.getString("outcome_code")));
+                    if (!abandoned.isEmpty()) {
+                        return abandoned.getFirst();
+                    }
+                    Optional<RunState> state = runState(runId);
+                    if (state.isEmpty()) {
+                        return new AbandonmentOutcome.NotFound();
+                    }
+                    return state.orElseThrow().running()
+                            ? new AbandonmentOutcome.NotStale(state.orElseThrow().heartbeatAt())
+                            : new AbandonmentOutcome.Finished();
+                });
+    }
+
+    /** Why a conditional run command changed nothing, read after it in the same transaction. */
+    private Optional<RunState> runState(UUID runId) {
+        return jdbc
+                .query(
+                        """
+                SELECT run_status,heartbeat_at FROM catalogue.synchronization_run
+                WHERE run_id=:id AND provider=:provider
+                """,
+                        Map.of("id", runId, "provider", provider),
+                        (rs, row) ->
+                                new RunState(
+                                        "running".equals(rs.getString("run_status")),
+                                        instant(rs, "heartbeat_at")))
+                .stream()
+                .findFirst();
+    }
+
+    private record RunState(boolean running, Instant heartbeatAt) {}
 
     @Override
     public Optional<GameState> loadGame(String providerId, int maxReleases) {
@@ -1291,12 +1416,12 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                 """
                 SELECT * FROM (
                     SELECT run_id,window_from,window_to,started_at,heartbeat_at,completed_at,
-                        run_status,outcome_code,report,0 AS ownership_order
+                        run_status,outcome_code,report,stop_requested_at,0 AS ownership_order
                     FROM catalogue.synchronization_run
                     WHERE provider=:provider AND run_status='running'
                     UNION ALL
                     (SELECT run_id,window_from,window_to,started_at,heartbeat_at,completed_at,
-                        run_status,outcome_code,report,1 AS ownership_order
+                        run_status,outcome_code,report,stop_requested_at,1 AS ownership_order
                     FROM catalogue.synchronization_run
                     WHERE provider=:provider AND run_status<>'running'
                     ORDER BY started_at DESC,run_id DESC
@@ -1318,7 +1443,8 @@ public final class JdbcCatalogueSynchronizationStore implements CatalogueSynchro
                             Optional.ofNullable(rs.getString("outcome_code")),
                             report == null
                                     ? Optional.empty()
-                                    : Optional.of(readReport(report).counters()));
+                                    : Optional.of(readReport(report).counters()),
+                            Optional.ofNullable(instant(rs, "stop_requested_at")));
                 });
     }
 

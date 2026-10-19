@@ -141,3 +141,38 @@ test("an operator requests a bounded synchronization by keyboard and follows it 
   expect(posts).toEqual([{ csrf: "browser-csrf", body: { from: "2026-10-01", to: "2026-12-31" } }]);
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });
+
+test("an operator abandons a stalled run by keyboard after a confirmation that reflows and stays accessible", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 900 });
+  await install(page);
+  const commands: { path: string; csrf: string | undefined }[] = [];
+  await page.route("**/api/v1/admin/catalogue/synchronization-runs/*/*", (route) => {
+    const request = route.request();
+    commands.push({ path: new URL(request.url()).pathname, csrf: request.headers()["x-csrf-token"] });
+    return route.fulfill({ headers: { "Cache-Control": "no-store" }, json: {
+      runId: "run-now", from: "2026-09-20", to: "2026-11-15", startedAt: "2026-10-18T04:00:00Z",
+      completedAt: "2026-10-18T05:00:00Z", result: "abandoned", outcomeCode: "SYNCHRONIZATION_ABANDONED_BY_OPERATOR",
+    } });
+  });
+  await page.goto("/administracion/catalogo");
+
+  const abandon = page.getByRole("button", { name: "Abandonar ejecución" });
+  await abandon.focus();
+  await page.keyboard.press("Enter");
+  const confirmation = page.getByRole("group", { name: /^¿Abandonar la ejecución/ });
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation.getByRole("button", { name: "Conservar ejecución" })).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth))
+    .toBeLessThanOrEqual(0);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
+  expect(commands).toHaveLength(0);
+
+  await page.keyboard.press("Tab");
+  await expect(confirmation.getByRole("button", { name: "Sí, abandonar" })).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  const notice = page.getByRole("status").filter({ has: page.getByRole("heading", { name: "Abandonada y cerrada" }) });
+  await expect(notice).toBeFocused();
+  expect(commands).toEqual([{ path: "/api/v1/admin/catalogue/synchronization-runs/run-now/abandon", csrf: "browser-csrf" }]);
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
+});

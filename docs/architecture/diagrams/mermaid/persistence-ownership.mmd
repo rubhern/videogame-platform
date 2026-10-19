@@ -42,6 +42,7 @@ erDiagram
     game_game_mode["catalogue.game_game_mode"]
     synchronization_run["catalogue.synchronization_run"] {
         jsonb report "bounded run history, one active run, no catalogue content"
+        timestamptz stop_requested_at "operator stop request read at safe points"
     }
     rating["ratings.rating"]
     game_listing["ratings.game_listing"]

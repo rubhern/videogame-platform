@@ -165,6 +165,18 @@ publication rotation or publication retention workflow.
 `synchronization_run` is bounded operational history with the requested interval,
 outcome and counters, not catalogue content. PostgreSQL enforces one active run per
 provider; writes fence abandoned runs before a successor can publish.
+
+Post-MVP (#342, implemented; awaiting owner review), an operator controls one run by its
+identifier through the same row. A stop is a request recorded on the run; the worker reads it
+at safe points before each provider page and each Game, with one statement that is also a
+heartbeat, so the provider call and Game write in progress always finish and nothing is killed
+or interrupted. An operator abandonment is one conditional statement that closes the run as
+`SYNCHRONIZATION_ABANDONED_BY_OPERATOR` only while its heartbeat is older than the
+abandonment period that already lets a run start take ownership over. A worker's fenced write
+holds the row, so the abandonment waits for it and then sees the renewed heartbeat; once the
+abandonment commits, every fence of the old worker fails, and a worker that loses ownership
+ends at once instead of reading on. No in-process state or thread handle decides either
+command.
 Public readers continue using repeatable-read local PostgreSQL state and never call
 IGDB. Provider DTOs remain inside the adapter; domain/application use normalized
 provider-independent values.
@@ -186,6 +198,9 @@ Some runs cover nothing:
   error. Paging is keyset by Game ID rather than date, so an interrupted run leaves no
   complete date sub-interval.
 - A run in which no Game succeeded (`FAILED`).
+- A run stopped at a safe point on an operator's request (#342), `SYNCHRONIZATION_STOPPED`:
+  `PARTIAL` when it committed Games and `FAILED` otherwise, for the same reason as an
+  interruption; and a run abandoned by a later run start or an operator.
 - A skipped command and a repair batch.
 
 Their outcome stays in the run report, and coverage recorded earlier remains in place. An

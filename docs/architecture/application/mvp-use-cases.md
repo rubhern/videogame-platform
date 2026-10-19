@@ -15,6 +15,7 @@
 | `UC-010` | Browse weekly or monthly featured releases | Visitor          | Application derives evaluation date, the current ISO week and calendar month (or validates a selected period inside the navigation bounds); PostgreSQL selects the qualifying releases inside the period, ranks their games by the local popularity signal with a unique tie-breaker, limits the ranking to six and presents at most one release per platform; unranked, empty, stale and fallback are valid states; never call provider |
 | `UC-011` | Inspect catalogue acquisition state | Catalogue operator    | Post-MVP (#247): read the run in flight, at most twenty finished retained runs with their outcome and counters, and durable coverage of an inclusive release-date range as bounded consecutive periods; local evidence only, never a provider call or a synchronization start; only a session holding the operator authority |
 | `UC-012` | Request bounded catalogue synchronization | Catalogue operator | Post-MVP (#248): validate an inclusive release-date interval of at most 184 days between 1950 and 2099, take the single run ownership that every trigger shares and answer with the accepted run before any provider work; the ordinary `UC-009` run continues in the background and is followed through `UC-011`; a run in flight or missing provider access starts nothing; only a session holding the operator authority, with CSRF proof |
+| `UC-013` | Stop or abandon a catalogue synchronization run | Catalogue operator | Post-MVP (#342): for one run named by its identifier, whatever triggered it, record a stop request its worker honours at its next safe point (before its next provider page or Game), or abandon and fence it only while its heartbeat is older than the abandonment period; committed Games stay, a stopped or abandoned run never records coverage, nothing is retried and schedules do not change; a finished, unknown or still-alive run changes nothing; only a session holding the operator authority, with CSRF proof |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
 of the releases matching the requested view and active filters, only the presented
@@ -360,11 +361,14 @@ membership only through the import policy, and publishes a cover only after it
 validates. Exact HTTP mapping is owned by OpenAPI and API conventions; the internal
 synchronization command is an operator endpoint on the management port and is
 deliberately outside the product contract. On the product port, `UC-011` reads its run
-and coverage evidence and `UC-012` requests one bounded run, both only for the catalogue
-operator ([ADR-0028](../../decisions/0028-authorize-catalogue-operators-with-a-bff-client-role.md));
-the request never holds the browser open for provider work.
-A failed, interrupted or abandoned run appears in that history without changing coverage;
-an abandoned run has no counters rather than zero ones. Freshness stays a presentation
+and coverage evidence, `UC-012` requests one bounded run and `UC-013` stops or abandons one
+run, all only for the catalogue operator
+([ADR-0028](../../decisions/0028-authorize-catalogue-operators-with-a-bff-client-role.md));
+no command holds the browser open for provider work.
+A failed, interrupted, stopped or abandoned run appears in that history without changing
+coverage; an abandoned run has no counters rather than zero ones. A stop request is
+evidence on the run, not a result: the run shows it while it is still in flight, and
+keeps it whether it then stopped or finished first. Freshness stays a presentation
 reading of the last complete scan, never a stored state, and the read is never shown to
 players.
 

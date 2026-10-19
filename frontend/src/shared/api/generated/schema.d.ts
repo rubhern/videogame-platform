@@ -286,6 +286,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/catalogue/synchronization-runs/{runId}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description The run to act on, as the synchronization status or an accepted request names it.
+                 * @example 0f7a2c1e-5b8d-4c1a-9e3f-2a6b7c8d9e01
+                 */
+                runId: components["parameters"]["SynchronizationRunIdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a cooperative stop of the identified synchronization run
+         * @description Requires an authenticated session holding the catalogue operator authority and its
+         *     session-bound CSRF token. Records a stop request on the run named by `runId`, never on
+         *     whichever run happens to be in flight, and answers `202` at once. The worker keeps
+         *     running until its next safe point, before its next provider page or Game, so the
+         *     current provider call and Game write finish first under their own timeouts; nothing is
+         *     killed and no transaction is interrupted. Follow the run with
+         *     `GET /admin/catalogue/synchronization`: it shows `stopRequestedAt` while it runs and
+         *     then appears in `recentRuns`.
+         *
+         *     A run that reaches a safe point finishes with outcome code `SYNCHRONIZATION_STOPPED`:
+         *     `partial` when it committed Games, which stay committed, otherwise `failed`. It never
+         *     records coverage of its interval, and coverage recorded earlier stays in place. A run
+         *     that finishes before reaching a safe point keeps its ordinary result, still showing
+         *     `stopRequestedAt`. A stop never retries the run and never changes recurring
+         *     schedules. Repeating the request for the same run in flight answers the first
+         *     request's time. A finished run is `409 SYNCHRONIZATION_RUN_FINISHED` and a run that
+         *     history does not hold is `404 SYNCHRONIZATION_RUN_NOT_FOUND`; neither changes anything.
+         */
+        post: operations["requestCatalogueSynchronizationStop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/catalogue/synchronization-runs/{runId}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /**
+                 * @description The run to act on, as the synchronization status or an accepted request names it.
+                 * @example 0f7a2c1e-5b8d-4c1a-9e3f-2a6b7c8d9e01
+                 */
+                runId: components["parameters"]["SynchronizationRunIdPath"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Abandon the identified run when its worker no longer proves it is alive
+         * @description Requires an authenticated session holding the catalogue operator authority and its
+         *     session-bound CSRF token. An exceptional recovery for a run whose worker has stopped
+         *     giving heartbeats, for example after the application stopped mid-run: the run named
+         *     by `runId` is abandoned only while it still holds synchronization ownership and its
+         *     last heartbeat is older than the configured abandonment period, the same evidence
+         *     that reports it `stalled` and that lets the next run start take its ownership over.
+         *     That check and the abandonment are one database statement serialized with the
+         *     worker's own heartbeats, so a worker that proves it is alive meanwhile keeps its run.
+         *
+         *     Abandonment fences the run: from that moment its worker, if it resumes, cannot commit
+         *     another Game, record coverage or finish the run, and it gives up at its next safe
+         *     point. Games it already committed stay committed; nothing is rolled back. The run is
+         *     answered at once as finished with result `abandoned` and outcome code
+         *     `SYNCHRONIZATION_ABANDONED_BY_OPERATOR`, distinct from `SYNCHRONIZATION_ABANDONED`,
+         *     which a later run start records, and ownership is free for the next run. Nothing is
+         *     retried and recurring schedules do not change.
+         *
+         *     A run whose heartbeat is within the abandonment period is `409
+         *     SYNCHRONIZATION_RUN_NOT_STALE`: request its stop instead. A finished run, including one
+         *     already abandoned, is `409 SYNCHRONIZATION_RUN_FINISHED`, and a run that history does
+         *     not hold is `404 SYNCHRONIZATION_RUN_NOT_FOUND`; none of them changes anything.
+         */
+        post: operations["abandonCatalogueSynchronizationRun"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/admin/catalogue/synchronization-coverage": {
         parameters: {
             query?: never;
@@ -889,8 +977,8 @@ export interface components {
             capabilities?: components["schemas"]["SessionCapability"][];
         };
         /**
-         * @description `catalogue_administration` reads catalogue synchronization status and coverage and
-         *     requests a bounded synchronization.
+         * @description `catalogue_administration` reads catalogue synchronization status and coverage,
+         *     requests a bounded synchronization, and stops or abandons a run.
          * @enum {string}
          */
         SessionCapability: "catalogue_administration";
@@ -953,7 +1041,9 @@ export interface components {
         };
         /**
          * @description The run holding synchronization ownership. `stalled` means its worker has not proven it
-         *     is alive within the abandonment period; the next run start records it as abandoned.
+         *     is alive within the abandonment period: an operator may abandon it, and otherwise the
+         *     next run start records it as abandoned. `stopRequestedAt` is present once an operator
+         *     requested its stop; the run is still in flight until its worker reaches a safe point.
          */
         CurrentSynchronizationRun: {
             runId: components["schemas"]["SynchronizationRunId"];
@@ -966,11 +1056,18 @@ export interface components {
             /** Format: date-time */
             lastHeartbeatAt: string;
             stalled: boolean;
+            /** Format: date-time */
+            stopRequestedAt?: string;
         };
         /**
          * @description `partial` committed some Games: `SYNCHRONIZATION_COMPLETED_WITH_FAILURES` scanned the
          *     whole interval with failed Games, while `SYNCHRONIZATION_INTERRUPTED` stopped before its
-         *     last provider page and covers nothing. `abandoned` lost its worker and has no counters.
+         *     last provider page and covers nothing. `SYNCHRONIZATION_STOPPED`, `partial` or `failed`
+         *     by whether it committed Games, stopped at a safe point on an operator's request and
+         *     covers nothing. `abandoned` lost its worker and has no counters:
+         *     `SYNCHRONIZATION_ABANDONED` was recorded by a later run start and
+         *     `SYNCHRONIZATION_ABANDONED_BY_OPERATOR` by an operator. `stopRequestedAt` is present
+         *     when an operator requested the run's stop, whatever its result.
          */
         FinishedSynchronizationRun: {
             runId: components["schemas"]["SynchronizationRunId"];
@@ -988,11 +1085,15 @@ export interface components {
              * @example SYNCHRONIZATION_COMPLETED
              * @example SYNCHRONIZATION_COMPLETED_WITH_FAILURES
              * @example SYNCHRONIZATION_INTERRUPTED
+             * @example SYNCHRONIZATION_STOPPED
              * @example SYNCHRONIZATION_FAILED
              * @example SYNCHRONIZATION_ABANDONED
+             * @example SYNCHRONIZATION_ABANDONED_BY_OPERATOR
              */
             outcomeCode: string;
             counters?: components["schemas"]["SynchronizationRunCounters"];
+            /** Format: date-time */
+            stopRequestedAt?: string;
         };
         /** @enum {string} */
         SynchronizationRunResult: "succeeded" | "partial" | "failed" | "abandoned";
@@ -1033,6 +1134,15 @@ export interface components {
             /** Format: date-time */
             startedAt: string;
         };
+        /** @description A recorded stop request; the run's result is read from the run status. */
+        SynchronizationStopRequest: {
+            runId: components["schemas"]["SynchronizationRunId"];
+            /**
+             * Format: date-time
+             * @description When the run's first stop request was recorded.
+             */
+            stopRequestedAt: string;
+        };
         CatalogueSynchronizationCoverage: {
             /** Format: date */
             from: string;
@@ -1066,7 +1176,7 @@ export interface components {
             failedGames: components["schemas"]["RunCount"];
         };
         /** @enum {string} */
-        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED";
+        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED" | "SYNCHRONIZATION_RUN_NOT_FOUND" | "SYNCHRONIZATION_RUN_FINISHED" | "SYNCHRONIZATION_RUN_NOT_STALE";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -1189,6 +1299,42 @@ export interface components {
          *     Nothing was started.
          */
         SynchronizationRequestRejected: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Run history holds no run with this identifier; nothing changed. */
+        SynchronizationRunNotFound: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description The run already finished; nothing changed. Its result is in the run status. */
+        SynchronizationRunFinished: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /**
+         * @description The run already finished, or its worker proved it is alive within the abandonment
+         *     period; nothing changed.
+         */
+        SynchronizationRunNotAbandonable: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
                 "Cache-Control": components["headers"]["NoStoreCacheControl"];
@@ -1568,6 +1714,11 @@ export interface components {
          * @example "catalogue-version-opaque"
          */
         PublicIfNoneMatch: string;
+        /**
+         * @description The run to act on, as the synchronization status or an accepted request names it.
+         * @example 0f7a2c1e-5b8d-4c1a-9e3f-2a6b7c8d9e01
+         */
+        SynchronizationRunIdPath: components["schemas"]["SynchronizationRunId"];
         /**
          * @description Session-bound anti-forgery token obtained from `/session`.
          * @example opaque-csrf-token
@@ -2198,6 +2349,93 @@ export interface operations {
             413: components["responses"]["RequestTooLarge"];
             415: components["responses"]["UnsupportedMediaType"];
             422: components["responses"]["SynchronizationRequestRejected"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    requestCatalogueSynchronizationStop: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /**
+                 * @description The run to act on, as the synchronization status or an accepted request names it.
+                 * @example 0f7a2c1e-5b8d-4c1a-9e3f-2a6b7c8d9e01
+                 */
+                runId: components["parameters"]["SynchronizationRunIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /**
+             * @description The stop request is recorded and the run is still in flight. The response never
+             *     means the run has stopped.
+             */
+            202: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SynchronizationStopRequest"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            404: components["responses"]["SynchronizationRunNotFound"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["SynchronizationRunFinished"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    abandonCatalogueSynchronizationRun: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path: {
+                /**
+                 * @description The run to act on, as the synchronization status or an accepted request names it.
+                 * @example 0f7a2c1e-5b8d-4c1a-9e3f-2a6b7c8d9e01
+                 */
+                runId: components["parameters"]["SynchronizationRunIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The run is abandoned and fenced; ownership is free for the next run. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinishedSynchronizationRun"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            404: components["responses"]["SynchronizationRunNotFound"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["SynchronizationRunNotAbandonable"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };

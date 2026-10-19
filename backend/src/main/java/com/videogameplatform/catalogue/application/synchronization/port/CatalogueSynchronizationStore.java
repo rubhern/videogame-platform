@@ -2,6 +2,8 @@ package com.videogameplatform.catalogue.application.synchronization.port;
 
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverage;
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationStatus;
+import com.videogameplatform.catalogue.application.administration.AbandonmentOutcome;
+import com.videogameplatform.catalogue.application.administration.StopRequestOutcome;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderGameDetails;
@@ -32,6 +34,35 @@ public interface CatalogueSynchronizationStore {
             Duration abandonAfter);
 
     void heartbeat(UUID runId);
+
+    /**
+     * A worker's safe point: proves the run is alive with a heartbeat and answers whether an
+     * operator asked it to stop, in one short statement that holds no lock beyond it.
+     *
+     * @throws SynchronizationWriteException with {@code OWNERSHIP_LOST} when the run no longer
+     *     holds ownership, for example because an operator or a later run start abandoned it
+     */
+    RunControl checkpoint(UUID runId);
+
+    /** What a worker does at a safe point. */
+    enum RunControl {
+        CONTINUE,
+        STOP_REQUESTED
+    }
+
+    /**
+     * Records the first stop request of the provider's run in flight with this identifier; a
+     * finished or unknown run is answered without any change.
+     */
+    StopRequestOutcome requestStop(UUID runId, Instant requestedAt);
+
+    /**
+     * Abandons the provider's run in flight with this identifier only while its last heartbeat is
+     * before {@code staleBefore}, deciding both in one statement that waits for, and then sees, a
+     * concurrent heartbeat of its worker. The abandoned run is recorded with {@link
+     * AbandonmentOutcome#ABANDONED_BY_OPERATOR} at {@code abandonedAt}, without counters.
+     */
+    AbandonmentOutcome abandonRun(UUID runId, Instant abandonedAt, Instant staleBefore);
 
     Optional<GameState> loadGame(String providerId, int maxReleases);
 
@@ -67,6 +98,7 @@ public interface CatalogueSynchronizationStore {
     /**
      * A retained run row. An empty {@code result} is a run still holding ownership, without
      * completion, outcome or counters; counters are also absent when no report was recorded.
+     * {@code stopRequestedAt} is present once an operator requested the run's stop.
      */
     record RetainedRun(
             UUID runId,
@@ -77,7 +109,8 @@ public interface CatalogueSynchronizationStore {
             Optional<SynchronizationStatus.Result> result,
             Optional<Instant> completedAt,
             Optional<String> outcomeCode,
-            Optional<CatalogueSynchronizationReport.Counters> counters) {}
+            Optional<CatalogueSynchronizationReport.Counters> counters,
+            Optional<Instant> stopRequestedAt) {}
 
     record GameState(
             UUID gameId,

@@ -142,7 +142,13 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await second.close();
 
   await page.getByRole("button", { name: "Mi cuenta" }).click();
+  // The page already shows the anonymous header at `/` before its document leaves for the
+  // identity provider's logout, so wait for the document that the round trip brings back.
+  const returned = page.waitForResponse((response) => response.request().isNavigationRequest()
+    && response.request().frame() === page.mainFrame() && response.url() === `${applicationOrigin}/`);
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
+  await returned;
+  await page.waitForLoadState("load");
   await expect(page).toHaveURL(`${applicationOrigin}/`);
   await expect(page.getByRole("link", { name: "Iniciar sesión", exact: true })).toBeVisible();
   await record(first, page, "after logout");
