@@ -1,5 +1,12 @@
 import type { CurrentRun, FinishedRun, SynchronizationStatus } from "./administration-api";
-import { formatCount, formatDuration, formatInstant, formatInterval, runReading } from "./administration-format";
+import {
+  formatCount, formatDuration, formatInstant, formatInterval, runReading, STOPPED,
+} from "./administration-format";
+
+function currentState(run: CurrentRun): string {
+  if (run.stopRequestedAt) return run.stalled ? "Detención solicitada, sin señales recientes" : "Detención solicitada";
+  return run.stalled ? "En curso, sin señales recientes" : "En curso";
+}
 
 /** The run holding synchronization ownership, or the calm statement that none does. */
 export function CurrentRunPanel({ run }: { run: CurrentRun | undefined }) {
@@ -9,18 +16,35 @@ export function CurrentRunPanel({ run }: { run: CurrentRun | undefined }) {
   return <div className="admin-current" data-stalled={run.stalled}>
     <p className="admin-run-result">
       <span className="admin-mark" data-tone={run.stalled ? "failed" : "running"} aria-hidden="true" />
-      {run.stalled ? "En curso, sin señales recientes" : "En curso"}
+      {currentState(run)}
     </p>
     <dl className="admin-facts">
       <div><dt>Intervalo</dt><dd>{formatInterval(run.from, run.to)}</dd></div>
       <div><dt>Inicio</dt><dd>{formatInstant(run.startedAt)}</dd></div>
       <div><dt>Última señal</dt><dd>{formatInstant(run.lastHeartbeatAt)}</dd></div>
+      {run.stopRequestedAt ? <div><dt>Detención solicitada</dt><dd>{formatInstant(run.stopRequestedAt)}</dd></div> : null}
     </dl>
+    {run.stopRequestedAt ? <p className="admin-quiet">
+      Sigue en curso hasta su próximo punto seguro, al terminar el juego o la página que procesa; entonces se
+      detendrá y aparecerá en Ejecuciones recientes.
+    </p> : null}
     {run.stalled ? <p className="admin-warning">
-      El proceso no ha dado señales dentro del plazo de abandono: la próxima sincronización que
-      empiece la registrará como abandonada.
+      El proceso no ha dado señales dentro del plazo de abandono. Si ya no existe, puedes abandonar la
+      ejecución; si no, la próxima sincronización que empiece la registrará como abandonada.
     </p> : null}
   </div>;
+}
+
+/** Whether a stop was asked for, and whether the run reached a safe point to honour it. */
+function StopNote({ run }: { run: FinishedRun }) {
+  if (!run.stopRequestedAt) return null;
+  const requested = formatInstant(run.stopRequestedAt);
+  if (run.outcomeCode === STOPPED || run.result === "abandoned") {
+    return <p className="admin-quiet">Detención solicitada el {requested}.</p>;
+  }
+  return <p className="admin-quiet">
+    Se solicitó su detención el {requested}, pero terminó antes de llegar a un punto seguro.
+  </p>;
 }
 
 function Counters({ run }: { run: FinishedRun }) {
@@ -78,6 +102,7 @@ export function RecentRuns({ status }: { status: SynchronizationStatus }) {
             <div><dt>Código</dt><dd className="admin-code">{run.outcomeCode}</dd></div>
           </dl>
           <p className="admin-run-explanation">{reading.explanation}</p>
+          <StopNote run={run} />
           <Counters run={run} />
         </article>
       </li>;

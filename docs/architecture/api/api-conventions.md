@@ -102,7 +102,12 @@ internal topology. An administration command is an authenticated state change wi
 CSRF and same-origin requirements; an anonymous one is `401` before CSRF is judged. Work that
 outlives a request, such as a synchronization, answers `202` with the accepted identity once
 it is owned, and the client follows it through the existing status read with bounded
-refetching rather than holding the request open; a conflicting run is `409`.
+refetching rather than holding the request open; a conflicting run is `409`. A command on
+existing work names it by identifier in the path and never acts on whatever happens to be
+current: an identifier the server does not hold is `404`, work that already finished or
+whose state forbids the command is `409` with a code naming why, and a repeated request
+either answers the same recorded state or is that `409`. Accepting a request to end work
+(`202`) never claims that the work ended.
 
 ## Caching, observability, and compatibility
 

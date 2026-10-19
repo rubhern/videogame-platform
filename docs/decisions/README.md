@@ -42,7 +42,7 @@ historical decision.
 
 ## Proposed
 
-- [ADR-0028: Authorize catalogue operators with a BFF client role](0028-authorize-catalogue-operators-with-a-bff-client-role.md) — #247; a `catalogue-operator` client role in the validated ID token grants catalogue administration reads and the bounded synchronization request (#248); awaiting owner review.
+- [ADR-0028: Authorize catalogue operators with a BFF client role](0028-authorize-catalogue-operators-with-a-bff-client-role.md) — #247; a `catalogue-operator` client role in the validated ID token grants catalogue administration reads, the bounded synchronization request (#248) and stopping or abandoning a run (#342); awaiting owner review.
 
 - [ADR-0025: Host public production on a deferred single VPS](0025-host-public-production-on-a-deferred-single-vps.md) — #252; owner-selected release/budget envelope, technical design awaiting review, no purchase/deployment authorization.
 

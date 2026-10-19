@@ -46,8 +46,19 @@ export interface RunReading {
   explanation: string;
 }
 
+/** The outcome code of a run that stopped at a safe point on an operator's request. */
+export const STOPPED = "SYNCHRONIZATION_STOPPED";
+/** The outcome code of a run an operator abandoned, distinct from a later run start's. */
+export const ABANDONED_BY_OPERATOR = "SYNCHRONIZATION_ABANDONED_BY_OPERATOR";
+
 /** A finished run's result in words, with what it means for coverage per ADR-0017. */
 export function runReading(run: FinishedRun): RunReading {
+  if (run.outcomeCode === STOPPED) {
+    return { label: "Detenida", tone: run.result === "partial" ? "partial" : "failed",
+      explanation: run.result === "partial"
+        ? "Se detuvo a petición de un operador antes de leer todo el intervalo: conserva los juegos publicados y no registra cobertura."
+        : "Se detuvo a petición de un operador sin publicar ningún juego; no registra cobertura." };
+  }
   switch (run.result) {
     case "succeeded":
       return { label: "Completada", tone: "complete", explanation: "Leyó todo el intervalo sin juegos fallidos." };
@@ -65,6 +76,10 @@ export function runReading(run: FinishedRun): RunReading {
       return { label: "Fallida", tone: "failed",
         explanation: "No publicó ningún juego y no registra cobertura; se conserva el estado anterior." };
     case "abandoned":
+      if (run.outcomeCode === ABANDONED_BY_OPERATOR) {
+        return { label: "Abandonada por un operador", tone: "failed",
+          explanation: "Su proceso había dejado de dar señales y un operador la cerró: no puede publicar más juegos ni registra cobertura o contadores; lo ya publicado se conserva." };
+      }
       return { label: "Abandonada", tone: "failed",
         explanation: "El proceso dejó de dar señales; no registra cobertura ni contadores." };
   }

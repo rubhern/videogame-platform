@@ -810,6 +810,30 @@ read every five seconds instead of fifteen.
 In **Ejecuciones**, **Ejecución actual** states the run in flight, its interval, start and last heartbeat, or
 calmly that none runs, with an **Actualizar estado** action; a stalled run adds a `warning`
 line, and while a run is in flight the page reads its status again every fifteen seconds.
+
+Post-MVP (#342, implemented; awaiting owner review), beneath the run in flight come its
+controls: a plain **Detener sincronización** while no stop has been asked for and, only
+while the run is stalled, a `danger` **Abandonar ejecución**; each stretches to the full
+width on phones. Either opens, in place, one confirmation for that run: a labelled group
+with a danger rule (a border, not colour alone), its interval in the question, what the
+action does and does not do in words (a stop is not instant, committed Games stay, the
+interval is not covered, nothing retries, schedules continue; abandonment only for a
+process that no longer exists, in `warning` text), and two buttons, the safe one first
+and focused (**Seguir sincronizando** / **Sí, detener**, **Conservar ejecución** / **Sí,
+abandonar**). Escape or the safe button closes it and returns focus to its trigger, and a
+replaced run closes it. A requested stop turns the run's state into **Detención
+solicitada**, with its time among the facts and a quiet line saying the run continues to
+its next safe point; the stop action disappears and the status is read every five
+seconds. When a command settles, focus moves to one status region beneath the controls:
+a stop reads **Se detendrá en su próximo punto seguro** until the run finishes, then
+**Detención completada** or **Terminó antes de detenerse** with the run's result in the
+words of **Ejecuciones recientes**; an abandonment reads **Abandonada y cerrada** as a
+`warning`. A finished, vanished or still-alive run, a lost CSRF proof or a lost role is a
+`warning` saying nothing changed, and the first three re-read the status; a lost session
+offers sign-in; any other failure is a `danger` notice that asks to check the status
+before repeating, with its support reference. In **Ejecuciones recientes**, a stopped run
+reads **Detenida**, an operator's abandonment **Abandonada por un operador**, and a run
+whose stop was asked for says when, and whether it finished before reaching a safe point.
 **Ejecuciones recientes** lists the retained finished runs newest first as hairline cards:
 the result in words, its start and duration, interval, stable outcome code, what the result
 means for coverage, and the Game, Release and provider-request counters. An abandoned run

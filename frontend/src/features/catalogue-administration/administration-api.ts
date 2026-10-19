@@ -8,6 +8,7 @@ export type SynchronizationCoverage = components["schemas"]["CatalogueSynchroniz
 export type CoveragePeriod = components["schemas"]["CoveragePeriod"];
 export type SynchronizationWindow = components["schemas"]["CatalogueSynchronizationWindow"];
 export type AcceptedRun = components["schemas"]["AcceptedSynchronizationRun"];
+export type StopRequest = components["schemas"]["SynchronizationStopRequest"];
 
 /** Session-scoped: logout removes every `["me"]` query, so operator evidence never outlives it. */
 export const ADMINISTRATION_KEY = ["me", "catalogue-administration"] as const;
@@ -65,6 +66,29 @@ export async function requestSynchronization(window: SynchronizationWindow, csrf
   client: ProductApiClient = productApiClient): Promise<AcceptedRun> {
   const { data, error, response } = await client.POST("/admin/catalogue/synchronization", {
     params: { header: { "X-CSRF-Token": csrfToken } }, body: window, cache: "no-store",
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+/**
+ * Asks the named run to stop at its next safe point. The answer means the request is recorded,
+ * never that the run stopped: its result is read from the synchronization status.
+ */
+export async function requestRunStop(runId: string, csrfToken: string,
+  client: ProductApiClient = productApiClient): Promise<StopRequest> {
+  const { data, error, response } = await client.POST("/admin/catalogue/synchronization-runs/{runId}/stop", {
+    params: { path: { runId }, header: { "X-CSRF-Token": csrfToken } }, cache: "no-store",
+  }).catch(() => { throw new AdministrationError(null, null); });
+  if (data !== undefined) return data;
+  throw failure(response, error);
+}
+
+/** Abandons the named run when the server confirms its worker stopped giving heartbeats. */
+export async function abandonRun(runId: string, csrfToken: string,
+  client: ProductApiClient = productApiClient): Promise<FinishedRun> {
+  const { data, error, response } = await client.POST("/admin/catalogue/synchronization-runs/{runId}/abandon", {
+    params: { path: { runId }, header: { "X-CSRF-Token": csrfToken } }, cache: "no-store",
   }).catch(() => { throw new AdministrationError(null, null); });
   if (data !== undefined) return data;
   throw failure(response, error);

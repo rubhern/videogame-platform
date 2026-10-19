@@ -347,3 +347,157 @@ describe("Catalogue synchronization request", () => {
     expect(notice).toHaveTextContent("corr-500");
   });
 });
+
+describe("Catalogue synchronization stop and abandonment", () => {
+  const running = {
+    runId: "run-now", from: "2026-09-20", to: "2026-11-15", startedAt: "2026-10-18T04:00:00Z",
+    lastHeartbeatAt: "2026-10-18T04:03:00Z", stalled: false,
+  };
+  const stopRequested = { ...running, stopRequestedAt: "2026-10-18T04:03:30Z" };
+  const stalled = { ...running, stalled: true };
+  const finished = (result: string, outcomeCode: string, extra: object = {}) => ({
+    runId: "run-now", from: "2026-09-20", to: "2026-11-15", startedAt: "2026-10-18T04:00:00Z",
+    completedAt: "2026-10-18T04:10:00Z", result, outcomeCode, ...extra,
+  });
+  const problem = (status: number, code: string) => Response.json({ code, correlationId: `corr-${status}` },
+    { status, headers: { "Content-Type": "application/problem+json" } });
+
+  /** Status reads advance through `statuses`; every command records its path and CSRF proof. */
+  function stubCommands(answer: (path: string) => Response, statuses: unknown[]) {
+    const commands: { path: string; csrf: string | null; body: string }[] = [];
+    let statusReads = 0;
+    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockImplementation(async (input, init) => {
+      const request = input instanceof Request ? input : new Request(input, init);
+      const url = new URL(request.url);
+      if (url.pathname === "/api/v1/session") {
+        return Response.json({ authenticated: true, csrfToken: "csrf", capabilities: ["catalogue_administration"] });
+      }
+      if (request.method === "POST") {
+        commands.push({ path: url.pathname, csrf: request.headers.get("X-CSRF-Token"), body: await request.text() });
+        return answer(url.pathname);
+      }
+      const next = statuses[Math.min(statusReads, statuses.length - 1)];
+      statusReads++;
+      return Response.json(next);
+    }));
+    return { commands, statusReads: () => statusReads };
+  }
+
+  async function current() {
+    return screen.findByRole("region", { name: "Ejecución actual" });
+  }
+
+  it("confirms a stop, sends it for that run and follows it from requested to stopped", async () => {
+    const { commands } = stubCommands(
+      () => Response.json({ runId: "run-now", stopRequestedAt: "2026-10-18T04:03:30Z" }, { status: 202 }),
+      [{ currentRun: running, recentRuns: [] }, { currentRun: stopRequested, recentRuns: [] },
+        { recentRuns: [finished("partial", "SYNCHRONIZATION_STOPPED", { stopRequestedAt: "2026-10-18T04:03:30Z", counters })] }]);
+    renderApp("/administracion/catalogo");
+    const section = await current();
+
+    const trigger = await within(section).findByRole("button", { name: "Detener sincronización" });
+    await userEvent.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const confirmation = within(section).getByRole("group", { name: /^¿Detener la sincronización/ });
+    expect(confirmation).toHaveAccessibleDescription(/no al instante.*no quedará registrado como cubierto/);
+    expect(within(confirmation).getByRole("button", { name: "Seguir sincronizando" })).toHaveFocus();
+    expect(commands).toHaveLength(0);
+
+    await userEvent.click(within(confirmation).getByRole("button", { name: "Sí, detener" }));
+
+    expect(commands).toEqual([{ path: "/api/v1/admin/catalogue/synchronization-runs/run-now/stop", csrf: "csrf", body: "" }]);
+    const accepted = await within(section).findByRole("heading", { name: "Se detendrá en su próximo punto seguro" });
+    const notice = accepted.closest("[role=status]") as HTMLElement;
+    await waitFor(() => expect(notice).toHaveFocus());
+    // The run reads as stop requested, never as stopped, while it is still in flight.
+    expect(await within(section).findByText("Detención solicitada", { selector: ".admin-run-result" })).toBeVisible();
+    expect(within(section).queryByRole("button", { name: "Detener sincronización" })).not.toBeInTheDocument();
+
+    await userEvent.click(within(section).getByRole("button", { name: "Actualizar estado" }));
+
+    expect(await within(notice).findByRole("heading", { name: "Detenida" })).toBeVisible();
+    expect(notice).toHaveTextContent("Detención completada");
+    expect(notice).toHaveTextContent("no registra cobertura");
+  });
+
+  it("closes a confirmation without sending anything and returns focus to its trigger", async () => {
+    const { commands } = stubCommands(() => problem(500, "INTERNAL_ERROR"), [{ currentRun: running, recentRuns: [] }]);
+    renderApp("/administracion/catalogo");
+    const trigger = await within(await current()).findByRole("button", { name: "Detener sincronización" });
+
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByRole("button", { name: "Seguir sincronizando" }));
+    expect(trigger).toHaveFocus();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await userEvent.click(trigger);
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("group", { name: /^¿Detener/ })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(commands).toHaveLength(0);
+  });
+
+  it("offers abandonment only for a stalled run and reports it abandoned once the server fences it", async () => {
+    const { commands } = stubCommands(
+      () => Response.json(finished("abandoned", "SYNCHRONIZATION_ABANDONED_BY_OPERATOR")),
+      [{ currentRun: stalled, recentRuns: [] },
+        { recentRuns: [finished("abandoned", "SYNCHRONIZATION_ABANDONED_BY_OPERATOR")] }]);
+    renderApp("/administracion/catalogo");
+    const section = await current();
+
+    await userEvent.click(await within(section).findByRole("button", { name: "Abandonar ejecución" }));
+    const confirmation = within(section).getByRole("group", { name: /^¿Abandonar la ejecución/ });
+    expect(confirmation).toHaveAccessibleDescription(/solo si su proceso ya no existe/);
+    await userEvent.click(within(confirmation).getByRole("button", { name: "Sí, abandonar" }));
+
+    expect(commands.map((command) => command.path)).toEqual(["/api/v1/admin/catalogue/synchronization-runs/run-now/abandon"]);
+    const heading = await within(section).findByRole("heading", { name: "Abandonada y cerrada" });
+    await waitFor(() => expect(heading.closest("[role=status]")).toHaveFocus());
+    const history = screen.getByRole("region", { name: "Ejecuciones recientes" });
+    expect(await within(history).findByRole("heading", { name: /^Abandonada por un operador/ })).toBeVisible();
+  });
+
+  it("never offers abandonment for a run that still gives heartbeats", async () => {
+    stubCommands(() => problem(500, "INTERNAL_ERROR"), [{ currentRun: running, recentRuns: [] }]);
+    renderApp("/administracion/catalogo");
+
+    expect(await within(await current()).findByRole("button", { name: "Detener sincronización" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Abandonar ejecución" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["abandon", "SYNCHRONIZATION_RUN_NOT_STALE", 409, "La ejecución sigue dando señales"],
+    ["stop", "SYNCHRONIZATION_RUN_FINISHED", 409, "La ejecución ya había terminado"],
+    ["stop", "SYNCHRONIZATION_RUN_NOT_FOUND", 404, "La ejecución ya no está en el historial"],
+    ["stop", "ACCESS_DENIED", 403, "Tu cuenta no puede controlar sincronizaciones"],
+  ])("explains a %s rejected as %s and reads the status again when it moved", async (action, code, status, heading) => {
+    const { statusReads } = stubCommands(() => problem(status, code), [{ currentRun: stalled, recentRuns: [] }]);
+    renderApp("/administracion/catalogo");
+    const section = await current();
+    const reads = () => statusReads();
+    await within(section).findByRole("button", { name: "Detener sincronización" });
+    const before = reads();
+
+    await userEvent.click(within(section).getByRole("button", { name: action === "stop" ? "Detener sincronización" : "Abandonar ejecución" }));
+    await userEvent.click(within(section).getByRole("button", { name: action === "stop" ? "Sí, detener" : "Sí, abandonar" }));
+
+    const notice = (await within(section).findByRole("heading", { name: heading })).closest("[role=status]") as HTMLElement;
+    await waitFor(() => expect(notice).toHaveFocus());
+    expect(notice.querySelector(".notice")).toHaveClass("notice-warning");
+    if (code !== "ACCESS_DENIED") await waitFor(() => expect(reads()).toBeGreaterThan(before));
+  });
+
+  it("tells a stop that came too late from a stopped run in the history", async () => {
+    stubCommands(() => problem(500, "INTERNAL_ERROR"), [{ recentRuns: [
+      finished("succeeded", "SYNCHRONIZATION_COMPLETED", { stopRequestedAt: "2026-10-18T04:09:00Z", counters }),
+      finished("failed", "SYNCHRONIZATION_STOPPED", { runId: "run-old", stopRequestedAt: "2026-10-17T04:01:00Z", counters }),
+    ] }]);
+    renderApp("/administracion/catalogo");
+
+    const [late, stopped] = await screen.findAllByRole("article") as [HTMLElement, HTMLElement];
+    expect(within(late).getByRole("heading", { name: /^Completada/ })).toBeVisible();
+    expect(late).toHaveTextContent("terminó antes de llegar a un punto seguro");
+    expect(within(stopped).getByRole("heading", { name: /^Detenida/ })).toBeVisible();
+    expect(stopped).toHaveTextContent("sin publicar ningún juego");
+  });
+});

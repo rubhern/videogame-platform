@@ -80,6 +80,14 @@ with a dedicated short statement timeout; health details remain hidden.
   meters/counters. A failure before a report exists contributes only to trigger meters;
   it does not invent a durable run. Dates, IDs, cron strings and exception messages are
   never metric labels.
+- An operator's stop or abandonment (#342) adds no meter or label. A run stopped at a safe
+  point reports the stable code `SYNCHRONIZATION_STOPPED` with the existing `partial` or
+  `failed` outcome, so the run meters and the *failed or partial* alert count it like an
+  interrupted run; its log line and retained report name the code. An abandonment writes no
+  report: it appears as its HTTP request's route template, status and stable error code, and
+  the run history holds `SYNCHRONIZATION_ABANDONED_BY_OPERATOR`. A worker that lost ownership
+  returns `SYNCHRONIZATION_OWNERSHIP_LOST` to its trigger's log and meters only; the store
+  refuses every record of it.
 - Provider meters use `catalogue.synchronization.provider.request{operation,outcome}`,
   `.request.duration{operation}`, `.retry{operation}` and `.mapping.failure{reason}`.
   Operations are the closed `window`, `works`, `release_dates`, `logos`

@@ -146,6 +146,37 @@ public class ApiExceptionHandler {
                             ErrorCategory.CONFLICT,
                             exception.pointer(),
                             "Only one synchronization runs at a time.");
+            case SYNCHRONIZATION_RUN_NOT_FOUND ->
+                    problem(
+                            response,
+                            HttpStatus.NOT_FOUND,
+                            exception.code(),
+                            "Synchronization run was not found",
+                            "Run history holds no run with this identifier; nothing changed.",
+                            ErrorCategory.NOT_FOUND,
+                            exception.pointer(),
+                            "Use a run identifier from the synchronization status.");
+            case SYNCHRONIZATION_RUN_FINISHED ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "The synchronization run already finished",
+                            "Read the run status for its result; nothing changed.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "The run no longer holds synchronization ownership.");
+            case SYNCHRONIZATION_RUN_NOT_STALE ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "The synchronization run is still alive",
+                            "Its worker gave a heartbeat within the abandonment period; request its"
+                                    + " stop instead.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "Only a run without a recent heartbeat can be abandoned.");
             case REQUEST_PARAMETER_UNKNOWN ->
                     problem(
                             response,

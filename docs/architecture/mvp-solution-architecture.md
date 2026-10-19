@@ -163,7 +163,11 @@ with the accepted run before any provider work. Neither contract can reach synch
 internals or the provider (`ProviderBoundaryTest`). The owned run executes on one
 background worker of the accepting instance, through the ordinary synchronization; an
 inbound adapter owns that thread and its trigger telemetry, and the run's progress is read
-back through the status read. The management command, repair and localization commands
+back through the status read. The same contract stops or abandons one identified run
+(#342, implemented; awaiting owner review) through the durable run row alone, never through
+the worker's thread: a stop is recorded for the worker to read at its next safe point,
+and an abandonment fences a run whose heartbeat is older than the abandonment period, so
+it works for any trigger on any instance. The management command, repair and localization commands
 stay on the private management interface.
 
 The product API is contract-first HTTP/JSON. OpenAPI generates frontend types and

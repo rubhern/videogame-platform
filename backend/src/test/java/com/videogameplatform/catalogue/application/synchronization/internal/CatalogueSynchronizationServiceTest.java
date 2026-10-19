@@ -35,6 +35,7 @@ import com.videogameplatform.catalogue.application.synchronization.port.Catalogu
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameState;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.GameWrite;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.MediaWrite;
+import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.RunControl;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore.WriteResult;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderCallStatistics;
 import com.videogameplatform.catalogue.application.synchronization.port.ProviderFailureCode;
@@ -297,8 +298,138 @@ class CatalogueSynchronizationServiceTest {
         var report = service.synchronize(REQUEST);
 
         assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_OWNERSHIP_LOST");
         assertThat(progress.events)
                 .contains("runFailed:PERSISTENCE:OWNERSHIP_LOST:-", "finished:FAILED");
+        // The run is already finished by whoever abandoned it; the store would refuse both.
+        verify(store, never()).completeRun(any(), anyInt());
+        verify(store, never()).completeCoveredRun(any(), anyInt());
+    }
+
+    @Test
+    void aStopRequestedBeforeTheNextGameEndsTheRunThereKeepingCommittedGamesWithoutCoverage() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1", "2", "3"), 4, 3L, true, ONE_REQUEST));
+        work("1", ProviderWorkType.MAIN_GAME, "Committed game", List.of());
+        List<GameWrite> writes = recordWrites();
+        // Safe points: before the page, before Game 1, then before Game 2 the stop is seen.
+        when(store.checkpoint(RUN))
+                .thenReturn(RunControl.CONTINUE, RunControl.CONTINUE, RunControl.STOP_REQUESTED);
+
+        var report = service.synchronize(REQUEST);
+
+        assertThat(writes).extracting(GameWrite::providerId).containsExactly("1");
+        verify(provider, never()).fetchWorks(List.of("2"));
+        verify(provider, never()).fetchWorks(List.of("3"));
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_STOPPED");
+        assertThat(report.counters().createdGames()).isEqualTo(1);
+        assertThat(report.counters().failedGames()).isZero();
+        verify(store).completeRun(report, 50);
+        verify(store, never()).completeCoveredRun(any(), anyInt());
+        assertThat(progress.events).last().isEqualTo("finished:PARTIAL");
+    }
+
+    @Test
+    void aStopSeenBeforeTheFirstPageNeverCallsTheProviderAndPublishesNothing() {
+        startRun();
+        when(store.checkpoint(RUN)).thenReturn(RunControl.STOP_REQUESTED);
+
+        var report = service.synchronize(REQUEST);
+
+        verify(provider, never()).releaseGames(any(), any(), anyLong(), anyInt());
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_STOPPED");
+        assertThat(report.counters().failedGames()).isZero();
+        verify(store).completeRun(report, 50);
+        verify(store, never()).completeCoveredRun(any(), anyInt());
+    }
+
+    @Test
+    void aStopBetweenPagesNeverRequestsTheNextPage() {
+        startRun();
+        when(provider.releaseGames(any(), any(), eq(0L), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1"), 1, 1L, false, ONE_REQUEST));
+        work("1", ProviderWorkType.MAIN_GAME, "First page game", List.of());
+        recordWrites();
+        when(store.checkpoint(RUN))
+                .thenReturn(RunControl.CONTINUE, RunControl.CONTINUE, RunControl.STOP_REQUESTED);
+
+        var report = service.synchronize(REQUEST);
+
+        verify(provider).releaseGames(any(), any(), eq(0L), anyInt());
+        verify(provider, never()).releaseGames(any(), any(), eq(1L), anyInt());
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_STOPPED");
+        verify(store, never()).completeCoveredRun(any(), anyInt());
+    }
+
+    @Test
+    void aRunAbandonedMeanwhileStopsAtItsNextSafePointAndRecordsNothing() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1", "2"), 3, 2L, true, ONE_REQUEST));
+        work("1", ProviderWorkType.MAIN_GAME, "Committed game", List.of());
+        recordWrites();
+        when(store.checkpoint(RUN))
+                .thenReturn(RunControl.CONTINUE, RunControl.CONTINUE)
+                .thenThrow(new SynchronizationWriteException(Reason.OWNERSHIP_LOST));
+
+        var report = service.synchronize(REQUEST);
+
+        verify(provider, never()).fetchWorks(List.of("2"));
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_OWNERSHIP_LOST");
+        verify(store, never()).completeRun(any(), anyInt());
+        verify(store, never()).completeCoveredRun(any(), anyInt());
+    }
+
+    @Test
+    void aGameWriteRefusedForLostOwnershipEndsTheRunInsteadOfFailingOneGame() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of("1", "2"), 3, 2L, true, ONE_REQUEST));
+        work("1", ProviderWorkType.MAIN_GAME, "Fenced game", List.of());
+        when(store.saveGame(eq(RUN), any()))
+                .thenThrow(new SynchronizationWriteException(Reason.OWNERSHIP_LOST));
+
+        var report = service.synchronize(REQUEST);
+
+        verify(provider, never()).fetchWorks(List.of("2"));
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_OWNERSHIP_LOST");
+        assertThat(progress.events).doesNotContain("gameFailed:1/1:PERSISTENCE:OWNERSHIP_LOST");
+        verify(store, never()).completeRun(any(), anyInt());
+    }
+
+    @Test
+    void aRepairBatchStopsBeforeItsNextGameReference() {
+        startRun();
+        work("2", ProviderWorkType.MAIN_GAME, "Repaired game", List.of());
+        known("2", KNOWN_GAME);
+        recordWrites();
+        when(store.checkpoint(RUN)).thenReturn(RunControl.CONTINUE, RunControl.STOP_REQUESTED);
+
+        var report = service.repairGames(List.of("2", "3"), false);
+
+        verify(provider, never()).fetchWorks(List.of("3"));
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.PARTIAL);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_STOPPED");
+        verify(store).completeRun(report, 50);
+    }
+
+    @Test
+    void aRepairPreviewHasNoRunAndNoSafePoints() {
+        when(provider.isConfigured()).thenReturn(true);
+        when(provider.providerName()).thenReturn("IGDB");
+        work("2", ProviderWorkType.MAIN_GAME, "Previewed game", List.of());
+        known("2", KNOWN_GAME);
+        when(store.previewGame(any())).thenReturn(new WriteResult(false, false, 0, 0, 0, 0));
+
+        var report = service.repairGames(List.of("2"), true);
+
+        assertThat(report.outcomeCode()).isEqualTo("CATALOGUE_REPAIR_PREVIEW");
+        verify(store, never()).checkpoint(any());
     }
 
     @Test
@@ -682,6 +813,7 @@ class CatalogueSynchronizationServiceTest {
         when(provider.isConfigured()).thenReturn(true);
         when(provider.providerName()).thenReturn("IGDB");
         when(store.beginRun(any(), any(), any(), any())).thenReturn(Optional.of(RUN));
+        when(store.checkpoint(RUN)).thenReturn(RunControl.CONTINUE);
         when(provider.logos(any()))
                 .thenReturn(new LogoBatch(Map.of(), ProviderCallStatistics.none()));
     }

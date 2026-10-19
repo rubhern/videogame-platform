@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-10-18
 - **Owner:** Ruben Hernandez
-- **Scope:** Product authorization for catalogue administration reads (#247) and the bounded synchronization request (#248)
+- **Scope:** Product authorization for catalogue administration reads (#247), the bounded synchronization request (#248) and the stop or abandonment of a run (#342)
 - **Relates to:** [ADR-0003](0003-use-a-same-origin-bff-and-http-json-api.md), [ADR-0007](0007-use-keycloak-as-the-initial-identity-provider.md), [ADR-0017](0017-discover-catalogue-members-automatically-from-igdb.md#coverage-and-freshness) and [ADR-0027](0027-revoke-and-end-bff-sessions-in-the-application.md)
 
 ## Context
@@ -37,7 +37,9 @@ endpoints must stay off the product port.
   acts on it, and the single-owner deployment has no separation-of-duties need. As a
   cookie-authenticated state change it also requires the session-bound CSRF token and
   same-origin browser metadata, and an anonymous request is `401` before CSRF is judged. It
-  answers before any provider call.
+  answers before any provider call. Stopping or abandoning one run (#342) reuses the same
+  authority by the owner's decision in that issue, under the same CSRF, same-origin and
+  `401`-first rules: whoever may start a run is whoever may end it.
 - Authorities are fixed at sign-in for the session's life. A grant applies from the next
   sign-in; a revocation applies to new sessions, and the owner ends existing ones with the
   ADR-0027 revocation procedure.
@@ -69,7 +71,7 @@ endpoints must stay off the product port.
 - The session representation gains an optional capability list, an additive contract
   change.
 - Further operator capabilities need their own role or an explicit decision to reuse this
-  one, as #248 records above, plus CSRF protection for any state change.
+  one, as #248 and #342 record above, plus CSRF protection for any state change.
 
 ## Revisit when
 
