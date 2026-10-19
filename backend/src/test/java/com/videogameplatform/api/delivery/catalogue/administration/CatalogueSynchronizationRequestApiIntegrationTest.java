@@ -12,10 +12,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.videogameplatform.api.delivery.OpenApiResponseContract;
 import com.videogameplatform.identity.adapter.web.ProductRoleAuthorities;
 import com.videogameplatform.test.PostgreSqlTestDatabase;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.InetAddress;
+import java.net.ServerSocket;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -38,18 +43,16 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * The operator's synchronization request behind the real BFF security chain and PostgreSQL. The
- * provider is configured but unreachable, so an accepted run really executes in the background,
- * through the ordinary synchronization, and finishes failed without any provider data.
+ * provider is configured but never answers, so an accepted run really executes in the background,
+ * through the ordinary synchronization, stays in flight until its provider timeout and finishes
+ * failed without any provider data.
  */
 @SpringBootTest(
         properties = {
             "management.server.port=0",
             "catalogue.synchronization.provider.client-id=unreachable-client",
             "catalogue.synchronization.provider.client-secret=unreachable-secret",
-            "catalogue.synchronization.provider.token-uri=http://127.0.0.1:9/oauth2/token",
-            "catalogue.synchronization.provider.api-base-uri=http://127.0.0.1:9/v4/",
             "catalogue.synchronization.provider.max-retries=0",
-            // The unreachable provider times out, so an accepted run is in flight for a while.
             "catalogue.synchronization.provider.request-timeout=2s"
         })
 @AutoConfigureMockMvc
@@ -69,9 +72,32 @@ class CatalogueSynchronizationRequestApiIntegrationTest {
     @Autowired MockMvc mockMvc;
     private JdbcTemplate admin;
 
+    /**
+     * Accepts connections through its backlog and never answers, so every provider call waits for
+     * the request timeout on any host instead of failing at once with a refused connection.
+     */
+    private static final ServerSocket SILENT_PROVIDER = silentProvider();
+
     @DynamicPropertySource
     static void database(DynamicPropertyRegistry registry) {
         PostgreSqlTestDatabase.configureSpringDatabase(registry, DATABASE, false);
+        String provider = "http://127.0.0.1:" + SILENT_PROVIDER.getLocalPort();
+        registry.add(
+                "catalogue.synchronization.provider.token-uri", () -> provider + "/oauth2/token");
+        registry.add("catalogue.synchronization.provider.api-base-uri", () -> provider + "/v4/");
+    }
+
+    @AfterAll
+    static void closeProvider() throws IOException {
+        SILENT_PROVIDER.close();
+    }
+
+    private static ServerSocket silentProvider() {
+        try {
+            return new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        } catch (IOException failure) {
+            throw new UncheckedIOException(failure);
+        }
     }
 
     @BeforeEach
