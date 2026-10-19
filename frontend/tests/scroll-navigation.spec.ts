@@ -230,14 +230,16 @@ for (const width of [390, 412, 1320]) {
       await page.goto("/");
       const selector = page.getByRole("navigation", { name: "Periodo de los destacados" });
       await expect(selector).toBeVisible();
-      await settleAnimations(page);
       const title = page.getByRole("heading", { name: "Lanzamientos semanales", exact: true });
       await expect(title).toBeVisible();
+      // The heading of the loaded week can mount after the selector and starts its own fade-in,
+      // so collect animations only once both are present.
+      await settleAnimations(page);
       // Capture the viewport directly: Locator.screenshot can scroll the element and
       // repaint a missing layer, hiding the direction-dependent defect being tested.
       const paintedText = () => Promise.all([title, selector].map(locator => paintedTextPixels(page, locator)));
+      await expect.poll(async () => Math.min(...await paintedText())).toBeGreaterThan(30);
       const before = await paintedText();
-      expect(Math.min(...before)).toBeGreaterThan(30);
       const touch = width < 620 ? await page.context().newCDPSession(page) : null;
       const scroll = async (distance: number) => {
         if (touch) {
