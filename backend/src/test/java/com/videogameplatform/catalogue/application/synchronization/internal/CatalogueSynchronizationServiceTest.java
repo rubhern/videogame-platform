@@ -16,7 +16,9 @@ import static org.mockito.Mockito.when;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport.Counters;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
+import com.videogameplatform.catalogue.application.synchronization.OwnedRun;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationStart;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.LogoBatch;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.ProviderImage;
@@ -221,6 +223,66 @@ class CatalogueSynchronizationServiceTest {
                         "pageRequested:1",
                         "runFailed:PROVIDER_PAGE:PROVIDER_RATE_LIMITED:-",
                         "finished:FAILED");
+    }
+
+    @Test
+    void startTakesOwnershipBeforeAnyProviderWorkAndExecuteRunsTheOrdinaryReconciliationOnce() {
+        startRun();
+        when(provider.releaseGames(any(), any(), anyLong(), anyInt()))
+                .thenReturn(new ReleasePage(List.of(), 0, 0L, true, ONE_REQUEST));
+
+        var start = service.start(REQUEST);
+
+        assertThat(start).isInstanceOf(SynchronizationStart.Started.class);
+        OwnedRun run = ((SynchronizationStart.Started) start).run();
+        assertThat(run.runId()).isEqualTo(RUN);
+        assertThat(run.request()).isEqualTo(REQUEST);
+        verify(store).beginRun(eq("IGDB"), eq(REQUEST), eq(run.startedAt()), any());
+        verify(provider, never()).releaseGames(any(), any(), anyLong(), anyInt());
+        assertThat(progress.events).isEmpty();
+
+        var report = run.execute();
+
+        assertThat(report.runId()).isEqualTo(RUN);
+        assertThat(report.startedAt()).isEqualTo(run.startedAt());
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_COMPLETED");
+        verify(store).completeCoveredRun(report, 50);
+        assertThatThrownBy(run::execute).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(run::cancel).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void startReportsWhyNothingStartedWithTheSameSkipAsSynchronize() {
+        var disabled = service.start(REQUEST);
+        when(provider.isConfigured()).thenReturn(true);
+        when(store.beginRun(any(), any(), any(), any())).thenReturn(Optional.empty());
+        var running = service.start(REQUEST);
+
+        assertThat(((SynchronizationStart.Skipped) disabled).reason())
+                .isEqualTo(SynchronizationStart.Reason.DISABLED);
+        assertThat(((SynchronizationStart.Skipped) disabled).report().outcomeCode())
+                .isEqualTo("SYNCHRONIZATION_DISABLED");
+        assertThat(((SynchronizationStart.Skipped) running).reason())
+                .isEqualTo(SynchronizationStart.Reason.ALREADY_RUNNING);
+        assertThat(((SynchronizationStart.Skipped) running).report().outcome())
+                .isEqualTo(SynchronizationOutcome.SKIPPED);
+        verify(provider, never()).releaseGames(any(), any(), anyLong(), anyInt());
+    }
+
+    @Test
+    void aCancelledRunReleasesOwnershipAsFailedWithoutProviderWork() {
+        startRun();
+        OwnedRun run = ((SynchronizationStart.Started) service.start(REQUEST)).run();
+
+        var report = run.cancel();
+
+        assertThat(report.outcome()).isEqualTo(SynchronizationOutcome.FAILED);
+        assertThat(report.outcomeCode()).isEqualTo("SYNCHRONIZATION_FAILED");
+        assertThat(report.runId()).isEqualTo(RUN);
+        verify(store).completeRun(report, 50);
+        verify(store, never()).completeCoveredRun(any(), anyInt());
+        verify(provider, never()).releaseGames(any(), any(), anyLong(), anyInt());
+        assertThatThrownBy(run::execute).isInstanceOf(IllegalStateException.class);
     }
 
     @Test

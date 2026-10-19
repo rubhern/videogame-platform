@@ -34,6 +34,14 @@ class CatalogueSynchronizationEndpointTest {
                         return Optional.empty();
                     }
 
+                    @Override
+                    public com.videogameplatform.catalogue.application.synchronization
+                                    .SynchronizationStart
+                            start(CatalogueSynchronizationRequest request) {
+                        throw new UnsupportedOperationException(
+                                "The management command synchronizes on its own thread");
+                    }
+
                     public CatalogueSynchronizationReport synchronize(
                             CatalogueSynchronizationRequest request) {
                         captured.set(request);

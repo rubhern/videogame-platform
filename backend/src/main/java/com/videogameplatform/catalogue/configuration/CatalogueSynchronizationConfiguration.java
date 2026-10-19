@@ -8,13 +8,16 @@ import com.videogameplatform.catalogue.adapter.persistence.synchronization.JdbcC
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbApiClient;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbApiSettings;
 import com.videogameplatform.catalogue.adapter.provider.igdb.IgdbCatalogueProviderAdapter;
+import com.videogameplatform.catalogue.adapter.scheduling.BackgroundSynchronizationExecutor;
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationCoverageQuery;
 import com.videogameplatform.catalogue.application.acquisition.SynchronizationStatusQuery;
+import com.videogameplatform.catalogue.application.administration.RequestCatalogueSynchronization;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import com.videogameplatform.catalogue.application.synchronization.internal.CatalogueSynchronizationService;
 import com.videogameplatform.catalogue.application.synchronization.internal.CoverSelectionPolicy;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationCoverageService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationPolicy;
+import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationRequestService;
 import com.videogameplatform.catalogue.application.synchronization.internal.SynchronizationStatusService;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueSynchronizationStore;
@@ -22,6 +25,9 @@ import com.videogameplatform.catalogue.application.synchronization.port.Synchron
 import io.micrometer.core.instrument.MeterRegistry;
 import java.net.http.HttpClient;
 import java.time.Clock;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.sql.DataSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -187,6 +193,35 @@ class CatalogueSynchronizationConfiguration {
     @Bean
     CatalogueCoverageEndpoint catalogueCoverageEndpoint(SynchronizationCoverageQuery coverage) {
         return new CatalogueCoverageEndpoint(coverage);
+    }
+
+    /**
+     * One worker thread for operator-requested runs, deliberately not an {@code Executor} bean so
+     * Spring Boot's application task executor stays in place. A run is submitted only while it holds
+     * the single database ownership, so the one-slot queue only absorbs the moment between a
+     * finished run releasing ownership and its thread returning. Closing the context interrupts the
+     * run; a run that cannot finish is recorded as abandoned by the next run start, as for every
+     * trigger.
+     */
+    @Bean
+    BackgroundSynchronizationExecutor backgroundSynchronization(
+            CatalogueSynchronizationMetrics metrics) {
+        return new BackgroundSynchronizationExecutor(
+                new ThreadPoolExecutor(
+                        1,
+                        1,
+                        0,
+                        TimeUnit.MILLISECONDS,
+                        new ArrayBlockingQueue<>(1),
+                        Thread.ofPlatform().name("catalogue-sync-request-", 0).daemon().factory()),
+                metrics);
+    }
+
+    @Bean
+    RequestCatalogueSynchronization requestCatalogueSynchronization(
+            SynchronizeCatalogueUseCase synchronization,
+            BackgroundSynchronizationExecutor backgroundSynchronization) {
+        return new SynchronizationRequestService(synchronization, backgroundSynchronization);
     }
 
     @Bean

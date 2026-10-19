@@ -4,6 +4,7 @@
         allowedDependencies = {
             "catalogue::application",
             "catalogue::acquisition",
+            "catalogue::administration",
             "catalogue::cover",
             "catalogue::releases",
             "catalogue::search",

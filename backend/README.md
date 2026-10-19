@@ -119,7 +119,9 @@ curl --fail -X POST -H 'Content-Type: application/json' \
 ```
 
 Catalogue synchronization (`UC-009`) has opt-in recurring near-term/upcoming inbound
-policies and an exceptional management command, all using the same application path.
+policies, the catalogue operator's bounded request from the administration page (`UC-012`,
+the preferred ad-hoc path) and an exceptional management command, all using the same
+application path and the same single run ownership.
 [`application.yaml`](src/main/resources/application.yaml) owns policy defaults;
 `backend/.env.example` names local opt-in/override settings. Cron and date windows use
 the application clock's `Europe/Madrid` zone. Keep scheduling disabled for normal local

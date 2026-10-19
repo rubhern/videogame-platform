@@ -3,7 +3,9 @@ package com.videogameplatform.catalogue.application.synchronization.internal;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationReport.Counters;
 import com.videogameplatform.catalogue.application.synchronization.CatalogueSynchronizationRequest;
+import com.videogameplatform.catalogue.application.synchronization.OwnedRun;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizationOutcome;
+import com.videogameplatform.catalogue.application.synchronization.SynchronizationStart;
 import com.videogameplatform.catalogue.application.synchronization.SynchronizeCatalogueUseCase;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort;
 import com.videogameplatform.catalogue.application.synchronization.port.CatalogueProviderPort.LogoBatch;
@@ -46,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
@@ -108,17 +111,94 @@ public final class CatalogueSynchronizationService implements SynchronizeCatalog
 
     @Override
     public CatalogueSynchronizationReport synchronize(CatalogueSynchronizationRequest request) {
+        return switch (start(request)) {
+            case SynchronizationStart.Started started -> started.run().execute();
+            case SynchronizationStart.Skipped skipped -> skipped.report();
+        };
+    }
+
+    @Override
+    public SynchronizationStart start(CatalogueSynchronizationRequest request) {
         Instant started = clock.instant();
-        Counts counts = new Counts();
         if (!provider.isConfigured()) {
-            return skipped(request, started, "SYNCHRONIZATION_DISABLED", counts);
+            return new SynchronizationStart.Skipped(
+                    SynchronizationStart.Reason.DISABLED,
+                    skipped(request, started, "SYNCHRONIZATION_DISABLED", new Counts()));
         }
         Optional<UUID> acquired =
                 store.beginRun(provider.providerName(), request, started, policy.abandonRunAfter());
         if (acquired.isEmpty()) {
-            return skipped(request, started, "SYNCHRONIZATION_ALREADY_RUNNING", counts);
+            return new SynchronizationStart.Skipped(
+                    SynchronizationStart.Reason.ALREADY_RUNNING,
+                    skipped(request, started, "SYNCHRONIZATION_ALREADY_RUNNING", new Counts()));
         }
-        UUID runId = acquired.orElseThrow();
+        return new SynchronizationStart.Started(
+                new AcquiredRun(acquired.orElseThrow(), request, started));
+    }
+
+    /** Ownership is held from {@link #start}; exactly one execute or cancel releases it. */
+    private final class AcquiredRun implements OwnedRun {
+        private final UUID runId;
+        private final CatalogueSynchronizationRequest request;
+        private final Instant startedAt;
+        private final AtomicBoolean claimed = new AtomicBoolean();
+
+        private AcquiredRun(
+                UUID runId, CatalogueSynchronizationRequest request, Instant startedAt) {
+            this.runId = runId;
+            this.request = request;
+            this.startedAt = startedAt;
+        }
+
+        @Override
+        public UUID runId() {
+            return runId;
+        }
+
+        @Override
+        public CatalogueSynchronizationRequest request() {
+            return request;
+        }
+
+        @Override
+        public Instant startedAt() {
+            return startedAt;
+        }
+
+        @Override
+        public CatalogueSynchronizationReport execute() {
+            claim();
+            return synchronizeOwned(runId, request, startedAt);
+        }
+
+        @Override
+        public CatalogueSynchronizationReport cancel() {
+            claim();
+            Counts counts = new Counts();
+            counts.failed++;
+            CatalogueSynchronizationReport result =
+                    report(
+                            runId,
+                            request,
+                            startedAt,
+                            SynchronizationOutcome.FAILED,
+                            "SYNCHRONIZATION_FAILED",
+                            counts);
+            // No progress events: the run never started its work, and its caller reports why.
+            store.completeRun(result, policy.retainedRuns());
+            return result;
+        }
+
+        private void claim() {
+            if (!claimed.compareAndSet(false, true)) {
+                throw new IllegalStateException("The synchronization run was already handled");
+            }
+        }
+    }
+
+    private CatalogueSynchronizationReport synchronizeOwned(
+            UUID runId, CatalogueSynchronizationRequest request, Instant started) {
+        Counts counts = new Counts();
         Run run = progress.started(runId, request, started, policy.providerPageSize());
         long afterGameId = 0;
         int pageNumber = 0;

@@ -154,11 +154,17 @@ cannot outrun, and ended in Keycloak too on logout
 ([ADR-0027](../decisions/0027-revoke-and-end-bff-sessions-in-the-application.md),
 [platform design](deployment/mvp-platform-and-delivery.md#account-revocation-and-the-management-interface)).
 
-Catalogue administration (#247) is a read-only product-port surface under
-`/api/v1/admin`, answered only for the operator authority. API delivery reaches it through
-Catalogue's `acquisition` application contract, which reads run and coverage evidence and
-cannot reach synchronization or the provider (`ProviderBoundaryTest`); synchronization
-commands stay on the private management interface.
+Catalogue administration (#247) is a product-port surface under `/api/v1/admin`, answered
+only for the operator authority. API delivery reaches its reads through Catalogue's
+`acquisition` application contract, which reads run and coverage evidence, and its one
+command (#248, implemented; awaiting owner review) through the `administration` contract,
+which validates a bounded interval, takes the single database run ownership and answers
+with the accepted run before any provider work. Neither contract can reach synchronization
+internals or the provider (`ProviderBoundaryTest`). The owned run executes on one
+background worker of the accepting instance, through the ordinary synchronization; an
+inbound adapter owns that thread and its trigger telemetry, and the run's progress is read
+back through the status read. The management command, repair and localization commands
+stay on the private management interface.
 
 The product API is contract-first HTTP/JSON. OpenAPI generates frontend types and
 backend Spring interfaces/transport models; manual delivery adapters map to

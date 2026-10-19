@@ -1,5 +1,6 @@
 package com.videogameplatform.api.delivery;
 
+import com.videogameplatform.api.generated.model.CatalogueSynchronizationWindow;
 import com.videogameplatform.api.generated.model.ErrorCategory;
 import com.videogameplatform.api.generated.model.FeaturedGranularity;
 import com.videogameplatform.api.generated.model.Problem;
@@ -38,6 +39,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.validation.FieldError;
+import org.springframework.validation.method.ParameterErrors;
 import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -112,6 +115,37 @@ public class ApiExceptionHandler {
                             ErrorCategory.VALIDATION,
                             exception.pointer(),
                             "Use a single ISO date that does not precede from.");
+            case SYNCHRONIZATION_RANGE_INVALID ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Synchronization interval is invalid",
+                            "Use from not after to, at most 184 days apart, between 1950-01-01"
+                                    + " and 2099-12-31.",
+                            ErrorCategory.VALIDATION,
+                            exception.pointer(),
+                            "Use a supported date inside a bounded interval.");
+            case SYNCHRONIZATION_DISABLED ->
+                    problem(
+                            response,
+                            HttpStatus.UNPROCESSABLE_CONTENT,
+                            exception.code(),
+                            "Synchronization is disabled",
+                            "This environment has no provider access; nothing was started.",
+                            ErrorCategory.BUSINESS_RULE,
+                            exception.pointer(),
+                            "Configure provider access before requesting a synchronization.");
+            case SYNCHRONIZATION_ALREADY_RUNNING ->
+                    problem(
+                            response,
+                            HttpStatus.CONFLICT,
+                            exception.code(),
+                            "A synchronization is already running",
+                            "Wait for the current run to finish, then request again.",
+                            ErrorCategory.CONFLICT,
+                            exception.pointer(),
+                            "Only one synchronization runs at a time.");
             case REQUEST_PARAMETER_UNKNOWN ->
                     problem(
                             response,
@@ -500,6 +534,26 @@ public class ApiExceptionHandler {
         }
         if ("ratingWrite".equals(parameter)) {
             return ratingValueInvalid(response);
+        }
+        if (exception.getParameterValidationResults().stream()
+                .anyMatch(
+                        result ->
+                                CatalogueSynchronizationWindow.class.equals(
+                                        result.getMethodParameter().getParameterType()))) {
+            // A missing interval date names the date to supply, like any other invalid bound.
+            String field =
+                    exception.getParameterValidationResults().stream()
+                            .filter(ParameterErrors.class::isInstance)
+                            .map(ParameterErrors.class::cast)
+                            .map(ParameterErrors::getFieldError)
+                            .filter(java.util.Objects::nonNull)
+                            .map(FieldError::getField)
+                            .filter(name -> "from".equals(name) || "to".equals(name))
+                            .findFirst()
+                            .orElse("from");
+            return requestInvalid(
+                    new ApiRequestException(ProblemCode.SYNCHRONIZATION_RANGE_INVALID, "/" + field),
+                    response);
         }
         boolean pagination = "page".equals(parameter) || "pageSize".equals(parameter);
         return problem(

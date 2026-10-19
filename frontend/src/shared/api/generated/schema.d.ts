@@ -260,7 +260,26 @@ export interface paths {
          */
         get: operations["getCatalogueSynchronizationStatus"];
         put?: never;
-        post?: never;
+        /**
+         * Request one bounded synchronization of an inclusive release-date interval
+         * @description Requires an authenticated session holding the catalogue operator authority and its
+         *     session-bound CSRF token. Validates the inclusive `from`–`to` interval, takes the single
+         *     synchronization ownership and answers `202` with the accepted run before any provider
+         *     work begins; the run continues in the background. Follow it with
+         *     `GET /admin/catalogue/synchronization`: the accepted `runId` is the `currentRun` while it
+         *     runs and then appears in `recentRuns` with its result. The run is the same
+         *     synchronization and reconciliation as every other trigger, and its coverage follows the
+         *     same rules.
+         *
+         *     Only one synchronization runs at a time, whatever started it: while another run holds
+         *     ownership the request is rejected with `409 SYNCHRONIZATION_ALREADY_RUNNING` and starts
+         *     nothing. An environment without provider access rejects it with `422
+         *     SYNCHRONIZATION_DISABLED`. The interval is at most 184 days, any calendar half-year,
+         *     between 1950-01-01 and 2099-12-31; longer historical backfill is a separate,
+         *     resumable operator workflow. Nothing is retried automatically, and the response never
+         *     carries a provider payload, credential, provider identifier or internal topology.
+         */
+        post: operations["requestCatalogueSynchronization"];
         delete?: never;
         options?: never;
         head?: never;
@@ -870,7 +889,8 @@ export interface components {
             capabilities?: components["schemas"]["SessionCapability"][];
         };
         /**
-         * @description `catalogue_administration` reads catalogue synchronization status and coverage.
+         * @description `catalogue_administration` reads catalogue synchronization status and coverage and
+         *     requests a bounded synchronization.
          * @enum {string}
          */
         SessionCapability: "catalogue_administration";
@@ -993,6 +1013,26 @@ export interface components {
         };
         /** Format: int64 */
         RunCount: number;
+        /**
+         * @description An inclusive release-date interval of at most 184 days between 1950-01-01 and
+         *     2099-12-31, with `from` not after `to`.
+         */
+        CatalogueSynchronizationWindow: {
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+        };
+        /** @description The accepted run; its progress and result are read from the run status. */
+        AcceptedSynchronizationRun: {
+            runId: components["schemas"]["SynchronizationRunId"];
+            /** Format: date */
+            from: string;
+            /** Format: date */
+            to: string;
+            /** Format: date-time */
+            startedAt: string;
+        };
         CatalogueSynchronizationCoverage: {
             /** Format: date */
             from: string;
@@ -1026,7 +1066,7 @@ export interface components {
             failedGames: components["schemas"]["RunCount"];
         };
         /** @enum {string} */
-        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID";
+        ProblemCode: "REQUEST_MALFORMED" | "REQUEST_PROPERTY_UNKNOWN" | "REQUEST_PARAMETER_UNKNOWN" | "PAGINATION_INVALID" | "PRECONDITION_REQUIRED" | "CSRF_VALIDATION_FAILED" | "SERVICE_OVERLOADED" | "REQUEST_TOO_LARGE" | "MEDIA_TYPE_UNSUPPORTED" | "REPRESENTATION_NOT_ACCEPTABLE" | "METHOD_NOT_ALLOWED" | "INTERNAL_ERROR" | "AUTHENTICATION_REQUIRED" | "GAME_NOT_FOUND" | "RATING_NOT_FOUND" | "RATING_VALUE_INVALID" | "RATING_NOT_ELIGIBLE" | "RELEASE_DATA_REVIEW_REQUIRED" | "SEARCH_QUERY_INVALID" | "FILTER_INVALID" | "PLATFORM_NOT_SUPPORTED" | "REGION_NOT_SUPPORTED" | "SORT_INVALID" | "RATING_ALREADY_EXISTS" | "RATING_WRITE_CONFLICT" | "CATALOGUE_NOT_READY" | "CATALOGUE_READ_FAILED" | "RATING_STATISTICS_READ_FAILED" | "PERSONAL_RATINGS_READ_FAILED" | "RATING_WRITE_FAILED" | "ACCESS_DENIED" | "COVERAGE_RANGE_INVALID" | "SYNCHRONIZATION_RANGE_INVALID" | "SYNCHRONIZATION_ALREADY_RUNNING" | "SYNCHRONIZATION_DISABLED";
         /** @enum {string} */
         ErrorCategory: "validation" | "authentication" | "authorization" | "not_found" | "business_rule" | "conflict" | "dependency" | "technical";
         Violation: {
@@ -1109,6 +1149,46 @@ export interface components {
         };
         /** @description The request has a query parameter this operation does not declare. */
         AdministrationValidationFailed: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /**
+         * @description The session's principal lacks the operator authority, or the state change lacks valid
+         *     session-bound CSRF proof or same-origin browser metadata.
+         */
+        AdministrationCommandForbidden: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /** @description Another synchronization holds the single run ownership; nothing was started. */
+        SynchronizationAlreadyRunning: {
+            headers: {
+                "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["Problem"];
+            };
+        };
+        /**
+         * @description A date is missing, or the interval is reversed, too long or outside the supported dates;
+         *     the body has an undeclared property; or this environment has no provider access.
+         *     Nothing was started.
+         */
+        SynchronizationRequestRejected: {
             headers: {
                 "X-Correlation-ID": components["headers"]["XCorrelationId"];
                 "Cache-Control": components["headers"]["NoStoreCacheControl"];
@@ -2073,6 +2153,51 @@ export interface operations {
             403: components["responses"]["AccessDenied"];
             406: components["responses"]["NotAcceptable"];
             422: components["responses"]["AdministrationValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    requestCatalogueSynchronization: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Session-bound anti-forgery token obtained from `/session`.
+                 * @example opaque-csrf-token
+                 */
+                "X-CSRF-Token": components["parameters"]["CsrfToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogueSynchronizationWindow"];
+            };
+        };
+        responses: {
+            /**
+             * @description The run holds synchronization ownership and continues in the background. The
+             *     response reports acceptance only, never the run's result.
+             */
+            202: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedSynchronizationRun"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AdministrationCommandForbidden"];
+            406: components["responses"]["NotAcceptable"];
+            409: components["responses"]["SynchronizationAlreadyRunning"];
+            413: components["responses"]["RequestTooLarge"];
+            415: components["responses"]["UnsupportedMediaType"];
+            422: components["responses"]["SynchronizationRequestRejected"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["ServiceOverloaded"];
         };

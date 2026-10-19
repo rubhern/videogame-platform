@@ -48,7 +48,7 @@ Owner: [local setup](local-setup.md) and `scripts/local-dependencies.sh`.
 | Run the complete packaged application | `bash scripts/local-dependencies.sh application` |
 | Run a migrated backend from source | [Database migrations](database-migrations.md#validate) |
 | Inspect health, info, metrics, last sync | [Observability](observability.md#local-inspection) |
-| Trigger a local catalogue synchronization | [Backend README](../../backend/README.md#persistence-and-observability) (`POST /actuator/cataloguesync` on `127.0.0.1:8081`) |
+| Trigger a local catalogue synchronization | **Solicitar sincronización** at `/administracion/catalogo` with an operator session ([catalogue synchronization](#catalogue-synchronization)); fallback: [Backend README](../../backend/README.md#persistence-and-observability) (`POST /actuator/cataloguesync` on `127.0.0.1:8081`) |
 
 Destructive: `bash scripts/local-dependencies.sh reset`.
 
@@ -349,9 +349,30 @@ by a session signed in with the `catalogue-operator` role
 shows the run in flight, flagged when it has stopped giving heartbeats, the last twenty
 retained runs with their outcome code and counters, and coverage by decade, year and month
 with each period's last complete scan. Its "recent" reading is a presentation policy of
-seven days, not a threshold. The view is read-only: starting a run stays on the management
-command. The [private-dev runbook](../../deploy/private-dev/README.md#catalogue-operator-role)
+seven days, not a threshold. The [private-dev runbook](../../deploy/private-dev/README.md#catalogue-operator-role)
 owns how the role is configured, granted and revoked.
+
+Post-MVP (#248, implemented; awaiting owner review): **Solicitar sincronización** on the
+same page is the preferred ad-hoc path. The operator chooses an inclusive `from`–`to`
+interval of at most 184 days between 1950 and 2099; the request answers once the run owns
+the single synchronization, before any provider call, and the page then follows that run in
+**Ejecución actual** and **Ejecuciones recientes**, reading the status every five seconds
+until the run finishes. It is the ordinary UC-009 run: the same reconciliation, coverage,
+progress logs and run report as every trigger, recorded under the `administration` trigger
+meters. A run in flight from any trigger rejects the request with
+`SYNCHRONIZATION_ALREADY_RUNNING` and starts nothing, so pause scheduling before planned
+manual work; without provider credentials it is `SYNCHRONIZATION_DISABLED`. Nothing retries
+automatically. The run executes on one background worker of the application instance that
+accepted it: stopping or recreating the application interrupts it, and a run the stopping
+application could not complete is recorded as abandoned by the next run start once its
+heartbeat is older than `CATALOGUE_SYNC_ABANDON_RUN_AFTER`, as for the management command. Avoid recreating
+the application while a requested run is in flight. Intervals longer than half a year belong
+to several requests, one after another, until resumable backfill
+([#246](https://github.com/rubhern/videogame-platform/issues/246)) exists.
+
+The management command below stays the break-glass and diagnostic path: when the product
+origin, the BFF session or Keycloak is unavailable, or when the blocking report is wanted
+directly in the shell.
 
 Runtime provider/trigger failure preserves last-valid Game state and stays outside
 readiness and product reads. Inspect trigger outcome/duration and existing run/provider
@@ -359,8 +380,9 @@ counters via the [observability catalogue](observability.md); scheduled failure 
 `SYNCHRONIZATION_TRIGGER_FAILED`, while a returned report retains its existing stable
 code. A skipped trigger is visible in logs/meters even when no new durable run is
 written. The manual command remains available on private management for exceptional
-recovery; pause scheduling before prolonged manual maintenance. Synchronization is
-never reachable from the product API and never a deployment prerequisite. Without
+recovery; pause scheduling before prolonged manual maintenance. The product API reaches
+synchronization only through the operator's bounded request, which never waits for the
+provider; no visitor request reaches it, and it is never a deployment prerequisite. Without
 IGDB credentials UC-009 reports `SYNCHRONIZATION_DISABLED` and changes nothing.
 
 Recurring catalogue synchronization has been exercised and accepted in private dev. 
