@@ -20,7 +20,7 @@ function toFailureState(error: GameSearchApiError): GameSearchShellState {
   }
   return {
     status: "error",
-    message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
+    message: "A Gameómetro le está costando un poco. Prueba más tarde",
     correlationId: error.correlationId,
   };
 }

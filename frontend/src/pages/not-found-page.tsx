@@ -6,7 +6,7 @@ export function NotFoundPage() {
       <div className="notice notice-info">
         <p className="notice-kicker">Error 404</p>
         <h1>Página no encontrada</h1>
-        <p>Esta ruta todavía no forma parte de la aplicación.</p>
+        <p>Página no disponible. No quieres ver lo que hay aquí, hazme caso</p>
         <Link className="button button-primary" to="/">
           Volver al inicio
         </Link>

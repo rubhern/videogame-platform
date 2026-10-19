@@ -79,7 +79,7 @@ for (const [mean, label, band] of [
 
     const community = page.locator(".game-community-score");
     const shown = mean.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-    await expect(community.getByLabel(`Nota media: ${shown} de 10`)).toBeVisible();
+    await expect(community.getByLabel(`Puntuación media: ${shown} de 10`)).toBeVisible();
     await expect(community.getByText(`Temperatura: ${label}`, { exact: true })).toBeVisible();
     await expect(community).toHaveAttribute("data-thermal", band);
   });

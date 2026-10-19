@@ -9,9 +9,9 @@ import {
 import { useReleasesQuery } from "../features/releases/use-releases-query";
 
 const unsupportedFilterMessages: Partial<Record<ReleasesApiError["code"], string>> = {
-  PLATFORM_NOT_SUPPORTED: "La plataforma solicitada no está disponible en Gameómetro.",
-  REGION_NOT_SUPPORTED: "La región solicitada no está disponible en Gameómetro.",
-  FILTER_INVALID: "Los filtros solicitados no son válidos.",
+  PLATFORM_NOT_SUPPORTED: "¿Qué plataforma es esa? A Gameómetro no le suena de nada",
+  REGION_NOT_SUPPORTED: "¿Qué región es esa? A Gameómetro no le suena de nada",
+  FILTER_INVALID: "Filtros inválidos, o al menos Gameómetro no los entiende",
 };
 
 function toFailureState(error: ReleasesApiError): ReleasesShellState {
@@ -26,7 +26,7 @@ function toFailureState(error: ReleasesApiError): ReleasesShellState {
 
   return {
     status: "error",
-    message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
+    message: "A Gameómetro le está costando un poco. Prueba más tarde",
     correlationId: error.correlationId,
   };
 }

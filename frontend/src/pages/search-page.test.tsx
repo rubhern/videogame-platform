@@ -138,7 +138,7 @@ describe("catalogue search page", () => {
 
     expect(
       await screen.findByText(
-        "Escribe un título o un título alternativo aprobado en el buscador de la cabecera.",
+        "Escribe un título o un título alternativo, seguro que lo tenemos",
       ),
     ).toBeInTheDocument();
     expect(searchCalls(fetchMock)).toHaveLength(0);
@@ -184,7 +184,7 @@ describe("catalogue search page", () => {
     stubSearch(() => Response.json(emptyPage, { status: 200 }));
     renderApp("/search?q=elden+ring");
 
-    expect(await screen.findByText(/Ningún juego coincide con/))
+    expect(await screen.findByText(/No tenemos nada que coincida con/))
       .toHaveTextContent("elden ring");
   });
 

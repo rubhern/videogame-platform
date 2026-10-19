@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
 import { pragmata, pragmataRelease, releasePage } from "./fixtures/releases";
+import { gameDetailsFixture } from "../src/test/game-details-fixture";
 
 async function expectAccessibleLayout(page: Page) {
   await page.evaluate(() => document.fonts.ready);
@@ -253,7 +254,7 @@ for (const width of [320, 834, 1320]) {
     const optIn = page.getByRole("checkbox", { name: "Incluir fechas aproximadas" });
     await expect(optIn).toBeVisible();
     await expect(optIn).not.toBeChecked();
-    await expect(page.getByText(/Ningún lanzamiento con fecha exacta/)).toBeVisible();
+    await expect(page.getByText(/No tenemos lanzamientos para estos filtros/)).toBeVisible();
     await expectAccessibleLayout(page);
 
     const dock = await page.locator(".releases-toolbar").boundingBox();
@@ -325,5 +326,69 @@ for (const state of ["loading", "empty", "not-ready", "error"] as const) {
       await page.getByRole("button", { name: "Reintentar" }).click();
       await expect(page.getByRole("heading", { name: "Sin lanzamientos para esta selección" })).toBeVisible();
     }
+  });
+}
+
+// Long approved notices must retain the same controls, semantics and phone reflow.
+for (const width of [320, 390, 834, 1320]) {
+  test(`approved copy preserves state meaning and reflows at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    let authenticated = false;
+    let eligible = false;
+    let featuredCode = "INTERNAL_ERROR";
+    await page.route("**/api/v1/session", (route) => route.fulfill({ json: authenticated
+      ? { authenticated: true, csrfToken: "copy-fixture", capabilities: [] }
+      : { authenticated: false } }));
+    await page.route("**/api/v1/featured-releases*", (route) => route.fulfill({ status: 503, json: { code: featuredCode } }));
+    await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage({
+      view: "upcoming", items: [], page: { number: 1, size: 12, totalItems: 0, totalPages: 0 },
+    }) }));
+    const empty = { items: [], page: { number: 1, size: 10, totalItems: 0, totalPages: 0 } };
+    await page.route("**/api/v1/games?*", (route) => route.fulfill({ json: empty }));
+    await page.route("**/api/v1/me/ratings?*", (route) => route.fulfill({ json: empty }));
+    const game = gameDetailsFixture();
+    await page.route("**/api/v1/games/*", (route) => route.fulfill({ json: {
+      ...game, ratingEligibility: { ...game.ratingEligibility, eligible,
+        reason: eligible ? "ELIGIBLE_RELEASE_FOUND" : "NO_COMMERCIAL_RELEASE" },
+    } }));
+
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Ups, parece que TOPómetro se ha tomado unas vacaciones. Prueba de nuevo más tarde" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reintentar" })).toBeEnabled();
+    await expectAccessibleLayout(page);
+    await page.screenshot({ path: test.info().outputPath(`copy-error-${width}.png`) });
+
+    featuredCode = "CATALOGUE_NOT_READY";
+    await page.reload();
+    await expect(page.getByText("Aún no tenemos datos válidos de juegos, pero tranquilo que llegarán")).toBeVisible();
+    await expect(page.getByText("Puedes usar la búsqueda de juegos")).toBeVisible();
+
+    await page.goto("/?view=upcoming");
+    await expect(page.getByText("No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos")).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).not.toBeChecked();
+    await expectAccessibleLayout(page);
+
+    const query = 'Juego <sintético> & "Luz"';
+    await page.goto(`/search?${new URLSearchParams({ q: query })}`);
+    await expect(page.getByText(`No tenemos nada que coincida con «${query}», al menos por ahora porque Gameómetro no deja de crecer`)).toBeVisible();
+    await expectAccessibleLayout(page);
+
+    await page.goto(`/games/${game.gameId}/${game.slug}`);
+    const community = page.getByRole("region", { name: "Puntuación de la comunidad" });
+    await expect(community.getByText("Aún no se puede puntuar")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Tu puntuación: sin puntuación. No disponible" }))
+      .toHaveAccessibleDescription("Puntuación no disponible: Aún no tenemos un lanzamiento");
+    await expect(community.getByText("Sé el primero en puntuar este juego")).toHaveCount(0);
+    eligible = true;
+    await page.reload();
+    await expect(community.getByText("Sé el primero en puntuar este juego")).toBeVisible();
+    await expectAccessibleLayout(page);
+
+    authenticated = true;
+    await page.goto("/mis-puntuaciones");
+    await expect(page.getByRole("heading", { name: "No has puntuado nada aún. Un Gameómetro muere en el mundo cada vez que tú decides no puntuar" })).toBeVisible();
+    await expectAccessibleLayout(page);
+    await page.screenshot({ path: test.info().outputPath(`copy-empty-${width}.png`) });
   });
 }

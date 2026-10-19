@@ -171,10 +171,10 @@ test("anonymous pick, authentication return, automatic create, update and delete
   const community = page.getByRole("region", {
     name: "Puntuación de la comunidad",
   });
-  await expect(community.getByText("Sin nota todavía")).toBeVisible();
+  await expect(community.getByText("Sin puntuación todavía")).toBeVisible();
   // A pick is the command: there is no separate submit action.
   await expect(
-    page.getByRole("button", { name: /^(Puntuar|Actualizar|Guardar nota)$/ }),
+    page.getByRole("button", { name: /^(Puntuar|Actualizar|Guardar puntuación)$/ }),
   ).toHaveCount(0);
 
   // The reading opens the scale from the keyboard; arrow keys only move focus inside it.
@@ -192,7 +192,7 @@ test("anonymous pick, authentication return, automatic create, update and delete
   await expect(page).toHaveURL(new RegExp(`${gamePath}$`));
   await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 8\/10/);
   await expect(page.getByText("Mi cuenta")).toBeVisible();
-  await expect(community.getByLabel("Nota media: 8,0 de 10")).toBeVisible();
+  await expect(community.getByLabel("Puntuación media: 8,0 de 10")).toBeVisible();
   await expect(community.getByText(/^Basada en 1 puntuación$/)).toBeVisible();
   expect(backend.commands).toHaveLength(1);
   expect(backend.commands[0]?.headers["if-none-match"]).toBe("*");
@@ -211,7 +211,7 @@ test("anonymous pick, authentication return, automatic create, update and delete
   await expect(keypad(page)).toBeHidden();
   await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 9/10." })).toHaveCount(1);
   expect(backend.commands[1]?.headers["if-match"]).toBe('"rating-version-1"');
-  await expect(community.getByLabel("Nota media: 9,0 de 10")).toBeVisible();
+  await expect(community.getByLabel("Puntuación media: 9,0 de 10")).toBeVisible();
 
   // Delete with the ETag returned by the update; focus returns to the reading.
   await openScale(page);
@@ -219,9 +219,9 @@ test("anonymous pick, authentication return, automatic create, update and delete
   await expect(page.getByRole("status").filter({ hasText: "Puntuación eliminada." })).toHaveCount(1);
   expect(backend.commands[2]?.method).toBe("DELETE");
   expect(backend.commands[2]?.headers["if-match"]).toBe('"rating-version-2"');
-  await expect(community.getByText("Sin nota todavía")).toBeVisible();
+  await expect(community.getByText("Sin puntuación todavía")).toBeVisible();
   await expect(reading(page)).toBeFocused();
-  await expect(reading(page)).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar");
+  await expect(reading(page)).toHaveAccessibleName("Tu puntuación: sin puntuación. Puntuar");
   expect(backend.commands).toHaveLength(3);
 });
 
@@ -248,7 +248,7 @@ test("a stale ETag conflict shows the winning state and never retries the comman
   await note(page, 9).click();
 
   await expect(page.getByRole("alert")).toContainText(
-    "Tu nota cambió desde otra sesión",
+    "Tu puntuación cambió desde otra sesión",
   );
   await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Templado 5\/10/);
   expect(backend.commands).toHaveLength(1);
@@ -288,7 +288,7 @@ test("rejected and ambiguous commands preserve the previous valid state", async 
   await expect(alert).toContainText("No sabemos si el cambio se aplicó");
   await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
   expect(backend.commands).toHaveLength(2);
-  await alert.getByRole("button", { name: "Comprobar mi nota" }).click();
+  await alert.getByRole("button", { name: "Comprobar mi puntuación" }).click();
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(reading(page)).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
   expect(backend.commands).toHaveLength(2);
@@ -309,6 +309,6 @@ test("an ineligible game keeps the reading disabled and stays accessible", async
   );
   await page.goto(gamePath);
   await expect(reading(page)).toBeDisabled();
-  await expect(page.getByText("el lanzamiento aún no ha ocurrido")).toBeVisible();
+  await expect(page.getByText("Puntuación no disponible: Aún no ha salido")).toBeVisible();
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });

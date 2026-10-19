@@ -26,6 +26,7 @@ Do not update them when the code changes.
 
 | Review | Revision |
 |---|---|
+| [Gameómetro user-facing copy audit](reviews/user-facing-copy-audit-2026-10-19.md) | `1532f1d`, 2026-10-19; #286 phase 1, inventory and proposals pending owner review |
 | [Repository quality review](reviews/repository-quality-review-2026-08-27.md) | `9a23801`, 2026-08-27 |
 | [MVP close-out: architecture](mvp-closeout-review/architecture-review.md), [code](mvp-closeout-review/code-review.md), [DevOps](mvp-closeout-review/devops-review.md), [infrastructure](mvp-closeout-review/infrastructure-review.md), [observability](mvp-closeout-review/observability-review.md) | `d10bc44`, MVP close-out |
 

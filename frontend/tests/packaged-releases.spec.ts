@@ -91,7 +91,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   await test.step("upcoming lists exact days by default and approximate dates on request", async () => {
     // The seed's only upcoming game in this horizon has no exact day, so the default is empty.
     await expect(page.locator(".result-count")).toHaveText("0 juegos");
-    await expect(page.getByText(/Ningún lanzamiento con fecha exacta/)).toBeVisible();
+    await expect(page.getByText(/No tenemos lanzamientos para estos filtros/)).toBeVisible();
     const optIn = page.getByRole("checkbox", { name: "Incluir fechas aproximadas" });
     await expect(optIn).not.toBeChecked();
     await optIn.focus();

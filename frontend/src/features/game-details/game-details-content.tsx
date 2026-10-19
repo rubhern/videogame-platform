@@ -44,7 +44,10 @@ const decimal = (value: number) =>
  * The community reading, the most prominent score on the page: the G-meter beside the mean, its
  * temperature in words and the count. The empty reading is quieter and smaller.
  */
-function CommunityScore({ statistics }: { statistics: GameDetails["ratingStatistics"] }) {
+function CommunityScore({ statistics, eligible }: {
+  statistics: GameDetails["ratingStatistics"];
+  eligible: GameDetails["ratingEligibility"]["eligible"];
+}) {
   const available =
     statistics.status === "available" && "count" in statistics ? statistics : null;
   const mean = available !== null && available.count > 0 ? (available.mean ?? null) : null;
@@ -65,12 +68,12 @@ function CommunityScore({ statistics }: { statistics: GameDetails["ratingStatist
         <GameMeter className="game-reading-meter" value={mean} />
         <div className="game-reading-body">
           {available === null ? (
-            <p className="game-reading-empty">Nota no disponible</p>
+            <p className="game-reading-empty">Puntuación no disponible</p>
           ) : mean === null ? (
-            <p className="game-reading-empty">Sin nota todavía</p>
+            <p className="game-reading-empty">Sin puntuación todavía</p>
           ) : (
             <>
-              <p aria-label={`Nota media: ${decimal(mean)} de 10`} className="game-reading-value">
+              <p aria-label={`Puntuación media: ${decimal(mean)} de 10`} className="game-reading-value">
                 {decimal(mean)}
                 <span>/10</span>
               </p>
@@ -87,10 +90,12 @@ function CommunityScore({ statistics }: { statistics: GameDetails["ratingStatist
       {/* The count stays as readable as the mean, so a reading from one vote says so plainly. */}
       {available === null ? (
         <p className="game-reading-description" role="status">
-          Las estadísticas no están disponibles temporalmente. Puedes seguir consultando el juego.
+          Ahora no tenemos disponibles las estadísticas del juego. Pero puedes revisar todo lo demás
         </p>
       ) : mean === null ? (
-        <p className="game-reading-description">Todavía no hay puntuaciones para este juego.</p>
+        <p className="game-reading-description">
+          {eligible === true ? "Sé el primero en puntuar este juego" : "Aún no se puede puntuar"}
+        </p>
       ) : (
         <p className="game-reading-description">
           Basada en <strong>{available.count.toLocaleString("es-ES")}</strong>{" "}
@@ -193,7 +198,7 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
           leads; IGDB's supporting reading sits beside it and the visitor's own follows. IGDB's is
           omitted, never invented, without a score. */}
       <div className="game-scores" data-sources={externalScore === null ? 1 : 2}>
-        <CommunityScore statistics={game.ratingStatistics} />
+        <CommunityScore statistics={game.ratingStatistics} eligible={game.ratingEligibility.eligible} />
         <div className="game-scores-aside">
           {externalScore === null ? null : (
             <ExternalScore score={externalScore} title={game.canonicalTitle} />

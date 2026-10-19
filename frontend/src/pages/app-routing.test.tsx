@@ -179,6 +179,7 @@ describe("application routing", () => {
       screen.getByRole("heading", { level: 1, name: "Página no encontrada" }),
     ).toBeInTheDocument();
 
+    expect(screen.getByText("Página no disponible. No quieres ver lo que hay aquí, hazme caso")).toBeVisible();
     const homeLink = screen.getByRole("link", { name: "Volver al inicio" });
     homeLink.focus();
     await user.keyboard("{Enter}");

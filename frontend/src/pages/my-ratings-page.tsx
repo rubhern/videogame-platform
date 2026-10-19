@@ -35,8 +35,8 @@ const orders: AppSelectOption[] = [
   { value: "updatedAt:asc", label: "Más antiguas", icon: "ascending" },
   { value: "canonicalTitle:asc", label: "Título A–Z", icon: "ascending" },
   { value: "canonicalTitle:desc", label: "Título Z–A", icon: "descending" },
-  { value: "ratingValue:desc", label: "Nota más alta", icon: "descending" },
-  { value: "ratingValue:asc", label: "Nota más baja", icon: "ascending" },
+  { value: "ratingValue:desc", label: "Puntuación más alta", icon: "descending" },
+  { value: "ratingValue:asc", label: "Puntuación más baja", icon: "ascending" },
 ];
 
 export function MyRatingsPage() {
@@ -74,7 +74,7 @@ export function MyRatingsPage() {
     <StageLight images={lights} />
     <div className="page-container">
       <header className="page-head">
-        <p className="eyebrow">Tu colección de notas</p>
+        <p className="eyebrow">Tu colección de puntuaciones</p>
         <HeroTitle id="my-ratings-title" title="Mis puntuaciones" />
       </header>
       {session.isPending ? <p className="result-count" role="status">Comprobando sesión…</p>
@@ -149,7 +149,7 @@ export function MyRatingsPage() {
               {data.items.length === 0 ? <div className="notice notice-empty" role="status">
                 <p className="notice-kicker">Sin resultados</p>
                 <h3>{data.page.totalItems > 0 ? "Esta página ya no tiene resultados" :
-                  params.q ? "No hay puntuaciones que coincidan con tu búsqueda" : "Todavía no has puntuado ningún juego"}</h3>
+                  params.q ? "No hay puntuaciones que coincidan con tu búsqueda" : "No has puntuado nada aún. Un Gameómetro muere en el mundo cada vez que tú decides no puntuar"}</h3>
                 {params.q ? <button className="button button-primary" onClick={() => {
                   setSearch(""); const next = { ...params, page: 1 }; delete next.q; change(next);
                 }}>Limpiar búsqueda</button>

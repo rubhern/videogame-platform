@@ -58,7 +58,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
   await test.step("no search runs until the visitor asks for one", async () => {
     await expect(
       page.getByText(
-        "Escribe un título o un título alternativo aprobado en el buscador de la cabecera.",
+        "Escribe un título o un título alternativo, seguro que lo tenemos",
       ),
     ).toBeVisible();
     await expect(page.getByRole("list", { name: "Resultados de la búsqueda" })).toHaveCount(0);
@@ -126,7 +126,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     expect(body.items).toEqual([]);
 
     await expect(
-      page.getByText(/Ningún juego coincide con .Elden Ring./),
+      page.getByText(/No tenemos nada que coincida con .Elden Ring./),
     ).toBeVisible();
     await expect(resultTitles(page)).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);

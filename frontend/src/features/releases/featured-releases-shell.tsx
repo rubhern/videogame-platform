@@ -124,7 +124,7 @@ function UnrankedNotice({ model }: { model: FeaturedReleasesViewModel }) {
       </h2>
       <p>
         {unranked
-          ? `${week ? "Esta semana tiene" : "Este mes tiene"} lanzamientos, pero Gameómetro todavía no tiene datos de Hype para ordenarlos.`
+          ? `De momento, Gameómetro no tiene Hype para lanzamientos de ${week ? "esta semana" : "este mes"}`
           : week
             ? "Gameómetro no tiene lanzamientos con día confirmado dentro de esta semana."
             : "Gameómetro no tiene lanzamientos con fecha dentro de este mes."}
@@ -162,20 +162,19 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
             <p className="notice-kicker">Datos en preparación</p>
             <h2>Los juegos todavía no están disponibles</h2>
             <p>
-              Gameómetro todavía no tiene una versión válida de sus datos de juegos. No se consulta
-              ningún proveedor externo para completarla.
+              Aún no tenemos datos válidos de juegos, pero tranquilo que llegarán
             </p>
             <button className="button" onClick={onRetry} type="button">
               Reintentar
             </button>
-            <p className="notice-footnote">La búsqueda de juegos sigue disponible</p>
+            <p className="notice-footnote">Puedes usar la búsqueda de juegos</p>
           </div>
         ) : null}
 
         {state.status === "error" ? (
           <div className="notice notice-danger" role="alert">
             <p className="notice-kicker">Error de carga</p>
-            <h2>No se pudo cargar el TOPómetro</h2>
+            <h2>Ups, parece que TOPómetro se ha tomado unas vacaciones. Prueba de nuevo más tarde</h2>
             <p>{state.message}</p>
             <button className="button button-danger" onClick={onRetry} type="button">
               Reintentar

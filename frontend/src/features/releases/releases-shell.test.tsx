@@ -166,7 +166,7 @@ describe("releases shell", () => {
     );
 
     expect(
-      screen.getByText("Ningún lanzamiento coincide con esta ventana y estos filtros."),
+      screen.getByText("No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos"),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Quitar filtros" })[0]).toHaveAttribute("href", "/?view=recent&weeks=1");
   });
@@ -218,7 +218,7 @@ describe("releases shell", () => {
     renderShell(
       {
         status: "error",
-        message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
+        message: "A Gameómetro le está costando un poco. Prueba más tarde",
         correlationId: null,
       },
       { search: { ...search, view: "upcoming" } },
@@ -227,7 +227,7 @@ describe("releases shell", () => {
     expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).toBeEnabled();
   });
 
-  it("explains an empty exact-day upcoming selection and keeps the choice when clearing filters", () => {
+  it("uses the approved empty copy for both precisions and keeps the choice when clearing filters", () => {
     const emptyUpcoming: ReleasesShellState = {
       status: "ready",
       model: viewModel({
@@ -243,8 +243,8 @@ describe("releases shell", () => {
       search: { ...search, view: "upcoming", platformIds: ["platform-ps5"] },
     });
     expect(
-      screen.getByText(/Ningún lanzamiento con fecha exacta coincide con esta ventana y estos filtros\./),
-    ).toHaveTextContent("Activa «Incluir fechas aproximadas»");
+      screen.getByText("No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos"),
+    ).toBeInTheDocument();
     exact.unmount();
 
     renderShell(emptyUpcoming, {
@@ -256,7 +256,7 @@ describe("releases shell", () => {
       },
     });
     expect(
-      screen.getByText("Ningún lanzamiento coincide con esta ventana y estos filtros."),
+      screen.getByText("No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos"),
     ).toBeInTheDocument();
     for (const reset of screen.getAllByRole("link", { name: "Quitar filtros" })) {
       expect(reset).toHaveAttribute("href", "/?view=upcoming&weeks=1&includeApproximateDates=true");
@@ -272,6 +272,8 @@ describe("releases shell", () => {
     expect(
       alert.getByRole("heading", { name: "Los juegos todavía no están disponibles" }),
     ).toBeInTheDocument();
+    expect(alert.getByText("Aún no tenemos datos válidos de juegos, pero tranquilo que llegarán")).toBeInTheDocument();
+    expect(alert.getByText("Puedes usar la búsqueda de juegos")).toBeInTheDocument();
     await user.click(alert.getByRole("button", { name: "Reintentar" }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
@@ -280,7 +282,7 @@ describe("releases shell", () => {
     renderShell(
       {
         status: "unsupported-filters",
-        message: "La plataforma solicitada no está disponible en Gameómetro.",
+        message: "¿Qué plataforma es esa? A Gameómetro no le suena de nada",
       },
       { search: { ...search, platformIds: ["platform-unknown"] } },
     );
@@ -293,7 +295,7 @@ describe("releases shell", () => {
   it("reports a generic failure with its support reference", () => {
     renderShell({
       status: "error",
-      message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
+      message: "A Gameómetro le está costando un poco. Prueba más tarde",
       correlationId: "correlation-1",
     });
 
@@ -356,11 +358,11 @@ describe("releases shell", () => {
       screen.getByText("2 juegos · La página 99 ya no está disponible"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("La página solicitada ya no está disponible para estos resultados."),
+      screen.getByText("Ay, esta página ya no está disponible"),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(
-        "Ningún lanzamiento coincide con esta ventana y estos filtros.",
+        "No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos",
       ),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ir a la última página" })).toHaveAttribute(

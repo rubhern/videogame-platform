@@ -728,6 +728,15 @@ describe("featured releases page", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("uses the approved weekly Hype explanation without exposing the signal value", async () => {
+    stubFeatured(featuredWeek({ selection: { status: "popularity_unavailable" }, items: [] }));
+    renderApp("/");
+
+    expect(await screen.findByText("De momento, Gameómetro no tiene Hype para lanzamientos de esta semana")).toBeVisible();
+    expect(screen.getByText("Sin datos de Hype")).toBeVisible();
+    expect(screen.queryByRole("article")).not.toBeInTheDocument();
+  });
+
   it("explains an unranked month and an empty month differently, with a way to the lists", async () => {
     stubFeatured(
       featured({ selection: { status: "popularity_unavailable" }, items: [] }),
@@ -749,7 +758,7 @@ describe("featured releases page", () => {
     // The missing signal is named as Hype, never with a value and never as a quality judgement.
     expect(screen.getByText("Sin datos de Hype")).toBeVisible();
     expect(
-      screen.getByText("Este mes tiene lanzamientos, pero Gameómetro todavía no tiene datos de Hype para ordenarlos."),
+      screen.getByText("De momento, Gameómetro no tiene Hype para lanzamientos de este mes"),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Ver lanzamientos recientes" })).toHaveAttribute(
       "href",
@@ -773,12 +782,14 @@ describe("featured releases page", () => {
       await screen.findByRole("heading", { name: "Los juegos todavía no están disponibles" }),
     ).toBeVisible();
     expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("Aún no tenemos datos válidos de juegos, pero tranquilo que llegarán")).toBeVisible();
+    expect(screen.getByText("Puedes usar la búsqueda de juegos")).toBeVisible();
     first.unmount();
 
     const fetchMock = stubFeatured(problem(500, "INTERNAL_ERROR"), featured());
     renderApp(MONTH);
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("No se pudo cargar el TOPómetro");
+    expect(alert).toHaveTextContent("Ups, parece que TOPómetro se ha tomado unas vacaciones. Prueba de nuevo más tarde");
     expect(alert).toHaveTextContent("Referencia para soporte: correlation-featured");
 
     await user.click(within(alert).getByRole("button", { name: "Reintentar" }));

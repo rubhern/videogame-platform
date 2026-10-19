@@ -481,9 +481,13 @@ describe("releases page", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers a filter reset when the API rejects the requested platform", async () => {
+  it.each([
+    ["PLATFORM_NOT_SUPPORTED", "¿Qué plataforma es esa? A Gameómetro no le suena de nada"],
+    ["REGION_NOT_SUPPORTED", "¿Qué región es esa? A Gameómetro no le suena de nada"],
+    ["FILTER_INVALID", "Filtros inválidos, o al menos Gameómetro no los entiende"],
+  ] as const)("preserves the %s mapping and offers a filter reset", async (code, message) => {
     stubReleases(() =>
-      Response.json(problem(422, "PLATFORM_NOT_SUPPORTED"), {
+      Response.json(problem(422, code), {
         status: 422,
         headers: { "Content-Type": "application/problem+json" },
       }),
@@ -492,6 +496,7 @@ describe("releases page", () => {
     renderApp("/?view=recent&platformIds=platform-removed");
 
     expect(await screen.findByRole("heading", { name: "Filtro no admitido" })).toBeInTheDocument();
+    expect(screen.getByText(message)).toBeVisible();
     expect(screen.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/?view=recent&weeks=1");
   });
 
@@ -514,6 +519,7 @@ describe("releases page", () => {
       await screen.findByRole("heading", { name: "No se pudieron cargar los lanzamientos" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Referencia para soporte: correlation-test")).toBeInTheDocument();
+    expect(screen.getByText("A Gameómetro le está costando un poco. Prueba más tarde")).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Reintentar" }));
 

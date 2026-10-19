@@ -54,11 +54,9 @@ function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string
   return totalPages > 0 ? `${count} · Página ${number} de ${totalPages}` : count;
 }
 
-// Exact-only upcoming can be empty while approximate dates exist, so the notice names the opt-in.
-function emptyExplanation(search: ReleasesSearch): string {
-  return search.view === "upcoming" && !search.includeApproximateDates
-    ? "Ningún lanzamiento con fecha exacta coincide con esta ventana y estos filtros. Activa «Incluir fechas aproximadas» para ver también los anunciados por mes, trimestre, año o sin fecha confirmada."
-    : "Ningún lanzamiento coincide con esta ventana y estos filtros.";
+// The approved empty-state copy is shared by both windows and date-precision selections.
+function emptyExplanation(): string {
+  return "No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos";
 }
 
 function LoadingFilters() {
@@ -147,13 +145,12 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
             <p className="notice-kicker">Datos en preparación</p>
             <h3>Los juegos todavía no están disponibles</h3>
             <p>
-              Gameómetro todavía no tiene una versión válida de sus datos de juegos. No se consulta
-              ningún proveedor externo para completarla.
+              Aún no tenemos datos válidos de juegos, pero tranquilo que llegarán
             </p>
             <button className="button" onClick={onRetry} type="button">
               Reintentar
             </button>
-            <p className="notice-footnote">La búsqueda de juegos sigue disponible</p>
+            <p className="notice-footnote">Puedes usar la búsqueda de juegos</p>
           </div>
         ) : null}
 
@@ -201,8 +198,8 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
                 </h3>
                 <p>
                   {isBeyondLastPage
-                    ? "La página solicitada ya no está disponible para estos resultados."
-                    : emptyExplanation(search)}
+                    ? "Ay, esta página ya no está disponible"
+                    : emptyExplanation()}
                 </p>
                 {hasActiveFilters(search) && state.model.page.totalItems === 0 ? (
                   <Link

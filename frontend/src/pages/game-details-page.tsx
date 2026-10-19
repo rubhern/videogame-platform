@@ -55,10 +55,10 @@ export function GameDetailsPage() {
               </h1>
               <p>
                 {missing
-                  ? "Este juego no está disponible en Gameómetro."
+                  ? "Este juego no está disponible en Gameómetro, aún."
                   : notReady
-                    ? "Aún no existe una publicación local válida. Inténtalo de nuevo más tarde."
-                    : "No pudimos leer los datos locales. Inténtalo de nuevo más tarde."}
+                    ? "No tenemos una publicación aún. Prueba más tarde"
+                    : "Estamos teniendo algún problema de lectura, inténtalo más tarde que seguro ya lo habremos arreglado"}
               </p>
               <div className="notice-actions">
                 {!missing ? (

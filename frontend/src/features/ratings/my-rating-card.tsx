@@ -14,12 +14,12 @@ import { RatingKeypad } from "./rating-keypad";
 const failures: Record<RatingCommandError["kind"], string> = {
   authentication: "Tu sesión ha caducado. Puedes iniciar sesión al puntuar desde la ficha del juego.",
   csrf: "No se pudo verificar la solicitud. Recarga la página antes de volver a intentarlo.",
-  conflict: "Tu puntuación cambió en otra sesión. Te mostramos la nota actual: revísala antes de volver a intentarlo.",
-  validation: "Elige una nota entera del 1 al 10.",
-  ineligible: "Este juego ya no admite cambios de nota. Puedes eliminar tu puntuación.",
+  conflict: "Tu puntuación cambió en otra sesión. Te mostramos la puntuación actual: revísala antes de volver a intentarlo.",
+  validation: "Elige una puntuación entera del 1 al 10.",
+  ineligible: "Este juego ya no admite cambios de puntuación. Puedes eliminar tu puntuación.",
   "rate-limited": "Espera un momento antes de volver a intentarlo.",
   unavailable: "No se pudo aplicar el cambio. Tu puntuación anterior se conserva.",
-  ambiguous: "No sabemos si se aplicó el cambio. Comprobamos tu nota actual antes de permitir otro cambio.",
+  ambiguous: "No sabemos si se aplicó el cambio. Comprobamos tu puntuación actual antes de permitir otro cambio.",
 };
 
 /** A failed command and the collection read it was issued against. */
@@ -178,12 +178,12 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
           {/* The panel's meter swings to the pending value; the persisted one stays named beside it. */}
           <GameMeter className="my-rating-editor-meter" value={selected} />
           <p>
-            <span>{changed ? "Nueva nota" : "Nota actual"}</span>
+            <span>{changed ? "Nueva puntuación" : "Puntuación actual"}</span>
             <strong>{selected}/10</strong>
             {pendingBand ? <b>{thermalLabels[pendingBand]}</b> : null}
           </p>
           {changed ? <p className="my-rating-editor-was" data-thermal={band ?? undefined}>
-            <span>Nota actual</span>
+            <span>Puntuación actual</span>
             <strong>{current}/10</strong>
             {band ? <b>{thermalLabels[band]}</b> : null}
           </p> : null}
@@ -200,7 +200,7 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
         <div className="my-rating-editor-actions">
           <button className="button" type="button" disabled={busy} onClick={() => close(true)}>Cancelar</button>
           <button className="button button-primary" type="button" disabled={busy || mustRead || !changed}
-            onClick={save}>Guardar nota</button>
+            onClick={save}>Guardar puntuación</button>
         </div>
         <div className="my-rating-editor-danger">
           <button ref={deleteButton} className="button rating-remove" type="button" disabled={busy || mustRead}
@@ -208,7 +208,7 @@ export function MyRatingCard({ item, csrfToken, readAt, onChanged }: {
             Eliminar puntuación
           </button>
           {confirmingDelete ? <div className="my-rating-confirm" role="group" aria-labelledby={confirmId}>
-            <p id={confirmId}>¿Eliminar tu nota de {current}/10? Se borrará de tu colección.</p>
+            <p id={confirmId}>¿Seguro que quieres eliminar esta puntuación?</p>
             <button ref={keepButton} className="button" type="button" disabled={busy}
               onClick={() => { setConfirmingDelete(false); deleteButton.current?.focus(); }}>Conservar</button>
             <button className="button button-danger" type="button" disabled={busy || mustRead} onClick={remove}>

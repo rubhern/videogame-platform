@@ -21,23 +21,23 @@ const ineligibleReasons: Record<
 > = {
   ELIGIBLE_RELEASE_FOUND: "Todavía no se puede puntuar este juego.",
   NO_COMMERCIAL_RELEASE:
-    "Todavía no se puede puntuar: no hay un lanzamiento comercial registrado.",
+    "Puntuación no disponible: Aún no tenemos un lanzamiento",
   RELEASE_NOT_OCCURRED:
-    "Todavía no se puede puntuar: el lanzamiento aún no ha ocurrido.",
+    "Puntuación no disponible: Aún no ha salido",
   RELEASE_CANCELLED:
-    "No se puede puntuar: los lanzamientos registrados están cancelados.",
+    "Puntuación no disponible: Juego cancelado",
   RELEASE_DATE_UNCERTAIN:
-    "Todavía no se puede puntuar: la fecha de lanzamiento es incierta.",
+    "Puntuación no disponible: Fecha incierta",
   RELEASE_REVIEW_REQUIRED:
-    "Todavía no se puede puntuar: la información del lanzamiento está pendiente de revisión.",
+    "Puntuación no disponible: El juego necesita revisión",
 };
 
 type Outcome = "expired" | "cancelled" | "invalid";
 
 const outcomeNotices: Record<Outcome, string> = {
-  expired: "La selección para puntuar caducó. Vuelve a elegir tu nota.",
-  cancelled: "No se completó el inicio de sesión. Tu nota no se ha guardado.",
-  invalid: "La nota seleccionada no era válida. Elige un valor del 1 al 10.",
+  expired: "La selección para puntuar caducó. Vuelve a elegir tu puntuación.",
+  cancelled: "No se completó el inicio de sesión. Tu puntuación no se ha guardado.",
+  invalid: "La puntuación seleccionada no era válida. Elige un valor del 1 al 10.",
 };
 
 function isOutcome(value: string | null): value is Outcome {
@@ -46,18 +46,18 @@ function isOutcome(value: string | null): value is Outcome {
 
 const failureMessages: Record<RatingCommandError["kind"], string> = {
   authentication:
-    "Tu sesión ha caducado. Vuelve a elegir la nota para iniciar sesión de nuevo.",
+    "Tu sesión ha caducado. Vuelve a elegir la puntuación para iniciar sesión de nuevo.",
   csrf: "No se pudo verificar la solicitud. Vuelve a intentarlo; si persiste, recarga la página.",
   conflict:
-    "Tu nota cambió desde otra sesión. Se muestra la versión actual; revísala y vuelve a intentarlo.",
-  validation: "La nota debe ser un número entero del 1 al 10.",
+    "Tu puntuación cambió desde otra sesión. Se muestra la versión actual; revísala y vuelve a intentarlo.",
+  validation: "La puntuación debe ser un número entero del 1 al 10.",
   ineligible: "Este juego ya no admite nuevas puntuaciones.",
   "rate-limited":
     "Demasiadas solicitudes seguidas. Espera un momento y vuelve a intentarlo.",
   unavailable:
-    "No se pudo guardar el cambio. Tu nota anterior se conserva; inténtalo de nuevo más tarde.",
+    "No se pudo guardar el cambio. Tu puntuación anterior se conserva; inténtalo de nuevo más tarde.",
   ambiguous:
-    "No sabemos si el cambio se aplicó. Comprueba tu nota actual antes de volver a intentarlo.",
+    "No sabemos si el cambio se aplicó. Comprueba tu puntuación actual antes de volver a intentarlo.",
 };
 
 type Feedback =
@@ -237,12 +237,12 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
     ? reason
     : busy
       ? command.variables?.type === "delete"
-        ? "Eliminando tu nota…"
-        : "Guardando tu nota…"
+        ? "Eliminando tu puntuación…"
+        : "Guardando tu puntuación…"
       : checking
-        ? "Comprobando tu nota…"
+        ? "Comprobando tu puntuación…"
         : authenticated && personal.isError
-          ? "No se pudo comprobar si ya tenías una nota. Puedes puntuar igualmente."
+          ? "No se pudo comprobar si ya tenías una puntuación. Puedes puntuar igualmente."
           : "";
   // The name follows the visible reading, without its decorative separator, then the action.
   const reading =
@@ -250,7 +250,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
       ? `Tu puntuación ${band ? `${thermalLabels[band]} ` : ""}${selected}/10`
       : checking
         ? "Tu puntuación: comprobando"
-        : "Tu puntuación: sin nota";
+        : "Tu puntuación: sin puntuación";
   const action = !usable
     ? "No disponible"
     : selected === null
@@ -332,7 +332,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
           <p>{failureMessages[feedback.error.kind]}</p>
           {feedback.error.kind === "ambiguous" ? (
             <button className="button" onClick={checkCurrentRating} type="button">
-              Comprobar mi nota
+              Comprobar mi puntuación
             </button>
           ) : null}
           {feedback.error.correlationId ? (
@@ -352,7 +352,7 @@ export function GameRatingPanel({ game }: { game: GameDetails }) {
           role="dialog"
           tabIndex={-1}
         >
-          <p className="game-rating-prompt">{reason ?? "Selecciona una nota"}</p>
+          <p className="game-rating-prompt">{reason ?? "Selecciona una puntuación"}</p>
           <RatingKeypad
             describedBy={feedback?.tone === "error" ? feedbackId : undefined}
             disabled={!eligible || busy}

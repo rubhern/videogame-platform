@@ -223,8 +223,8 @@ test.describe("Mis puntuaciones", () => {
       const editor = first.getByRole("dialog");
       await editor.getByRole("button", { name: "4", exact: true }).tap();
       await expect(editor).toHaveAttribute("data-thermal", "cold");
-      await expect(editor.getByText("Nueva nota")).toBeVisible();
-      await editor.getByRole("button", { name: "Guardar nota" }).tap();
+      await expect(editor.getByText("Nueva puntuación")).toBeVisible();
+      await editor.getByRole("button", { name: "Guardar puntuación" }).tap();
       await expect(score(first)).toHaveAccessibleName(/^Tu puntuación Frío 4\/10/);
       await expect(editor).toHaveCount(0);
       expect(backend.commands).toEqual([{ method: "PUT", ifMatch: '"version-1"' }]);
