@@ -24,7 +24,7 @@ function group(overrides: Partial<ReleaseContextGroup> = {}): ReleaseContextGrou
 const providerCover = {
   kind: "provider" as const,
   url: "https://images.igdb.com/igdb/image/upload/t_cover_big/coexample.webp",
-  alternativeText: "Carátula de The Witcher IV",
+  alternativeText: "Portada de The Witcher IV",
   attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/the-witcher-iv" },
 };
 
@@ -68,7 +68,7 @@ describe("release card", () => {
   it("shows an approved provider cover without the caption the game page owns", () => {
     renderCard();
 
-    expect(screen.getByRole("img", { name: "Carátula de The Witcher IV" })).toHaveAttribute(
+    expect(screen.getByRole("img", { name: "Portada de The Witcher IV" })).toHaveAttribute(
       "src",
       "https://images.igdb.com/igdb/image/upload/t_cover_big/coexample.webp",
     );
@@ -78,9 +78,9 @@ describe("release card", () => {
   it("falls back to the product-owned cover when the provider image cannot load", () => {
     renderCard();
 
-    fireEvent.error(screen.getByRole("img", { name: "Carátula de The Witcher IV" }));
+    fireEvent.error(screen.getByRole("img", { name: "Portada de The Witcher IV" }));
 
-    expect(screen.getByRole("img", { name: "Carátula oficial no disponible" })).toHaveAttribute(
+    expect(screen.getByRole("img", { name: "Portada oficial no disponible" })).toHaveAttribute(
       "src",
       "/assets/covers/fallback.svg",
     );

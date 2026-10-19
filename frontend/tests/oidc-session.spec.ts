@@ -142,7 +142,7 @@ for (const width of [1320, 390, 320]) {
     await expect(page.locator("html")).toHaveAttribute("lang", "es");
     await expect(page.getByText(/VideoGame Platform/i)).toHaveCount(0);
     await expect(page.getByText("Tu criterio.", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Volver al catálogo", exact: true })).toHaveAttribute("href", `${applicationOrigin}/`);
+    await expect(page.getByRole("link", { name: "Volver a Gameómetro", exact: true })).toHaveAttribute("href", `${applicationOrigin}/`);
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`keycloak-login-${width}.png`), fullPage: true });

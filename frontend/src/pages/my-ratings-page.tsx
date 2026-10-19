@@ -153,7 +153,7 @@ export function MyRatingsPage() {
                 {params.q ? <button className="button button-primary" onClick={() => {
                   setSearch(""); const next = { ...params, page: 1 }; delete next.q; change(next);
                 }}>Limpiar búsqueda</button>
-                  : <Link className="button button-primary" to="/search">Explorar el catálogo</Link>}
+                  : <Link className="button button-primary" to="/search">Buscar juegos</Link>}
               </div> : <div className="my-ratings-list">
                 {data.items.map(item => <MyRatingCard key={item.game.gameId} item={item} csrfToken={csrfToken}
                   readAt={query.dataUpdatedAt} onChanged={changed} />)}

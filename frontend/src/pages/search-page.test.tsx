@@ -168,7 +168,7 @@ describe("catalogue search page", () => {
     const { router } = renderApp("/search");
 
     await user.type(
-      await screen.findByRole("combobox", { name: "Buscar en el catálogo" }),
+      await screen.findByRole("combobox", { name: "Buscar juegos" }),
       "the witcher 4",
     );
     await user.click(screen.getByRole("button", { name: "Buscar" }));
@@ -184,7 +184,7 @@ describe("catalogue search page", () => {
     stubSearch(() => Response.json(emptyPage, { status: 200 }));
     renderApp("/search?q=elden+ring");
 
-    expect(await screen.findByText(/Ningún juego del catálogo local coincide con/))
+    expect(await screen.findByText(/Ningún juego coincide con/))
       .toHaveTextContent("elden ring");
   });
 
@@ -229,7 +229,7 @@ describe("catalogue search page", () => {
     renderApp("/search?q=evil");
 
     expect(
-      await screen.findByRole("heading", { name: "El catálogo todavía no está disponible" }),
+      await screen.findByRole("heading", { name: "Los juegos todavía no están disponibles" }),
     ).toBeInTheDocument();
   });
 
@@ -272,7 +272,7 @@ describe("catalogue search page", () => {
     renderApp("/search");
 
     await user.type(
-      await screen.findByRole("combobox", { name: "Buscar en el catálogo" }),
+      await screen.findByRole("combobox", { name: "Buscar juegos" }),
       "the witcher 4",
     );
     await user.click(screen.getByRole("button", { name: "Buscar" }));

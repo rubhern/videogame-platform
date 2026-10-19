@@ -180,9 +180,9 @@ describe("featured releases page", () => {
     const hero = await screen.findByRole("article", { name: "Juego destacado" });
     // The browser names only the granularity; the API derives the current week in Madrid.
     expect(requestedUrl(fetchMock).search).toBe("?granularity=week");
-    expect(screen.getByRole("heading", { level: 1, name: "Lanzamientos semanales" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "TOPómetro de la semana" })).toBeVisible();
     expect(within(hero).getByText("Lanzamiento de la semana")).toBeVisible();
-    const switcher = screen.getByRole("navigation", { name: "Periodo de los destacados" });
+    const switcher = screen.getByRole("navigation", { name: "Periodo del TOPómetro" });
     expect(within(switcher).getByRole("link", { name: "Semana" })).toHaveAttribute(
       "aria-current",
       "true",
@@ -211,7 +211,7 @@ describe("featured releases page", () => {
     // The current week needs no way back to itself.
     expect(screen.queryByRole("link", { name: "Semana actual" })).toBeNull();
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Lanzamientos destacados de la semana del 28 de septiembre al 4 de octubre de 2026",
+      "TOPómetro de la semana del 28 de septiembre al 4 de octubre de 2026",
     );
     // Thursday 1 October is the release's day; Saturday 3 October is today.
     expect(
@@ -220,7 +220,7 @@ describe("featured releases page", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      within(screen.getByRole("region", { name: "Otros lanzamientos destacados" })).getAllByRole(
+      within(screen.getByRole("region", { name: "Más lanzamientos del TOPómetro" })).getAllByRole(
         "heading",
         { level: 3 },
       ),
@@ -234,7 +234,7 @@ describe("featured releases page", () => {
     const hero = await screen.findByRole("article", { name: "Juego destacado" });
     expect(requestedUrl(fetchMock).pathname).toBe("/api/v1/featured-releases");
     expect(requestedUrl(fetchMock).search).toBe("?granularity=month");
-    expect(screen.getByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "TOPómetro del mes" })).toBeVisible();
     expect(within(hero).getByText("Lanzamiento del mes")).toBeVisible();
     expect(within(hero).getByText("15 de octubre de 2026")).toBeInTheDocument();
     expect(within(hero).getByRole("list", { name: "Plataformas" })).toHaveTextContent(
@@ -247,7 +247,7 @@ describe("featured releases page", () => {
     // The entire hero is one native link; release-list navigation stays outside it.
     expect(within(hero).queryByRole("link", { name: /Explorar lanzamientos/ })).toBeNull();
 
-    const others = screen.getByRole("region", { name: "Otros lanzamientos destacados" });
+    const others = screen.getByRole("region", { name: "Más lanzamientos del TOPómetro" });
     expect(
       within(others)
         .getAllByRole("heading", { level: 3 })
@@ -257,7 +257,7 @@ describe("featured releases page", () => {
       "href",
       "/?view=recent&weeks=1",
     );
-    expect(screen.getByRole("status")).toHaveTextContent("Lanzamientos destacados de octubre de 2026");
+    expect(screen.getByRole("status")).toHaveTextContent("TOPómetro de octubre de 2026");
     // The heading is the title and the month alone: no selection caption or selection note.
     expect(screen.queryByText(/Selección del mes|Selección automática/)).toBeNull();
     // Attention ranks the selection; nothing claims quality or an award.
@@ -298,7 +298,7 @@ describe("featured releases page", () => {
     expect(within(hero).queryByText("Publicado")).toBeNull();
     expect(within(hero).queryByText("Lanzamiento completo")).toBeNull();
     expect(within(hero).queryByText("Ver ficha")).toBeNull();
-    const card = screen.getByRole("region", { name: "Otros lanzamientos destacados" });
+    const card = screen.getByRole("region", { name: "Más lanzamientos del TOPómetro" });
     expect(within(card).getByRole("list", { name: "Géneros" })).toHaveTextContent("AventuraRol (RPG)");
     expect(within(card).getByText("22 de octubre de 2026: PlayStation 5.")).toBeInTheDocument();
     expect(within(card).getByText("Mundial")).toBeVisible();
@@ -346,7 +346,7 @@ describe("featured releases page", () => {
       "https://images.igdb.com/igdb/image/upload/t_1080p/scexample.webp",
     );
     const cards = within(
-      screen.getByRole("region", { name: "Otros lanzamientos destacados" }),
+      screen.getByRole("region", { name: "Más lanzamientos del TOPómetro" }),
     ).getAllByRole("article");
     // A screenshot carries no title, so its card sets the logo over it, hidden from the
     // accessibility tree because the title link below names the game.
@@ -463,7 +463,7 @@ describe("featured releases page", () => {
     renderApp(MONTH);
 
     await screen.findByRole("article", { name: "Juego destacado" });
-    expect(screen.queryByRole("region", { name: "Otros lanzamientos destacados" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Más lanzamientos del TOPómetro" })).toBeNull();
   });
 
   it("steps through months in the URL and offers the way back to the current month", async () => {
@@ -480,7 +480,7 @@ describe("featured releases page", () => {
 
     await screen.findByRole("article", { name: "Juego destacado" });
     expect(requestedUrl(fetchMock).searchParams.get("month")).toBe("2026-09");
-    expect(screen.getByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
+    expect(screen.getByRole("heading", { level: 1, name: "TOPómetro del mes" })).toBeVisible();
     const months = screen.getByRole("navigation", { name: "Mes de la selección" });
     expect(within(months).getByText("Septiembre 2026")).toBeVisible();
     expect(within(months).getByRole("link", { name: "Mes anterior: agosto de 2026" })).toHaveAttribute(
@@ -580,7 +580,7 @@ describe("featured releases page", () => {
     );
     const { router } = renderApp("/?week=2026-W44");
     await screen.findByRole("article", { name: "Juego destacado" });
-    const switcher = screen.getByRole("navigation", { name: "Periodo de los destacados" });
+    const switcher = screen.getByRole("navigation", { name: "Periodo del TOPómetro" });
 
     // Keyboard: the switch's links are ordinary tab stops before the steps.
     within(switcher).getByRole("link", { name: "Semana" }).focus();
@@ -589,7 +589,7 @@ describe("featured releases page", () => {
     await user.keyboard("{Enter}");
 
     expect(router.state.location.search).toBe("?granularity=month");
-    expect(await screen.findByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
+    expect(await screen.findByRole("heading", { level: 1, name: "TOPómetro del mes" })).toBeVisible();
     expect(
       await within(screen.getByRole("navigation", { name: "Mes de la selección" })).findByText(
         "Octubre 2026",
@@ -598,13 +598,13 @@ describe("featured releases page", () => {
     expect(requestedUrl(fetchMock, 1).search).toBe("?granularity=month");
 
     await user.click(
-      within(screen.getByRole("navigation", { name: "Periodo de los destacados" })).getByRole(
+      within(screen.getByRole("navigation", { name: "Periodo del TOPómetro" })).getByRole(
         "link",
         { name: "Semana" },
       ),
     );
     expect(router.state.location.search).toBe("");
-    expect(await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" })).toBeVisible();
+    expect(await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" })).toBeVisible();
     expect(requestedUrl(fetchMock, 2).search).toBe("?granularity=week");
   });
 
@@ -678,7 +678,7 @@ describe("featured releases page", () => {
       }),
     ).toBeVisible();
     expect(
-      screen.getByText("El catálogo local no tiene estrenos con día confirmado dentro de esta semana."),
+      screen.getByText("Gameómetro no tiene lanzamientos con día confirmado dentro de esta semana."),
     ).toBeVisible();
     expect(screen.queryByRole("article")).toBeNull();
   });
@@ -741,11 +741,16 @@ describe("featured releases page", () => {
     const first = renderApp(MONTH);
 
     expect(
-      await screen.findByRole("heading", { name: "Aún no hay lanzamientos destacados en octubre de 2026" }),
+      await screen.findByRole("heading", { name: "Aún no hay TOPómetro de octubre de 2026" }),
     ).toBeVisible();
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Aún no hay lanzamientos destacados en octubre de 2026",
+      "Aún no hay TOPómetro de octubre de 2026",
     );
+    // The missing signal is named as Hype, never with a value and never as a quality judgement.
+    expect(screen.getByText("Sin datos de Hype")).toBeVisible();
+    expect(
+      screen.getByText("Este mes tiene lanzamientos, pero Gameómetro todavía no tiene datos de Hype para ordenarlos."),
+    ).toBeVisible();
     expect(screen.getByRole("link", { name: "Ver lanzamientos recientes" })).toHaveAttribute(
       "href",
       "/?view=recent&weeks=1",
@@ -756,7 +761,7 @@ describe("featured releases page", () => {
     expect(
       await screen.findByRole("heading", { name: "No hay lanzamientos en febrero de 2031" }),
     ).toBeVisible();
-    expect(screen.queryByRole("region", { name: "Otros lanzamientos destacados" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Más lanzamientos del TOPómetro" })).toBeNull();
   });
 
   it("separates a catalogue that is not ready from a technical failure and retries on request", async () => {
@@ -765,7 +770,7 @@ describe("featured releases page", () => {
     const first = renderApp(MONTH);
 
     expect(
-      await screen.findByRole("heading", { name: "El catálogo todavía no está disponible" }),
+      await screen.findByRole("heading", { name: "Los juegos todavía no están disponibles" }),
     ).toBeVisible();
     expect(screen.queryByRole("alert")).toBeNull();
     first.unmount();
@@ -773,7 +778,7 @@ describe("featured releases page", () => {
     const fetchMock = stubFeatured(problem(500, "INTERNAL_ERROR"), featured());
     renderApp(MONTH);
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("No se pudieron cargar los lanzamientos destacados");
+    expect(alert).toHaveTextContent("No se pudo cargar el TOPómetro");
     expect(alert).toHaveTextContent("Referencia para soporte: correlation-featured");
 
     await user.click(within(alert).getByRole("button", { name: "Reintentar" }));

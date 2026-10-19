@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 public final class CatalogueCoverMapper {
 
     private static final String FALLBACK_COVER_PATH = "/assets/covers/fallback.svg";
-    private static final String FALLBACK_ALTERNATIVE_TEXT = "Carátula oficial no disponible";
+    private static final String FALLBACK_ALTERNATIVE_TEXT = "Portada oficial no disponible";
 
     public Cover toResponse(CatalogueCover source) {
         return switch (source) {

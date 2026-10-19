@@ -20,7 +20,7 @@ function toFailureState(error: GameSearchApiError): GameSearchShellState {
   }
   return {
     status: "error",
-    message: "No se pudo leer el catálogo local. Inténtalo de nuevo más tarde.",
+    message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
     correlationId: error.correlationId,
   };
 }

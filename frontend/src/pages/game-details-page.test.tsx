@@ -419,20 +419,30 @@ describe("public game details", () => {
     // A region without a supplied mark keeps the generic location marker.
     expect(mark("China")).toBeUndefined();
   });
-  it("names a known stage under its date and leaves an unknown one unstated", async () => {
+  it("names a special stage under its date and leaves a full release or unknown stage unstated", async () => {
     const game = gameDetailsFixture();
     const original = game.releases[0];
     if (!original) throw new Error("Fixture needs a release");
     original.stage = "full_release";
-    game.releases.push({
-      ...original,
-      releaseId: "pc-world",
-      stage: "unknown",
-      platform: { platformId: "pc", name: "Windows PC" },
-    });
+    game.releases.push(
+      {
+        ...original,
+        releaseId: "pc-world",
+        stage: "unknown",
+        platform: { platformId: "pc", name: "Windows PC" },
+      },
+      {
+        ...original,
+        releaseId: "mac-early",
+        stage: "early_access",
+        releaseDate: { precision: "day", value: "2025-06-01" },
+        platform: { platformId: "mac", name: "Mac" },
+      },
+    );
     serve(game);
     renderApp(path);
-    expect(await screen.findByText("Lanzamiento completo")).toBeVisible();
+    expect(await screen.findByText("Acceso anticipado")).toBeVisible();
+    expect(screen.queryByText("Lanzamiento completo")).not.toBeInTheDocument();
     expect(screen.queryByText("Tipo no especificado")).not.toBeInTheDocument();
   });
   it("preserves uncertain dates, review state and a degraded aggregate", async () => {
@@ -580,7 +590,7 @@ describe("public game details", () => {
   });
   it.each([
     ["GAME_NOT_FOUND", "Juego no encontrado"],
-    ["CATALOGUE_NOT_READY", "El catálogo todavía no está disponible"],
+    ["CATALOGUE_NOT_READY", "Los juegos todavía no están disponibles"],
     ["SERVICE_OVERLOADED", "No se pudo cargar el juego"],
   ])("explains %s", async (code, title) => {
     vi.stubGlobal(
@@ -595,7 +605,7 @@ describe("public game details", () => {
     renderApp(path);
     expect(await screen.findByRole("heading", { name: title })).toBeVisible();
     expect(
-      screen.getByRole("link", { name: "Volver a lanzamientos" }),
+      screen.getByRole("link", { name: "Volver al TOPómetro" }),
     ).toBeVisible();
   });
   it("offers a deliberate keyboard retry for network failures", async () => {

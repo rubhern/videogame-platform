@@ -9,8 +9,8 @@ import {
 import { useReleasesQuery } from "../features/releases/use-releases-query";
 
 const unsupportedFilterMessages: Partial<Record<ReleasesApiError["code"], string>> = {
-  PLATFORM_NOT_SUPPORTED: "La plataforma solicitada no existe en el catálogo local.",
-  REGION_NOT_SUPPORTED: "La región solicitada no existe en el catálogo local.",
+  PLATFORM_NOT_SUPPORTED: "La plataforma solicitada no está disponible en Gameómetro.",
+  REGION_NOT_SUPPORTED: "La región solicitada no está disponible en Gameómetro.",
   FILTER_INVALID: "Los filtros solicitados no son válidos.",
 };
 
@@ -26,7 +26,7 @@ function toFailureState(error: ReleasesApiError): ReleasesShellState {
 
   return {
     status: "error",
-    message: "No se pudo leer el catálogo local. Inténtalo de nuevo más tarde.",
+    message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
     correlationId: error.correlationId,
   };
 }

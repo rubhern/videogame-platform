@@ -92,45 +92,56 @@ describe("application routing", () => {
     renderApp();
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" }),
+      await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" }),
     ).toBeInTheDocument();
     expect(
       await screen.findByRole("heading", { level: 2, name: "Pragmata" }),
     ).toBeInTheDocument();
-    const releases = screen.getByRole("navigation", { name: "Lanzamientos" });
-    expect(within(releases).getByRole("link", { name: "Destacados" })).toHaveAttribute(
+    const primary = screen.getByRole("navigation", { name: "Principal" });
+    expect(within(primary).getByRole("link", { name: "TOPómetro" })).toHaveAttribute(
       "aria-current",
       "page",
     );
   });
 
-  it("opens each release list from the one Lanzamientos navigation", async () => {
+  it("opens both release windows from the Lanzamientos entry and returns to TOPómetro", async () => {
     const user = userEvent.setup();
     const { router } = renderApp();
-    const releases = screen.getByRole("navigation", { name: "Lanzamientos" });
+    const primary = screen.getByRole("navigation", { name: "Principal" });
 
-    expect(within(releases).getAllByRole("link").map((link) => link.textContent)).toEqual([
-      "Destacados",
-      "Recientes",
-      "Próximos",
+    expect(within(primary).getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Lanzamientos",
+      "TOPómetro",
     ]);
-    await user.click(within(releases).getByRole("link", { name: "Recientes" }));
+    await user.click(within(primary).getByRole("link", { name: "Lanzamientos" }));
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
     ).toBeInTheDocument();
     expect(router.state.location.search).toBe("?view=recent&weeks=1");
-    expect(within(releases).getByRole("link", { name: "Recientes" })).toHaveAttribute(
+    expect(within(primary).getByRole("link", { name: "Lanzamientos" })).toHaveAttribute(
       "aria-current",
       "page",
     );
-    expect(within(releases).getByRole("link", { name: "Destacados" })).not.toHaveAttribute(
+    expect(within(primary).getByRole("link", { name: "TOPómetro" })).not.toHaveAttribute(
       "aria-current",
     );
 
-    await user.click(within(releases).getByRole("link", { name: "Destacados" }));
+    // The upcoming window stays one choice away, inside the same Lanzamientos section.
+    const windows = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
+    await user.click(within(windows).getByRole("link", { name: "Próximos" }));
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" }),
+      await screen.findByRole("heading", { level: 1, name: "Próximos lanzamientos" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.search).toBe("?view=upcoming&weeks=1");
+    expect(within(primary).getByRole("link", { name: "Lanzamientos" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+
+    await user.click(within(primary).getByRole("link", { name: "TOPómetro" }));
+    expect(
+      await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" }),
     ).toBeInTheDocument();
     expect(router.state.location.search).toBe("");
   });
@@ -138,7 +149,7 @@ describe("application routing", () => {
   it("presents the product as Gameómetro in the shell", async () => {
     renderApp();
 
-    await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" });
+    await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" });
     expect(screen.getByRole("link", { name: "Gameómetro · Inicio" })).toHaveAttribute("href", "/");
     expect(within(screen.getByRole("contentinfo")).getByText("Gameómetro")).toBeVisible();
   });
@@ -147,12 +158,12 @@ describe("application routing", () => {
     const user = userEvent.setup();
     renderApp();
 
-    await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" });
-    const sections = screen.getByRole("navigation", { name: "Lanzamientos" });
+    await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" });
+    const sections = screen.getByRole("navigation", { name: "Principal" });
     expect(within(sections).queryByRole("link", { name: "Buscar" })).not.toBeInTheDocument();
     expect(screen.queryByText("Catálogo de lanzamientos · MVP privado")).not.toBeInTheDocument();
     expect(screen.queryByText("Datos locales · sin consultas al proveedor")).not.toBeInTheDocument();
-    await user.type(screen.getByRole("combobox", { name: "Buscar en el catálogo" }), "Pragmata{Enter}");
+    await user.type(screen.getByRole("combobox", { name: "Buscar juegos" }), "Pragmata{Enter}");
 
     expect(
       await screen.findByRole("heading", { level: 1, name: "Resultados para «Pragmata»" }),
@@ -172,14 +183,14 @@ describe("application routing", () => {
     homeLink.focus();
     await user.keyboard("{Enter}");
 
-    await screen.findByRole("heading", { level: 1, name: "Lanzamientos semanales" });
+    await screen.findByRole("heading", { level: 1, name: "TOPómetro de la semana" });
     expect(screen.getByRole("main")).toHaveFocus();
   });
 
   it("focuses the integrated catalogue search with its keyboard shortcut", async () => {
     const user = userEvent.setup();
     renderApp();
-    const search = screen.getByRole("combobox", { name: "Buscar en el catálogo" });
+    const search = screen.getByRole("combobox", { name: "Buscar juegos" });
 
     await user.keyboard("/");
 

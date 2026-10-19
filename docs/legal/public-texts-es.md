@@ -99,7 +99,7 @@ Puedes solicitar información sobre los destinatarios y las garantías de transf
 aplicables a tu caso en hola@gameometro.com y consultar la
 [información de protección de datos de Sinch](https://sinch.com/legal/terms-and-conditions/other-sinch-terms-conditions/data-processing-agreement/).
 
-Al cargar carátulas e imágenes, tu navegador conecta directamente con
+Al cargar portadas e imágenes, tu navegador conecta directamente con
 `images.igdb.com`, servido mediante una red de distribución de contenidos. Esto
 comunica tu IP, datos del navegador y el origen `gameometro.com`; no enviamos al CDN
 tu email ni tus puntuaciones. Twitch informa de tratamiento de datos en Estados

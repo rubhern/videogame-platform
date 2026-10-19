@@ -46,7 +46,7 @@ function item(
     primaryCover: {
       kind: "fallback",
       url: "/assets/covers/fallback.svg",
-      alternativeText: "Carátula oficial no disponible",
+      alternativeText: "Portada oficial no disponible",
       attribution: null,
     },
     featuredImage: {
@@ -252,7 +252,7 @@ describe("featured releases view model", () => {
             primaryCover: {
               kind: "provider",
               url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coa.webp",
-              alternativeText: "Carátula de Title a",
+              alternativeText: "Portada de Title a",
               attribution,
             },
             featuredImage: {
@@ -275,7 +275,7 @@ describe("featured releases view model", () => {
               presentation: "contain",
               url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/cob.webp",
               compactUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/cob.webp",
-              alternativeText: "Carátula de Title b",
+              alternativeText: "Portada de Title b",
               attribution,
             },
           }),
@@ -307,7 +307,7 @@ describe("featured releases view model", () => {
     const cover = {
       kind: "provider",
       url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coa.webp",
-      alternativeText: "Carátula de Title a",
+      alternativeText: "Portada de Title a",
       attribution,
     } as const;
     const designed = toFeaturedReleasesViewModel(

@@ -105,14 +105,13 @@ for (const width of [320, 390, 834, 1320]) {
     await expectAccessibleLayout(page);
     if (width < 620) {
       const logo = await page.getByRole("link", { name: "Gameómetro · Inicio" }).boundingBox();
-      const featured = await page.getByRole("link", { name: "Destacados", exact: true }).boundingBox();
-      const recent = await page.getByRole("link", { name: "Recientes" }).boundingBox();
-      const upcoming = await page.getByRole("link", { name: "Próximos", exact: true }).boundingBox();
+      const primary = page.getByRole("navigation", { name: "Principal" });
+      const featured = await primary.getByRole("link", { name: "TOPómetro", exact: true }).boundingBox();
+      const recent = await primary.getByRole("link", { name: "Lanzamientos", exact: true }).boundingBox();
       const search = await page.getByRole("button", { name: "Buscar juegos" }).boundingBox();
       expect(featured?.y).toBe(recent?.y);
-      expect(recent?.y).toBe(upcoming?.y);
       expect(logo?.y).toBe(search?.y);
-      // The three release sections share the identity's row from 360px; narrower phones give
+      // The two release entries share the identity's row from 360px; narrower phones give
       // them a full-width row of their own under the identity and both icons.
       if (width >= 360) {
         expect(logo?.y).toBe(recent?.y);
@@ -121,17 +120,17 @@ for (const width of [320, 390, 834, 1320]) {
       }
       await page.getByRole("button", { name: "Buscar juegos" }).click();
       await expect(page.getByRole("dialog", { name: "Buscar juegos" })).toBeVisible();
-      await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toBeFocused();
+      await expect(page.getByRole("combobox", { name: "Buscar juegos" })).toBeFocused();
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog", { name: "Buscar juegos" })).not.toBeVisible();
       await expect(page.getByRole("button", { name: "Buscar juegos" })).toBeFocused();
       await page.keyboard.press("/");
-      await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toBeFocused();
+      await expect(page.getByRole("combobox", { name: "Buscar juegos" })).toBeFocused();
     }
-    const catalogueSearch = page.getByRole("combobox", { name: "Buscar en el catálogo" });
+    const catalogueSearch = page.getByRole("combobox", { name: "Buscar juegos" });
     await catalogueSearch.fill("Pragmata");
     await catalogueSearch.press("Enter");
-    if (width >= 620) await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toBeVisible();
+    if (width >= 620) await expect(page.getByRole("combobox", { name: "Buscar juegos" })).toBeVisible();
     await expectAccessibleLayout(page);
   });
 }
@@ -289,7 +288,7 @@ test("phone search closes cleanly when the layout widens", async ({ page }) => {
 
   await page.setViewportSize({ width: 834, height: 844 });
   await expect(page.getByRole("dialog", { name: "Buscar juegos" })).not.toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toBeFocused();
+  await expect(page.getByRole("combobox", { name: "Buscar juegos" })).toBeFocused();
 });
 
 for (const state of ["loading", "empty", "not-ready", "error"] as const) {

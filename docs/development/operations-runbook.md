@@ -311,7 +311,7 @@ de-duplication; each successful run refreshes the coverage of its own window.
 
 The widest future window among the policies not disabled with `-` (the upcoming policy's
 180 days by default) is also the configured forward acquisition horizon that bounds
-Destacados' monthly navigation ([UC-010](../architecture/application/mvp-use-cases.md)):
+TOPómetro's monthly navigation ([UC-010](../architecture/application/mvp-use-cases.md)):
 months stop at the last month lying wholly inside it. It applies whether or not
 `CATALOGUE_SYNC_SCHEDULING_ENABLED` is on, because it states the configured intent, not
 completed coverage. Narrowing or disabling the upcoming policy therefore shortens how far
@@ -483,7 +483,7 @@ Featured releases (#151) rank each month by the IGDB Hypes signal that this same
 acquires with the existing Game request, together with first-release and distinct-product
 evidence, for every Game it reconciles. Nothing
 refreshes it between runs, so keep the current month's interval synchronized (for
-example `from` the first and `to` the last day of the month) when Destacados should
+example `from` the first and `to` the last day of the month) when TOPómetro should
 reflect current attention. Signals older than `CATALOGUE_RELEASES_FRESHNESS_THRESHOLD`
 make the selection stale: it stays served and says when attention was last observed.
 The same run selects each Game's featured image from the artworks and screenshots of its

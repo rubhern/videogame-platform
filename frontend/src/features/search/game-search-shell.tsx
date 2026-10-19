@@ -34,7 +34,7 @@ function resultsSummary(model: GameSearchViewModel, isRefreshing: boolean): stri
   }
   const { totalItems, number, totalPages } = model.page;
   const count =
-    totalItems === 1 ? "1 juego del catálogo local" : `${totalItems} juegos del catálogo local`;
+    totalItems === 1 ? "1 juego" : `${totalItems} juegos`;
   if (totalPages > 0 && number > totalPages) {
     return `${count} · La página ${number} ya no está disponible`;
   }
@@ -74,7 +74,7 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
       <StageLight images={lights} />
       <div className="page-container search-section">
         <header className="page-head">
-          <p className="eyebrow">Catálogo de juegos</p>
+          <p className="eyebrow">Búsqueda de juegos</p>
           <HeroTitle id="search-title" title={pageTitle(params)} />
         </header>
 
@@ -88,14 +88,14 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
 
         {state.status === "prompt" ? (
           <div className="notice notice-empty" role="status">
-            <p className="notice-kicker">Buscar en el catálogo</p>
+            <p className="notice-kicker">Buscar juegos</p>
             <h3>Encuentra un juego por su título</h3>
             <p>Escribe un título o un título alternativo aprobado en el buscador de la cabecera.</p>
           </div>
         ) : null}
 
         {state.status === "loading" ? (
-          <CatalogueLoading message="Buscando en el catálogo…" placeholders={placeholders} shape="index" />
+          <CatalogueLoading message="Buscando juegos…" placeholders={placeholders} shape="index" />
         ) : null}
 
         {state.status === "query-invalid" ? (
@@ -108,11 +108,11 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
 
         {state.status === "catalogue-not-ready" ? (
           <div className="notice notice-info" role="alert">
-            <p className="notice-kicker">Catálogo en preparación</p>
-            <h3>El catálogo todavía no está disponible</h3>
+            <p className="notice-kicker">Datos en preparación</p>
+            <h3>Los juegos todavía no están disponibles</h3>
             <p>
-              Aún no hay una publicación local válida del catálogo. No se consulta ningún proveedor
-              externo para completarla.
+              Gameómetro todavía no tiene una versión válida de sus datos de juegos. No se consulta
+              ningún proveedor externo para completarla.
             </p>
             <button className="button button-primary" onClick={onRetry} type="button">
               Reintentar
@@ -151,13 +151,13 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
             {state.model.results.length === 0 ? (
               <div className="notice notice-empty">
                 <p className="notice-kicker">Sin resultados</p>
-                <h3>No hay coincidencias en el catálogo local</h3>
+                <h3>No hay coincidencias</h3>
                 <p className="text-ink">
                   {state.model.page.totalItems > 0 &&
                   state.model.page.totalPages > 0 &&
                   state.model.page.number > state.model.page.totalPages
                     ? "La página solicitada ya no está disponible para esta búsqueda."
-                    : `Ningún juego del catálogo local coincide con “${params.query}”. El catálogo es una selección acotada, así que un título publicado fuera de él no aparece aquí.`}
+                    : `Ningún juego coincide con “${params.query}”. Gameómetro no recoge todos los juegos publicados, así que un título que falte aquí puede existir igualmente.`}
                 </p>
               </div>
             ) : (

@@ -38,10 +38,13 @@ const releasesPath = releasesSearchPath(readReleasesSearch(new URLSearchParams()
 /** The period's featured release and up to five more; the row never fills artificial slots. */
 const OTHER_PLACEHOLDERS = 5;
 
-/** The page title names the granularity the URL requests, before any response arrives. */
+/**
+ * The page title names TOPómetro and the granularity the URL requests, before any response
+ * arrives. The name never states the ranking criterion (#341).
+ */
 const titles: Record<FeaturedGranularity, string> = {
-  week: "Lanzamientos semanales",
-  month: "Lanzamientos del mes",
+  week: "TOPómetro de la semana",
+  month: "TOPómetro del mes",
 };
 
 function liveStatus(state: FeaturedShellState, search: FeaturedSearch): string {
@@ -51,23 +54,23 @@ function liveStatus(state: FeaturedShellState, search: FeaturedSearch): string {
         ? null
         : formatRequestedPeriodPhrase(search.granularity, search.period);
     return phrase === null
-      ? "Cargando lanzamientos destacados…"
-      : `Cargando lanzamientos destacados de ${phrase}…`;
+      ? "Cargando el TOPómetro…"
+      : `Cargando el TOPómetro de ${phrase}…`;
   }
   if (state.status === "ready") {
     if (state.isRefreshing) {
-      return "Actualizando lanzamientos destacados…";
+      return "Actualizando el TOPómetro…";
     }
     switch (state.model.selection.status) {
       case "ranked":
-        return `Lanzamientos destacados de ${state.model.periodPhrase}`;
+        return `TOPómetro de ${state.model.periodPhrase}`;
       case "popularity-unavailable":
-        return `Aún no hay lanzamientos destacados en ${state.model.periodPhrase}`;
+        return `Aún no hay TOPómetro de ${state.model.periodPhrase}`;
       case "no-qualifying-releases":
         return `No hay lanzamientos en ${state.model.periodPhrase}`;
     }
   }
-  return state.status === "catalogue-not-ready" ? "El catálogo todavía no está disponible" : "";
+  return state.status === "catalogue-not-ready" ? "Los juegos todavía no están disponibles" : "";
 }
 
 function FeaturedLoading() {
@@ -113,18 +116,18 @@ function UnrankedNotice({ model }: { model: FeaturedReleasesViewModel }) {
   const week = model.granularity === "week";
   return (
     <div className={`notice ${unranked ? "notice-info" : "notice-empty"}`}>
-      <p className="notice-kicker">{unranked ? "Sin datos de atención" : "Sin lanzamientos"}</p>
+      <p className="notice-kicker">{unranked ? "Sin datos de Hype" : "Sin lanzamientos"}</p>
       <h2>
         {unranked
-          ? `Aún no hay lanzamientos destacados en ${model.periodPhrase}`
+          ? `Aún no hay TOPómetro de ${model.periodPhrase}`
           : `No hay lanzamientos en ${model.periodPhrase}`}
       </h2>
       <p>
         {unranked
-          ? `${week ? "Esta semana tiene" : "Este mes tiene"} lanzamientos, pero el catálogo local todavía no tiene la señal de atención necesaria para destacarlos.`
+          ? `${week ? "Esta semana tiene" : "Este mes tiene"} lanzamientos, pero Gameómetro todavía no tiene datos de Hype para ordenarlos.`
           : week
-            ? "El catálogo local no tiene estrenos con día confirmado dentro de esta semana."
-            : "El catálogo local no tiene lanzamientos con fecha dentro de este mes."}
+            ? "Gameómetro no tiene lanzamientos con día confirmado dentro de esta semana."
+            : "Gameómetro no tiene lanzamientos con fecha dentro de este mes."}
       </p>
       <Link className="button button-primary" to={releasesPath}>
         Ver lanzamientos recientes
@@ -156,11 +159,11 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
 
         {state.status === "catalogue-not-ready" ? (
           <div className="notice notice-info">
-            <p className="notice-kicker">Catálogo en preparación</p>
-            <h2>El catálogo todavía no está disponible</h2>
+            <p className="notice-kicker">Datos en preparación</p>
+            <h2>Los juegos todavía no están disponibles</h2>
             <p>
-              Aún no hay una publicación local válida del catálogo. No se consulta ningún proveedor
-              externo para completarla.
+              Gameómetro todavía no tiene una versión válida de sus datos de juegos. No se consulta
+              ningún proveedor externo para completarla.
             </p>
             <button className="button" onClick={onRetry} type="button">
               Reintentar
@@ -172,7 +175,7 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
         {state.status === "error" ? (
           <div className="notice notice-danger" role="alert">
             <p className="notice-kicker">Error de carga</p>
-            <h2>No se pudieron cargar los lanzamientos destacados</h2>
+            <h2>No se pudo cargar el TOPómetro</h2>
             <p>{state.message}</p>
             <button className="button button-danger" onClick={onRetry} type="button">
               Reintentar
@@ -200,7 +203,7 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
               <section aria-labelledby="featured-others-title" className="featured-others">
                 <div className="featured-others-heading">
                   <h2 className="featured-others-title" id="featured-others-title">
-                    Otros lanzamientos destacados
+                    Más lanzamientos del TOPómetro
                   </h2>
                   <Link className="featured-all-link view-action" to={releasesPath}>
                     Ver todos los lanzamientos <span aria-hidden="true">→</span>

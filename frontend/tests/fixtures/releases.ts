@@ -85,13 +85,13 @@ export function titleLogo(id: string, title: string): FeaturedMedia {
 export function coverMedia(id: string, title: string): FeaturedMedia {
   const url = cdn("t_cover_big_2x", id);
   return {
-    primaryCover: { kind: "provider", url, alternativeText: `Carátula de ${title}`, attribution: igdb },
+    primaryCover: { kind: "provider", url, alternativeText: `Portada de ${title}`, attribution: igdb },
     featuredImage: {
       kind: "cover",
       presentation: "contain",
       url,
       compactUrl: url,
-      alternativeText: `Carátula de ${title}`,
+      alternativeText: `Portada de ${title}`,
       attribution: igdb,
     },
   };

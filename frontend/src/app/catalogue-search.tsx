@@ -115,7 +115,7 @@ function SearchForm({ draft, inputRef, onChange, onOpenGame, onSubmit, tooLong, 
       role="search"
     >
       <label className="sr-only" htmlFor={id}>
-        Buscar en el catálogo
+        Buscar juegos
       </label>
       <span className="search-icon" aria-hidden="true" />
       <input

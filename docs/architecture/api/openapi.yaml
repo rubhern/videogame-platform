@@ -103,7 +103,7 @@ paths:
                         primaryCover:
                           kind: provider
                           url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp
-                          alternativeText: Carátula de Hollow Knight Silksong
+                          alternativeText: Portada de Hollow Knight Silksong
                           attribution:
                             label: IGDB
                             sourceUrl: https://www.igdb.com/games/hollow-knight-silksong
@@ -162,7 +162,7 @@ paths:
                         primaryCover:
                           kind: provider
                           url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp
-                          alternativeText: Carátula de Hollow Knight Silksong
+                          alternativeText: Portada de Hollow Knight Silksong
                           attribution:
                             label: IGDB
                             sourceUrl: https://www.igdb.com/games/hollow-knight-silksong
@@ -201,7 +201,7 @@ paths:
                         primaryCover:
                           kind: fallback
                           url: /assets/covers/fallback.svg
-                          alternativeText: Carátula oficial no disponible
+                          alternativeText: Portada oficial no disponible
                           attribution: null
                         releases:
                           - releaseId: release_example_tba_win_ww
@@ -238,7 +238,7 @@ paths:
                         primaryCover:
                           kind: fallback
                           url: /assets/covers/fallback.svg
-                          alternativeText: Carátula oficial no disponible
+                          alternativeText: Portada oficial no disponible
                           attribution: null
                         releases:
                           - releaseId: release_example_switch_eu
@@ -369,7 +369,7 @@ paths:
                         primaryCover:
                           kind: provider
                           url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp
-                          alternativeText: Carátula de Juego destacado de ejemplo
+                          alternativeText: Portada de Juego destacado de ejemplo
                           attribution:
                             label: IGDB
                             sourceUrl: https://www.igdb.com/games/juego-destacado-de-ejemplo
@@ -423,7 +423,7 @@ paths:
                         primaryCover:
                           kind: provider
                           url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/comonth.webp
-                          alternativeText: Carátula de Lanzamiento de mes aproximado
+                          alternativeText: Portada de Lanzamiento de mes aproximado
                           attribution:
                             label: IGDB
                             sourceUrl: https://www.igdb.com/games/lanzamiento-de-mes-aproximado
@@ -432,7 +432,7 @@ paths:
                           presentation: contain
                           url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/comonth.webp
                           compactUrl: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/comonth.webp
-                          alternativeText: Carátula de Lanzamiento de mes aproximado
+                          alternativeText: Portada de Lanzamiento de mes aproximado
                           attribution:
                             label: IGDB
                             sourceUrl: https://www.igdb.com/games/lanzamiento-de-mes-aproximado
@@ -474,7 +474,7 @@ paths:
                         primaryCover:
                           kind: fallback
                           url: /assets/covers/fallback.svg
-                          alternativeText: Carátula oficial no disponible
+                          alternativeText: Portada oficial no disponible
                           attribution: null
                         featuredImage:
                           kind: fallback
@@ -587,7 +587,7 @@ paths:
                         primaryCover:
                           kind: provider
                           url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample1.webp
-                          alternativeText: Carátula de Resident Evil 4
+                          alternativeText: Portada de Resident Evil 4
                           attribution:
                             label: IGDB
                             sourceUrl: https://www.igdb.com/games/resident-evil-4
@@ -623,7 +623,7 @@ paths:
                         primaryCover:
                           kind: fallback
                           url: /assets/covers/fallback.svg
-                          alternativeText: Carátula oficial no disponible
+                          alternativeText: Portada oficial no disponible
                           attribution: null
                         releaseContext:
                           - platform: { platformId: platform_ps5, name: PlayStation 5 }
@@ -703,7 +703,7 @@ paths:
                     primaryCover:
                       kind: provider
                       url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1234.webp
-                      alternativeText: Carátula de Juego de ejemplo
+                      alternativeText: Portada de Juego de ejemplo
                       attribution:
                         label: IGDB
                         sourceUrl: https://www.igdb.com/games/example-game
@@ -770,7 +770,7 @@ paths:
                     primaryCover:
                       kind: fallback
                       url: /assets/covers/fallback.svg
-                      alternativeText: Carátula oficial no disponible
+                      alternativeText: Portada oficial no disponible
                       attribution: null
                     releases:
                       - releaseId: release_regional_ps5_ww_day
@@ -851,7 +851,7 @@ paths:
                     primaryCover:
                       kind: fallback
                       url: /assets/covers/fallback.svg
-                      alternativeText: Carátula oficial no disponible
+                      alternativeText: Portada oficial no disponible
                       attribution: null
                     releases:
                       - releaseId: release_unknown_date
@@ -895,7 +895,7 @@ paths:
                     primaryCover:
                       kind: fallback
                       url: /assets/covers/fallback.svg
-                      alternativeText: Carátula oficial no disponible
+                      alternativeText: Portada oficial no disponible
                       attribution: null
                     releases:
                       - releaseId: release_degraded
@@ -1032,7 +1032,7 @@ paths:
                           primaryCover:
                             kind: provider
                             url: https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1234.webp
-                            alternativeText: Carátula de Juego de ejemplo
+                            alternativeText: Portada de Juego de ejemplo
                             attribution:
                               label: IGDB
                               sourceUrl: https://www.igdb.com/games/example-game

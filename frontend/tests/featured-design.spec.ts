@@ -159,9 +159,9 @@ for (const width of [320, 390, 834, 1320]) {
 
     const hero = page.getByRole("article", { name: LEAD });
     await expect(hero).toBeVisible();
-    await expect(page.getByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "TOPómetro del mes" })).toBeVisible();
     await expect(hero.getByText("Lanzamiento del mes")).toBeVisible();
-    const others = page.getByRole("region", { name: "Otros lanzamientos destacados" });
+    const others = page.getByRole("region", { name: "Más lanzamientos del TOPómetro" });
     await expect(others.getByRole("article")).toHaveCount(5);
     // An unrecognized platform keeps its name beside the generic mark; known ones are marks.
     // Phones keep the compact marks instead, and every name stays announced.
@@ -355,8 +355,8 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(
       page.getByRole("navigation", { name: "Mes de la selección" }).getByText("Septiembre 2026"),
     ).toBeVisible();
-    await expect(page.getByRole("status")).toHaveText("Lanzamientos destacados de septiembre de 2026");
-    await expect(page.getByRole("link", { name: "Destacados", exact: true })).toHaveAttribute(
+    await expect(page.getByRole("status")).toHaveText("TOPómetro de septiembre de 2026");
+    await expect(page.getByRole("link", { name: "TOPómetro", exact: true })).toHaveAttribute(
       "aria-current",
       "page",
     );
@@ -378,10 +378,10 @@ for (const width of [320, 390, 834, 1320]) {
 
     const hero = page.getByRole("article", { name: LEAD });
     await expect(hero).toBeVisible();
-    const title = page.getByRole("heading", { level: 1, name: "Lanzamientos semanales" });
+    const title = page.getByRole("heading", { level: 1, name: "TOPómetro de la semana" });
     await expect(title).toBeVisible();
     await expect(hero.getByText("Lanzamiento de la semana")).toBeVisible();
-    const switcher = page.getByRole("navigation", { name: "Periodo de los destacados" });
+    const switcher = page.getByRole("navigation", { name: "Periodo del TOPómetro" });
     await expect(switcher.getByRole("link", { name: "Semana" })).toHaveAttribute("aria-current", "true");
     await expect(switcher.getByRole("link", { name: "Mes" })).not.toHaveAttribute("aria-current");
     // Ice marks the selection; nothing in the heading takes fire.
@@ -494,11 +494,11 @@ test("weeks step through the URL across months, back to the current week and thr
   await expect(page).toHaveURL(/\/$/);
 
   // Switching granularity opens the other one's current period.
-  const switcher = page.getByRole("navigation", { name: "Periodo de los destacados" });
+  const switcher = page.getByRole("navigation", { name: "Periodo del TOPómetro" });
   await switcher.getByRole("link", { name: "Mes" }).focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/\?granularity=month$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Lanzamientos del mes" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "TOPómetro del mes" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Mes de la selección" }).getByText("Agosto 2026")).toBeVisible();
   await expect(page.getByRole("link", { name: "Mes actual" })).toHaveCount(0);
   await expect(page.locator(".featured-dial-g .month-dial-numeral").first()).toHaveText("1");
@@ -591,7 +591,7 @@ test("a provider image that cannot load steps down to the product fallback", asy
   await expect(hero.locator(".featured-art")).toHaveAttribute("data-art-kind", "fallback");
   // The canonical hero title survives every media fallback.
   await expect(hero.getByRole("heading", { level: 2, name: LEAD })).toHaveText(LEAD);
-  const others = page.getByRole("region", { name: "Otros lanzamientos destacados" });
+  const others = page.getByRole("region", { name: "Más lanzamientos del TOPómetro" });
   await expect(
     others.getByRole("article").filter({ hasText: "Ghost of Yōtei" }).locator(".featured-art"),
   ).toHaveAttribute("data-art-kind", "fallback");
@@ -705,12 +705,12 @@ for (const state of ["loading", "unranked", "empty", "error"] as const) {
     await page.goto("/");
 
     if (state === "loading") {
-      await expect(page.getByRole("status")).toHaveText("Cargando lanzamientos destacados…");
+      await expect(page.getByRole("status")).toHaveText("Cargando el TOPómetro…");
       await expect(page.getByRole("article")).toHaveCount(0);
     } else if (state === "unranked") {
       await expect(
         page.getByRole("heading", {
-          name: "Aún no hay lanzamientos destacados en la semana del 10 al 16 de agosto de 2026",
+          name: "Aún no hay TOPómetro de la semana del 10 al 16 de agosto de 2026",
         }),
       ).toBeVisible();
     } else if (state === "empty") {

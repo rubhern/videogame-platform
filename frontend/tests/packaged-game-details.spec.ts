@@ -130,7 +130,7 @@ for (const state of [
       state === "missing"
         ? "Juego no encontrado"
         : state === "not-ready"
-          ? "El catálogo todavía no está disponible"
+          ? "Los juegos todavía no están disponibles"
           : state === "loading"
             ? "Detalle del juego"
             : state === "error"
@@ -145,7 +145,7 @@ for (const state of [
           document.documentElement.clientWidth,
       ),
     ).toBe(true);
-    await page.getByRole("link", { name: "Volver a lanzamientos" }).focus();
+    await page.getByRole("link", { name: "Volver al TOPómetro" }).focus();
     await page.keyboard.press("Enter");
     await expect(page).toHaveURL(/\/$/);
   });
@@ -227,12 +227,15 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
       route.fulfill({ json: game }),
     );
     await page.goto(gamePath);
-    await expect(page.getByText("Lanzamiento completo")).toBeVisible();
+    await expect(page.getByText("Acceso anticipado")).toBeVisible();
+    // A full release is the normal case, so its stage is never named (#341).
+    await expect(page.getByText("Lanzamiento completo")).toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
 
-    // A known stage reads as quieter secondary text, on the line beneath its date on phones and
-    // beside it on a wide ledger.
-    const dateLayout = await page.locator(".game-release-group").first().evaluate((group) => {
+    // A known special stage reads as quieter secondary text, on the line beneath its date on
+    // phones and beside it on a wide ledger.
+    const staged = page.locator(".game-release-group:has(.game-release-stage)").first();
+    const dateLayout = await staged.evaluate((group) => {
       const date = group.querySelector(".game-release-date");
       const stage = group.querySelector(".game-release-stage dd");
       if (!date || !stage) throw new Error("Release date and stage missing");

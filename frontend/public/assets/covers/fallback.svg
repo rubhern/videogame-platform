@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 800" role="img" aria-labelledby="title description">
-  <title id="title">Carátula no disponible</title>
-  <desc id="description">Marcador de Gameómetro para un juego sin carátula oficial.</desc>
+  <title id="title">Portada no disponible</title>
+  <desc id="description">Marcador de Gameómetro para un juego sin portada oficial.</desc>
   <defs>
     <linearGradient id="night" x1="0" y1="0" x2="0.35" y2="1">
       <stop offset="0" stop-color="#1a2342"/><stop offset=".55" stop-color="#0d1222"/><stop offset="1" stop-color="#06080d"/>

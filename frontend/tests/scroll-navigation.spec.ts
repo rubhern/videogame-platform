@@ -228,9 +228,9 @@ for (const width of [390, 412, 1320]) {
     test("Featured title and selectors are painted on their first upward reentry", async ({ page }) => {
       await fixtures(page);
       await page.goto("/");
-      const selector = page.getByRole("navigation", { name: "Periodo de los destacados" });
+      const selector = page.getByRole("navigation", { name: "Periodo del TOPómetro" });
       await expect(selector).toBeVisible();
-      const title = page.getByRole("heading", { name: "Lanzamientos semanales", exact: true });
+      const title = page.getByRole("heading", { name: "TOPómetro de la semana", exact: true });
       await expect(title).toBeVisible();
       // The heading of the loaded week can mount after the selector and starts its own fade-in,
       // so collect animations only once both are present.
@@ -299,7 +299,7 @@ test("a pending search keeps one result status and announces navigation separate
     await pending;
     return route.fallback();
   });
-  const search = page.getByRole("combobox", { name: "Buscar en el catálogo" });
+  const search = page.getByRole("combobox", { name: "Buscar juegos" });
   await search.fill("otro");
   await search.press("Enter");
   await expect.poll(() => requested).toBe(true);
@@ -322,7 +322,7 @@ test.describe("shared shell on a high-density touch screen", () => {
       const header = page.getByRole("banner");
       const title = page.getByRole("heading", { level: 1 });
       const controls = path === "/"
-        ? page.getByRole("navigation", { name: "Periodo de los destacados" })
+        ? page.getByRole("navigation", { name: "Periodo del TOPómetro" })
         : path.startsWith("/?view=") ? page.locator(".releases-controls") : null;
       await expect(title).toBeVisible();
       if (path.startsWith("/?view=")) {

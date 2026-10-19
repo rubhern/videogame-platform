@@ -26,7 +26,7 @@ export function CatalogueCover({ cover, to, caption = true }: CatalogueCoverProp
 
   const image = (
     <img
-      alt={failed ? "Carátula oficial no disponible" : cover.alternativeText}
+      alt={failed ? "Portada oficial no disponible" : cover.alternativeText}
       className="catalogue-cover"
       height={400}
       loading="lazy"
@@ -52,10 +52,10 @@ export function CatalogueCover({ cover, to, caption = true }: CatalogueCoverProp
       {caption ? (
         <figcaption className="cover-caption">
           {attribution === null ? (
-            "Carátula oficial no disponible"
+            "Portada oficial no disponible"
           ) : (
             <>
-              Carátula:{" "}
+              Portada:{" "}
               <a className="text-link" href={attribution.sourceUrl} rel="noreferrer">
                 {attribution.label}
               </a>

@@ -11,7 +11,7 @@ import { GameDetailsLoading } from "../features/game-details/game-details-loadin
 export function BackToReleases() {
   return (
     <Link className="button view-action view-action-back" to="/">
-      <span aria-hidden="true">←</span> Volver a lanzamientos
+      <span aria-hidden="true">←</span> Volver al TOPómetro
     </Link>
   );
 }
@@ -45,17 +45,17 @@ export function GameDetailsPage() {
               className={`notice ${informational ? "notice-info" : "notice-danger"}`}
               role="alert"
             >
-              <p className="notice-kicker">Ficha del catálogo</p>
+              <p className="notice-kicker">Ficha del juego</p>
               <h1>
                 {missing
                   ? "Juego no encontrado"
                   : notReady
-                    ? "El catálogo todavía no está disponible"
+                    ? "Los juegos todavía no están disponibles"
                     : "No se pudo cargar el juego"}
               </h1>
               <p>
                 {missing
-                  ? "Este juego no forma parte del catálogo local disponible."
+                  ? "Este juego no está disponible en Gameómetro."
                   : notReady
                     ? "Aún no existe una publicación local válida. Inténtalo de nuevo más tarde."
                     : "No pudimos leer los datos locales. Inténtalo de nuevo más tarde."}

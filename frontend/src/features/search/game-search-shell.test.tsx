@@ -18,7 +18,7 @@ const requiem: GameSearchResult = {
   cover: {
     kind: "provider",
     url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1.webp",
-    alternativeText: "Carátula de Resident Evil Requiem",
+    alternativeText: "Portada de Resident Evil Requiem",
     attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/resident-evil-requiem" },
   },
   platforms: [{ id: "platform-ps5", name: "PlayStation 5", icon: "playstation-5" }],
@@ -63,7 +63,7 @@ describe("catalogue search shell", () => {
   it("announces that the catalogue is being searched", () => {
     renderShell({ status: "loading" });
 
-    expect(screen.getByRole("status")).toHaveTextContent("Buscando en el catálogo…");
+    expect(screen.getByRole("status")).toHaveTextContent("Buscando juegos…");
   });
 
   it("makes the query the page context without the old explanatory copy", () => {
@@ -77,7 +77,7 @@ describe("catalogue search shell", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
       "Resultados para «resident evil»",
     );
-    expect(screen.getByText("Catálogo de juegos")).toBeInTheDocument();
+    expect(screen.getByText("Búsqueda de juegos")).toBeInTheDocument();
     expect(screen.queryByText(/Solo se muestran/)).not.toBeInTheDocument();
     expect(screen.queryByText(/No se consulta ningún proveedor/)).not.toBeInTheDocument();
   });
@@ -97,7 +97,7 @@ describe("catalogue search shell", () => {
     });
 
     expect(screen.getByRole("status")).toHaveTextContent(
-      "1 juego del catálogo local · Página 1 de 1",
+      "1 juego · Página 1 de 1",
     );
     const results = screen.getByRole("list", { name: "Resultados de la búsqueda" });
     const heading = within(results).getByRole("heading", { level: 3, name: "Resident Evil Requiem" });
@@ -192,10 +192,10 @@ describe("catalogue search shell", () => {
       { params: { query: "elden ring", page: 1, pageSize: 6 } },
     );
 
-    expect(screen.getByText(/Ningún juego del catálogo local coincide con/)).toHaveTextContent(
+    expect(screen.getByText(/Ningún juego coincide con/)).toHaveTextContent(
       "elden ring",
     );
-    expect(screen.getByRole("status")).toHaveTextContent("0 juegos del catálogo local");
+    expect(screen.getByRole("status")).toHaveTextContent("0 juegos");
   });
 
   it("distinguishes an invalid query from a technical failure", () => {
@@ -212,7 +212,7 @@ describe("catalogue search shell", () => {
 
     const alert = screen.getByRole("alert");
     expect(
-      within(alert).getByRole("heading", { name: "El catálogo todavía no está disponible" }),
+      within(alert).getByRole("heading", { name: "Los juegos todavía no están disponibles" }),
     ).toBeInTheDocument();
     expect(within(alert).getByText(/No se consulta ningún proveedor/)).toBeInTheDocument();
   });
@@ -221,7 +221,7 @@ describe("catalogue search shell", () => {
     const user = userEvent.setup();
     const { onRetry } = renderShell({
       status: "error",
-      message: "No se pudo leer el catálogo local. Inténtalo de nuevo más tarde.",
+      message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
       correlationId: "correlation-test",
     });
 

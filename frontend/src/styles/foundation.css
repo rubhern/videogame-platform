@@ -594,7 +594,7 @@
     text-transform: uppercase;
   }
 
-  /* Page titles read as one phrase in the wide display cut, as Destacados' does. */
+  /* Page titles read as one phrase in the wide display cut, as TOPómetro's does. */
   .page-title {
     position: relative;
     margin: 0;
@@ -1140,7 +1140,7 @@
       display: none;
     }
 
-    /* Three release sections and both entry links still share the first row. */
+    /* Both release entries and both entry links still share the first row. */
     .header-layout {
       column-gap: 10px;
     }
@@ -1265,7 +1265,7 @@
       overflow: visible;
     }
 
-    /* The narrower width axis keeps identity, the three release sections and the search icon
+    /* The narrower width axis keeps identity, the two release entries and the search icon
        on one row down to 360px. */
     .nav-link {
       min-height: 44px;
@@ -1356,7 +1356,7 @@
     }
   }
 
-  /* Below 360px the three release sections no longer fit beside the identity and both icons:
+  /* Below 360px the two release entries no longer fit beside the identity and both icons:
      they take a full-width row of their own under them. */
   @media (max-width: 359px) {
     .header-layout {
@@ -1382,7 +1382,7 @@
     }
   }
 
-  /* With three release sections the single desktop row is tight until 1180px: the compact mark
+  /* With both release entries the single desktop row is tight until 1180px: the compact mark
      keeps the identity there, so the account entry never overflows. */
   @media (min-width: 1024px) and (max-width: 1179px) {
     .brand {
