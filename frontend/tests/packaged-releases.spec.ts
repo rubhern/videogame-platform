@@ -134,7 +134,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     await expect(page).toHaveURL(/\/games\/30000000-0000-4000-8000-000000000008\/the-witcher-iv$/);
     await expect(page.getByRole("heading", { level: 1, name: "The Witcher IV" })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Tu puntuación/ })).toBeDisabled();
-    await expect(page.getByText(/Todavía no se puede puntuar/)).toBeVisible();
+    await expect(page.getByText(/^Puntuación no disponible:/)).toBeVisible();
     await expect(page.getByRole("main")).toBeFocused();
   });
 
