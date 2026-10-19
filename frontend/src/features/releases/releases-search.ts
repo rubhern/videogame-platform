@@ -4,7 +4,7 @@ export type ReleaseView = ReleasesQuery["view"];
 export type ReleaseWeeks = NonNullable<ReleasesQuery["weeks"]>;
 
 /**
- * The release-discovery section the landing route shows. Destacados is the landing view (#151),
+ * The release-discovery section the landing route shows. TOPómetro is the landing view (#151, #341),
  * so an absent or unknown `view` means featured; the release lists always name their view.
  */
 export type DiscoveryView = "featured" | ReleaseView;

@@ -477,7 +477,7 @@ describe("releases page", () => {
     renderApp("/?view=recent");
 
     expect(
-      await screen.findByRole("heading", { name: "El catálogo todavía no está disponible" }),
+      await screen.findByRole("heading", { name: "Los juegos todavía no están disponibles" }),
     ).toBeInTheDocument();
   });
 

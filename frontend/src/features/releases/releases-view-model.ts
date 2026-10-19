@@ -120,7 +120,7 @@ function localCoverPreview(slug: string, title: string): ReleaseCover | null {
   return {
     kind: "local-preview",
     url,
-    alternativeText: `Vista previa de la carátula de ${title}`,
+    alternativeText: `Vista previa de la portada de ${title}`,
     attribution: { label: "Vista previa local", sourceUrl: url },
   };
 }

@@ -55,28 +55,22 @@ export function AppShell() {
             <BrandWordmark className="brand-wordmark" />
           </Link>
 
-          {/* One Lanzamientos navigation holds the three release sections (#151). */}
-          <nav aria-label="Lanzamientos" className="primary-nav">
+          {/* Two release entries (#341): Lanzamientos holds the recent and upcoming windows and
+              TOPómetro is the landing selection. */}
+          <nav aria-label="Principal" className="primary-nav">
+            <Link
+              aria-current={discoveryView === "recent" || discoveryView === "upcoming" ? "page" : undefined}
+              className="nav-link"
+              to={releasesSearchPath(releaseSearch, { page: 1 })}
+            >
+              Lanzamientos
+            </Link>
             <Link
               aria-current={discoveryView === "featured" ? "page" : undefined}
               className="nav-link"
               to="/"
             >
-              Destacados
-            </Link>
-            <Link
-              aria-current={discoveryView === "recent" ? "page" : undefined}
-              className="nav-link"
-              to={releasesSearchPath(releaseSearch, { view: "recent", page: 1 })}
-            >
-              Recientes
-            </Link>
-            <Link
-              aria-current={discoveryView === "upcoming" ? "page" : undefined}
-              className="nav-link"
-              to={releasesSearchPath(releaseSearch, { view: "upcoming", page: 1 })}
-            >
-              Próximos
+              TOPómetro
             </Link>
           </nav>
 

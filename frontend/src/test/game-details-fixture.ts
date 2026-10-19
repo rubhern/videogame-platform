@@ -15,7 +15,7 @@ export function gameDetailsFixture(): GameDetails {
     primaryCover: {
       kind: "fallback",
       url: "/assets/covers/fallback.svg",
-      alternativeText: "Carátula oficial no disponible",
+      alternativeText: "Portada oficial no disponible",
       attribution: null,
     },
     releases: [

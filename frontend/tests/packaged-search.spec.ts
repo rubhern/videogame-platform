@@ -39,7 +39,7 @@ async function search(page: Page, query: string) {
     const url = new URL(response.url());
     return url.pathname === "/api/v1/games" && url.searchParams.get("pageSize") !== "5";
   });
-  const catalogueSearch = page.getByRole("combobox", { name: "Buscar en el catálogo" });
+  const catalogueSearch = page.getByRole("combobox", { name: "Buscar juegos" });
   await catalogueSearch.fill(query);
   await catalogueSearch.press("Enter");
   return responsePromise;
@@ -51,7 +51,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
   const providerRequests = trackProviderRequests(page);
 
   await page.goto("/");
-  await page.getByRole("combobox", { name: "Buscar en el catálogo" }).press("Enter");
+  await page.getByRole("combobox", { name: "Buscar juegos" }).press("Enter");
 
   await expect(page.getByRole("heading", { level: 1, name: "Buscar juegos" })).toBeVisible();
 
@@ -75,7 +75,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await expect(page).toHaveURL(/\/search\?q=Resident\+Evil\+Requiem$/);
     await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
     await expect(page.getByRole("status")).toHaveText(
-      "1 juego del catálogo local · Página 1 de 1",
+      "1 juego · Página 1 de 1",
     );
     await expect(
       page.getByRole("heading", { level: 1, name: "Resultados para «Resident Evil Requiem»" }),
@@ -112,7 +112,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await search(page, "2");
 
     await expect(page.getByRole("status")).toHaveText(
-      "2 juegos del catálogo local · Página 1 de 1",
+      "2 juegos · Página 1 de 1",
     );
     await expect(resultTitles(page)).toHaveText([
       "Death Stranding 2: On the Beach",
@@ -126,7 +126,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     expect(body.items).toEqual([]);
 
     await expect(
-      page.getByText(/Ningún juego del catálogo local coincide con .Elden Ring./),
+      page.getByText(/Ningún juego coincide con .Elden Ring./),
     ).toBeVisible();
     await expect(resultTitles(page)).toHaveCount(0);
     await expect(page.getByRole("alert")).toHaveCount(0);
@@ -143,7 +143,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await page.goto("/search?q=b&pageSize=2");
 
     await expect(page.getByRole("status")).toHaveText(
-      "4 juegos del catálogo local · Página 1 de 2",
+      "4 juegos · Página 1 de 2",
     );
     const firstPage = await resultTitles(page).allTextContents();
 
@@ -152,7 +152,7 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await expect(page).toHaveURL(/\/search\?q=b&page=2&pageSize=2$/);
     await expect(page.getByRole("heading", { level: 2, name: "Resultados" })).toBeFocused();
     await expect(page.getByRole("status")).toHaveText(
-      "4 juegos del catálogo local · Página 2 de 2",
+      "4 juegos · Página 2 de 2",
     );
     await expect(resultTitles(page)).toHaveCount(2);
     const secondPage = await resultTitles(page).allTextContents();
@@ -164,14 +164,14 @@ test("the packaged catalogue search reads PostgreSQL through the same-origin API
     await page.goto("/search?q=the+witcher+4");
 
     await expect(resultTitles(page)).toHaveText(["The Witcher IV"]);
-    await expect(page.getByRole("combobox", { name: "Buscar en el catálogo" })).toHaveValue(
+    await expect(page.getByRole("combobox", { name: "Buscar juegos" })).toHaveValue(
       "the witcher 4",
     );
   });
 
   await test.step("the search is keyboard operable end to end", async () => {
     await page.goto("/search");
-    await page.getByRole("combobox", { name: "Buscar en el catálogo" }).focus();
+    await page.getByRole("combobox", { name: "Buscar juegos" }).focus();
     await page.keyboard.type("pragmata");
     await page.keyboard.press("Enter");
 

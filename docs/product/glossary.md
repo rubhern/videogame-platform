@@ -8,8 +8,8 @@
 | Release | Commercial release of a game for one platform and region, with explicit date precision/status |
 | Presented release | The one release a discovery card or game-page selection shows for a platform when several are stored; the others stay stored and reachable |
 | Availability | Subscription, promotion, or rotating-catalogue access; never a commercial release |
-| Featured releases (`Destacados`) | Automatic selection of a calendar week's (Monday to Sunday) or month's releases by provider-observed attention; its first game is the period's featured release (`Lanzamiento de la semana`, `Lanzamiento del mes`). Never a quality judgement, award or editorial pick |
-| Popularity signal | A game's locally stored, provider-observed attention (currently IGDB Hypes) that ranks featured releases; never shown and never invented |
+| Featured releases (`TOPómetro`) | Automatic selection of a calendar week's (Monday to Sunday) or month's releases by provider-observed attention; its first game is the period's featured release (`Lanzamiento de la semana`, `Lanzamiento del mes`). Never a quality judgement, award or editorial pick |
+| Popularity signal (`Hype`) | A game's locally stored, provider-observed attention (currently IGDB Hypes) that ranks featured releases; its value is never shown and never invented |
 | External player score | A source's own player mean on its declared 0–100 scale with the positive count of that source's ratings (currently IGDB players), stored locally with its source and check time; never a Gameómetro rating, never blended with one and never hidden for its age or sample size |
 | Featured media | The context-selected landscape image and optional secondary-card logo a featured release presents, chosen from provider image metadata; a portrait cover is only shown whole, never stretched or cropped |
 | Date precision | `day`, `month`, `quarter`, `year`, or `unknown`; never infer missing precision |
@@ -31,3 +31,24 @@
 
 The [domain model](../architecture/domain/mvp-domain-model.md) owns normative domain
 terms and invariants when this concise product glossary is insufficient.
+
+## User-facing terms
+
+Owner-approved Spanish labels for the concepts above (#341). They name what players read;
+they never rename domain concepts, API fields, persistence, telemetry identifiers or URL
+paths, and they never change a concept's meaning. The
+[frontend design guidelines](../development/frontend-design.md) own where and how each label
+is set on screen.
+
+| Concept | Visible term | Use | Avoid |
+|---|---|---|---|
+| Brand | `Gameómetro` | Product name and the subject of honest, non-exhaustive statements (`Gameómetro no tiene lanzamientos…`) | — |
+| Release | `Lanzamiento` / `Lanzamientos` | Every release, card, count and status; also the main navigation entry that holds the recent (`Recientes`, `Lanzamientos recientes`) and upcoming (`Próximos`, `Próximos lanzamientos`) windows | `Estreno`; separate `Recientes`/`Próximos` navigation sections; `Todos`, `Explorar` or a parent group |
+| Featured releases | `TOPómetro` | The weekly or monthly selection, past and future (`TOPómetro de la semana`, `TOPómetro del mes`); its first game keeps `Lanzamiento de la semana` / `Lanzamiento del mes`. The name never states the ranking criterion | `Destacados`; calling the selection the best or the most anticipated |
+| Popularity signal | `Hype` | Only to explain why a selection exists or is missing (`Sin datos de Hype`); never with a value | Presenting Hype as quality, a score or a Gameómetro metric |
+| Catalogue | No visible term | Contextual words: `Juegos`, `Resultados`, `Ficha del juego` or the game's title | `Catálogo`, `catálogo local`, any wording that implies complete coverage. Operator-only administration may keep it |
+| Cover | `Portada` | A game's actual cover image and its fallback (`Portada oficial no disponible`) | `Carátula`; calling artwork, screenshots or logos a cover |
+| External player score count | `Valoraciones` | Number of a source's player ratings (`Basada en 1.234 valoraciones`), under the `Jugadores IGDB` source label | Blending it with Gameómetro ratings |
+| Rating | `Puntuación` / `Puntuaciones` | `Puntuación de la comunidad`, `Tu puntuación`, `Mis puntuaciones`, `Puntuar`; `nota` may name the chosen 1–10 value | `Valoración` for a Gameómetro rating |
+| Score temperature | `Congelado`, `Frío`, `Templado`, `Caliente`, `Ardiendo` | Unchanged bands presenting a numerical score | A separate rating or scale |
+| Release stage | Only special stages: `Acceso anticipado` (Early Access), `Acceso previo` (Advance Access), `Beta`, `Alfa` | A full release and an unknown stage are not labelled | `Lanzamiento completo`; merging Early and Advance Access |

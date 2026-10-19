@@ -13,7 +13,7 @@ type GameSummary = GameSearchPage["items"][number];
 const providerCover = {
   kind: "provider",
   url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/co1.webp",
-  alternativeText: "Carátula de Resident Evil Requiem",
+  alternativeText: "Portada de Resident Evil Requiem",
   attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/resident-evil-requiem" },
 } as const;
 
@@ -111,7 +111,7 @@ describe("catalogue search view model", () => {
             primaryCover: {
               kind: "fallback",
               url: "/assets/covers/fallback.svg",
-              alternativeText: "Carátula oficial no disponible",
+              alternativeText: "Portada oficial no disponible",
               attribution: null,
             },
           }),
@@ -122,7 +122,7 @@ describe("catalogue search view model", () => {
     expect(result.cover).toEqual({
       kind: "fallback",
       url: "/assets/covers/fallback.svg",
-      alternativeText: "Carátula oficial no disponible",
+      alternativeText: "Portada oficial no disponible",
     });
   });
 

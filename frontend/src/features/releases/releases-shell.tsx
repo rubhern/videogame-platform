@@ -9,6 +9,7 @@ import { ReleasesApproximateDates } from "./releases-approximate-dates";
 import { ReleasesFilters } from "./releases-filters";
 import { ReleasesPagination } from "./releases-pagination";
 import { ReleasesWeeks } from "./releases-weeks";
+import { ReleasesWindowSwitch } from "./releases-window-switch";
 import {
   hasActiveFilters,
   releasesSearchPath,
@@ -57,7 +58,7 @@ function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string
 function emptyExplanation(search: ReleasesSearch): string {
   return search.view === "upcoming" && !search.includeApproximateDates
     ? "Ningún lanzamiento con fecha exacta coincide con esta ventana y estos filtros. Activa «Incluir fechas aproximadas» para ver también los anunciados por mes, trimestre, año o sin fecha confirmada."
-    : "Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros.";
+    : "Ningún lanzamiento coincide con esta ventana y estos filtros.";
 }
 
 function LoadingFilters() {
@@ -123,6 +124,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
         </header>
 
         <div className="releases-controls">
+          <ReleasesWindowSwitch search={search} />
           <div className="releases-toolbar">
             <ReleasesWeeks search={search} />
             {/* Filter choices come from the response, so a failed read shows none rather than
@@ -142,11 +144,11 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
 
         {state.status === "catalogue-not-ready" ? (
           <div className="notice notice-info" role="status">
-            <p className="notice-kicker">Catálogo en preparación</p>
-            <h3>El catálogo todavía no está disponible</h3>
+            <p className="notice-kicker">Datos en preparación</p>
+            <h3>Los juegos todavía no están disponibles</h3>
             <p>
-              Aún no hay una publicación local válida del catálogo. No se consulta ningún proveedor
-              externo para completarla.
+              Gameómetro todavía no tiene una versión válida de sus datos de juegos. No se consulta
+              ningún proveedor externo para completarla.
             </p>
             <button className="button" onClick={onRetry} type="button">
               Reintentar

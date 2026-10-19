@@ -68,7 +68,7 @@ for (const width of [1320, 390]) {
     if (width < 620) {
       await page.getByRole("button", { name: "Buscar juegos" }).click();
     }
-    const search = page.getByRole("combobox", { name: "Buscar en el catálogo" });
+    const search = page.getByRole("combobox", { name: "Buscar juegos" });
     await search.fill("resident");
 
     const listbox = page.getByRole("listbox", { name: "Sugerencias de juegos" });

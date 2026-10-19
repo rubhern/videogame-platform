@@ -96,7 +96,7 @@ The wire shape of these parameters and the response lives in
 [`openapi.yaml`](../api/openapi.yaml).
 
 Post-MVP (#151, implemented; #329, implemented and awaiting owner review): `UC-010` is
-the landing view of release discovery, **Destacados**, beside Recientes and Próximos. It
+the landing view of release discovery, **TOPómetro** (named in #341), beside the recent and upcoming windows under **Lanzamientos**. It
 represents one calendar period, an ISO week from Monday to Sunday or a calendar month, both
 evaluated in `Europe/Madrid`; the URL carries the selection. The frontend opens on the
 current week (owner decision, #329), while a request naming no period still reads the

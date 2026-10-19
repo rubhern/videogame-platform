@@ -150,7 +150,7 @@ describe("release group projection", () => {
 const providerCover = {
   kind: "provider",
   url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp",
-  alternativeText: "Carátula de Pragmata",
+  alternativeText: "Portada de Pragmata",
   attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/pragmata" },
 } satisfies components["schemas"]["Cover"];
 
@@ -241,7 +241,7 @@ describe("releases view model", () => {
     expect(toReleasesViewModel(upcomingPage).items[0]?.cover).toEqual({
       kind: "provider",
       url: "https://images.igdb.com/igdb/image/upload/t_cover_big_2x/coexample.webp",
-      alternativeText: "Carátula de Pragmata",
+      alternativeText: "Portada de Pragmata",
       attribution: { label: "IGDB", sourceUrl: "https://www.igdb.com/games/pragmata" },
     });
     expect(toReleasesViewModel(page([release()])).items[0]?.cover).toEqual({

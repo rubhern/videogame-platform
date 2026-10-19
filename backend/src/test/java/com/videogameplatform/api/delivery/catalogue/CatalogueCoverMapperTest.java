@@ -38,7 +38,7 @@ class CatalogueCoverMapperTest {
                         new FallbackCover(
                                 "fallback",
                                 "/assets/covers/fallback.svg",
-                                "Carátula oficial no disponible",
+                                "Portada oficial no disponible",
                                 null));
     }
 }

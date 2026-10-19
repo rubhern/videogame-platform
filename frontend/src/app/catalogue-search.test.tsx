@@ -75,7 +75,7 @@ function gameSearchRequests(fetchMock: ReturnType<typeof stubCatalogue>): Reques
 }
 
 function searchInput() {
-  return screen.getByRole("combobox", { name: "Buscar en el catálogo" });
+  return screen.getByRole("combobox", { name: "Buscar juegos" });
 }
 
 /** The popup's own live status, distinct from the page's result status. */

@@ -79,6 +79,22 @@ function renderShell(
 }
 
 describe("releases shell", () => {
+  it("switches between the recent and upcoming windows inside Lanzamientos, keeping the filters", () => {
+    renderShell(
+      { status: "loading" },
+      { search: { ...search, view: "upcoming", platformIds: ["platform-pc"], page: 3 } },
+    );
+
+    const windows = within(screen.getByRole("navigation", { name: "Ventana de lanzamientos" }));
+    expect(windows.getAllByRole("link").map((link) => link.textContent)).toEqual(["Recientes", "Próximos"]);
+    expect(windows.getByRole("link", { name: "Próximos" })).toHaveAttribute("aria-current", "true");
+    expect(windows.getByRole("link", { name: "Recientes" })).not.toHaveAttribute("aria-current");
+    expect(windows.getByRole("link", { name: "Recientes" })).toHaveAttribute(
+      "href",
+      "/?view=recent&weeks=1&platformIds=platform-pc",
+    );
+  });
+
   it("announces loading under the accessible view name", () => {
     renderShell({ status: "loading" });
 
@@ -117,7 +133,7 @@ describe("releases shell", () => {
       "src",
       "/assets/covers/fallback.svg",
     );
-    expect(card.queryByText("Carátula oficial no disponible")).not.toBeInTheDocument();
+    expect(card.queryByText("Portada oficial no disponible")).not.toBeInTheDocument();
   });
 
   it("keeps a selected filter checked and representable with a clear action", async () => {
@@ -150,7 +166,7 @@ describe("releases shell", () => {
     );
 
     expect(
-      screen.getByText("Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."),
+      screen.getByText("Ningún lanzamiento coincide con esta ventana y estos filtros."),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: "Quitar filtros" })[0]).toHaveAttribute("href", "/?view=recent&weeks=1");
   });
@@ -169,7 +185,6 @@ describe("releases shell", () => {
     expect(screen.getByRole("combobox", { name: /Plataforma/ })).toHaveTextContent("Todas");
     expect(screen.getByRole("combobox", { name: /Región/ })).toHaveTextContent("Todas");
     expect(screen.getByRole("status")).toHaveTextContent("1 juego · Página 1 de 1");
-    expect(screen.queryByRole("navigation", { name: "Ventana de lanzamientos" })).not.toBeInTheDocument();
   });
 
   it("offers the approximate-date opt-in on upcoming only, reflecting the shared URL", () => {
@@ -203,7 +218,7 @@ describe("releases shell", () => {
     renderShell(
       {
         status: "error",
-        message: "No se pudo leer el catálogo local. Inténtalo de nuevo más tarde.",
+        message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
         correlationId: null,
       },
       { search: { ...search, view: "upcoming" } },
@@ -241,7 +256,7 @@ describe("releases shell", () => {
       },
     });
     expect(
-      screen.getByText("Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros."),
+      screen.getByText("Ningún lanzamiento coincide con esta ventana y estos filtros."),
     ).toBeInTheDocument();
     for (const reset of screen.getAllByRole("link", { name: "Quitar filtros" })) {
       expect(reset).toHaveAttribute("href", "/?view=upcoming&weeks=1&includeApproximateDates=true");
@@ -255,7 +270,7 @@ describe("releases shell", () => {
 
     const alert = within(screen.getByRole("status"));
     expect(
-      alert.getByRole("heading", { name: "El catálogo todavía no está disponible" }),
+      alert.getByRole("heading", { name: "Los juegos todavía no están disponibles" }),
     ).toBeInTheDocument();
     await user.click(alert.getByRole("button", { name: "Reintentar" }));
     expect(onRetry).toHaveBeenCalledOnce();
@@ -265,7 +280,7 @@ describe("releases shell", () => {
     renderShell(
       {
         status: "unsupported-filters",
-        message: "La plataforma solicitada no existe en el catálogo local.",
+        message: "La plataforma solicitada no está disponible en Gameómetro.",
       },
       { search: { ...search, platformIds: ["platform-unknown"] } },
     );
@@ -278,7 +293,7 @@ describe("releases shell", () => {
   it("reports a generic failure with its support reference", () => {
     renderShell({
       status: "error",
-      message: "No se pudo leer el catálogo local. Inténtalo de nuevo más tarde.",
+      message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
       correlationId: "correlation-1",
     });
 
@@ -345,7 +360,7 @@ describe("releases shell", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByText(
-        "Ningún lanzamiento del catálogo local coincide con esta ventana y estos filtros.",
+        "Ningún lanzamiento coincide con esta ventana y estos filtros.",
       ),
     ).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ir a la última página" })).toHaveAttribute(

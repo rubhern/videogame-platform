@@ -9,7 +9,7 @@
 export type FeaturedGranularity = "week" | "month";
 
 /**
- * The granularity Destacados opens on (owner decision, #329). It is the only place that decides
+ * The granularity TOPómetro opens on (owner decision, #329). It is the only place that decides
  * it: the landing route, the switch and the URL canonical form all follow this value.
  */
 export const DEFAULT_FEATURED_GRANULARITY: FeaturedGranularity = "week";

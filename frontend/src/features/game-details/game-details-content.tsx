@@ -163,7 +163,7 @@ export function GameDetailsContent({ game }: { game: GameDetails }) {
       <StageLight images={[game.primaryCover.url]} />
 
       <header className="game-detail-heading">
-        <p className="eyebrow">Ficha del catálogo</p>
+        <p className="eyebrow">Ficha del juego</p>
         <h1 className={`game-detail-title${titleScale}`}>
           <span className="game-wordmark-main">
             {wordmark.main}

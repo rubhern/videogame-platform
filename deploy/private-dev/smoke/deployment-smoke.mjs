@@ -144,7 +144,7 @@ try {
   );
   if (renderedReleasesOutcome.state === "not-ready") {
     await page
-      .getByRole("heading", { name: "El catálogo todavía no está disponible" })
+      .getByRole("heading", { name: "Los juegos todavía no están disponibles" })
       .waitFor({ state: "visible" });
   } else if (renderedReleasesOutcome.empty) {
     await page

@@ -78,8 +78,9 @@ function ReleaseGroupRow({ group }: { group: ReleaseGroup }) {
             <span>{release.region.name}</span>
           </dd>
         </div>
-        {/* An unstated stage adds nothing to the date, so only a known one is named. */}
-        {release.stage === "unknown" ? null : (
+        {/* A full release is the normal case and an unstated stage adds nothing to the date, so
+            only a known special stage is named (#341). */}
+        {release.stage === "full_release" || release.stage === "unknown" ? null : (
           <div className="game-release-stage">
             <dt className="sr-only">Tipo de lanzamiento</dt>
             <dd>{releaseStages[release.stage]}</dd>

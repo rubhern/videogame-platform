@@ -134,8 +134,8 @@ for (const [width, columns] of [[1320, 3], [834, 2], [390, 1], [320, 1]] as cons
     await expect(page.getByRole("heading", { level: 1, name: "Resultados para «con»" })).toBeVisible();
     await expect(cards(page).first().getByLabel("Géneros: Acción · Aventura")).toBeVisible();
     await expect(cards(page).first().locator(".card-genres")).toHaveCSS("white-space", "nowrap");
-    await expect(page.getByText("Catálogo de juegos")).toBeVisible();
-    await expect(page.getByRole("status")).toHaveText("16 juegos del catálogo local · Página 1 de 3");
+    await expect(page.getByText("Búsqueda de juegos")).toBeVisible();
+    await expect(page.getByRole("status")).toHaveText("16 juegos · Página 1 de 3");
     await expect(cards(page)).toHaveCount(6);
     expect(await page.locator(".search-page .search-index").evaluate((grid) =>
       getComputedStyle(grid).gridTemplateColumns.split(" ").length,
