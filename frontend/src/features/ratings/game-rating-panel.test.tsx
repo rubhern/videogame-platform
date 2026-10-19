@@ -153,17 +153,17 @@ describe("compact personal rating", () => {
       screen.getByRole("region", { name: "Tu puntuación" }),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar"),
+      expect(reading()).toHaveAccessibleName("Tu puntuación: sin puntuación. Puntuar"),
     );
     // The scale waits behind the reading: nothing to browse until it is opened.
     expect(reading()).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("group", { name: "Nota del 1 al 10" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Puntuación del 1 al 10" })).not.toBeInTheDocument();
 
     const dialog = await openScale(user);
     expect(reading()).toHaveAttribute("aria-expanded", "true");
-    const group = within(dialog).getByRole("group", { name: "Nota del 1 al 10" });
+    const group = within(dialog).getByRole("group", { name: "Puntuación del 1 al 10" });
     expect(within(group).getAllByRole("button")).toHaveLength(10);
-    expect(within(dialog).getByText("Selecciona una nota")).toBeVisible();
+    expect(within(dialog).getByText("Selecciona una puntuación")).toBeVisible();
     // The scale names its temperature in words, not only in colour.
     expect(screen.getByText("1 · Congelado")).toBeVisible();
     expect(screen.getByText("10 · Ardiendo")).toBeVisible();
@@ -220,9 +220,9 @@ describe("compact personal rating", () => {
     // Unavailable, not removed from the tab order: the reason is read with the control.
     expect(reading()).toHaveAttribute("aria-disabled", "true");
     expect(reading()).toHaveAccessibleName(/No disponible$/);
-    expect(reading()).toHaveAccessibleDescription(/el lanzamiento aún no ha ocurrido/);
+    expect(reading()).toHaveAccessibleDescription(/Puntuación no disponible: Aún no ha salido/);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "el lanzamiento aún no ha ocurrido",
+      "Puntuación no disponible: Aún no ha salido",
     );
     await userEvent.setup().click(reading());
     expect(scale()).not.toBeInTheDocument();
@@ -249,7 +249,7 @@ describe("compact personal rating", () => {
       expect(reading()).toHaveAccessibleName("Tu puntuación Templado 6/10. Eliminar"),
     );
     const dialog = await openScale(user);
-    expect(within(dialog).getByText(/pendiente de revisión\.$/)).toBeVisible();
+    expect(within(dialog).getByText(/Puntuación no disponible: El juego necesita revisión$/)).toBeVisible();
     expect(note(8)).toBeDisabled();
     pressed(6);
     // A disabled scale hands focus to the action the panel still offers.
@@ -358,7 +358,7 @@ describe("compact personal rating", () => {
     const remove = server.commands()[1];
     expect(remove?.method).toBe("DELETE");
     expect(remove?.headers.get("If-Match")).toBe('"rating-version-2"');
-    expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar");
+    expect(reading()).toHaveAccessibleName("Tu puntuación: sin puntuación. Puntuar");
     expect(reading()).toHaveFocus();
     await openScale(user);
     nonePressed();
@@ -386,7 +386,7 @@ describe("compact personal rating", () => {
 
     // The alert stays beside the reading, whether or not the panel is open.
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Tu nota cambió desde otra sesión",
+      "Tu puntuación cambió desde otra sesión",
     );
     await waitFor(() => expect(reading()).toHaveAccessibleName(/^Tu puntuación Templado 5\/10/));
     expect(server.commands()).toHaveLength(1);
@@ -412,7 +412,7 @@ describe("compact personal rating", () => {
     expect(server.commands()).toHaveLength(1);
     expect(reading()).toHaveAccessibleName(/^Tu puntuación Caliente 7\/10/);
 
-    await user.click(within(alert).getByRole("button", { name: "Comprobar mi nota" }));
+    await user.click(within(alert).getByRole("button", { name: "Comprobar mi puntuación" }));
 
     await waitFor(() => expect(server.ratingReads()).toHaveLength(2));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -458,12 +458,12 @@ describe("compact personal rating", () => {
     });
     renderPanel();
 
-    await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar"));
+    await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin puntuación. Puntuar"));
     await openScale(user);
     await user.click(note(6));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Tu sesión ha caducado");
-    await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar"));
+    await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin puntuación. Puntuar"));
     await openScale(user);
     nonePressed();
     await user.click(note(6));
@@ -483,14 +483,14 @@ describe("compact personal rating", () => {
 
     await waitFor(() =>
       expect(screen.getByRole("status")).toHaveTextContent(
-        "No se pudo comprobar si ya tenías una nota",
+        "No se pudo comprobar si ya tenías una puntuación",
       ),
     );
     await openScale(user);
     await user.click(note(4));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Tu nota cambió desde otra sesión",
+      "Tu puntuación cambió desde otra sesión",
     );
     expect(server.commands()[0]?.headers.get("If-None-Match")).toBe("*");
     expect(server.commands()).toHaveLength(1);
@@ -503,6 +503,6 @@ describe("compact personal rating", () => {
     expect(
       await screen.findByText(/no se completó el inicio de sesión/i),
     ).toBeVisible();
-    await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar"));
+    await waitFor(() => expect(reading()).toHaveAccessibleName("Tu puntuación: sin puntuación. Puntuar"));
   });
 });

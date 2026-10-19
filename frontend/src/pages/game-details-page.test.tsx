@@ -99,7 +99,27 @@ describe("public game details", () => {
     );
     renderApp(path);
     expect(screen.getByRole("status")).toHaveTextContent("Cargando el juego");
+    expect(screen.queryByText("Sé el primero en puntuar este juego")).not.toBeInTheDocument();
   });
+  it.each([
+    ["NO_COMMERCIAL_RELEASE", "Puntuación no disponible: Aún no tenemos un lanzamiento"],
+    ["RELEASE_NOT_OCCURRED", "Puntuación no disponible: Aún no ha salido"],
+    ["RELEASE_CANCELLED", "Puntuación no disponible: Juego cancelado"],
+    ["RELEASE_DATE_UNCERTAIN", "Puntuación no disponible: Fecha incierta"],
+    ["RELEASE_REVIEW_REQUIRED", "Puntuación no disponible: El juego necesita revisión"],
+  ] as const)("does not invite a first rating when eligibility is %s", async (reason, message) => {
+    const game = gameDetailsFixture();
+    game.ratingEligibility = { ...game.ratingEligibility, eligible: false, reason };
+    serve(game);
+    renderApp(path);
+
+    const community = await screen.findByRole("region", { name: "Puntuación de la comunidad" });
+    expect(within(community).getByText("Aún no se puede puntuar")).toBeVisible();
+    expect(within(community).queryByText("Sé el primero en puntuar este juego")).not.toBeInTheDocument();
+    expect(readingButton()).toHaveAttribute("aria-disabled", "true");
+    expect(readingButton()).toHaveAccessibleDescription(message);
+  });
+
   it("uses product identity and keeps the community reading apart from the visitor's own", async () => {
     serve();
     renderApp(path);
@@ -110,7 +130,8 @@ describe("public game details", () => {
       }),
     ).toBeVisible();
     const community = screen.getByRole("region", { name: "Puntuación de la comunidad" });
-    expect(within(community).getByText("Sin nota todavía")).toBeVisible();
+    expect(within(community).getByText("Sin puntuación todavía")).toBeVisible();
+    expect(within(community).getByText("Sé el primero en puntuar este juego")).toBeVisible();
     // No mean, no temperature: the band never stands in for a missing score.
     expect(screen.queryByText(/^Temperatura:/)).not.toBeInTheDocument();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
@@ -150,7 +171,7 @@ describe("public game details", () => {
     };
     serve(game);
     renderApp(path);
-    expect(await screen.findByLabelText("Nota media: 8,5 de 10")).toBeVisible();
+    expect(await screen.findByLabelText("Puntuación media: 8,5 de 10")).toBeVisible();
     // The mean is read as a temperature, named in words beside the authoritative number.
     expect(screen.getByText("Ardiendo")).toHaveTextContent("Temperatura: Ardiendo");
     expect(screen.getByText(/^Basada en/)).toHaveTextContent("Basada en 2 puntuaciones");
@@ -192,7 +213,7 @@ describe("public game details", () => {
     // The community reading keeps its own empty state; IGDB never fills it.
     expect(
       within(screen.getByRole("region", { name: "Puntuación de la comunidad" })).getByText(
-        "Sin nota todavía",
+        "Sin puntuación todavía",
       ),
     ).toBeVisible();
   });
@@ -219,7 +240,7 @@ describe("public game details", () => {
     renderApp(path);
     const community = await screen.findByRole("region", { name: "Puntuación de la comunidad" });
     expect(within(community).getByRole("status")).toHaveTextContent(
-      "Las estadísticas no están disponibles temporalmente",
+      "Ahora no tenemos disponibles las estadísticas del juego",
     );
     expect(
       within(screen.getByRole("region", { name: "Jugadores IGDB" })).getByLabelText(
@@ -467,14 +488,14 @@ describe("public game details", () => {
     // Ineligibility makes the personal reading unavailable and explains why in place.
     expect(readingButton()).toHaveAttribute("aria-disabled", "true");
     expect(
-      screen.getByText(/pendiente de revisión\.$/),
+      screen.getByText(/Puntuación no disponible: El juego necesita revisión$/),
     ).toBeVisible();
     expect(within(releasesBlock()).getByText("Información pendiente de revisión")).toBeVisible();
     const community = screen.getByRole("region", {
       name: "Puntuación de la comunidad",
     });
     expect(within(community).getByRole("status")).toHaveTextContent(
-      "Las estadísticas no están disponibles temporalmente",
+      "Ahora no tenemos disponibles las estadísticas del juego",
     );
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
@@ -563,21 +584,22 @@ describe("public game details", () => {
       screen.queryByRole("link", { name: "IGDB" }),
     ).not.toBeInTheDocument();
   });
-  it("credits Spanish text as a product translation and keeps last-valid status explicit", async () => {
+  it.each([true, false])("credits a product translation with literal source text (current=%s)", async (current) => {
     const game = gameDetailsFixture();
     game.summary = {
       kind: "sourced", text: "Un guerrero explora el mundo.", language: "es",
-      provenance: { sourceKind: "external_provider", sourceName: "IGDB", sourceEntityType: "game_summary" },
-      translation: { kind: "machine_translation", sourceText: "A warrior explores the world.", sourceLanguage: "en", current: false },
+      provenance: { sourceKind: "external_provider", sourceName: 'Proveedor <img src=x onerror="alert(1)"> & Luz', sourceEntityType: "game_summary" },
+      translation: { kind: "machine_translation", sourceText: "A warrior explores the world.", sourceLanguage: "en", current },
     };
     serve(game);
     renderApp(path);
     expect(await screen.findByText("Un guerrero explora el mundo.")).toHaveAttribute("lang", "es");
     const summary = screen.getByRole("region", { name: "Resumen" });
-    expect(within(summary).getByText(/Traducción automática de Gameómetro/)).toHaveTextContent(
-      "Traducción automática de Gameómetro · Fuente del original: IGDB · Traducción pendiente de actualizar",
+    expect(within(summary).getByText(/Traducción de Gameómetro/)).toHaveTextContent(
+      `Traducción de Gameómetro · Original: Proveedor <img src=x onerror="alert(1)"> & Luz${current ? "" : " · Traducción pendiente"}`,
     );
     expect(within(summary).queryByText(/Fuente: IGDB/)).not.toBeInTheDocument();
+    expect(within(summary).queryByRole("img")).not.toBeInTheDocument();
   });
   it("keeps the catalogue's own editorial text without a source credit", async () => {
     serve();
@@ -589,10 +611,10 @@ describe("public game details", () => {
     expect(within(summary).queryByRole("button")).not.toBeInTheDocument();
   });
   it.each([
-    ["GAME_NOT_FOUND", "Juego no encontrado"],
-    ["CATALOGUE_NOT_READY", "Los juegos todavía no están disponibles"],
-    ["SERVICE_OVERLOADED", "No se pudo cargar el juego"],
-  ])("explains %s", async (code, title) => {
+    ["GAME_NOT_FOUND", "Juego no encontrado", "Este juego no está disponible en Gameómetro, aún."],
+    ["CATALOGUE_NOT_READY", "Los juegos todavía no están disponibles", "No tenemos una publicación aún. Prueba más tarde"],
+    ["SERVICE_OVERLOADED", "No se pudo cargar el juego", "Estamos teniendo algún problema de lectura, inténtalo más tarde que seguro ya lo habremos arreglado"],
+  ])("explains %s", async (code, title, message) => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -604,6 +626,7 @@ describe("public game details", () => {
     );
     renderApp(path);
     expect(await screen.findByRole("heading", { name: title })).toBeVisible();
+    expect(screen.getByText(message)).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Volver al TOPómetro" }),
     ).toBeVisible();

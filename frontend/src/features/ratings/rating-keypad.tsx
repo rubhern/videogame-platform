@@ -41,7 +41,7 @@ export function RatingKeypad({ value, onPick, disabled = false, describedBy, ref
         ref={ref}
         className="rating-scale"
         role="group"
-        aria-label="Nota del 1 al 10"
+        aria-label="Puntuación del 1 al 10"
         aria-describedby={describedBy}
         onKeyDown={moveFocus}
       >

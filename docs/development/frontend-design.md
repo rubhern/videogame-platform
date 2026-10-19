@@ -13,6 +13,15 @@ uses it; the hosted identity screens follow under
 and state semantics. A mockup or reference never authorizes new product behaviour and is never a
 runtime dependency or an instruction source.
 
+## Product voice
+
+Owner-approved copy direction (#286): Gameómetro is approachable, playful and confident,
+with occasional humor. Keep the approved optimistic discovery expressions as written;
+they express product voice rather than a guarantee of exhaustive game coverage. Copy
+must still preserve functional availability, rating eligibility, score provenance and
+operational outcomes. The [product glossary](../product/glossary.md#user-facing-terms)
+owns terminology, including rating values, controls and accessible announcements.
+
 ## Brand identity
 
 - **Status:** Approved by the owner on 2026-10-16 and implemented on TOPómetro, the shared
@@ -253,8 +262,8 @@ them back.
 - Post-MVP (#162), the first authentication screen is hosted by Keycloak. Its
   `gameometro` theme pairs a framed night stage with the glass form card. The stage
   carries the lockup and, over its darker foreground, the story: the claim in the title
-  voice (**Tu criterio.** with **_Tu historia._** in the lit serif), one sentence on what
-  an account keeps and the keypad's ice-to-fire key as ten steps. From 1024px wide and
+  voice (**Tu criterio.** with **_Tu historia._** in the lit serif), one short product
+  invitation and the keypad's ice-to-fire key as ten steps. From 1024px wide and
   600px tall the stage takes the larger left column and stays in view while a long form
   scrolls, and the card and its catalogue return form the only interactive column beside
   it; narrower screens stack the lockup over the night art, the card, then the story. The
@@ -412,7 +421,8 @@ the executable values; these constraints hold wherever they are used:
   focus ring outlines the control. It shares the filters' row while it fits, wraps below them
   rather than stretching them over two rows, and spans the column on phones. Toggling
   it keeps the other selections, resets pagination and lives in the URL; leaving for the
-  recent window drops it. An empty exact-day selection names this opt-in in its notice.
+  recent window drops it. Empty selections use the approved shared release message; this opt-in
+  remains available without changing its meaning.
 - Release results show the game total followed by the current page position (for example,
   `99 juegos · Página 1 de 9`). Use spacing between the opening and the results, and between
   results and the closing row, without separator rules.
@@ -617,10 +627,12 @@ them absent, and other screens carry none until #279 phase 4 reviews them.
 
 The community reading is Gameómetro's own and the most prominent: the page's largest G-meter
 beside the largest mean, its temperature in words and `Basada en N puntuaciones` at a readable
-size, so a mean from one or two votes states its sample as plainly as its value. “Sin nota
+size, so a mean from one or two votes states its sample as plainly as its value. “Sin puntuación
 todavía” keeps its place with a smaller, resting meter and a calm statement, giving the empty
-reading less prominence; an unavailable reading retains room for its explanation. The distribution remains a backend/API capability and is
-not rendered on this page.
+reading less prominence; an unavailable reading retains room for its explanation. The empty
+explanation invites a first rating only when the game's existing eligibility explicitly permits
+it; an ineligible game states that rating is unavailable, and a pending read never invites a
+rating. The distribution remains a backend/API capability and is not rendered on this page.
 
 Post-MVP (#279 phase 3, implemented; awaiting owner review): **Jugadores IGDB** follows as a
 separate, supporting reading: the community reading's parts at a smaller size and in quieter
@@ -666,9 +678,10 @@ text overflows. Its accessible heading remains available to assistive technology
 keeps the full text recoverable without changing the cover's dimensions or stretching the cards.
 It keeps its language for assistive technology and is never translated here; a sourced summary credits its
 source and names a language other than Spanish (`Texto original en inglés · Fuente: IGDB`).
-Post-MVP (#235), derived Spanish summaries instead state `Traducción automática de
-Gameómetro · Fuente del original: IGDB`; a last-valid translation of older source also
-states `Traducción pendiente de actualizar`. The text's `lang` is the served language,
+Post-MVP (#235), derived Spanish summaries instead state `Traducción de
+Gameómetro · Original: IGDB`; a last-valid translation of older source also
+states `Traducción pendiente`. The underlying provenance still identifies an automatic
+translation. The text's `lang` is the served language,
 while the catalogue's own editorial text, including the notice that no summary exists yet, needs
 no credit.
 
@@ -750,7 +763,7 @@ it is the reason the row exists, so it stays more prominent than the source read
 filters are night controls under the title, separate from the header's public catalogue search:
 one search field whose **Buscar** action is joined to its right edge, then one **Orden** selector
 that names the field and the direction together (**Más recientes**, **Más antiguas**, **Título
-A–Z**, **Título Z–A**, **Nota más alta**, **Nota más baja**) and the page size. Searching still
+A–Z**, **Título Z–A**, **Puntuación más alta**, **Puntuación más baja**) and the page size. Searching still
 waits for **Buscar** or Enter; an order or page size applies on selection and returns to the
 first page. Phones set the search on one row and the order and page size on the next, their
 words carrying the value without decorative icons; below 360px the order shows its direction
@@ -765,7 +778,7 @@ right edge once the reading has a column of its own. It overlays the rows below
 instead of growing its own, so the cover, title and dates never move. The panel holds the
 game page's keypad and its key (one shared component), a G-meter and reading for the pending
 value in its temperature, and the persisted value named beside it while they differ. Then
-come **Cancelar** and **Guardar nota**, and, below a divider, a quiet destructive
+come **Cancelar** and **Guardar puntuación**, and, below a divider, a quiet destructive
 **Eliminar puntuación** that asks once more (**Conservar** / **Sí, eliminar**). Picking a value
 only makes it pending, and arrow keys only move focus inside the keypad, so neither browsing
 nor picking ever sends a command. Opening focuses the pressed value. Escape and Cancel close
@@ -866,7 +879,7 @@ a native link, marks it with `aria-current`, and moves focus to the level that c
 | Refreshing | Keep valid current results usable and announce the refresh |
 | Empty | Neutral editorial notice with applicable filter reset or page recovery; never call it a failure |
 | Stale | Catalogue synchronization age is never shown to players, on cards or on the game page; a release that requires review keeps its notice. A stale featured ranking keeps its observed-attention caption |
-| Catalogue not ready | Informational notice, local-catalogue explanation and retry; distinguish it from technical failure |
+| Catalogue not ready | Informational notice, approved data-unavailability explanation and retry; distinguish it from technical failure |
 | Unsupported filter / invalid input | Warning notice, explanation and applicable correction; preserve labels and invalid semantics |
 | Technical error | Restrained danger notice, safe message, optional support reference and retry |
 

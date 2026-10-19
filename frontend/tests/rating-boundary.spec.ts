@@ -38,11 +38,11 @@ test("anonymous browsing offers account entry and preserves the rating boundary"
   await expect(reading(page)).toBeEnabled();
   await reading(page).click();
   await expect(
-    page.getByRole("group", { name: "Nota del 1 al 10" }),
+    page.getByRole("group", { name: "Puntuación del 1 al 10" }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "8", exact: true })).toBeEnabled();
   await expect(
-    page.getByRole("button", { name: /^(Puntuar|Actualizar|Guardar nota)$/ }),
+    page.getByRole("button", { name: /^(Puntuar|Actualizar|Guardar puntuación)$/ }),
   ).toHaveCount(0);
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });
@@ -79,7 +79,7 @@ test.describe("real Keycloak rating journey", () => {
     const community = page.getByRole("region", {
       name: "Puntuación de la comunidad",
     });
-    await expect(community.getByLabel(/Nota media: 8,0 de 10/)).toBeVisible();
+    await expect(community.getByLabel(/Puntuación media: 8,0 de 10/)).toBeVisible();
     expect((await analyzeAccessibility(page)).violations).toEqual([]);
 
     // A reload reads the persisted rating back with a fresh ETag and resumes nothing.
@@ -90,14 +90,14 @@ test.describe("real Keycloak rating journey", () => {
     // Update with the current ETag by picking another value.
     await pick(page, 9);
     await expect(page.getByRole("status").filter({ hasText: "Puntuación guardada: 9/10." })).toHaveCount(1);
-    await expect(community.getByLabel(/Nota media: 9,0 de 10/)).toBeVisible();
+    await expect(community.getByLabel(/Puntuación media: 9,0 de 10/)).toBeVisible();
 
     // Delete with the new ETag.
     await reading(page).click();
     await page.getByRole("button", { name: "Eliminar puntuación" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Puntuación eliminada." })).toHaveCount(1);
-    await expect(reading(page)).toHaveAccessibleName("Tu puntuación: sin nota. Puntuar");
-    await expect(community.getByText("Sin nota todavía")).toBeVisible();
+    await expect(reading(page)).toHaveAccessibleName("Tu puntuación: sin puntuación. Puntuar");
+    await expect(community.getByText("Sin puntuación todavía")).toBeVisible();
 
     // Logout returns the header to the anonymous state and clears the session cookie. The header
     // turns anonymous before the page navigates through the identity provider's logout, so wait
@@ -150,7 +150,7 @@ test.describe("real Keycloak rating journey", () => {
     const editor = page.getByRole("dialog", { name: /^Tu puntuación de / });
     await expect(editor.getByRole("button", { name: "8", exact: true })).toBeFocused();
     await editor.getByRole("button", { name: "9", exact: true }).click();
-    await editor.getByRole("button", { name: "Guardar nota" }).click();
+    await editor.getByRole("button", { name: "Guardar puntuación" }).click();
     await expect(score).toHaveAccessibleName(/^Tu puntuación Ardiendo 9\/10/);
 
     // Another request in the same real authenticated session wins before this page writes.
@@ -170,7 +170,7 @@ test.describe("real Keycloak rating journey", () => {
     await expect(editor.getByRole("button", { name: "Eliminar puntuación" })).toBeEnabled();
     await editor.getByRole("button", { name: "Eliminar puntuación" }).click();
     await editor.getByRole("button", { name: "Sí, eliminar" }).click();
-    await expect(page.getByText("Todavía no has puntuado ningún juego")).toBeVisible();
+    await expect(page.getByText("No has puntuado nada aún. Un Gameómetro muere en el mundo cada vez que tú decides no puntuar")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Resultados de mis puntuaciones" })).toBeFocused();
     expect(await page.evaluate(() => ({ local: localStorage.length, session: sessionStorage.length })))
       .toEqual({ local: 0, session: 0 });

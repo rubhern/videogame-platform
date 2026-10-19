@@ -90,7 +90,7 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
           <div className="notice notice-empty" role="status">
             <p className="notice-kicker">Buscar juegos</p>
             <h3>Encuentra un juego por su título</h3>
-            <p>Escribe un título o un título alternativo aprobado en el buscador de la cabecera.</p>
+            <p>Escribe un título o un título alternativo, seguro que lo tenemos</p>
           </div>
         ) : null}
 
@@ -111,8 +111,7 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
             <p className="notice-kicker">Datos en preparación</p>
             <h3>Los juegos todavía no están disponibles</h3>
             <p>
-              Gameómetro todavía no tiene una versión válida de sus datos de juegos. No se consulta
-              ningún proveedor externo para completarla.
+              Aún no tenemos datos válidos de juegos, pero tranquilo que llegarán
             </p>
             <button className="button button-primary" onClick={onRetry} type="button">
               Reintentar
@@ -156,8 +155,8 @@ export function GameSearchShell({ params, state, onRetry }: GameSearchShellProps
                   {state.model.page.totalItems > 0 &&
                   state.model.page.totalPages > 0 &&
                   state.model.page.number > state.model.page.totalPages
-                    ? "La página solicitada ya no está disponible para esta búsqueda."
-                    : `Ningún juego coincide con “${params.query}”. Gameómetro no recoge todos los juegos publicados, así que un título que falte aquí puede existir igualmente.`}
+                    ? "Ay, esta página ya no está disponible"
+                    : `No tenemos nada que coincida con «${params.query}», al menos por ahora porque Gameómetro no deja de crecer`}
                 </p>
               </div>
             ) : (

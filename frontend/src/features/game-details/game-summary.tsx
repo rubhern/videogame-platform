@@ -70,8 +70,8 @@ export function GameSummary({ summary }: { summary: GameDetails["summary"] }) {
         <p className="game-source">
           {"translation" in summary && summary.translation ? (
             <>
-              Traducción automática de Gameómetro · Fuente del original: {summary.provenance.sourceName}
-              {summary.translation.current ? null : " · Traducción pendiente de actualizar"}
+              Traducción de Gameómetro · Original: {summary.provenance.sourceName}
+              {summary.translation.current ? null : " · Traducción pendiente"}
             </>
           ) : (
             <>

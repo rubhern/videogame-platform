@@ -125,7 +125,8 @@ describe("Mis puntuaciones", () => {
   it("distinguishes no ratings from no search results without storing personal search", async () => {
     const fetchMock = stub(() => Response.json(page(rating, 0)));
     renderApp("/mis-puntuaciones");
-    expect(await screen.findByText("Todavía no has puntuado ningún juego")).toBeVisible();
+    expect(await screen.findByText("No has puntuado nada aún. Un Gameómetro muere en el mundo cada vez que tú decides no puntuar")).toBeVisible();
+    expect(screen.getByText("Tu colección de puntuaciones")).toBeVisible();
     const search = screen.getByRole("search", { name: "Buscar en mis puntuaciones" });
     await userEvent.type(within(search).getByRole("searchbox"), "space");
     await userEvent.click(within(search).getByRole("button", { name: "Buscar en mis puntuaciones" }));
@@ -134,7 +135,7 @@ describe("Mis puntuaciones", () => {
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
     await userEvent.click(screen.getByRole("button", { name: "Limpiar búsqueda" }));
-    expect(await screen.findByText("Todavía no has puntuado ningún juego")).toBeVisible();
+    expect(await screen.findByText("No has puntuado nada aún. Un Gameómetro muere en el mundo cada vez que tú decides no puntuar")).toBeVisible();
   });
   it("sends sorting and pagination to the server and moves focus to results", async () => {
     const fetchMock = stub(request => Response.json(page(rating, 11, Number(new URL(request.url).searchParams.get("page") ?? 1))));
@@ -145,7 +146,7 @@ describe("Mis puntuaciones", () => {
     await userEvent.click(order);
     const orders = screen.getAllByRole("option");
     expect(orders).toHaveLength(6);
-    ["Más recientes", "Más antiguas", "Título A–Z", "Título Z–A", "Nota más alta", "Nota más baja"]
+    ["Más recientes", "Más antiguas", "Título A–Z", "Título Z–A", "Puntuación más alta", "Puntuación más baja"]
       .forEach((name, index) => expect(orders[index]).toHaveAccessibleName(name));
     expect(orders[0]).toHaveAttribute("aria-selected", "true");
     await userEvent.click(screen.getByRole("option", { name: "Título Z–A" }));
@@ -156,7 +157,7 @@ describe("Mis puntuaciones", () => {
     })).toBe(true));
     expect(screen.getByRole("heading", { name: "Resultados de mis puntuaciones" })).toHaveFocus();
     await userEvent.click(screen.getByRole("combobox", { name: /^Orden/ }));
-    await userEvent.click(screen.getByRole("option", { name: "Nota más baja" }));
+    await userEvent.click(screen.getByRole("option", { name: "Puntuación más baja" }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([request]) => {
       const url = new URL((request as Request).url);
       return url.searchParams.get("sort") === "ratingValue" && url.searchParams.get("direction") === "asc";
@@ -201,7 +202,7 @@ describe("Mis puntuaciones", () => {
     expect(score).toHaveAttribute("aria-expanded", "true");
     const editor = within(card).getByRole("dialog", { name: "Tu puntuación de Élite Dangerous" });
     expect(within(editor).getByRole("button", { name: "7" })).toHaveFocus();
-    expect(within(editor).getByRole("button", { name: "Guardar nota" })).toBeDisabled();
+    expect(within(editor).getByRole("button", { name: "Guardar puntuación" })).toBeDisabled();
     // Arrows only browse; Enter picks a pending value and sends nothing.
     await userEvent.keyboard("{ArrowRight}{ArrowRight}");
     expect(within(editor).getByRole("button", { name: "9" })).toHaveFocus();
@@ -210,14 +211,14 @@ describe("Mis puntuaciones", () => {
     expect(within(editor).getByRole("button", { name: "9" })).toHaveAttribute("aria-pressed", "true");
     // The pending reading takes its own temperature while the persisted one stays named.
     expect(editor).toHaveAttribute("data-thermal", "burn");
-    expect(within(editor).getByText("Nueva nota").parentElement).toHaveTextContent("9/10Ardiendo");
-    expect(within(editor).getByText("Nota actual").parentElement).toHaveTextContent("7/10Caliente");
+    expect(within(editor).getByText("Nueva puntuación").parentElement).toHaveTextContent("9/10Ardiendo");
+    expect(within(editor).getByText("Puntuación actual").parentElement).toHaveTextContent("7/10Caliente");
     await userEvent.click(within(editor).getByRole("button", { name: "4" }));
     expect(editor).toHaveAttribute("data-thermal", "cold");
-    expect(within(editor).getByText("Nueva nota").parentElement).toHaveTextContent("4/10Frío");
+    expect(within(editor).getByText("Nueva puntuación").parentElement).toHaveTextContent("4/10Frío");
     await userEvent.click(within(editor).getByRole("button", { name: "9" }));
     expect(commands(fetchMock, "PUT")).toHaveLength(0);
-    await userEvent.click(within(editor).getByRole("button", { name: "Guardar nota" }));
+    await userEvent.click(within(editor).getByRole("button", { name: "Guardar puntuación" }));
     expect(await within(card).findByRole("button", { name: /^Tu puntuación Ardiendo 9\/10/ })).toBeVisible();
     expect(within(card).queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Resultados de mis puntuaciones" })).toHaveFocus();
@@ -259,7 +260,7 @@ describe("Mis puntuaciones", () => {
     const remove = within(editor).getByRole("button", { name: "Eliminar puntuación" });
     await userEvent.click(remove);
     expect(remove).toHaveAttribute("aria-expanded", "true");
-    expect(within(editor).getByRole("group", { name: /¿Eliminar tu nota de 7\/10\?/ })).toBeVisible();
+    expect(within(editor).getByRole("group", { name: "¿Seguro que quieres eliminar esta puntuación?" })).toBeVisible();
     expect(within(editor).getByRole("button", { name: "Conservar" })).toHaveFocus();
     await userEvent.click(within(editor).getByRole("button", { name: "Conservar" }));
     expect(remove).toHaveFocus();
@@ -267,7 +268,7 @@ describe("Mis puntuaciones", () => {
     expect(commands(fetchMock, "DELETE")).toHaveLength(0);
     await userEvent.click(remove);
     await userEvent.click(within(editor).getByRole("button", { name: "Sí, eliminar" }));
-    expect(await screen.findByText("Todavía no has puntuado ningún juego")).toBeVisible();
+    expect(await screen.findByText("No has puntuado nada aún. Un Gameómetro muere en el mundo cada vez que tú decides no puntuar")).toBeVisible();
     expect(screen.getByRole("heading", { name: "Resultados de mis puntuaciones" })).toHaveFocus();
     expect(commands(fetchMock, "DELETE")[0]?.headers.get("If-Match")).toBe('"version-1"');
     expect(listReads(fetchMock)).toHaveLength(2);
@@ -284,13 +285,13 @@ describe("Mis puntuaciones", () => {
     renderApp("/mis-puntuaciones");
     const { card, editor } = await openEditor();
     await userEvent.click(within(editor).getByRole("button", { name: "5" }));
-    await userEvent.click(within(editor).getByRole("button", { name: "Guardar nota" }));
+    await userEvent.click(within(editor).getByRole("button", { name: "Guardar puntuación" }));
     expect(await within(editor).findByRole("alert")).toHaveTextContent("cambió en otra sesión");
     // The winning value arrives through the automatic read; the editor keeps the pending pick.
     expect(await within(card).findByRole("button", { name: /^Tu puntuación Ardiendo 9\/10/ })).toBeVisible();
-    expect(within(editor).getByText("Nota actual").parentElement).toHaveTextContent("9/10Ardiendo");
-    expect(within(editor).getByText("Nueva nota").parentElement).toHaveTextContent("5/10Templado");
-    await waitFor(() => expect(within(editor).getByRole("button", { name: "Guardar nota" })).toBeEnabled());
+    expect(within(editor).getByText("Puntuación actual").parentElement).toHaveTextContent("9/10Ardiendo");
+    expect(within(editor).getByText("Nueva puntuación").parentElement).toHaveTextContent("5/10Templado");
+    await waitFor(() => expect(within(editor).getByRole("button", { name: "Guardar puntuación" })).toBeEnabled());
     expect(commands(fetchMock, "PUT")).toHaveLength(1);
   });
   it("keeps ambiguous commands blocked until a successful read, including failed automatic reads", async () => {
@@ -310,7 +311,7 @@ describe("Mis puntuaciones", () => {
     await screen.findByText("No se pudieron cargar tus puntuaciones. Inténtalo de nuevo.");
     expect(within(editor).getByRole("button", { name: "Eliminar puntuación" })).toBeDisabled();
     await userEvent.click(within(editor).getByRole("button", { name: "8" }));
-    expect(within(editor).getByRole("button", { name: "Guardar nota" })).toBeDisabled();
+    expect(within(editor).getByRole("button", { name: "Guardar puntuación" })).toBeDisabled();
     recovered = true;
     // Pressing the retry outside the editor closes it; once the read succeeds, commands return.
     await userEvent.click(screen.getByRole("button", { name: "Reintentar carga" }));
@@ -325,7 +326,7 @@ describe("Mis puntuaciones", () => {
     stub(() => failing ? Response.json({ code: "PERSONAL_RATINGS_READ_FAILED" }, { status: 500 }) : Response.json(page()));
     renderApp("/mis-puntuaciones");
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudieron cargar");
-    expect(screen.queryByText("Todavía no has puntuado ningún juego")).not.toBeInTheDocument();
+    expect(screen.queryByText("No has puntuado nada aún. Un Gameómetro muere en el mundo cada vez que tú decides no puntuar")).not.toBeInTheDocument();
     failing = false;
     await userEvent.click(screen.getByRole("button", { name: "Reintentar carga" }));
     expect(await screen.findByText("Élite Dangerous")).toBeVisible();

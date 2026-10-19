@@ -91,7 +91,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
   await test.step("upcoming lists exact days by default and approximate dates on request", async () => {
     // The seed's only upcoming game in this horizon has no exact day, so the default is empty.
     await expect(page.locator(".result-count")).toHaveText("0 juegos");
-    await expect(page.getByText(/Ningún lanzamiento con fecha exacta/)).toBeVisible();
+    await expect(page.getByText(/No tenemos lanzamientos para estos filtros/)).toBeVisible();
     const optIn = page.getByRole("checkbox", { name: "Incluir fechas aproximadas" });
     await expect(optIn).not.toBeChecked();
     await optIn.focus();
@@ -134,7 +134,7 @@ test("the packaged release discovery journey reads PostgreSQL through the same-o
     await expect(page).toHaveURL(/\/games\/30000000-0000-4000-8000-000000000008\/the-witcher-iv$/);
     await expect(page.getByRole("heading", { level: 1, name: "The Witcher IV" })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Tu puntuación/ })).toBeDisabled();
-    await expect(page.getByText(/Todavía no se puede puntuar/)).toBeVisible();
+    await expect(page.getByText(/^Puntuación no disponible:/)).toBeVisible();
     await expect(page.getByRole("main")).toBeFocused();
   });
 

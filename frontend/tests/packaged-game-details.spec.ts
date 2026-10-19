@@ -29,7 +29,7 @@ test("public game details follow a real search result through the packaged API a
   // Eligibility is expressed by the enabled personal reading, not a separate block.
   await expect(reading(page)).toBeEnabled();
   await expect(page.getByText("Disponible para puntuar")).toHaveCount(0);
-  await expect(page.getByText("Sin nota todavía")).toBeVisible();
+  await expect(page.getByText("Sin puntuación todavía")).toBeVisible();
   await expect(page.getByRole("region", { name: "Fechas y plataformas" })).toBeVisible();
   expect((await analyzeAccessibility(page)).violations).toEqual([]);
   await page.reload();
@@ -262,7 +262,7 @@ for (const width of [320, 390, 760, 834, 1024, 1320]) {
     await expect(calendar.getByText("1 de mayo de 2026")).toBeVisible();
     await expect(calendar.getByText("Cancelado", { exact: true })).toBeVisible();
     await expect(calendar.getByText("Alfa")).toBeVisible();
-    await expect(page.getByLabel("Nota media: 8,5 de 10")).toBeVisible();
+    await expect(page.getByLabel("Puntuación media: 8,5 de 10")).toBeVisible();
     await expect(page.getByRole("table")).toHaveCount(0);
 
     // The editorial summary stays compact under the title and opens whole on request.

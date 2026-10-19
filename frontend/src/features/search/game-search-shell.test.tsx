@@ -54,7 +54,7 @@ describe("catalogue search shell", () => {
 
     expect(
       screen.getByText(
-        "Escribe un título o un título alternativo aprobado en el buscador de la cabecera.",
+        "Escribe un título o un título alternativo, seguro que lo tenemos",
       ),
     ).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "Resultados de la búsqueda" })).not.toBeInTheDocument();
@@ -192,10 +192,24 @@ describe("catalogue search shell", () => {
       { params: { query: "elden ring", page: 1, pageSize: 6 } },
     );
 
-    expect(screen.getByText(/Ningún juego coincide con/)).toHaveTextContent(
+    expect(screen.getByText(/No tenemos nada que coincida con/)).toHaveTextContent(
       "elden ring",
     );
     expect(screen.getByRole("status")).toHaveTextContent("0 juegos");
+  });
+
+  it("substitutes a query as text in the approved empty-state wording", () => {
+    const query = '<img src=x onerror="alert(1)"> & Horizonte';
+    renderShell({
+      status: "ready",
+      model: viewModel({ results: [], page: { number: 1, size: 6, totalItems: 0, totalPages: 0 } }),
+      isRefreshing: false,
+      isPlaceholderData: false,
+    }, { params: { ...params, query } });
+
+    expect(screen.getByText(`No tenemos nada que coincida con «${query}», al menos por ahora porque Gameómetro no deja de crecer`)).toBeVisible();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(`Resultados para «${query}»`);
   });
 
   it("distinguishes an invalid query from a technical failure", () => {
@@ -207,21 +221,21 @@ describe("catalogue search shell", () => {
     expect(within(alert).queryByRole("button", { name: "Reintentar" })).not.toBeInTheDocument();
   });
 
-  it("distinguishes a catalogue that is not ready and states no provider is consulted", () => {
+  it("distinguishes unavailable game data using the approved preparation wording", () => {
     renderShell({ status: "catalogue-not-ready" });
 
     const alert = screen.getByRole("alert");
     expect(
       within(alert).getByRole("heading", { name: "Los juegos todavía no están disponibles" }),
     ).toBeInTheDocument();
-    expect(within(alert).getByText(/No se consulta ningún proveedor/)).toBeInTheDocument();
+    expect(within(alert).getByText("Aún no tenemos datos válidos de juegos, pero tranquilo que llegarán")).toBeInTheDocument();
   });
 
   it("offers an actionable retry that reports the correlation reference", async () => {
     const user = userEvent.setup();
     const { onRetry } = renderShell({
       status: "error",
-      message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
+      message: "A Gameómetro le está costando un poco. Prueba más tarde",
       correlationId: "correlation-test",
     });
 
@@ -267,7 +281,7 @@ describe("catalogue search shell", () => {
       { params: { query: "resident evil", page: 9, pageSize: 6 } },
     );
 
-    expect(screen.getByText("La página solicitada ya no está disponible para esta búsqueda."))
+    expect(screen.getByText("Ay, esta página ya no está disponible"))
       .toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ir a la última página" })).toHaveAttribute(
       "href",

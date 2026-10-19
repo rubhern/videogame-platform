@@ -38,7 +38,7 @@ export function FeaturedReleasesPage() {
         ? { status: "catalogue-not-ready" }
         : {
             status: "error",
-            message: "No se pudieron leer los datos de Gameómetro. Inténtalo de nuevo más tarde.",
+            message: "A Gameómetro le está costando un poco. Prueba más tarde",
             correlationId: query.error.correlationId,
           };
   } else {
