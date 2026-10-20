@@ -591,6 +591,23 @@ class PersonalRatingApiIntegrationTest {
     @Test
     void servesTwoLocalizedGenresAndCompactCommunityWithoutChangingOwnerScopedDiscovery()
             throws Exception {
+        // Public discovery also contains other methods' fixtures, unlike owner-scoped ratings.
+        UUID otherGame = addListedGame("Rated competitor", 8);
+        admin.update("DELETE FROM ratings.rating WHERE game_id=?", otherGame);
+        UUID discoveryPlatform = UUID.randomUUID();
+        admin.update(
+                "INSERT INTO catalogue.platform(platform_id,code,display_name) VALUES (?,?,?)",
+                discoveryPlatform,
+                "genre-discovery-" + discoveryPlatform,
+                "Genre discovery");
+        admin.update(
+                "UPDATE catalogue.release_snapshot SET platform_id=? WHERE game_id=?",
+                discoveryPlatform,
+                game);
+        admin.update(
+                "UPDATE catalogue.game_snapshot SET canonical_title=? WHERE game_id=?",
+                "Rated game " + game,
+                game);
         var codes = List.of("test-a-" + game, "test-b-" + game, "test-c-" + game);
         var ids = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
         for (int index = 0; index < 3; index++) {
@@ -637,11 +654,17 @@ class PersonalRatingApiIntegrationTest {
                 game);
         for (String url :
                 List.of(
-                        "/api/v1/releases?from=2026-08-13&to=2026-08-13",
-                        "/api/v1/releases?from=2026-08-14&to=2026-08-14",
-                        "/api/v1/games?q=Rated")) {
+                        "/api/v1/releases?from=2026-08-13&to=2026-08-13&platformIds="
+                                + discoveryPlatform,
+                        "/api/v1/releases?from=2026-08-14&to=2026-08-14&platformIds="
+                                + discoveryPlatform,
+                        "/api/v1/games?q=" + game)) {
             var publicResponse =
-                    mockMvc.perform(get(url)).andExpect(status().isOk()).andReturn().getResponse();
+                    mockMvc.perform(get(url))
+                            .andExpect(status().isOk())
+                            .andExpect(jsonPath("$.page.totalItems").value(1))
+                            .andReturn()
+                            .getResponse();
             OpenApiResponseContract.load(url.contains("releases") ? "/releases" : "/games")
                     .assertJsonResponse(
                             publicResponse,
