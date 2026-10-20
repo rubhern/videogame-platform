@@ -52,7 +52,7 @@ test("personal score atlas reflows at every reference width and keeps keyboard /
   expect(await page.evaluate(() => document.getAnimations().filter(animation => animation.playState==="running").length)).toBe(0);
 });
 
-test("empty, sparse, failed and loading states never fill charts with pretend data",async ({page},testInfo) => {
+test("empty, sparse and failed states never fill charts with pretend data",async ({page},testInfo) => {
   await session(page);
   await page.setViewportSize({width:390,height:844});
   await page.route("**/api/v1/me/rating-insights",route => route.fulfill({json:emptyRatingInsightsFixture()}));
@@ -75,14 +75,35 @@ test("empty, sparse, failed and loading states never fill charts with pretend da
   await expect(page.getByRole("heading",{name:"No se pudieron cargar tus estadísticas"})).toBeVisible();
   await accessible(page);
   await page.screenshot({path:testInfo.outputPath("personal-statistics-error.png"),fullPage:true});
-  let resolve: (()=>void) | undefined;
-  await page.route("**/api/v1/me/rating-insights",async route => {await new Promise<void>(done => {resolve=done;});await route.fulfill({json:ratingInsightsFixture()});});
-  await page.reload();
-  await expect(page.getByRole("status").filter({hasText:"Leyendo tus puntuaciones"})).toBeVisible();
-  await expect(page.locator(".insights-loading button")).toHaveCount(0);
-  await page.screenshot({path:testInfo.outputPath("personal-statistics-loading.png"),fullPage:true});
-  resolve?.();
+});
+
+test("cold navigation waits for private statistics before mounting the page",async ({page},testInfo) => {
+  await session(page);
+  await page.setViewportSize({width:390,height:844});
+  let releaseRead = () => {};
+  const responseReady = new Promise<void>(resolve => { releaseRead=resolve; });
+  let reads=0;
+  await page.route("**/api/v1/me/rating-insights",async route => {
+    reads++;
+    await responseReady;
+    await route.fulfill({json:ratingInsightsFixture()});
+  });
+  const requested = page.waitForRequest("**/api/v1/me/rating-insights");
+  await page.goto(path);
+  await requested;
+  try {
+    // The router owns cold-load waiting: its loader reads the private snapshot before
+    // mounting the page so scroll restoration sees the destination's final height.
+    await expect(page.getByRole("status").filter({hasText:"Cargando página…"})).toBeVisible();
+    await expect(page.getByRole("heading",{name:"Así puntúas"})).toHaveCount(0);
+    await expect(page.getByRole("button",{name:/de 10:/})).toHaveCount(0);
+    await page.screenshot({path:testInfo.outputPath("personal-statistics-loading.png"),fullPage:true});
+  } finally {
+    releaseRead();
+  }
   await expect(page.getByRole("heading",{name:"Así puntúas"})).toBeVisible();
+  await expect(page.getByText("84",{exact:true})).toBeVisible();
+  expect(reads).toBe(1);
 });
 
 test("large collections keep exact accessible counts without overflowing narrow charts", async ({page}) => {
