@@ -648,7 +648,7 @@ also need reproducible pinned identities; never build on the VPS, deploy `latest
 or infer a digest from a movable tag. Record configuration fingerprint, source,
 image/model identities, migration version and sanitized deployment/acceptance receipt.
 
-**Dependency images, prepared and unpublished until merged (#275 increment 2):**
+**Implemented dependency-image publication (#275 increment 2):**
 trusted `main` publishes the themed Keycloak and the localizer through the same
 retained-archive path as the application:
 
@@ -677,7 +677,9 @@ accepted risk.
 
 Initially use owner-triggered manual promotion over private administration, reusing
 the current preflight/lock/migration/readiness/smoke pattern in a production-specific
-contract. Private-dev Actions credentials/forced commands authorize only private-dev;
+contract. The [manual procedure](../../../deploy/public-production/README.md#manual-deployment-procedure)
+is implemented for disposable synthetic rehearsal only; real-host execution remains
+blocked pending recovery and release prerequisites. Private-dev Actions credentials/forced commands authorize only private-dev;
 do not reuse them for production or add unattended deployment. A production Actions
 promotion path is optional later, not a launch prerequisite. Migration is a one-shot
 actor before application replacement; dependencies/config/secrets have separate

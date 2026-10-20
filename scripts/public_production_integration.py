@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Disposable production-runtime exercise; never a deployment or capacity acceptance."""
 import argparse
+import contextlib
 import hashlib
 import io
 import importlib.util
@@ -19,6 +20,7 @@ import time
 import zipfile
 
 import private_dev_promotion as trust
+import public_production_deployment as deployment
 
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = ROOT / 'deploy/public-production/compose.yaml'
@@ -39,6 +41,14 @@ def command(args, *, data=None, check=True, timeout=600):
         error.result = result
         raise error
     return result
+
+
+def verify_local_docker():
+    # A rehearsal flag must not redirect synthetic workloads onto a remote host.
+    host = os.environ.get('DOCKER_HOST') if not os.environ.get('DOCKER_CONTEXT') else None
+    if not host:
+        host = command(['docker', 'context', 'inspect', '--format', '{{.Endpoints.docker.Host}}']).stdout.strip()
+    require(host.startswith('unix:///'), 'Rehearsal requires a local Docker Unix socket; remote contexts are refused.')
 
 
 def dependency_publication(api, run, revision, name):
@@ -139,6 +149,7 @@ class Exercise:
         self.stop = threading.Event()
         self.samples = {}
         self.thread = None
+        self.expected_stops = []
         self.started_at = int(time.time())
         self.receipt = {'outcome': 'failure', 'phase': self.phase, 'provenance': selected,
                         'localizer': 'pending' if model else 'not-exercised-model-not-supplied',
@@ -147,7 +158,7 @@ class Exercise:
                         'measurement': 'Docker sampled working-set memory every >=2 seconds; steady is the final idle sample. No VPS capacity claim.'}
 
     def compose(self, *args, **kwargs):
-        return command(['docker', 'compose', '-p', self.project, '-f', self.file, '--profile', '*', *args], **kwargs)
+        return command(['docker', 'compose', '-p', self.project, '--env-file', '/dev/null', '-f', self.file, '--profile', '*', *args], **kwargs)
 
     def prepare(self):
         d = self.directory
@@ -219,6 +230,7 @@ class Exercise:
         state.mkdir(mode=0o700)
         runtime = recovery.Runtime(self.file, self.project, state)
         runtime.initialize()
+        self.recovery_runtime, self.recovery_core = runtime, recovery
         self.receipt['sourceFiles'] = {
             str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in [COMPOSE, ROOT / 'deploy/public-production/caddy/Caddyfile',
@@ -238,6 +250,21 @@ class Exercise:
                 if subnet and ':' not in subnet:
                     for reserved in ['10.203.1.0/28', '10.203.2.0/28']:
                         require(not ipaddress.ip_network(subnet).overlaps(ipaddress.ip_network(reserved)), 'Production trust subnet already in use; refusing to touch existing networks.')
+
+    @contextlib.contextmanager
+    def deployment_lease(self):
+        try:
+            with self.recovery_runtime.lock():
+                require(self.recovery_runtime.gate('check') == b'open', 'Recovery authorization is closed; deployment refused.')
+                yield
+        except self.recovery_core.Refused:
+            raise trust.Refused('Recovery lease or authorization unavailable; deployment refused.') from None
+
+    def inspect_image(self, image):
+        return command(['docker', 'image', 'inspect', image])
+
+    def inspect(self, cid):
+        return command(['docker', 'inspect', cid])
 
     def cid(self, service):
         return self.compose('ps', '-aq', service).stdout.strip()
@@ -273,9 +300,9 @@ class Exercise:
                 self.receipt['resourceSamplingFailure'] = True
             self.stop.wait(2)
 
-    def up(self, *services):
+    def up(self, *services, no_deps=False):
         try:
-            self.compose('up', '-d', '--no-build', '--wait', '--wait-timeout', '300', *services)
+            self.compose('up', '-d', '--no-build', *(['--no-deps'] if no_deps else []), '--wait', '--wait-timeout', '300', *services)
         except trust.Refused as error:
             failures = self.receipt.setdefault('operationalFailures', [])
             for service in services:
@@ -333,7 +360,8 @@ class Exercise:
     def stage_b(self):
         self.phase = 'B-canonical-tls-oidc'
         self.up('mailpit', 'keycloak', 'caddy')
-        self.up('application')
+        self.deployer = deployment.Deployment(self, self.api, self.fingerprint, self.schema)
+        self.deployer.run()
         env = json.loads(self.file.read_text())['services']['application']['environment']
         env = {k: v for k, v in env.items() if k.startswith('OIDC_') or k.startswith('APPLICATION_OIDC_')}
         self.probe('python3', '/work/scripts/check-oidc-issuer-contract.py', environment={**env, 'OIDC_CONTRACT_CA_FILE': '/run/pki/ca.crt'})
@@ -401,6 +429,52 @@ print(json.dumps(v))
             require(record.get('samples', 0) > 0 and not record.get('oomKilled') and not record.get('restarts'), f'{name}: missing measurements, restart or OOM.')
         self.receipt['stages'].append('D')
 
+    def stop_application(self):
+        cid = self.cid('application')
+        since = int(time.time())
+        try:
+            self.compose('stop', '--timeout', '30', 'application')
+        finally:
+            if cid:
+                self.expected_stops.append((cid, since, int(time.time())))
+
+    def expected_exit(self, event):
+        return (event.get('Action') == 'die'
+                and event['Actor']['Attributes'].get('com.docker.compose.service') == 'application'
+                and event['Actor']['Attributes'].get('exitCode') in ('143', '137')
+                and any(event['Actor'].get('ID') == cid and since <= event.get('time', 0) <= until
+                        for cid, since, until in self.expected_stops))
+
+    def stage_e(self):
+        self.phase = 'E-deployment-transitions'
+        # Keep a synthetic row in the existing product database across attempts.
+        # No new user account or permanent schema is needed.
+        sentinel = self.sql('SELECT game_id FROM catalogue.game ORDER BY game_id LIMIT 1;')
+        require(re.fullmatch(r'[0-9a-f-]{36}', sentinel or ''), 'Synthetic catalogue state is missing.')
+        query = f"SELECT md5(row_to_json(g)::text) FROM catalogue.game g WHERE game_id = '{sentinel}'::uuid;"
+        before = self.sql(query)
+        require(bool(before), 'Synthetic catalogue state is missing.')
+        receipts = []
+        for fault in (None, 'migration', None, 'readiness', None, 'smoke', None, None):
+            previous = self.cid('application')
+            try:
+                result = self.deployer.run(fault=fault)
+                require(fault is None and result['outcome'] == 'success', 'Injected deployment fault was not detected.')
+            except trust.Refused:
+                require(fault is not None, 'Normal deployment transition failed.')
+                state = json.loads(self.deployer.state.read_text())
+                require(state['outcome'] == 'failure' and state['phase'] == fault, 'Wrong failure transition.')
+                if fault == 'migration':
+                    require(self.cid('application') == previous, 'Migration failure replaced the application.')
+                info = json.loads(self.inspect(self.cid('application')).stdout)[0]
+                require(not info['State']['Running'], 'Failed candidate remains running.')
+                receipts.append(state['failureReason'])
+            require(self.sql(query) == before,
+                    'Deployment attempt changed synthetic product state.')
+        self.receipt['deploymentTransitions'] = {'outcome': 'passed', 'attempts': 8,
+                                                'detectedFailures': receipts, 'syntheticStatePreserved': True}
+        self.receipt['stages'].append('E')
+
     def cleanup(self):
         self.stop.set()
         if self.thread:
@@ -423,7 +497,8 @@ print(json.dumps(v))
                     if event.get('Action') in ('oom', 'restart', 'die'):
                         attributes = event['Actor']['Attributes']
                         self.receipt['runtimeEvents'].append({'service': attributes.get('com.docker.compose.service'),
-                                                             'action': event['Action'], 'exitCode': attributes.get('exitCode')})
+                                                             'action': event['Action'], 'exitCode': attributes.get('exitCode'),
+                                                             'expectedOperatorStop': self.expected_exit(event)})
             self.compose('down', '--volumes', '--remove-orphans', '--timeout', '15')
             remaining = command(['docker', 'ps', '-aq', '--filter', f'label=com.docker.compose.project={self.project}']).stdout.strip()
             networks = command(['docker', 'network', 'ls', '-q', '--filter', f'label=com.docker.compose.project={self.project}']).stdout.strip()
@@ -436,24 +511,37 @@ print(json.dumps(v))
         self.receipt['teardown'] = 'passed'
         bad = [event for event in self.receipt.get('runtimeEvents', [])
                if event['service'] in ('postgres', 'keycloak', 'application', 'caddy', 'catalogue-localizer')
-               and (event['action'] in ('oom', 'restart') or event['action'] == 'die' and event['exitCode'] != '0')]
+               and (event['action'] in ('oom', 'restart') or event['action'] == 'die' and event['exitCode'] != '0'
+                    and not event.get('expectedOperatorStop', False))]
         require(not bad, 'Runtime service exited, restarted or was OOM-killed during the exercise.')
         require(self.receipt.get('eventObservation', 'passed') == 'passed', 'Runtime event observation failed.')
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--revision', required=True, help='Full trusted-main source SHA; never inferred from tags')
     parser.add_argument('--model-dir', type=Path, help='Existing approved checksum-verified tcbig directory; never downloaded')
     parser.add_argument('--evidence', required=True, type=Path, help='New output directory, sanitized receipts only')
-    parser.add_argument('--stage', choices=['A', 'B', 'C', 'D'], default='D', help='Last stage to exercise')
-    args = parser.parse_args()
+    parser.add_argument('--stage', choices=['A', 'B', 'C', 'D', 'E'], default='E', help='Last stage to exercise')
+    parser.add_argument('--digest', help='Expected immutable application digest; no fallback')
+    parser.add_argument('--configuration-fingerprint', help='Owner-reviewed runtime source fingerprint')
+    args = parser.parse_args(argv)
     args.evidence.mkdir(mode=0o700, parents=True, exist_ok=False)
     receipt = {'outcome': 'failure', 'phase': 'publication-resolution', 'productionReady': False}
     exercise = None
     try:
         token = command(['gh', 'auth', 'token']).stdout.strip()
         selected = resolve(trust.GitHub(token), args.revision)
+        receipt['provenance'] = selected
+        if args.digest:
+            require(selected['image_digest'] == args.digest, 'Selected digest differs from trusted publication.')
+        receipt['phase'] = 'configuration-preflight'
+        fingerprint = args.configuration_fingerprint or deployment.local_configuration()
+        api = trust.GitHub(token)
+        schema = deployment.verify_configuration(api, args.revision, fingerprint)
+        receipt['runtimeConfigurationFingerprint'] = fingerprint
+        verify_local_docker()
+        receipt['phase'] = 'image-preflight'
         print('Trusted-main publications verified; pulling immutable images.', flush=True)
         # Check every required image before any runtime resources are created.
         for name, image in selected['images'].items():
@@ -464,17 +552,21 @@ def main():
             labels = info['Config'].get('Labels') or {}
             require(labels.get('org.opencontainers.image.revision') == args.revision, f'{name}: OCI source revision mismatch.')
             if name == 'application':
-                selected['applicationVersion'] = labels['org.opencontainers.image.version']
+                version = labels.get('org.opencontainers.image.version', '')
+                require(re.fullmatch(r'[0-9A-Za-z.-]{1,100}', version), 'Invalid application image version.')
+                selected['applicationVersion'] = version
         model = verify_model(args.model_dir) if args.model_dir else None
         with tempfile.TemporaryDirectory(prefix='vgp-production-test-') as temporary:
             exercise = Exercise(Path(temporary), args.evidence, selected, model)
+            exercise.api, exercise.fingerprint, exercise.schema = api, fingerprint, schema
             receipt = exercise.receipt
+            receipt['runtimeConfigurationFingerprint'] = fingerprint
             receipt['requestedStage'] = args.stage
             try:
                 exercise.prepare()
                 exercise.thread = threading.Thread(target=exercise.monitor, daemon=True)
                 exercise.thread.start()
-                for stage in 'ABCD'[:'ABCD'.index(args.stage) + 1]:
+                for stage in 'ABCDE'[:'ABCDE'.index(args.stage) + 1]:
                     print(f'Running stage {stage}.', flush=True)
                     getattr(exercise, 'stage_' + stage.lower())()
                 receipt['outcome'] = 'passed'
