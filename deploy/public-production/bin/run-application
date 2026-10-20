@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+# Missing evidence and an interrupted operation both fail closed, also after restart.
+if [ ! -f /run/recovery/READY ] || [ -e /run/recovery/PENDING.json ]; then
+  printf 'Production recovery authorization is closed.\n' >&2
+  exit 1
+fi
+exec /opt/gameometro/bin/shared-run-application

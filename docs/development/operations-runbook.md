@@ -19,7 +19,9 @@ disposable operational history.
 
 The [public target](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
 and [separate purchase/exposure gates](delivery-lifecycle.md#public-production-gates)
-are proposals awaiting review; no production procedure has been exercised. Record
+describe the accepted direction and pending authorization; no procedure has been exercised
+on production. The [production recovery candidate](../../deploy/public-production/README.md#paired-backup-and-recovery-candidate)
+owns prepared commands and the synthetic host-loss exercise, with its real-host limits. Record
 real-VPS evidence here only when those procedures are executed; private-dev evidence
 does not certify production networking, capacity, email or recovery.
 

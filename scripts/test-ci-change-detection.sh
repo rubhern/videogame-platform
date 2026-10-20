@@ -86,9 +86,14 @@ run_case production-identity \
   'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case public-production-runtime \
-  $'deploy/public-production/compose.yaml\ndeploy/public-production/runtime.env.example\ndeploy/public-production/caddy/Caddyfile\ndeploy/public-production/bin/run-keycloak\nscripts/test-public-production-runtime.py\nscripts/probe-public-production-edge.py\nscripts/public_production_integration.py\nscripts/test-public-production-integration.py\nscripts/run-production-runtime-browser.sh' \
+  $'deploy/public-production/compose.yaml\ndeploy/public-production/runtime.env.example\ndeploy/public-production/caddy/Caddyfile\ndeploy/public-production/bin/run-keycloak\nscripts/test-public-production-runtime.py\nscripts/probe-public-production-edge.py\nscripts/public_production_integration.py\nscripts/test-public-production-integration.py\nscripts/run-production-runtime-browser.sh\nscripts/test-production-recovery.py\nscripts/test-production-recovery-lock.py\nscripts/rehearse-production-recovery.py' \
   'production_runtime' \
   'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case shared-recovery-primitives \
+  $'deploy/private-dev/lib/backup-common.sh\ndeploy/private-dev/bin/personal-data\ndeploy/private-dev/bin/personal-data-ledger' \
+  'production_runtime,container,identity,documentation' \
+  'frontend,ci'
 
 run_case public-production-readme \
   'deploy/public-production/README.md' \

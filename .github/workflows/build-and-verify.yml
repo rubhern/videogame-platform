@@ -309,6 +309,11 @@ jobs:
       - name: Check integration publication refusals and isolation without registry credentials
         run: python3 scripts/test-public-production-integration.py
 
+      - name: Prove paired backup encryption, recovery and refusal contracts
+        run: |
+          python3 scripts/test-production-recovery.py
+          python3 scripts/test-production-recovery-lock.py
+
       - name: Check topology, exposure, secrets and edge routes with synthetic inputs
         run: python3 -I scripts/test-public-production-runtime.py
 

@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import io
 import importlib.util
+import importlib.machinery
 import json
 import os
 from pathlib import Path
@@ -210,6 +211,14 @@ class Exercise:
         require(not violations, 'Production configuration contract failed: ' + '; '.join(violations))
         config = isolated_config(base, self.project, d)
         self.file.write_text(json.dumps(config))
+        loader = importlib.machinery.SourceFileLoader('production_integration_recovery', str(ROOT / 'deploy/public-production/bin/recovery'))
+        recovery_spec = importlib.util.spec_from_loader(loader.name, loader)
+        recovery = importlib.util.module_from_spec(recovery_spec)
+        loader.exec_module(recovery)
+        state = d / 'recovery-journal'
+        state.mkdir(mode=0o700)
+        runtime = recovery.Runtime(self.file, self.project, state)
+        runtime.initialize()
         self.receipt['sourceFiles'] = {
             str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
             for path in [COMPOSE, ROOT / 'deploy/public-production/caddy/Caddyfile',
