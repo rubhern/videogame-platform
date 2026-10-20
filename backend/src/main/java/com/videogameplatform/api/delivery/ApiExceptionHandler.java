@@ -4,6 +4,7 @@ import com.videogameplatform.api.generated.ReleasesApi;
 import com.videogameplatform.api.generated.model.CatalogueSynchronizationWindow;
 import com.videogameplatform.api.generated.model.ErrorCategory;
 import com.videogameplatform.api.generated.model.FeaturedGranularity;
+import com.videogameplatform.api.generated.model.PlatformPreferencesWrite;
 import com.videogameplatform.api.generated.model.Problem;
 import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ReleaseSort;
@@ -11,6 +12,7 @@ import com.videogameplatform.api.generated.model.Violation;
 import com.videogameplatform.catalogue.application.CatalogueNotReadyException;
 import com.videogameplatform.catalogue.application.CatalogueReadException;
 import com.videogameplatform.catalogue.application.details.GameNotFoundException;
+import com.videogameplatform.catalogue.application.preferences.PlatformPreferenceInvalidException;
 import com.videogameplatform.catalogue.application.releases.FeaturedPeriodOutOfRangeException;
 import com.videogameplatform.catalogue.application.releases.ReleaseQueryValidationException;
 import com.videogameplatform.catalogue.application.search.SearchQueryInvalidException;
@@ -382,6 +384,19 @@ public class ApiExceptionHandler {
         };
     }
 
+    @ExceptionHandler(PlatformPreferenceInvalidException.class)
+    ResponseEntity<Problem> preferredPlatformUnsupported(HttpServletResponse response) {
+        return problem(
+                response,
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                ProblemCode.PLATFORM_NOT_SUPPORTED,
+                "Platform is not supported",
+                "Choose platforms from the selectable platform list.",
+                ErrorCategory.VALIDATION,
+                "/platformIds",
+                "Every value must name a selectable platform.");
+    }
+
     /** A period outside the navigation bounds fails the same filter validation as a malformed one. */
     @ExceptionHandler(FeaturedPeriodOutOfRangeException.class)
     ResponseEntity<Problem> featuredPeriodOutOfRange(
@@ -583,6 +598,14 @@ public class ApiExceptionHandler {
         }
         if ("ratingWrite".equals(parameter)) {
             return ratingValueInvalid(response);
+        }
+        // A preferred-platform command outside its schema (too many or blank values) is malformed.
+        if (exception.getParameterValidationResults().stream()
+                .anyMatch(
+                        result ->
+                                PlatformPreferencesWrite.class.equals(
+                                        result.getMethodParameter().getParameterType()))) {
+            return requestMalformed(response);
         }
         if (exception.getParameterValidationResults().stream()
                 .anyMatch(

@@ -264,6 +264,72 @@ class FeaturedReleaseApiIntegrationTest {
     }
 
     @Test
+    void restrictsTheRankingToExplicitPlatformsWithoutAnySessionInput() throws Exception {
+        JsonNode october = json(get("/api/v1/featured-releases?month=2026-10"));
+        List<String> presented = new java.util.ArrayList<>();
+        october.path("items")
+                .get(0)
+                .path("releases")
+                .forEach(
+                        release ->
+                                presented.add(
+                                        release.path("platform").path("platformId").stringValue()));
+        String other =
+                List.of(
+                                "10000000-0000-4000-8000-000000000001",
+                                "10000000-0000-4000-8000-000000000002",
+                                "10000000-0000-4000-8000-000000000003",
+                                "10000000-0000-4000-8000-000000000004")
+                        .stream()
+                        .filter(platform -> !presented.contains(platform))
+                        .findFirst()
+                        .orElseThrow();
+
+        HttpResponse<String> matching =
+                get("/api/v1/featured-releases?month=2026-10&platformIds=" + presented.getFirst());
+        OPENAPI.assertJsonResponse(matching, 200, "FeaturedReleases");
+        JsonNode restricted = json(matching);
+        assertThat(ids(restricted.path("items"), "canonicalTitle"))
+                .containsExactly("Crimson Desert");
+        restricted
+                .path("items")
+                .get(0)
+                .path("releases")
+                .forEach(
+                        release ->
+                                assertThat(
+                                                release.path("platform")
+                                                        .path("platformId")
+                                                        .stringValue())
+                                        .isEqualTo(presented.getFirst()));
+        assertThat(matching.headers().firstValue("ETag"))
+                .isNotEqualTo(
+                        get("/api/v1/featured-releases?month=2026-10")
+                                .headers()
+                                .firstValue("ETag"));
+
+        JsonNode none = json(get("/api/v1/featured-releases?month=2026-10&platformIds=" + other));
+        assertThat(none.path("selection").path("status").stringValue())
+                .isEqualTo("no_qualifying_releases");
+        assertThat(none.path("items")).isEmpty();
+
+        HttpResponse<String> unknown =
+                get(
+                        "/api/v1/featured-releases?month=2026-10&platformIds="
+                                + presented.getFirst()
+                                + "&platformIds=platform_unknown");
+        assertProblem(unknown, 422, "PLATFORM_NOT_SUPPORTED");
+        assertThat(
+                        OBJECT_MAPPER
+                                .readTree(unknown.body())
+                                .path("violations")
+                                .get(0)
+                                .path("pointer")
+                                .stringValue())
+                .isEqualTo("/query/platformIds");
+    }
+
+    @Test
     void servesOnlyDiscoveryMetadataWithLocalizedSummaryFallbackAndChangingValidators()
             throws Exception {
         var game = java.util.UUID.fromString("30000000-0000-4000-8000-00000000000a");

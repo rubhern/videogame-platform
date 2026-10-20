@@ -27,7 +27,9 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -67,8 +69,13 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
 
     @Override
     public ResponseEntity<FeaturedReleases> getFeaturedReleases(
-            FeaturedGranularity granularity, String week, String month, String ifNoneMatch) {
-        BrowseFeaturedReleasesUseCase.Query query = toQuery(granularity, week, month);
+            FeaturedGranularity granularity,
+            String week,
+            String month,
+            Set<String> platformIds,
+            String ifNoneMatch) {
+        BrowseFeaturedReleasesUseCase.Query query =
+                withPlatforms(toQuery(granularity, week, month), platformIds);
         FeaturedReleasesResult result = useCase.browse(query);
         FeaturedReleases body = toResponse(result);
         var scoreBatch =
@@ -92,6 +99,14 @@ public class FeaturedReleaseController implements FeaturedReleasesApi {
                 query.periodStart().isPresent(),
                 result.items());
         return ResponseEntity.ok().headers(headers).body(body);
+    }
+
+    private static BrowseFeaturedReleasesUseCase.Query withPlatforms(
+            BrowseFeaturedReleasesUseCase.Query query, Set<String> platformIds) {
+        return new BrowseFeaturedReleasesUseCase.Query(
+                query.granularity(),
+                query.periodStart(),
+                platformIds == null ? List.of() : List.copyOf(platformIds));
     }
 
     /**

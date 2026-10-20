@@ -57,12 +57,23 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
                   <@ daterange(CAST(:periodStart AS date), CAST(:periodEnd AS date), '[]')
             """;
 
-    private static final String QUALIFYING_EXISTS_SQL =
-            "SELECT EXISTS (SELECT 1 FROM catalogue.release_snapshot rs WHERE "
-                    + QUALIFYING_PREDICATE
-                    + " AND EXISTS (SELECT 1 FROM catalogue.game_featured_evidence evidence"
-                    + " WHERE evidence.game_id = rs.game_id AND evidence.eligible_product"
-                    + " AND evidence.first_release_date BETWEEN CAST(:periodStart AS date) AND CAST(:periodEnd AS date)))";
+    // A platform restriction narrows the qualifying releases themselves, so it applies before any
+    // game is ranked, limited or presented: the ranking is that of the restricted candidates. The
+    // identifiers were validated to exist before they reach the cast.
+    private static final String PLATFORM_PREDICATE =
+            " AND rs.platform_id = ANY(CAST(:platformIds AS uuid[]))";
+
+    private static final String QUALIFYING_EXISTS_SQL = qualifyingExistsSql(QUALIFYING_PREDICATE);
+    private static final String RESTRICTED_QUALIFYING_EXISTS_SQL =
+            qualifyingExistsSql(QUALIFYING_PREDICATE + PLATFORM_PREDICATE);
+
+    private static String qualifyingExistsSql(String qualifyingPredicate) {
+        return "SELECT EXISTS (SELECT 1 FROM catalogue.release_snapshot rs WHERE "
+                + qualifyingPredicate
+                + " AND EXISTS (SELECT 1 FROM catalogue.game_featured_evidence evidence"
+                + " WHERE evidence.game_id = rs.game_id AND evidence.eligible_product"
+                + " AND evidence.first_release_date BETWEEN CAST(:periodStart AS date) AND CAST(:periodEnd AS date)))";
+    }
 
     // Each candidate reads its signal through a LATERAL primary-key probe (the LIMIT keeps the
     // planner from hashing the whole popularity table), and only the ranked games join their
@@ -71,8 +82,12 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
     // precedence with the earliest date first; inside a game an exact day precedes month precision,
     // then the earlier date. The page keeps the ranking order: highest popularity first, then the
     // unique game id.
-    private static final String PAGE_SQL =
-            """
+    private static final String PAGE_SQL = pageSql(QUALIFYING_PREDICATE);
+    private static final String RESTRICTED_PAGE_SQL =
+            pageSql(QUALIFYING_PREDICATE + PLATFORM_PREDICATE);
+
+    private static String pageSql(String qualifyingPredicate) {
+        return """
             WITH qualifying_release AS MATERIALIZED (
                 SELECT rs.* FROM catalogue.release_snapshot rs WHERE %1$s
             ),
@@ -145,11 +160,11 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
             ORDER BY rg.hypes DESC, rg.game_id, rel.precision_rank, rel.period_start,
                      rel.release_id
             """
-                    .formatted(
-                            QUALIFYING_PREDICATE,
-                            ReleasePresentationOrder.of(
-                                    "qr", "release_region", "qr.period_start ASC"),
-                            ReleasePresentationOrder.precisionRank("p"));
+                .formatted(
+                        qualifyingPredicate,
+                        ReleasePresentationOrder.of("qr", "release_region", "qr.period_start ASC"),
+                        ReleasePresentationOrder.precisionRank("p"));
+    }
 
     private static final String SUMMARY_SQL =
             """
@@ -186,23 +201,51 @@ public final class JdbcFeaturedReleaseReadAdapter implements FeaturedReleaseRead
         if (publication.isEmpty()) {
             return Optional.empty();
         }
+        List<String> platformIds = criteria.platformIds();
+        boolean restricted = !platformIds.isEmpty();
+        if (restricted && !allPlatformsExist(platformIds)) {
+            return Optional.of(
+                    new Result(publication.orElseThrow().version(), false, List.of(), false));
+        }
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("publicationId", publication.orElseThrow().id());
+        if (restricted) {
+            parameters.put("platformIds", "{" + String.join(",", platformIds) + "}");
+        }
         parameters.put("periodStart", criteria.periodStart());
         parameters.put("periodEnd", criteria.periodEnd());
         parameters.put("limit", criteria.limit());
         parameters.put("releaseGroupLimit", criteria.releaseGroupLimit());
 
         List<Item> items =
-                enrich(jdbcOperations.query(PAGE_SQL, parameters, this::mapPage), parameters);
+                enrich(
+                        jdbcOperations.query(
+                                restricted ? RESTRICTED_PAGE_SQL : PAGE_SQL,
+                                parameters,
+                                this::mapPage),
+                        parameters);
         // A ranked game proves the period qualifies; only an empty ranking needs the cheap probe
         // that tells an unranked period apart from a period without qualifying releases.
         boolean qualifying =
                 !items.isEmpty()
                         || Boolean.TRUE.equals(
                                 jdbcOperations.queryForObject(
-                                        QUALIFYING_EXISTS_SQL, parameters, Boolean.class));
+                                        restricted
+                                                ? RESTRICTED_QUALIFYING_EXISTS_SQL
+                                                : QUALIFYING_EXISTS_SQL,
+                                        parameters,
+                                        Boolean.class));
         return Optional.of(new Result(publication.orElseThrow().version(), qualifying, items));
+    }
+
+    /** Text comparison, so an identifier that is not a uuid is simply unknown. */
+    private boolean allPlatformsExist(List<String> platformIds) {
+        Integer known =
+                jdbcOperations.queryForObject(
+                        "SELECT count(*) FROM catalogue.platform WHERE platform_id::text IN (:ids)",
+                        Map.of("ids", platformIds),
+                        Integer.class);
+        return known != null && known == platformIds.size();
     }
 
     /** Two indexed reads enrich only the ranked page: at most twelve terms and one summary. */

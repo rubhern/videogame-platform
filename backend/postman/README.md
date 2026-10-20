@@ -14,10 +14,11 @@ backend API changes, update its tracked requests and assertions in the same chan
 | Collection | Covers |
 |---|---|
 | `catalogue-releases` | Release exploration over the current week or an inclusive range, at most one presented release per platform, the exact-day default after today and approximate-date opt-in, date, Hype, community-score and external player score orders, filters, public headers, weak-validator conditional reads, strict query parameters including the retired `view`, range and order validation, pagination, stable validation errors |
-| `featured-releases` | Automatic monthly featured releases: the current Madrid month by default and a requested month of the current year (another year's month is rejected), the bounded ranking, one qualifying release per platform inside the month, no exposed popularity value, a featured release of the month that never presents its cover, public headers, weak-validator conditional reads, malformed-month and strict-query rejection |
+| `featured-releases` | Automatic monthly featured releases: the current Madrid month by default and a requested month of the current year (another year's month is rejected), the bounded ranking, one qualifying release per platform inside the month, an explicit platform restriction applied before ranking and its unknown-platform rejection, no exposed popularity value, a featured release of the month that never presents its cover, public headers, weak-validator conditional reads, malformed-month and strict-query rejection |
 | `catalogue-search` | Canonical-title and approved-alias matching, diacritic-insensitive prefix matching, ambiguous and zero-result outcomes, deterministic pagination, separate work-level scores with revalidating public headers, conditional reads |
 | `game-details` | Public details, release evidence listed platform by platform with each presented record first, empty statistics, the optional separate IGDB player score, conditional requests, missing games, strict query rejection |
 | `personal-ratings` | Authenticated read, conditional create/update/delete, strong ETag reuse from the private collection, scoped search and ordering, the optional separate IGDB player score, duplicate/stale-write and CSRF rejection |
+| `platform-preferences` | The public selectable platforms with their validator, then, with a signed-in session, the user's own never-stored preferred platforms: read, whole-set replacement with de-duplication, rejection of an unknown platform, a client-supplied owner and a missing CSRF token without any change, and the clearing empty set; it ends with the account configured and no platform |
 | `catalogue-administration` | Operator-only synchronization status with bounded recent runs, durable coverage of a year as consecutive periods, never-stored responses, stable range and query rejections, and the bounded synchronization request with its CSRF and interval rejections; its last synchronization request asks for a one-day run, which is `SYNCHRONIZATION_DISABLED` without provider credentials; run stop and abandonment with their CSRF rejection and stable not-found answers, naming a run history never holds so no real run is touched; needs an operator session |
 | `session` | Anonymous session state, anonymous rejection of catalogue administration, CSRF-protected logout rejection and the inert logout-completion route; successful OIDC login and Keycloak logout are covered by the real-browser identity gate instead |
 | `actuator` | Discovery, health groups, build info, metrics, the `cataloguesync` operator command asserting the credential-free `SYNCHRONIZATION_DISABLED` outcome, and `sessionrevocation` with a synthetic `UserId` that has no session plus its malformed-identifier rejection |
@@ -74,6 +75,15 @@ Never add a `POST /login`, passwords, tokens or session cookies to a tracked fil
    stale update, prove CSRF rejection and delete the rating, leaving the seed game
    ready for another run. If an earlier run stopped after creation, read and delete
    the rating with its current `ETag` before expecting the create step to return `201`.
+
+## Authenticated platform-preferences run
+
+Its first request, **Selectable platforms**, needs no session and stores the first
+platform for the rest of the run. Then follow steps 1–3 of the personal-rating procedure
+above and run **Platform Preferences** in its defined order: it bootstraps the session and
+CSRF token, replaces the account's preferred platforms, proves each rejection changed
+nothing and ends by clearing them. The account then counts as having made its first-run
+choice, so the welcome is no longer offered to it.
 
 ## Authenticated catalogue-administration run
 

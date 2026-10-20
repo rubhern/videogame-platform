@@ -4,14 +4,18 @@ import { completeLogout, getSession, logout, type SessionState } from "./session
 
 export const SESSION_QUERY_KEY = ["session"] as const;
 
-/** Owns the current BFF session state as server state. */
-export function useSession() {
-  return useQuery<SessionState>({
+export function sessionQueryOptions() {
+  return {
     queryKey: SESSION_QUERY_KEY,
-    queryFn: ({ signal }) => getSession(undefined, signal),
+    queryFn: ({ signal }: { signal: AbortSignal }) => getSession(undefined, signal),
     retry: false,
     staleTime: 0,
-  });
+  };
+}
+
+/** Owns the current BFF session state as server state. */
+export function useSession(options: { refetchOnMount?: boolean } = {}) {
+  return useQuery<SessionState>({ ...sessionQueryOptions(), ...options });
 }
 
 /** Terminates the application session, then the browser's identity-provider session. */

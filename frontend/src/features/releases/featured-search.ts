@@ -52,13 +52,14 @@ export function readFeaturedSearch(params: URLSearchParams): FeaturedSearch {
  * default granularity, `?granularity=` for the other one, and the period alone otherwise.
  */
 export function featuredSearchPath(search: FeaturedSearch): string {
+  const params = new URLSearchParams();
   if (search.period !== null) {
-    const key = search.granularity === "week" ? "week" : "month";
-    return `/?${new URLSearchParams({ [key]: search.period }).toString()}`;
+    params.set(search.granularity === "week" ? "week" : "month", search.period);
+  } else if (search.granularity !== DEFAULT_FEATURED_GRANULARITY) {
+    params.set("granularity", search.granularity);
   }
-  return search.granularity === DEFAULT_FEATURED_GRANULARITY
-    ? "/"
-    : `/?${new URLSearchParams({ granularity: search.granularity }).toString()}`;
+  const query = params.toString();
+  return query === "" ? "/" : `/?${query}`;
 }
 
 /** Whether the URL already is the canonical route of what it reads as. */

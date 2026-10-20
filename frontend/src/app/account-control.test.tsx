@@ -1,9 +1,11 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AccountControl } from "./account-control";
+import { AppProviders } from "./app-providers";
+import { createInterestsSwitch } from "../features/platform-preferences/interests-switch";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -13,14 +15,14 @@ function renderControl(path = "/") {
     defaultOptions: { queries: { retry: false } },
   });
   return render(
-    <QueryClientProvider client={queryClient}>
+    <AppProviders interests={createInterestsSwitch()} queryClient={queryClient}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="*" element={<AccountControl />} />
           <Route path="/mis-puntuaciones" element={<h1>Mis puntuaciones</h1>} />
         </Routes>
       </MemoryRouter>
-    </QueryClientProvider>,
+    </AppProviders>,
   );
 }
 
@@ -31,6 +33,8 @@ describe("header account control", () => {
     const player = renderControl();
     await user.click(await screen.findByRole("button", { name: "Mi cuenta" }));
     expect(screen.getByRole("link", { name: "Mis puntuaciones" })).toBeVisible();
+    // Managing preferred platforms is a persistent account action, apart from the discovery toggle.
+    expect(screen.getByRole("link", { name: "Mis plataformas" })).toHaveAttribute("href", "/mis-plataformas");
     expect(screen.queryByRole("link", { name: "Panel de administrador" })).not.toBeInTheDocument();
     player.unmount();
 

@@ -1,0 +1,508 @@
+/* Preferred platforms (#295): the first-run welcome and Mis plataformas share one choice of
+   platform tiles, and TOPómetro and Explorar lanzamientos share the Según mis intereses control.
+   Night controls with hairlines; ice marks the selection and focus, never fire.
+   docs/development/frontend-design.md owns the rules. */
+
+@layer components {
+  /* ---------------------------------------------------------------- Page opening */
+
+  .preferences-section {
+    padding-bottom: 56px;
+  }
+
+  .preferences-lead {
+    max-width: 62ch;
+    margin: 12px 0 0;
+    color: var(--color-muted);
+    font-size: 1rem;
+    line-height: 1.55;
+  }
+
+  .preferences-lead strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  /* ---------------------------------------------------------------- Platform tiles */
+
+  .platform-picker {
+    min-width: 0;
+    margin: 28px 0 0;
+    border: 0;
+    padding: 0;
+  }
+
+  .platform-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .platform-tiles-compact {
+    grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+    margin-top: 12px;
+  }
+
+  .platform-tile {
+    position: relative;
+    display: grid;
+    min-height: 108px;
+    align-content: space-between;
+    gap: 14px;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 16px 16px 14px;
+    color: var(--color-muted);
+    background: var(--control);
+    cursor: pointer;
+  }
+
+  .platform-tiles-compact .platform-tile {
+    min-height: 56px;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    align-content: center;
+    gap: 12px;
+    padding: 10px 44px 10px 14px;
+  }
+
+  /* The native checkbox covers the tile: it keeps the click target, the focus and the state for
+     assistive technology while the tile draws them. */
+  .platform-tile-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+  }
+
+  .platform-tile-mark {
+    display: flex;
+    height: 28px;
+    align-items: center;
+    color: color-mix(in srgb, var(--color-ink) 82%, var(--color-muted));
+  }
+
+  .platform-tile-mark .app-select-icon {
+    width: 28px;
+    height: 28px;
+    color: inherit;
+  }
+
+  /* Owner-provided wordmarks are wide: they keep their ratio at the tile's mark height. */
+  .platform-tile-mark .app-select-icon-playstation-5,
+  .platform-tile-mark .app-select-icon-playstation-4 {
+    width: 72px;
+    height: 22px;
+  }
+
+  .platform-tile-mark .app-select-icon-xbox-series-x-s,
+  .platform-tile-mark .app-select-icon-nintendo-switch-2 {
+    width: 52px;
+    height: 26px;
+  }
+
+  .platform-tiles-compact .platform-tile-mark .app-select-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .platform-tile-name {
+    color: var(--color-ink);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  /* A ring that fills with ice and carries a tick when chosen: a shape, not only a colour. */
+  .platform-tile-check {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 22px;
+    height: 22px;
+    border: 1.5px solid color-mix(in srgb, var(--color-muted) 70%, transparent);
+    border-radius: 50%;
+  }
+
+  .platform-tiles-compact .platform-tile-check {
+    top: 50%;
+    margin-top: -11px;
+  }
+
+  .platform-tile-check::after {
+    position: absolute;
+    top: 4px;
+    left: 7px;
+    width: 6px;
+    height: 10px;
+    border: solid var(--color-night);
+    border-width: 0 2px 2px 0;
+    content: "";
+    opacity: 0;
+    transform: rotate(45deg);
+  }
+
+  .platform-tile:hover {
+    border-color: var(--line-ice-strong);
+  }
+
+  .platform-tile:has(.platform-tile-input:checked) {
+    border-color: var(--line-ice-strong);
+    background: color-mix(in srgb, var(--color-ice) 9%, var(--control));
+    box-shadow: inset 0 2px 0 var(--color-ice);
+  }
+
+  .platform-tile:has(.platform-tile-input:checked) .platform-tile-mark,
+  .platform-tile:has(.platform-tile-input:checked) .platform-tile-name {
+    color: var(--color-ice-light);
+  }
+
+  .platform-tile:has(.platform-tile-input:checked) .platform-tile-check {
+    border-color: var(--color-ice-light);
+    background: var(--color-ice-light);
+  }
+
+  .platform-tile:has(.platform-tile-input:checked) .platform-tile-check::after {
+    opacity: 1;
+  }
+
+  .platform-tile:has(.platform-tile-input:focus-visible) {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 3px;
+  }
+
+  .platform-tile:has(.platform-tile-input:disabled) {
+    cursor: progress;
+    opacity: 0.6;
+  }
+
+  .platform-picker-more {
+    margin-top: 18px;
+  }
+
+  .platform-picker-more-toggle {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 10px;
+    border: 0;
+    padding: 0;
+    color: var(--color-accent);
+    background: none;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .platform-picker-more-toggle:hover {
+    color: var(--color-ice-light);
+    text-decoration: underline;
+    text-underline-offset: 4px;
+  }
+
+  .platform-picker-more-toggle:focus-visible {
+    border-radius: 4px;
+    outline: 2px solid var(--color-ice);
+    outline-offset: 3px;
+  }
+
+  .platform-picker-more-chevron {
+    width: 7px;
+    height: 7px;
+    margin-top: -3px;
+    border: solid currentColor;
+    border-width: 0 1.5px 1.5px 0;
+    transform: rotate(45deg);
+  }
+
+  .platform-picker-more-toggle[aria-expanded="true"] .platform-picker-more-chevron {
+    margin-top: 3px;
+    transform: rotate(225deg);
+  }
+
+  .platform-tiles-loading .platform-tile-skeleton {
+    height: 108px;
+    border-radius: 6px;
+  }
+
+  .platform-tiles-loading {
+    margin-top: 28px;
+  }
+
+  /* ---------------------------------------------------------------- Actions */
+
+  .preferences-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 28px;
+  }
+
+  .preferences-count {
+    margin: 0 auto 0 0;
+    color: var(--color-muted);
+    font-size: 0.875rem;
+  }
+
+  .preferences-footnote {
+    margin: 16px 0 0;
+    color: var(--color-muted);
+    font-size: 0.8125rem;
+  }
+
+  .preferences-footnote strong {
+    color: var(--color-ink);
+    font-weight: 600;
+  }
+
+  .preferences-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    margin-top: 22px;
+  }
+
+  .preferences-links a {
+    color: var(--color-accent);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+
+  .welcome-alert {
+    margin-top: 20px;
+  }
+
+  /* ---------------------------------------------------------------- Según mis intereses */
+
+  /* One night control: the native checkbox, as tall as the selectors, then a separate link that
+     manages the preferences. Applying and managing stay two different operations. */
+  .interests-control {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: stretch;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    background: var(--control);
+  }
+
+  .interests-control[data-mode="on"] {
+    border-color: var(--line-ice-strong);
+  }
+
+  .interests-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 14px;
+    color: var(--color-ink);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .interests-control[data-mode="on"] .interests-option {
+    color: var(--color-ice-light);
+  }
+
+  .interests-option input {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    margin: 0;
+    accent-color: var(--color-ice);
+    cursor: pointer;
+  }
+
+  .interests-option input:focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 2px;
+  }
+
+  .interests-manage {
+    display: inline-flex;
+    width: 44px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid var(--color-line);
+    color: var(--color-muted);
+  }
+
+  .interests-manage svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .interests-manage:hover {
+    color: var(--color-ice-light);
+  }
+
+  .interests-manage:focus-visible {
+    border-radius: 0 5px 5px 0;
+    outline: 2px solid var(--color-ice);
+    outline-offset: 2px;
+  }
+
+  .interests-invite {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 10px;
+    border: 1px dashed color-mix(in srgb, var(--color-ice) 34%, var(--color-line));
+    border-radius: 6px;
+    padding: 6px 14px;
+    color: var(--color-muted);
+    background: var(--control);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .interests-invite:hover {
+    border-color: var(--line-ice-strong);
+    color: var(--color-ice-light);
+  }
+
+  .interests-invite:focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 3px;
+  }
+
+  /* The generic platform mark, drawn as a mask so it follows the link's colour. */
+  .interests-invite-mark {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    background: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath stroke-linejoin='round' d='M5.5 6.5h9a3 3 0 0 1 2.9 2.2l1 4.1a2 2 0 0 1-3.2 2l-2.1-1.6H6.9l-2.1 1.6a2 2 0 0 1-3.2-2l1-4.1a3 3 0 0 1 2.9-2.2Z'/%3E%3Cpath stroke-linecap='round' d='M6 8.5v3M4.5 10h3M13.5 9.5h.01M15.5 11h.01'/%3E%3C/svg%3E")
+      center / contain no-repeat;
+  }
+
+  /* TOPómetro keeps the control at the end of its heading row, out of the instrument's readout. */
+  .featured-heading .interests-control,
+  .featured-heading .interests-invite {
+    margin-left: auto;
+  }
+
+  @supports selector(:has(*)) {
+    .interests-option input:focus-visible {
+      outline: none;
+    }
+
+    .interests-option:has(input:focus-visible) {
+      border-radius: 5px 0 0 5px;
+      outline: 2px solid var(--color-ice);
+      outline-offset: 2px;
+    }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .platform-tile,
+    .interests-control,
+    .interests-invite,
+    .interests-manage {
+      transition:
+        border-color var(--duration-fast) var(--ease-out),
+        background-color var(--duration-fast) var(--ease-out),
+        color var(--duration-fast) var(--ease-out);
+    }
+
+    .platform-tile-check::after {
+      transition: opacity var(--duration-fast) var(--ease-out);
+    }
+
+    .platform-tile:has(.platform-tile-input:checked) .platform-tile-check {
+      animation: platform-tile-press var(--duration-normal) var(--ease-pop);
+    }
+
+    .platform-tiles {
+      animation: fade-in 700ms var(--ease-out) 120ms both;
+    }
+  }
+
+  @keyframes platform-tile-press {
+    from {
+      transform: scale(0.82);
+    }
+
+    to {
+      transform: scale(1);
+    }
+  }
+
+  @media (max-width: 619px) {
+    .platform-tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .platform-tiles-compact {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .platform-tile {
+      min-height: 96px;
+      padding: 14px 12px 12px;
+    }
+
+    .preferences-actions .button {
+      flex: 1 1 100%;
+    }
+
+    .preferences-count {
+      flex-basis: 100%;
+    }
+
+    .featured-heading .interests-control,
+    .featured-heading .interests-invite {
+      margin-left: 0;
+    }
+
+    /* On phones the facets share a row; interests take the row above them. */
+    .release-facet-row .interests-control,
+    .release-facet-row .interests-invite {
+      grid-column: 1 / -1;
+    }
+
+    .release-facet-row .interests-option {
+      flex: 1 1 auto;
+    }
+  }
+
+  @media (max-width: 359px) {
+    .platform-tiles {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (forced-colors: active) {
+    .platform-tile:has(.platform-tile-input:checked) {
+      border: 3px solid Highlight;
+      box-shadow: none;
+    }
+
+    .platform-tile-check {
+      border-color: CanvasText;
+    }
+
+    .platform-tile:has(.platform-tile-input:checked) .platform-tile-check {
+      background: Highlight;
+    }
+
+    .platform-tile-check::after {
+      border-color: Canvas;
+    }
+
+    .interests-invite-mark {
+      background: CanvasText;
+    }
+  }
+}

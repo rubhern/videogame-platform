@@ -1,6 +1,9 @@
 import { useEffect, useId, useRef, useState, type FocusEvent } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
+import { useInterestsSwitch } from "../features/platform-preferences/interests-switch";
+import { useInterests } from "../features/platform-preferences/use-platform-preferences";
+import { readReleasesSearch, RELEASES_PATH, releasesSearchPath } from "../features/releases/releases-search";
 import { useLogout, useSession } from "../features/session/use-session";
 import { authenticationStartUrl } from "../features/session/auth-entry";
 
@@ -88,6 +91,8 @@ export function AccountControl() {
             </svg>
             Mis puntuaciones
           </Link>
+          {/* The checkbox applies the preferred platforms to discovery; the link manages them. */}
+          <PlatformsMenuRow onNavigate={() => setOpen(false)} />
           {/* Navigation only: the server authorizes every administration read itself. */}
           {session.data.capabilities.includes("catalogue_administration") ? (
             <Link className="account-option" onClick={() => setOpen(false)} to="/administracion/catalogo">
@@ -113,6 +118,68 @@ export function AccountControl() {
           </button>
           {logout.isError ? <p className="account-logout-error" role="alert">No se pudo cerrar la sesión. Vuelve a intentarlo.</p> : null}
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * **Mis plataformas** in Mi cuenta (#295): a native checkbox that applies or sets aside the
+ * preferred platforms on TOPómetro and Explorar lanzamientos for the whole document, never in the
+ * saved choice, beside the link that manages them. It mounts only with the open panel, so the
+ * preferences are read when they are needed. Without preferences only the link remains.
+ */
+function PlatformsMenuRow({ onNavigate }: { onNavigate: () => void }) {
+  const location = useLocation();
+  const platformsHintId = useId();
+  const navigate = useNavigate();
+  const interests = useInterests();
+  const interestsSwitch = useInterestsSwitch();
+  const onExplorer = location.pathname === RELEASES_PATH;
+  const explorerSearch = readReleasesSearch(new URLSearchParams(location.search));
+  // A manual platform choice in the explorer already sets the preferences aside.
+  const platformsApplied =
+    interestsSwitch.enabled && !(onExplorer && explorerSearch.platformIds.length > 0);
+
+  /**
+   * Applies or sets aside the preferred platforms on TOPómetro and Explorar lanzamientos, for the
+   * whole document and never in the saved choice. On the explorer, applying them replaces a manual
+   * platform choice and either change returns to its first page.
+   */
+  function applyPlatforms(checked: boolean) {
+    interestsSwitch.set(checked);
+    if (onExplorer) {
+      void navigate(
+        releasesSearchPath(explorerSearch, { page: 1, ...(checked ? { platformIds: [] } : {}) }),
+        { preventScrollReset: true, state: location.state },
+      );
+    }
+  }
+
+  return (
+    <div className="account-option account-option-platforms">
+      {interests.status === "ready" ? (
+        <input
+          aria-describedby={platformsHintId}
+          aria-label="Filtrar por mis plataformas"
+          checked={platformsApplied}
+          className="account-platforms-check"
+          onChange={(event) => applyPlatforms(event.currentTarget.checked)}
+          type="checkbox"
+        />
+      ) : (
+        <svg aria-hidden="true" fill="none" viewBox="0 0 20 20">
+          <path d="M5.5 6.5h9a3 3 0 0 1 2.9 2.2l1 4.1a2 2 0 0 1-3.2 2l-2.1-1.6H6.9l-2.1 1.6a2 2 0 0 1-3.2-2l1-4.1a3 3 0 0 1 2.9-2.2Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.5" />
+          <path d="M6 8.5v3M4.5 10h3M13.5 9.5h.01M15.5 11h.01" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+        </svg>
+      )}
+      <Link className="account-platforms-link" onClick={onNavigate} to="/mis-plataformas">
+        Mis plataformas
+      </Link>
+      {interests.status === "ready" ? (
+        <span className="sr-only" id={platformsHintId}>
+          En TOPómetro y Explorar lanzamientos: {interests.platforms.map((platform) => platform.name).join(", ")}
+        </span>
       ) : null}
     </div>
   );

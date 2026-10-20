@@ -1,5 +1,8 @@
 import { Link } from "react-router-dom";
 
+import type { InterestMode } from "../platform-preferences/interests";
+import { useInterestsSwitch } from "../platform-preferences/interests-switch";
+
 import { HeroTitle } from "../../shared/ui/hero-title";
 import { FeaturedCard } from "./featured-card";
 import { FeaturedHero } from "./featured-hero";
@@ -28,6 +31,8 @@ type FeaturedReleasesShellProps = {
   search: FeaturedSearch;
   state: FeaturedShellState;
   onRetry: () => void;
+  /** Whether the visitor's preferred platforms apply to this view (#295). */
+  interestsMode?: InterestMode;
 };
 
 /** The period's featured release and up to five more; the row never fills artificial slots. */
@@ -106,35 +111,63 @@ function FeaturedLoading() {
   );
 }
 
-function UnrankedNotice({ model }: { model: FeaturedReleasesViewModel }) {
+function UnrankedNotice({
+  model,
+  interestsOn,
+}: {
+  model: FeaturedReleasesViewModel;
+  interestsOn: boolean;
+}) {
+  const interestsSwitch = useInterestsSwitch();
   const unranked = model.selection.status === "popularity-unavailable";
   const week = model.granularity === "week";
+  const period = week ? "esta semana" : "este mes";
   return (
     <div className={`notice ${unranked ? "notice-info" : "notice-empty"}`}>
       <p className="notice-kicker">{unranked ? "Sin datos de Hype" : "Sin lanzamientos"}</p>
       <h2>
         {unranked
           ? `Aún no hay TOPómetro de ${model.periodPhrase}`
-          : `No hay lanzamientos en ${model.periodPhrase}`}
+          : interestsOn
+            ? `Tus plataformas no tienen lanzamientos en ${model.periodPhrase}`
+            : `No hay lanzamientos en ${model.periodPhrase}`}
       </h2>
       <p>
         {unranked
-          ? `De momento, Gameómetro no tiene Hype para lanzamientos de ${week ? "esta semana" : "este mes"}`
-          : week
-            ? "Gameómetro no tiene lanzamientos con día confirmado dentro de esta semana."
-            : "Gameómetro no tiene lanzamientos con fecha dentro de este mes."}
+          ? `De momento, Gameómetro no tiene Hype para lanzamientos de ${period}${interestsOn ? " en tus plataformas" : ""}`
+          : interestsOn
+            ? `Gameómetro no tiene lanzamientos para tus plataformas en ${period}. Prueba con todas las plataformas.`
+            : week
+              ? "Gameómetro no tiene lanzamientos con día confirmado dentro de esta semana."
+              : "Gameómetro no tiene lanzamientos con fecha dentro de este mes."}
       </p>
-      <Link
-        className="button button-primary"
-        to={releasesRangePath(model.window.from, model.window.to)}
-      >
-        Explorar lanzamientos
-      </Link>
+      <div className="notice-actions">
+        {interestsOn ? (
+          <button
+            className="button button-primary"
+            onClick={() => interestsSwitch.set(false)}
+            type="button"
+          >
+            Ver todas las plataformas
+          </button>
+        ) : null}
+        <Link
+          className={`button${interestsOn ? "" : " button-primary"}`}
+          to={releasesRangePath(model.window.from, model.window.to)}
+        >
+          Explorar lanzamientos
+        </Link>
+      </div>
     </div>
   );
 }
 
-export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleasesShellProps) {
+export function FeaturedReleasesShell({
+  search,
+  state,
+  onRetry,
+  interestsMode = "inactive",
+}: FeaturedReleasesShellProps) {
   const model = state.status === "ready" ? state.model : null;
   const showsModel = state.status === "ready" && !state.isPlaceholderData;
 
@@ -184,7 +217,7 @@ export function FeaturedReleasesShell({ search, state, onRetry }: FeaturedReleas
         ) : null}
 
         {showsModel && model !== null && model.lead === null ? (
-          <UnrankedNotice model={model} />
+          <UnrankedNotice interestsOn={interestsMode === "on"} model={model} />
         ) : null}
 
         {showsModel && model !== null && model.lead !== null ? (

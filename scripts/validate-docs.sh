@@ -41,6 +41,7 @@ required_files=(
   "backend/postman/featured-releases.postman_collection.json"
   "backend/postman/game-details.postman_collection.json"
   "backend/postman/personal-ratings.postman_collection.json"
+  "backend/postman/platform-preferences.postman_collection.json"
   "backend/postman/session.postman_collection.json"
   "backend/postman/local.postman_environment.json"
   "frontend/README.md"
@@ -264,6 +265,7 @@ json_documents = (
     "backend/postman/featured-releases.postman_collection.json",
     "backend/postman/game-details.postman_collection.json",
     "backend/postman/personal-ratings.postman_collection.json",
+    "backend/postman/platform-preferences.postman_collection.json",
     "backend/postman/session.postman_collection.json",
     "backend/postman/local.postman_environment.json",
     "docker/keycloak/import/videogame-platform-realm.json",

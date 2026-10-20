@@ -14,16 +14,25 @@ import type { FeaturedSearch } from "./featured-search";
 import { msUntilNextMadridDay } from "./period-timeline";
 import type { ReleasesApiError } from "./releases-api";
 
-/** The request names the granularity and, for a period other than the current one, the period. */
-function toQuery(search: FeaturedSearch): FeaturedReleasesQuery {
-  if (search.period === null) return { granularity: search.granularity };
-  return search.granularity === "week" ? { week: search.period } : { month: search.period };
+/**
+ * The request names the granularity and, for a period other than the current one, the period,
+ * plus the explicit platforms the page resolved (#295); the public read never sees a session.
+ */
+function toQuery(search: FeaturedSearch, platformIds: readonly string[]): FeaturedReleasesQuery {
+  const platforms = platformIds.length === 0 ? {} : { platformIds: [...platformIds] };
+  if (search.period === null) return { granularity: search.granularity, ...platforms };
+  return search.granularity === "week"
+    ? { week: search.period, ...platforms }
+    : { month: search.period, ...platforms };
 }
 
-export function featuredReleasesQueryOptions(search: FeaturedSearch) {
+export function featuredReleasesQueryOptions(
+  search: FeaturedSearch,
+  platformIds: readonly string[] = [],
+) {
   return {
-    queryKey: ["featured-releases", search.granularity, search.period],
-    queryFn: () => getFeaturedReleases(toQuery(search)),
+    queryKey: ["featured-releases", search.granularity, search.period, [...platformIds]],
+    queryFn: () => getFeaturedReleases(toQuery(search, platformIds)),
   };
 }
 
@@ -39,7 +48,11 @@ const NEW_DAY_GRACE_MS = 5_000;
  * landing route's period) follow the API's new day. The browser's clock only times that read; the
  * new response's evaluated date remains the authority.
  */
-export function useFeaturedReleasesQuery(search: FeaturedSearch) {
+export function useFeaturedReleasesQuery(
+  search: FeaturedSearch,
+  platformIds: readonly string[] = [],
+  enabled = true,
+) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -55,7 +68,8 @@ export function useFeaturedReleasesQuery(search: FeaturedSearch) {
   }, [queryClient]);
 
   return useQuery<FeaturedReleasesResponse, ReleasesApiError, FeaturedReleasesViewModel>({
-    ...featuredReleasesQueryOptions(search),
+    ...featuredReleasesQueryOptions(search, platformIds),
+    enabled,
     refetchOnMount: false,
     select: toFeaturedReleasesViewModel,
     placeholderData: keepPreviousData,

@@ -74,6 +74,21 @@ def ratings_of(user_id: str) -> int:
     return int(sql("videogame_platform", f"SELECT count(*) FROM ratings.rating WHERE user_id = '{user_id}'"))
 
 
+PS5 = "10000000-0000-4000-8000-000000000001"
+
+
+def prefer_ps5(user_id: str) -> None:
+    # Preferred platforms (#295), stored as the product API stores them for this UserId.
+    sql("videogame_platform",
+        f"INSERT INTO catalogue.platform_preference_choice (user_id, updated_at) VALUES ('{user_id}', now());"
+        f"INSERT INTO catalogue.platform_preference (user_id, platform_id) VALUES ('{user_id}', '{PS5}')")
+
+
+def preferences_of(user_id: str) -> int:
+    return int(sql("videogame_platform",
+                   f"SELECT count(*) FROM catalogue.platform_preference_choice WHERE user_id = '{user_id}'"))
+
+
 class Admin:
     def __init__(self) -> None:
         self.token = ""
@@ -196,6 +211,8 @@ identity = json.loads(run(shlex.split(host_command) + ["identify", "--keycloak-u
 other_identity = json.loads(run(shlex.split(host_command) + ["identify", "--keycloak-user-id", other_id]).stdout)
 target_user, other_user = identity["userId"], other_identity["userId"]
 assert ratings_of(target_user) == 1 and ratings_of(other_user) == 1, "the derived UserId differs from the BFF's"
+prefer_ps5(target_user)
+prefer_ps5(other_user)
 
 snapshot = json.loads(run(shlex.split(host_command) + ["archive-snapshot", "--keycloak-user-id", target_id]).stdout)
 assert snapshot["ratingCount"] == 1 and snapshot["userId"] == target_user
@@ -235,6 +252,7 @@ assert export_path.stat().st_mode & 0o777 == 0o600
 assert document["account"]["email"] == accounts["target"]["email"] and document["productUserId"] == target_user
 assert [(rating["gameId"], rating["value"]) for rating in document["ratings"]] == [("30000000-0000-4000-8000-000000000005", 7)]
 assert document["ratings"][0]["title"], document["ratings"][0]
+assert document["preferredPlatforms"] == {"configured": True, "platforms": [{"platformId": PS5, "name": "PlayStation 5"}]}
 assert len(document["identitySessions"]) == 2 and all(session["ipAddress"] for session in document["identitySessions"])
 assert accounts["other"]["email"] not in export_path.read_text()
 # Only allow-listed, non-secret fields leave Keycloak: no token, credential, secret, cookie or
@@ -305,6 +323,7 @@ ledger_run("retry")
 assert "INCOMPLETE" not in ledger_run("status").stdout.decode()
 assert admin.account(target_id) is None and ratings_of(target_user) == 0
 assert admin.account(other_id)["enabled"] is True and ratings_of(other_user) == 1
+assert preferences_of(target_user) == 0 and preferences_of(other_user) == 1
 ledger_text = ledger.read_text()
 assert accounts["target"]["email"] not in ledger_text and accounts["target"]["username"] not in ledger_text
 
@@ -317,6 +336,7 @@ for database, dump in dumps.items():
 run(["docker", "start", keycloak])
 wait_for("Restored Keycloak", keycloak_ready)
 assert admin.account(target_id) is not None and ratings_of(target_user) == 1, "the backup predates the erasure"
+assert preferences_of(target_user) == 1, "the backup predates the erasure"
 
 # The replay refuses an open service, then reapplies and verifies every entry before reopening.
 receipts = owner
@@ -334,6 +354,7 @@ ledger_run("replay", "--receipt", str(receipts / "replay.json"))
 receipt = json.loads((receipts / "replay.json").read_text())
 assert receipt["entries"] == receipt["verified"] == 1 and receipt["outcome"] == "verified", receipt
 assert admin.account(target_id) is None and ratings_of(target_user) == 0
+assert preferences_of(target_user) == 0 and preferences_of(other_user) == 1
 assert admin.account(other_id)["enabled"] is True and ratings_of(other_user) == 1
 
 # The freed address registers again as a new subject, which a later replay leaves alone.

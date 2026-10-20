@@ -28,6 +28,10 @@ export const MAX_RANGE_DAYS = 92;
  * `Worldwide`. Values outside the contract shape fall back to the default instead of reaching the
  * API, and a range the API would reject reads as the current week; well-formed unknown filter
  * identifiers remain server-validated.
+ *
+ * Post-MVP (#295), platforms in the URL are a manual selection; without them a signed-in player's
+ * preferred platforms may apply, which the document-wide switch in **Mi cuenta** decides. The URL
+ * never carries the preferences themselves.
  */
 export type ReleasesSearch = {
   from: string | null;

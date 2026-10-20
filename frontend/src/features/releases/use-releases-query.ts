@@ -16,9 +16,10 @@ export function releasesQueryOptions(search: ReleasesSearch) {
  * one loads so filters, the evaluated window and pagination remain operable instead
  * of collapsing into the initial loading state on every interaction.
  */
-export function useReleasesQuery(search: ReleasesSearch) {
+export function useReleasesQuery(search: ReleasesSearch, enabled = true) {
   return useQuery<ReleasePage, ReleasesApiError, ReleasesViewModel>({
     ...releasesQueryOptions(search),
+    enabled,
     refetchOnMount: false,
     select: toReleasesViewModel,
     placeholderData: keepPreviousData,

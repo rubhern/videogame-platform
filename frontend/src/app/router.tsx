@@ -7,9 +7,12 @@ import { GameDetailsPage } from "../pages/game-details-page";
 import { NotFoundPage } from "../pages/not-found-page";
 import { ReleasesPage } from "../pages/releases-page";
 import { SearchPage } from "../pages/search-page";
+import { MyPlatformsPage } from "../pages/my-platforms-page";
 import { MyRatingsPage } from "../pages/my-ratings-page";
+import { WelcomePage } from "../pages/welcome-page";
 import { legalPublicationApproved } from "../shared/legal/publication";
 import { legalRoutes } from "../shared/legal/legal-routes";
+import type { InterestsSwitch } from "../features/platform-preferences/interests-switch";
 import { routeReadiness } from "./route-readiness";
 import { RouteLoading } from "./route-loading";
 import { AppShell } from "./app-shell";
@@ -24,6 +27,8 @@ export const appRoutes: RouteObject[] = [
       { path: "lanzamientos", element: <ReleasesPage /> },
       { path: "search", element: <SearchPage /> },
       { path: "mis-puntuaciones", element: <MyRatingsPage /> },
+      { path: "mis-plataformas", element: <MyPlatformsPage /> },
+      { path: "bienvenida", element: <WelcomePage /> },
       { path: "administracion/catalogo", element: <CatalogueAdministrationPage /> },
       { path: "games/:gameId/:slug?", element: <GameDetailsPage /> },
       ...(import.meta.env.DEV || legalPublicationApproved ? legalRoutes(true) : []),
@@ -32,8 +37,8 @@ export const appRoutes: RouteObject[] = [
   },
 ];
 
-export function createAppRouter(queryClient: QueryClient) {
-  const loader = routeReadiness(queryClient);
+export function createAppRouter(queryClient: QueryClient, interests: InterestsSwitch) {
+  const loader = routeReadiness(queryClient, interests);
   return createBrowserRouter(
     appRoutes.map(route => {
       if (route.index || !route.children) return route;
