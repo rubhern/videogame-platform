@@ -280,7 +280,10 @@ def service_violations(name, service, config, secrets_dir):
             if "docker.sock" in source or source in ("/", "/var/run", "/run", "/etc", "/proc", "/sys"):
                 found.append(f"{name} must not mount host runtime path {source}")
             elif name == "catalogue-localizer" and volume.get("target") == "/model":
-                if not volume.get("read_only") or volume.get("bind", {}).get("create_host_path", True):
+                # Some Compose releases omit a false create_host_path from rendered output, so the
+                # reviewed source must state it and the rendering must never enable it.
+                if not volume.get("read_only") or volume.get("bind", {}).get("create_host_path") is True \
+                        or "create_host_path: false" not in COMPOSE_FILE.read_text():
                     found.append("catalogue-localizer model must be an existing read-only bind")
             elif not volume.get("read_only"):
                 found.append(f"{name} bind mount {source} must be read-only")
@@ -596,6 +599,9 @@ def compose_mutations(secrets_dir):
          "explicit Compose profiles"),
         ("application migrates at startup", set_env("application", "APPLICATION_FLYWAY_ENABLED", "true"),
          "APPLICATION_FLYWAY_ENABLED"),
+        ("model directory created on the host", lambda c: next(
+            volume for volume in c["services"]["catalogue-localizer"]["volumes"] if volume["target"] == "/model"
+        ).setdefault("bind", {}).__setitem__("create_host_path", True), "model must be an existing read-only bind"),
         ("localizer builds on the host", lambda c: c["services"]["catalogue-localizer"].__setitem__(
             "build", {"context": "."}), "must not build on the production host"),
         ("inline database password", set_env("application", "APPLICATION_DB_PASSWORD", "synthetic"),
