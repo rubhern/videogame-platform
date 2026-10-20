@@ -1,10 +1,11 @@
 # Public-production runtime configuration
 
-- **Status:** Prepared runtime candidate (#275 increments 1–3), pending real-host validation; never deployed
+- **Status:** Prepared runtime candidate (#275 increments 1–4), pending real-host validation; never deployed
 
 This directory holds the versioned runtime configuration for the future public
-production host. No host, DNS record, certificate, deployment command, backup or
-telemetry stack exists for it. [ADR-0025](../../docs/decisions/0025-host-public-production-on-a-deferred-single-vps.md)
+production host. No host, DNS record, public certificate, backup or telemetry stack exists for it.
+A manual deployment command operates only within the disposable synthetic rehearsal;
+real-host deployment remains blocked. [ADR-0025](../../docs/decisions/0025-host-public-production-on-a-deferred-single-vps.md)
 accepts the single-VPS design, but the [public-production gates](../../docs/development/delivery-lifecycle.md#public-production-gates)
 remain open; nothing here authorizes a purchase, an exposure or a change to private-dev.
 
@@ -19,6 +20,7 @@ what the repository checks and what only a real host can prove.
 | [`caddy/Caddyfile`](caddy/Caddyfile) | Stock-Caddy HTTPS edge: hosts, routes, forwarding headers, bounds |
 | [`bin/run-postgres`](bin/run-postgres) | Reads role secret files before the stock entrypoint drops supplemental groups |
 | [`bin/run-keycloak`](bin/run-keycloak) | Keycloak entrypoint that reads secret files and refuses empty inputs |
+| [`../../scripts/public_production_deployment.py`](../../scripts/public_production_deployment.py) | Manual deployment preflight, lock, migration, activation, smoke and receipts; rehearsal only |
 | [`runtime.env.example`](runtime.env.example) | Every non-secret host input, with placeholders |
 | [`keycloak/`](keycloak/) | Production realm import and Keycloak abuse bounds, owned by #274 |
 
@@ -50,6 +52,85 @@ These hold for the first production start; the disposable exercise below verifie
 - **Registry access.** Newly published GHCR packages are private until the owner
   changes their visibility, so the host can pull the dependency images only after that
   step or with a read-only registry credential, which would be a new secret.
+
+## Manual deployment procedure
+
+**Implemented for isolated synthetic rehearsal; not exercised on a real host.**
+The [deployment command](../../scripts/public_production_deployment.py) reuses the
+trusted-main verifier and the integration harness below. It accepts an exact source
+revision, the application's publication digest, an owner-reviewed runtime-source
+fingerprint and a new evidence directory. It never selects a different revision or
+falls back to a tag, failed run, expired publication or locally built image.
+
+1. Review the runtime sources and print their fingerprint:
+   `python3 scripts/public_production_deployment.py --print-configuration-fingerprint`.
+2. Obtain the full main SHA and application digest from that successful run's retained
+   publication record. Review its quality/security and inherited dependency findings.
+3. Run the manual rehearsal from the repository root:
+
+   ```bash
+   python3 scripts/public_production_deployment.py --rehearsal \
+     --revision <full-trusted-main-source-sha> \
+     --digest sha256:<application-publication-digest> \
+     --configuration-fingerprint <reviewed-fingerprint> \
+     --evidence <new-local-evidence-directory> \
+     --model-dir <existing-approved-tcbig-directory>
+   ```
+
+4. Inspect the sanitized integration receipt and each `deployment-*.json` receipt.
+   A complete pass includes stage E, teardown and the state-preservation assertion;
+   an omitted model remains explicitly unexercised. Retain only these sanitized outputs.
+
+The source fingerprint includes runtime configuration, mounted wrappers/bootstrap and
+model policy, using actual file bytes and executable modes. It must match the selected
+image's trusted source inventory. The rendered synthetic configuration has a separate
+fingerprint, checked before every attempt. A different runtime configuration requires
+its own reviewed rollout; this command replaces only the application. Dependency
+images must already be running at the approved identities and ready. Synthetic secret
+file checks, TLS verification, production Compose validation and egress isolation
+remain enforced. Remote Docker contexts are refused; the rehearsal requires a local
+Docker Unix socket.
+
+Each attempt takes a nonblocking exclusive lock for that disposable runtime before
+reading state. An unrecorded application, interrupted/incomplete state, missing
+secret/dependency, image mismatch or changed configuration refuses before mutation.
+After preflight it records the attempt, stops the old application, runs the dedicated
+Flyway actor from the target digest, then activates and waits for the candidate.
+The smoke verifies running source/version metadata, the HTTPS shell, one bounded
+anonymous catalogue read (including the approved empty-catalogue outcome) and denied
+management ingress. It creates no accounts and needs no private-dev smoke credentials.
+
+| Failure | Operator response |
+|---|---|
+| Trust, fingerprint, inputs, dependency or state refusal | Correct the reviewed input/state; no activation or migration was attempted |
+| Concurrent attempt | Wait for the current attempt, inspect its receipt, then deliberately retry |
+| Failed migration | Candidate never activates; application stays stopped. Assess partial DDL and use a forward fix or separately approved recovery |
+| Failed readiness or smoke | Deployment fails and the candidate is stopped; inspect the phase and fix forward |
+| Failure to stop the candidate | Receipt requires private operator action; do not treat the application as safely stopped |
+| Interrupted receipt/state write | Assess the runtime and schema before reconstructing state; never delete a lock/state file to force promotion |
+| Older source / rollback | Refused without an explicit rollback request and demonstrated compatibility; never revert Flyway |
+
+The internal transition procedure permits an explicitly requested older trusted image
+only when its complete migration-source inventory matches the previous successful
+release, the live Flyway history matches that receipt, and the same-image Flyway
+validation leaves history unchanged. This deliberately excludes rollback across any
+migration change; equal application versions or a remembered digest prove nothing.
+The rehearsal command does not offer a real-host rollback switch. Other recovery
+needs a forward fix or separately approved recovery, with the edge closed when
+security or data integrity is uncertain.
+
+Receipts identify source/run/attempt/security evidence, image digest, application and
+migration versions, runtime/rendered configuration fingerprints, previous installed
+version/image, outcome, phase and a bounded failure reason. Raw actor/browser output,
+secrets, account information and tokens are withheld. A failed/concurrent attempt
+gets its own receipt and cannot overwrite another attempt's successful state.
+
+**Real-host refusal is unconditional in this increment.** There is no approval-file
+or environment-variable override. Independent paired encrypted backups, isolated
+restore/reconstruction and deletion replay, release/provider/privacy acceptance,
+private host administration and the applicable [purchase/exposure prerequisites](../../docs/development/delivery-lifecycle.md#public-production-gates)
+remain necessary before a separately reviewed host adapter can be enabled. A local
+pass authorizes no VPS purchase, DNS change, public ingress or private-dev operation.
 
 ## Secret inventory
 
@@ -136,8 +217,9 @@ records, issuer checker, production realm and production identity browser journe
 The browser tooling obtains NSS utilities in a disposable container before isolation;
 no host package, certificate store or name-resolution file is changed.
 
-`--stage A`, `B` or `C` stops after that stage; the default `D` runs all stages. Every
-invocation creates fresh project-scoped volumes and networks, verifies migrations
+`--stage A`, `B`, `C` or `D` stops after that stage; the default `E` runs all stages. Every
+invocation creates fresh project-scoped volumes and networks, preserves their synthetic
+state between deployment attempts within that invocation, verifies migrations
 before application startup, and tears down all profiles, including on failure or
 interruption. An occupied production trust subnet is a refusal, never permission to
 alter an existing network. Run this exercise and the edge contract test sequentially:
@@ -160,6 +242,13 @@ explicitly records the localizer as **not exercised**. The harness never downloa
 converts or substitutes a model. A supplied wrong, incomplete or corrupt model is a
 failure. A passing partial-stage receipt is not a complete integration result.
 
+Stage B activates through the manual deployment procedure. Stage E repeats successful
+attempts and injects explicitly recorded missing-migration-database, stopped-readiness and smoke
+failures, then retries while checking a synthetic catalogue row is unchanged. No failure
+injection is available outside the isolated rehearsal. Focused offline tests also cover
+provenance, concurrent attempts and incompatible rollback; those refusals do not need
+real registry/runtime failures.
+
 The evidence directory contains a sanitized JSON receipt: source/run/attempt/security
 provenance, all immutable image references, stages, migration version, configuration
 fingerprint, sampled peak/final idle working-set memory, restart/OOM observations and
@@ -181,7 +270,7 @@ These need later increments or the real host (#276):
 - Real-host startup with the public certificate and protected host secret files,
   published digest pulls, calibrated representative load and every resource ceiling;
   local receipts cover only the disposable machine and supplied model.
-- Deployment and migration commands, smoke and receipts, backups and restore,
+- Real-host deployment/migration/readiness/smoke and receipts, backups and restore,
   telemetry, the owner's Keycloak administration path, and the
   [canonical issuer check](../../docs/architecture/deployment/mvp-platform-and-delivery.md#canonical-issuer-contract)
   with the publicly served production certificate.

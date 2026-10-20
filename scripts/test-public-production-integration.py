@@ -88,6 +88,17 @@ class Isolation(unittest.TestCase):
         self.assertEqual(set(config['services']['postgres']['networks']), {'application-data', 'identity-data'})
         self.assertNotIn('test-client', config['services']['keycloak']['networks'])
 
+    def test_remote_docker_environment_and_context_are_refused(self):
+        import os
+        for host in ('tcp://remote:2376', 'ssh://production'):
+            with patch.dict(os.environ, {'DOCKER_HOST': host, 'DOCKER_CONTEXT': ''}):
+                with self.assertRaisesRegex(integration.trust.Refused, 'local Docker'):
+                    integration.verify_local_docker()
+        with patch.dict(os.environ, {'DOCKER_CONTEXT': 'remote'}), patch.object(integration, 'command',
+                          return_value=subprocess.CompletedProcess([], 0, 'ssh://production', '')):
+            with self.assertRaises(integration.trust.Refused):
+                integration.verify_local_docker()
+
     def test_model_missing_wrong_or_corrupt_is_refused_without_download(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -122,11 +133,14 @@ class FailureLifecycle(unittest.TestCase):
                 calls.append(args)
                 if args == ['gh', 'auth', 'token']:
                     return subprocess.CompletedProcess(args, 0, 'never-export-this-token', '')
+                if args[:3] == ['docker', 'context', 'inspect']:
+                    return subprocess.CompletedProcess(args, 0, 'unix:///var/run/docker.sock', '')
                 if args[:2] == ['docker', 'pull']:
                     return subprocess.CompletedProcess(args, 1, '', 'private registry')
                 self.fail('Unexpected command after unavailable immutable image')
             with patch.object(sys, 'argv', ['exercise', '--revision', REVISION, '--evidence', str(evidence)]), \
                  patch.object(integration, 'resolve', return_value={'images': {'application': IMAGE}}), \
+                 patch.object(integration.deployment, 'verify_configuration', return_value='a' * 64), \
                  patch.object(integration, 'command', side_effect=command), \
                  contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 self.assertEqual(integration.main(), 1)
@@ -141,6 +155,16 @@ class FailureLifecycle(unittest.TestCase):
             exercise.compose('down', '--volumes', '--remove-orphans')
             self.assertIn('--profile', command.call_args.args[0])
             self.assertEqual(command.call_args.args[0][command.call_args.args[0].index('--profile') + 1], '*')
+
+    def test_only_recorded_operator_stop_window_allows_nonzero_exit(self):
+        exercise = integration.Exercise(Path('/unused'), Path('/unused-evidence'), {}, None)
+        exercise.expected_stops.append(('candidate', 10, 12))
+        event = {'Action': 'die', 'time': 11, 'Actor': {'ID': 'candidate', 'Attributes': {
+            'com.docker.compose.service': 'application', 'exitCode': '143'}}}
+        self.assertTrue(exercise.expected_exit(event))
+        for changed in [dict(event, time=20), dict(event, Action='oom'),
+                        dict(event, Actor={**event['Actor'], 'ID': 'other'})]:
+            self.assertFalse(exercise.expected_exit(changed))
 
     def test_oom_is_failure_after_resources_are_removed(self):
         with tempfile.TemporaryDirectory() as temporary:

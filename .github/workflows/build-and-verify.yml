@@ -306,6 +306,9 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check manual production deployment transitions and refusals
+        run: python3 scripts/test-public-production-deployment.py
+
       - name: Check integration publication refusals and isolation without registry credentials
         run: python3 scripts/test-public-production-integration.py
 

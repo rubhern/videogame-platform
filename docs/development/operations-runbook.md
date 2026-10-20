@@ -19,7 +19,8 @@ disposable operational history.
 
 The [public target](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
 and [separate purchase/exposure gates](delivery-lifecycle.md#public-production-gates)
-are proposals awaiting review; no production procedure has been exercised. Record
+follow the accepted ADR-0025 design; the gates remain open and no production
+procedure has been exercised on a real host. Record
 real-VPS evidence here only when those procedures are executed; private-dev evidence
 does not certify production networking, capacity, email or recovery.
 
@@ -62,6 +63,25 @@ Destructive: `bash scripts/local-dependencies.sh reset`.
 Common local symptom: every login returns to the game as "not completed". Cause and
 fix are documented in [local setup](local-setup.md#disposable-reset) (the stored
 Keycloak client secret no longer matches `.env`; `verify` reports it).
+
+## Public-production manual deployment
+
+**Prepared for local synthetic rehearsal; not exercised on a real host.** The
+[production operator procedure](../../deploy/public-production/README.md#manual-deployment-procedure)
+owns the command, reviewed inputs, refusal/retry behaviour and sanitized receipts.
+It uses the existing production Compose runtime and trusted immutable publications.
+The command blocks real-host operation unconditionally while backup/recovery and
+release prerequisites remain unsatisfied. Its disposable transition exercise preserves
+synthetic database state between attempts and removes that state at final teardown.
+
+Review the attempt's outcome, failure phase, source/image/configuration identities,
+previous installed version and migration version before retry. A failed migration
+prevents activation; failed readiness/smoke stops the candidate. Do not restart the old
+image against an unassessed schema, revert Flyway, or force past incomplete state.
+Follow the linked schema-compatibility/refusal procedure; unresolved recovery requires
+an assessed forward fix or separately approved recovery. A rehearsal receipt is local
+logic/runtime evidence only. Record real-host acceptance here after a later approved
+host procedure has actually been exercised.
 
 ## Diagnosing private dev
 
