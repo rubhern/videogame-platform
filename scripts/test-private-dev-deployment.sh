@@ -286,7 +286,7 @@ services = {
     ),
     "catalogue-localizer": service(
         "unless-stopped",
-        image="videogame-platform/catalogue-localizer:1.0.0",
+        image="videogame-platform/catalogue-localizer:1.0.1",
         build={"context": str(repository / "tools/catalogue-localization")},
         networks={"data": None}, read_only=True, cap_drop=["ALL"],
         security_opt=["no-new-privileges:true"],

@@ -15,7 +15,7 @@ recreate_observability=false
 source "$repository_root/scripts/backend-artifact.sh"
 
 readonly postgres_image="postgres:18.4-bookworm"
-readonly keycloak_image="quay.io/keycloak/keycloak:26.7.0"
+readonly keycloak_image="quay.io/keycloak/keycloak:26.7.4"
 mail_configuration="$repository_root/deploy/private-dev/bin/configure-keycloak-mail"
 readonly expected_project_name="videogame-platform"
 

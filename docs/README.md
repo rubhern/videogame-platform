@@ -29,6 +29,7 @@ triggers are labelled explicitly and do not imply delivery commitments.
 | Environments, topology, deployment, secrets, backup, and recovery policy | [Platform and delivery design](architecture/deployment/mvp-platform-and-delivery.md) | No human workflow or copy of scripts |
 | Documentation portal usage, content transformation and static build | [Portal README](../documentation/README.md) | Links; document authority stays with this map and its canonical owners |
 | Private-dev operator commands and host procedures | [Private-dev README](../deploy/private-dev/README.md) | Compose, scripts, and collector config own the mechanics |
+| Public-production runtime configuration, secret inventory, manual rotation and validation boundary | [Public-production README](../deploy/public-production/README.md) | Compose, the Caddyfile and the contract test own the mechanics |
 | Architecture diagrams | [Diagram catalogue](architecture/diagrams/README.md) | One question per view; owning records stay authoritative |
 | Durable architecture decisions | [ADRs](decisions/README.md) | Context, decision, alternatives, consequences, and revisit triggers |
 | Local workstation, topology, and reset boundary | [Local setup](development/local-setup.md) | Compose and `.env.example` own executable detail |

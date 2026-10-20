@@ -36,6 +36,7 @@ historical decision.
 
 - [ADR-0023: Automate owner-approved private-dev application promotion](0023-automate-owner-approved-private-dev-application-promotion.md)
 - [ADR-0024: Maintain catalogue localization in the private-dev runtime](0024-maintain-catalogue-localization-in-the-private-dev-runtime.md)
+- [ADR-0025: Host public production on a deferred single VPS](0025-host-public-production-on-a-deferred-single-vps.md) — #252; single VPS, Docker Compose and a static Caddy edge accepted 2026-10-19; no purchase, exposure or deployment authorization.
 
 - [ADR-0026: Defer ARM64 runtime support](0026-defer-arm64-runtime-support.md) — amends ADR-0008/ADR-0019; AMD64-only with a pre-deployment restoration gate.
 - [ADR-0027: Revoke and end BFF sessions in the application](0027-revoke-and-end-bff-sessions-in-the-application.md) — #274; direct session invalidation, eight-hour absolute lifetime and OIDC logout; implemented in #274 phase 2 increment 2.
@@ -44,7 +45,6 @@ historical decision.
 
 - [ADR-0028: Authorize catalogue operators with a BFF client role](0028-authorize-catalogue-operators-with-a-bff-client-role.md) — #247; a `catalogue-operator` client role in the validated ID token grants catalogue administration reads, the bounded synchronization request (#248) and stopping or abandoning a run (#342); awaiting owner review.
 
-- [ADR-0025: Host public production on a deferred single VPS](0025-host-public-production-on-a-deferred-single-vps.md) — #252; owner-selected release/budget envelope, technical design awaiting review, no purchase/deployment authorization.
 
 - [ADR-0021: Collect private-dev logs with Alloy and Loki](0021-collect-private-dev-logs-with-alloy-and-loki.md) — #159 implementation awaiting owner review and host acceptance.
 

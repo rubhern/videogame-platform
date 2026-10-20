@@ -3,7 +3,7 @@ services:
   catalogue-localizer:
     build:
       context: .
-    image: videogame-platform/catalogue-localizer:1.0.0
+    image: videogame-platform/catalogue-localizer:1.0.1
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8092/ready', timeout=2).close()"]
       interval: 5s

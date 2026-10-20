@@ -27,7 +27,7 @@ services:
     stop_grace_period: 30s
 
   keycloak:
-    image: videogame-platform/keycloak-gameometro:26.7.0
+    image: videogame-platform/keycloak-gameometro:26.7.4
     build:
       context: .
       dockerfile: deploy/private-dev/keycloak/Dockerfile

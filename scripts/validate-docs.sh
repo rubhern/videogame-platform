@@ -609,7 +609,7 @@ while IFS= read -r file; do
   fi
 
   case "$file" in
-    mvnw|scripts/*.sh|docker/postgres/init/*.sh|deploy/private-dev/bin/*|docs/architecture/diagrams/scripts/*.sh|documentation/scripts/test-container.sh|documentation/deploy/documentation-serve)
+    mvnw|scripts/*.sh|docker/postgres/init/*.sh|deploy/private-dev/bin/*|deploy/public-production/bin/*|docs/architecture/diagrams/scripts/*.sh|documentation/scripts/test-container.sh|documentation/deploy/documentation-serve)
       [[ -x "$file" ]] || {
         printf 'Shell script must be executable: %s\n' "$file" >&2
         exit 1

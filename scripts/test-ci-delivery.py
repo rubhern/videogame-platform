@@ -53,6 +53,47 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn('--preserve-digests', jobs['publish-container-image'])
         self.assertIn('"$actual_digest" != "$expected_digest"', jobs['publish-container-image'])
 
+    def test_dependency_images_publish_only_scanned_digests_from_trusted_main(self):
+        workflow = (ROOT / '.github/workflows/build-and-verify.yml').read_text()
+        starts = list(re.finditer(r'^  ([a-z][a-z-]+):\n', workflow, re.M))
+        jobs = {match[1]: workflow[match.end():starts[i + 1].start() if i + 1 < len(starts) else len(workflow)]
+                for i, match in enumerate(starts)}
+        gate = jobs['required-quality-gate']
+        for job, category, variable in [('dependency-images', 'dependency_images', 'DEPENDENCY_IMAGES'),
+                                        ('production-runtime', 'production_runtime', 'PRODUCTION_RUNTIME')]:
+            self.assertIn(f"if: ${{{{ needs.detect-changes.outputs.{category} == 'true' }}}}", jobs[job])
+            self.assertIn(f'      - {job}\n', gate)
+            self.assertIn(f'{job} "${variable}_EXPECTED" "${variable}"', gate)
+            self.assertIn(f'{category}: ${{{{ steps.changes.outputs.{category} }}}}', jobs['detect-changes'])
+        build, publish = jobs['dependency-images'], jobs['publish-dependency-images']
+        matrix = 'image: [keycloak, catalogue-localizer]'
+        self.assertIn(matrix, build)
+        self.assertIn(matrix, publish)
+        self.assertIn('bash scripts/validate-dependency-image.sh "$DEPENDENCY_IMAGE"', build)
+        self.assertIn('SOURCE_REVISION: ${{ github.sha }}', build)
+        self.assertNotIn('packages: write', build)
+        # Only a trusted push, after every required check, may publish; pull requests never do.
+        self.assertIn("if: ${{ github.event_name == 'push' }}", publish)
+        self.assertIn('      - dependency-images\n      - required-quality-gate\n', publish)
+        self.assertIn("if: ${{ github.event_name == 'push' && !cancelled() }}", build)
+        self.assertIn('IMAGE_NAME: ghcr.io/${{ github.repository }}-${{ matrix.image }}', publish)
+        self.assertIn('IMAGE_TAG: ${{ github.sha }}', publish)
+        self.assertIn('sha256sum --check SHA256SUMS', publish)
+        self.assertIn('--preserve-digests', publish)
+        self.assertIn('oci-archive:/evidence/image.oci.tar', publish)
+        self.assertIn('"$actual_digest" != "$expected_digest"', publish)
+        self.assertIn('[[ "$revision" == "$GITHUB_SHA" ]]', publish)
+        self.assertIn('password: ${{ github.token }}', publish)
+        self.assertNotIn('latest', publish)
+        self.assertNotIn('docker buildx build', publish)
+        self.assertNotIn('secrets.', build + publish)
+
+    def test_dependency_image_content_and_scan_policy_reject_violations(self):
+        result = subprocess.run(['python3', '-I', str(ROOT / 'scripts/check-dependency-image-content.py'), '--self-test'],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn('FAIL', result.stdout)
+
     def test_packaging_defaults_to_tests_and_validates_opt_out(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

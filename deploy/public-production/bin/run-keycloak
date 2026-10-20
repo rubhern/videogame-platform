@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Production Keycloak entrypoint: reads each protected secret file into the variable the
+# realm import or Keycloak expects and refuses to start on a missing or empty input,
+# because startup import keeps an unresolved ${...} placeholder literally.
+
+set -Eeuo pipefail
+
+read_required_secret() {
+  local variable_name="$1"
+  local file_path="$2"
+  local secret_value
+  if [[ ! -r "$file_path" ]]; then
+    printf 'Required secret file is not readable: %s\n' "$file_path" >&2
+    exit 1
+  fi
+  secret_value="$(<"$file_path")"
+  if [[ -z "$secret_value" ]]; then
+    printf 'Required secret file is empty: %s\n' "$file_path" >&2
+    exit 1
+  fi
+  printf -v "$variable_name" '%s' "$secret_value"
+  export "$variable_name"
+  unset secret_value
+}
+
+require_setting() {
+  local variable_name="$1"
+  if [[ -z "${!variable_name:-}" ]]; then
+    printf 'Required production setting is empty: %s\n' "$variable_name" >&2
+    exit 1
+  fi
+}
+
+read_required_secret KC_DB_PASSWORD "${KC_DB_PASSWORD_FILE:?}"
+read_required_secret KC_BOOTSTRAP_ADMIN_PASSWORD "${KC_BOOTSTRAP_ADMIN_PASSWORD_FILE:?}"
+read_required_secret KEYCLOAK_BFF_CLIENT_SECRET "${KEYCLOAK_BFF_CLIENT_SECRET_FILE:?}"
+read_required_secret KEYCLOAK_SMTP_USER "${KEYCLOAK_SMTP_USER_FILE:?}"
+read_required_secret KEYCLOAK_SMTP_PASSWORD "${KEYCLOAK_SMTP_PASSWORD_FILE:?}"
+for setting in KC_HOSTNAME APPLICATION_PUBLIC_HOST APPLICATION_PUBLIC_ORIGIN \
+    KEYCLOAK_SMTP_HOST KEYCLOAK_SMTP_PORT KEYCLOAK_SMTP_FROM; do
+  require_setting "$setting"
+done
+
+exec /opt/keycloak/bin/kc.sh start --optimized --import-realm

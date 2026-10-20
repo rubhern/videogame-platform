@@ -35,12 +35,15 @@ read_secret APPLICATION_DB_PASSWORD
 read_secret APPLICATION_MIGRATION_DB_PASSWORD
 read_secret KEYCLOAK_DB_PASSWORD
 
+# Role passwords reach psql through the exported environment and \getenv, never as
+# command arguments, which any host process able to read /proc could see.
 psql --set=ON_ERROR_STOP=1 \
   --username "$POSTGRES_USER" \
-  --dbname "$POSTGRES_DB" \
-  --set=application_password="$APPLICATION_DB_PASSWORD" \
-  --set=application_migration_password="$APPLICATION_MIGRATION_DB_PASSWORD" \
-  --set=keycloak_password="$KEYCLOAK_DB_PASSWORD" <<'SQL'
+  --dbname "$POSTGRES_DB" <<'SQL'
+\getenv application_password APPLICATION_DB_PASSWORD
+\getenv application_migration_password APPLICATION_MIGRATION_DB_PASSWORD
+\getenv keycloak_password KEYCLOAK_DB_PASSWORD
+
 SELECT format(
   'CREATE ROLE videogame_app LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION',
   :'application_password'

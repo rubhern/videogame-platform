@@ -201,7 +201,7 @@ Provider/licensing, privacy, security, capacity, cost and recovery gates are tra
 [#251](https://github.com/rubhern/videogame-platform/issues/251) and
 [#252](https://github.com/rubhern/videogame-platform/issues/252) before exposure.
 The [platform design](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
-owns the technical proposal and environment boundaries; the
+owns the accepted technical design and environment boundaries; the
 [delivery lifecycle](../development/delivery-lifecycle.md#public-production-gates)
 separates permission to contract from permission to expose. Best effort does not
 waive personal-data protection, account recovery, provider rights or security.
