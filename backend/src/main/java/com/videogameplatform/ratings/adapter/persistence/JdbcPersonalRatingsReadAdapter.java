@@ -117,21 +117,7 @@ public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsRead
     }
 
     private static PersonalRatingsPage.Item item(ResultSet rs, int row) throws SQLException {
-        CatalogueCover cover =
-                switch (rs.getString("cover_kind")) {
-                    case "provider" ->
-                            new CatalogueCover.Provider(
-                                    URI.create(rs.getString("cover_reference")),
-                                    rs.getString("cover_alternative_text"),
-                                    new CatalogueCover.Attribution(
-                                            rs.getString("cover_attribution"),
-                                            URI.create(rs.getString("cover_source_url"))));
-                    case "product" ->
-                            new CatalogueCover.Product(
-                                    rs.getString("cover_reference"),
-                                    rs.getString("cover_alternative_text"));
-                    default -> new CatalogueCover.Unavailable();
-                };
+        CatalogueCover cover = cover(rs);
         var rating =
                 new PersonalRating(
                         rs.getString("game_id"),
@@ -147,5 +133,22 @@ public final class JdbcPersonalRatingsReadAdapter implements PersonalRatingsRead
                 rating,
                 List.of(),
                 Optional.empty());
+    }
+
+    static CatalogueCover cover(ResultSet rs) throws SQLException {
+        return switch (rs.getString("cover_kind")) {
+            case "provider" ->
+                    new CatalogueCover.Provider(
+                            URI.create(rs.getString("cover_reference")),
+                            rs.getString("cover_alternative_text"),
+                            new CatalogueCover.Attribution(
+                                    rs.getString("cover_attribution"),
+                                    URI.create(rs.getString("cover_source_url"))));
+            case "product" ->
+                    new CatalogueCover.Product(
+                            rs.getString("cover_reference"),
+                            rs.getString("cover_alternative_text"));
+            default -> new CatalogueCover.Unavailable();
+        };
     }
 }

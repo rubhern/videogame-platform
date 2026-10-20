@@ -79,7 +79,7 @@ remain owned by [OpenAPI](api/openapi.yaml); presentation remains owned by the
 | Module/boundary | Owns |
 |---|---|
 | Catalogue and Releases | Bounded catalogue, games, aliases, covers, commercial releases, taxonomies, provenance/freshness, local reads, provider synchronization, and each user's preferred platforms over its taxonomy (#295) |
-| Ratings | Personal rating lifecycle, eligibility, ownership, aggregate policy, and `Mis puntuaciones` |
+| Ratings | Personal rating lifecycle, eligibility, ownership, aggregate policy, `Mis puntuaciones`, and personal statistics |
 | Identity | BFF session and external OIDC integration; not product credentials or authorization |
 | API | Same-origin HTTP delivery and mapping; no business policy |
 | Platform | Runtime composition, configuration, health, correlation, metrics, and tracing |
@@ -94,7 +94,10 @@ projection that is refreshed synchronously, inside the writing transaction, from
 Catalogue application contracts; any future alias or listing writer must publish the
 same `GameListingChanged` notification in its transaction.
 [ADR-0018](../decisions/0018-project-personal-ratings-listing-in-ratings.md) owns
-the design, its backfill, locking, and read bounds.
+the design, its backfill, locking, and read bounds. Post-MVP (#254),
+[Tus estadísticas (UC-015)](application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)
+reuses this projection for fixed-size PostgreSQL aggregates in Ratings, preserving the
+same module boundary and transactional read isolation.
 
 Post-MVP (#285, implemented; awaiting owner review), the release explorer orders games by
 community score in PostgreSQL before pagination over a Catalogue-owned projection of each

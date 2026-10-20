@@ -85,6 +85,7 @@ export function MyRatingsPage() {
       <header className="page-head">
         <p className="eyebrow">Tu colección de puntuaciones</p>
         <HeroTitle id="my-ratings-title" title="Mis puntuaciones" />
+        <Link className="button view-action my-ratings-insights-link" to="/mis-puntuaciones/estadisticas">Tus estadísticas <span aria-hidden="true">↗</span></Link>
       </header>
       {session.isPending ? <p className="result-count" role="status">Comprobando sesión…</p>
         : session.isError ? <div className="notice notice-danger" role="alert">

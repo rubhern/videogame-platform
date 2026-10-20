@@ -73,3 +73,24 @@ describe("first-run platform choice", () => {
     expect(paths(fetchMock).filter((path) => path.startsWith("/api/v1/me"))).toHaveLength(0);
   });
 });
+
+describe("personal statistics readiness", () => {
+  it("hands the bounded private read to only the session that read it, before restoring scroll", async () => {
+    const data={total:0};
+    const fetchMock=vi.fn<typeof fetch>().mockImplementation(async input => {
+      const url=new URL((input as Request).url);
+      return Response.json(url.pathname.endsWith("/session") ? {authenticated:true,csrfToken:"session-proof"} : data);
+    });
+    vi.stubGlobal("fetch",fetchMock);
+    const loader=routeReadiness(new QueryClient({defaultOptions:{queries:{retry:false}}}),createInterestsSwitch());
+    await expect(load(loader,"/mis-puntuaciones/estadisticas")).resolves.toEqual({data,sessionProof:"session-proof"});
+    expect(paths(fetchMock)).toEqual(["/api/v1/session","/api/v1/me/rating-insights"]);
+  });
+
+  it("does not request statistics for an anonymous session", async () => {
+    const fetchMock=stub({authenticated:false},{configured:false,platforms:[]});
+    const loader=routeReadiness(new QueryClient({defaultOptions:{queries:{retry:false}}}),createInterestsSwitch());
+    await expect(load(loader,"/mis-puntuaciones/estadisticas")).resolves.toBeNull();
+    expect(paths(fetchMock)).toEqual(["/api/v1/session"]);
+  });
+});

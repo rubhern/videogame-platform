@@ -32,6 +32,8 @@ public class PersonalRatingController implements RatingsApi {
     private final RatingApiMapper mapper;
     private final com.videogameplatform.ratings.application.ListPersonalRatingsUseCase listing;
     private final GetExternalPlayerScoresUseCase externalScores;
+    private final com.videogameplatform.ratings.application.GetPersonalRatingInsightsUseCase
+            insights;
 
     PersonalRatingController(
             CurrentUser currentUser,
@@ -40,7 +42,8 @@ public class PersonalRatingController implements RatingsApi {
             DeletePersonalRatingUseCase deletes,
             RatingApiMapper mapper,
             com.videogameplatform.ratings.application.ListPersonalRatingsUseCase listing,
-            GetExternalPlayerScoresUseCase externalScores) {
+            GetExternalPlayerScoresUseCase externalScores,
+            com.videogameplatform.ratings.application.GetPersonalRatingInsightsUseCase insights) {
         this.currentUser = currentUser;
         this.reads = reads;
         this.writes = writes;
@@ -48,6 +51,7 @@ public class PersonalRatingController implements RatingsApi {
         this.mapper = mapper;
         this.listing = listing;
         this.externalScores = externalScores;
+        this.insights = insights;
     }
 
     @Override
@@ -139,6 +143,14 @@ public class PersonalRatingController implements RatingsApi {
                                 item.setExternalScore(ExternalPlayerScoreMapper.toResponse(score));
                         });
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
+    }
+
+    @Override
+    public ResponseEntity<com.videogameplatform.api.generated.model.PersonalRatingInsights>
+            getMyRatingInsights() {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(mapper.toResponse(insights.get(userId())));
     }
 
     private String userId() {

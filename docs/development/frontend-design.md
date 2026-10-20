@@ -153,7 +153,7 @@ work never brings them back.
   navigation holds two entries, **Lanzamientos** and **TOPómetro**, named in the
   [product glossary](../product/glossary.md#user-facing-terms); TOPómetro is the landing route
   and Lanzamientos is current on the release explorer, `/lanzamientos` (#285). The account
-  control provides `Mi cuenta`, `Mis puntuaciones`, **Mis plataformas**
+  control provides `Mi cuenta`, `Mis puntuaciones`, **Tus estadísticas**, **Mis plataformas**
   ([preferred platforms](#preferred-platforms), #295) and CSRF-protected logout for an
   authenticated session, and **Panel de administrador** only when the session names
   that capability (#247). Post-MVP (#162), anonymous browsing also exposes primary
@@ -965,6 +965,35 @@ a square for a failed or abandoned run), so no state depends on colour, and forc
 keep the shapes. Tables sit in a labelled, focusable region that may scroll sideways on
 phones while the page never does; their cells keep words whole. Choosing a year or month is
 a native link, marks it with `aria-current`, and moves focus to the level that changed.
+
+## Personal statistics
+
+Post-MVP (#254, implemented; awaiting owner review), **Tus estadísticas** opens from
+`Mis puntuaciones` and `Mi cuenta` at `/mis-puntuaciones/estadisticas`. It is a personal
+score atlas on night: an asymmetric opening pairs the collection total with a large
+existing score G-meter and its separate mean/temperature readout. Light comes only
+from the two games presented as extremes. It never repeats the temporal G.
+
+A full-width ten-column thermal histogram follows; every column is a native button
+that names its score, exact count and share, and selection announces those facts below.
+The five temperature summaries keep their names, numerical ranges and counts alongside
+colour. Two game covers anchor the extremes, with full title links and personal scores;
+coincident extremes present one game with the shared reading.
+The lower composition gives overlapping genre groups a count bar or a score bar,
+selected with **Más puntuados** / **Mejor puntuados**, beside a quieter twelve-month
+count chart in ice. Every genre mean carries its sample. The month table is available
+through a native disclosure, as are the calculation notes. The
+[use case](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)
+owns meaning, thresholds and tie rules.
+
+Phones stack the instrument, extremes and lower sections, keep all ten score targets
+inside the viewport and place the five thermal summaries on two rows. Text and native
+controls carry every reading without SVG or colour. Only the opening enters once and
+bar changes transition; reduced motion removes both. Forced colours use system text
+for bars and their counts and an outlined selection. Empty collections show a quiet
+invitation to find a game, with no simulated charts or meaningless instrument. A small
+sample keeps real results with an explicit caveat; missing genre metadata stays visible.
+Loading and failures use the shared server-backed state language below.
 
 ## Server-backed states
 

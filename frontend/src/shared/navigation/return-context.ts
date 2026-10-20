@@ -8,7 +8,7 @@ import type { Location } from "react-router-dom";
  * the entry's state; a direct link has none and falls back to TOPómetro. State is browser input,
  * so it is validated on every read and only ever names one of the product's own list routes.
  */
-export type ReturnOrigin = "featured" | "releases" | "search" | "my-ratings";
+export type ReturnOrigin = "featured" | "releases" | "search" | "my-ratings" | "rating-insights";
 
 /**
  * The state a link into a game page carries. `dayFrame` keeps Explorar lanzamientos' day bar as it
@@ -34,6 +34,7 @@ const ORIGINS: Record<string, ReturnOrigin> = {
   "/lanzamientos": "releases",
   "/search": "search",
   "/mis-puntuaciones": "my-ratings",
+  "/mis-puntuaciones/estadisticas": "rating-insights",
 };
 
 const LABELS: Record<ReturnOrigin, string> = {
@@ -41,6 +42,7 @@ const LABELS: Record<ReturnOrigin, string> = {
   releases: "Volver a lanzamientos",
   search: "Volver a resultados",
   "my-ratings": "Volver a mis puntuaciones",
+  "rating-insights": "Volver a tus estadísticas",
 };
 
 /** Without a known origin the game page returns to the landing route. */
