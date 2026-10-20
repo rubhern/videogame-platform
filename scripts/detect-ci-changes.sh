@@ -57,6 +57,8 @@ categories=(
   identity
   provider_fixtures
   container
+  production_runtime
+  dependency_images
   build
   ci
   dependencies
@@ -129,7 +131,12 @@ for path in "${changed_paths[@]}"; do
       enable documentation
       matched=true
       ;;
-    Dockerfile | .dockerignore | scripts/validate-container-image.sh | scripts/inspect-application-oci.py)
+    .dockerignore | scripts/inspect-application-oci.py)
+      # Shared with the Keycloak build context and the dependency-image OCI inspection.
+      enable container build frontend backend dependency_images
+      matched=true
+      ;;
+    Dockerfile | scripts/validate-container-image.sh)
       enable container build frontend backend
       matched=true
       ;;
@@ -137,11 +144,25 @@ for path in "${changed_paths[@]}"; do
       enable build frontend browser backend container
       matched=true
       ;;
+    docker/keycloak/themes/*)
+      # The theme is baked into the published production Keycloak image.
+      enable identity browser backend dependency_images
+      matched=true
+      ;;
     scripts/validate-identity.sh | scripts/test-keycloak-mail-configuration.py | scripts/test-keycloak-operator-role.py | docker/keycloak/* | backend/src/main/resources/application-oidc.yaml)
       enable identity browser backend
       matched=true
       ;;
-    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | deploy/public-production/keycloak/* | scripts/validate-private-dev-identity.sh | scripts/test-private-dev-identity-alignment.py | scripts/validate-personal-data.sh | scripts/test-personal-data-*.py)
+    deploy/public-production/keycloak/*)
+      # The production realm is proven by the identity gate; the runtime mounts and consumes it.
+      enable identity production_runtime
+      matched=true
+      ;;
+    deploy/public-production/* | scripts/test-public-production-runtime.py | scripts/probe-public-production-edge.py)
+      enable production_runtime
+      matched=true
+      ;;
+    scripts/validate-production-identity.sh | scripts/test-production-realm.py | scripts/test-production-identity-keycloak.py | scripts/check-oidc-issuer-contract.py | scripts/validate-private-dev-identity.sh | scripts/test-private-dev-identity-alignment.py | scripts/validate-personal-data.sh | scripts/test-personal-data-*.py)
       # The production realm and its BFF contract are proven only by the real Keycloak identity gate.
       enable identity
       matched=true
@@ -151,8 +172,23 @@ for path in "${changed_paths[@]}"; do
       enable migrations backend browser
       matched=true
       ;;
-    scripts/validate-migrations.sh | docker/postgres/* | backend/src/main/resources/db/*)
+    docker/postgres/* | scripts/test-postgres-bootstrap.py)
+      # The shared database bootstrap is mounted by the production runtime as well.
+      enable migrations backend production_runtime
+      matched=true
+      ;;
+    scripts/validate-migrations.sh | backend/src/main/resources/db/*)
       enable migrations backend
+      matched=true
+      ;;
+    deploy/private-dev/bin/run-application | deploy/private-dev/bin/run-migrations)
+      # Environment-neutral secret wrappers that the production runtime also mounts.
+      enable documentation build backend migrations identity container production_runtime
+      matched=true
+      ;;
+    deploy/private-dev/keycloak/*)
+      # One Keycloak recipe for local, private-dev and the published production image.
+      enable documentation build backend migrations identity container dependency_images
       matched=true
       ;;
     scripts/validate-private-dev-runtime.sh | scripts/provision-grafana-reader.sh | scripts/private-dev-metrics-check.py | scripts/private-dev-logs-check.py | scripts/test-private-dev-deployment.sh | scripts/test-private-dev-backup-recovery.sh | scripts/test-private-dev-oidc-provisioning.py | scripts/test-private-dev-oidc-provisioning-keycloak.py | scripts/test-private-dev-identity-commands.py | deploy/private-dev/*)
@@ -204,6 +240,11 @@ for path in "${changed_paths[@]}"; do
       enable frontend browser identity codeql_javascript
       matched=true
       ;;
+    frontend/src/shared/brand/gameometro-logo.svg | frontend/src/shared/brand/gameometro-mark.svg | frontend/public/assets/night-hero* | frontend/public/assets/fonts/*)
+      # Brand assets copied into the Keycloak theme image.
+      enable frontend browser codeql_javascript dependency_images
+      matched=true
+      ;;
     frontend/src/* | frontend/public/* | frontend/tests/*)
       enable frontend browser codeql_javascript
       matched=true
@@ -221,11 +262,11 @@ for path in "${changed_paths[@]}"; do
       matched=true
       ;;
     tools/catalogue-localization/*requirements.txt | tools/catalogue-localization/models.json)
-      enable backend container dependencies codeql_java
+      enable backend container dependencies codeql_java dependency_images
       matched=true
       ;;
     tools/catalogue-localization/* | scripts/localize-catalogue.py)
-      enable backend container codeql_java
+      enable backend container codeql_java dependency_images
       matched=true
       ;;
     tools/igdb-poc/pom.xml)
@@ -238,6 +279,10 @@ for path in "${changed_paths[@]}"; do
       ;;
     tools/igdb-poc/*)
       enable provider_fixtures
+      matched=true
+      ;;
+    scripts/validate-dependency-image.sh | scripts/check-dependency-image-content.py)
+      enable dependency_images
       matched=true
       ;;
     scripts/validate-docs.sh | scripts/validate-prerequisites.sh | .env.example | backend/.env.example)

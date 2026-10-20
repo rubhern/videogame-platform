@@ -1,0 +1,68 @@
+# Public-production HTTPS edge (#275): stock Caddy, static routes, no Docker socket or
+# discovery. The platform design owns the boundary and
+# scripts/test-public-production-runtime.py proves the routes and forbidden options.
+{
+	# No admin API: a reviewed file change is applied by recreating the container.
+	admin off
+	servers {
+		# HTTP/1.1 and HTTP/2 over TCP only; HTTP/3 (UDP 443) is outside the exposure contract.
+		protocols h1 h2
+		# A request whose Host differs from its TLS server name is refused with 421.
+		strict_sni_host on
+		max_header_size 16KB
+		timeouts {
+			read_header 10s
+			read_body 30s
+			write 60s
+			idle 2m
+		}
+	}
+}
+
+(upstream_headers) {
+	# No proxy sits in front of this edge, so Caddy trusts no client and replaces
+	# X-Forwarded-For, -Proto and -Host itself. Drop every other forwarding header a
+	# client could supply before it reaches an upstream that trusts this peer.
+	header_up -Forwarded
+	header_up -X-Forwarded-Port
+	header_up -X-Forwarded-Prefix
+	header_up -X-Forwarded-Server
+	header_up -X-Real-Ip
+}
+
+gameometro.com {
+	request_body {
+		max_size 1MB
+	}
+	header -Server
+	# Management lives on a separate container-loopback port; refuse its paths here too.
+	@management path /actuator /actuator/*
+	respond @management 404
+	reverse_proxy application:8080 {
+		import upstream_headers
+	}
+}
+
+auth.gameometro.com {
+	request_body {
+		max_size 1MB
+	}
+	header -Server
+	# Allowlist of the product realm's browser and BFF paths. The admin console and API,
+	# the master realm, the account console, health and metrics are never routed.
+	@identity path /realms/gameometro/protocol/openid-connect/* /realms/gameometro/login-actions/* /realms/gameometro/.well-known/openid-configuration /resources/*
+	handle @identity {
+		reverse_proxy keycloak:8080 {
+			import upstream_headers
+		}
+	}
+	handle {
+		respond 404
+	}
+}
+
+# Any other plain-HTTP host name or bare address gets its connection closed. Unknown TLS
+# server names have no certificate, so their handshake fails.
+http:// {
+	abort
+}

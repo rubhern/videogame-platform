@@ -22,7 +22,7 @@ from provider_fixture import build_input, digest
 
 PG = 'videogame-platform-performance-postgres'
 PROVIDER = 'videogame-platform-performance-provider'
-HELPER_IMAGE = 'videogame-platform/catalogue-localizer:1.0.0'
+HELPER_IMAGE = 'videogame-platform/catalogue-localizer:1.0.1'
 SCENARIOS = ['serving-only', 'serving-sync-reuse', 'serving-sync-inference']
 
 

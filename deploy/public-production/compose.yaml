@@ -1,0 +1,355 @@
+# Public-production runtime candidate (#275). Prepared, never deployed.
+# The platform design owns the topology; README.md owns the secret inventory and what is
+# not yet validated; scripts/test-public-production-runtime.py enforces this contract.
+name: gameometro-production
+
+x-logging: &bounded-logging
+  driver: local
+  options:
+    max-size: 10m
+    max-file: "3"
+
+x-hardened: &hardened
+  read_only: true
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+
+services:
+  caddy:
+    <<: *hardened
+    image: caddy:2.11.7-alpine@sha256:d8542f48d34a9cf4e4c11a478865229840e87e4c96ea3f439101f31a5d35f75f
+    # Binding 80/443 is the only privilege the edge keeps.
+    cap_add:
+      - NET_BIND_SERVICE
+    # The only published ports of the runtime: HTTP for ACME and redirect, HTTPS over TCP.
+    ports:
+      - "80:80/tcp"
+      - "443:443/tcp"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # ACME account, certificates and keys survive recreation; losing them forces reissuance.
+      - caddy-data:/data
+      - caddy-config:/config
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    networks:
+      application-edge:
+        ipv4_address: 10.203.1.2
+        # The BFF reaches the identity server at its canonical issuer through this edge,
+        # with verified TLS, never directly.
+        aliases:
+          - auth.gameometro.com
+      identity-edge:
+        ipv4_address: 10.203.2.2
+    restart: unless-stopped
+    stop_grace_period: 15s
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 128
+    logging: *bounded-logging
+
+  postgres:
+    image: postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
+    # The entrypoint changes ownership and drops to the postgres user, so it keeps the
+    # default capability set; it publishes nothing and joins only the data networks.
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_admin_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+      APPLICATION_DB_PASSWORD_FILE: /run/secrets/application_db_password
+      APPLICATION_MIGRATION_DB_PASSWORD_FILE: /run/secrets/application_migration_db_password
+      KEYCLOAK_DB_PASSWORD_FILE: /run/secrets/keycloak_db_password
+    secrets:
+      - postgres_admin_password
+      - application_db_password
+      - application_migration_db_password
+      - keycloak_db_password
+    group_add:
+      - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/18/docker
+      # The shared, environment-neutral database and role bootstrap, read-only.
+      - ../../docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - application-data
+      - identity-data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          gosu postgres psql --dbname=postgres --tuples-only --no-align
+          --command="SELECT
+          EXISTS (SELECT FROM pg_database WHERE datname = 'videogame_platform')
+          AND EXISTS (SELECT FROM pg_database WHERE datname = 'videogame_keycloak')
+          AND EXISTS (SELECT FROM pg_roles WHERE rolname = 'videogame_app')
+          AND EXISTS (SELECT FROM pg_roles WHERE rolname = 'videogame_app_migrator')
+          AND EXISTS (SELECT FROM pg_roles WHERE rolname = 'videogame_keycloak')"
+          | grep --quiet '^t$'
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 256
+    logging: *bounded-logging
+
+  keycloak:
+    <<: *hardened
+    # The themed image from deploy/private-dev/keycloak/Dockerfile with event metrics
+    # compiled in, selected by digest; it is never built on the production host.
+    image: ${KEYCLOAK_IMAGE:?Set KEYCLOAK_IMAGE to an immutable image digest in runtime.env}
+    entrypoint: ["/opt/gameometro/bin/run-keycloak"]
+    env_file:
+      - ./keycloak/abuse.env
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/videogame_keycloak
+      KC_DB_USERNAME: videogame_keycloak
+      KC_DB_PASSWORD_FILE: /run/secrets/keycloak_db_password
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:?Set KEYCLOAK_ADMIN_USERNAME in runtime.env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_admin_password
+      # Canonical identity origin: discovery, token issuer, form actions and email links
+      # never follow a request's Host or forwarded headers.
+      KC_HOSTNAME: https://auth.gameometro.com
+      # TLS terminates at the edge; forwarded headers are honoured only from its address.
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_PROXY_TRUSTED_ADDRESSES: 10.203.2.2
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_CACHE: local
+      KC_LOG_LEVEL: info
+      KC_HTTP_ACCESS_LOG_ENABLED: "false"
+      APPLICATION_PUBLIC_HOST: gameometro.com
+      APPLICATION_PUBLIC_ORIGIN: https://gameometro.com
+      KEYCLOAK_BFF_CLIENT_SECRET_FILE: /run/secrets/keycloak_bff_client_secret
+      KEYCLOAK_SMTP_HOST: ${PRODUCTION_SMTP_RELAY_HOST:?Set PRODUCTION_SMTP_RELAY_HOST in runtime.env}
+      KEYCLOAK_SMTP_PORT: ${PRODUCTION_SMTP_RELAY_PORT:?Set PRODUCTION_SMTP_RELAY_PORT in runtime.env}
+      KEYCLOAK_SMTP_FROM: ${PRODUCTION_SMTP_RELAY_FROM:?Set PRODUCTION_SMTP_RELAY_FROM in runtime.env}
+      KEYCLOAK_SMTP_USER_FILE: /run/secrets/keycloak_smtp_username
+      KEYCLOAK_SMTP_PASSWORD_FILE: /run/secrets/keycloak_smtp_password
+    secrets:
+      - keycloak_db_password
+      - keycloak_admin_password
+      - keycloak_bff_client_secret
+      - keycloak_smtp_username
+      - keycloak_smtp_password
+    group_add:
+      - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
+    volumes:
+      - ./bin/run-keycloak:/opt/gameometro/bin/run-keycloak:ro
+      # Only the production realm directory: never the shared realm or a local user import.
+      - ./keycloak/import:/opt/keycloak/data/import:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /opt/keycloak/data/tmp:rw,noexec,nosuid,size=64m,mode=0770
+    networks:
+      # Edge ingress plus outbound SMTP submission to the relay.
+      - identity-edge
+      - identity-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - bash
+        - -ec
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000;
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3;
+          grep -q 'HTTP/1.1 200 OK' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    # Envelope hypothesis, below private-dev's 1536m: unproven until Keycloak runs here.
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 384
+    logging: *bounded-logging
+
+  catalogue-localizer:
+    <<: *hardened
+    image: ${CATALOGUE_LOCALIZER_IMAGE:?Set CATALOGUE_LOCALIZER_IMAGE to an immutable image digest in runtime.env}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8092/ready', timeout=2).close()"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    volumes:
+      - type: bind
+        source: ${CATALOGUE_TRANSLATION_MODEL_DIR:?Set CATALOGUE_TRANSLATION_MODEL_DIR in runtime.env}
+        target: /model
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - application-data
+    restart: unless-stopped
+    mem_limit: 768m
+    cpus: 1.0
+    pids_limit: 64
+    logging: *bounded-logging
+
+  application:
+    <<: *hardened
+    profiles: ["application"]
+    image: ${APPLICATION_IMAGE:?Set APPLICATION_IMAGE to an immutable GHCR digest}
+    # The environment-neutral secret-file wrapper shared with private-dev, read-only.
+    entrypoint: ["/opt/gameometro/bin/run-application"]
+    environment:
+      SPRING_PROFILES_ACTIVE: oidc,structured
+      APPLICATION_PUBLIC_ORIGIN: https://gameometro.com
+      APPLICATION_OIDC_REDIRECT_URI: https://gameometro.com/login/oauth2/code/keycloak
+      APPLICATION_OIDC_POST_LOGOUT_REDIRECT_URI: https://gameometro.com/
+      PLATFORM_HTTPSECURITY_HSTS_ENABLED: "true"
+      # Tomcat's RemoteIpValve honours X-Forwarded-For/-Proto/-Host only from the edge's
+      # fixed address, which replaces them on every request. Nothing else shares this network.
+      SERVER_FORWARD_HEADERS_STRATEGY: NATIVE
+      SERVER_TOMCAT_REMOTEIP_INTERNALPROXIES: '10\.203\.1\.2'
+      APPLICATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
+      APPLICATION_DB_USERNAME: videogame_app
+      APPLICATION_DB_PASSWORD_FILE: /run/secrets/application_db_password
+      APPLICATION_FLYWAY_ENABLED: "false"
+      # No calibrated production admission values exist; enabling needs a reviewed change.
+      APPLICATION_API_ADMISSION_ENABLED: "false"
+      CATALOGUE_TRANSLATION_ENDPOINT: http://catalogue-localizer:8092/translate
+      # Management (health, revocation, synchronization) stays on container loopback.
+      MANAGEMENT_SERVER_ADDRESS: 127.0.0.1
+      OIDC_ISSUER_URI: https://auth.gameometro.com/realms/gameometro
+      OIDC_AUTHORIZATION_URI: https://auth.gameometro.com/realms/gameometro/protocol/openid-connect/auth
+      OIDC_TOKEN_URI: https://auth.gameometro.com/realms/gameometro/protocol/openid-connect/token
+      OIDC_JWK_SET_URI: https://auth.gameometro.com/realms/gameometro/protocol/openid-connect/certs
+      OIDC_USER_INFO_URI: https://auth.gameometro.com/realms/gameometro/protocol/openid-connect/userinfo
+      OIDC_END_SESSION_URI: https://auth.gameometro.com/realms/gameometro/protocol/openid-connect/logout
+      KEYCLOAK_BFF_CLIENT_SECRET_FILE: /run/secrets/keycloak_bff_client_secret
+      APPLICATION_SESSION_COOKIE_NAME: __Host-vgp_session
+      APPLICATION_SESSION_COOKIE_SECURE: "true"
+      TELEMETRY_DEPLOYMENT_ENVIRONMENT: production
+      TELEMETRY_SERVICE_VERSION: ${APPLICATION_VERSION:?Set APPLICATION_VERSION to the selected image version}
+      # Telemetry export belongs to a later increment.
+      TELEMETRY_OTLP_TRACES_ENABLED: "false"
+      TELEMETRY_OTLP_METRICS_ENABLED: "false"
+      # Recurring acquisition stays off until a reviewed production schedule exists.
+      CATALOGUE_SYNC_SCHEDULING_ENABLED: "false"
+      IGDB_CLIENT_ID_FILE: /run/secrets/igdb_client_id
+      IGDB_CLIENT_SECRET_FILE: /run/secrets/igdb_client_secret
+    secrets:
+      - application_db_password
+      - keycloak_bff_client_secret
+      - igdb_client_id
+      - igdb_client_secret
+    group_add:
+      - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
+    volumes:
+      - ../private-dev/bin/run-application:/opt/gameometro/bin/run-application:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    networks:
+      # Edge ingress plus outbound provider access for synchronization.
+      - application-edge
+      - application-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "-T", "3", "http://127.0.0.1:8081/actuator/health/readiness"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 45s
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 1536m
+    cpus: 1.5
+    pids_limit: 384
+    init: true
+    logging: *bounded-logging
+
+  migration:
+    <<: *hardened
+    profiles: ["deployment"]
+    image: ${APPLICATION_IMAGE:?Set APPLICATION_IMAGE to an immutable GHCR digest}
+    entrypoint: ["/opt/gameometro/bin/run-migrations"]
+    environment:
+      APPLICATION_MIGRATION_DB_URL: jdbc:postgresql://postgres:5432/videogame_platform
+      APPLICATION_MIGRATION_DB_USERNAME: videogame_app_migrator
+      APPLICATION_MIGRATION_DB_PASSWORD_FILE: /run/secrets/application_migration_db_password
+    secrets:
+      - application_migration_db_password
+    group_add:
+      - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
+    volumes:
+      - ../private-dev/bin/run-migrations:/opt/gameometro/bin/run-migrations:ro
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    networks:
+      - application-data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 256
+    init: true
+    logging: *bounded-logging
+
+secrets:
+  postgres_admin_password:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/postgres-admin-password
+  application_db_password:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/application-db-password
+  application_migration_db_password:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/application-migration-db-password
+  keycloak_db_password:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/keycloak-db-password
+  keycloak_admin_password:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/keycloak-admin-password
+  keycloak_bff_client_secret:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/keycloak-bff-client-secret
+  keycloak_smtp_username:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/keycloak-smtp-username
+  keycloak_smtp_password:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/keycloak-smtp-password
+  igdb_client_id:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/igdb-client-id
+  igdb_client_secret:
+    file: ${PRODUCTION_SECRETS_DIR:?Set PRODUCTION_SECRETS_DIR in runtime.env}/igdb-client-secret
+
+volumes:
+  caddy-data:
+  caddy-config:
+  postgres-data:
+
+networks:
+  # Non-internal only for the edge's published ports and the BFF's provider egress.
+  # Fixed addresses let each upstream trust exactly the edge; ip_range keeps dynamic
+  # allocation away from the edge's address.
+  application-edge:
+    ipam:
+      config:
+        - subnet: 10.203.1.0/28
+          ip_range: 10.203.1.8/29
+  # Edge ingress and Keycloak's outbound SMTP submission.
+  identity-edge:
+    ipam:
+      config:
+        - subnet: 10.203.2.0/28
+          ip_range: 10.203.2.8/29
+  application-data:
+    internal: true
+  identity-data:
+    internal: true

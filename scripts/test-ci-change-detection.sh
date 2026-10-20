@@ -48,7 +48,7 @@ run_case "localization dependencies" "tools/catalogue-localization/runtime-requi
 run_case docs-only \
   'docs/product/product-brief.md' \
   'documentation' \
-  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+  'openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,production_runtime,dependency_images,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
 run_case openapi \
   'docs/architecture/api/openapi.yaml' \
@@ -82,8 +82,63 @@ run_case password-recovery-journey \
 
 run_case production-identity \
   $'deploy/public-production/keycloak/import/gameometro-realm.json\nscripts/validate-production-identity.sh\nscripts/test-production-realm.py\nscripts/test-production-identity-keycloak.py\nscripts/check-oidc-issuer-contract.py' \
-  'identity' \
+  'identity,production_runtime' \
   'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case public-production-runtime \
+  $'deploy/public-production/compose.yaml\ndeploy/public-production/runtime.env.example\ndeploy/public-production/caddy/Caddyfile\ndeploy/public-production/bin/run-keycloak\nscripts/test-public-production-runtime.py\nscripts/probe-public-production-edge.py' \
+  'production_runtime' \
+  'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case public-production-readme \
+  'deploy/public-production/README.md' \
+  'documentation' \
+  'production_runtime,identity,container,build,ci'
+
+run_case shared-secret-wrappers \
+  $'deploy/private-dev/bin/run-application\ndeploy/private-dev/bin/run-migrations' \
+  'production_runtime,container,identity,backend,migrations' \
+  'frontend,ci'
+
+run_case database-bootstrap \
+  $'docker/postgres/init/001-create-databases.sh\nscripts/test-postgres-bootstrap.py' \
+  'migrations,backend,production_runtime' \
+  'container,identity,frontend,ci'
+
+run_case dependency-image-scripts \
+  $'scripts/validate-dependency-image.sh\nscripts/check-dependency-image-content.py' \
+  'dependency_images' \
+  'documentation,openapi,frontend,browser,backend,migrations,identity,provider_fixtures,container,production_runtime,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
+
+run_case keycloak-recipe \
+  'deploy/private-dev/keycloak/Dockerfile' \
+  'dependency_images,identity,container' \
+  'frontend,production_runtime,ci'
+
+run_case keycloak-theme \
+  'docker/keycloak/themes/gameometro/login/theme.properties' \
+  'dependency_images,identity,browser' \
+  'container,production_runtime,ci'
+
+run_case keycloak-brand-asset \
+  $'frontend/src/shared/brand/gameometro-mark.svg\nfrontend/public/assets/fonts/mona-sans-latin.woff2' \
+  'dependency_images,frontend,browser' \
+  'container,identity,ci'
+
+run_case localizer-image-source \
+  'tools/catalogue-localization/helper.py' \
+  'dependency_images,backend,container' \
+  'identity,production_runtime,ci'
+
+run_case unrelated-frontend-skips-dependency-images \
+  'frontend/src/features/releases/releases-shell.tsx' \
+  'frontend' \
+  'dependency_images,container,identity'
+
+run_case root-dockerignore \
+  '.dockerignore' \
+  'container,dependency_images' \
+  'identity,ci'
 
 run_case private-dev-identity \
   $'scripts/validate-private-dev-identity.sh\nscripts/test-private-dev-identity-alignment.py' \

@@ -11,7 +11,7 @@ export default defineConfig({
     { name:'canonical-repository-content', hooks:{
       'astro:config:setup': async ({command}) => { if (command !== 'preview') await prepare({clean:command === 'build'}); },
       'astro:server:setup': ({server}) => {
-        server.watcher.add([`${repo}/docs`,`${repo}/README.md`,`${repo}/backend/README.md`,`${repo}/frontend/README.md`,`${repo}/backend/postman`,`${repo}/deploy/private-dev/README.md`,`${repo}/documentation/README.md`,`${repo}/tools/igdb-poc/README.md`]);
+        server.watcher.add([`${repo}/docs`,`${repo}/README.md`,`${repo}/backend/README.md`,`${repo}/frontend/README.md`,`${repo}/backend/postman`,`${repo}/deploy/private-dev/README.md`,`${repo}/deploy/public-production/README.md`,`${repo}/documentation/README.md`,`${repo}/tools/igdb-poc/README.md`]);
         let pending = Promise.resolve();
         server.watcher.on('all', (event,file) => {
           const canonical = file.startsWith(`${repo}/docs/`) || sources().some(source => `${repo}/${source}` === file);

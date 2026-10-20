@@ -46,7 +46,7 @@ foundation evidence proves none of their acceptance criteria.
 The owner's public-release/budget decision in the
 [Product Brief](../product/product-brief.md#public-release-and-sustainability)
 reopens the former project-wide cost/release restriction for future production.
-[ADR-0025](0025-host-public-production-on-a-deferred-single-vps.md) proposes its
+[ADR-0025](0025-host-public-production-on-a-deferred-single-vps.md) decides its
 separate host; this record still governs private-dev and its private ingress.
 
 Revisit on measured resource pressure, hardware or network reliability limits,

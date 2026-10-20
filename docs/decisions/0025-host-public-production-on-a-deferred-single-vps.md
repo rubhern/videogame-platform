@@ -1,7 +1,7 @@
 # ADR-0025: Host public production on a deferred single VPS
 
-- **Status:** Proposed — technical design awaiting owner review
-- **Date:** 2026-10-14
+- **Status:** Accepted
+- **Date:** 2026-10-14; accepted by the owner on 2026-10-19
 - **Owner:** Ruben Hernandez
 - **Scope:** First public, non-commercial, best-effort release; #252 / #251
 
@@ -17,20 +17,20 @@ subject to availability, final price and capacity validation; cap **all recurrin
 costs at EUR 20/month**; choose an open, non-commercial, best-effort launch; and
 defer purchase until a production candidate exists. Development continues in local
 and CI with temporary private-dev integration. These decisions are effective input
-to this proposal, not authorization to buy or deploy.
+to this decision, not authorization to buy or deploy.
 
-## Proposed decision
+## Decision
 
 Use one separately hosted Linux VPS and Docker Compose for the existing modular
 monolith, same-origin frontend/BFF, PostgreSQL and Keycloak. Add one static HTTPS
-reverse proxy, proposed Caddy, without Docker discovery/socket access. Keep owner
+reverse proxy, Caddy, without Docker discovery/socket access. Keep owner
 administration private and make only product and necessary identity routes public.
 Reuse current telemetry, secret-file, migration, encrypted-backup and immutable-image
 patterns; no managed database, second runtime host, distributed cache, broker,
 Kubernetes or public monitoring plane.
 
 The [platform design](../architecture/deployment/mvp-platform-and-delivery.md#public-production-target)
-owns the proposed topology, resource envelope and recovery policy. The
+owns the topology, resource envelope and recovery policy. The
 [delivery lifecycle](../development/delivery-lifecycle.md#public-production-gates)
 owns the separate purchase and exposure gates. No runtime, DNS or service is changed
 by accepting a design. Capacity acceptance on the purchased VPS remains mandatory;
@@ -46,7 +46,7 @@ decision with data/evidence preservation.
 
 ADR-0019 still owns private-dev hosting; its private-host boundary is not relaxed.
 The owner's public-release budget replaces the former project-wide zero-recurring-cost
-restriction for the gated production direction only. On acceptance, this ADR extends
+restriction for the gated production direction only. This ADR extends
 the platform baseline to production; it does not supersede the modular monolith,
 PostgreSQL, BFF, Keycloak or local catalogue decisions.
 

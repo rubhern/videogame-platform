@@ -23,16 +23,18 @@ Secret scanning remains applicable to every pull request.
 | Workflow syntax/classification | `bash scripts/validate-actions.sh` and `bash scripts/test-ci-change-detection.sh` |
 | Frontend | `npm run frontend:verify` |
 | Backend | `./mvnw clean verify` |
-| Migrations | `bash scripts/validate-migrations.sh` |
+| Migrations | `bash scripts/validate-migrations.sh`; shared role bootstrap without password arguments or log exposure: `python3 -I scripts/test-postgres-bootstrap.py` |
 | Packaged browser | `bash scripts/validate-browser.sh` |
 | Real OIDC/BFF session and Keycloak rating journey | `bash scripts/validate-identity.sh` |
 | Public-production realm policy (disposable Keycloak and Mailpit) | `bash scripts/validate-production-identity.sh`; `--inspect` serves the same stack on loopback for a manual browser check |
 | Private-dev identity alignment, rollback and Mailpit/relay transports (disposable Keycloak, Mailpit and an authenticated STARTTLS relay stand-in) | `bash scripts/validate-private-dev-identity.sh` |
 | Personal-data export, erasure, deletion ledger and restore replay (fake runtime, then disposable Keycloak, PostgreSQL and the packaged BFF) | `bash scripts/validate-personal-data.sh`; focused native-read/streaming seam: `python3 -I scripts/test-personal-data-read-model.py`; GPG/privacy lifecycle including legacy ledger faults: `python3 -I scripts/test-personal-data-privacy.py` |
+| Public-production runtime contract (rendered Compose, adapted Caddyfile, disposable edge with upstream stand-ins and deliberate violations) | `python3 -I scripts/test-public-production-runtime.py`; `--env-file <protected runtime.env>` checks a real host's inputs statically |
 | Private-dev runtime/deployment | `bash scripts/validate-private-dev-runtime.sh`, then `bash scripts/validate-private-dev-runtime.sh --telemetry-smoke`, `python3 deploy/private-dev/grafana/check-alerts.py --smoke` and `python3 scripts/private-dev-logs-check.py --smoke` |
 | Private-dev optimized registration metrics and notification routing | `python3 deploy/private-dev/grafana/check-product-growth.py` and `python3 deploy/private-dev/grafana/check-notifications.py --smoke` |
 | Workstation and private-dev translation lifecycle/topology | `bash scripts/test-local-localization.sh`; optional local `--smoke` with an installed model |
 | OCI image | `bash scripts/validate-container-image.sh` |
+| Production Keycloak and localizer images (build, content, runtime boundary, added-findings scan policy) | `bash scripts/validate-dependency-image.sh keycloak` or `catalogue-localizer`; content and scan-policy self-test: `python3 -I scripts/check-dependency-image-content.py --self-test` |
 | IGDB PoC fixtures | `./mvnw -f tools/igdb-poc/pom.xml clean verify` |
 
 Commands and exact tool/action versions live in package manifests, Maven POMs,

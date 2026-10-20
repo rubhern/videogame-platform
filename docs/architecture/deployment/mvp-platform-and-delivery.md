@@ -24,7 +24,7 @@ owns post-MVP public-release direction and its pending decisions.
 | `local`      | Development and focused proofs on supported WSL2                               | Disposable/seeded; loopback only                |
 | `test`       | Per-job automated evidence                                                     | Generated fixtures; CI only                     |
 | `dev`        | Persistent private integration, HTTPS, identity, delivery, telemetry, recovery | Non-sensitive learning data; owner tailnet only |
-| `production` | Owner-approved release direction; technical proposal below, unbuilt and gated   | Independent durable data and public product access only |
+| `production` | Owner-approved release direction; accepted design below, configuration prepared, unbuilt and gated | Independent durable data and public product access only |
 
 `dev` is one owner-managed private Linux host (`vgpdev`: Ubuntu Server 24.04 LTS,
 `x86_64`, 8 GB RAM, SSD, Docker Engine and Compose) under
@@ -128,7 +128,8 @@ approval. No public ingress, Funnel or recurring cost is authorized.
 
 Real secrets are independent files below an owner-managed protected directory outside
 Git. Compose grants each service only its required files; entrypoint wrappers read
-them without putting values in Compose metadata or command arguments. Optional IGDB
+them without putting values in Compose metadata or command arguments; the shared
+role bootstrap reads role passwords inside psql, never as its arguments. Optional IGDB
 files may remain empty to keep synchronization disabled. Replacing a file does not
 rotate an already-created PostgreSQL role or imported Keycloak client: rotation must
 update the owning service state and the file as one reviewed operation.
@@ -344,17 +345,20 @@ best-effort launch; EUR 20/month ceiling for all recurring costs. Purchase waits
 for a production candidate. Local/CI development continues with temporary private-dev.
 The [Product Brief](../../product/product-brief.md#public-release-and-sustainability)
 owns that release mode, [ADR-0025](../../decisions/0025-host-public-production-on-a-deferred-single-vps.md)
-proposes the durable topology, and the
+records the accepted durable topology, and the
 [investigation](../../research/public-production-topology.md) records price/capacity evidence.
 
-**Technical proposal awaiting review:** one Linux VPS, Docker Engine/Compose,
-one application replica and one PostgreSQL server. No production Compose, proxy
-configuration, host, DNS or workflow is created in #252. The following specifies
-the minimal implementation target; it is not proof of a running system.
+**Accepted technical design (ADR-0025):** one Linux VPS, Docker Engine/Compose,
+one application replica and one PostgreSQL server. **Runtime configuration prepared,
+not deployed (#275):** [`deploy/public-production`](../../../deploy/public-production/README.md)
+holds the Compose topology and stock-Caddy edge; its README owns the secret inventory
+and what remains unvalidated. No host, DNS, deployment workflow, backup or telemetry
+exists. The following specifies the target; configuration and its local tests are not
+proof of a running system.
 
 | Component / boundary | Target responsibility and exposure |
 |---|---|
-| HTTPS edge | Proposed Caddy with static routing, persisted ACME state and no Docker socket. Public TCP 80 only for redirect/ACME, TCP 443 for product/identity HTTPS. HTTP/3/UDP 443 is unnecessary initially. Default-deny unknown hosts and routes |
+| HTTPS edge | Caddy with static routing, persisted ACME state and no Docker socket. Public TCP 80 only for redirect/ACME, TCP 443 for product/identity HTTPS. HTTP/3/UDP 443 is unnecessary initially. Default-deny unknown hosts and routes |
 | Application | Existing immutable image serves React and same-origin BFF/API on one product origin; upstream port container-internal. No browser tokens, new CORS API or public provider proxy |
 | Keycloak | Independent production realm/client/database. Dedicated HTTPS identity origin with canonical issuer; only necessary product-realm OIDC/login/resource routes public. Block admin console/API, master realm, health and metrics at the edge; admin hostname alone is not an access control |
 | PostgreSQL | Same supported PG family; separate application/identity databases and roles; runtime role without DDL, one-shot migration actor. No host/public database port |
@@ -375,6 +379,22 @@ Test spoofed Host/forwarded values and exact redirect/logout origins. Preserve C
 principal ownership, secure cookies and production-only HSTS/CSP/referrer controls.
 Account revocation and its management interface follow
 [below](#account-revocation-and-the-management-interface).
+
+The prepared configuration has two non-internal edge networks, one per upstream, that
+exist only for the published ports and the egress the application (provider) and
+Keycloak (mail relay) need, plus two internal data networks; the application and
+Keycloak share no network, and only the proxy publishes ports. The proxy has a fixed
+address on each edge network and each upstream trusts forwarded headers from that
+address alone: Tomcat's native handling in the BFF, and Keycloak's trusted proxy
+addresses. Caddy trusts no client, replaces `X-Forwarded-For`, `-Proto` and `-Host`,
+and drops every other forwarding header. It refuses a `Host` that differs from the TLS
+server name, closes unknown plain-HTTP hosts, routes only the product realm's OIDC,
+login-action and theme-resource paths to Keycloak, refuses management paths on the
+product origin, and serves HTTP/1.1 and HTTP/2 over TCP with its admin API disabled.
+The BFF reaches the issuer through a network alias of the proxy, so back-channel calls
+verify the public certificate. The
+[contract test](../../../scripts/test-public-production-runtime.py) proves these with
+local certificates and upstream stand-ins; telemetry networks arrive with telemetry.
 
 [Caddy automatic HTTPS](https://caddyserver.com/docs/automatic-https) requires
 correct DNS, reachable validation ports and persistent writable certificate state.
@@ -442,7 +462,9 @@ and running in private-dev; no revocation procedure has been operated on a host:
 - These guarantees hold for one application replica with in-memory sessions; the ADR
   names what reopens the decision.
 
-Management-interface requirements that #275 must preserve in the production runtime:
+Management-interface requirements that #275 must preserve in the production runtime
+(the prepared Compose binds it to loopback, publishes and routes nothing to it, and the
+contract test enforces both):
 
 - Bind the management server to container loopback, the application default
   (`MANAGEMENT_SERVER_ADDRESS=127.0.0.1`), never to all interfaces as local Compose and
@@ -471,7 +493,8 @@ in its own directory, independent of the shared local/private-dev realm; #274 ow
 content and [`validate-production-identity.sh`](../../../scripts/validate-production-identity.sh)
 proves it with disposable Keycloak and Mailpit. The
 [#274 research](../../research/public-release-rights-and-privacy.md#71-increment-1-production-realm-2026-10-15)
-records the reviewed policy and its limits. #275 owns its runtime integration:
+records the reviewed policy and its limits. #275 owns its runtime integration, prepared
+in the production Compose and its Keycloak entrypoint but not yet started there:
 
 - Mount only `deploy/public-production/keycloak/import/`, read-only, as Keycloak's
   import directory; never add the shared realm or the local user import to it.
@@ -616,6 +639,33 @@ also need reproducible pinned identities; never build on the VPS, deploy `latest
 or infer a digest from a movable tag. Record configuration fingerprint, source,
 image/model identities, migration version and sanitized deployment/acceptance receipt.
 
+**Dependency images, prepared and unpublished until merged (#275 increment 2):**
+trusted `main` publishes the themed Keycloak and the localizer through the same
+retained-archive path as the application:
+
+| Image | GHCR repository | Built from |
+|---|---|---|
+| Application and migration actor | `ghcr.io/rubhern/videogame-platform` | Root `Dockerfile` |
+| Production Keycloak | `ghcr.io/rubhern/videogame-platform-keycloak` | The shared Keycloak recipe, with event metrics compiled in |
+| Catalogue localizer | `ghcr.io/rubhern/videogame-platform-catalogue-localizer` | The localizer Dockerfile, without a model |
+
+Each is built once per trusted-main commit for `linux/amd64`, labelled with source,
+revision and upstream version, inspected, scanned and given a CycloneDX SBOM; the
+exact checked OCI archive is copied with preserved digests, tagged with the commit SHA,
+and its published digest, platform and revision label are verified and recorded. Pull
+requests build and check but never publish. Production refers only to
+`repository@sha256:` digests from one main run, never to the SHA tag. The images hold no
+credential, realm, identity state, user data or model: the model stays an immutable
+read-only host mount, and the localizer refuses to start without it.
+
+Owner scan policy (2026-10-19): these images fail when this repository's layers add a
+HIGH or CRITICAL vulnerability or any secret finding that the pinned upstream base does
+not have. Inherited base findings are recorded in the evidence and the publication
+record for review, not gated, because the strict application policy would block both
+images indefinitely on upstream content. Keeping the bases on their latest patch
+releases stays an owner duty; the inherited findings are a release-gate input, not an
+accepted risk.
+
 Initially use owner-triggered manual promotion over private administration, reusing
 the current preflight/lock/migration/readiness/smoke pattern in a production-specific
 contract. Private-dev Actions credentials/forced commands authorize only private-dev;
@@ -678,6 +728,10 @@ anonymous attempts whether or not an address exists; never key on submitted emai
 user-supplied owner IDs, or an unverified session cookie. Test shared-IP households,
 mobile NAT and IPv6 before accepting those settings. Return 429 with Retry-After for
 rate quotas and 503 for capacity; avoid blocking sleeps or unlimited queues.
+
+#275 increment 1 applies only stock Caddy's connection, header, body and timeout
+bounds; stock Caddy has no request-rate limiter, and the external plugin or another
+mechanism needs a separate review before any of the candidates above is enforced.
 
 Only the proxy's actual transport peer may determine a source limit. Strip incoming
 forwarding headers and trust forwarded metadata only from explicitly configured
