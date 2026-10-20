@@ -172,11 +172,219 @@
     color: var(--g-ember);
   }
 
+  /* ---------------------------------------------------------------- Day bar */
+
+  /* The release explorer's day bar (#285): the window scale over its frame, with every day a
+     button underneath. The explored range rises in ice over the rail, the one selected day is
+     ringed in ice, and days of the frame outside the range quiet down. A frame wider than the
+     screen scrolls sideways inside the bar, never the page. */
+  .day-bar {
+    margin-top: 10px;
+  }
+
+  .day-bar-scroller {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  .day-bar-track {
+    position: relative;
+    min-width: calc(var(--days) * 30px);
+    height: 70px;
+  }
+
+  .day-bar-range {
+    position: absolute;
+    top: -3px;
+    bottom: -3px;
+    left: calc(var(--from) * 100%);
+    width: calc((var(--to) - var(--from)) * 100%);
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--color-ice) 20%, transparent);
+    box-shadow: 0 0 0 1px var(--line-ice-strong);
+  }
+
+  .day-bar-days {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: repeat(var(--days), minmax(0, 1fr));
+  }
+
+  .day-bar-day {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1px;
+    border: 0;
+    border-radius: 6px;
+    padding: 0 0 5px;
+    color: var(--g-numeral);
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .day-bar-day:hover {
+    background: color-mix(in srgb, var(--color-ice) 8%, transparent);
+  }
+
+  .day-bar-day:focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: -2px;
+  }
+
+  .day-bar-numeral {
+    font-size: 0.75rem;
+    font-stretch: 75%;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .day-bar-numeral small {
+    margin-left: 3px;
+    color: var(--color-muted);
+    font-size: inherit;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .day-bar-weekday {
+    color: var(--color-subtle);
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: 0.04em;
+  }
+
+  .day-bar-day:not(.day-bar-day-in-range) .day-bar-numeral {
+    opacity: 0.5;
+  }
+
+  .day-bar-day-today .day-bar-numeral,
+  .day-bar-day-today .day-bar-numeral small {
+    color: var(--color-ice-light);
+  }
+
+  .day-bar-day-selected {
+    background: color-mix(in srgb, var(--color-ice) 14%, transparent);
+    box-shadow: inset 0 0 0 1.5px var(--color-ice);
+  }
+
+  .day-bar-day-selected .day-bar-numeral {
+    color: var(--color-ice-light);
+  }
+
+  .day-bar-day-active .day-bar-numeral {
+    color: var(--g-ember);
+  }
+
+  .day-bar-whole {
+    min-height: 32px;
+    margin-top: 2px;
+    border: 0;
+    padding-inline: 0;
+    background: none;
+    font: inherit;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .day-bar-day {
+      transition: background-color var(--duration-fast) var(--ease-out);
+    }
+  }
+
+  /* ---------------------------------------------------------------- Phone controls toggle */
+
+  /* Phones fold the range, order and facets under one night control that states what they
+     hold, so the covers stay near the top; wider screens never draw it. */
+  .releases-controls-toggle {
+    display: none;
+  }
+
+  /* ---------------------------------------------------------------- Range */
+
+  /* The explored range as two labelled native date fields in the night controls' voice, applied
+     together; a range the API would reject is explained beneath them. */
+  .release-range {
+    display: flex;
+    max-width: 100%;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .release-range-field {
+    display: inline-flex;
+    min-height: 44px;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--color-line);
+    border-radius: 6px;
+    padding: 0 6px 0 12px;
+    color: var(--color-muted);
+    background: var(--control);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .release-range-field input {
+    min-width: 0;
+    min-height: 36px;
+    border: 0;
+    padding: 0;
+    color: var(--color-ink);
+    background: transparent;
+    color-scheme: dark;
+    font: inherit;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .release-range-field input:focus-visible {
+    outline: none;
+  }
+
+  .release-range-field:hover {
+    border-color: color-mix(in srgb, var(--color-ink) 24%, transparent);
+  }
+
+  .release-range-field:focus-within {
+    border-color: var(--color-ice);
+    outline: 2px solid var(--color-ice);
+    outline-offset: 2px;
+  }
+
+  .release-range-field:has(input[aria-invalid="true"]) {
+    border-color: var(--color-danger);
+  }
+
+  .release-range-apply {
+    min-height: 44px;
+  }
+
+  .release-range-error {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--color-danger);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
   /* ---------------------------------------------------------------- Filters */
 
-  /* The period, platform and region sit on night in one row of controls with hairline edges, as
-     the header's search does; the upcoming window's opt-in follows them. Its own stacking layer,
-     so the open lists paint above the cards. */
+  /* The range, order, platform and region sit on night in rows of controls with hairline edges,
+     as the header's search does; the approximate-date opt-in follows the range. Its own stacking
+     layer, so the open lists paint above the cards. */
   .releases-controls {
     position: relative;
     z-index: 10;
@@ -187,12 +395,18 @@
     margin-top: 14px;
   }
 
+  .releases-range-row,
   .releases-toolbar {
     display: flex;
     max-width: 100%;
     align-items: center;
     flex-wrap: wrap;
     gap: 10px;
+  }
+
+  /* The explored range and its precision lead; the order and the facets follow on their own row. */
+  .releases-range-row {
+    flex-basis: 100%;
   }
 
   .release-filters {
@@ -223,7 +437,7 @@
     background: var(--control);
   }
 
-  /* Upcoming lists exact days by default; this control, as tall as the others, opts into
+  /* Days still to come list exact days by default; this control, as tall as the others, opts into
      approximate dates. The native checkbox carries the state, so it never relies on colour. */
   .release-approximate-option {
     display: inline-flex;
@@ -856,8 +1070,94 @@
       margin-top: 8px;
     }
 
-    /* On phones the period spans the row and both facets share the next one. */
+    .releases-controls-toggle {
+      display: flex;
+      width: 100%;
+      min-height: 44px;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      border: 1px solid var(--color-line);
+      border-radius: 6px;
+      padding: 6px 14px;
+      color: var(--color-ink);
+      background: var(--control);
+      font: inherit;
+      font-size: 0.8125rem;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .releases-controls-toggle[aria-expanded="true"] {
+      border-color: var(--line-ice-strong);
+    }
+
+    .releases-controls-toggle:focus-visible {
+      outline: 2px solid var(--color-ice);
+      outline-offset: 3px;
+    }
+
+    .releases-controls-toggle-label {
+      flex: none;
+      font-weight: 650;
+    }
+
+    .releases-controls-toggle-summary {
+      min-width: 0;
+      flex: 1 1 auto;
+      overflow: hidden;
+      color: var(--color-muted);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .releases-controls-toggle-chevron {
+      width: 8px;
+      height: 8px;
+      flex: none;
+      margin: -4px 2px 0;
+      border-right: 1.5px solid currentColor;
+      border-bottom: 1.5px solid currentColor;
+      transform: rotate(45deg);
+    }
+
+    .releases-controls-toggle[aria-expanded="true"] .releases-controls-toggle-chevron {
+      margin-top: 4px;
+      transform: rotate(225deg);
+    }
+
+    .releases-controls:not(.releases-controls-open) {
+      display: none;
+    }
+
+    /* On phones both dates share a row, with the action and the way back to the week beneath. */
+    .release-range {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .release-range-field {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      padding: 4px 8px;
+      font-size: 0.6875rem;
+    }
+
+    .release-range-field input {
+      width: 100%;
+      min-height: 30px;
+      font-size: 0.8125rem;
+    }
+
+    .release-range-error {
+      grid-column: 1 / -1;
+    }
+
+    /* On phones the dates share a row, the order spans the next and both facets the one after. */
     .releases-controls,
+    .releases-range-row,
     .releases-toolbar {
       width: 100%;
     }
@@ -914,11 +1214,31 @@
   }
 
   @media (forced-colors: active) {
-    .window-scale {
+    .window-scale,
+    .day-bar .window-scale-rail {
       display: none;
     }
 
+    .day-bar-day {
+      border: 1px solid ButtonText;
+      color: ButtonText;
+      background: ButtonFace;
+    }
+
+    .day-bar-day-selected {
+      border-color: Highlight;
+      color: HighlightText;
+      background: Highlight;
+    }
+
+    .release-range-field {
+      border-color: ButtonText;
+      color: CanvasText;
+      background: Canvas;
+    }
+
     .release-approximate-option,
+    .releases-controls-toggle,
     .release-overflow-toggle,
     .release-overflow-popover,
     .platform-mark-more {

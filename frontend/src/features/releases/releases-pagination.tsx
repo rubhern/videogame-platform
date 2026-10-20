@@ -7,12 +7,15 @@ type ReleasesPaginationProps = {
   page: { number: number; totalPages: number };
   /** Off when the surrounding bar already states the result total. */
   showPosition?: boolean;
+  /** History state each page keeps, such as the day bar's frame. */
+  state?: unknown;
 };
 
 export function ReleasesPagination({
   search,
   page,
   showPosition = true,
+  state,
 }: ReleasesPaginationProps) {
   const isBeyondLastPage = page.totalPages > 0 && page.number > page.totalPages;
   const hasPrevious = page.number > 1;
@@ -21,7 +24,7 @@ export function ReleasesPagination({
   if (isBeyondLastPage) {
     return (
       <nav aria-label="Paginación de lanzamientos" className="mt-8">
-        <Link
+        <Link state={state}
           className="button"
           to={releasesSearchPath(search, { page: page.totalPages })}
         >
@@ -41,7 +44,7 @@ export function ReleasesPagination({
       className="pagination"
     >
       {hasPrevious ? (
-        <Link
+        <Link state={state}
           className="button view-action view-action-back"
           to={releasesSearchPath(search, { page: page.number - 1 })}
         >
@@ -54,7 +57,7 @@ export function ReleasesPagination({
         </p>
       ) : null}
       {hasNext ? (
-        <Link className="button view-action" to={releasesSearchPath(search, { page: page.number + 1 })}>
+        <Link state={state} className="button view-action" to={releasesSearchPath(search, { page: page.number + 1 })}>
           Página siguiente <span aria-hidden="true">→</span>
         </Link>
       ) : null}

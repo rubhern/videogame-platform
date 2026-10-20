@@ -301,19 +301,21 @@ class JdbcFeaturedReleaseReadAdapterIntegrationTest {
         }
         var items = adapter.findFeaturedReleases(criteria(OCTOBER, 50, 25)).orElseThrow().items();
         assertThat(items).extracting(Item::canonicalTitle).noneMatch(t -> t.startsWith("Excluded"));
-        for (var view :
-                com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase.View
-                        .values()) {
+        // Read as days still to come and as days that have happened.
+        for (var evaluatedOn :
+                java.util.List.of(LocalDate.of(2026, 9, 30), LocalDate.of(2026, 11, 15))) {
             var normal =
                     browseAdapter
                             .findPublishedReleases(
                                     new com.videogameplatform.catalogue.application.releases.port
                                             .ReleaseBrowseReadPort.Criteria(
-                                            view,
                                             new com.videogameplatform.catalogue.application.releases
                                                     .port.ReleaseBrowseReadPort.Window(
                                                     LocalDate.of(2026, 10, 1),
                                                     LocalDate.of(2026, 10, 31)),
+                                            evaluatedOn,
+                                            com.videogameplatform.catalogue.application.releases
+                                                    .BrowseReleasesUseCase.Sort.RELEASE_DATE,
                                             java.util.List.of(),
                                             java.util.List.of(),
                                             new com.videogameplatform.catalogue.application.releases

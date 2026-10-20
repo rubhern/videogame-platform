@@ -4,7 +4,7 @@ import com.videogameplatform.catalogue.adapter.persistence.CatalogueGenresReader
 import com.videogameplatform.catalogue.adapter.persistence.CatalogueReadTransaction;
 import com.videogameplatform.catalogue.adapter.persistence.CurrentPublicationReader;
 import com.videogameplatform.catalogue.adapter.persistence.ReleasePresentationOrder;
-import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase.View;
+import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase.Sort;
 import com.videogameplatform.catalogue.application.releases.port.ReleaseBrowseReadPort;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,7 +18,7 @@ import org.springframework.transaction.support.TransactionOperations;
 public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort {
 
     // Grouping happens in PostgreSQL before pagination: filtered_release holds the releases that
-    // match the view and active filters, presented_release keeps the one presented release of each
+    // match the range and active filters, presented_release keeps the one presented release of each
     // game and platform among them, count and page operate over distinct games, and the presented
     // releases of a paged game are re-joined and bounded so request memory stays
     // O(pageSize x releaseGroupLimit). Java never fetches releases and groups them afterwards.
@@ -48,49 +48,31 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
     private static final String PUBLICATION_PREDICATE =
             "rs.publication_id = CAST(:publicationId AS uuid)";
     // Temporal classification is derived from the effective release period and the trusted
-    // evaluation date (window bounds), never from a persisted 'released'/'scheduled' status that a
-    // synchronization happened to write. Provider evidence only excludes: cancelled and delayed
-    // never prove a recent release; cancelled is also excluded from upcoming, while a delayed
-    // release with a valid future period stays relevant there.
-    private static final String OCCURRED_BY_WINDOW_TO =
-            "(rs.date_precision = 'day' AND rs.exact_date <= CAST(:windowTo AS date))"
-                    + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
-                    + " AND rs.period_end < CAST(:windowTo AS date))";
-    private static final String OCCURRED_BY_WINDOW_FROM =
-            "(rs.date_precision = 'day' AND rs.exact_date <= CAST(:windowFrom AS date))"
-                    + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
-                    + " AND rs.period_end < CAST(:windowFrom AS date))";
-    private static final String KNOWN_PERIOD_OVERLAP =
-            "rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
+    // evaluation date, never from a persisted 'released'/'scheduled' status that a synchronization
+    // happened to write. Every candidate has a known period overlapping the range and is not
+    // cancelled; an unknown (TBA) date has no period, so it never belongs to a range. Up to and
+    // including the evaluation date a release must have happened: an exact day, or a month,
+    // quarter or year period that has ended, and delayed evidence excludes it. After the
+    // evaluation date an exact day is expected, so a delayed release there stays relevant. The
+    // overlap keeps the shared period index (ix_release_browse_period) bounding the scan.
+    private static final String RANGE_PREDICATE =
+            "rs.release_status <> 'cancelled'"
+                    + " AND rs.period_start IS NOT NULL AND rs.period_end IS NOT NULL"
                     + " AND daterange(rs.period_start, rs.period_end, '[]')"
-                    + " && daterange(CAST(:windowFrom AS date), CAST(:windowTo AS date), '[]')";
-    // Recent: a known date that has occurred, excluding cancelled and delayed. An unknown date has
-    // no period, so it can never be recent regardless of any explicit released evidence.
-    private static final String RECENT_PREDICATE =
-            "rs.release_status NOT IN ('cancelled', 'delayed')"
-                    + " AND ("
-                    + OCCURRED_BY_WINDOW_TO
-                    + ")"
-                    + " AND "
-                    + KNOWN_PERIOD_OVERLAP;
-    // Upcoming (known date): a period that has not yet occurred, excluding cancelled. A delayed
-    // release with a valid future period stays relevant; date governs, so an explicit released mark
-    // does not exclude an unmet known date.
-    private static final String UPCOMING_KNOWN_PREDICATE =
-            "NOT (" + OCCURRED_BY_WINDOW_FROM + ")" + " AND " + KNOWN_PERIOD_OVERLAP;
-    // Default upcoming discovery keeps only an exact day. Precision is a residual filter beside the
-    // period overlap, so the shared period index still bounds the scan to the window.
-    private static final String UPCOMING_EXACT_PREDICATE =
-            "rs.release_status <> 'cancelled' AND rs.date_precision = 'day' AND ("
-                    + UPCOMING_KNOWN_PREDICATE
-                    + ")";
-    // Approximate-date opt-in: known month, quarter and year periods join exact days, and TBA adds
-    // an unknown date that is neither cancelled nor explicitly released. Each row keeps its stored
-    // precision; no exact day is ever derived for a partial date.
-    private static final String UPCOMING_WITH_APPROXIMATE_PREDICATE =
-            "rs.release_status <> 'cancelled' AND (("
-                    + UPCOMING_KNOWN_PREDICATE
-                    + ") OR (rs.release_status <> 'released' AND rs.date_precision = 'unknown'))";
+                    + " && daterange(CAST(:rangeFrom AS date), CAST(:rangeTo AS date), '[]')"
+                    + " AND ((rs.date_precision = 'day'"
+                    + " AND (rs.exact_date > CAST(:evaluatedOn AS date)"
+                    + " OR rs.release_status <> 'delayed'))"
+                    + " OR (rs.date_precision IN ('month', 'quarter', 'year')"
+                    + " AND rs.period_end < CAST(:evaluatedOn AS date)"
+                    + " AND rs.release_status <> 'delayed')";
+    // Approximate-date opt-in: a known month, quarter or year period that has not ended joins.
+    // The application sends it only for a range reaching the evaluation date, so the overlap above
+    // already places it in the range from today on. Each row keeps its stored precision; no exact
+    // day is ever derived for a partial date.
+    private static final String APPROXIMATE_BRANCH =
+            " OR (rs.date_precision IN ('month', 'quarter', 'year')"
+                    + " AND rs.period_end >= CAST(:evaluatedOn AS date))";
     // Multiple selected values inside one dimension combine with OR (ANY over the selected array);
     // the two dimensions combine with AND by appearing as separate predicates. The selected ids are
     // validated to exist before they reach the array cast, so the cast only ever sees real uuids.
@@ -131,10 +113,10 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
         List<String> validPlatformIds = existing(requestedPlatformIds, "platform", "platform_id");
         List<String> validRegionIds = existing(requestedRegionIds, "region", "region_id");
 
-        ViewPredicate view = viewPredicate(criteria);
-        // Faceted availability: each dimension reflects the current window and the other
-        // dimension's
-        // active selection, is never narrowed by its own selection, and always keeps a selected
+        RangePredicate range = rangePredicate(criteria);
+        // Faceted availability: each dimension reflects the current range and the other
+        // dimension's active selection, is never narrowed by its own selection, and always keeps a
+        // selected
         // valid value representable.
         List<Taxonomy> platforms =
                 facet(
@@ -142,7 +124,7 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                         PLATFORM_ID_COLUMN,
                         REGION_ID_COLUMN,
                         publication.id(),
-                        view,
+                        range,
                         validRegionIds,
                         validPlatformIds);
         List<Taxonomy> regions =
@@ -151,7 +133,7 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                         REGION_ID_COLUMN,
                         PLATFORM_ID_COLUMN,
                         publication.id(),
-                        view,
+                        range,
                         validPlatformIds,
                         validRegionIds);
 
@@ -164,7 +146,7 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             return Optional.of(new Result(publication.version(), platforms, regions, List.of(), 0));
         }
 
-        Query query = query(publication.id(), criteria, view, validPlatformIds, validRegionIds);
+        Query query = query(publication.id(), criteria, range, validPlatformIds, validRegionIds);
         Long totalItems =
                 jdbcOperations.queryForObject(query.sql().count(), query.parameters(), Long.class);
 
@@ -230,12 +212,12 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             String dimensionColumn,
             String otherDimensionColumn,
             String publicationId,
-            ViewPredicate view,
+            RangePredicate range,
             List<String> otherDimensionIds,
             List<String> ownSelectedIds) {
         Map<String, Object> parameters = new LinkedHashMap<>();
         parameters.put("publicationId", publicationId);
-        parameters.putAll(view.parameters());
+        parameters.putAll(range.parameters());
 
         StringBuilder contextual =
                 new StringBuilder(
@@ -246,7 +228,7 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                                 + " FROM catalogue.release_snapshot rs WHERE "
                                 + PUBLICATION_PREDICATE
                                 + " AND ("
-                                + view.predicate()
+                                + range.predicate()
                                 + ")");
         if (!otherDimensionIds.isEmpty()) {
             contextual
@@ -278,19 +260,16 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                         new Taxonomy(resultSet.getString("id"), resultSet.getString("name")));
     }
 
-    private static ViewPredicate viewPredicate(Criteria criteria) {
+    private static RangePredicate rangePredicate(Criteria criteria) {
         String predicate =
-                switch (criteria.view()) {
-                    case RECENT -> RECENT_PREDICATE;
-                    case UPCOMING ->
-                            criteria.includeApproximateUpcomingDates()
-                                    ? UPCOMING_WITH_APPROXIMATE_PREDICATE
-                                    : UPCOMING_EXACT_PREDICATE;
-                };
+                RANGE_PREDICATE
+                        + (criteria.includeApproximateDates() ? APPROXIMATE_BRANCH : "")
+                        + ")";
         Map<String, Object> parameters = new LinkedHashMap<>();
-        parameters.put("windowFrom", criteria.window().from());
-        parameters.put("windowTo", criteria.window().to());
-        return new ViewPredicate(predicate, parameters);
+        parameters.put("rangeFrom", criteria.window().from());
+        parameters.put("rangeTo", criteria.window().to());
+        parameters.put("evaluatedOn", criteria.evaluatedOn());
+        return new RangePredicate(predicate, parameters);
     }
 
     /** Comma-separated PostgreSQL array literal of validated uuids: safe because they are real ids. */
@@ -301,75 +280,71 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
     private static Query query(
             String publicationId,
             Criteria criteria,
-            ViewPredicate view,
+            RangePredicate range,
             List<String> platformIds,
             List<String> regionIds) {
         CandidateQueryBuilder builder =
                 new CandidateQueryBuilder()
                         .where(PUBLICATION_PREDICATE)
                         .bind("publicationId", publicationId)
-                        .where(view.predicate());
-        view.parameters().forEach(builder::bind);
+                        .where(range.predicate());
+        range.parameters().forEach(builder::bind);
         if (!platformIds.isEmpty()) {
             builder.where(PLATFORM_PREDICATE).bind("platformIds", arrayLiteral(platformIds));
         }
         if (!regionIds.isEmpty()) {
             builder.where(REGION_PREDICATE).bind("regionIds", arrayLiteral(regionIds));
         }
-        return builder.build(criteria.view());
-    }
-
-    /** The view's own date order: latest effective date first for recent, soonest for upcoming. */
-    private static String dateOrder(View view, String alias) {
-        return switch (view) {
-            case RECENT -> alias + ".period_end DESC NULLS LAST";
-            case UPCOMING -> alias + ".period_start ASC NULLS LAST";
-        };
+        return builder.build(criteria.sort());
     }
 
     /**
-     * Ordering of the releases inside one game; ends in the unique release id. A precise date,
-     * exact day first through TBA (unknown) last, leads the upcoming order.
+     * The ascending date order: the last day of the known period, which is the day itself for an
+     * exact date, then an exact day before a month, quarter or year ending the same day. It never
+     * places a partial date on an invented day.
      */
-    private static String releaseOrder(View view, String alias) {
-        return switch (view) {
-            case RECENT -> dateOrder(view, alias) + ", " + alias + ".release_id";
-            case UPCOMING ->
-                    ReleasePresentationOrder.precisionRank(alias)
-                            + ", "
-                            + dateOrder(view, alias)
-                            + ", "
-                            + alias
-                            + ".release_id";
-        };
+    private static String dateOrder(String alias) {
+        return alias + ".period_end ASC, " + ReleasePresentationOrder.precisionRank(alias);
     }
 
-    /** Ordering of the games by their first presented release; ends in the unique game id. */
-    private static String gameOrder(View view, String alias) {
-        return switch (view) {
-            case RECENT ->
+    /** Ordering of the releases inside one game; ends in the unique release id. */
+    private static String releaseOrder(String alias) {
+        return dateOrder(alias) + ", " + alias + ".release_id";
+    }
+
+    /**
+     * Ordering of the games, each positioned by its first presented release; ends in the unique
+     * game id. Hype and rating lead when chosen, and a game without the signal follows every game
+     * with one rather than counting as zero.
+     */
+    private static String gameOrder(Sort sort, String alias) {
+        String dateOrder =
+                dateOrder(alias) + ", lower(" + alias + ".canonical_title), " + alias + ".game_id";
+        return switch (sort) {
+            case RELEASE_DATE -> dateOrder;
+            case HYPE -> alias + ".hypes DESC NULLS LAST, " + dateOrder;
+            case RATING ->
                     alias
-                            + ".period_end DESC NULLS LAST, lower("
+                            + ".community_mean DESC NULLS LAST, "
                             + alias
-                            + ".canonical_title), "
+                            + ".community_rating_count DESC NULLS LAST, "
+                            + dateOrder;
+            case EXTERNAL_PLAYER_SCORE ->
+                    alias
+                            + ".player_score DESC NULLS LAST, "
                             + alias
-                            + ".game_id";
-            case UPCOMING ->
-                    ReleasePresentationOrder.precisionRank(alias)
-                            + ", "
-                            + alias
-                            + ".period_start ASC NULLS LAST, lower("
-                            + alias
-                            + ".canonical_title), "
-                            + alias
-                            + ".game_id";
+                            + ".player_score_count DESC NULLS LAST, "
+                            + dateOrder;
         };
     }
 
     // The presented release of a game and platform is the first of its filtered releases under the
-    // shared presentation precedence, which ends in the view's own date order. Only presented
-    // releases position, group and fill the page; the others stay stored and in game details.
-    private static String pageSql(View view, String where) {
+    // shared presentation precedence, which ends in the earliest date. Only presented releases
+    // position, group and fill the page; the others stay stored and in game details. The order's
+    // signals join Catalogue-owned tables only: the Hypes evidence TOPómetro ranks with, the
+    // stored external player score and the community score projection Ratings maintains through
+    // a Catalogue contract (ADR-0029).
+    private static String pageSql(Sort sort, String where) {
         return FILTERED_RELEASE_PREFIX
                 + where
                 + "),\n"
@@ -379,7 +354,7 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 + "    JOIN catalogue.region release_region"
                 + " ON release_region.region_id = fr.region_id\n"
                 + "    ORDER BY fr.game_id, fr.platform_id, "
-                + ReleasePresentationOrder.of("fr", "release_region", dateOrder(view, "fr"))
+                + ReleasePresentationOrder.of("fr", "release_region", dateOrder("fr"))
                 + "\n),\n"
                 + "game_top AS (\n"
                 + "    SELECT DISTINCT ON (fr.game_id)\n"
@@ -389,12 +364,15 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 + "    FROM presented_release fr\n"
                 + GAME_SNAPSHOT_LATERAL
                 + "    ORDER BY fr.game_id, "
-                + releaseOrder(view, "fr")
+                + releaseOrder("fr")
                 + "\n),\n"
+                + "game_signal AS (\n"
+                + signalSql(sort)
+                + "),\n"
                 + "game_page AS (\n"
-                + "    SELECT * FROM game_top gt\n"
+                + "    SELECT * FROM game_signal gt\n"
                 + "    ORDER BY "
-                + gameOrder(view, "gt")
+                + gameOrder(sort, "gt")
                 + "\n    LIMIT :pageSize OFFSET :offset\n)\n"
                 + "SELECT gp.game_id::text AS game_id,\n"
                 + "       gp.slug AS slug,\n"
@@ -422,16 +400,40 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
                 + "    JOIN catalogue.region r ON r.region_id = fr.region_id\n"
                 + "    WHERE fr.game_id = gp.game_id\n"
                 + "    ORDER BY "
-                + releaseOrder(view, "fr")
+                + releaseOrder("fr")
                 + "\n    LIMIT :releaseGroupLimit\n"
                 + ") rel ON true\n"
                 + "ORDER BY "
-                + gameOrder(view, "gp")
+                + gameOrder(sort, "gp")
                 + ", "
-                + releaseOrder(view, "rel");
+                + releaseOrder("rel");
     }
 
-    private record ViewPredicate(String predicate, Map<String, Object> parameters) {}
+    /** Each game's first presented release with the one signal the chosen order needs. */
+    private static String signalSql(Sort sort) {
+        return switch (sort) {
+            case RELEASE_DATE -> "    SELECT gt.* FROM game_top gt\n";
+            case HYPE ->
+                    "    SELECT gt.*, fe.hypes FROM game_top gt\n"
+                            + "    LEFT JOIN catalogue.game_featured_evidence fe"
+                            + " ON fe.game_id = gt.game_id\n";
+            case RATING ->
+                    "    SELECT gt.*, cs.mean AS community_mean,"
+                            + " cs.rating_count AS community_rating_count FROM game_top gt\n"
+                            + "    LEFT JOIN catalogue.game_community_score cs"
+                            + " ON cs.game_id = gt.game_id\n";
+            // The /10 value at the one decimal discovery shows, as the external score mapping
+            // rounds it; a check that found no score has no value and sorts with the unscored.
+            case EXTERNAL_PLAYER_SCORE ->
+                    "    SELECT gt.*, round(es.score / 10, 1) AS player_score,"
+                            + " es.score_count AS player_score_count FROM game_top gt\n"
+                            + "    LEFT JOIN catalogue.game_external_score es"
+                            + " ON es.game_id = gt.game_id AND es.source_name = 'IGDB'"
+                            + " AND es.score_kind = 'player' AND es.score IS NOT NULL\n";
+        };
+    }
+
+    private record RangePredicate(String predicate, Map<String, Object> parameters) {}
 
     private record Query(Sql sql, Map<String, Object> parameters) {}
 
@@ -455,12 +457,12 @@ public final class JdbcReleaseBrowseReadAdapter implements ReleaseBrowseReadPort
             return this;
         }
 
-        private Query build(View view) {
+        private Query build(Sort sort) {
             if (predicates.isEmpty()) {
                 throw new IllegalStateException("Release browse query is incomplete");
             }
             String where = " WHERE " + String.join(" AND ", predicates);
-            Sql sql = new Sql(COUNT_SELECT + where, pageSql(view, where));
+            Sql sql = new Sql(COUNT_SELECT + where, pageSql(sort, where));
             return new Query(sql, Map.copyOf(parameters));
         }
     }

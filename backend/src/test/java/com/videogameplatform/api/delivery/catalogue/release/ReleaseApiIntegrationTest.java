@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
@@ -61,8 +62,8 @@ class ReleaseApiIntegrationTest {
     }
 
     @Test
-    void returnsDeterministicRecentResultsWithContractHeadersAndConditionalRead() throws Exception {
-        HttpResponse<String> response = get("/api/v1/releases?view=recent");
+    void returnsTheCurrentWeekWithContractHeadersAndConditionalRead() throws Exception {
+        HttpResponse<String> response = get("/api/v1/releases");
         JsonNode body = OBJECT_MAPPER.readTree(response.body());
 
         OPENAPI.assertJsonResponse(response, 200, "ReleasePage");
@@ -70,28 +71,40 @@ class ReleaseApiIntegrationTest {
         assertThat(response.headers().firstValue("Cache-Control")).contains("public, no-cache");
         String entityTag = response.headers().firstValue("ETag").orElseThrow();
         assertThat(entityTag).matches("\"[0-9a-f]{64}\"");
-        assertThat(
-                        get("/api/v1/releases?view=recent&weeks=4")
-                                .headers()
-                                .firstValue("ETag")
-                                .orElseThrow())
-                .isNotEqualTo(entityTag);
-        assertThat(body.path("view").stringValue()).isEqualTo("recent");
+        assertThat(body.has("view")).isFalse();
+        // 13 August 2026 is a Thursday in Madrid: the default range is its Monday-to-Sunday week.
         assertThat(body.path("evaluatedOn").stringValue()).isEqualTo("2026-08-13");
-        assertThat(body.path("window").path("from").stringValue()).isEqualTo("2026-08-07");
-        assertThat(body.path("window").path("to").stringValue()).isEqualTo("2026-08-13");
+        assertThat(body.path("window").path("from").stringValue()).isEqualTo("2026-08-10");
+        assertThat(body.path("window").path("to").stringValue()).isEqualTo("2026-08-16");
         assertThat(body.path("items")).isEmpty();
         assertThat(body.path("page").path("totalItems").asLong()).isZero();
 
-        HttpResponse<String> notModified =
-                get("/api/v1/releases?view=recent", "If-None-Match", entityTag);
+        // Naming the same week explicitly reads the same representation.
+        assertThat(
+                        get("/api/v1/releases?from=2026-08-10&to=2026-08-16")
+                                .headers()
+                                .firstValue("ETag"))
+                .contains(entityTag);
+        // The widest range, wholly in the past, holds the five games released in it.
+        HttpResponse<String> quarter = get("/api/v1/releases?from=2026-02-13&to=2026-05-15");
+        OPENAPI.assertJsonResponse(quarter, 200, "ReleasePage");
+        assertThat(quarter.headers().firstValue("ETag")).isNotEqualTo(Optional.of(entityTag));
+        assertThat(titles(json(quarter)))
+                .containsExactly(
+                        "Resident Evil Requiem",
+                        "Subnautica 2",
+                        "Metroid Prime 4: Beyond",
+                        "Crimson Desert",
+                        "Pragmata");
+
+        HttpResponse<String> notModified = get("/api/v1/releases", "If-None-Match", entityTag);
         OPENAPI.assertEmptyResponse(notModified, 304);
         assertThat(notModified.headers().firstValue("ETag")).contains(entityTag);
 
         DistributionSummary resultCount =
                 meterRegistry
                         .find("catalogue.releases.result.count")
-                        .tag("view", "recent")
+                        .tag("sort", "releaseDate")
                         .summary();
         assertThat(resultCount).isNotNull();
         long measurementsBeforeWeakRead = resultCount.count();
@@ -99,7 +112,7 @@ class ReleaseApiIntegrationTest {
 
         HttpResponse<String> weakNotModified =
                 get(
-                        "/api/v1/releases?view=recent",
+                        "/api/v1/releases",
                         "If-None-Match",
                         "\"different,with,commas\", W/" + entityTag);
         assertThat(weakNotModified.statusCode()).isEqualTo(304);
@@ -110,65 +123,77 @@ class ReleaseApiIntegrationTest {
         assertThat(meterRegistry.find("catalogue.releases.requests").meters()).isEmpty();
 
         HttpResponse<String> malformedConditional =
-                get(
-                        "/api/v1/releases?view=recent",
-                        "If-None-Match",
-                        "\"unterminated, W/" + entityTag);
+                get("/api/v1/releases", "If-None-Match", "\"unterminated, W/" + entityTag);
         assertThat(malformedConditional.statusCode()).isEqualTo(200);
         assertThat(malformedConditional.headers().firstValue("ETag")).contains(entityTag);
-        assertThat(OBJECT_MAPPER.readTree(malformedConditional.body()).path("view").stringValue())
-                .isEqualTo("recent");
     }
 
     @Test
-    void supportsFiltersPaginationEmptyPagesAndUnknownDatePrecision() throws Exception {
-        HttpResponse<String> exactResponse =
-                get("/api/v1/releases?view=upcoming&page=1&pageSize=20");
-        OPENAPI.assertJsonResponse(exactResponse, 200, "ReleasePage");
-        JsonNode upcoming = json(exactResponse);
-        assertThat(upcoming.path("window").path("from").stringValue()).isEqualTo("2026-08-13");
-        assertThat(upcoming.path("window").path("to").stringValue()).isEqualTo("2026-08-20");
-        // Upcoming defaults to exact days: the seed's TBA game is not an exact-day release.
-        assertThat(upcoming.path("items")).isEmpty();
-        assertThat(upcoming.path("page").path("totalItems").asLong()).isZero();
-        assertThat(upcoming.path("availableFilters").path("platforms")).isEmpty();
+    void supportsRangesApproximateDatesOrdersFiltersAndPagination() throws Exception {
+        JsonNode september = json(get("/api/v1/releases?from=2026-09-01&to=2026-09-30"));
+        assertThat(titles(september)).containsExactly("Marvel's Wolverine");
+        assertThat(
+                        september
+                                .path("items")
+                                .get(0)
+                                .path("releases")
+                                .get(0)
+                                .path("releaseDate")
+                                .path("precision")
+                                .stringValue())
+                .isEqualTo("day");
 
+        // A future quarter without the opt-in has no exact day; with it, the months and quarter
+        // that have not ended join at their own precision.
+        HttpResponse<String> exactResponse = get("/api/v1/releases?from=2026-10-01&to=2026-12-31");
+        assertThat(json(exactResponse).path("items")).isEmpty();
         HttpResponse<String> approximateResponse =
-                get(
-                        "/api/v1/releases?view=upcoming&includeApproximateDates=true&page=1&pageSize=20");
+                get("/api/v1/releases?from=2026-10-01&to=2026-12-31&includeApproximateDates=true");
         OPENAPI.assertJsonResponse(approximateResponse, 200, "ReleasePage");
         assertThat(approximateResponse.headers().firstValue("ETag"))
                 .isNotEqualTo(exactResponse.headers().firstValue("ETag"));
         JsonNode approximate = json(approximateResponse);
-        // Opted in, TBA remains an upcoming game independent of the selected known-date horizon,
-        // with its unknown precision kept explicit.
-        assertThat(approximate.path("items")).hasSize(1);
-        JsonNode lastGameReleases = approximate.path("items").get(0).path("releases");
-        JsonNode unknownDate =
-                lastGameReleases.get(lastGameReleases.size() - 1).path("releaseDate");
-        assertThat(unknownDate.path("precision").stringValue()).isEqualTo("unknown");
-        assertThat(unknownDate.path("value").isNull()).isTrue();
+        assertThat(titles(approximate)).containsExactly("Crimson Desert", "Subnautica 2");
+        JsonNode month =
+                approximate.path("items").get(0).path("releases").get(0).path("releaseDate");
+        assertThat(month.path("precision").stringValue()).isEqualTo("month");
+        assertThat(month.path("value").stringValue()).isEqualTo("2026-10");
 
-        JsonNode fourWeeks =
-                json(
-                        get(
-                                "/api/v1/releases?view=upcoming&weeks=4&includeApproximateDates=true&page=1&pageSize=3"));
-        assertThat(fourWeeks.path("window").path("to").stringValue()).isEqualTo("2026-09-10");
-        assertThat(fourWeeks.path("page").path("totalItems").asLong())
-                .isGreaterThanOrEqualTo(approximate.path("page").path("totalItems").asLong());
-        JsonNode twoWeeks = json(get("/api/v1/releases?view=recent&weeks=2"));
-        assertThat(twoWeeks.path("window").path("from").stringValue()).isEqualTo("2026-07-31");
-        JsonNode lastUpcomingPage =
-                json(
-                        get(
-                                "/api/v1/releases?view=upcoming&includeApproximateDates=true&page=2&pageSize=1"));
-        assertThat(lastUpcomingPage.path("items")).isEmpty();
-        assertThat(lastUpcomingPage.path("page").path("totalItems").asLong()).isEqualTo(1);
+        // Across a year end the TBA release never joins, and Hype reorders before the date.
+        String yearEnd =
+                "/api/v1/releases?from=2026-12-01&to=2027-01-31&includeApproximateDates=true";
+        assertThat(titles(json(get(yearEnd))))
+                .containsExactly("Subnautica 2", "Fable", "The Witcher IV");
+        assertThat(titles(json(get(yearEnd + "&sort=hype"))))
+                .containsExactly("The Witcher IV", "Subnautica 2", "Fable");
+        assertThat(titles(json(get(yearEnd + "&sort=rating"))))
+                .containsExactly("Subnautica 2", "Fable", "The Witcher IV");
+        // Without stored external scores the games keep the date order, never a zero score.
+        assertThat(titles(json(get(yearEnd + "&sort=externalPlayerScore"))))
+                .containsExactly("Subnautica 2", "Fable", "The Witcher IV");
+        JsonNode secondByHype = json(get(yearEnd + "&sort=hype&page=2&pageSize=1"));
+        assertThat(titles(secondByHype)).containsExactly("Subnautica 2");
+        assertThat(secondByHype.path("page").path("totalItems").asLong()).isEqualTo(3);
+        assertThat(secondByHype.path("page").path("totalPages").asLong()).isEqualTo(3);
+        assertThat(
+                        meterRegistry
+                                .find("catalogue.releases.result.count")
+                                .tag("sort", "hype")
+                                .summary())
+                .isNotNull();
+
+        // The opt-in changes nothing for a range wholly before today.
+        assertThat(
+                        titles(
+                                json(
+                                        get(
+                                                "/api/v1/releases?from=2026-06-01&to=2026-06-30&includeApproximateDates=true"))))
+                .containsExactly("Pragmata");
 
         JsonNode empty =
                 json(
                         get(
-                                "/api/v1/releases?view=upcoming&platformIds="
+                                "/api/v1/releases?platformIds="
                                         + PLATFORM_PS5
                                         + "&regionIds="
                                         + REGION_JAPAN));
@@ -195,72 +220,83 @@ class ReleaseApiIntegrationTest {
                         });
 
         // Multi-select accepts several repeated values in one dimension (OR); the strict-query
-        // convention no longer rejects the repetition, and the response echoes both.
+        // convention does not reject the repetition, and the response echoes both.
         JsonNode multi =
                 json(
                         get(
-                                "/api/v1/releases?view=recent&platformIds="
+                                "/api/v1/releases?from=2026-02-13&to=2026-05-15&platformIds="
                                         + PLATFORM_PS5
                                         + "&platformIds="
                                         + PLATFORM_WINDOWS_PC));
         assertThat(textValues(multi.path("activeFilters").path("platformIds")))
                 .containsExactlyInAnyOrder(PLATFORM_PS5, PLATFORM_WINDOWS_PC);
+        assertThat(titles(multi))
+                .containsExactly("Resident Evil Requiem", "Crimson Desert", "Pragmata");
 
-        JsonNode beyond = json(get("/api/v1/releases?view=recent&page=99&pageSize=1"));
+        JsonNode beyond = json(get("/api/v1/releases?page=99&pageSize=1"));
         assertThat(beyond.path("items")).isEmpty();
         assertThat(beyond.path("page").path("number").asInt()).isEqualTo(99);
         assertThat(beyond.path("page").path("totalItems").asLong()).isZero();
-        assertThat(
-                        meterRegistry
-                                .find("catalogue.releases.result.count")
-                                .tag("view", "upcoming")
-                                .summary())
-                .isNotNull();
     }
 
     @Test
     void returnsStableValidationProblemsAndBoundedTelemetry() throws Exception {
-        assertProblem(get("/api/v1/releases"), 400, "REQUEST_MALFORMED");
-        assertProblem(get("/api/v1/releases?view=invalid"), 422, "FILTER_INVALID");
-        assertProblem(get("/api/v1/releases?view=recent&weeks=3"), 422, "FILTER_INVALID");
-        assertProblem(get("/api/v1/releases?view=recent&weeks=1&weeks=2"), 422, "FILTER_INVALID");
-        assertProblem(get("/api/v1/releases?view=recent&weeks=abc"), 422, "FILTER_INVALID");
-        assertProblem(get("/api/v1/releases?view=recent&pageSize=101"), 422, "PAGINATION_INVALID");
-        assertProblem(get("/api/v1/releases?view=recent&view=upcoming"), 422, "FILTER_INVALID");
-        assertProblem(get("/api/v1/releases?view=recent&page=1&page=2"), 422, "PAGINATION_INVALID");
-        HttpResponse<String> recentApproximate =
-                get("/api/v1/releases?view=recent&includeApproximateDates=true");
-        assertProblem(recentApproximate, 422, "FILTER_INVALID");
-        assertThat(
-                        OBJECT_MAPPER
-                                .readTree(recentApproximate.body())
-                                .path("violations")
-                                .get(0)
-                                .path("pointer")
-                                .stringValue())
-                .isEqualTo("/query/includeApproximateDates");
-        assertThat(get("/api/v1/releases?view=recent&includeApproximateDates=false").statusCode())
+        assertProblem(get("/api/v1/releases?to=2026-08-31"), 422, "FILTER_INVALID", "/query/from");
+        assertProblem(get("/api/v1/releases?from=2026-08-01"), 422, "FILTER_INVALID", "/query/to");
+        assertProblem(
+                get("/api/v1/releases?from=2026-08-31&to=2026-08-01"),
+                422,
+                "FILTER_INVALID",
+                "/query/to");
+        // 93 days, one more than the widest range.
+        assertProblem(
+                get("/api/v1/releases?from=2026-08-01&to=2026-11-01"),
+                422,
+                "FILTER_INVALID",
+                "/query/to");
+        assertThat(get("/api/v1/releases?from=2026-08-01&to=2026-10-31").statusCode())
                 .isEqualTo(200);
         assertProblem(
-                get("/api/v1/releases?view=upcoming&includeApproximateDates=yes"),
+                get("/api/v1/releases?from=agosto&to=2026-08-31"),
+                422,
+                "FILTER_INVALID",
+                "/query/from");
+        assertProblem(
+                get("/api/v1/releases?from=2026-02-28&to=2026-02-30"),
+                422,
+                "FILTER_INVALID",
+                "/query/to");
+        assertProblem(
+                get("/api/v1/releases?from=2026-08-01&from=2026-08-02&to=2026-08-10"),
+                422,
+                "FILTER_INVALID",
+                "/query/from");
+        assertProblem(get("/api/v1/releases?sort=popularity"), 422, "SORT_INVALID", "/query/sort");
+        assertProblem(
+                get("/api/v1/releases?sort=hype&sort=rating"), 422, "SORT_INVALID", "/query/sort");
+        assertProblem(
+                get("/api/v1/releases?view=recent"),
+                422,
+                "REQUEST_PARAMETER_UNKNOWN",
+                "/query/view");
+        assertProblem(
+                get("/api/v1/releases?weeks=1"), 422, "REQUEST_PARAMETER_UNKNOWN", "/query/weeks");
+        assertProblem(get("/api/v1/releases?pageSize=101"), 422, "PAGINATION_INVALID");
+        assertProblem(get("/api/v1/releases?page=1&page=2"), 422, "PAGINATION_INVALID");
+        assertProblem(
+                get("/api/v1/releases?includeApproximateDates=yes"),
+                422,
+                "FILTER_INVALID",
+                "/query/includeApproximateDates");
+        assertProblem(
+                get("/api/v1/releases?includeApproximateDates=true&includeApproximateDates=false"),
                 422,
                 "FILTER_INVALID");
+        assertProblem(get("/api/v1/releases?unexpected=true"), 422, "REQUEST_PARAMETER_UNKNOWN");
         assertProblem(
-                get(
-                        "/api/v1/releases?view=upcoming&includeApproximateDates=true&includeApproximateDates=false"),
-                422,
-                "FILTER_INVALID");
-        assertProblem(
-                get("/api/v1/releases?view=recent&unexpected=true"),
-                422,
-                "REQUEST_PARAMETER_UNKNOWN");
-        assertProblem(
-                get("/api/v1/releases?view=recent&platformIds=not-supported"),
-                422,
-                "PLATFORM_NOT_SUPPORTED");
+                get("/api/v1/releases?platformIds=not-supported"), 422, "PLATFORM_NOT_SUPPORTED");
         // Regions are filtered by stable identity only: a display label is not a filter value.
-        assertProblem(
-                get("/api/v1/releases?view=recent&regionIds=Mundial"), 422, "REGION_NOT_SUPPORTED");
+        assertProblem(get("/api/v1/releases?regionIds=Mundial"), 422, "REGION_NOT_SUPPORTED");
 
         JsonNode meters = managementJson("/actuator/metrics");
         assertThat(textValues(meters.path("names")))
@@ -270,6 +306,25 @@ class ReleaseApiIntegrationTest {
                         "catalogue.releases.latency",
                         "catalogue.releases.failures");
         assertThat(meterRegistry.find("catalogue.releases.latency").meters()).isEmpty();
+    }
+
+    private void assertProblem(
+            HttpResponse<String> response, int status, String code, String pointer) {
+        assertProblem(response, status, code);
+        assertThat(
+                        OBJECT_MAPPER
+                                .readTree(response.body())
+                                .path("violations")
+                                .get(0)
+                                .path("pointer")
+                                .stringValue())
+                .isEqualTo(pointer);
+    }
+
+    private static List<String> titles(JsonNode page) {
+        List<String> result = new ArrayList<>();
+        page.path("items").forEach(item -> result.add(item.path("canonicalTitle").stringValue()));
+        return result;
     }
 
     private void assertProblem(HttpResponse<String> response, int status, String code) {

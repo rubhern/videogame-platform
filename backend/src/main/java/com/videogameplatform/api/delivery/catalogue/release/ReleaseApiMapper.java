@@ -13,14 +13,12 @@ import com.videogameplatform.api.generated.model.Region;
 import com.videogameplatform.api.generated.model.Release;
 import com.videogameplatform.api.generated.model.ReleaseItem;
 import com.videogameplatform.api.generated.model.ReleasePage;
-import com.videogameplatform.api.generated.model.ReleaseView;
 import com.videogameplatform.api.generated.model.ReleaseWindow;
 import com.videogameplatform.api.generated.model.UnknownReleaseDate;
 import com.videogameplatform.api.generated.model.YearReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseDate;
 import com.videogameplatform.catalogue.application.CatalogueReleaseStatus;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
-import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -49,7 +47,6 @@ public final class ReleaseApiMapper {
                         .toList();
         List<ReleaseItem> items = result.items().stream().map(this::toItem).toList();
         return new ReleasePage(
-                toView(result.view()),
                 result.evaluatedOn(),
                 new ReleaseWindow(result.window().from(), result.window().to()),
                 new ActiveFilters(
@@ -116,13 +113,6 @@ public final class ReleaseApiMapper {
             case QUARTER -> new QuarterReleaseDate("quarter", source.value());
             case YEAR -> new YearReleaseDate("year", source.value());
             case UNKNOWN -> new UnknownReleaseDate("unknown", null);
-        };
-    }
-
-    private static ReleaseView toView(BrowseReleasesUseCase.View source) {
-        return switch (source) {
-            case RECENT -> ReleaseView.recent;
-            case UPCOMING -> ReleaseView.upcoming;
         };
     }
 

@@ -105,12 +105,10 @@ assert(
   "SPA browser route did not return the entry point",
 );
 
-// The image runs on the real clock, so exact seed days eventually leave every window. The
-// deterministic seed always holds a TBA upcoming release, which the approximate-date opt-in
-// returns whatever the date; use it to exercise the packaged API with data.
-const releases = await request(
-  "/api/v1/releases?view=upcoming&weeks=4&includeApproximateDates=true&page=1&pageSize=1",
-);
+// The image runs on the real clock, so a moving window eventually loses every exact seed day. An
+// explicit past range keeps one: the deterministic seed's 27 February 2026 release has happened
+// for every later evaluation date, so the packaged API is exercised with data.
+const releases = await request("/api/v1/releases?from=2026-02-01&to=2026-03-31&page=1&pageSize=1");
 assert(releases.response.ok, "release API failed");
 assert(releases.response.headers.get("content-type")?.includes("application/json"), "release API is not JSON");
 assert(JSON.parse(releases.body).items?.length === 1, "release API payload is invalid or empty");

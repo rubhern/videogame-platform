@@ -25,6 +25,7 @@ import {
 import { GameSuggestionsPopup, type SuggestionsView } from "../features/search/game-suggestions-popup";
 import { useGameSuggestionsQuery } from "../features/search/use-game-suggestions-query";
 import { useDebouncedValue } from "../shared/browser/use-debounced-value";
+import { gameLinkState } from "../shared/navigation/return-context";
 
 type SearchFormProps = {
   draft: string;
@@ -221,10 +222,13 @@ export function CatalogueSearch() {
     void navigate(gameSearchPath({ query: draft.trim(), page: 1, pageSize: DEFAULT_PAGE_SIZE }));
   }
 
+  // A suggestion opened from a list screen returns there; from anywhere else it has no origin.
+  const linkState = gameLinkState(location);
+
   function openGame(path: string) {
     submittedRef.current = true;
     mobileDialogRef.current?.close?.();
-    void navigate(path);
+    void navigate(path, { state: linkState });
   }
 
   const formProps = { draft, onChange: setDraft, onOpenGame: openGame, onSubmit: submit, tooLong };

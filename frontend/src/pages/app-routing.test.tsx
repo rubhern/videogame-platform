@@ -6,9 +6,8 @@ import { renderApp } from "../test/render-app";
 import type { components } from "../shared/api/generated/schema";
 
 const releasesResponse = {
-  view: "recent",
   evaluatedOn: "2026-08-13",
-  window: { from: "2026-02-13", to: "2026-08-13" },
+  window: { from: "2026-08-10", to: "2026-08-16" },
   activeFilters: { platformIds: [], regionIds: [] },
   availableFilters: { platforms: [], regions: [] },
   items: [
@@ -104,7 +103,7 @@ describe("application routing", () => {
     );
   });
 
-  it("opens both release windows from the Lanzamientos entry and returns to TOPómetro", async () => {
+  it("opens Explorar lanzamientos from the Lanzamientos entry and returns to TOPómetro", async () => {
     const user = userEvent.setup();
     const { router } = renderApp();
     const primary = screen.getByRole("navigation", { name: "Principal" });
@@ -116,9 +115,10 @@ describe("application routing", () => {
     await user.click(within(primary).getByRole("link", { name: "Lanzamientos" }));
 
     expect(
-      await screen.findByRole("heading", { level: 1, name: "Lanzamientos recientes" }),
+      await screen.findByRole("heading", { level: 1, name: "Explorar lanzamientos" }),
     ).toBeInTheDocument();
-    expect(router.state.location.search).toBe("?view=recent&weeks=1");
+    expect(router.state.location.pathname).toBe("/lanzamientos");
+    expect(router.state.location.search).toBe("");
     expect(within(primary).getByRole("link", { name: "Lanzamientos" })).toHaveAttribute(
       "aria-current",
       "page",
@@ -126,18 +126,8 @@ describe("application routing", () => {
     expect(within(primary).getByRole("link", { name: "TOPómetro" })).not.toHaveAttribute(
       "aria-current",
     );
-
-    // The upcoming window stays one choice away, inside the same Lanzamientos section.
-    const windows = screen.getByRole("navigation", { name: "Ventana de lanzamientos" });
-    await user.click(within(windows).getByRole("link", { name: "Próximos" }));
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Próximos lanzamientos" }),
-    ).toBeInTheDocument();
-    expect(router.state.location.search).toBe("?view=upcoming&weeks=1");
-    expect(within(primary).getByRole("link", { name: "Lanzamientos" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    // One explorer replaces the former recent and upcoming windows.
+    expect(screen.queryByRole("navigation", { name: "Ventana de lanzamientos" })).not.toBeInTheDocument();
 
     await user.click(within(primary).getByRole("link", { name: "TOPómetro" }));
     expect(

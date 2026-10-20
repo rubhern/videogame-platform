@@ -1,23 +1,24 @@
-import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useId, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 
+import { formatCalendarDay, formatDayRange } from "../../shared/catalogue/release-date";
 import { CatalogueLoading } from "../../shared/ui/catalogue-loading";
 import { HeroTitle } from "../../shared/ui/hero-title";
+import { barFrame, toDayBar, type DayFrameState, type DayRange } from "./day-bar";
 import { ReleaseCard } from "./release-card";
-import { ReleaseWindowScale } from "./release-window-scale";
+import { ReleaseDayBar } from "./release-day-bar";
 import { ReleasesApproximateDates } from "./releases-approximate-dates";
 import { ReleasesFilters } from "./releases-filters";
 import { ReleasesPagination } from "./releases-pagination";
-import { ReleasesWeeks } from "./releases-weeks";
-import { ReleasesWindowSwitch } from "./releases-window-switch";
+import { ReleasesRange } from "./releases-range";
 import {
   hasActiveFilters,
+  releaseSortLabels,
   releasesSearchPath,
-  type ReleaseView,
   type ReleasesSearch,
 } from "./releases-search";
-import { releaseViewTitle, type ReleasesViewModel } from "./releases-view-model";
-import { toWindowScale } from "./window-scale";
+import { ReleasesSort } from "./releases-sort";
+import { RELEASES_TITLE, type ReleasesViewModel } from "./releases-view-model";
 
 export type ReleasesShellState =
   | { status: "loading" }
@@ -35,11 +36,8 @@ type ReleasesShellProps = {
   search: ReleasesSearch;
   state: ReleasesShellState;
   onRetry: () => void;
-};
-
-const contexts: Record<ReleaseView, string> = {
-  recent: "Ya disponibles",
-  upcoming: "En calendario",
+  /** The day bar's frame the history entry keeps, when the visitor chose a day inside it. */
+  keptFrame?: DayRange | null;
 };
 
 function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string {
@@ -54,9 +52,19 @@ function resultsSummary(model: ReleasesViewModel, isRefreshing: boolean): string
   return totalPages > 0 ? `${count} · Página ${number} de ${totalPages}` : count;
 }
 
-// The approved empty-state copy is shared by both windows and date-precision selections.
+// The approved empty-state copy is shared by every range and date-precision selection.
 function emptyExplanation(): string {
   return "No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos";
+}
+
+/** What the folded phone controls hold: the order, the active filters and approximate dates. */
+function controlsSummary(search: ReleasesSearch, approximate: boolean): string {
+  const filters = search.platformIds.length + search.regionIds.length;
+  return [
+    releaseSortLabels[search.sort],
+    ...(filters === 0 ? [] : [filters === 1 ? "1 filtro" : `${filters} filtros`]),
+    ...(approximate ? ["Fechas aproximadas"] : []),
+  ].join(" · ");
 }
 
 function LoadingFilters() {
@@ -70,11 +78,22 @@ function LoadingFilters() {
   );
 }
 
-export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
+/**
+ * Explorar lanzamientos (#285): one explorer over an inclusive range, from the current week by
+ * default to any past, future or mixed range. The day bar picks a single day, the date fields set
+ * any range, and the order, filters and approximate dates refine it; every choice lives in the URL
+ * and returns to the first page.
+ */
+export function ReleasesShell({ search, state, onRetry, keptFrame = null }: ReleasesShellProps) {
+  const navigate = useNavigate();
   const resultsHeadingRef = useRef<HTMLHeadingElement>(null);
   const previousPage = useRef(search.page);
-  // The release a visitor points at or focuses lifts its needle on the window's scale.
+  // The release a visitor points at or focuses lifts its needle on the day bar.
   const [activeDay, setActiveDay] = useState<string | null>(null);
+  // Phones fold the controls under one toggle so the covers stay near the top; wider screens
+  // always show them and never draw the toggle.
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const controlsId = useId();
 
   useEffect(() => {
     if (previousPage.current === search.page) {
@@ -87,24 +106,47 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
   const model = state.status === "ready" ? state.model : null;
   const isTransitioning = state.status === "ready" && state.isPlaceholderData;
   const shown = model !== null && !isTransitioning ? model : null;
-  // The period and its scale wait as quiet placeholders only while a read is under way.
+  // The range and its bar wait as quiet placeholders only while a read is under way.
   const waiting = state.status === "loading" || isTransitioning;
   const isBeyondLastPage =
     model !== null &&
     model.page.totalItems > 0 &&
     model.page.totalPages > 0 &&
     model.page.number > model.page.totalPages;
-  const scale =
-    shown === null ? null : toWindowScale(shown.window.from, shown.window.to, shown.evaluatedOn);
+  const frame = shown === null ? null : barFrame(shown.window, keptFrame);
+  const bar = shown === null || frame === null ? null : toDayBar(frame, shown.window, shown.evaluatedOn);
   const releaseDays = (shown?.items ?? []).flatMap((item) => item.releaseGroups[0]?.day ?? []);
+  // Only the API knows today; until it answers, the URL's own choice stands.
+  const evaluatedOn = model?.evaluatedOn ?? null;
+  const reachesFuture = (to: string | null) =>
+    evaluatedOn === null || to === null || to > evaluatedOn;
+  // Without a read the choice cannot be placed against today, but an active one stays removable.
+  const approximateOffered =
+    model === null ? search.includeApproximateDates : reachesFuture(search.to ?? model.window.to);
+  const includesApproximate = search.includeApproximateDates && approximateOffered;
+  // Filters, order and pages keep the bar's frame; a typed range draws its own.
+  const frameState: DayFrameState | undefined = frame === null ? undefined : { dayFrame: frame };
+
+  function explore(change: Partial<ReleasesSearch>, navigationState?: DayFrameState) {
+    void navigate(releasesSearchPath(search, { ...change, page: 1 }), {
+      preventScrollReset: true,
+      state: navigationState,
+    });
+  }
+
+  function exploreRange(from: string, to: string, navigationState?: DayFrameState) {
+    explore(
+      { from, to, includeApproximateDates: includesApproximate && reachesFuture(to) },
+      navigationState,
+    );
+  }
 
   return (
     <section aria-labelledby="releases-title" className="hero-page releases-page">
       <div className="page-container releases-section">
         <header className="page-head releases-heading">
-          <p className="eyebrow">{contexts[search.view]}</p>
           <div className="page-head-row">
-            <HeroTitle id="releases-title" title={releaseViewTitle(search.view)} />
+            <HeroTitle id="releases-title" title={RELEASES_TITLE} />
             {shown === null ? (
               waiting ? <span aria-hidden="true" className="release-period release-period-pending" /> : null
             ) : (
@@ -114,24 +156,81 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
               </p>
             )}
           </div>
-          {scale === null ? (
+          {bar === null ? (
             waiting ? <div aria-hidden="true" className="window-scale window-scale-pending" /> : null
           ) : (
-            <ReleaseWindowScale activeDay={activeDay} releaseDays={releaseDays} scale={scale} />
+            <ReleaseDayBar
+              activeDay={activeDay}
+              bar={bar}
+              onSelectDay={(date) => exploreRange(date, date, { dayFrame: bar.frame })}
+              releaseDays={releaseDays}
+            />
+          )}
+          {bar === null ||
+          shown === null ||
+          (bar.frame.from === shown.window.from && bar.frame.to === shown.window.to) ? null : (
+            <button
+              className="filter-reset day-bar-whole"
+              onClick={() => exploreRange(bar.frame.from, bar.frame.to, { dayFrame: bar.frame })}
+              type="button"
+            >
+              Ver todo el periodo
+              <span aria-hidden="true">{`\u00a0·\u00a0${formatDayRange(bar.frame.from, bar.frame.to)}`}</span>
+              <span className="sr-only">
+                , del {formatCalendarDay(bar.frame.from)} al {formatCalendarDay(bar.frame.to)}
+              </span>
+            </button>
           )}
         </header>
 
-        <div className="releases-controls">
-          <ReleasesWindowSwitch search={search} />
+        <button
+          aria-controls={controlsId}
+          aria-expanded={controlsOpen}
+          aria-label={`Filtros y orden: ${controlsSummary(search, includesApproximate)}`}
+          className="releases-controls-toggle"
+          onClick={() => setControlsOpen((open) => !open)}
+          type="button"
+        >
+          <span className="releases-controls-toggle-label">Filtros y orden</span>
+          <span className="releases-controls-toggle-summary">
+            {controlsSummary(search, includesApproximate)}
+          </span>
+          <span aria-hidden="true" className="releases-controls-toggle-chevron" />
+        </button>
+
+        {/* The range and its precision share the first row; order and filters the next. */}
+        <div
+          className={`releases-controls${controlsOpen ? " releases-controls-open" : ""}`}
+          id={controlsId}
+        >
+          <div className="releases-range-row">
+            <ReleasesRange
+              evaluated={shown?.window ?? null}
+              key={`${search.from ?? ""}|${search.to ?? ""}|${shown?.window.from ?? ""}|${shown?.window.to ?? ""}`}
+              onApply={(from, to) => exploreRange(from, to)}
+              search={search}
+            />
+            {approximateOffered ? (
+              <ReleasesApproximateDates
+                checked={includesApproximate}
+                onChange={(checked) => explore({ includeApproximateDates: checked }, frameState)}
+              />
+            ) : null}
+          </div>
           <div className="releases-toolbar">
-            <ReleasesWeeks search={search} />
+            <ReleasesSort onChange={(sort) => explore({ sort }, frameState)} sort={search.sort} />
             {/* Filter choices come from the response, so a failed read shows none rather than
                 empty placeholders that look like broken controls. */}
             {state.status === "loading" ? <LoadingFilters /> : null}
-            {model === null ? null : <ReleasesFilters platforms={model.platforms} regions={model.regions} search={search} />}
+            {model === null ? null : (
+              <ReleasesFilters
+                platforms={model.platforms}
+                regions={model.regions}
+                search={search}
+                state={frameState}
+              />
+            )}
           </div>
-          {/* The precision choice is URL state, so it stays operable whatever the read state. */}
-          {search.view === "upcoming" ? <ReleasesApproximateDates search={search} /> : null}
         </div>
 
         <h2 className="sr-only" ref={resultsHeadingRef} tabIndex={-1}>
@@ -204,6 +303,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
                 {hasActiveFilters(search) && state.model.page.totalItems === 0 ? (
                   <Link
                     className="button button-primary"
+                    state={frameState}
                     to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
                   >
                     Quitar filtros
@@ -211,7 +311,7 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
                 ) : null}
               </div>
             ) : (
-              <ul aria-label={releaseViewTitle(state.model.view)} className="release-grid">
+              <ul aria-label={RELEASES_TITLE} className="release-grid">
                 {state.model.items.map((item) => (
                   <li className="release-grid-cell" key={item.gameId}>
                     <ReleaseCard item={item} onPoint={setActiveDay} />
@@ -227,7 +327,12 @@ export function ReleasesShell({ search, state, onRetry }: ReleasesShellProps) {
             <p className="result-count" role="status">
               {resultsSummary(state.model, state.isRefreshing)}
             </p>
-            <ReleasesPagination page={state.model.page} search={search} showPosition={false} />
+            <ReleasesPagination
+              page={state.model.page}
+              search={search}
+              showPosition={false}
+              state={frameState}
+            />
           </div>
         ) : null}
       </div>

@@ -5,6 +5,8 @@ import {
   useLocation,
 } from "react-router-dom";
 
+import { historyEntry } from "../shared/navigation/return-context";
+
 // One document's offsets, keyed by history entry. They die with the document: the
 // approved privacy baseline keeps localStorage, sessionStorage and IndexedDB empty.
 const savedScrollPositions: Record<string, number> = {};
@@ -28,8 +30,11 @@ export function MemoryScrollRestoration() {
     };
   }, []);
 
+  // A game page's back action returns with a new history entry that names the entry it returns
+  // to (#285), so it restores that entry's reading position; every other entry keys itself.
   useLayoutEffect(
-    () => router?.enableScrollRestoration(savedScrollPositions, () => window.scrollY),
+    () =>
+      router?.enableScrollRestoration(savedScrollPositions, () => window.scrollY, historyEntry),
     [router],
   );
 

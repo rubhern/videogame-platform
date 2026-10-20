@@ -13,6 +13,8 @@ import type { ReleaseFilterOption } from "./releases-view-model";
 
 type ReleasesFiltersProps = {
   search: ReleasesSearch;
+  /** History state every change keeps, such as the day bar's frame. */
+  state?: unknown;
   platforms: readonly ReleaseFilterOption[];
   regions: readonly ReleaseFilterOption[];
 };
@@ -30,7 +32,7 @@ function toOptions(
  * dimension is unfiltered (`Todas`), which is distinct from selecting the concrete `Worldwide`
  * region. Toggling navigates so the selection stays shareable in the URL.
  */
-export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersProps) {
+export function ReleasesFilters({ search, platforms, regions, state }: ReleasesFiltersProps) {
   const navigate = useNavigate();
   return (
     <section
@@ -52,7 +54,7 @@ export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersP
                 platformIds: toggleFilterValue(search.platformIds, platformId),
                 page: 1,
               }),
-              { preventScrollReset: true },
+              { preventScrollReset: true, state },
             );
           }}
           options={toOptions(platforms, (platform) => platformIcon(platform.id, platform.name))}
@@ -69,7 +71,7 @@ export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersP
                 regionIds: toggleFilterValue(search.regionIds, regionId),
                 page: 1,
               }),
-              { preventScrollReset: true },
+              { preventScrollReset: true, state },
             );
           }}
           options={toOptions(regions, (region) => regionIcon(region.id, region.name))}
@@ -79,6 +81,7 @@ export function ReleasesFilters({ search, platforms, regions }: ReleasesFiltersP
           <Link
             preventScrollReset
             className="filter-reset"
+            state={state}
             to={releasesSearchPath(search, { platformIds: [], regionIds: [], page: 1 })}
           >
             Quitar filtros

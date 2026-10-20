@@ -1,21 +1,14 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
+import type { DayRange } from "./day-bar";
 import { ReleasesShell, type ReleasesShellState } from "./releases-shell";
-import type { ReleasesSearch } from "./releases-search";
+import { defaultReleasesSearch, type ReleasesSearch } from "./releases-search";
 import type { ReleaseListItem, ReleasesViewModel } from "./releases-view-model";
 
-const search: ReleasesSearch = {
-  view: "recent",
-  weeks: 1,
-  includeApproximateDates: false,
-  platformIds: [],
-  regionIds: [],
-  page: 1,
-  pageSize: 12,
-};
+const search: ReleasesSearch = defaultReleasesSearch;
 
 const pragmata: ReleaseListItem = {
   scores: [],
@@ -25,10 +18,10 @@ const pragmata: ReleaseListItem = {
   title: "Pragmata",
   releaseGroups: [
     {
-      key: "quarter|2026-Q2|worldwide",
-      date: "2.º trimestre de 2026",
-      shortDate: "T2 2026",
-      day: null,
+      key: "day|2026-08-12|worldwide",
+      date: "12 de agosto de 2026",
+      shortDate: "12 ago 2026",
+      day: "2026-08-12",
       region: "Mundial",
       platforms: ["Windows PC"],
       platformIds: ["windows-pc"],
@@ -44,14 +37,13 @@ const pragmata: ReleaseListItem = {
   },
 };
 
+/** The current week of 13 August 2026, a Thursday. */
 function viewModel(overrides: Partial<ReleasesViewModel> = {}): ReleasesViewModel {
   return {
-    view: "recent",
-    title: "Lanzamientos recientes",
-    window: { from: "2026-08-07", to: "2026-08-13" },
+    window: { from: "2026-08-10", to: "2026-08-16" },
     evaluatedOn: "2026-08-13",
-    windowDescription: "Del 13 de febrero de 2026 al 13 de agosto de 2026",
-    windowRange: "13 feb – 13 ago 2026",
+    windowDescription: "Del 10 de agosto de 2026 al 16 de agosto de 2026",
+    windowRange: "10–16 ago 2026",
     platforms: [
       { id: "platform-pc", name: "Windows PC" },
       { id: "platform-ps5", name: "PlayStation 5" },
@@ -60,206 +52,293 @@ function viewModel(overrides: Partial<ReleasesViewModel> = {}): ReleasesViewMode
     activePlatformIds: [],
     activeRegionIds: [],
     items: [pragmata],
-    page: { number: 1, size: 6, totalItems: 1, totalPages: 1 },
+    page: { number: 1, size: 12, totalItems: 1, totalPages: 1 },
     ...overrides,
   };
 }
 
+function ready(overrides: Partial<ReleasesViewModel> = {}): ReleasesShellState {
+  return { status: "ready", model: viewModel(overrides), isRefreshing: false, isPlaceholderData: false };
+}
+
+/** Prints where the shell navigated and the history state it left. */
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <div data-testid="location">
+      {`${location.pathname}${location.search}|${JSON.stringify(location.state ?? null)}`}
+    </div>
+  );
+}
+
 function renderShell(
   state: ReleasesShellState,
-  options: { search?: ReleasesSearch; onRetry?: () => void } = {},
+  options: { search?: ReleasesSearch; onRetry?: () => void; keptFrame?: DayRange | null } = {},
 ) {
   const onRetry = options.onRetry ?? vi.fn();
   const result = render(
-    <MemoryRouter>
-      <ReleasesShell onRetry={onRetry} search={options.search ?? search} state={state} />
+    <MemoryRouter initialEntries={["/lanzamientos"]}>
+      <Routes>
+        <Route
+          element={
+            <>
+              <ReleasesShell
+                keptFrame={options.keptFrame ?? null}
+                onRetry={onRetry}
+                search={options.search ?? search}
+                state={state}
+              />
+              <LocationProbe />
+            </>
+          }
+          path="*"
+        />
+      </Routes>
     </MemoryRouter>,
   );
   return { ...result, onRetry };
 }
 
-describe("releases shell", () => {
-  it("switches between the recent and upcoming windows inside Lanzamientos, keeping the filters", () => {
-    renderShell(
-      { status: "loading" },
-      { search: { ...search, view: "upcoming", platformIds: ["platform-pc"], page: 3 } },
-    );
+const location = () => screen.getByTestId("location").textContent ?? "";
 
-    const windows = within(screen.getByRole("navigation", { name: "Ventana de lanzamientos" }));
-    expect(windows.getAllByRole("link").map((link) => link.textContent)).toEqual(["Recientes", "Próximos"]);
-    expect(windows.getByRole("link", { name: "Próximos" })).toHaveAttribute("aria-current", "true");
-    expect(windows.getByRole("link", { name: "Recientes" })).not.toHaveAttribute("aria-current");
-    expect(windows.getByRole("link", { name: "Recientes" })).toHaveAttribute(
-      "href",
-      "/?view=recent&weeks=1&platformIds=platform-pc",
-    );
-  });
-
-  it("announces loading under the accessible view name", () => {
+describe("release explorer shell", () => {
+  it("opens as Explorar lanzamientos without the former windows or context lines", () => {
     renderShell({ status: "loading" });
 
-    expect(screen.getByRole("region", { name: "Lanzamientos recientes" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Explorar lanzamientos" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Explorar lanzamientos" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Cargando lanzamientos");
-    expect(screen.queryByRole("list", { name: "Lanzamientos recientes" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Ventana de lanzamientos" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Ya disponibles")).not.toBeInTheDocument();
+    expect(screen.queryByText("En calendario")).not.toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: /Periodo/ })).not.toBeInTheDocument();
   });
 
-  it("shows the recent window beside the kicker, without evaluation copy", () => {
-    renderShell({ status: "ready", model: viewModel(), isRefreshing: false, isPlaceholderData: false });
+  it("shows the evaluated range, its cards and the result total", () => {
+    renderShell(ready());
 
-    expect(screen.getByText("Del 13 de febrero de 2026 al 13 de agosto de 2026")).toBeInTheDocument();
-    expect(screen.getByText("13 feb – 13 ago 2026")).toBeInTheDocument();
-    expect(screen.getByText("Ya disponibles").parentElement).toContainElement(
-      screen.getByText("Del 13 de febrero de 2026 al 13 de agosto de 2026"),
-    );
-    expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
+    expect(screen.getByText("10–16 ago 2026")).toBeInTheDocument();
+    expect(screen.getByText("Del 10 de agosto de 2026 al 16 de agosto de 2026")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("1 juego · Página 1 de 1");
-
-    const results = within(screen.getByRole("list", { name: "Lanzamientos recientes" }));
+    const results = within(screen.getByRole("list", { name: "Explorar lanzamientos" }));
     const card = within(results.getAllByRole("listitem")[0] as HTMLElement);
     expect(card.getByRole("heading", { level: 3, name: "Pragmata" })).toBeInTheDocument();
-    // The compact visible row shows the first release's date, its grouped platforms and region.
-    expect(card.getByRole("list", { name: "Plataformas de Pragmata" })).toHaveTextContent("Windows PC");
-    expect(card.getByText("Mundial")).toBeInTheDocument();
-    expect(card.getByText("2.º trimestre de 2026")).toBeInTheDocument();
-    expect(card.queryByRole("button", { name: /lanzamientos más/ })).not.toBeInTheDocument();
-    expect(card.queryByText("Publicado")).not.toBeInTheDocument();
-    expect(card.queryByText(/Fuente:/)).not.toBeInTheDocument();
-    expect(card.queryByText("Ver ficha →")).not.toBeInTheDocument();
     expect(card.getByRole("link", { name: "Pragmata" })).toHaveAttribute(
       "href",
       "/games/game-pragmata/pragmata",
     );
-    expect(card.getByRole("img", { name: "Portada no disponible de Pragmata" })).toHaveAttribute(
-      "src",
-      "/assets/covers/fallback.svg",
-    );
-    expect(card.queryByText("Portada oficial no disponible")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Desde")).toHaveValue("2026-08-10");
+    expect(screen.getByLabelText("Hasta")).toHaveValue("2026-08-16");
   });
 
-  it("keeps a selected filter checked and representable with a clear action", async () => {
+  it("makes every day of the bar a button that explores that day alone", async () => {
     const user = userEvent.setup();
-    const activeSearch: ReleasesSearch = { ...search, platformIds: ["platform-ps5"] };
+    renderShell(ready());
+
+    const days = within(screen.getByRole("toolbar", { name: "Elegir un día del periodo" }));
+    const buttons = days.getAllByRole("button");
+    expect(buttons).toHaveLength(7);
+    expect(buttons[0]).toHaveAccessibleName("lunes, 10 de agosto de 2026, en el periodo");
+    expect(buttons[3]).toHaveAccessibleName("jueves, 13 de agosto de 2026, hoy, en el periodo");
+    // One tab stop: today, inside the explored week.
+    expect(buttons.filter((button) => button.tabIndex === 0)).toEqual([buttons[3]]);
+
+    await user.click(days.getByRole("button", { name: /viernes, 14 de agosto/ }));
+
+    expect(location()).toBe(
+      '/lanzamientos?from=2026-08-14&to=2026-08-14|{"dayFrame":{"from":"2026-08-10","to":"2026-08-16"}}',
+    );
+  });
+
+  it("highlights one selected day inside the frame it was chosen from and offers the whole period", async () => {
+    const user = userEvent.setup();
     renderShell(
+      ready({
+        window: { from: "2026-08-14", to: "2026-08-14" },
+        windowRange: "14 ago 2026",
+        windowDescription: "El 14 de agosto de 2026",
+      }),
       {
-        status: "ready",
-        model: viewModel({ activePlatformIds: ["platform-ps5"], items: [] }),
-        isRefreshing: false,
-        isPlaceholderData: false,
+        search: { ...search, from: "2026-08-14", to: "2026-08-14" },
+        keptFrame: { from: "2026-08-01", to: "2026-08-31" },
       },
-      { search: activeSearch },
     );
 
-    // The closed selector summarises the selection; Región stays unfiltered ("Todas").
-    const platform = screen.getByRole("combobox", { name: /Plataforma/ });
-    expect(platform).toHaveTextContent("PlayStation 5");
-    expect(screen.getByRole("combobox", { name: /Región/ })).toHaveTextContent("Todas");
-
-    // Opened, the selected value is exposed as selected and remains representable to unselect.
-    await user.click(platform);
-    expect(screen.getByRole("option", { name: "PlayStation 5" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(screen.getByRole("option", { name: "Windows PC" })).toHaveAttribute(
-      "aria-selected",
+    const days = within(screen.getByRole("toolbar", { name: "Elegir un día del periodo" }));
+    expect(days.getAllByRole("button")).toHaveLength(31);
+    const selected = days.getByRole("button", { name: "viernes, 14 de agosto de 2026" });
+    expect(selected).toHaveAttribute("aria-pressed", "true");
+    expect(selected.tabIndex).toBe(0);
+    expect(days.getByRole("button", { name: /^sábado, 1 de agosto/ })).toHaveAttribute(
+      "aria-pressed",
       "false",
     );
 
-    expect(
-      screen.getByText("No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos"),
-    ).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "Quitar filtros" })[0]).toHaveAttribute("href", "/?view=recent&weeks=1");
+    await user.click(screen.getByRole("button", { name: /Ver todo el periodo/ }));
+    expect(location()).toBe(
+      '/lanzamientos?from=2026-08-01&to=2026-08-31|{"dayFrame":{"from":"2026-08-01","to":"2026-08-31"}}',
+    );
   });
 
-  it("gives upcoming the same hero, selectors and closing bar", () => {
+  it("moves between days with the arrow keys, Home and End, without exploring", async () => {
+    const user = userEvent.setup();
+    renderShell(ready());
+    const days = within(screen.getByRole("toolbar", { name: "Elegir un día del periodo" }));
+
+    const today = days.getByRole("button", { name: /jueves, 13 de agosto/ });
+    act(() => today.focus());
+    await user.keyboard("{ArrowRight}");
+    expect(days.getByRole("button", { name: /viernes, 14 de agosto/ })).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(days.getByRole("button", { name: /lunes, 10 de agosto/ })).toHaveFocus();
+    await user.keyboard("{ArrowLeft}");
+    expect(days.getByRole("button", { name: /lunes, 10 de agosto/ })).toHaveFocus();
+    await user.keyboard("{End}");
+    const sunday = days.getByRole("button", { name: /domingo, 16 de agosto/ });
+    expect(sunday).toHaveFocus();
+    expect(sunday.tabIndex).toBe(0);
+    expect(location()).toBe("/lanzamientos|null");
+
+    await user.keyboard("{Enter}");
+    expect(location()).toMatch(/^\/lanzamientos\?from=2026-08-16&to=2026-08-16\|/);
+  });
+
+  it("applies a typed range only when the API would accept it", async () => {
+    const user = userEvent.setup();
+    renderShell(ready());
+    const from = screen.getByLabelText("Desde");
+    const to = screen.getByLabelText("Hasta");
+
+    await user.clear(from);
+    await user.type(from, "2026-08-31");
+    await user.clear(to);
+    await user.type(to, "2026-08-01");
+    await user.click(screen.getByRole("button", { name: "Aplicar" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("El día de fin no puede ser anterior al de inicio");
+    expect(from).toHaveAttribute("aria-invalid", "true");
+    expect(location()).toBe("/lanzamientos|null");
+
+    await user.clear(to);
+    await user.type(to, "2026-12-31");
+    await user.click(screen.getByRole("button", { name: "Aplicar" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Elige como máximo 92 días");
+
+    await user.clear(from);
+    await user.type(from, "2026-12-01");
+    await user.click(screen.getByRole("button", { name: "Aplicar" }));
+    // A typed range draws its own frame, so it keeps no history state.
+    expect(location()).toBe("/lanzamientos?from=2026-12-01&to=2026-12-31|null");
+  });
+
+  it("returns a named range to the current week", () => {
     renderShell(
-      { status: "ready", model: viewModel({ view: "upcoming", windowDescription: "Del 13 de agosto de 2026 al 13 de febrero de 2027" }), isRefreshing: false, isPlaceholderData: false },
-      { search: { ...search, view: "upcoming" } },
+      ready({ window: { from: "2026-07-01", to: "2026-07-31" } }),
+      { search: { ...search, from: "2026-07-01", to: "2026-07-31", sort: "hype" } },
     );
 
-    expect(screen.getByRole("heading", { level: 1, name: "Próximos lanzamientos" })).toBeInTheDocument();
-    expect(screen.getByText("En calendario").parentElement).toContainElement(
-      screen.getByText("Del 13 de agosto de 2026 al 13 de febrero de 2027"),
+    expect(screen.getByRole("link", { name: "Esta semana" })).toHaveAttribute(
+      "href",
+      "/lanzamientos?sort=hype",
     );
-    expect(screen.queryByText("Ventana evaluada el 13 de agosto de 2026")).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /Plataforma/ })).toHaveTextContent("Todas");
-    expect(screen.getByRole("combobox", { name: /Región/ })).toHaveTextContent("Todas");
-    expect(screen.getByRole("status")).toHaveTextContent("1 juego · Página 1 de 1");
   });
 
-  it("offers the approximate-date opt-in on upcoming only, reflecting the shared URL", () => {
-    const ready: ReleasesShellState = {
-      status: "ready",
-      model: viewModel(),
-      isRefreshing: false,
-      isPlaceholderData: false,
-    };
-    const { unmount } = renderShell(ready);
-    expect(
-      screen.queryByRole("checkbox", { name: "Incluir fechas aproximadas" }),
-    ).not.toBeInTheDocument();
+  it("orders by date, Hype or rating and returns to the first page", async () => {
+    const user = userEvent.setup();
+    renderShell(ready(), { search: { ...search, page: 3 } });
+    const order = screen.getByRole("combobox", { name: /Ordenar por/ });
+    expect(order).toHaveTextContent("Fecha de lanzamiento");
+
+    await user.click(order);
+    expect(screen.getAllByRole("option")).toHaveLength(4);
+    expect(screen.getByRole("option", { name: "Jugadores IGDB" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Fecha de lanzamiento" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("option", { name: "Puntuación Gameómetro" })).toBeInTheDocument();
+    await user.click(screen.getByRole("option", { name: "Hype" }));
+
+    expect(location()).toMatch(/^\/lanzamientos\?sort=hype\|/);
+  });
+
+  it("offers approximate dates only while the range reaches beyond today", () => {
+    const { unmount } = renderShell(ready());
+    expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).not.toBeChecked();
     unmount();
 
-    const upcoming = renderShell(
-      { ...ready, model: viewModel({ view: "upcoming" }) },
-      { search: { ...search, view: "upcoming" } },
+    // Wholly before today, or ending today: nothing approximate is still to come.
+    const past = renderShell(
+      ready({ window: { from: "2026-08-01", to: "2026-08-13" } }),
+      { search: { ...search, from: "2026-08-01", to: "2026-08-13", includeApproximateDates: true } },
     );
-    expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).not.toBeChecked();
-    upcoming.unmount();
+    expect(screen.queryByRole("checkbox", { name: "Incluir fechas aproximadas" })).not.toBeInTheDocument();
+    past.unmount();
 
-    renderShell(
-      { ...ready, model: viewModel({ view: "upcoming" }) },
-      { search: { ...search, view: "upcoming", includeApproximateDates: true } },
-    );
+    renderShell(ready(), { search: { ...search, includeApproximateDates: true } });
     expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).toBeChecked();
   });
 
-  it("keeps the opt-in operable when the read fails because it is URL state", () => {
+  it("toggles approximate dates in the URL and drops them when a day before today is chosen", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderShell(ready());
+    await user.click(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" }));
+    expect(location()).toMatch(/^\/lanzamientos\?includeApproximateDates=true\|/);
+    unmount();
+
+    renderShell(ready(), { search: { ...search, includeApproximateDates: true } });
+    await user.click(screen.getByRole("button", { name: /martes, 11 de agosto/ }));
+    expect(location()).toMatch(/^\/lanzamientos\?from=2026-08-11&to=2026-08-11\|/);
+  });
+
+  it("folds the controls under one toggle that states the order, filters and precision", async () => {
+    const user = userEvent.setup();
+    renderShell(ready({ activePlatformIds: ["platform-ps5"] }), {
+      search: { ...search, sort: "hype", platformIds: ["platform-ps5"], regionIds: ["region-worldwide"], includeApproximateDates: true },
+    });
+
+    // Phones show only this toggle until it opens; wider screens hide it and show the controls.
+    const toggle = screen.getByRole("button", { name: /^Filtros y orden/ });
+    expect(toggle).toHaveAccessibleName("Filtros y orden: Hype · 2 filtros · Fechas aproximadas");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    const controls = document.getElementById(toggle.getAttribute("aria-controls") ?? "");
+    expect(controls).toContainElement(screen.getByLabelText("Desde"));
+    expect(controls).not.toHaveClass("releases-controls-open");
+
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(controls).toHaveClass("releases-controls-open");
+  });
+
+  it("keeps an active approximate-date choice removable when the read fails", () => {
     renderShell(
       {
         status: "error",
         message: "A Gameómetro le está costando un poco. Prueba más tarde",
         correlationId: null,
       },
-      { search: { ...search, view: "upcoming" } },
+      { search: { ...search, includeApproximateDates: true } },
     );
 
     expect(screen.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).toBeEnabled();
   });
 
-  it("uses the approved empty copy for both precisions and keeps the choice when clearing filters", () => {
-    const emptyUpcoming: ReleasesShellState = {
-      status: "ready",
-      model: viewModel({
-        view: "upcoming",
-        activePlatformIds: ["platform-ps5"],
-        items: [],
-        page: { number: 1, size: 12, totalItems: 0, totalPages: 0 },
-      }),
-      isRefreshing: false,
-      isPlaceholderData: false,
-    };
-    const exact = renderShell(emptyUpcoming, {
-      search: { ...search, view: "upcoming", platformIds: ["platform-ps5"] },
+  it("keeps a selected filter checked and representable with a clear action", async () => {
+    const user = userEvent.setup();
+    renderShell(ready({ activePlatformIds: ["platform-ps5"], items: [] }), {
+      search: { ...search, platformIds: ["platform-ps5"], sort: "rating" },
     });
-    expect(
-      screen.getByText("No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos"),
-    ).toBeInTheDocument();
-    exact.unmount();
 
-    renderShell(emptyUpcoming, {
-      search: {
-        ...search,
-        view: "upcoming",
-        includeApproximateDates: true,
-        platformIds: ["platform-ps5"],
-      },
-    });
+    const platform = screen.getByRole("combobox", { name: /Plataforma/ });
+    expect(platform).toHaveTextContent("PlayStation 5");
+    expect(screen.getByRole("combobox", { name: /Región/ })).toHaveTextContent("Todas");
+    await user.click(platform);
+    expect(screen.getByRole("option", { name: "PlayStation 5" })).toHaveAttribute("aria-selected", "true");
+
     expect(
       screen.getByText("No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos"),
     ).toBeInTheDocument();
     for (const reset of screen.getAllByRole("link", { name: "Quitar filtros" })) {
-      expect(reset).toHaveAttribute("href", "/?view=upcoming&weeks=1&includeApproximateDates=true");
+      expect(reset).toHaveAttribute("href", "/lanzamientos?sort=rating");
     }
   });
 
@@ -269,30 +348,23 @@ describe("releases shell", () => {
     renderShell({ status: "catalogue-not-ready" }, { onRetry });
 
     const alert = within(screen.getByRole("status"));
-    expect(
-      alert.getByRole("heading", { name: "Los juegos todavía no están disponibles" }),
-    ).toBeInTheDocument();
-    expect(alert.getByText("Aún no tenemos datos válidos de juegos, pero tranquilo que llegarán")).toBeInTheDocument();
-    expect(alert.getByText("Puedes usar la búsqueda de juegos")).toBeInTheDocument();
+    expect(alert.getByRole("heading", { name: "Los juegos todavía no están disponibles" })).toBeInTheDocument();
     await user.click(alert.getByRole("button", { name: "Reintentar" }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
 
   it("separates an unsupported filter from a generic failure", () => {
     renderShell(
-      {
-        status: "unsupported-filters",
-        message: "¿Qué plataforma es esa? A Gameómetro no le suena de nada",
-      },
+      { status: "unsupported-filters", message: "¿Qué plataforma es esa? A Gameómetro no le suena de nada" },
       { search: { ...search, platformIds: ["platform-unknown"] } },
     );
 
     const alert = within(screen.getByRole("alert"));
     expect(alert.getByRole("heading", { name: "Filtro no admitido" })).toBeInTheDocument();
-    expect(alert.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/?view=recent&weeks=1");
+    expect(alert.getByRole("link", { name: "Quitar filtros" })).toHaveAttribute("href", "/lanzamientos");
   });
 
-  it("reports a generic failure with its support reference", () => {
+  it("reports a generic failure with its support reference and no stale range", () => {
     renderShell({
       status: "error",
       message: "A Gameómetro le está costando un poco. Prueba más tarde",
@@ -300,104 +372,57 @@ describe("releases shell", () => {
     });
 
     const alert = within(screen.getByRole("alert"));
-    expect(
-      alert.getByRole("heading", { name: "No se pudieron cargar los lanzamientos" }),
-    ).toBeInTheDocument();
+    expect(alert.getByRole("heading", { name: "No se pudieron cargar los lanzamientos" })).toBeInTheDocument();
     expect(alert.getByText("Referencia para soporte: correlation-1")).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "Lanzamientos recientes" })).not.toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /^Periodo:/ })).toHaveTextContent("1 semana");
-    expect(screen.queryByText("Del 13 de febrero de 2026 al 13 de agosto de 2026"))
-      .not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Explorar lanzamientos" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
   });
 
-  it("paginates with keyboard-reachable links that preserve the active filters", () => {
-    const paginatedSearch: ReleasesSearch = { ...search, page: 2, platformIds: ["platform-ps5"] };
+  it("paginates with links that keep the range, order, filters and day frame", () => {
     renderShell(
+      ready({
+        window: { from: "2026-08-01", to: "2026-08-31" },
+        activePlatformIds: ["platform-ps5"],
+        page: { number: 2, size: 12, totalItems: 30, totalPages: 3 },
+      }),
       {
-        status: "ready",
-        model: viewModel({
-          activePlatformIds: ["platform-ps5"],
-          page: { number: 2, size: 6, totalItems: 15, totalPages: 3 },
-        }),
-        isRefreshing: false,
-        isPlaceholderData: false,
+        search: {
+          ...search,
+          from: "2026-08-01",
+          to: "2026-08-31",
+          sort: "hype",
+          page: 2,
+          platformIds: ["platform-ps5"],
+        },
       },
-      { search: paginatedSearch },
     );
 
-    const pagination = within(
-      screen.getByRole("navigation", { name: "Paginación de lanzamientos" }),
-    );
-    expect(screen.getByRole("status")).toHaveTextContent("15 juegos · Página 2 de 3");
-    expect(pagination.queryByText("Página 2 de 3")).not.toBeInTheDocument();
+    const pagination = within(screen.getByRole("navigation", { name: "Paginación de lanzamientos" }));
+    expect(screen.getByRole("status")).toHaveTextContent("30 juegos · Página 2 de 3");
     expect(pagination.getByRole("link", { name: "Página anterior" })).toHaveAttribute(
       "href",
-      "/?view=recent&weeks=1&platformIds=platform-ps5",
+      "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&platformIds=platform-ps5",
     );
     expect(pagination.getByRole("link", { name: "Página siguiente" })).toHaveAttribute(
       "href",
-      "/?view=recent&weeks=1&platformIds=platform-ps5&page=3",
+      "/lanzamientos?from=2026-08-01&to=2026-08-31&sort=hype&platformIds=platform-ps5&page=3",
     );
   });
 
   it("recovers directly when a shared page is beyond the last available page", () => {
-    renderShell(
-      {
-        status: "ready",
-        model: viewModel({
-          items: [],
-          page: { number: 99, size: 6, totalItems: 2, totalPages: 2 },
-        }),
-        isRefreshing: false,
-        isPlaceholderData: false,
-      },
-      { search: { ...search, page: 99 } },
-    );
+    renderShell(ready({ items: [], page: { number: 99, size: 12, totalItems: 2, totalPages: 1 } }), {
+      search: { ...search, page: 99 },
+    });
 
-    expect(
-      screen.getByText("2 juegos · La página 99 ya no está disponible"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Ay, esta página ya no está disponible"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText(
-        "No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos",
-      ),
-    ).not.toBeInTheDocument();
+    expect(screen.getByText("2 juegos · La página 99 ya no está disponible")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ir a la última página" })).toHaveAttribute(
       "href",
-      "/?view=recent&weeks=1&page=2",
+      "/lanzamientos",
     );
-  });
-
-  it("moves focus to the results heading after a page change", () => {
-    const state: ReleasesShellState = {
-      status: "ready",
-      model: viewModel({ page: { number: 1, size: 6, totalItems: 15, totalPages: 3 } }),
-      isRefreshing: false,
-      isPlaceholderData: false,
-    };
-    const { rerender } = renderShell(state);
-
-    rerender(
-      <MemoryRouter>
-        <ReleasesShell
-          onRetry={vi.fn()}
-          search={{ ...search, page: 2 }}
-          state={{
-            ...state,
-            model: viewModel({ page: { number: 2, size: 6, totalItems: 15, totalPages: 3 } }),
-          }}
-        />
-      </MemoryRouter>,
-    );
-
-    expect(screen.getByRole("heading", { level: 2, name: "Resultados" })).toHaveFocus();
   });
 
   it("announces a refresh instead of hiding the visible results", () => {
-    renderShell({ status: "ready", model: viewModel(), isRefreshing: true, isPlaceholderData: false });
+    renderShell({ ...ready(), isRefreshing: true } as ReleasesShellState);
 
     expect(screen.getByRole("status")).toHaveTextContent("Actualizando lanzamientos…");
     expect(screen.getByRole("link", { name: "Pragmata" })).toBeInTheDocument();

@@ -126,8 +126,8 @@ try {
     return url.pathname === "/api/v1/releases" && response.request().resourceType() === "fetch";
   });
 
-  // The landing route shows the featured releases (#151); the release list names its view.
-  await page.goto("/?view=recent", { waitUntil: "domcontentloaded" });
+  // The landing route shows TOPómetro (#151); the release explorer has its own route (#285).
+  await page.goto("/lanzamientos", { waitUntil: "domcontentloaded" });
   const renderedReleases = await releasesResponse;
   const renderedReleasesOutcome = await releasesOutcome(renderedReleases, "releases API");
   await page.locator("h1").waitFor({ state: "visible" });
@@ -139,7 +139,7 @@ try {
   );
   completedChecks.push("frontend-version-metadata");
   assert(
-    /Lanzamientos recientes|Próximos lanzamientos/.test(heading),
+    /Explorar lanzamientos/.test(heading),
     "minimal browser shell heading is absent",
   );
   if (renderedReleasesOutcome.state === "not-ready") {
@@ -161,7 +161,7 @@ try {
 
   const tracedRelease = await page.evaluate(
     async ({ expectedCorrelationId, expectedTraceId }) => {
-      const response = await fetch("/api/v1/releases?view=recent", {
+      const response = await fetch("/api/v1/releases", {
         headers: {
           Accept: "application/json",
           "X-Correlation-ID": expectedCorrelationId,

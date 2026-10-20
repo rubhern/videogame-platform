@@ -3,6 +3,7 @@ package com.videogameplatform.catalogue.application.releases;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -10,17 +11,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 class BrowseReleasesUseCaseTest {
 
     @Test
-    void rejectsMissingView() {
+    void rejectsMissingSort() {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> query(null, 1, 20))
-                .withMessage("Release view is required");
+                .isThrownBy(
+                        () ->
+                                new BrowseReleasesUseCase.Query(
+                                        null, null, null, false, null, null, 1, 20))
+                .withMessage("Release sort is required");
     }
 
     @ParameterizedTest
     @ValueSource(ints = {0, -1})
     void rejectsNonOneBasedPageNumbers(int pageNumber) {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> query(BrowseReleasesUseCase.View.RECENT, pageNumber, 20))
+                .isThrownBy(() -> query(pageNumber, 20))
                 .withMessage("Page number must be one-based");
     }
 
@@ -28,7 +32,7 @@ class BrowseReleasesUseCaseTest {
     @ValueSource(ints = {0, -1})
     void rejectsNonPositivePageSizes(int pageSize) {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> query(BrowseReleasesUseCase.View.RECENT, 1, pageSize))
+                .isThrownBy(() -> query(1, pageSize))
                 .withMessage("Page size must be between 1 and 100");
     }
 
@@ -36,83 +40,49 @@ class BrowseReleasesUseCaseTest {
     @ValueSource(ints = {101, 500})
     void rejectsOversizedPages(int pageSize) {
         assertThatIllegalArgumentException()
-                .isThrownBy(() -> query(BrowseReleasesUseCase.View.RECENT, 1, pageSize))
+                .isThrownBy(() -> query(1, pageSize))
                 .withMessage("Page size must be between 1 and 100");
     }
 
     @ParameterizedTest
     @ValueSource(ints = {1, 100})
     void acceptsPageSizeBounds(int pageSize) {
-        BrowseReleasesUseCase.Query query = query(BrowseReleasesUseCase.View.UPCOMING, 1, pageSize);
+        BrowseReleasesUseCase.Query query = query(1, pageSize);
 
-        assertThat(query.view()).isEqualTo(BrowseReleasesUseCase.View.UPCOMING);
         assertThat(query.pageNumber()).isEqualTo(1);
         assertThat(query.pageSize()).isEqualTo(pageSize);
     }
 
-    @ParameterizedTest
-    @ValueSource(ints = {0, -1, 3, 5, 52})
-    void rejectsUnsupportedWeekHorizons(int weeks) {
-        assertThatIllegalArgumentException()
-                .isThrownBy(
-                        () ->
-                                new BrowseReleasesUseCase.Query(
-                                        BrowseReleasesUseCase.View.RECENT,
-                                        weeks,
-                                        false,
-                                        null,
-                                        null,
-                                        1,
-                                        20))
-                .withMessage("Release window must be 1, 2, or 4 weeks");
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {1, 2, 4})
-    void acceptsFixedWeekHorizons(int weeks) {
-        assertThat(
-                        new BrowseReleasesUseCase.Query(
-                                        BrowseReleasesUseCase.View.UPCOMING,
-                                        weeks,
-                                        false,
-                                        null,
-                                        null,
-                                        1,
-                                        20)
-                                .weeks())
-                .isEqualTo(weeks);
-    }
-
     @Test
-    void letsUpcomingDiscoveryOptIntoApproximateDates() {
+    void carriesAnOptionalRangeAndTheApproximateDateChoiceForTheUseCaseToValidate() {
         BrowseReleasesUseCase.Query query =
                 new BrowseReleasesUseCase.Query(
-                        BrowseReleasesUseCase.View.UPCOMING, 1, true, null, null, 1, 20);
+                        LocalDate.of(2026, 8, 1),
+                        LocalDate.of(2026, 8, 31),
+                        BrowseReleasesUseCase.Sort.HYPE,
+                        true,
+                        null,
+                        null,
+                        1,
+                        20);
 
+        assertThat(query.from()).isEqualTo("2026-08-01");
+        assertThat(query.to()).isEqualTo("2026-08-31");
+        assertThat(query.sort()).isEqualTo(BrowseReleasesUseCase.Sort.HYPE);
         assertThat(query.includeApproximateDates()).isTrue();
-        assertThat(query(BrowseReleasesUseCase.View.UPCOMING, 1, 20).includeApproximateDates())
-                .isFalse();
+        assertThat(query.platformIds()).isEmpty();
+        assertThat(query(1, 20).from()).isNull();
     }
 
-    @Test
-    void rejectsApproximateDatesForRecentDiscovery() {
-        assertThatIllegalArgumentException()
-                .isThrownBy(
-                        () ->
-                                new BrowseReleasesUseCase.Query(
-                                        BrowseReleasesUseCase.View.RECENT,
-                                        1,
-                                        true,
-                                        null,
-                                        null,
-                                        1,
-                                        20))
-                .withMessage(
-                        "Approximate release dates can only be included in upcoming discovery");
-    }
-
-    private static BrowseReleasesUseCase.Query query(
-            BrowseReleasesUseCase.View view, int pageNumber, int pageSize) {
-        return new BrowseReleasesUseCase.Query(view, 1, false, null, null, pageNumber, pageSize);
+    private static BrowseReleasesUseCase.Query query(int pageNumber, int pageSize) {
+        return new BrowseReleasesUseCase.Query(
+                null,
+                null,
+                BrowseReleasesUseCase.Sort.RELEASE_DATE,
+                false,
+                null,
+                null,
+                pageNumber,
+                pageSize);
     }
 }

@@ -44,35 +44,34 @@ function release(day: number, index: number) {
 }
 
 for (const width of [390, 1320]) {
-  test(`the release window's scale marks the page's release days at ${width}px`, async ({ page }) => {
+  test(`the release explorer's day bar marks the page's release days at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.route("**/api/v1/releases?*", (route) =>
       route.fulfill({
         json: releasePage({
-          window: { from: "2026-08-07", to: "2026-08-13" },
-          items: [release(12, 0), release(12, 1), release(9, 2)],
+          items: [release(12, 0), release(12, 1), release(11, 2)],
           page: { number: 1, size: 12, totalItems: 3, totalPages: 1 },
         }),
       }),
     );
-    await page.goto("/?view=recent");
-    await expect(page.getByRole("heading", { level: 1, name: "Lanzamientos recientes" })).toBeVisible();
-    await expect(page.locator(".release-period")).toContainText("7–13 ago 2026");
+    await page.goto("/lanzamientos");
+    await expect(page.getByRole("heading", { level: 1, name: "Explorar lanzamientos" })).toBeVisible();
+    await expect(page.locator(".release-period")).toContainText("10–16 ago 2026");
 
-    const scale = page.locator(".window-scale");
-    await expect(scale).toHaveAttribute("aria-hidden", "true");
-    // One division per day, every day elapsed by the API's date, one needle per release day.
+    const scale = page.locator(".day-bar");
+    await expect(scale.locator(".window-scale-rail")).toHaveAttribute("aria-hidden", "true");
+    // One division per day, the days gone by the API's date lit, one needle per release day.
     await expect(scale.locator(".window-scale-tick")).toHaveCount(7);
-    await expect(scale.locator(".window-scale-tick-elapsed")).toHaveCount(7);
+    await expect(scale.locator(".window-scale-tick-elapsed")).toHaveCount(4);
     await expect(scale.locator(".window-scale-needle")).toHaveCount(2);
-    await expect(scale.locator(".window-scale-numeral-today")).toHaveText("hoy");
+    await expect(scale.locator(".day-bar-day-today small")).toHaveText("hoy");
 
     // Each card states its own date under the fire needle; the full wording stays for assistive
     // technology in the release line.
     const third = page.getByRole("article").filter({ hasText: "Juego 3" });
-    await expect(third.locator(".card-date")).toHaveText("9 ago 2026");
-    await expect(third.getByText("9 de agosto de 2026")).toBeAttached();
+    await expect(third.locator(".card-date")).toHaveText("11 ago 2026");
+    await expect(third.getByText("11 de agosto de 2026")).toBeAttached();
 
     // Pointing at a release, or focusing its title, lifts its needle above the others.
     await third.getByRole("link", { name: "Juego 3" }).focus();
@@ -92,23 +91,39 @@ for (const width of [390, 1320]) {
   });
 }
 
-test("an upcoming window opens its scale with today as the lit lead-in", async ({ page }) => {
+test("a future range's day bar lights no day and picks one from the keyboard", async ({ page }) => {
   await page.setViewportSize({ width: 834, height: 900 });
-  await page.route("**/api/v1/releases?*", (route) =>
-    route.fulfill({
+  await page.route("**/api/v1/releases?*", (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    return route.fulfill({
       json: releasePage({
-        view: "upcoming",
-        window: { from: "2026-08-14", to: "2026-08-27" },
+        window: { from: query.get("from") ?? "", to: query.get("to") ?? "" },
         items: [release(20, 0)],
       }),
-    }),
-  );
-  await page.goto("/?view=upcoming");
-  const scale = page.locator(".window-scale");
-  await expect(scale.locator(".window-scale-tick")).toHaveCount(15);
-  await expect(scale.locator(".window-scale-tick-elapsed")).toHaveCount(1);
-  await expect(scale.locator(".window-scale-numeral").first()).toHaveText("hoy");
+    });
+  });
+  await page.goto("/lanzamientos?from=2026-08-14&to=2026-08-27");
+  const scale = page.locator(".day-bar");
+  await expect(scale.locator(".window-scale-tick")).toHaveCount(14);
+  await expect(scale.locator(".window-scale-tick-elapsed")).toHaveCount(0);
   await expect(scale.locator(".window-scale-needle")).toHaveCount(1);
+
+  // One tab stop: the first explored day. Arrows move between days without exploring.
+  const days = page.getByRole("toolbar", { name: "Elegir un día del periodo" });
+  const first = days.getByRole("button", { name: /^viernes, 14 de agosto de 2026/ });
+  await expect(first).toHaveAttribute("tabindex", "0");
+  await first.focus();
+  await expect(first).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("ArrowRight");
+  await expect(days.getByRole("button", { name: /^sábado, 15 de agosto de 2026/ })).toBeFocused();
+  await expect(page).toHaveURL(/from=2026-08-14&to=2026-08-27/);
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/from=2026-08-15&to=2026-08-15/);
+  await expect(days.getByRole("button", { name: /^sábado, 15 de agosto de 2026/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect((await analyzeAccessibility(page)).violations).toEqual([]);
 });
 
 for (const width of [390, 1320]) {

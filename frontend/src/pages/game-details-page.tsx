@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 
 import {
   GameDetailsApiError,
@@ -7,11 +7,23 @@ import {
 } from "../features/game-details/game-details-api";
 import { GameDetailsContent } from "../features/game-details/game-details-content";
 import { GameDetailsLoading } from "../features/game-details/game-details-loading";
+import { DEFAULT_RETURN, readReturnContext } from "../shared/navigation/return-context";
 
-export function BackToReleases() {
+/**
+ * The game page's way back names the screen it was opened from and returns to it with the same
+ * period, filters, order, search and page (#285). The origin is the history entry's validated
+ * state; a direct link, a reload after leaving the product or any unexpected state returns to
+ * TOPómetro. The return restores the origin entry's reading position.
+ */
+export function BackToOrigin() {
+  const origin = readReturnContext(useLocation().state);
   return (
-    <Link className="button view-action view-action-back" to="/">
-      <span aria-hidden="true">←</span> Volver al TOPómetro
+    <Link
+      className="button view-action view-action-back"
+      state={origin?.state}
+      to={origin?.path ?? DEFAULT_RETURN.path}
+    >
+      <span aria-hidden="true">←</span> {origin?.label ?? DEFAULT_RETURN.label}
     </Link>
   );
 }
@@ -72,7 +84,7 @@ export function GameDetailsPage() {
                     Reintentar
                   </button>
                 ) : null}
-                <BackToReleases />
+                <BackToOrigin />
               </div>
               {error?.correlationId ? (
                 <p className="notice-reference">
@@ -86,7 +98,7 @@ export function GameDetailsPage() {
         )}
         {query.isError ? null : (
           <div className="game-details-back">
-            <BackToReleases />
+            <BackToOrigin />
           </div>
         )}
       </div>

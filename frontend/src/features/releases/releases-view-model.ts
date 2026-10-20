@@ -6,7 +6,6 @@ import {
 } from "../../shared/catalogue/release-date";
 import { toDiscoveryScores, type DiscoveryScore } from "../../shared/score/discovery-scores-model";
 import type { ReleasePage } from "./releases-api";
-import type { ReleaseView } from "./releases-search";
 
 type ReleaseItem = ReleasePage["items"][number];
 type Release = ReleaseItem["releases"][number];
@@ -65,9 +64,7 @@ export type ReleaseListItem = {
 export type ReleaseFilterOption = { id: string; name: string };
 
 export type ReleasesViewModel = {
-  view: ReleaseView;
-  title: string;
-  /** The API's window and trusted evaluation date, for the window's day scale. */
+  /** The API's evaluated range and trusted evaluation date, for the day bar. */
   window: { from: string; to: string };
   evaluatedOn: string;
   windowDescription: string;
@@ -81,10 +78,8 @@ export type ReleasesViewModel = {
   page: { number: number; size: number; totalItems: number; totalPages: number };
 };
 
-const viewTitles: Record<ReleaseView, string> = {
-  recent: "Lanzamientos recientes",
-  upcoming: "Próximos lanzamientos",
-};
+/** The release explorer's one title (#285). */
+export const RELEASES_TITLE = "Explorar lanzamientos";
 
 function readLocalCoverPreviews(): Record<string, string> {
   if (!import.meta.env.DEV || import.meta.env.MODE === "test") {
@@ -123,10 +118,6 @@ function localCoverPreview(slug: string, title: string): ReleaseCover | null {
     alternativeText: `Vista previa de la portada de ${title}`,
     attribution: { label: "Vista previa local", sourceUrl: url },
   };
-}
-
-export function releaseViewTitle(view: ReleaseView): string {
-  return viewTitles[view];
 }
 
 /**
@@ -221,13 +212,12 @@ export function toReleasesViewModel(page: ReleasePage): ReleasesViewModel {
   const items = toReleaseListItems(page);
 
   return {
-    view: page.view,
-    title: viewTitles[page.view],
     window: page.window,
     evaluatedOn: page.evaluatedOn,
-    windowDescription: `Del ${formatCalendarDay(page.window.from)} al ${formatCalendarDay(
-      page.window.to,
-    )}`,
+    windowDescription:
+      page.window.from === page.window.to
+        ? `El ${formatCalendarDay(page.window.from)}`
+        : `Del ${formatCalendarDay(page.window.from)} al ${formatCalendarDay(page.window.to)}`,
     windowRange: formatDayRange(page.window.from, page.window.to),
     platforms: page.availableFilters.platforms.map((platform) => ({
       id: platform.platformId,

@@ -184,6 +184,11 @@
     .release-period {
       font-size: 1.125rem;
     }
+
+    /* The explorer's longer title leaves no room beside it, so its range reads on its own line. */
+    .releases-heading .release-period {
+      flex-basis: 100%;
+    }
   }
 
   @media (forced-colors: active) {

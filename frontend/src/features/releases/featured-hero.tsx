@@ -13,6 +13,7 @@ import { DIAL_HEIGHT, DIAL_WIDTH } from "./month-dial-geometry";
 import type { FeaturedGranularity } from "./featured-search";
 import { describePeriodScale, type PeriodTimeline } from "./period-timeline";
 import { ReleaseOverflow } from "./release-overflow";
+import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
 
 type FeaturedHeroProps = {
   lead: FeaturedLead;
@@ -84,6 +85,7 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase }: Feat
   }, [lead]);
 
   const gamePath = `/games/${lead.gameId}/${lead.slug}`;
+  const linkState = useGameLinkState();
   const [primaryGroup, ...hiddenGroups] = lead.releaseGroups;
   const { wordmark } = lead;
   const morePlatforms = (primaryGroup?.platforms.length ?? 0) - COMPACT_PLATFORMS;
@@ -137,7 +139,7 @@ export function FeaturedHero({ lead, granularity, timeline, periodPhrase }: Feat
                 className="featured-hero-title"
                 id="featured-lead-title"
               >
-                <Link className="featured-hero-game-link" to={gamePath}>
+                <Link className="featured-hero-game-link" state={linkState} to={gamePath}>
                   <span className="featured-wordmark-main">
                     {wordmark.main}
                     {wordmark.sub === null ? null : (

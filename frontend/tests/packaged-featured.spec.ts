@@ -8,7 +8,9 @@ function trackProviderRequests(page: Page): string[] {
   const providerRequests: string[] = [];
   page.on("request", (browserRequest) => {
     const url = new URL(browserRequest.url());
-    if (igdbHosts.has(url.hostname) || url.pathname.toLowerCase().includes("igdb")) {
+    // The product's own attribution mark is same-origin, never a provider request.
+    const productAsset = url.pathname.startsWith("/assets/providers/");
+    if (igdbHosts.has(url.hostname) || (!productAsset && url.pathname.toLowerCase().includes("igdb"))) {
       providerRequests.push(browserRequest.url());
     }
   });
@@ -64,7 +66,14 @@ test("the packaged featured releases read local PostgreSQL week by week and mont
   await page.goBack();
   await expect(page).toHaveURL(/\/\?month=2026-10$/);
 
+  // The game page's own way back names TOPómetro and returns to the month it was opened from.
+  await crimson.getByRole("link", { name: "Crimson Desert" }).click();
+  await page.getByRole("link", { name: "Volver al TOPómetro" }).click();
+  await expect(page).toHaveURL(/\/\?month=2026-10$/);
+  await expect(page.getByRole("article", { name: "Crimson Desert" })).toBeVisible();
+
   await page.getByRole("navigation", { name: "Principal" }).getByRole("link", { name: "Lanzamientos" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "Lanzamientos recientes" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Explorar lanzamientos" })).toBeVisible();
+  await expect(page).toHaveURL(/\/lanzamientos$/);
   expect(providerRequests).toEqual([]);
 });

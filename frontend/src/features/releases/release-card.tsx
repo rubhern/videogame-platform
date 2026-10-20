@@ -8,6 +8,7 @@ import { CatalogueCover } from "../../shared/ui/catalogue-cover";
 import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { ReleaseOverflow } from "./release-overflow";
 import type { ReleaseListItem } from "./releases-view-model";
+import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
 
 type ReleaseCardProps = {
   item: ReleaseListItem;
@@ -26,6 +27,7 @@ const VISIBLE_PLATFORMS = 3;
  */
 export function ReleaseCard({ item, onPoint }: ReleaseCardProps) {
   const gamePath = `/games/${item.gameId}/${item.slug}`;
+  const linkState = useGameLinkState();
   const [primaryGroup, ...hiddenGroups] = item.releaseGroups;
   const day = primaryGroup?.day ?? null;
   const point = onPoint === undefined || day === null ? undefined : () => onPoint(day);
@@ -39,7 +41,7 @@ export function ReleaseCard({ item, onPoint }: ReleaseCardProps) {
       onPointerEnter={point}
       onPointerLeave={leave}
     >
-      <CatalogueCover caption={false} cover={item.cover} to={gamePath} />
+      <CatalogueCover caption={false} cover={item.cover} linkState={linkState} to={gamePath} />
       {primaryGroup === undefined ? null : (
         <p aria-hidden="true" className="card-date">
           <NeedleIcon className="card-date-needle" />
@@ -47,7 +49,9 @@ export function ReleaseCard({ item, onPoint }: ReleaseCardProps) {
         </p>
       )}
       <h3 className="card-title">
-        <Link to={gamePath}>{item.title}</Link>
+        <Link state={linkState} to={gamePath}>
+          {item.title}
+        </Link>
       </h3>
       <DiscoveryScores scores={item.scores} title={item.title} />
       {primaryGroup === undefined ? null : (

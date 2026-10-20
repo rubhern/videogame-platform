@@ -1,3 +1,5 @@
+import { BrandMark } from "../brand/brand-logo";
+
 export type SelectIconName =
   | "platform"
   | "region"
@@ -33,7 +35,9 @@ export type SelectIconName =
   | "rating"
   | "ascending"
   | "descending"
-  | "page-size";
+  | "page-size"
+  | "gameometro"
+  | "igdb";
 
 const maskedAssetIcons: readonly SelectIconName[] = [
   "playstation", "nintendo-switch", "nintendo-switch-2", "android", "ios", "linux", "macos", "meta-quest",
@@ -42,6 +46,23 @@ const maskedAssetIcons: readonly SelectIconName[] = [
 ];
 
 export function SelectIcon({ name }: { name: SelectIconName }) {
+  // Score sources show their own marks at their own colours, never tinted: the Gameómetro G and
+  // IGDB's white attribution mark, kept proportional as its terms require.
+  if (name === "gameometro") {
+    return <BrandMark className="app-select-icon-logo" />;
+  }
+  if (name === "igdb") {
+    return (
+      <img
+        alt=""
+        aria-hidden="true"
+        className="app-select-icon-logo app-select-icon-logo-wide"
+        height="15"
+        src="/assets/providers/igdb.svg"
+        width="30"
+      />
+    );
+  }
   if (maskedAssetIcons.includes(name)) {
     return <span aria-hidden="true" className={`app-select-icon app-select-icon-${name}`} />;
   }

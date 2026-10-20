@@ -9,7 +9,9 @@ function trackProviderRequests(page: Page): string[] {
   const providerRequests: string[] = [];
   page.on("request", (browserRequest) => {
     const url = new URL(browserRequest.url());
-    if (igdbHosts.has(url.hostname) || url.pathname.toLowerCase().includes("igdb")) {
+    // The product's own attribution mark is same-origin, never a provider request.
+    const productAsset = url.pathname.startsWith("/assets/providers/");
+    if (igdbHosts.has(url.hostname) || (!productAsset && url.pathname.toLowerCase().includes("igdb"))) {
       providerRequests.push(browserRequest.url());
     }
   });

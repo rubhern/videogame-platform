@@ -9,6 +9,7 @@ import { DiscoveryScores } from "../../shared/score/discovery-scores";
 import { MonthStrip } from "./month-strip";
 import type { PeriodTimeline } from "./period-timeline";
 import { ReleaseOverflow } from "./release-overflow";
+import { useGameLinkState } from "../../shared/navigation/use-game-link-state";
 
 /** A compact row shows up to three platform marks and the exact number of further platforms. */
 const VISIBLE_PLATFORMS = 3;
@@ -30,6 +31,7 @@ export function FeaturedCard({
   timeline: PeriodTimeline | null;
 }) {
   const gamePath = `/games/${item.gameId}/${item.slug}`;
+  const linkState = useGameLinkState();
   const [primaryGroup, ...hiddenGroups] = item.releaseGroups;
   const [logoFailed, setLogoFailed] = useState(false);
   const visible = primaryGroup?.platforms.slice(0, VISIBLE_PLATFORMS) ?? [];
@@ -43,7 +45,7 @@ export function FeaturedCard({
   return (
     <article className="featured-card">
       <div className="featured-card-frame">
-        <Link className="featured-card-media" tabIndex={-1} to={gamePath}>
+        <Link className="featured-card-media" state={linkState} tabIndex={-1} to={gamePath}>
           <FeaturedArtFrame art={item.art} scale="card" />
           {logo === null ? null : (
             <img
@@ -62,7 +64,7 @@ export function FeaturedCard({
       )}
       <div className="featured-card-body">
         <h3 className="featured-card-title">
-          <Link title={item.title} to={gamePath}>
+          <Link state={linkState} title={item.title} to={gamePath}>
             {item.title}
           </Link>
         </h3>

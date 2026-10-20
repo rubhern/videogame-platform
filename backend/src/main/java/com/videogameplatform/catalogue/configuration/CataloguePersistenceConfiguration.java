@@ -52,6 +52,19 @@ class CataloguePersistenceConfiguration {
                 .JdbcExternalPlayerScoresReadAdapter(execution.jdbcOperations());
     }
 
+    /**
+     * The projection writes inside the Ratings transaction that changes a score, so it takes the
+     * caller's transaction rather than the read-only execution policy.
+     */
+    @Bean
+    com.videogameplatform.catalogue.application.releases.port.CommunityScoreStore
+            communityScoreStore(DataSource dataSource, CatalogueJdbcProperties properties) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        jdbcTemplate.setQueryTimeout(properties.readTimeoutSeconds());
+        return new com.videogameplatform.catalogue.adapter.persistence.releases
+                .JdbcCommunityScoreStore(new NamedParameterJdbcTemplate(jdbcTemplate));
+    }
+
     @Bean
     ReleaseBrowseReadPort releaseBrowseReadPort(CatalogueReadExecution execution) {
         return new JdbcReleaseBrowseReadAdapter(

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
-import { pragmata, pragmataRelease, releasePage } from "./fixtures/releases";
+import { openReleaseControls, pragmata, pragmataRelease, releasePage } from "./fixtures/releases";
 import { gameDetailsFixture } from "../src/test/game-details-fixture";
 
 async function expectAccessibleLayout(page: Page) {
@@ -15,7 +15,7 @@ async function expectAccessibleLayout(page: Page) {
 async function expectComfortableCatalogueMetadata(page: Page) {
   const sizes = await page
     .locator(
-      ".card-date, .card-region, .platform-mark-more, .card-genres, .badge, .window-scale-numeral",
+      ".card-date, .card-region, .platform-mark-more, .card-genres, .badge, .day-bar-numeral",
     )
     .evaluateAll((elements) => elements.map((element) => Number.parseFloat(getComputedStyle(element).fontSize)));
   expect(Math.min(...sizes)).toBeGreaterThanOrEqual(11);
@@ -28,9 +28,9 @@ for (const width of [320, 390, 834, 1320]) {
     await page.route("**/api/v1/releases?*", async (route) => {
       const query = new URL(route.request().url()).searchParams;
       await route.fulfill({ json: releasePage({
-        window: query.get("weeks") === "4"
-          ? { from: "2026-07-17", to: "2026-08-13" }
-          : { from: "2026-08-07", to: "2026-08-13" },
+        window: query.has("from")
+          ? { from: query.get("from") ?? "", to: query.get("to") ?? "" }
+          : { from: "2026-08-10", to: "2026-08-16" },
         items: [{ ...pragmata, genres: [{ genreId: "action", name: "Acción" }, { genreId: "rpg", name: "Rol" }] }, {
           genres: [{ genreId: "long", name: "Un género de nombre extraordinariamente largo" }],
           ...pragmata,
@@ -42,16 +42,24 @@ for (const width of [320, 390, 834, 1320]) {
         page: { number: Number(query.get("page") ?? 1), size: 6, totalItems: 8, totalPages: 2 },
       }) });
     });
-    await page.goto("/?view=recent&pageSize=6");
+    await page.goto("/lanzamientos?pageSize=6");
     await expect(page.getByRole("link", { name: "Pragmata", exact: true })).toBeVisible();
     await expect(page.locator(".stage-light")).toHaveCount(0);
     await expect(page.locator(".releases-footer")).toHaveCSS("border-top-width", "0px");
-    // The window's scale: one division per day of the API's window and one fire needle per
-    // release day on the page. It is decorative; the period is stated in words beside the title.
-    await expect(page.locator(".window-scale")).toHaveAttribute("aria-hidden", "true");
+    // The day bar: one division and one day button per day of the API's range. Its rail is
+    // decorative; the range is stated in words beside the title.
+    await expect(page.locator(".window-scale-rail")).toHaveAttribute("aria-hidden", "true");
     await expect(page.locator(".window-scale-tick")).toHaveCount(7);
-    await expect(page.locator(".release-period")).toContainText("7–13 ago 2026");
+    await expect(
+      page.getByRole("toolbar", { name: "Elegir un día del periodo" }).getByRole("button"),
+    ).toHaveCount(7);
+    await expect(page.locator(".release-period")).toContainText("10–16 ago 2026");
     await expect(page.locator(".result-count")).toHaveText("8 juegos · Página 1 de 2");
+    if (width < 620) {
+      // Phones fold the controls under one toggle that states what they hold.
+      await expect(page.getByRole("button", { name: /^Filtros y orden/ })).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByLabel("Desde")).toBeHidden();
+    }
     await expectAccessibleLayout(page);
     await expectComfortableCatalogueMetadata(page);
     const releaseCards = page.locator(".release-card");
@@ -86,23 +94,24 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page.getByRole("heading", { name: "Resultados", exact: true })).toBeFocused();
     await expect(page).toHaveURL(/page=2/);
     await expect(page.getByRole("link", { name: "Página siguiente" })).toHaveCount(0);
+    await openReleaseControls(page);
     await page.getByRole("combobox", { name: /^Plataforma:/ }).click();
     await page.getByRole("option", { name: "Windows PC" }).click();
     await expect(page).toHaveURL(/platformIds=windows-pc/);
     await expect(page).not.toHaveURL(/page=2/);
-    await page.getByRole("link", { name: "Quitar filtros" }).click();
+    await page.getByRole("link", { name: "Quitar filtros" }).first().click();
     await expectAccessibleLayout(page);
-    const weeks = page.getByRole("combobox", { name: /^Periodo:/ });
-    await weeks.focus();
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("End");
-    await page.keyboard.press("Enter");
-    await expect(page).toHaveURL(/weeks=4/);
+    await page.getByLabel("Desde").fill("2026-07-17");
+    await page.getByLabel("Hasta").fill("2026-08-13");
+    await page.getByLabel("Hasta").press("Enter");
+    await expect(page).toHaveURL(/from=2026-07-17&to=2026-08-13/);
     await expect(page).not.toHaveURL(/page=2/);
-    await expect(weeks).toContainText("4 semanas");
     await expect(page.locator(".release-period")).toContainText(
       "Del 17 de julio de 2026 al 13 de agosto de 2026",
     );
+    await expect(
+      page.getByRole("toolbar", { name: "Elegir un día del periodo" }).getByRole("button"),
+    ).toHaveCount(28);
     await expectAccessibleLayout(page);
     if (width < 620) {
       const logo = await page.getByRole("link", { name: "Gameómetro · Inicio" }).boundingBox();
@@ -136,17 +145,16 @@ for (const width of [320, 390, 834, 1320]) {
   });
 }
 
-for (const view of ["recent", "upcoming"] as const) {
-test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
+for (const range of ["", "?from=2026-08-14&to=2026-11-13"] as const) {
+test(`the explorer${range === "" ? "" : " over a future range"} defaults to two rows of six games on desktop`, async ({ page }) => {
   await page.setViewportSize({ width: 1320, height: 950 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.route("**/api/v1/releases?*", async (route) => {
     expect(new URL(route.request().url()).searchParams.get("pageSize")).toBe("12");
     await route.fulfill({ json: releasePage({
-      view,
-      window: view === "recent"
-        ? { from: "2026-02-13", to: "2026-08-13" }
-        : { from: "2026-08-13", to: "2027-02-13" },
+      window: range === ""
+        ? { from: "2026-08-10", to: "2026-08-16" }
+        : { from: "2026-08-14", to: "2026-11-13" },
       items: Array.from({ length: 12 }, (_, index) => ({
         ...pragmata,
         gameId: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
@@ -163,7 +171,7 @@ test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
     }) });
   });
 
-  await page.goto(view === "recent" ? "/?view=recent" : "/?view=upcoming");
+  await page.goto(`/lanzamientos${range}`);
   await expect(page.locator(".release-grid > li")).toHaveCount(12);
   expect(await page.locator(".release-grid").evaluate((grid) =>
     getComputedStyle(grid).gridTemplateColumns.split(" ").length,
@@ -186,12 +194,11 @@ test(`${view} desktop defaults to two rows of six games`, async ({ page }) => {
 });
 }
 
-test("upcoming keeps its compact layout and keyboard filters on a phone", async ({ page }) => {
+test("a future range keeps its compact layout and keyboard filters on a phone", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/v1/releases?*", async (route) => {
     await route.fulfill({ json: releasePage({
-      view: "upcoming",
-      window: { from: "2026-08-13", to: "2027-02-13" },
+      window: { from: "2026-08-14", to: "2026-11-13" },
       items: [{
         ...pragmata,
         releases: [
@@ -205,9 +212,10 @@ test("upcoming keeps its compact layout and keyboard filters on a phone", async 
     }) });
   });
 
-  await page.goto("/?view=upcoming");
-  await expect(page.getByRole("heading", { level: 1, name: "Próximos lanzamientos" })).toBeVisible();
-  await expect(page.locator(".release-period")).toContainText("13 ago 2026 – 13 feb 2027");
+  await page.goto("/lanzamientos?from=2026-08-14&to=2026-11-13");
+  await expect(page.getByRole("heading", { level: 1, name: "Explorar lanzamientos" })).toBeVisible();
+  await openReleaseControls(page);
+  await expect(page.locator(".release-period")).toContainText("14 ago – 13 nov 2026");
   const title = await page.getByRole("heading", { level: 1 }).boundingBox();
   const period = await page.locator(".release-period").boundingBox();
   const platform = await page.getByRole("combobox", { name: /^Plataforma:/ }).boundingBox();
@@ -215,6 +223,13 @@ test("upcoming keeps its compact layout and keyboard filters on a phone", async 
   // The period readout follows the title, beside it or on the next line, never above it.
   expect(period?.y ?? 0).toBeGreaterThanOrEqual(title?.y ?? 0);
   expect(platform?.y).toBe(region?.y);
+  // Both dates share a row; a frame wider than the phone scrolls inside the bar, never the page.
+  const from = await page.getByLabel("Desde").boundingBox();
+  const to = await page.getByLabel("Hasta").boundingBox();
+  expect(from?.y).toBe(to?.y);
+  const days = page.getByRole("toolbar", { name: "Elegir un día del periodo" }).getByRole("button");
+  await expect(days).toHaveCount(92);
+  expect((await days.first().boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(28);
   await expectAccessibleLayout(page);
   await page.getByRole("combobox", { name: /^Región:/ }).focus();
   await page.keyboard.press("ArrowDown");
@@ -225,15 +240,13 @@ test("upcoming keeps its compact layout and keyboard filters on a phone", async 
 });
 
 for (const width of [320, 834, 1320]) {
-  test(`upcoming approximate-date opt-in fits and stays keyboard-operable at ${width}px`, async ({ page }) => {
+  test(`approximate-date opt-in fits and stays keyboard-operable at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.route("**/api/v1/releases?*", async (route) => {
       const approximate =
         new URL(route.request().url()).searchParams.get("includeApproximateDates") === "true";
       await route.fulfill({ json: releasePage({
-        view: "upcoming",
-        window: { from: "2026-08-13", to: "2026-08-20" },
         items: approximate
           ? [{
               ...pragmata,
@@ -250,29 +263,33 @@ for (const width of [320, 834, 1320]) {
       }) });
     });
 
-    await page.goto("/?view=upcoming");
+    await page.goto("/lanzamientos");
+    await openReleaseControls(page);
     const optIn = page.getByRole("checkbox", { name: "Incluir fechas aproximadas" });
     await expect(optIn).toBeVisible();
     await expect(optIn).not.toBeChecked();
     await expect(page.getByText(/No tenemos lanzamientos para estos filtros/)).toBeVisible();
     await expectAccessibleLayout(page);
 
-    const dock = await page.locator(".releases-toolbar").boundingBox();
+    const range = await page.locator(".release-range").boundingBox();
     const option = await page.locator(".release-approximate-option").boundingBox();
+    const toolbar = await page.locator(".releases-toolbar").boundingBox();
     expect(option?.height ?? 0).toBeGreaterThanOrEqual(44);
-    if (width >= 1200) {
-      // Wide screens keep the opt-in on the dock's row.
-      expect(Math.abs((dock?.y ?? 0) + (dock?.height ?? 0) / 2
+    if (width >= 834) {
+      // From tablet width the opt-in stays on the range's row.
+      expect(Math.abs((range?.y ?? 0) + (range?.height ?? 0) / 2
         - (option?.y ?? 0) - (option?.height ?? 0) / 2)).toBeLessThan(2);
     } else {
-      // Narrower screens wrap it below the dock instead of stretching the dock over two rows.
-      expect(option?.y ?? 0).toBeGreaterThanOrEqual((dock?.y ?? 0) + (dock?.height ?? 0));
+      // Phones wrap it below the dates instead of squeezing them.
+      expect(option?.y ?? 0).toBeGreaterThanOrEqual((range?.y ?? 0) + (range?.height ?? 0));
     }
+    // The order and the facets always follow the range and its precision.
+    expect(toolbar?.y ?? 0).toBeGreaterThanOrEqual((option?.y ?? 0) + (option?.height ?? 0));
 
     await optIn.focus();
     await expect(page.locator(".release-approximate-option")).toHaveCSS("outline-style", "solid");
     await page.keyboard.press("Space");
-    await expect(page).toHaveURL(/view=upcoming&weeks=1&includeApproximateDates=true/);
+    await expect(page).toHaveURL(/\/lanzamientos\?includeApproximateDates=true/);
     await expect(optIn).toBeChecked();
     await expect(page.locator(".card-date")).toHaveText("T4 2026");
     await expect(page.getByText("4.º trimestre de 2026")).toBeAttached();
@@ -283,7 +300,7 @@ for (const width of [320, 834, 1320]) {
 test("phone search closes cleanly when the layout widens", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
-  await page.goto("/?view=recent");
+  await page.goto("/lanzamientos");
   await page.getByRole("button", { name: "Buscar juegos" }).click();
   await expect(page.getByRole("dialog", { name: "Buscar juegos" })).toBeVisible();
 
@@ -307,13 +324,14 @@ for (const state of ["loading", "empty", "not-ready", "error"] as const) {
         category: "dependency", correlationId: "visual-check-reference",
       } });
     });
-  await page.goto("/?view=recent&platformIds=windows-pc");
+  await page.goto("/lanzamientos?platformIds=windows-pc");
     if (state === "loading") {
       await expect(page.getByRole("status")).toHaveText("Cargando lanzamientos…");
       await expect(page.getByRole("article")).toHaveCount(0);
       await page.emulateMedia({ reducedMotion: "reduce" });
     } else if (state === "empty") {
       await expect(page.getByRole("heading", { name: "Sin lanzamientos para esta selección" })).toBeVisible();
+      await openReleaseControls(page);
       await expect(page.getByRole("link", { name: "Quitar filtros" })).toHaveCount(2);
     } else if (state === "not-ready") {
       await expect(page.locator(".notice-info")).toHaveAttribute("role", "status");
@@ -342,7 +360,7 @@ for (const width of [320, 390, 834, 1320]) {
       : { authenticated: false } }));
     await page.route("**/api/v1/featured-releases*", (route) => route.fulfill({ status: 503, json: { code: featuredCode } }));
     await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage({
-      view: "upcoming", items: [], page: { number: 1, size: 12, totalItems: 0, totalPages: 0 },
+      items: [], page: { number: 1, size: 12, totalItems: 0, totalPages: 0 },
     }) }));
     const empty = { items: [], page: { number: 1, size: 10, totalItems: 0, totalPages: 0 } };
     await page.route("**/api/v1/games?*", (route) => route.fulfill({ json: empty }));
@@ -364,8 +382,9 @@ for (const width of [320, 390, 834, 1320]) {
     await expect(page.getByText("Aún no tenemos datos válidos de juegos, pero tranquilo que llegarán")).toBeVisible();
     await expect(page.getByText("Puedes usar la búsqueda de juegos")).toBeVisible();
 
-    await page.goto("/?view=upcoming");
+    await page.goto("/lanzamientos");
     await expect(page.getByText("No tenemos lanzamientos para estos filtros, pero afinando la búsqueda seguro que los encontramos")).toBeVisible();
+    await openReleaseControls(page);
     await expect(page.getByRole("checkbox", { name: "Incluir fechas aproximadas" })).not.toBeChecked();
     await expectAccessibleLayout(page);
 

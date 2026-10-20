@@ -8,7 +8,7 @@
 
 | ID       | Operation                           | Actor                 | Required behaviour                                                                                                                                                                                   |
 |----------|-------------------------------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `UC-001` | Browse recent/upcoming releases     | Visitor               | Application derives evaluation date/window; PostgreSQL classifies recent/upcoming from the effective release date against the window (not from a persisted status), then groups the matching releases by game so a result is one game presenting at most one of its view-and-filter-matching releases per platform, and counts, uniquely orders, and pages games; cancelled is excluded from both views and delayed from recent; upcoming shows exact-day releases unless the visitor opts into approximate dates, where TBA sorts last; empty/fallback are valid states |
+| `UC-001` | Explore the releases of a date range | Visitor             | Post-MVP (#285): application derives the evaluation date and validates an inclusive range of at most 92 days, or derives the current Monday-to-Sunday week; PostgreSQL classifies each release against the evaluation date from its effective date (not from a persisted status), then groups the matching releases by game so a result is one game presenting at most one of its range-and-filter-matching releases per platform, and counts, orders by date, Hype or community score, and pages games; cancelled is always excluded and delayed once its day has come; days after today show exact-day releases unless the visitor opts into approximate dates; TBA never belongs to a range; empty/fallback are valid states |
 | `UC-002` | Search bounded catalogue            | Visitor               | Normalize the query once; PostgreSQL matches canonical titles/approved aliases, ranks, counts, uniquely orders and pages; zero/multiple matches are valid; never call provider                       |
 | `UC-003` | View game details                   | Visitor/optional user | Return coherent game/releases/eligibility/aggregate; personal rating is a separate authenticated resource; unavailable aggregate/fallback may degrade a valid page                                   |
 | `UC-009` | Synchronize catalogue from provider | Operator / scheduler  | Synchronize every provider Game in a caller-supplied inclusive release-date interval in one call; page internally; reconcile stable Game and Release references; commit valid Games independently |
@@ -18,18 +18,29 @@
 | `UC-013` | Stop or abandon a catalogue synchronization run | Catalogue operator | Post-MVP (#342): for one run named by its identifier, whatever triggered it, record a stop request its worker honours at its next safe point (before its next provider page or Game), or abandon and fence it only while its heartbeat is older than the abandonment period; committed Games stay, a stopped or abandoned run never records coverage, nothing is retried and schedules do not change; a finished, unknown or still-alive run changes nothing; only a session holding the operator authority, with CSRF proof |
 
 `UC-001` results are grouped by game before pagination: a game appears once and carries,
-of the releases matching the requested view and active filters, only the presented
+of the releases matching the requested range and active filters, only the presented
 release of each platform (see below), so differing platforms stay visible with the
 region, date and date precision of each presented release.
-Upcoming orders releases by date precision first (exact day, then month, quarter, year,
-and finally TBA/unknown), then by effective period, canonical title and `gameId`; recent
-orders by effective period, canonical title and `gameId`; both end in the unique
-`releaseId` tie-breaker. A game is positioned by its first presented release under that
-order, with `gameId` as the final deterministic tie-breaker, and its releases keep the
-same order. Counting and pagination are over games, so `totalItems` counts games. The
-releases grouped under one game are explicitly bounded, so request memory is
-`O(pageSize x releaseGroupLimit)` plus bounded taxonomy; persistent
-filtering/counting/pagination/grouping never occurs over a complete Java snapshot.
+Releases follow one ascending date order: the last day of the effective period (the day
+itself for an exact date), then an exact day before a month, quarter or year ending the
+same day, then the unique `releaseId`. A game is positioned by its first presented
+release under that order, then its case-insensitive canonical title and `gameId`, and
+its releases keep the same order. Post-MVP (#285), the visitor may instead order games
+by Hype, highest first; by the Gameómetro community mean at the one decimal shown,
+highest first and then by more ratings; or by the stored external player score (currently
+IGDB players) at the one decimal of its /10 presentation, highest first and then by more
+of that source's ratings. A game without the chosen signal, including one whose last check
+found no external score, follows every game with one and is never treated as zero, and ties continue with the date order and
+`gameId`. Hype is the locally stored IGDB evidence that `UC-010` ranks with, and its
+value is never exposed; the external player score is Catalogue's own stored evidence
+(#255), read without any provider call. The community mean comes from a Catalogue-owned projection that
+Ratings maintains through a Catalogue application contract inside each rating write
+([ADR-0029](../../decisions/0029-project-community-scores-for-the-release-order.md)), so
+Catalogue never reads Ratings tables and PostgreSQL orders before it pages. Counting
+and pagination are over games, so `totalItems` counts games. The releases grouped under
+one game are explicitly bounded, so request memory is `O(pageSize x releaseGroupLimit)`
+plus bounded taxonomy; persistent filtering/counting/ordering/pagination/grouping never
+occurs over a complete Java snapshot.
 
 Post-MVP (#255 phase 2, implemented; awaiting owner review): discovery enriches only
 its already selected Game IDs (at most one page, or six featured Games) with two
@@ -37,8 +48,9 @@ bounded application batches. Catalogue supplies its phase-1 current external pla
 scores; Ratings supplies its own community summaries. API delivery composes them,
 without Catalogue depending on Ratings or reading its tables. A missing external
 pair is absent; an unavailable community read remains unknown, distinct from zero
-ratings. Work-level scores never change release selection, ranking, pagination or
-rating-write eligibility. Discovery reads call no provider. Validators cover the
+ratings. Work-level scores never change release selection, featured ranking or
+rating-write eligibility, and change the order and pagination only when a visitor
+explicitly orders the release explorer by community or external player score (#285). Discovery reads call no provider. Validators cover the
 complete represented scores and their observation times; stored responses must
 revalidate before reuse, and rating commands invalidate the frontend's discovery
 queries. HTTP caching never expires a persisted score. Presentation follows the
@@ -53,8 +65,7 @@ precedence: a release neither cancelled nor delayed, then a Full Release, then o
 verified evidence, then the most precise date, then Worldwide before a specific region
 before an unconfirmed region, then the context's own date order, and finally a stable
 region order and the unique `releaseId`. Discovery applies it to the matching releases with
-the view's date order (latest first for recent, soonest first for upcoming), so a region
-filter presents that region's own release, while facets and `totalItems` still come from
+the earliest date first, so a region filter presents that region's own release, while facets and `totalItems` still come from
 every matching release. The game page applies it with the earliest date first to each
 platform and to each platform and region: it lists the presented release of every platform
 and region together (#233), and any further records of a combination stay whole behind one
@@ -62,41 +73,44 @@ disclosure. Presentation never deletes, merges or
 rewrites a release and never changes rating eligibility, which still evaluates every
 current release.
 
-Visitors select a fixed 1, 2, or 4 week horizon for either view; both default to one
-week. The application evaluates the inclusive recent range from `today - (7 × weeks - 1)`
-through today and the upcoming range from today through `today + 7 × weeks` in
-`Europe/Madrid`. The upcoming predicate still excludes exact-day releases that have
-already occurred today while preserving #177's partially known periods and TBA
-classification. Changing the horizon resets the page; the URL carries the selection,
-and the returned evaluated range is shown to the visitor. The range is recalculated on
-each request, so a shared URL describes a moving horizon rather than a fixed historical
-interval.
+Post-MVP (#285, implemented; awaiting owner review), one explorer replaces the recent and
+upcoming windows and their fixed 1, 2 or 4 week horizons. The visitor names an inclusive
+range of calendar days, past, future, around today or a single day, of at most 92 days;
+without one the application evaluates the current Monday-to-Sunday week in
+`Europe/Madrid`. Only calendar arithmetic validates a range: one bound without the other,
+an end before the start or a longer range is rejected rather than read. The trusted
+evaluation date splits the range. Up to and including it, a release belongs when it has
+happened: an exact day inside the range, or a month, quarter or year period that has
+ended and overlaps the range, neither cancelled nor delayed. After it, a release belongs
+when it is expected on an exact day inside the range and is not cancelled, so a delayed
+release with a future day stays relevant. A shared range is therefore a fixed interval
+whose classification follows the evaluation date, and the response states the evaluated
+range. Changing the range, order or filters resets the page, and the URL carries every
+choice.
 
-Post-MVP (#214, implemented): upcoming discovery shows only releases with an exact day
-by default. Month, quarter, year and unknown (TBA) releases stay stored unchanged and
-join, each at its own precision and after exact days in the order above, only when the
-visitor explicitly opts in with **Incluir fechas aproximadas**. The choice exists for
-the upcoming view only; recent keeps classifying partial periods that have ended. It
-composes with the week horizon and both filter dimensions because PostgreSQL applies it
-before facets, count, ordering and pagination, so `availableFilters` and `totalItems`
-describe the chosen precision. Changing it resets the page and the URL carries it.
-Precision is the only rule: no platform lifecycle applies, so a future release with an
-accepted exact day stays visible whatever its platform.
+Approximate dates (#214, adjusted by #285): the days from the evaluation date on show
+only exact days by default. With **Incluir fechas aproximadas**, offered only while the
+range reaches beyond today, a month, quarter or year period that has not ended joins when
+it overlaps that part of the range, each at its own precision; it changes nothing for a
+range that ends earlier. No release receives an invented day, and a release with an
+unknown (TBA) date has no period, so it never belongs to a range. PostgreSQL applies the
+choice before facets, count, ordering and pagination, so `availableFilters` and
+`totalItems` describe it. Precision is the only rule: no platform lifecycle applies.
 
 Platform and region filters are multi-select facets: values within one dimension combine
 with `OR` and the two dimensions combine with `AND`. No value selected for a dimension
 means it is unfiltered (`Todas`), which is distinct from selecting the concrete
 `Worldwide` region. `availableFilters` is contextual and faceted, computed in PostgreSQL:
-platform options reflect the current window and the active region selection (never
-narrowed by the active platform set), region options reflect the current window and the
+platform options reflect the current range and the active region selection (never
+narrowed by the active platform set), region options reflect the current range and the
 active platform selection (never narrowed by the active region set), and a currently
 selected valid value always stays representable. A future or historical platform or
-region therefore does not appear in an unrelated current window merely because it exists.
+region therefore does not appear in an unrelated range merely because it exists.
 The wire shape of these parameters and the response lives in
 [`openapi.yaml`](../api/openapi.yaml).
 
 Post-MVP (#151, implemented; #329, implemented and awaiting owner review): `UC-010` is
-the landing view of release discovery, **TOPómetro** (named in #341), beside the recent and upcoming windows under **Lanzamientos**. It
+the landing view of release discovery, **TOPómetro** (named in #341), beside the release explorer under **Lanzamientos** (#285). It
 represents one calendar period, an ISO week from Monday to Sunday or a calendar month, both
 evaluated in `Europe/Madrid`; the URL carries the selection. The frontend opens on the
 current week (owner decision, #329), while a request naming no period still reads the
@@ -117,7 +131,7 @@ qualifies. A candidate also satisfies `FEAT-001`: an accepted import type, no ed
 parent, its own known first release in the period, and positive Hypes. A game whose
 first-release evidence falls in another week than its catalogued day therefore features in
 its month but in no week; nothing assigns it to an invented week. These gates affect
-only featured discovery; normal catalogue, recent and upcoming discovery remain unchanged.
+only featured discovery; the normal catalogue and the release explorer remain unchanged.
 Candidates are ranked by the locally stored popularity signal, currently IGDB Hypes, highest first,
 with the unique `gameId` as the only tie-breaker. A candidate without a signal is not
 ranked and nothing is invented for it; it remains a normal catalogue and discovery

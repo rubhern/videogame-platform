@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: VideoGame Platform Learning MVP API
-  version: 3.17.0
+  version: 4.0.0
   summary: Browser-facing API for the approved learning MVP vertical slice.
   description: |
     Provider-independent, same-origin contract for release discovery, weekly and monthly
@@ -20,7 +20,7 @@ servers:
     description: Same-origin application deployment
 tags:
   - name: Releases
-    description: Public recent and upcoming release discovery.
+    description: Public release exploration over an inclusive date range.
   - name: Featured releases
     description: Public automatic selection of a calendar week's or month's featured releases.
   - name: Catalogue
@@ -41,29 +41,46 @@ paths:
     get:
       tags: [Releases]
       operationId: listReleases
-      summary: Browse recent or upcoming releases grouped by game
+      summary: Explore the releases of an inclusive date range grouped by game
       description: |
-        Reads a bounded page of games from the last valid local catalogue publication. Each
-        game appears once with only the releases that match the requested view and active
-        filters, presenting at most one of them per platform (see `ReleaseItem`);
-        `page.totalItems` counts games, not releases. Platform and region filters are
-        multi-select: values within one dimension combine with OR and the two dimensions combine
-        with AND. `availableFilters` is contextual and faceted: platform options reflect the
-        current view/window and the active region selection (never restricted by the active
-        platform set), region options reflect the current view/window and the active platform
-        selection (never restricted by the active region set), and a currently selected valid
-        value always stays representable. The application derives the evaluation date and the
-        selected bounded week window in `Europe/Madrid`. Upcoming discovery returns only releases
-        with an exact day unless `includeApproximateDates=true` also admits month, quarter, year,
-        and unknown (TBA) precision; the precision choice composes with the window and both filter
-        dimensions, and the facets reflect it. Empty, review-required, imprecise-date, TBA,
-        and fallback-cover results are valid states. PostgreSQL groups by game, applies filters,
-        distinct facet discovery, presented-release selection, total ordering, count, limit, and
-        offset before any release page reaches the application.
+        Reads a bounded page of games from the last valid local catalogue publication whose
+        releases fall in an inclusive date range. Without `from` and `to`, the range is the
+        current calendar week, Monday to Sunday, derived by the application in `Europe/Madrid`;
+        the response states the evaluation date and the evaluated range. Each game appears
+        once with only the releases that match the range and active filters, presenting at most
+        one of them per platform (see `ReleaseItem`); `page.totalItems` counts games, not
+        releases.
+
+        Days up to and including the evaluation date hold what has happened: a release with an
+        exact day inside the range, or with a month, quarter or year period that has ended and
+        overlaps the range, neither cancelled nor delayed. Later days hold what is expected: a
+        release with an exact day inside the range that is not cancelled. A month, quarter or year
+        period that has not ended joins, not cancelled, only with `includeApproximateDates=true`
+        and only when it overlaps the range from the evaluation date on. A release with an unknown
+        (TBA) date never belongs to a range. No release receives an invented day, and each keeps
+        its real precision.
+
+        Platform and region filters are multi-select: values within one dimension combine with
+        OR and the two dimensions combine with AND. `availableFilters` is contextual and
+        faceted: platform options reflect the current range and the active region selection
+        (never restricted by the active platform set), region options reflect the current range
+        and the active platform selection (never restricted by the active region set), and a
+        currently selected valid value always stays representable. `sort` orders the games
+        before pagination, by date, Hype, community score or external player score; every
+        order reads local state only and never calls a provider. Empty, review-required, imprecise-date and fallback-cover results are
+        valid states. PostgreSQL groups by game, applies the range and filters, distinct facet
+        discovery, presented-release selection, total ordering, count, limit, and offset before
+        any release page reaches the application.
+
+        Since 4.0.0, `from`, `to` and `sort` replace the `view` and `weeks` parameters, which are
+        now unknown parameters, and the response no longer carries `view`. Migration: a former
+        recent window is `to` = today with `from` 7 × weeks − 1 days earlier, a former upcoming
+        window runs from today; the order is now one ascending date order whatever the range.
       security: []
       parameters:
-        - $ref: '#/components/parameters/ReleaseView'
-        - $ref: '#/components/parameters/ReleaseWeeks'
+        - $ref: '#/components/parameters/ReleaseFrom'
+        - $ref: '#/components/parameters/ReleaseTo'
+        - $ref: '#/components/parameters/ReleaseSort'
         - $ref: '#/components/parameters/ReleaseIncludeApproximateDates'
         - $ref: '#/components/parameters/PlatformIdsQuery'
         - $ref: '#/components/parameters/RegionIdsQuery'
@@ -81,13 +98,14 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ReleasePage' }
               examples:
-                upcoming:
+                currentWeek:
                   summary: One game grouping several matching releases with differing dates
-                  description: Default upcoming discovery returns only releases with an exact day.
+                  description: |
+                    The default range is the current week. Without the opt-in, its days after the
+                    evaluation date show only releases with an exact day.
                   value:
-                    view: upcoming
-                    evaluatedOn: '2026-07-31'
-                    window: { from: '2026-07-31', to: '2026-08-07' }
+                    evaluatedOn: '2026-08-05'
+                    window: { from: '2026-08-03', to: '2026-08-09' }
                     activeFilters: { platformIds: [], regionIds: [] }
                     availableFilters:
                       platforms:
@@ -137,16 +155,15 @@ paths:
                             verificationLevel: provider_only
                             reviewStatus: not_required
                     page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
-                upcomingWithApproximateDates:
+                withApproximateDates:
                   summary: Opted-in approximate dates keep their real precision
                   description: |
-                    Requested with `includeApproximateDates=true`. Month, quarter, year, and unknown
-                    (TBA) precision follow exact days in the upcoming order and are never narrowed
-                    to an invented day.
+                    Requested with `from=2026-08-03&to=2026-08-09&includeApproximateDates=true`. A
+                    month that has not ended joins beside exact days, after them in the date order,
+                    and is never narrowed to an invented day.
                   value:
-                    view: upcoming
-                    evaluatedOn: '2026-07-31'
-                    window: { from: '2026-07-31', to: '2026-08-07' }
+                    evaluatedOn: '2026-08-05'
+                    window: { from: '2026-08-03', to: '2026-08-09' }
                     activeFilters: { platformIds: [], regionIds: [] }
                     availableFilters:
                       platforms:
@@ -195,36 +212,12 @@ paths:
                             providerUpdatedAt: '2026-07-25T08:10:00Z'
                             verificationLevel: provider_only
                             reviewStatus: not_required
-                      - gameId: game_example_tba
-                        slug: juego-por-confirmar
-                        canonicalTitle: Juego por confirmar
-                        primaryCover:
-                          kind: fallback
-                          url: /assets/covers/fallback.svg
-                          alternativeText: Portada oficial no disponible
-                          attribution: null
-                        releases:
-                          - releaseId: release_example_tba_win_ww
-                            stage: unknown
-                            gameId: game_example_tba
-                            platform: { platformId: platform_win, name: Windows PC }
-                            region: { regionId: region_worldwide, name: Mundial }
-                            releaseDate: { precision: unknown, value: null }
-                            status: announced
-                            provenance:
-                              sourceKind: external_provider
-                              sourceName: IGDB
-                              sourceEntityType: release
-                            providerUpdatedAt: '2026-07-25T08:10:00Z'
-                            verificationLevel: provider_only
-                            reviewStatus: not_required
-                    page: { number: 1, size: 20, totalItems: 2, totalPages: 1 }
+                    page: { number: 1, size: 20, totalItems: 1, totalPages: 1 }
                 fallbackCover:
                   summary: Last valid local data remains usable with a fallback cover
                   value:
-                    view: recent
                     evaluatedOn: '2026-07-31'
-                    window: { from: '2026-07-25', to: '2026-07-31' }
+                    window: { from: '2026-07-27', to: '2026-08-02' }
                     activeFilters: { platformIds: [], regionIds: [] }
                     availableFilters:
                       platforms:
@@ -260,9 +253,8 @@ paths:
                 empty:
                   summary: No release matches the active filters
                   value:
-                    view: upcoming
                     evaluatedOn: '2026-07-31'
-                    window: { from: '2026-07-31', to: '2026-08-07' }
+                    window: { from: '2026-08-01', to: '2026-08-31' }
                     activeFilters: { platformIds: [platform_ps5], regionIds: [region_europe] }
                     availableFilters:
                       platforms:
@@ -1536,29 +1528,42 @@ components:
       description: Opaque, provider-independent product game identifier.
       schema: { $ref: '#/components/schemas/GameId' }
       example: game_example
-    ReleaseView:
-      name: view
-      in: query
-      required: true
-      schema: { $ref: '#/components/schemas/ReleaseView' }
-      example: upcoming
-    ReleaseWeeks:
-      name: weeks
+    ReleaseFrom:
+      name: from
       in: query
       required: false
-      description: Fixed browsing horizon in weeks; defaults to one week for both views. The response reports the evaluated inclusive dates.
-      schema: { type: integer, enum: [1, 2, 4], default: 1 }
-      example: 2
+      description: |
+        First day of the inclusive release-date range, an ISO calendar date. Send it together
+        with `to`; omit both for the current calendar week, Monday to Sunday in `Europe/Madrid`.
+        Sending only one of them yields 422 `FILTER_INVALID` for the missing one.
+      schema: { type: string, format: date }
+      example: '2026-08-01'
+    ReleaseTo:
+      name: to
+      in: query
+      required: false
+      description: |
+        Last day of the inclusive range. It must not precede `from`, and the range spans at most
+        92 days; otherwise the request yields 422 `FILTER_INVALID` for `/query/to`. A range may
+        lie in the past, in the future or around the evaluation date, and may be a single day.
+      schema: { type: string, format: date }
+      example: '2026-08-31'
+    ReleaseSort:
+      name: sort
+      in: query
+      required: false
+      schema: { $ref: '#/components/schemas/ReleaseSort' }
+      example: hype
     ReleaseIncludeApproximateDates:
       name: includeApproximateDates
       in: query
       required: false
       description: |
-        Upcoming-only opt-in. Omitted or `false`, `view=upcoming` returns only releases with an
-        exact day (`day` precision). `true` also returns month, quarter, year, and unknown (TBA)
-        precision releases; each keeps its real precision and follows exact days in the upcoming
-        order. Recent discovery is unchanged and always includes known partial periods that have
-        ended, so `true` combined with `view=recent` yields 422 `FILTER_INVALID`.
+        Opt-in for the part of the range from the evaluation date on. Omitted or `false`, a
+        release there appears only with an exact day. `true` also admits a month, quarter or year
+        period that has not ended and overlaps that part; each keeps its real precision. Unknown
+        (TBA) dates never join. Days before the evaluation date are unaffected, so the value
+        changes nothing for a range that ends before it.
       schema: { type: boolean, default: false }
       example: true
     FeaturedGranularity:
@@ -1773,11 +1778,25 @@ components:
       example: 60
 
   schemas:
-    ReleaseView:
+    ReleaseSort:
       type: string
-      enum: [recent, upcoming]
+      enum: [releaseDate, hype, rating, externalPlayerScore]
+      default: releaseDate
       # Keep Spring's generated enum identifiers identical to the accepted query values.
-      x-enum-varnames: [recent, upcoming]
+      x-enum-varnames: [releaseDate, hype, rating, externalPlayerScore]
+      description: |
+        The order of the games, applied before pagination; every order ends in the unique
+        `gameId`. `releaseDate` is ascending by each game's first presented release: the last
+        day of its known period (the day itself for an exact date), an exact day before a month,
+        quarter or year period ending the same day, then the case-insensitive canonical title.
+        `hype` puts the highest locally stored IGDB Hypes first, the popularity signal
+        TOPómetro ranks with, whose value is never exposed. `rating` puts the highest
+        Gameómetro community mean, at the one decimal shown, first, then the larger number of
+        ratings. `externalPlayerScore` puts the highest locally stored external player score
+        (currently IGDB players), at the one decimal of its /10 `ExternalPlayerScore` value,
+        first, then the larger number of that source's ratings. A game without the chosen
+        signal follows every game with one and is never treated as zero; ties continue with the
+        `releaseDate` order.
 
     GameId:
       type: string
@@ -2115,17 +2134,17 @@ components:
           items: { $ref: '#/components/schemas/Release' }
       description: |
         One game and its presented releases: among the releases of that game that match the
-        requested view and active filters, at most one per platform. When several matching
+        requested range and active filters, at most one per platform. When several matching
         releases share a platform, the presentation precedence chooses one: a release that is
         neither cancelled nor delayed, then a Full Release, then one not pending review, then verified evidence,
         then the most precise date, then Worldwide before a specific region before an
-        unconfirmed region, then the view's own date order (latest first for recent, soonest
-        first for upcoming), and finally a stable region order and `releaseId`. The other
+        unconfirmed region, then the earliest date, and finally a stable region order and
+        `releaseId`. The other
         matching releases of that platform are neither merged nor deleted: they stay stored and
         listed in the game details, and a region filter presents that region's own release.
         Presented releases keep their own platform, region, date, and date precision. Releases
-        are ordered by the UC-001 release ordering, and the first release drives the game's
-        position.
+        follow the `releaseDate` order of `ReleaseSort`, ending in `releaseId`, and the first
+        release positions the game under that order.
     ActiveFilters:
       type: object
       required: [platformIds, regionIds]
@@ -2386,11 +2405,15 @@ components:
       unevaluatedProperties: false
     ReleasePage:
       type: object
-      required: [view, evaluatedOn, window, activeFilters, availableFilters, items, page]
+      required: [evaluatedOn, window, activeFilters, availableFilters, items, page]
       properties:
-        view: { $ref: '#/components/schemas/ReleaseView' }
-        evaluatedOn: { type: string, format: date }
-        window: { $ref: '#/components/schemas/ReleaseWindow' }
+        evaluatedOn:
+          type: string
+          format: date
+          description: Today in `Europe/Madrid`, which splits the range into days that have happened and days to come.
+        window:
+          $ref: '#/components/schemas/ReleaseWindow'
+          description: The evaluated inclusive range, the requested one or the current week.
         activeFilters: { $ref: '#/components/schemas/ActiveFilters' }
         availableFilters: { $ref: '#/components/schemas/AvailableFilters' }
         items:
@@ -3100,7 +3123,10 @@ components:
           examples:
             mediaTypeUnsupported: { $ref: '#/components/examples/MediaTypeUnsupported' }
     ReleaseValidationFailed:
-      description: Release filters, pagination, or request parameters are invalid.
+      description: |
+        The date range, order, filters, pagination or request parameters are invalid: one range
+        bound without the other, an end before the start, a range longer than 92 days, an
+        unsupported sort, an unknown platform or region, or an unknown parameter.
       headers:
         X-Correlation-ID: { $ref: '#/components/headers/XCorrelationId' }
         Cache-Control: { $ref: '#/components/headers/NoStoreCacheControl' }
@@ -3111,6 +3137,7 @@ components:
             filterInvalid: { $ref: '#/components/examples/FilterInvalid' }
             platformNotSupported: { $ref: '#/components/examples/PlatformNotSupported' }
             regionNotSupported: { $ref: '#/components/examples/RegionNotSupported' }
+            sortInvalid: { $ref: '#/components/examples/SortInvalid' }
             paginationInvalid: { $ref: '#/components/examples/PaginationInvalid' }
             parameterUnknown: { $ref: '#/components/examples/RequestParameterUnknown' }
     FeaturedReleaseValidationFailed:
@@ -3490,7 +3517,7 @@ components:
         type: urn:videogame-platform:problem:filter-invalid
         title: Release filter is invalid
         status: 422
-        detail: Correct the release view or filter combination.
+        detail: Correct the release range or filter combination.
         instance: urn:videogame-platform:problem-instance:opaque
         code: FILTER_INVALID
         category: validation

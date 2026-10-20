@@ -54,6 +54,15 @@ class CatalogueModuleConfiguration {
     }
 
     @Bean
+    com.videogameplatform.catalogue.application.releases.RecordCommunityScoresUseCase
+            recordCommunityScores(
+                    com.videogameplatform.catalogue.application.releases.port.CommunityScoreStore
+                            store) {
+        return new com.videogameplatform.catalogue.application.releases.internal
+                .CommunityScoreService(store);
+    }
+
+    @Bean
     ReleaseBrowsePolicy releaseBrowsePolicy(CatalogueReleaseProperties properties) {
         return new ReleaseBrowsePolicy(properties.releaseGroupLimit());
     }

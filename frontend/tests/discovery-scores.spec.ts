@@ -154,7 +154,7 @@ for (const width of [320, 390, 834, 1320]) {
       await expectCompactReflow(scores);
     }
     await page.screenshot({ path: `test-results/discovery-scores-fixture-${width}.png`, fullPage: true });
-    await page.goto("/?view=upcoming");
+    await page.goto("/lanzamientos");
     const compact = page.locator(".release-card .discovery-scores").first();
     await expect(compact).toBeVisible();
     const card = page.locator(".release-card").first();

@@ -1,15 +1,14 @@
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 
-import { readDiscoveryView } from "../features/releases/releases-search";
+import { legacyReleasesPath } from "../features/releases/releases-search";
 import { FeaturedReleasesPage } from "./featured-releases-page";
-import { ReleasesPage } from "./releases-page";
 
-/** The landing route: TOPómetro by default, or the release list its `view` names (#151). */
+/**
+ * The landing route is TOPómetro (#151, #341). A link from before #285 that named a recent or
+ * upcoming list lands on the release explorer instead, keeping the filters it carried.
+ */
 export function DiscoveryPage() {
   const [searchParams] = useSearchParams();
-  return readDiscoveryView(searchParams) === "featured" ? (
-    <FeaturedReleasesPage />
-  ) : (
-    <ReleasesPage />
-  );
+  const legacy = legacyReleasesPath(searchParams);
+  return legacy === null ? <FeaturedReleasesPage /> : <Navigate replace to={legacy} />;
 }

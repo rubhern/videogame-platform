@@ -35,7 +35,7 @@ for (const width of [320, 390, 834, 1320]) {
         : { authenticated: false } });
     });
     await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
-    await page.goto("/?view=recent");
+    await page.goto("/lanzamientos");
 
     const trigger = page.getByRole("button", { name: "Mi cuenta" });
     await expect(trigger).toBeVisible();
@@ -81,7 +81,7 @@ for (const width of [620, 667, 834]) {
     await page.setViewportSize({ width, height: 900 });
     await page.route("**/api/v1/session", (route) => route.fulfill({ json: { authenticated: false } }));
     await page.route("**/api/v1/releases?*", (route) => route.fulfill({ json: releasePage() }));
-    await page.goto("/?view=recent");
+    await page.goto("/lanzamientos");
 
     const signin = page.getByRole("link", { name: "Iniciar sesión", exact: true });
     await expect(signin).toBeVisible();

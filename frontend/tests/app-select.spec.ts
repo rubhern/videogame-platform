@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { analyzeAccessibility } from "./fixtures/accessibility";
-import { pragmata, releasePage } from "./fixtures/releases";
+import { pragmata, releasePage, openReleaseControls } from "./fixtures/releases";
 
 test("release filters open from the full trigger and show tinted platform icons", async ({ page }) => {
   test.skip(
@@ -21,7 +21,8 @@ test("release filters open from the full trigger and show tinted platform icons"
     },
   }) }));
 
-  await page.goto("/?view=recent");
+  await page.goto("/lanzamientos");
+  await openReleaseControls(page);
   const trigger = page.getByRole("combobox", { name: /^Plataforma:/ });
   await expect(trigger).toBeVisible();
   const box = await trigger.boundingBox();

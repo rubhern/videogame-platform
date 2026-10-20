@@ -5,7 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.videogameplatform.api.delivery.catalogue.release.ReleaseController;
 import com.videogameplatform.api.generated.model.ProblemCode;
-import com.videogameplatform.api.generated.model.ReleaseView;
+import com.videogameplatform.api.generated.model.ReleaseSort;
+import java.time.LocalDate;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -22,7 +23,7 @@ class StrictQueryParameterInterceptorTest {
     void derivesAllowedParametersFromTheResolvedHandlerRegardlessOfRequestUri() {
         MockHttpServletRequest request =
                 new MockHttpServletRequest("GET", "/routed-prefix/releases");
-        request.addParameter("view", "recent");
+        request.addParameter("from", "2026-08-01");
         request.addParameter("page", "1");
 
         assertThatCode(
@@ -36,7 +37,7 @@ class StrictQueryParameterInterceptorTest {
     void rejectsUnknownParametersForTheResolvedHandlerRegardlessOfRequestUri() {
         MockHttpServletRequest request =
                 new MockHttpServletRequest("GET", "/routed-prefix/releases");
-        request.addParameter("view", "recent");
+        request.addParameter("from", "2026-08-01");
         request.addParameter("unexpected", "true");
 
         assertThatThrownBy(
@@ -55,7 +56,7 @@ class StrictQueryParameterInterceptorTest {
     void allowsRepeatedValuesForMultiSelectArrayParameters() {
         MockHttpServletRequest request =
                 new MockHttpServletRequest("GET", "/routed-prefix/releases");
-        request.addParameter("view", "recent");
+        request.addParameter("from", "2026-08-01");
         request.addParameter("platformIds", "platform-a", "platform-b");
         request.addParameter("regionIds", "region-a", "region-b");
 
@@ -70,7 +71,7 @@ class StrictQueryParameterInterceptorTest {
     void stillRejectsRepeatedScalarParameters() {
         MockHttpServletRequest request =
                 new MockHttpServletRequest("GET", "/routed-prefix/releases");
-        request.addParameter("view", "recent", "upcoming");
+        request.addParameter("from", "2026-08-01", "2026-08-02");
 
         assertThatThrownBy(
                         () ->
@@ -89,7 +90,7 @@ class StrictQueryParameterInterceptorTest {
         for (String accepted : new String[] {"true", "false"}) {
             MockHttpServletRequest request =
                     new MockHttpServletRequest("GET", "/routed-prefix/releases");
-            request.addParameter("view", "upcoming");
+            request.addParameter("from", "2026-08-01");
             request.addParameter("includeApproximateDates", accepted);
 
             assertThatCode(
@@ -101,7 +102,7 @@ class StrictQueryParameterInterceptorTest {
         for (String rejected : new String[] {"yes", "1", "TRUE", ""}) {
             MockHttpServletRequest request =
                     new MockHttpServletRequest("GET", "/routed-prefix/releases");
-            request.addParameter("view", "upcoming");
+            request.addParameter("from", "2026-08-01");
             request.addParameter("includeApproximateDates", rejected);
 
             assertThatThrownBy(
@@ -120,6 +121,47 @@ class StrictQueryParameterInterceptorTest {
         }
     }
 
+    @Test
+    void reportsAnUnsupportedOrderAsASortProblem() {
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("GET", "/routed-prefix/releases");
+        request.addParameter("sort", "popularity");
+
+        assertThatThrownBy(
+                        () ->
+                                interceptor.preHandle(
+                                        request, new MockHttpServletResponse(), releaseHandler))
+                .isInstanceOf(ApiRequestException.class)
+                .satisfies(
+                        exception -> {
+                            ApiRequestException problem = (ApiRequestException) exception;
+                            org.assertj.core.api.Assertions.assertThat(problem.code())
+                                    .isEqualTo(ProblemCode.SORT_INVALID);
+                            org.assertj.core.api.Assertions.assertThat(problem.pointer())
+                                    .isEqualTo("/query/sort");
+                        });
+    }
+
+    @Test
+    void rejectsTheRetiredViewAndWeeksParameters() {
+        for (String retired : new String[] {"view", "weeks"}) {
+            MockHttpServletRequest request =
+                    new MockHttpServletRequest("GET", "/routed-prefix/releases");
+            request.addParameter(retired, "1");
+
+            assertThatThrownBy(
+                            () ->
+                                    interceptor.preHandle(
+                                            request, new MockHttpServletResponse(), releaseHandler))
+                    .isInstanceOf(ApiRequestException.class)
+                    .satisfies(
+                            exception ->
+                                    org.assertj.core.api.Assertions.assertThat(
+                                                    ((ApiRequestException) exception).code())
+                                            .isEqualTo(ProblemCode.REQUEST_PARAMETER_UNKNOWN));
+        }
+    }
+
     private static HandlerMethod releaseHandler() {
         try {
             ReleaseController controller =
@@ -128,8 +170,9 @@ class StrictQueryParameterInterceptorTest {
                     controller,
                     ReleaseController.class.getMethod(
                             "listReleases",
-                            ReleaseView.class,
-                            Integer.class,
+                            LocalDate.class,
+                            LocalDate.class,
+                            ReleaseSort.class,
                             Boolean.class,
                             Set.class,
                             Set.class,

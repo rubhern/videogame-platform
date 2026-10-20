@@ -1,14 +1,13 @@
 package com.videogameplatform.api.delivery.catalogue.release;
 
-import com.videogameplatform.api.delivery.ApiRequestException;
 import com.videogameplatform.api.delivery.ConditionalRequestSupport;
 import com.videogameplatform.api.delivery.catalogue.DiscoveryScoresReader;
 import com.videogameplatform.api.generated.ReleasesApi;
-import com.videogameplatform.api.generated.model.ProblemCode;
 import com.videogameplatform.api.generated.model.ReleasePage;
-import com.videogameplatform.api.generated.model.ReleaseView;
+import com.videogameplatform.api.generated.model.ReleaseSort;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesResult;
 import com.videogameplatform.catalogue.application.releases.BrowseReleasesUseCase;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 import org.springframework.http.HttpHeaders;
@@ -45,26 +44,23 @@ public class ReleaseController implements ReleasesApi {
 
     @Override
     public ResponseEntity<ReleasePage> listReleases(
-            ReleaseView view,
-            Integer weeks,
+            LocalDate from,
+            LocalDate to,
+            ReleaseSort sort,
             Boolean includeApproximateDates,
             Set<String> platformIds,
             Set<String> regionIds,
             Integer page,
             Integer pageSize,
             String ifNoneMatch) {
-        // The opt-in widens upcoming discovery only; recent has no exact-only default to widen.
-        boolean approximateDates = Boolean.TRUE.equals(includeApproximateDates);
-        if (approximateDates && view == ReleaseView.recent) {
-            throw new ApiRequestException(
-                    ProblemCode.FILTER_INVALID, "/query/includeApproximateDates");
-        }
+        ReleaseSort order = sort == null ? ReleaseSort.releaseDate : sort;
         BrowseReleasesResult result =
                 useCase.browse(
                         new BrowseReleasesUseCase.Query(
-                                toApplicationView(view),
-                                weeks,
-                                approximateDates,
+                                from,
+                                to,
+                                toApplicationSort(order),
+                                Boolean.TRUE.equals(includeApproximateDates),
                                 toList(platformIds),
                                 toList(regionIds),
                                 page,
@@ -87,7 +83,7 @@ public class ReleaseController implements ReleasesApi {
             return ResponseEntity.status(304).headers(headers).build();
         }
 
-        metrics.recordResult(view.getValue(), body.getItems().size());
+        metrics.recordResult(order.getValue(), body.getItems().size());
         return ResponseEntity.ok().headers(headers).body(body);
     }
 
@@ -95,10 +91,12 @@ public class ReleaseController implements ReleasesApi {
         return values == null ? List.of() : List.copyOf(values);
     }
 
-    private static BrowseReleasesUseCase.View toApplicationView(ReleaseView view) {
-        return switch (view) {
-            case recent -> BrowseReleasesUseCase.View.RECENT;
-            case upcoming -> BrowseReleasesUseCase.View.UPCOMING;
+    private static BrowseReleasesUseCase.Sort toApplicationSort(ReleaseSort sort) {
+        return switch (sort) {
+            case releaseDate -> BrowseReleasesUseCase.Sort.RELEASE_DATE;
+            case hype -> BrowseReleasesUseCase.Sort.HYPE;
+            case rating -> BrowseReleasesUseCase.Sort.RATING;
+            case externalPlayerScore -> BrowseReleasesUseCase.Sort.EXTERNAL_PLAYER_SCORE;
         };
     }
 }
