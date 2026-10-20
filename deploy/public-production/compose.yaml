@@ -51,6 +51,8 @@ services:
     logging: *bounded-logging
 
   postgres:
+    entrypoint: ["/opt/gameometro/bin/run-postgres"]
+    command: ["postgres"]
     image: postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382
     # The entrypoint changes ownership and drops to the postgres user, so it keeps the
     # default capability set; it publishes nothing and joins only the data networks.
@@ -72,6 +74,7 @@ services:
     group_add:
       - ${PRODUCTION_SECRETS_GID:?Set PRODUCTION_SECRETS_GID in runtime.env}
     volumes:
+      - ./bin/run-postgres:/opt/gameometro/bin/run-postgres:ro
       - postgres-data:/var/lib/postgresql/18/docker
       # The shared, environment-neutral database and role bootstrap, read-only.
       - ../../docker/postgres/init:/docker-entrypoint-initdb.d:ro

@@ -93,6 +93,7 @@ SHARED_MOUNTS = {
     ROOT / "deploy/private-dev/bin/run-migrations",
 }
 ENTRYPOINT_WRAPPERS = (
+    RUNTIME / "bin/run-postgres",
     RUNTIME / "bin/run-keycloak",
     ROOT / "deploy/private-dev/bin/run-application",
     ROOT / "deploy/private-dev/bin/run-migrations",

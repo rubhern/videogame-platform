@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Docker's postgres entrypoint uses gosu, which discards Compose group_add. Read the
+# role secrets before that privilege drop; the shared bootstrap already accepts the
+# environment form. Values never enter container metadata, arguments or logs.
+set -Eeuo pipefail
+for variable in APPLICATION_DB_PASSWORD APPLICATION_MIGRATION_DB_PASSWORD KEYCLOAK_DB_PASSWORD; do
+  file_variable="${variable}_FILE"
+  secret_file="${!file_variable:?Required secret-file input is missing}"
+  [[ -r "$secret_file" ]] || { printf 'Required secret file is unreadable: %s\n' "$file_variable" >&2; exit 1; }
+  secret_value="$(<"$secret_file")"
+  [[ -n "$secret_value" ]] || { printf 'Required secret file is empty: %s\n' "$file_variable" >&2; exit 1; }
+  printf -v "$variable" '%s' "$secret_value"
+  export "$variable"
+  unset "$file_variable" secret_value
+done
+exec /usr/local/bin/docker-entrypoint.sh postgres

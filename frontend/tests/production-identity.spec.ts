@@ -16,8 +16,9 @@ const ratedGame = "30000000-0000-4000-8000-000000000005";
 const keycloakCookies = new Set(["AUTH_SESSION_ID", "KC_AUTH_SESSION_HASH", "KC_RESTART", "KEYCLOAK_IDENTITY", "KEYCLOAK_LOCALE", "KEYCLOAK_SESSION"]);
 
 test.skip(!identityOrigin || !mailpitOrigin, "The production identity topology is not active.");
-// The test CA is trusted by the services, not by this browser; scheme and origins stay HTTPS.
-test.use({ ignoreHTTPSErrors: true });
+// The runtime exercise installs its disposable CA in the browser trust store.
+// The older identity-only harness retains its existing synthetic-origin behaviour.
+test.use({ ignoreHTTPSErrors: process.env.PRODUCTION_RUNTIME_TRUSTED_TLS !== "true" });
 test.describe.configure({ mode: "serial" });
 
 interface CookieRecord {
@@ -89,7 +90,7 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await record(first, page, "signed in after verification");
   const [cookie] = await first.cookies(applicationOrigin);
   expect(await first.cookies(applicationOrigin)).toHaveLength(1);
-  expect(cookie).toMatchObject({ name: sessionCookie, domain: "gameometro.test", path: "/", expires: -1, httpOnly: true, secure: true, sameSite: "Lax" });
+  expect(cookie).toMatchObject({ name: sessionCookie, domain: new URL(applicationOrigin).hostname, path: "/", expires: -1, httpOnly: true, secure: true, sameSite: "Lax" });
   expect(cookie?.value.split(".")).not.toHaveLength(3);
   expect(await browserState(page)).toEqual({ origin: applicationOrigin, documentCookie: [], localStorage: 0, sessionStorage: 0, indexedDb: 0 });
 
@@ -139,6 +140,17 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   await expect(other).toHaveURL(`${applicationOrigin}/`);
   expect(await other.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(404);
   expect(await page.evaluate(async (game) => (await fetch(`/api/v1/me/ratings/${game}`)).status, ratedGame)).toBe(200);
+  const otherSession = await sessionState(other);
+  expect(await other.evaluate(async ({ game, token }) => (await fetch(`/api/v1/me/ratings/${game}?userId=forged-owner`, {
+    method: "PUT", credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "If-None-Match": "*", "X-CSRF-Token": token },
+    body: JSON.stringify({ value: 3 }),
+  })).status, { game: ratedGame, token: otherSession.csrfToken ?? "" })).toBe(201);
+  expect(await page.evaluate(async (game) => (await (await fetch(`/api/v1/me/ratings/${game}`)).json()).value, ratedGame)).toBe(7);
+  const otherRating = await other.request.get(`/api/v1/me/ratings/${ratedGame}`);
+  expect(await other.evaluate(async ({ game, token, version }) => (await fetch(`/api/v1/me/ratings/${game}`, {
+    method: "DELETE", credentials: "same-origin", headers: { "X-CSRF-Token": token, "If-Match": version },
+  })).status, { game: ratedGame, token: otherSession.csrfToken ?? "", version: otherRating.headers()["etag"] ?? "" })).toBe(200);
   await second.close();
 
   await page.getByRole("button", { name: "Mi cuenta" }).click();
@@ -159,6 +171,14 @@ test("registration, session, CSRF, ownership and logout keep tokens out of the b
   expect(identityAfterLogout).not.toContain("KEYCLOAK_SESSION");
   await page.goto("/auth/start");
   await expect(page.locator("#kc-form-login")).toBeVisible();
+  const oldSession = await request.get(`${applicationOrigin}/api/v1/session`, { headers: { Cookie: `${sessionCookie}=${cookie?.value}` } });
+  expect(await oldSession.json()).toMatchObject({ authenticated: false });
+  await page.locator("#username").fill(email);
+  await page.locator("#password").fill(password);
+  await page.locator("#kc-login").click();
+  await expect(page).toHaveURL(`${applicationOrigin}/`);
+  expect(await sessionState(page)).toMatchObject({ authenticated: true });
+  await record(first, page, "password login after logout");
   await first.close();
 });
 
