@@ -188,7 +188,7 @@ dedicated Playwright container, so Node.js is not a host prerequisite.
 ## Gameómetro identity theme
 
 Post-MVP (#162), the Keycloak image packages `docker/keycloak/themes/gameometro`
-and copies the canonical frontend brand, fonts and night artwork at build time.
+and copies the canonical frontend brand files and Mona Sans at build time.
 Both Compose build contexts are the repository root. The
 [frontend design guidelines](../../docs/development/frontend-design.md) own its visual
 rules; inherited Keycloak templates retain credential handling and account-flow logic.

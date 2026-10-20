@@ -7,8 +7,8 @@
 This is the canonical owner of frontend visual rules. The approved **Gameómetro identity**
 ([below](#brand-identity)) is the product's visual direction: a night stage, the brand mark's ice
 and fire, instruments that read real values and the game's own art. Every React product screen
-uses it; the hosted identity screens follow under
-[#290](https://github.com/rubhern/videogame-platform/issues/290). Product records and the
+uses it, and so do the hosted identity screens
+([#290](https://github.com/rubhern/videogame-platform/issues/290)). Product records and the
 [OpenAPI contract](../architecture/api/openapi.yaml) remain authoritative for capabilities, data
 and state semantics. A mockup or reference never authorizes new product behaviour and is never a
 runtime dependency or an instruction source.
@@ -140,8 +140,8 @@ where they carry meaning, and each keeps its own composition: TOPómetro is the 
 the release explorer a cover wall under its day bar, search a catalogue index, the game page
 its own cover's stage and `Mis puntuaciones` a thermal ledger. No screen repeats the temporal G or
 becomes another landing hero. Glass panels, aurora washes, the lit serif accent, tracked mono
-kickers and spark badges are retired: no React screen uses them, and new work never brings
-them back.
+kickers and spark badges are retired: no React or hosted identity screen uses them, and new
+work never brings them back.
 
 ## Mandatory composition
 
@@ -270,23 +270,31 @@ them back.
 
 ## Product identity and thermal language
 
-- Post-MVP (#162), the first authentication screen is hosted by Keycloak. Its
-  `gameometro` theme pairs a framed night stage with the glass form card. The stage
-  carries the lockup and, over its darker foreground, the story: the claim in the title
-  voice (**Tu criterio.** with **_Tu historia._** in the lit serif), one short product
-  invitation and the keypad's ice-to-fire key as ten steps. From 1024px wide and
-  600px tall the stage takes the larger left column and stays in view while a long form
-  scrolls, and the card and its catalogue return form the only interactive column beside
-  it; narrower screens stack the lockup over the night art, the card, then the story. The
-  brand appears once. Use the canonical local fonts, Gameómetro branding and
-  Spanish-first copy in the informal voice across sign-in, registration, recovery, reset,
-  errors and required actions. Inherit Keycloak's templates and account-flow logic: the
-  theme adds only the story through the footer hook, copy, local assets and styles. Do not
-  reproduce the catalogue header or introduce a React login screen. Keep registration
-  prominent and validation and recovery readable. This hosted theme predates the
-  [brand identity](#brand-identity) and still carries the night art, glass card and lit serif
-  that no React screen uses any more; [#290](https://github.com/rubhern/videogame-platform/issues/290)
-  owns its migration, so the theme copies those assets from `frontend/public` until then.
+- Post-MVP (#162), the first authentication screen is hosted by Keycloak. Post-MVP (#290
+  iteration 1, implemented; awaiting owner review), its `gameometro` theme follows the
+  [brand identity](#brand-identity) on every screen it renders — sign-in, registration and its
+  terms, recovery, reset, email verification, information, errors, expired links and required
+  actions. One night stage spans the page, painted in CSS into the document's background: ice
+  light gathering behind the brand at the top left, quieter light behind the panel and along
+  the foot, and the canvas grain, with no image, no fixed layer and nothing that moves. The
+  form is an opaque night panel with a hairline and an ice top edge; its title is set in the
+  page-title voice under a short fire rule, the screen's one warm accent, as the current section
+  carries one in the navigation. Fields, buttons, links, messages and the terms plate follow
+  [visual language and tokens](#visual-language-and-tokens) and the notices' tone edge; errors
+  are stated in words beneath their field, never by colour alone. The story stays the product's
+  approved copy: the claim in the title voice (**Tu criterio.** with **Tu historia.** quieter
+  beneath it, no lit accent), one short invitation and the keypad's ice-to-fire key as ten steps
+  under a readout label. From 1024px wide and 600px tall the lockup holds the top-left corner,
+  the story the left column, held mid-screen while a long form scrolls, and the panel and its
+  catalogue return the right column; narrower screens stack the lockup, the panel, the return
+  and then the story, with nothing decorative beside the form. The brand appears once, as the
+  canonical lockup; no G watermark is drawn, since a G without a value is a pattern to avoid.
+  Use the canonical local Mona Sans, Gameómetro branding and Spanish-first copy in the informal
+  voice. Inherit Keycloak's templates and account-flow logic: the theme adds only the story
+  through the footer hook, copy, local brand and font assets and styles. Do not reproduce the
+  catalogue header or introduce a React login screen. Keep registration prominent and
+  validation and recovery readable. Art for the stage remains an optional later iteration,
+  never a dependency of this composition.
 
 - The user-facing product is **Gameómetro**, always accented in visible copy, the document
   title and branding (the [product decision](../product/assumptions-and-decisions.md) owns the

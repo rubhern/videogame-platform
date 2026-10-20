@@ -150,6 +150,11 @@ run_case personal-data-procedure \
   'identity' \
   'documentation,openapi,frontend,browser,backend,migrations,provider_fixtures,container,build,ci,dependencies,npm_dependencies,sonar,codeql_java,codeql_javascript'
 
+run_case keycloak-theme \
+  'scripts/test-keycloak-theme.py' \
+  'identity,browser,backend' \
+  'frontend,migrations,provider_fixtures,container'
+
 run_case keycloak-mail-configuration \
   'scripts/test-keycloak-mail-configuration.py' \
   'identity,browser,backend' \
