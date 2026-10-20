@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { redirect, type LoaderFunctionArgs } from "react-router-dom";
 
 import { gameDetailsQueryOptions } from "../features/game-details/game-details-api";
+import { getRatingInsights } from "../features/ratings/rating-insights-api";
 import { initialMyRatingsQuery, listMyRatings } from "../features/ratings/my-ratings-api";
 import { readFeaturedSearch } from "../features/releases/featured-search";
 import {
@@ -73,7 +74,7 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
       if (hasSearchableQuery(search)) await queryClient.prefetchQuery(gameSearchQueryOptions(search));
     } else if (params.gameId) {
       await queryClient.prefetchQuery(gameDetailsQueryOptions(params.gameId));
-    } else if (url.pathname === "/mis-puntuaciones") {
+    } else if (url.pathname === "/mis-puntuaciones" || url.pathname === "/mis-puntuaciones/estadisticas") {
       const session = await queryClient.fetchQuery({
         queryKey: SESSION_QUERY_KEY,
         queryFn: ({ signal }) => getSession(undefined, signal),
@@ -82,6 +83,10 @@ export function routeReadiness(queryClient: QueryClient, interestsSwitch: Intere
         // gcTime: 0 is intentional. Do not create an unobserved personal query:
         // its collection timer can race the page's first subscription. Hand the
         // bounded, abortable read to the page, which seeds its observed query.
+        if (url.pathname === "/mis-puntuaciones/estadisticas") {
+          const data = await getRatingInsights(request.signal).catch(() => null);
+          return data ? { data, sessionProof: session.csrfToken } : null;
+        }
         return listMyRatings(initialMyRatingsQuery, request.signal).catch(() => null);
       }
     }

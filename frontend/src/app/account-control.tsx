@@ -91,6 +91,10 @@ export function AccountControl() {
             </svg>
             Mis puntuaciones
           </Link>
+          <Link className="account-option" onClick={() => setOpen(false)} to="/mis-puntuaciones/estadisticas">
+            <svg aria-hidden="true" fill="none" viewBox="0 0 20 20"><path d="M3 16V10m7 6V4m7 12V7" stroke="currentColor" strokeWidth="2" /></svg>
+            Tus estadísticas
+          </Link>
           {/* The checkbox applies the preferred platforms to discovery; the link manages them. */}
           <PlatformsMenuRow onNavigate={() => setOpen(false)} />
           {/* Navigation only: the server authorizes every administration read itself. */}

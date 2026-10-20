@@ -228,6 +228,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/rating-insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read personal rating statistics
+         * @description UC-015. One repeatable-read snapshot of only the authenticated principal's current
+         *     active ratings and Ratings-owned projected local genre/game context. No query inputs,
+         *     external/community scores or provider access. Fixed-size aggregates, never a full history.
+         *     All means round half up to one decimal. A genre receives one full contribution for
+         *     every rated game assigned to it, so genre counts overlap; games without genres are
+         *     counted separately. Genre lists hold at most six entries: most rated by count descending
+         *     then genreId ascending; best rated (at least three games) by unrounded mean descending,
+         *     count descending then genreId ascending. Extreme ties select gameId ascending and count
+         *     every tied game. Activity is twelve calendar months ending in evaluatedOn's month in
+         *     Europe/Madrid, counting surviving ratings by original creation time; edits do not move
+         *     a contribution and deletion removes it. It is not a historical score or playing log.
+         */
+        get: operations["getMyRatingInsights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/ratings": {
         parameters: {
             query?: never;
@@ -1128,6 +1158,43 @@ export interface components {
              *     the personal rating.
              */
             externalScore?: components["schemas"]["ExternalPlayerScore"];
+        };
+        PersonalRatingInsights: {
+            /** Format: date */
+            evaluatedOn: string;
+            /** Format: int64 */
+            total: number;
+            /** @description Equally weighted personal mean; null exactly when total is zero. */
+            mean: number | null;
+            /** @description Counts for scores 1 through 10 in ascending order, zero-filled. */
+            distribution: number[];
+            mostRatedGenres: components["schemas"]["PersonalGenreInsight"][];
+            bestRatedGenres: components["schemas"]["PersonalGenreInsight"][];
+            /** Format: int64 */
+            gamesWithoutGenres: number;
+            highest: components["schemas"]["PersonalRatingExtreme"] | null;
+            lowest: components["schemas"]["PersonalRatingExtreme"] | null;
+            activity: components["schemas"]["PersonalRatingMonth"][];
+            /** Format: int64 */
+            olderRatings: number;
+        };
+        PersonalGenreInsight: {
+            genre: components["schemas"]["Genre"];
+            /** Format: int64 */
+            count: number;
+            mean: number;
+        };
+        PersonalRatingExtreme: {
+            game: components["schemas"]["RatedGame"];
+            value: number;
+            /** Format: int64 */
+            tiedGames: number;
+        };
+        PersonalRatingMonth: {
+            /** @example 2026-10 */
+            month: string;
+            /** Format: int64 */
+            count: number;
         };
         PersonalRatingPage: {
             items: components["schemas"]["PersonalRatingItem"][];
@@ -2292,6 +2359,44 @@ export interface operations {
             403: components["responses"]["CsrfValidationFailed"];
             406: components["responses"]["NotAcceptable"];
             500: components["responses"]["InternalError"];
+            503: components["responses"]["ServiceOverloaded"];
+        };
+    };
+    getMyRatingInsights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Private personal statistics, including an honest empty result. */
+            200: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalRatingInsights"];
+                };
+            };
+            400: components["responses"]["MalformedRequest"];
+            401: components["responses"]["AuthenticationRequired"];
+            406: components["responses"]["NotAcceptable"];
+            /** @description This read does not accept query parameters. */
+            422: {
+                headers: {
+                    "X-Correlation-ID": components["headers"]["XCorrelationId"];
+                    "Cache-Control": components["headers"]["NoStoreCacheControl"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            500: components["responses"]["PersonalRatingsReadFailed"];
             503: components["responses"]["ServiceOverloaded"];
         };
     };

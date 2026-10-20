@@ -20,6 +20,7 @@ class FrontendRouteController {
         "/lanzamientos",
         "/search",
         "/mis-puntuaciones",
+        "/mis-puntuaciones/estadisticas",
         "/mis-plataformas",
         "/bienvenida",
         "/administracion/catalogo"

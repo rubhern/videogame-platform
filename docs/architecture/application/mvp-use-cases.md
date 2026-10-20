@@ -339,6 +339,7 @@ returns are never interrupted.
 | `UC-006` | Update rating                       | Authenticated owner | Scope by principal + game; validate value/eligibility/concurrency; preserve previous state on failure                                         |
 | `UC-007` | Delete rating                       | Authenticated owner | Scope by principal + game; delete regardless of current eligibility; update aggregate coherently                                              |
 | `UC-008` | View/search/sort `Mis puntuaciones` | Authenticated user  | Scope by user before search/sort/count/page; default updated-descending; unique `gameId` tie-breaker; bounded projected genres and mean/count for the paged games; isolated aggregate failure preserves personal context                                          |
+| `UC-015` | Inspect personal rating statistics | Authenticated user | Post-MVP (#254, owner-requested implementation; awaiting review): derive fixed-size statistics only from the principal’s current active ratings, in one local PostgreSQL snapshot; no inferred playing behaviour, recommendations or provider request |
 
 The client never supplies a trusted user/evaluation date. Scoped absence returns
 `RATING_NOT_FOUND` without revealing another user's state. Authentication cancellation
@@ -377,6 +378,39 @@ post-logout URI, so logout always lands on the landing page instead of preservin
 previous public page. A session revoked by the owner, or older than eight hours since
 authentication, acts as anonymous from its next request, and a personal command that
 would start after revocation is refused with `AUTHENTICATION_REQUIRED`.
+
+### Personal rating statistics (UC-015, post-MVP #254)
+
+Implemented; awaiting owner review. **Tus estadísticas** describes the authenticated
+user's current surviving ratings, never community/external scores or games played.
+Each game contributes once to the total, arithmetic mean and ten integer distribution
+buckets. Means round half up to one decimal; the empty mean is null. The UI applies
+the existing score temperatures, groups adjacent bucket pairs and warns that one to
+four games are a small sample, without inferring a personality or preference.
+
+Genres use the Ratings-owned rebuildable Catalogue projection from
+[ADR-0018](../../decisions/0018-project-personal-ratings-listing-in-ratings.md).
+Each game contributes once to every assigned genre; genre totals overlap. Missing
+genres are counted explicitly. Return up to six genres by count descending then genre
+ID ascending, and up to six by unrounded mean descending, count descending then genre
+ID ascending, requiring at least three games for the latter. Always show sample sizes.
+The highest and lowest values each name one game, the smallest game ID in a tie, and
+the exact tied-game count; equal extremes are explicitly described as such.
+
+Activity returns exactly twelve zero-filled calendar months, ending in the API's
+evaluated month in `Europe/Madrid`, plus the number of older ratings. It counts current
+ratings by original creation month: edits do not move them and deletes remove them.
+It is neither a play/completion log nor historical score evolution. The evaluation
+date is application-owned. No platform-play inference is possible from release metadata.
+
+PostgreSQL scopes by principal before aggregation, ordering and limits in one read-only
+repeatable-read snapshot. Java receives ten buckets, two lists of at most six genres,
+at most two games and twelve months: constant memory as the user's collection grows.
+Database work grows with that user's ratings and their at-most-fifty projected genre
+links per game, with indexed user/game access; no process-local correctness state.
+The browser keeps this personal response only in session-bound document memory,
+clears it on session changes and re-reads after rating mutations. HTTP responses are
+`no-store`. The wire contract owns response shapes and errors.
 
 ## Common result and failure rules
 

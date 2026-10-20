@@ -39,6 +39,9 @@ class FrontendRouteControllerTest {
         mockMvc.perform(get("/mis-puntuaciones"))
                 .andExpect(status().isOk())
                 .andExpect(forwardedUrl("/index.html"));
+        mockMvc.perform(get("/mis-puntuaciones/estadisticas"))
+                .andExpect(status().isOk())
+                .andExpect(forwardedUrl("/index.html"));
         // The first-run platform choice and its later management are React routes too.
         mockMvc.perform(get("/bienvenida"))
                 .andExpect(status().isOk())

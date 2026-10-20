@@ -96,6 +96,47 @@ final class RatingApiMapper {
                         buckets.get(9)));
     }
 
+    com.videogameplatform.api.generated.model.PersonalRatingInsights toResponse(
+            com.videogameplatform.ratings.application.PersonalRatingInsights insights) {
+        return new com.videogameplatform.api.generated.model.PersonalRatingInsights(
+                insights.evaluatedOn(),
+                insights.total(),
+                insights.mean(),
+                insights.distribution(),
+                insights.mostRatedGenres().stream().map(this::genre).toList(),
+                insights.bestRatedGenres().stream().map(this::genre).toList(),
+                insights.gamesWithoutGenres(),
+                extreme(insights.highest()),
+                extreme(insights.lowest()),
+                insights.activity().stream()
+                        .map(
+                                month ->
+                                        new com.videogameplatform.api.generated.model
+                                                .PersonalRatingMonth(
+                                                month.month().toString(), month.count()))
+                        .toList(),
+                insights.olderRatings());
+    }
+
+    private com.videogameplatform.api.generated.model.PersonalGenreInsight genre(
+            com.videogameplatform.ratings.application.PersonalRatingInsights.Genre genre) {
+        return new com.videogameplatform.api.generated.model.PersonalGenreInsight(
+                new Genre(genre.id(), genre.name()), genre.count(), genre.mean());
+    }
+
+    private com.videogameplatform.api.generated.model.PersonalRatingExtreme extreme(
+            com.videogameplatform.ratings.application.PersonalRatingInsights.Extreme extreme) {
+        if (extreme == null) return null;
+        return new com.videogameplatform.api.generated.model.PersonalRatingExtreme(
+                new RatedGame(
+                        extreme.gameId(),
+                        extreme.slug(),
+                        extreme.canonicalTitle(),
+                        covers.toResponse(extreme.cover())),
+                extreme.value(),
+                extreme.tiedGames());
+    }
+
     static String entityTag(String versionToken) {
         return '"' + versionToken + '"';
     }

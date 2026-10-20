@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-09-13
 - **Owner:** Ruben Hernandez
-- **Scope:** UC-008 `Mis puntuaciones` reads
+- **Scope:** UC-008 `Mis puntuaciones` reads; post-MVP UC-015 personal statistics
 - **Issue:** [#32](https://github.com/rubhern/videogame-platform/issues/32)
 
 ## Context
@@ -41,7 +41,7 @@ couple the private read to Catalogue availability.
   application-contract backfill; no cross-module migration reads Catalogue data.
 - Serialize per-game refreshes across instances with a per-game transaction advisory
   lock; hold no process-local cache.
-- Read in one read-only `REPEATABLE READ` transaction over Ratings tables only:
+- Read the `Mis puntuaciones` collection in one read-only `REPEATABLE READ` transaction over Ratings tables only:
   scope by `userId` first, then let PostgreSQL apply the case- and
   diacritic-insensitive all-token word-prefix match over title and aliases, count,
   deterministically order (chosen key then `gameId` ascending as the unique
@@ -65,6 +65,10 @@ couple the private read to Catalogue availability.
   list correct.
 - **Separate search engine or denormalized global table:** rejected without a measured
   PostgreSQL limitation.
+
+Post-MVP (#254), [UC-015](../architecture/application/mvp-use-cases.md#personal-rating-statistics-uc-015-post-mvp-254)
+reuses the existing projection for private descriptive statistics, without new projected
+fields, cross-module reads or a new consistency mechanism. The use case owns its calculations.
 
 ## Consequences
 
