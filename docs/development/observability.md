@@ -224,7 +224,8 @@ The executable owners are [application export](../../backend/src/main/resources/
 [Prometheus](../../deploy/private-dev/prometheus/prometheus.yaml) and
 [Grafana provisioning](../../deploy/private-dev/grafana/provisioning/).
 Prometheus keeps only reviewed families and closed tag vocabularies, including the
-existing featured `freshness`, `month` and `lead_image` dimensions. JVM `id` denotes
+existing featured `freshness`, `month` and `lead_image` dimensions and the release
+order's `sort` (#285, replacing the retired `view`). JVM `id` denotes
 fixed memory pools, never product identity. OTLP resource/instance metadata and
 exemplars are not promoted into application dimensions.
 

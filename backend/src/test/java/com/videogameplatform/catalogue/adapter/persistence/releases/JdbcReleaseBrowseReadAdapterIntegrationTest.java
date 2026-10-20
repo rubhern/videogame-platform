@@ -1216,7 +1216,9 @@ class JdbcReleaseBrowseReadAdapterIntegrationTest {
                 gameId,
                 score,
                 count,
-                score == null ? null : "https://www.igdb.com/games/fixture-" + gameId.substring(30));
+                score == null
+                        ? null
+                        : "https://www.igdb.com/games/fixture-" + gameId.substring(30));
     }
 
     private static void insertCommunityScore(String gameId, String mean, int count) {
